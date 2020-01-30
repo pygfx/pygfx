@@ -133,13 +133,19 @@ class Euler:
     ) -> "Euler":
         # assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
         te = m.elements
-        m11 = te[0], m12 = te[4], m13 = te[8]
-        m21 = te[1], m22 = te[5], m23 = te[9]
-        m31 = te[2], m32 = te[6], m33 = te[10]
+        m11 = te[0]
+        m12 = te[4]
+        m13 = te[8]
+        m21 = te[1]
+        m22 = te[5]
+        m23 = te[9]
+        m31 = te[2]
+        m32 = te[6]
+        m33 = te[10]
 
         order = order or self.order
 
-        if order == RotationOrders.XYZ:
+        if order == Euler.RotationOrders.XYZ:
             self.y = asin(clamp(m13, -1, 1))
             if abs(m13) < 0.9999999:
                 self.x = atan2(-m23, m33)
@@ -148,7 +154,7 @@ class Euler:
                 self.x = atan2(m32, m22)
                 self.z = 0
 
-        elif order == RotationOrders.YXZ:
+        elif order == Euler.RotationOrders.YXZ:
             self.x = asin(-clamp(m23, -1, 1))
             if abs(m23) < 0.9999999:
                 self.y = atan2(m13, m33)
@@ -157,7 +163,7 @@ class Euler:
                 self.y = atan2(-m31, m11)
                 self.z = 0
 
-        elif order == RotationOrders.ZXY:
+        elif order == Euler.RotationOrders.ZXY:
             self.x = asin(clamp(m32, -1, 1))
             if abs(m32) < 0.9999999:
                 self.y = atan2(-m31, m33)
@@ -166,7 +172,7 @@ class Euler:
                 self.y = 0
                 self.z = atan2(m21, m11)
 
-        elif order == RotationOrders.ZYX:
+        elif order == Euler.RotationOrders.ZYX:
             self.y = asin(-clamp(m31, -1, 1))
             if abs(m31) < 0.9999999:
                 self.x = atan2(m32, m33)
@@ -175,7 +181,7 @@ class Euler:
                 self.x = 0
                 self.z = atan2(-m12, m22)
 
-        elif order == RotationOrders.YZX:
+        elif order == Euler.RotationOrders.YZX:
             self.z = asin(clamp(m21, -1, 1))
             if abs(m21) < 0.9999999:
                 self.x = atan2(-m23, m22)
@@ -184,7 +190,7 @@ class Euler:
                 self.x = 0
                 self.y = atan2(m13, m33)
 
-        elif order == RotationOrders.XZY:
+        elif order == Euler.RotationOrders.XZY:
             self.z = asin(-clamp(m12, -1, 1))
             if abs(m12) < 0.9999999:
                 self.x = atan2(m32, m22)
@@ -639,11 +645,21 @@ class Vector3:
         return self
 
     def setComponent(self, index: int, value: float) -> "Vector3":
-        [self.x, self.y, self.z][index] = value
+        if index == 0:
+            self.x = value
+        elif index == 1:
+            self.y = value
+        elif index == 2:
+            self.z = value
         return self
 
     def getComponent(self, index: int) -> float:
-        return [self.x, self.y, self.z][index]
+        if index == 0:
+            return self.x
+        elif index == 1:
+            return self.y
+        elif index == 2:
+            return self.z
 
     def clone(self) -> "Vector3":
         return Vector3(self.x, self.y, self.z)
