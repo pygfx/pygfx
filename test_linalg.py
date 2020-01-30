@@ -3,26 +3,28 @@ Small script to test linalg.
 """
 import linalg
 
+import numpy as np
 import pytest
 
 
 def test_clamp():
     """Test the clamp function."""
-    # Value already within limits
-    np.assert_equal(linalg.clamp(0.5, 0, 1), 0.5)
-    # Value equal to one limit
-    np.assert_equal(linalg.clamp(0, 0, 1), 0)
-    # Value too low
-    np.assert_equal(linalg.clamp(-0.1, 0, 1), 0)
-    # Value too high
-    np.assert_equal(linalg.clamp(1.1, 0, 1), 1)
+    assert linalg.clamp(0.5, 0, 1) == 0.5, "Value already within limits"
+    assert linalg.clamp(0, 0, 1) == 0, "Value equal to one limit"    
+    assert linalg.clamp(-0.1, 0, 1) == 0, "Value too low"
+    assert linalg.clamp(1.1, 0, 1) == 1, "Value too high"
 
 
-def test_lerp():
+def test_vector3():
     """Test the Vector3.lerp function."""
     # Value equal to lower boundary
-    np.assert_equal(linalg.Vector3.lerp(1, 2, 0), 1)
-    # Value equal to upper boundary
-    np.assert_equal(linalg.Vector3.lerp(1, 2, 1), 2)
-    # Value within range
-    np.assert_equal(linalg.Vector3.lerp(1, 2, 0.4), 1.4)
+    v1 = linalg.Vector3()
+    assert v1.x == 0
+    assert v1.y == 0
+    assert v1.z == 0
+    
+    x, y, z = 1, 2 ,3
+    v2 = linalg.Vector3(x, y, z)
+    assert v2.x == x
+    assert v2.y == y
+    assert v2.z == z

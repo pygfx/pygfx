@@ -1,0 +1,11 @@
+black
+pytest
+flake8
+numpy
+requests
+setuptools
+wheel==0.31.1
+twine
+python-shader>=0.3.3
+wgpu
+auditwheel; sys_platform == 'linux'
