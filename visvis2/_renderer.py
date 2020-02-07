@@ -188,6 +188,8 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
 
             # Unmap the buffer, not sure what the implications are if we do not do this.
             # Seems kinda nice to map this onto a numpy array for instance ...
+            # When updating a buffer, one can create a new buffer in the same way, unmap
+            # it and then copy memory from one buffer to another.
             # ctx.buffer_unmap(buffer)
 
             # ctx.buffer_map_read_async(buffer, 0, 6*4, map_read_callback, ffi.NULL)

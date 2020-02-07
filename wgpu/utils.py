@@ -37,3 +37,4 @@ def help(name_part, look_in_docs=False):
         print(f"Found {len(items_ordered[key])} {key}")
         for name in items_ordered[key]:
             print(f"    {name}")
+

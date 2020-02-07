@@ -21,3 +21,17 @@ v.scene.children.append(vv.Triangle())
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_forever()
+
+
+
+renderer = vv.WgpuRenderer(widget_ish_or_surface_maybe_non_qt_specific)
+
+camera = vv.Camera()
+
+scene = vv.Scene()
+
+controller = vv.QtPanZoomController(camera, widget)
+
+scene.add(t1)
+
+renderer.render(scene, camera)
