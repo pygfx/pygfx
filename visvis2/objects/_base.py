@@ -1,4 +1,4 @@
-from linalg import Vector3, Matrix4, Quaternion
+from ..linalg import Vector3, Matrix4, Quaternion
 
 
 class WorldObject:
