@@ -28,8 +28,6 @@ def animate():
     width, height, ratio = canvas.getSizeAndPixelRatio()
     camera.aspect = width / height
     camera.updateProjectionMatrix()
-    renderer.setSize(width, height)
-    renderer.setDevicePixelRatio(ratio)
 
     # actually render the scene
     renderer.render(scene, camera)

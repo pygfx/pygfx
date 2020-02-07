@@ -3,7 +3,14 @@ import python_shader
 import numpy as np
 
 
+from .. import Mesh, MeshBasicMaterial
 from ._base import Renderer
+
+
+# probably want to import these rather than define them inline here
+SHADER_INFO = {
+    MeshBasicMaterial: {'vert': '', 'frag': '', 'uniforms': []}
+}
 
 
 class BaseWgpuRenderer(Renderer):
@@ -20,43 +27,36 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
     """ A renderer that renders to a surface.
     """
 
-    def __init__(self):
+    def __init__(self, canvas):
         self._pipelines = []
 
         adapter = wgpu.requestAdapter(powerPreference="high-performance")
         self._device = adapter.requestDevice(extensions=[], limits=wgpu.GPULimits())
-        self._swap_chain = None
 
-    def setSize(width, height):
-        pass
+        self._canvas = canvas
+        self._swap_chain = self._canvas.configureSwapChain(
+            device,
+            wgpu.TextureFormat.bgra8unorm_srgb,
+            wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+        )
 
-    def setDevicePixelRatio(ratio):
-        pass
+        self._compose = {
+            Mesh: self.pipeline_mesh,
+        }
 
-    def render(scene, camera):
-        pass
+    def traverse(self, obj):
+        yield obj
+        for child in obj.children:
+            yield from self.traverse(child)
 
-    def collect_from_figure(self, figure):
+    def pipeline_mesh(self, mesh):
+        shader_info = SHADER_INFO[type(mesh.material)]
 
-        wobjects = []
-        for view in figure.views:
-            for ob in view.scene.children:  # todo: and their children, and ...
-                wobjects.append(ob)
-
-        return wobjects
-
-    def compose_pipeline(self, wobject):
-
-        device = self._device
-
-        # Get description from world object
-        pipelinedescription = wobject.describe_pipeline()
-
-        vshader = pipelinedescription["vertex_shader"]
+        vshader = shader_info["vertex_shader"]
         # python_shader.dev.validate(vshader)
         vs_module = device.createShaderModule(code=vshader)
 
-        fshader = pipelinedescription["fragment_shader"]
+        fshader = shader_info["fragment_shader"]
         # python_shader.dev.validate(fshader)
         fs_module = device.createShaderModule(code=fshader)
 
@@ -68,6 +68,34 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         pipeline_layout = device.createPipelineLayout(
             bindGroupLayouts=[bind_group_layout]
         )
+    
+
+    def compose_pipeline(self, wobject):
+
+        device = self._device
+
+        info = self._compose[type(wobject)](wobject)
+
+        if isinstance(wobject, Mesh):
+                       # Get description from world object
+            shaders = wobject.material.get_wgpu_shaders()
+
+            vshader = pipelinedescription["vertex_shader"]
+            # python_shader.dev.validate(vshader)
+            vs_module = device.createShaderModule(code=vshader)
+
+            fshader = pipelinedescription["fragment_shader"]
+            # python_shader.dev.validate(fshader)
+            fs_module = device.createShaderModule(code=fshader)
+
+            bindings_layout = []
+            bindings = []
+
+            bind_group_layout = device.createBindGroupLayout(bindings=bindings)
+            bind_group = device.createBindGroup(layout=bind_group_layout, bindings=[])
+            pipeline_layout = device.createPipelineLayout(
+                bindGroupLayouts=[bind_group_layout]
+            )
 
         pipeline = device.createRenderPipeline(
             layout=pipeline_layout,
@@ -105,25 +133,11 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         )
         return pipeline, bind_group
 
-    def draw_frame(self, figure):
+    def render(self, scene, camera):
         # Called by figure/canvas
 
         device = self._device
-
-        wobjects = self.collect_from_figure(figure)
-        if len(wobjects) != len(self._pipelines):
-            self._pipelines = [self.compose_pipeline(wo) for wo in wobjects]
-
-        if not self._pipelines:
-            return
-
-        if self._swap_chain is None:
-            self._swap_chain = figure.widget.configureSwapChain(
-                device,
-                wgpu.TextureFormat.bgra8unorm_srgb,
-                wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-            )
-
+        
         current_texture_view = self._swap_chain.getCurrentTextureView()
         command_encoder = device.createCommandEncoder()
         # todo: what do I need to duplicate if I have two objects to draw???
@@ -142,10 +156,14 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
             depthStencilAttachment=None,
         )
 
-        for pipeline, bind_group in self._pipelines:
+        for obj in self.traverse(scene):
+            if not hasatrr(ob, "_pipeline_info"):
+                obj._pipeline_info = self.compose_pipeline(obj)
+            pipeline, bind_group = obj._pipeline_info
+
             render_pass.setPipeline(pipeline)
             render_pass.setBindGroup(0, bind_group, [], 0, 999999)
-            render_pass.draw(3, 1, 0, 0)
+            render_pass.draw(12, 1, 0, 0)
 
         render_pass.endPass()
         command_buffers.append(command_encoder.finish())
