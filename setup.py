@@ -11,7 +11,11 @@ with open(f"{NAME}/__init__.py") as fh:
     VERSION = re.search(r"__version__ = \"(.*?)\"", fh.read()).group(1)
 
 
-runtime_deps = ["python_shader", "wgpu", "PyQt5", "qasync", "numpy"]
+runtime_deps = [
+    "python_shader",
+    "wgpu",
+    "numpy",
+]
 
 
 setup(

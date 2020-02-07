@@ -1,6 +1,12 @@
+# development
 black==19.10b0
 flake8
 pytest
 setuptools
 wheel
 twine
+
+# examples
+PyQt5
+qasync
+pyglfw
