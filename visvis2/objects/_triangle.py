@@ -1,4 +1,4 @@
-from ._base import WorldObject
+from ._world_object import WorldObject
 
 from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
 

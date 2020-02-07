@@ -66,11 +66,11 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         pipelinedescription = wobject.describe_pipeline()
 
         vshader = pipelinedescription["vertex_shader"]
-        python_shader.dev.validate(vshader)
+        # python_shader.dev.validate(vshader)
         vs_module = device.createShaderModule(code=vshader)
 
         fshader = pipelinedescription["fragment_shader"]
-        python_shader.dev.validate(fshader)
+        # python_shader.dev.validate(fshader)
         fs_module = device.createShaderModule(code=fshader)
 
         bindings_layout = []

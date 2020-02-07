@@ -1,7 +1,5 @@
 from ..linalg import Vector3, Matrix4, Quaternion
 
-import numpy as np
-
 
 class WorldObject:
     """ The base class for objects present in the "world", i.e. the scene graph.
@@ -10,12 +8,11 @@ class WorldObject:
     def __init__(self):
         self.parent = None
         self._children = []
-        self._matrix = np.eye(4)
-        self._dirty = True
 
         self.position = Vector3()
         self.rotation = Quaternion()
         self.scale = Vector3()
+
         self.matrix = Matrix4()
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
@@ -67,27 +64,3 @@ class WorldObject:
         if update_children:
             for child in self._children:
                 child.update_matrix_world()
-
-
-class PerspectiveCamera:
-    pass
-
-
-class Scene:
-    pass
-
-
-class BoxBufferGeometry:
-    pass
-
-
-class MeshBasicMaterial:
-    pass
-
-
-class Mesh:
-    pass
-
-
-class WGPURenderer:
-    pass
