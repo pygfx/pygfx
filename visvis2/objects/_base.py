@@ -8,6 +8,8 @@ class WorldObject:
     def __init__(self):
         self.parent = None
         self._children = []
+        self._matrix = np.eye(4)
+        self._dirty = True
 
         self.position = Vector3()
         self.rotation = Quaternion()
@@ -81,4 +83,3 @@ class Mesh:
 
 class WGPURenderer:
     pass
-
