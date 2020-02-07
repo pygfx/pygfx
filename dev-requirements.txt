@@ -1,0 +1,6 @@
+black==19.10b0
+flake8
+pytest
+setuptools
+wheel
+twine
