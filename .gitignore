@@ -1,3 +1,7 @@
+Pipfile
+Pipfile.lock
+.vscode
+
 # Special for this repo
 nogit/
 
