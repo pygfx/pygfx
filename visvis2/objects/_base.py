@@ -1,5 +1,7 @@
 from ..linalg import Vector3, Matrix4, Quaternion
 
+import numpy as np
+
 
 class WorldObject:
     """ The base class for objects present in the "world", i.e. the scene graph.

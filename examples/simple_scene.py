@@ -5,6 +5,7 @@ import visvis2 as vv
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
+app = QtWidgets.QApplication([])
 
 f = vv.Figure(canvas=WgpuCanvas())
 
@@ -14,16 +15,16 @@ f._views.append(v)  # todo: API?
 t1 = vv.Triangle()
 t2 = vv.Triangle()
 
-v.scene.children.append(t1)  # todo: API?
-v.scene.children.append(t2)
-v.scene.children.append(vv.Triangle())
-v.scene.children.append(vv.Triangle())
-v.scene.children.append(vv.Triangle())
+v.scene.add(t1)  # todo: API?
+v.scene.add(t2)
+v.scene.add(vv.Triangle())
+v.scene.add(vv.Triangle())
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_forever()
+    # loop = asyncio.get_event_loop()
+    # loop.run_forever()
+    app.exec_()
 
 
 # renderer = vv.WgpuRenderer(widget_ish_or_surface_maybe_non_qt_specific)

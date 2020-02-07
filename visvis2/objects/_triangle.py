@@ -31,6 +31,7 @@ class Triangle(WorldObject):
     """
 
     def __init__(self, pos=(0, 0, 0)):
+        super().__init__()
         self._pos = [float(x) for x in pos]
         assert len(self._pos) == 3  # x, y, z
 
