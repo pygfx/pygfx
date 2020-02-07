@@ -26,7 +26,6 @@ if __name__ == "__main__":
     loop.run_forever()
 
 
-
 # renderer = vv.WgpuRenderer(widget_ish_or_surface_maybe_non_qt_specific)
 #
 # camera = vv.Camera()

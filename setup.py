@@ -21,7 +21,9 @@ runtime_deps = [
 setup(
     name=NAME,
     version=VERSION,
-    packages=find_packages(exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]),
+    packages=find_packages(
+        exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
+    ),
     python_requires=">=3.6.0",
     install_requires=runtime_deps,
     license="BSD 2-Clause",
