@@ -1,34 +1,12 @@
-import asyncio
-
 import wgpu.backend.rs
 import python_shader
 import numpy as np
 
 
-class BaseRenderer:
-    """ Base class for other renderers. A renderer takes a figure,
-    collect data that describe how it should be drawn, and then draws it.
-    """
-
-    pass
+from ._base import Renderer
 
 
-class SvgRenderer(BaseRenderer):
-    """ Render to SVG. Because why not.
-    """
-
-    pass
-
-
-class GlRenderer(BaseRenderer):
-    """ Render with OpenGL. This is mostly there to illustrate that it *could* be done.
-    WGPU can (in time) also be used to render using OpenGL.
-    """
-
-    pass
-
-
-class BaseWgpuRenderer(BaseRenderer):
+class BaseWgpuRenderer(Renderer):
     """ Render using WGPU.
     """
 
@@ -48,6 +26,15 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         adapter = wgpu.requestAdapter(powerPreference="high-performance")
         self._device = adapter.requestDevice(extensions=[], limits=wgpu.GPULimits())
         self._swap_chain = None
+
+    def setSize(width, height):
+        pass
+
+    def setDevicePixelRatio(ratio):
+        pass
+
+    def render(scene, camera):
+        pass
 
     def collect_from_figure(self, figure):
 

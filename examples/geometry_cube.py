@@ -11,7 +11,7 @@ size = [800, 600]
 
 scene = vv.Scene()
 
-geometry = vv.BoxBufferGeometry(200, 200, 200)
+geometry = vv.BoxGeometry(200, 200, 200)
 material = vv.MeshBasicMaterial()
 cube = vv.Mesh(geometry, material)
 scene.add(cube)
@@ -20,7 +20,7 @@ fov, aspect, near, far = 70, 16/9, 1, 1000
 camera = vv.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 400
 
-renderer = vv.WgpuRenderer()
+renderer = vv.SurfaceWgpuRenderer()
 
 
 def animate():
