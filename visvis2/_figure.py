@@ -13,30 +13,22 @@ class Figure:
     """ Represents the root rectangular region to draw to.
     """
 
-    def __init__(self, title="Figure", size=(640, 480), backend="qt", parent=None, renderer=None):
+    def __init__(self, canvas, parent=None, renderer=None):
         self._views = []
-        self._widget = None
+        self._widget = canvas  # todo: rename to canvas
         self._err_hashes = {}
 
         # Check renderer
         if renderer is None:
             self._renderer = _renderer.SurfaceWgpuRenderer()
         else:
-            self._renderer = rendere
+            self._renderer = render
 
-        # Select backend
-        if backend.lower() == "qt":
-            self._widget = QtFigureWidget(parent, self)
-            self._widget.paintEvent(None)  # trigger a paint, or there will be no painting at all, odd.
-            self._widget.update()
-        else:
-            raise ValueError(f"Invalid Figure backend {backend}")
+        canvas.drawFrame = self._draw_frame
 
-        # Initialize widget, if we have one
-        if self._widget is not None:
-            if parent is None:
-                self._widget._visvis_set_size(*size)
-                self._widget._visvis_set_title(title)
+    def _draw_frame(self):
+        # Called by canvas
+        self._renderer.draw_frame(self)
 
     @property
     def views(self):
@@ -57,23 +49,23 @@ class Figure:
     def get_surface_id(self, ctx):
         return self._widget._visvis_get_surface_id(ctx)
 
-    def _on_paint(self):
-        try:
-            self._renderer.draw_frame(self)
-        except Exception:
-            # Enable PM debuging
-            sys.last_type, sys.last_value, sys.last_traceback = sys.exc_info()
-            msg = str(sys.last_value)
-            msgh = hash(msg)
-            if msgh in self._err_hashes:
-                count = self._err_hashes[msgh] + 1
-                self._err_hashes[msgh] = count
-                shortmsg = msg.split("\n", 1)[0].strip()[:50]
-                sys.stderr.write(f"Error in draw again ({count}): {shortmsg}\n")
-            else:
-                self._err_hashes[msgh] = 1
-                sys.stderr.write(f"Error in draw: " + msg.strip() + "\n")
-                traceback.print_last(6)
+    # def _on_paint(self):
+    #     try:
+    #         self._renderer.draw_frame(self)
+    #     except Exception:
+    #         # Enable PM debuging
+    #         sys.last_type, sys.last_value, sys.last_traceback = sys.exc_info()
+    #         msg = str(sys.last_value)
+    #         msgh = hash(msg)
+    #         if msgh in self._err_hashes:
+    #             count = self._err_hashes[msgh] + 1
+    #             self._err_hashes[msgh] = count
+    #             shortmsg = msg.split("\n", 1)[0].strip()[:50]
+    #             sys.stderr.write(f"Error in draw again ({count}): {shortmsg}\n")
+    #         else:
+    #             self._err_hashes[msgh] = 1
+    #             sys.stderr.write(f"Error in draw: " + msg.strip() + "\n")
+    #             traceback.print_last(6)
 
 
 # class QtFigureWidget(QtGui.QWindow):
