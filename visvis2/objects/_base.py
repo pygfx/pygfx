@@ -44,15 +44,21 @@ class WorldObject:
         self.matrix.compose(self.position, self.rotation, self.scale)
         self.matrix_world_dirty = True
 
-    def update_matrix_world(self, force=False, update_children=True, update_parents=False):
+    def update_matrix_world(
+        self, force=False, update_children=True, update_parents=False
+    ):
         if update_parents and self.parent:
-            self.parent.update_matrix_world(force=force, update_children=False, update_parents=True)
+            self.parent.update_matrix_world(
+                force=force, update_children=False, update_parents=True
+            )
         self.update_matrix()
         if self.matrix_world_dirty or force:
             if self.parent is None:
                 self.matrix_world.copy(self.matrix)
             else:
-                self.matrix_world.multiplyMatrices(self.parent.matrix_world, self.matrix)
+                self.matrix_world.multiplyMatrices(
+                    self.parent.matrix_world, self.matrix
+                )
             self.matrix_world_dirty = False
             for child in self._children:
                 child.matrix_world_dirty = True

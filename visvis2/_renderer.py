@@ -78,7 +78,9 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
 
         bind_group_layout = device.createBindGroupLayout(bindings=bindings)
         bind_group = device.createBindGroup(layout=bind_group_layout, bindings=[])
-        pipeline_layout = device.createPipelineLayout(bindGroupLayouts=[bind_group_layout])
+        pipeline_layout = device.createPipelineLayout(
+            bindGroupLayouts=[bind_group_layout]
+        )
 
         pipeline = device.createRenderPipeline(
             layout=pipeline_layout,
@@ -130,7 +132,9 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
 
         if self._swap_chain is None:
             self._swap_chain = figure.widget.configureSwapChain(
-                device, wgpu.TextureFormat.bgra8unorm_srgb, wgpu.TextureUsage.OUTPUT_ATTACHMENT
+                device,
+                wgpu.TextureFormat.bgra8unorm_srgb,
+                wgpu.TextureUsage.OUTPUT_ATTACHMENT,
             )
 
         current_texture_view = self._swap_chain.getCurrentTextureView()

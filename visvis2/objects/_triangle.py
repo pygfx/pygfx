@@ -36,4 +36,8 @@ class Triangle(WorldObject):
 
     def describe_pipeline(self):
         uniforms = [self._pos]
-        return {"vertex_shader": vertex_shader, "fragment_shader": fragment_shader, "uniforms": uniforms}
+        return {
+            "vertex_shader": vertex_shader,
+            "fragment_shader": fragment_shader,
+            "uniforms": uniforms,
+        }
