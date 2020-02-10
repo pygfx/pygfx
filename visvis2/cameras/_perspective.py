@@ -13,10 +13,10 @@ class PerspectiveCamera(Camera):
         self.zoom = 1
     
     def updateProjectionMatrix(self):
-		top = self.near * tan( pi / 180 * 0.5 * self.fov ) / self.zoom,
-		height = 2 * top
+        top = self.near * tan( pi / 180 * 0.5 * self.fov ) / self.zoom,
+        height = 2 * top
         bottom = top - height
-		width = self.aspect * height
-		left = - 0.5 * width
+        width = self.aspect * height
+        left = - 0.5 * width
         right = left + width
         self.projectionmatrix.makePerspective(left, right, top, bottom, self.near, self.far)
