@@ -1,11 +1,12 @@
-black
-pytest
+# development
+black==19.10b0
 flake8
-numpy
-requests
+pytest
 setuptools
-wheel==0.31.1
+wheel
 twine
-python-shader>=0.3.3
-wgpu
-auditwheel; sys_platform == 'linux'
+
+# examples
+PyQt5
+qasync
+pyglfw

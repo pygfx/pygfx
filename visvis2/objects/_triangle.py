@@ -1,4 +1,4 @@
-from ._base import WorldObject
+from ._world_object import WorldObject
 
 from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
 
@@ -31,9 +31,14 @@ class Triangle(WorldObject):
     """
 
     def __init__(self, pos=(0, 0, 0)):
+        super().__init__()
         self._pos = [float(x) for x in pos]
         assert len(self._pos) == 3  # x, y, z
 
     def describe_pipeline(self):
         uniforms = [self._pos]
-        return {"vertex_shader": vertex_shader, "fragment_shader": fragment_shader, "uniforms": uniforms}
+        return {
+            "vertex_shader": vertex_shader,
+            "fragment_shader": fragment_shader,
+            "uniforms": uniforms,
+        }
