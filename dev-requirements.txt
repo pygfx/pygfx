@@ -8,5 +8,3 @@ twine
 
 # examples
 PyQt5
-qasync
-pyglfw
