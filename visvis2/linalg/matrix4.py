@@ -1,7 +1,6 @@
 from math import cos, sin
 
 from .vector3 import Vector3
-from .euler import Euler
 
 
 class Matrix4:
@@ -187,6 +186,8 @@ class Matrix4:
         return self
 
     def make_rotation_from_euler(self, euler: "Euler") -> "Matrix4":
+        from .euler import Euler
+
         te = self.elements
         x = euler.x
         y = euler.y
@@ -1002,6 +1003,8 @@ class Matrix4:
         return array
 
 
+_zero = Vector3(0, 0, 0)
+_one = Vector3(1, 1, 1)
 _tmp_vector = Vector3()
 _tmp_vector2 = Vector3()
 _tmp_vector3 = Vector3()

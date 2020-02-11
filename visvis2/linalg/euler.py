@@ -2,6 +2,7 @@ from enum import Enum
 from math import asin, atan2
 
 from .utils import clamp
+from .matrix4 import Matrix4
 
 
 class Euler:
@@ -170,3 +171,6 @@ class Euler:
             return output.set(self.x, self.y, self.z)
         else:
             return Vector3(self.x, self.y, self.z)
+
+
+_tmp_matrix4 = Matrix4()

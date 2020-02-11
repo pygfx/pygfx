@@ -1,6 +1,6 @@
-from math import cos, sin
+from math import cos, sin, acos, atan2
 
-from .euler import Euler
+from .utils import clamp, MACHINE_EPSILON
 
 
 class Quaternion:
@@ -31,6 +31,8 @@ class Quaternion:
         return self
 
     def set_from_euler(self, euler: "Euler") -> "Quaternion":
+        from .euler import Euler
+
         x = euler.x
         y = euler.y
         z = euler.z
@@ -254,7 +256,7 @@ class Quaternion:
             return self
 
         sqr_sin_half_theta = 1.0 - cos_half_theta * cos_half_theta
-        if sqr_sin_half_theta <= MACHINE_epsILON:
+        if sqr_sin_half_theta <= MACHINE_EPSILON:
             s = 1 - t
             self.w = s * w + t * self.w
             self.x = s * x + t * self.x
@@ -295,6 +297,11 @@ class Quaternion:
     def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
+
+        padding = offset + 4 - len(array)
+        if padding > 0:
+            array.extend((None for _ in range(padding)))
+
         array[offset] = self.x
         array[offset + 1] = self.y
         array[offset + 2] = self.z
