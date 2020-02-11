@@ -19,4 +19,3 @@ class GlRenderer(Renderer):
     """
 
     pass
-

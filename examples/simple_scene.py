@@ -1,4 +1,4 @@
-import asyncio
+# import asyncio
 
 import visvis2 as vv
 
