@@ -1,3 +1,7 @@
+from math import acos, sin, cos
+
+from .utils import clamp
+from .quaternion import Quaternion
 
 
 class Vector3:
@@ -40,6 +44,8 @@ class Vector3:
             self.y = value
         elif index == 2:
             self.z = value
+        else:
+            raise IndexError()
         return self
 
     def getComponent(self, index: int) -> float:
@@ -49,6 +55,8 @@ class Vector3:
             return self.y
         elif index == 2:
             return self.z
+        else:
+            raise IndexError()
 
     def clone(self) -> "Vector3":
         return Vector3(self.x, self.y, self.z)
@@ -288,7 +296,7 @@ class Vector3:
     def lerpVectors(self, v1: "Vector3", v2: "Vector3", a: float) -> "Vector3":
         return self.subVectors(v2, v1).multiplyScalar(a).add(v1)
 
-    def cross(self, v: "Vector3", w: "Vector3") -> "Vector3":
+    def cross(self, v: "Vector3") -> "Vector3":
         return self.crossVectors(self, v)
 
     def crossVectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
@@ -317,7 +325,7 @@ class Vector3:
         return self.sub(_tmp_vector)
 
     def angleTo(self, v: "Vector3") -> float:
-        denominator = (self.lenthSq() * v.lengthSq()) ** 0.5
+        denominator = (self.lengthSq() * v.lengthSq()) ** 0.5
         theta = self.dot(v) / denominator
         return acos(max(-1, min(1, theta)))
 
@@ -395,13 +403,22 @@ class Vector3:
         if array is None:
             array = []
 
+        padding = offset + 3 - len(array)
+        if padding > 0:
+            array.extend((None for _ in range(padding)))
+
         array[offset] = self.x
         array[offset + 1] = self.y
         array[offset + 2] = self.z
         return array
 
     def fromBufferAttribute(self, attribute, index: int) -> "Vector3":
-        self.x = attribute.getX(index)
-        self.y = attribute.getY(index)
-        self.z = attribute.getZ(index)
-        return self
+        raise NotImplementedError()
+        # self.x = attribute.getX(index)
+        # self.y = attribute.getY(index)
+        # self.z = attribute.getZ(index)
+        # return self
+
+
+_tmp_quaternion = Quaternion()
+_tmp_vector = Vector3()

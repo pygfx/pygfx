@@ -32,6 +32,7 @@ from .matrix4 import *
 from .quaternion import *
 from .spherical import *
 from .vector3 import *
+from .vector4 import *
 
 
 # from math import acos, asin, atan2, ceil, floor, cos, sin

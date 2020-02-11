@@ -1,3 +1,7 @@
+from math import cos, sin
+
+from .euler import Euler
+
 
 class Quaternion:
     def __init__(self, x: float = 0, y: float = 0, z: float = 0, w: float = 1) -> None:

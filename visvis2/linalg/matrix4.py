@@ -1,3 +1,5 @@
+from math import cos, sin
+
 
 class Matrix4:
     def __init__(
@@ -571,7 +573,7 @@ class Matrix4:
             + n24 * n32 * n43
             - n22 * n34 * n43
             - n23 * n32 * n44
-            + n22 * n33 * n44,
+            + n22 * n33 * n44
         )
         t12 = (
             n14 * n33 * n42
@@ -579,7 +581,7 @@ class Matrix4:
             - n14 * n32 * n43
             + n12 * n34 * n43
             + n13 * n32 * n44
-            - n12 * n33 * n44,
+            - n12 * n33 * n44
         )
         t13 = (
             n13 * n24 * n42
@@ -587,7 +589,7 @@ class Matrix4:
             + n14 * n22 * n43
             - n12 * n24 * n43
             - n13 * n22 * n44
-            + n12 * n23 * n44,
+            + n12 * n23 * n44
         )
         t14 = (
             n14 * n23 * n32
