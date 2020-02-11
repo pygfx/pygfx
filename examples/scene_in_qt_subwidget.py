@@ -1,7 +1,11 @@
 import asyncio
 
 import visvis2 as vv
-from visvis2._figure import QtCore, QtGui, QtWidgets  # to make sure we use the same lib
+from visvis2._figure import (
+    QtCore,
+    QtGui,
+    QtWidgets,
+)  # noqa to make sure we use the same lib
 
 
 class Main(QtWidgets.QWidget):

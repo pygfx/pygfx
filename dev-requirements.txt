@@ -1,6 +1,7 @@
 # development
 black==19.10b0
 flake8
+pep8-naming
 pytest
 setuptools
 wheel
@@ -8,5 +9,3 @@ twine
 
 # examples
 PyQt5
-qasync
-pyglfw

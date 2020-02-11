@@ -1,4 +1,4 @@
-import asyncio
+# import asyncio
 
 import visvis2 as vv
 
@@ -20,7 +20,8 @@ scene.add(t2)
 scene.add(vv.Triangle())
 scene.add(vv.Triangle())
 
-camera = vv.IdentityCamera()
+camera = vv.Camera()
+camera.projection_matrix.identity()
 
 
 def animate():

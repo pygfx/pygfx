@@ -62,7 +62,7 @@ class WorldObject:
             if self.parent is None:
                 self.matrix_world.copy(self.matrix)
             else:
-                self.matrix_world.multiplyMatrices(
+                self.matrix_world.multiply_matrices(
                     self.parent.matrix_world, self.matrix
                 )
             self.matrix_world_dirty = False

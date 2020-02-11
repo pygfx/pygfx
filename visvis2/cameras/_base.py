@@ -5,10 +5,7 @@ from ..objects._world_object import WorldObject
 class Camera(WorldObject):
     def __init__(self):
         super().__init__()
-        self.projectionMatrix = Matrix4()
 
-
-class IdentityCamera(Camera):
-    def __init__(self):
-        super().__init__()
-        self.projectionMatrix.identity()
+        self.matrix_world_inverse = Matrix4()
+        self.projection_matrix = Matrix4()
+        self.projection_matrix_inverse = Matrix4()
