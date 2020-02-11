@@ -36,11 +36,6 @@ def test_instancing():
 
 
 # PUBLIC STUFF
-@pytest.mark.xfail(reason="todo")
-def test_is_vector3():
-    assert False
-
-
 def test_set():
     a = Vector3()
     assert a.x == 0
@@ -53,39 +48,97 @@ def test_set():
     assert a.z == z
 
 
-@pytest.mark.xfail(reason="todo")
 def test_set_scalar():
-    assert False
+    a = Vector3()
+    assert a.x == 0
+    assert a.y == 0
+    assert a.z == 0
+
+    a.set_scalar(x)
+    assert a.x == x
+    assert a.y == x
+    assert a.z == x
 
 
-@pytest.mark.xfail(reason="todo")
 def test_set_x():
-    assert False
+    a = Vector3()
+    assert a.x == 0
+    assert a.y == 0
+    assert a.z == 0
+
+    a.set_x(x)
+    assert a.x == x
+    assert a.y == 0
+    assert a.z == 0
 
 
-@pytest.mark.xfail(reason="todo")
 def test_set_y():
-    assert False
+    a = Vector3()
+    assert a.x == 0
+    assert a.y == 0
+    assert a.z == 0
+
+    a.set_y(y)
+    assert a.x == 0
+    assert a.y == y
+    assert a.z == 0
 
 
-@pytest.mark.xfail(reason="todo")
 def test_set_z():
-    assert False
+    a = Vector3()
+    assert a.x == 0
+    assert a.y == 0
+    assert a.z == 0
+
+    a.set_z(z)
+    assert a.x == 0
+    assert a.y == 0
+    assert a.z == z
 
 
-@pytest.mark.xfail(reason="todo")
 def test_set_component():
-    assert False
+    a = Vector3()
+    assert a.x == 0
+    assert a.y == 0
+    assert a.z == 0
+
+    a.set_component(0, x)
+    assert a.x == x
+    assert a.y == 0
+    assert a.z == 0
+
+    a.set_component(1, y)
+    assert a.x == x
+    assert a.y == y
+    assert a.z == 0
+
+    a.set_component(2, z)
+    assert a.x == x
+    assert a.y == y
+    assert a.z == z
+
+    with pytest.raises(IndexError):
+        a.set_component(3, 5)
 
 
-@pytest.mark.xfail(reason="todo")
 def test_get_component():
-    assert False
+    a = Vector3(x, y, z)
+    assert a.get_component(0) == x
+    assert a.get_component(1) == y
+    assert a.get_component(2) == z
+    with pytest.raises(IndexError):
+        assert a.get_component(3)
 
 
-@pytest.mark.xfail(reason="todo")
 def test_clone():
-    assert False
+    a = Vector3(x, y, z)
+    assert a.x == x
+    assert a.y == y
+    assert a.z == z
+    b = a.clone()
+    a.y = pi
+    assert a.y == pi
+    assert b.y == y
 
 
 def test_copy():
@@ -113,20 +166,28 @@ def test_add():
     assert a.y == 0
     assert a.z == 0
 
+
+def test_add_scalar():
+    a = Vector3(x, y, z)
+    s = 20
+
+    a.add_scalar(s)
+    assert a.x == x + s
+    assert a.y == y + s
+    assert a.z == z + s
+
+    c = Vector3().add_scalar(s)
+    assert c.x == s
+    assert c.y == s
+    assert c.z == s
+
+
+def test_add_vectors():
+    b = Vector3(-x, -y, -z)
     c = Vector3().add_vectors(b, b)
     assert c.x == -2 * x
     assert c.y == -2 * y
     assert c.z == -2 * z
-
-
-@pytest.mark.xfail(reason="todo")
-def test_add_scalar():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_add_vectors():
-    assert False
 
 
 def test_add_scaled_vector():
@@ -149,30 +210,41 @@ def test_sub():
     assert a.y == 2 * y
     assert a.z == 2 * z
 
+
+def test_sub_scalar():
+    a = Vector3(x, y, z)
+    s = 30
+
+    a.sub_scalar(s)
+    assert a.x == x - s
+    assert a.y == y - s
+    assert a.z == z - s
+
+
+def test_sub_vectors():
+    a = Vector3(x, y, z)
     c = Vector3().sub_vectors(a, a)
     assert c.x == 0
     assert c.y == 0
     assert c.z == 0
 
 
-@pytest.mark.xfail(reason="todo")
-def test_sub_scalar():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_sub_vectors():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
 def test_multiply():
-    assert False
+    a = Vector3(x, y, z)
+    b = Vector3(2, 3, -5)
+    a.multiply(b)
+    assert a.x == x * 2, "Check x"
+    assert a.y == y * 3, "Check y"
+    assert a.z == z * -5, "Check z"
 
 
-@pytest.mark.xfail(reason="todo")
 def test_multiply_scalar():
-    assert False
+    a = Vector3(x, y, z)
+    s = 27
+    a.multiply_scalar(s)
+    assert a.x == x * s
+    assert a.y == y * s
+    assert a.z == z * s
 
 
 def test_multiply_vectors():
