@@ -1,40 +1,32 @@
-# import asyncio
-
-import visvis2 as vv
-
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
+import visvis2 as vv
+
 app = QtWidgets.QApplication([])
 
-f = vv.Figure(canvas=WgpuCanvas())
+canvas = WgpuCanvas()
+renderer = vv.WgpuSurfaceRenderer(canvas)
 
-v = vv.View()
-f._views.append(v)  # todo: API?
+scene = vv.Scene()
 
 t1 = vv.Triangle()
-t2 = vv.Triangle()
+scene.add(t1)
 
-v.scene.add(t1)  # todo: API?
-v.scene.add(t2)
-v.scene.add(vv.Triangle())
-v.scene.add(vv.Triangle())
+for i in range(20):
+    scene.add(vv.Triangle())
+
+
+camera = vv.Camera()
+camera.projection_matrix.identity()
+
+
+def animate():
+    # Actually render the scene
+    renderer.render(scene, camera)
 
 
 if __name__ == "__main__":
-    # loop = asyncio.get_event_loop()
-    # loop.run_forever()
+    canvas.drawFrame = animate
     app.exec_()
-
-
-# renderer = vv.WgpuRenderer(widget_ish_or_surface_maybe_non_qt_specific)
-#
-# camera = vv.Camera()
-#
-# scene = vv.Scene()
-#
-# controller = vv.QtPanZoomController(camera, widget)
-#
-# scene.add(t1)
-#
-# renderer.render(scene, camera)
+    canvas.closeEvent = lambda *args: app.quit()

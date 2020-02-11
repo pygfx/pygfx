@@ -1,6 +1,8 @@
-from ._world_object import WorldObject
+import wgpu
+from python_shader import python2shader, RES_INPUT, RES_OUTPUT
 
-from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
+
+from ._world_object import WorldObject
 
 
 @python2shader
@@ -12,17 +14,17 @@ def vertex_shader(
     positions = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
 
     p = positions[index]
-    pos = vec4(p, 0.0, 1.0)
-    color = vec3(p, 0.5)
+    pos = vec4(p, 0.0, 1.0)  # noqa
+    color = vec3(p, 0.5)  # noqa
 
 
 @python2shader
 def fragment_shader(
     in_color: (RES_INPUT, 0, "vec3"),
     out_color: (RES_OUTPUT, 0, "vec4"),
-    u_color: (RES_UNIFORM, 0, "vec3"),
+    # u_color: (RES_UNIFORM, 0, "vec3"),
 ):
-    out_color = vec4(in_color, 0.1)
+    out_color = vec4(in_color, 0.1)  # noqa
 
 
 class Triangle(WorldObject):
@@ -35,10 +37,10 @@ class Triangle(WorldObject):
         self._pos = [float(x) for x in pos]
         assert len(self._pos) == 3  # x, y, z
 
-    def describe_pipeline(self):
+    def get_renderer_info_wgpu(self):
         uniforms = [self._pos]
         return {
-            "vertex_shader": vertex_shader,
-            "fragment_shader": fragment_shader,
+            "shaders": [vertex_shader, fragment_shader],
+            "primitiveTopology": wgpu.PrimitiveTopology.triangle_list,
             "uniforms": uniforms,
         }

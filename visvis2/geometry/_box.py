@@ -5,35 +5,21 @@ from ._base import Geometry
 
 class BoxGeometry(Geometry):
     def __init__(self, width, height, depth):
+        super().__init__()
+
         half_width = width / 2
         half_height = height / 2
         half_depth = depth / 2
         vertices = np.array(
             [
-                -half_width,
-                -half_height,
-                -half_depth,
-                -half_width,
-                -half_height,
-                half_depth,
-                -half_width,
-                half_height,
-                -half_depth,
-                -half_width,
-                half_height,
-                half_depth,
-                half_width,
-                -half_height,
-                -half_depth,
-                half_width,
-                -half_height,
-                half_depth,
-                half_width,
-                half_height,
-                -half_depth,
-                half_width,
-                half_height,
-                half_depth,
+                [-half_width, -half_height, -half_depth],
+                [-half_width, -half_height, +half_depth],
+                [-half_width, +half_height, -half_depth],
+                [-half_width, +half_height, +half_depth],
+                [+half_width, -half_height, -half_depth],
+                [+half_width, -half_height, +half_depth],
+                [+half_width, +half_height, -half_depth],
+                [+half_width, +half_height, +half_depth],
             ],
             dtype="f4",
         )
@@ -78,5 +64,5 @@ class BoxGeometry(Geometry):
             ],
             dtype="i4",
         )
-        self.buffers["position"] = vertices
+        self.vertex_data = [vertices[index]]
         self.index = index
