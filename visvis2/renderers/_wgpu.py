@@ -8,9 +8,7 @@ from ._base import Renderer
 
 
 # probably want to import these rather than define them inline here
-SHADER_INFO = {
-    MeshBasicMaterial: {'vert': '', 'frag': '', 'uniforms': []}
-}
+SHADER_INFO = {MeshBasicMaterial: {"vert": "", "frag": "", "uniforms": []}}
 
 
 class BaseWgpuRenderer(Renderer):
@@ -68,7 +66,6 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         pipeline_layout = device.createPipelineLayout(
             bindGroupLayouts=[bind_group_layout]
         )
-    
 
     def compose_pipeline(self, wobject):
 
@@ -77,7 +74,7 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         info = self._compose[type(wobject)](wobject)
 
         if isinstance(wobject, Mesh):
-                       # Get description from world object
+            # Get description from world object
             shaders = wobject.material.get_wgpu_shaders()
 
             vshader = pipelinedescription["vertex_shader"]
@@ -137,7 +134,7 @@ class SurfaceWgpuRenderer(BaseWgpuRenderer):
         # Called by figure/canvas
 
         device = self._device
-        
+
         current_texture_view = self._swap_chain.getCurrentTextureView()
         command_encoder = device.createCommandEncoder()
         # todo: what do I need to duplicate if I have two objects to draw???

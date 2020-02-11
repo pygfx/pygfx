@@ -3,7 +3,16 @@ from math import pi, sqrt, acos
 import pytest
 
 from visvis2 import PerspectiveCamera
-from visvis2.linalg import Vector3, Euler, Matrix3, Matrix4, Vector4, Quaternion, Spherical, Cylindrical
+from visvis2.linalg import (
+    Vector3,
+    Euler,
+    Matrix3,
+    Matrix4,
+    Vector4,
+    Quaternion,
+    Spherical,
+    Cylindrical,
+)
 
 
 x = 2
@@ -373,9 +382,7 @@ def test_manhattan_length():
     assert d.manhattan_length() == 0, "Empty initialization"
 
     a.set(x, y, z)
-    assert a.manhattan_length() == abs(x) + abs(y) + abs(
-        z
-    ), "All components"
+    assert a.manhattan_length() == abs(x) + abs(y) + abs(z), "All components"
 
 
 def test_normalize():

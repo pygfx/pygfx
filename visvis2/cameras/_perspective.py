@@ -23,7 +23,9 @@ class PerspectiveCamera(Camera):
         height = 2 * top
         bottom = top - height
         width = self.aspect * height
-        left = - 0.5 * width
+        left = -0.5 * width
         right = left + width
-        self.projection_matrix.make_perspective(left, right, top, bottom, self.near, self.far)
+        self.projection_matrix.make_perspective(
+            left, right, top, bottom, self.near, self.far
+        )
         self.projection_matrix_inverse.get_inverse(self.projection_matrix)
