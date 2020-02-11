@@ -43,7 +43,7 @@ class Euler:
         self.order = euler.order
         return self
 
-    def setFromRotationMatrix(
+    def set_from_rotation_matrix(
         self, m: "Matrix4", order: RotationOrders = None
     ) -> "Euler":
         # assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
@@ -121,19 +121,19 @@ class Euler:
 
         return self
 
-    def setFromQuaternion(
+    def set_from_quaternion(
         self, q: "Quaternion", order: RotationOrders = None
     ) -> "Euler":
-        _tmp_matrix4.makeRotationFromQuaternion(q)
-        return self.setFromRotationMatrix(_tmp_matrix4, order=order)
+        _tmp_matrix4.make_rotation_from_quaternion(q)
+        return self.set_from_rotation_matrix(_tmp_matrix4, order=order)
 
-    def setFromVector3(self, v: "Vector3", order: RotationOrders = None) -> "Euler":
+    def set_from_vector3(self, v: "Vector3", order: RotationOrders = None) -> "Euler":
         return self.set(v.x, v.y, v.z, order=order)
 
     def reorder(self, newOrder: RotationOrders) -> "Euler":
         # warning: revolution info lost
-        _tmp_quaternion.setFromEuler(self)
-        return self.setFromQuaternion(_tmp_quaternion, order=newOrder)
+        _tmp_quaternion.set_from_euler(self)
+        return self.set_from_quaternion(_tmp_quaternion, order=newOrder)
 
     def equals(self, euler: "Euler") -> bool:
         return (
@@ -146,7 +146,7 @@ class Euler:
     def __eq__(self, other: "Euler") -> bool:
         return isinstance(other, Euler) and self.equals(other)
 
-    def fromArray(self, array: list) -> "Euler":
+    def from_array(self, array: list) -> "Euler":
         self.x = array[0]
         self.y = array[1]
         self.z = array[2]
@@ -154,7 +154,7 @@ class Euler:
             self.order = array[3]
         return self
 
-    def toArray(self, array: list = None, offset: int = 0) -> list:
+    def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
         array[offset] = self.x
@@ -163,7 +163,7 @@ class Euler:
         array[offset + 3] = self.order
         return array
 
-    def toVector3(self, output: "Vector3" = None) -> "Vector3":
+    def to_vector3(self, output: "Vector3" = None) -> "Vector3":
         if output is not None:
             return output.set(self.x, self.y, self.z)
         else:

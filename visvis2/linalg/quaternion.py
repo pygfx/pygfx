@@ -30,7 +30,7 @@ class Quaternion:
         self.w = quaternion.w
         return self
 
-    def setFromEuler(self, euler: "Euler") -> "Quaternion":
+    def set_from_euler(self, euler: "Euler") -> "Quaternion":
         x = euler.x
         y = euler.y
         z = euler.z
@@ -76,7 +76,7 @@ class Quaternion:
 
         return self
 
-    def setFromAxisAngle(self, axis: "Vector3", angle: float) -> "Quaternion":
+    def set_from_axis_angle(self, axis: "Vector3", angle: float) -> "Quaternion":
         # assumes axis is normalized
         halfAngle = angle / 2
         s = sin(halfAngle)
@@ -88,7 +88,7 @@ class Quaternion:
 
         return self
 
-    def setFromRotationMatrix(self, m: "Matrix4") -> "Quaternion":
+    def set_from_rotation_matrix(self, m: "Matrix4") -> "Quaternion":
         # assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
         te = m.elements
         m11 = te[0]
@@ -132,7 +132,7 @@ class Quaternion:
 
         return self
 
-    def setFromUnitVectors(self, vFrom: "Vector3", vTo: "Vector3") -> "Quaternion":
+    def set_from_unit_vectors(self, vFrom: "Vector3", vTo: "Vector3") -> "Quaternion":
         # assumes direction vectors vFrom and vTo are normalized
         EPS = 0.000001
         r = vFrom.dot(vTo) + 1
@@ -157,11 +157,11 @@ class Quaternion:
 
         return self.normalize()
 
-    def angleTo(self, q: "Quaternion") -> float:
+    def angle_to(self, q: "Quaternion") -> float:
         return 2 * acos(abs(clamp(self.dot(q), -1, 1)))
 
-    def rotateTowards(self, q: "Quaternion", step: float) -> "Quaternion":
-        angle = self.angleTo(q)
+    def rotate_towards(self, q: "Quaternion", step: float) -> "Quaternion":
+        angle = self.angle_to(q)
         if angle == 0:
             return self
         t = min(1, step / angle)
@@ -181,11 +181,11 @@ class Quaternion:
     def dot(self, q: "Quaternion") -> float:
         return self.x * q.x + self.y * q.y + self.z * q.z + self.w * q.w
 
-    def lengthSq(self) -> float:
+    def length_sq(self) -> float:
         return self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w
 
     def length(self) -> float:
-        return self.lengthSq() ** 0.5
+        return self.length_sq() ** 0.5
 
     def normalize(self) -> "Quaternion":
         l = self.length()
@@ -204,12 +204,12 @@ class Quaternion:
         return self
 
     def multiply(self, q: "Quaternion") -> "Quaternion":
-        return self.multiplyQuaternions(self, q)
+        return self.multiply_quaternions(self, q)
 
     def premultiply(self, q: "Quaternion") -> "Quaternion":
-        return self.multiplyQuaternions(q, self)
+        return self.multiply_quaternions(q, self)
 
-    def multiplyQuaternions(self, a: "Quaternion", b: "Quaternion") -> "Quaternion":
+    def multiply_quaternions(self, a: "Quaternion", b: "Quaternion") -> "Quaternion":
         qax = a.x
         qay = a.y
         qaz = a.z
@@ -236,25 +236,25 @@ class Quaternion:
         y = self.y
         z = self.z
         w = self.w
-        cosHalfTheta = w * qb.w + x * qb.x + y * qb.y + z * qb.z
-        if cosHalfTheta < 0:
+        cos_half_theta = w * qb.w + x * qb.x + y * qb.y + z * qb.z
+        if cos_half_theta < 0:
             self.w = -qb.w
             self.x = -qb.x
             self.y = -qb.y
             self.z = -qb.z
-            cosHalfTheta = -cosHalfTheta
+            cos_half_theta = -cos_half_theta
         else:
             self.copy(qb)
 
-        if cosHalfTheta >= 1.0:
+        if cos_half_theta >= 1.0:
             self.w = w
             self.x = x
             self.y = y
             self.z = z
             return self
 
-        sqrSinHalfTheta = 1.0 - cosHalfTheta * cosHalfTheta
-        if sqrSinHalfTheta <= MACHINE_EPSILON:
+        sqr_sin_half_theta = 1.0 - cos_half_theta * cos_half_theta
+        if sqr_sin_half_theta <= MACHINE_EPSILON:
             s = 1 - t
             self.w = s * w + t * self.w
             self.x = s * x + t * self.x
@@ -263,15 +263,15 @@ class Quaternion:
             self.normalize()
             return self
 
-        sinHalfTheta = sqrSinHalfTheta ** 0.5
-        halfTheta = atan2(sinHalfTheta, cosHalfTheta)
-        ratioA = sin((1 - t) * halfTheta) / sinHalfTheta
-        ratioB = sin(t * halfTheta) / sinHalfTheta
+        sin_half_theta = sqr_sin_half_theta ** 0.5
+        half_theta = atan2(sin_half_theta, cos_half_theta)
+        ratio_a = sin((1 - t) * half_theta) / sin_half_theta
+        ratio_b = sin(t * half_theta) / sin_half_theta
 
-        self.w = w * ratioA + self.w * ratioB
-        self.x = x * ratioA + self.x * ratioB
-        self.y = y * ratioA + self.y * ratioB
-        self.z = z * ratioA + self.z * ratioB
+        self.w = w * ratio_a + self.w * ratio_b
+        self.x = x * ratio_a + self.x * ratio_b
+        self.y = y * ratio_a + self.y * ratio_b
+        self.z = z * ratio_a + self.z * ratio_b
         return self
 
     def equals(self, quaternion: "Quaternion") -> bool:
@@ -285,14 +285,14 @@ class Quaternion:
     def __eq__(self, other: "Quaternion") -> bool:
         return isinstance(other, Quaternion) and self.equals(other)
 
-    def fromArray(self, array: list, offset: int = 0) -> "Quaternion":
+    def from_array(self, array: list, offset: int = 0) -> "Quaternion":
         self.x = array[offset]
         self.y = array[offset + 1]
         self.z = array[offset + 2]
         self.w = array[offset + 3]
         return self
 
-    def toArray(self, array: list = None, offset: int = 0) -> list:
+    def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
         array[offset] = self.x

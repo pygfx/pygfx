@@ -13,18 +13,18 @@ class PerspectiveCamera(Camera):
         self.far = far
         self.zoom = 1
 
-        self.updateProjectionMatrix()
+        self.update_projection_matrix()
     
     def update_matrix_world(self, *args, **kwargs):
         super().update_matrix_world(*args, **kwargs)
-        self.matrixWorldInverse.getInverse(self.matrixWorld)
+        self.matrix_world_inverse.get_inverse(self.matrix_world)
 
-    def updateProjectionMatrix(self):
+    def update_projection_matrix(self):
         top = self.near * tan( pi / 180 * 0.5 * self.fov ) / self.zoom
         height = 2 * top
         bottom = top - height
         width = self.aspect * height
         left = - 0.5 * width
         right = left + width
-        self.projectionMatrix.makePerspective(left, right, top, bottom, self.near, self.far)
-        self.projectionMatrixInverse.getInverse(self.projectionMatrix)
+        self.projection_matrix.make_perspective(left, right, top, bottom, self.near, self.far)
+        self.projection_matrix_inverse.get_inverse(self.projection_matrix)

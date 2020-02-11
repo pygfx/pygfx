@@ -19,25 +19,25 @@ class Vector3:
         self.z = z
         return self
 
-    def setScalar(self, s: float) -> "Vector3":
+    def set_scalar(self, s: float) -> "Vector3":
         self.x = s
         self.y = s
         self.z = s
         return self
 
-    def setX(self, x: float) -> "Vector3":
+    def set_x(self, x: float) -> "Vector3":
         self.x = x
         return self
 
-    def setY(self, y: float) -> "Vector3":
+    def set_y(self, y: float) -> "Vector3":
         self.y = y
         return self
 
-    def setZ(self, z: float) -> "Vector3":
+    def set_z(self, z: float) -> "Vector3":
         self.z = z
         return self
 
-    def setComponent(self, index: int, value: float) -> "Vector3":
+    def set_component(self, index: int, value: float) -> "Vector3":
         if index == 0:
             self.x = value
         elif index == 1:
@@ -48,7 +48,7 @@ class Vector3:
             raise IndexError()
         return self
 
-    def getComponent(self, index: int) -> float:
+    def get_component(self, index: int) -> float:
         if index == 0:
             return self.x
         elif index == 1:
@@ -73,19 +73,19 @@ class Vector3:
         self.z += v.z
         return self
 
-    def addScalar(self, s: float) -> "Vector3":
+    def add_scalar(self, s: float) -> "Vector3":
         self.x += s
         self.y += s
         self.z += s
         return self
 
-    def addVectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
+    def add_vectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
         self.x = a.x + b.x
         self.y = a.y + b.y
         self.z = a.z + b.z
         return self
 
-    def addScaledVector(self, v: "Vector3", s: float) -> "Vector3":
+    def add_scaled_vector(self, v: "Vector3", s: float) -> "Vector3":
         self.x += v.x * s
         self.y += v.y * s
         self.z += v.z * s
@@ -97,13 +97,13 @@ class Vector3:
         self.z -= v.z
         return self
 
-    def subScalar(self, s: float) -> "Vector3":
+    def sub_scalar(self, s: float) -> "Vector3":
         self.x -= s
         self.y -= s
         self.z -= s
         return self
 
-    def subVectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
+    def sub_vectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
         self.x = a.x - b.x
         self.y = a.y - b.y
         self.z = a.z - b.z
@@ -115,25 +115,25 @@ class Vector3:
         self.z *= v.z
         return self
 
-    def multiplyScalar(self, s: float) -> "Vector3":
+    def multiply_scalar(self, s: float) -> "Vector3":
         self.x *= s
         self.y *= s
         self.z *= s
         return self
 
-    def multiplyVectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
+    def multiply_vectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
         self.x = a.x * b.x
         self.y = a.y * b.y
         self.z = a.z * b.z
         return self
 
-    def applyEuler(self, euler: "Euler") -> "Vector3":
-        return self.applyQuaternion(_tmp_quaternion.setFromEuler(euler))
+    def apply_euler(self, euler: "Euler") -> "Vector3":
+        return self.apply_quaternion(_tmp_quaternion.set_from_euler(euler))
 
-    def applyAxisAngle(self, axis: "Vector3", angle: float) -> "Vector3":
-        return self.applyQuaternion(_tmp_quaternion.setFromAxisAngle(axis, angle))
+    def apply_axis_angle(self, axis: "Vector3", angle: float) -> "Vector3":
+        return self.apply_quaternion(_tmp_quaternion.set_from_axis_angle(axis, angle))
 
-    def applyMatrix3(self, m: "Matrix3") -> "Vector3":
+    def apply_matrix3(self, m: "Matrix3") -> "Vector3":
         x, y, z = self.x, self.y, self.z
         e = m.elements
 
@@ -142,10 +142,10 @@ class Vector3:
         self.z = e[2] * x + e[5] * y + e[8] * z
         return self
 
-    def applyNormalMatrix(self, m: "Matrix3") -> "Vector3":
-        return self.applyMatrix3(m).normalize()
+    def apply_normal_matrix(self, m: "Matrix3") -> "Vector3":
+        return self.apply_matrix3(m).normalize()
 
-    def applyMatrix4(self, m: "Matrix4") -> "Vector3":
+    def apply_matrix4(self, m: "Matrix4") -> "Vector3":
         x, y, z = self.x, self.y, self.z
         e = m.elements
 
@@ -155,7 +155,7 @@ class Vector3:
         self.z = (e[2] * x + e[6] * y + e[10] * z + e[14]) * w
         return self
 
-    def applyQuaternion(self, q: "Quaternion") -> "Vector3":
+    def apply_quaternion(self, q: "Quaternion") -> "Vector3":
         x = self.x
         y = self.y
         z = self.z
@@ -177,16 +177,16 @@ class Vector3:
         return self
 
     def project(self, camera) -> "Vector3":
-        return self.applyMatrix4(camera.matrixWorldInverse).applyMatrix4(
-            camera.projectionMatrix
+        return self.apply_matrix4(camera.matrix_world_inverse).apply_matrix4(
+            camera.projection_matrix
         )
 
     def unproject(self, camera) -> "Vector3":
-        return self.applyMatrix4(camera.projectionMatrixInverse).applyMatrix4(
-            camera.matrixWorld
+        return self.apply_matrix4(camera.projection_matrix_inverse).apply_matrix4(
+            camera.matrix_world
         )
 
-    def transformDirection(self, m: "Matrix") -> "Vector3":
+    def transform_direction(self, m: "Matrix") -> "Vector3":
         # interpret self as directional vector
         # and apply affine transform in matrix4 m
         x = self.x
@@ -205,7 +205,7 @@ class Vector3:
         self.z /= v.z
         return self
 
-    def divideScalar(self, s: float) -> "Vector3":
+    def divide_scalar(self, s: float) -> "Vector3":
         self.x /= s
         self.y /= s
         self.z /= s
@@ -230,14 +230,14 @@ class Vector3:
         self.z = clamp(self.z, min.z, max.z)
         return self
 
-    def clampScalar(self, min: float, max: float) -> "Vector3":
+    def clamp_scalar(self, min: float, max: float) -> "Vector3":
         self.x = clamp(self.x, min, max)
         self.y = clamp(self.y, min, max)
         self.z = clamp(self.z, min, max)
 
-    def clampLength(self, min: float, max: float) -> "Vector3":
+    def clamp_length(self, min: float, max: float) -> "Vector3":
         l = self.length()
-        return self.divideScalar(l or 1).multiplyScalar(clamp(l, min, max))
+        return self.divide_scalar(l or 1).multiply_scalar(clamp(l, min, max))
 
     def floor(self) -> "Vector3":
         self.x = floor(self.x)
@@ -257,7 +257,7 @@ class Vector3:
         self.z = round(self.z)
         return self
 
-    def roundToZero(self) -> "Vector3":
+    def round_to_zero(self) -> "Vector3":
         self.x = ceil(self.x) if self.x < 0 else floor(self.x)
         self.y = ceil(self.y) if self.y < 0 else floor(self.y)
         self.z = ceil(self.z) if self.z < 0 else floor(self.z)
@@ -272,20 +272,20 @@ class Vector3:
     def dot(self, v: "Vector3") -> float:
         return self.x * v.x + self.y * v.y + self.z * v.z
 
-    def lengthSq(self) -> float:
+    def length_sq(self) -> float:
         return self.x ** 2 + self.y ** 2 + self.z ** 2
 
     def length(self) -> float:
-        return self.lengthSq() ** 0.5
+        return self.length_sq() ** 0.5
 
-    def manhattanLength(self) -> float:
+    def manhattan_length(self) -> float:
         return abs(self.x) + abs(self.y) + abs(self.z)
 
     def normalize(self) -> "Vector3":
-        return self.divideScalar(self.length() or 1)
+        return self.divide_scalar(self.length() or 1)
 
-    def setLength(self, l: float) -> "Vector3":
-        return self.normalize().multiplyScalar(l)
+    def set_length(self, l: float) -> "Vector3":
+        return self.normalize().multiply_scalar(l)
 
     def lerp(self, v: "Vector3", a: float) -> "Vector3":
         self.x += (v.x - self.x) * a
@@ -293,13 +293,13 @@ class Vector3:
         self.z += (v.z - self.z) * a
         return self
 
-    def lerpVectors(self, v1: "Vector3", v2: "Vector3", a: float) -> "Vector3":
-        return self.subVectors(v2, v1).multiplyScalar(a).add(v1)
+    def lerp_vectors(self, v1: "Vector3", v2: "Vector3", a: float) -> "Vector3":
+        return self.sub_vectors(v2, v1).multiply_scalar(a).add(v1)
 
     def cross(self, v: "Vector3") -> "Vector3":
-        return self.crossVectors(self, v)
+        return self.cross_vectors(self, v)
 
-    def crossVectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
+    def cross_vectors(self, a: "Vector3", b: "Vector3") -> "Vector3":
         ax = a.x
         ay = a.y
         az = a.z
@@ -312,40 +312,40 @@ class Vector3:
         self.z = ax * by - ay * bx
         return self
 
-    def projectOnVector(self, v: "Vector3") -> "Vector3":
-        s = v.dot(self) / v.lengthSq()
-        return self.copy(v).multiplyScalar(s)
+    def project_on_vector(self, v: "Vector3") -> "Vector3":
+        s = v.dot(self) / v.length_sq()
+        return self.copy(v).multiply_scalar(s)
 
-    def projectOnPlane(self, n: "Vector3") -> "Vector3":
-        _tmp_vector.copy(self).projectOnVector(n)
+    def project_on_plane(self, n: "Vector3") -> "Vector3":
+        _tmp_vector.copy(self).project_on_vector(n)
         return self.sub(_tmp_vector)
 
     def reflect(self, n: "Vector3") -> "Vector3":
-        _tmp_vector.copy(n).multiplyScalar(2 * self.dot(n))
+        _tmp_vector.copy(n).multiply_scalar(2 * self.dot(n))
         return self.sub(_tmp_vector)
 
-    def angleTo(self, v: "Vector3") -> float:
-        denominator = (self.lengthSq() * v.lengthSq()) ** 0.5
+    def angle_to(self, v: "Vector3") -> float:
+        denominator = (self.length_sq() * v.length_sq()) ** 0.5
         theta = self.dot(v) / denominator
         return acos(max(-1, min(1, theta)))
 
-    def distanceTo(self, v: "Vector3") -> float:
-        return self.distanceToSquared(v) ** 0.5
+    def distance_to(self, v: "Vector3") -> float:
+        return self.distance_to_squared(v) ** 0.5
 
-    def distanceToSquared(self, v: "Vector3") -> float:
+    def distance_to_squared(self, v: "Vector3") -> float:
         dx = self.x - v.x
         dy = self.y - v.y
         dz = self.z - v.z
 
         return dx * dx + dy * dy + dz * dz
 
-    def manhattanDistanceTo(self, v: "Vector3") -> float:
+    def manhattan_distance_to(self, v: "Vector3") -> float:
         return abs(self.x - v.x) + abs(self.y - v.y) + abs(self.z - v.z)
 
-    def setFromSpherical(self, s: "Spherical") -> "Vector3":
-        return self.setFromSphericalCoords(s.radius, s.phi, s.theta)
+    def set_from_spherical(self, s: "Spherical") -> "Vector3":
+        return self.set_from_spherical_coords(s.radius, s.phi, s.theta)
 
-    def setFromSphericalCoords(
+    def set_from_spherical_coords(
         self, radius: float, phi: float, theta: float
     ) -> "Vector3":
         sin_phi_radius = sin(phi) * radius
@@ -354,10 +354,10 @@ class Vector3:
         self.z = sin_phi_radius * cos(theta)
         return self
 
-    def setFromCylindrical(self, c: "Cylindrical") -> "Vector3":
-        return self.setFromCylindricalCoords(c.radius, c.theta, c.y)
+    def set_from_cylindrical(self, c: "Cylindrical") -> "Vector3":
+        return self.set_from_cylindrical_coords(c.radius, c.theta, c.y)
 
-    def setFromCylindricalCoords(
+    def set_from_cylindrical_coords(
         self, radius: float, theta: float, y: float
     ) -> "Vector3":
         self.x = radius * sin(theta)
@@ -365,27 +365,27 @@ class Vector3:
         self.z = radius * cos(theta)
         return self
 
-    def setFromMatrixPosition(self, m: "Matrix4") -> "Vector3":
+    def set_from_matrix_position(self, m: "Matrix4") -> "Vector3":
         self.x = m.elements[12]
         self.y = m.elements[13]
         self.z = m.elements[14]
         return self
 
-    def setFromMatrixScale(self, m: "Matrix4") -> "Vector3":
-        sx = self.setFromMatrixColumn(m, 0).length()
-        sy = self.setFromMatrixColumn(m, 1).length()
-        sz = self.setFromMatrixColumn(m, 2).length()
+    def set_from_matrix_scale(self, m: "Matrix4") -> "Vector3":
+        sx = self.set_from_matrix_column(m, 0).length()
+        sy = self.set_from_matrix_column(m, 1).length()
+        sz = self.set_from_matrix_column(m, 2).length()
 
         self.x = sx
         self.y = sy
         self.z = sz
         return self
 
-    def setFromMatrixColumn(self, m: "Matrix4", i: int) -> "Vector3":
-        return self.fromArray(m.elements, i * 4)
+    def set_from_matrix_column(self, m: "Matrix4", i: int) -> "Vector3":
+        return self.from_array(m.elements, i * 4)
 
-    def setFromMatrix3Column(self, m: "Matrix3", i: int) -> "Vector3":
-        return self.fromArray(m.elements, i * 3)
+    def set_from_matrix3_column(self, m: "Matrix3", i: int) -> "Vector3":
+        return self.from_array(m.elements, i * 3)
 
     def equals(self, v: "Vector3") -> bool:
         return self.x == v.x and self.y == v.y and self.z == v.z
@@ -393,13 +393,13 @@ class Vector3:
     def __eq__(self, other: "Vector3") -> bool:
         return isinstance(other, Vector3) and self.equals(other)
 
-    def fromArray(self, array: list, offset: int = 0) -> "Vector3":
+    def from_array(self, array: list, offset: int = 0) -> "Vector3":
         self.x = array[offset]
         self.y = array[offset + 1]
         self.z = array[offset + 2]
         return self
 
-    def toArray(self, array: list = None, offset: int = 0) -> list:
+    def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
 
@@ -412,7 +412,7 @@ class Vector3:
         array[offset + 2] = self.z
         return array
 
-    def fromBufferAttribute(self, attribute, index: int) -> "Vector3":
+    def from_buffer_attribute(self, attribute, index: int) -> "Vector3":
         raise NotImplementedError()
         # self.x = attribute.getX(index)
         # self.y = attribute.getY(index)

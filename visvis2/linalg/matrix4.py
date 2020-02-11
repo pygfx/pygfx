@@ -88,7 +88,7 @@ class Matrix4:
         return self
 
     def clone(self) -> "Matrix4":
-        return Matrix4().fromArray(self.elements)
+        return Matrix4().from_array(self.elements)
 
     def copy(self, m: "Matrix4") -> "Matrix4":
         te = self.elements
@@ -113,7 +113,7 @@ class Matrix4:
 
         return self
 
-    def copyPosition(self, m: "Matrix4") -> "Matrix4":
+    def copy_position(self, m: "Matrix4") -> "Matrix4":
         te = self.elements
         me = m.elements
 
@@ -123,15 +123,15 @@ class Matrix4:
 
         return self
 
-    def extractBasis(
+    def extract_basis(
         self, xAxis: "Vector3", yAxis: "Vector3", zAxis: "Vector3"
     ) -> "Matrix4":
-        xAxis.setFromMatrixColumn(self, 0)
-        yAxis.setFromMatrixColumn(self, 1)
-        zAxis.setFromMatrixColumn(self, 2)
+        xAxis.set_from_matrix_column(self, 0)
+        yAxis.set_from_matrix_column(self, 1)
+        zAxis.set_from_matrix_column(self, 2)
         return self
 
-    def makeBasis(
+    def make_basis(
         self, xAxis: "Vector3", yAxis: "Vector3", zAxis: "Vector3"
     ) -> "Matrix4":
         self.set(
@@ -155,14 +155,14 @@ class Matrix4:
 
         return self
 
-    def extractRotation(self, m: "Matrix4") -> "Matrix4":
+    def extract_rotation(self, m: "Matrix4") -> "Matrix4":
         # this method does not support reflection matrices
         te = self.elements
         me = m.elements
 
-        scaleX = 1 / _tmp_vector.setFromMatrixColumn(m, 0).length()
-        scaleY = 1 / _tmp_vector.setFromMatrixColumn(m, 1).length()
-        scaleZ = 1 / _tmp_vector.setFromMatrixColumn(m, 2).length()
+        scaleX = 1 / _tmp_vector.set_from_matrix_column(m, 0).length()
+        scaleY = 1 / _tmp_vector.set_from_matrix_column(m, 1).length()
+        scaleZ = 1 / _tmp_vector.set_from_matrix_column(m, 2).length()
 
         te[0] = me[0] * scaleX
         te[1] = me[1] * scaleX
@@ -183,7 +183,7 @@ class Matrix4:
 
         return self
 
-    def makeRotationFromEuler(self, euler: "Euler") -> "Matrix4":
+    def make_rotation_from_euler(self, euler: "Euler") -> "Matrix4":
         te = self.elements
         x = euler.x
         y = euler.y
@@ -311,22 +311,22 @@ class Matrix4:
 
         return self
 
-    def makeRotationFromQuaternion(self, q: "Quaternion") -> "Matrix4":
+    def make_rotation_from_quaternion(self, q: "Quaternion") -> "Matrix4":
         return self.compose(_zero, q, _one)
 
-    def lookAt(self, eye: "Vector3", target: "Vector3", up: "Vector3") -> "Matrix4":
+    def look_at(self, eye: "Vector3", target: "Vector3", up: "Vector3") -> "Matrix4":
         te = self.elements
 
-        _tmp_vector.subVectors(eye, target)
+        _tmp_vector.sub_vectors(eye, target)
 
-        if _tmp_vector.lengthSq() == 0:
+        if _tmp_vector.length_sq() == 0:
             # eye and target are in the same position
             _tmp_vector.z = 1
 
         _tmp_vector.normalize()
-        _tmp_vector2.crossVectors(up, _tmp_vector)
+        _tmp_vector2.cross_vectors(up, _tmp_vector)
 
-        if _tmp_vector2.lengthSq() == 0:
+        if _tmp_vector2.length_sq() == 0:
             # up and z are parallel
             if abs(up.z) == 1:
                 _tmp_vector.x += 0.0001
@@ -334,10 +334,10 @@ class Matrix4:
                 _tmp_vector.z += 0.0001
 
             _tmp_vector.normalize()
-            _tmp_vector2.crossVectors(up, _tmp_vector)
+            _tmp_vector2.cross_vectors(up, _tmp_vector)
 
         _tmp_vector2.normalize()
-        _tmp_vector3.crossVectors(_tmp_vector, _tmp_vector2)
+        _tmp_vector3.cross_vectors(_tmp_vector, _tmp_vector2)
 
         te[0] = _tmp_vector2.x
         te[4] = _tmp_vector3.x
@@ -352,12 +352,12 @@ class Matrix4:
         return self
 
     def multiply(self, m: "Matrix4", n: "Matrix4") -> "Matrix4":
-        return self.multiplyMatrices(self, m)
+        return self.multiply_matrices(self, m)
 
     def premultiply(self, m: "Matrix4") -> "Matrix4":
-        return self.multiplyMatrices(m, self)
+        return self.multiply_matrices(m, self)
 
-    def multiplyMatrices(self, a: "Matrix4", b: "Matrix4") -> "Matrix4":
+    def multiply_matrices(self, a: "Matrix4", b: "Matrix4") -> "Matrix4":
         ae = a.elements
         be = b.elements
         te = self.elements
@@ -418,7 +418,7 @@ class Matrix4:
 
         return self
 
-    def multiplyScalar(self, s: float) -> "Matrix4":
+    def multiply_scalar(self, s: float) -> "Matrix4":
         te = self.elements
 
         te[0] *= s
@@ -532,21 +532,21 @@ class Matrix4:
 
         return self
 
-    def setPosition(self, v: "Vector3") -> "Matrix4":
+    def set_position(self, v: "Vector3") -> "Matrix4":
         te = self.elements
         te[12] = x.x
         te[13] = x.y
         te[14] = x.z
         return self
 
-    def setPositionXYZ(self, x: float, y: float, z: float) -> "Matrix4":
+    def set_position_xyz(self, x: float, y: float, z: float) -> "Matrix4":
         te = self.elements
         te[12] = x
         te[13] = y
         te[14] = z
         return self
 
-    def getInverse(self, m: "Matrix4") -> "Matrix4":
+    def get_inverse(self, m: "Matrix4") -> "Matrix4":
         te = self.elements
         me = m.elements
 
@@ -733,7 +733,7 @@ class Matrix4:
 
         return self
 
-    def getMaxScaleOnAxis(self) -> float:
+    def get_max_scale_on_axis(self) -> float:
         te = self.elements
 
         scaleXSq = te[0] * te[0] + te[1] * te[1] + te[2] * te[2]
@@ -742,29 +742,29 @@ class Matrix4:
 
         return max(scaleXSq, scaleYSq, scaleZSq) ** 0.5
 
-    def makeTranslation(self, x: float, y: float, z: float) -> "Matrix4":
+    def make_translation(self, x: float, y: float, z: float) -> "Matrix4":
         self.set(1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1)
         return self
 
-    def makeRotationX(self, theta: float) -> "Matrix4":
+    def make_rotation_x(self, theta: float) -> "Matrix4":
         c = cos(theta)
         s = sin(theta)
         self.set(1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1)
         return self
 
-    def makeRotationY(self, theta: float) -> "Matrix4":
+    def make_rotation_y(self, theta: float) -> "Matrix4":
         c = cos(theta)
         s = sin(theta)
         self.set(c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1)
         return self
 
-    def makeRotationZ(self, theta: float) -> "Matrix4":
+    def make_rotation_z(self, theta: float) -> "Matrix4":
         c = cos(theta)
         s = sin(theta)
         self.set(c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
         return self
 
-    def makeRotationAxis(self, axis: "Vector3", angle: float) -> "Matrix4":
+    def make_rotation_axis(self, axis: "Vector3", angle: float) -> "Matrix4":
         # Based on http:#www.gamedev.net/reference/articles/article1199.asp
         c = cos(angle)
         s = sin(angle)
@@ -794,11 +794,11 @@ class Matrix4:
         )
         return self
 
-    def makeScale(self, x: float, y: float, z: float) -> "Matrix4":
+    def make_scale(self, x: float, y: float, z: float) -> "Matrix4":
         self.set(x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, 0, 1)
         return self
 
-    def makeShear(self, x: float, y: float, z: float) -> "Matrix4":
+    def make_shear(self, x: float, y: float, z: float) -> "Matrix4":
         self.set(1, y, z, 0, x, 1, z, 0, x, y, 1, 0, 0, 0, 0, 1)
         return self
 
@@ -887,7 +887,7 @@ class Matrix4:
         _tmp_matrix4.elements[9] *= invSZ
         _tmp_matrix4.elements[10] *= invSZ
 
-        quaternion.setFromRotationMatrix(_tmp_matrix4)
+        quaternion.set_from_rotation_matrix(_tmp_matrix4)
 
         scale.x = sx
         scale.y = sy
@@ -895,7 +895,7 @@ class Matrix4:
 
         return self
 
-    def makePerspective(
+    def make_perspective(
         self,
         left: float,
         right: float,
@@ -932,7 +932,7 @@ class Matrix4:
 
         return self
 
-    def makeOrthographic(
+    def make_orthographic(
         self,
         left: float,
         right: float,
@@ -980,12 +980,12 @@ class Matrix4:
     def __eq__(self, other: "Matrix4") -> bool:
         return isinstance(other, Matrix4) and self.equals(other)
 
-    def fromArray(self, array: list, offset: int = 0) -> "Matrix4":
+    def from_array(self, array: list, offset: int = 0) -> "Matrix4":
         for i in range(16):
             self.elements[i] = array[i + offset]
         return self
 
-    def toArray(self, array: list = None, offset: int = 0) -> list:
+    def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
         for i in range(16):
