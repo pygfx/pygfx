@@ -1,23 +1,21 @@
+import ctypes
+
 import wgpu.backend.rs
-import python_shader
-import numpy as np
 
-
-from .. import Mesh, MeshBasicMaterial
 from ._base import Renderer
 
 
-class BaseWgpuRenderer(Renderer):
+class WgpuBaseRenderer(Renderer):
     """ Render using WGPU.
     """
 
 
-class WgpuOffscreenRenderer(BaseWgpuRenderer):
+class WgpuOffscreenRenderer(WgpuBaseRenderer):
     """ Render using WGPU, but offscreen, not using a surface.
     """
 
 
-class WgpuSurfaceRenderer(BaseWgpuRenderer):
+class WgpuSurfaceRenderer(WgpuBaseRenderer):
     """ A renderer that renders to a surface.
     """
 
@@ -45,8 +43,9 @@ class WgpuSurfaceRenderer(BaseWgpuRenderer):
 
         info = wobject.get_renderer_info_wgpu()
         if not info:
-            return None, None
+            return None, None, None
 
+        # -- shaders
         assert len(info["shaders"]) == 2, "compute shaders not yet supported"
         vshader, fshader = info["shaders"]
         # python_shader.dev.validate(vshader)
@@ -54,14 +53,59 @@ class WgpuSurfaceRenderer(BaseWgpuRenderer):
         vs_module = device.createShaderModule(code=vshader)
         fs_module = device.createShaderModule(code=fshader)
 
-        bindings_layout = []
-        bindings = []
+        buffers = {}
+        # todo: is there one namespace (of indices) for all buffers, or is vertex and storage separate?
 
-        bind_group_layout = device.createBindGroupLayout(bindings=bindings)
-        bind_group = device.createBindGroup(layout=bind_group_layout, bindings=[])
+        # -- vertex buffers
+        # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
+        vertex_buffers = []
+        vertex_buffer_descriptors = []
+        for array in info.get("vertex_data", ()):
+            nbytes = array.nbytes
+            usage = wgpu.BufferUsage.VERTEX
+            buffer = device.createBufferMapped(size=nbytes, usage=usage)
+            # Copy data from array to buffer
+            ctypes.memmove(buffer.mapping, array.ctypes.data, nbytes)
+            buffer.unmap()
+            shader_location = len(buffers)
+            buffers[shader_location] = buffer
+            vbo_des = {
+                "arrayStride": 3 * 4,
+                "stepmode": wgpu.InputStepMode.vertex,
+                "attributes": [
+                    {
+                        "format": wgpu.VertexFormat.float3,
+                        "offset": 0,
+                        "shaderLocation": shader_location,
+                    }
+                ],
+            }
+            vertex_buffers.append(buffer)
+            vertex_buffer_descriptors.append(vbo_des)
+
+        # -- storage buffers
+        binding_layouts = []
+        bindings = []
+        # for binding_index, buffer in buffers.items():
+        #     bindings.append(
+        #         {
+        #             "binding": binding_index,
+        #             "resource": {"buffer": buffer, "offset": 0, "size": buffer.size},
+        #         }
+        #     )
+        #     binding_layouts.append(
+        #         {
+        #             "binding": binding_index,
+        #             "visibility": wgpu.ShaderStage.VERTEX,  # <- it depends!
+        #             "type": wgpu.BindingType.readonly_storage_buffer,
+        #         }
+        #     )
+
+        bind_group_layout = device.createBindGroupLayout(bindings=binding_layouts)
         pipeline_layout = device.createPipelineLayout(
             bindGroupLayouts=[bind_group_layout]
         )
+        bind_group = device.createBindGroup(layout=bind_group_layout, bindings=bindings)
 
         pipeline = device.createRenderPipeline(
             layout=pipeline_layout,
@@ -84,25 +128,33 @@ class WgpuSurfaceRenderer(BaseWgpuRenderer):
                         wgpu.BlendOperation.add,
                     ),
                     "colorBlend": (
-                        wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
+                        wgpu.BlendFactor.src_alpha,
+                        wgpu.BlendFactor.one_minus_src_alpha,
                         wgpu.BlendOperation.add,
                     ),
                     "writeMask": wgpu.ColorWrite.ALL,
                 }
             ],
             depthStencilState=None,
-            vertexState={"indexFormat": wgpu.IndexFormat.uint32, "vertexBuffers": []},
+            vertexState={
+                "indexFormat": wgpu.IndexFormat.uint32,
+                "vertexBuffers": vertex_buffer_descriptors,
+            },
             sampleCount=1,
             sampleMask=0xFFFFFFFF,
             alphaToCoverageEnabled=False,
         )
-        return pipeline, bind_group
+        return pipeline, bind_group, vertex_buffers
 
     def render(self, scene, camera):
         # Called by figure/canvas
 
         device = self._device
+
+        # First make sure that all objects in the scene have a pipeline
+        for obj in self.traverse(scene):
+            if not hasattr(obj, "_pipeline_info"):
+                obj._pipeline_info = self.compose_pipeline(obj)
 
         current_texture_view = self._swap_chain.getCurrentTextureView()
         command_encoder = device.createCommandEncoder()
@@ -123,16 +175,16 @@ class WgpuSurfaceRenderer(BaseWgpuRenderer):
         )
 
         for obj in self.traverse(scene):
-            if not hasattr(obj, "_pipeline_info"):
-                obj._pipeline_info = self.compose_pipeline(obj)
-            pipeline, bind_group = obj._pipeline_info
+            pipeline, bind_group, vertex_buffers = obj._pipeline_info
 
             if pipeline is None:
                 continue  # not drawn
 
             render_pass.setPipeline(pipeline)
             render_pass.setBindGroup(0, bind_group, [], 0, 999999)
-            render_pass.draw(12, 1, 0, 0)
+            for slot, vertex_buffer in enumerate(vertex_buffers):
+                render_pass.setVertexBuffer(slot, vertex_buffer, 0)
+            render_pass.draw(12 * 3, 1, 0, 0)
 
         render_pass.endPass()
         command_buffers.append(command_encoder.finish())

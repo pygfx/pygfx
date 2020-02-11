@@ -2,7 +2,7 @@ from ._base import Material
 
 import wgpu  # only for flags/enums
 import python_shader
-from python_shader import f32, vec3, vec4, mat4
+from python_shader import vec3, vec4
 
 
 @python_shader.python2shader
