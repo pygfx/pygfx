@@ -1,3 +1,5 @@
+# flake8: noqa
+
 # Most of this module is derived from three.js, original license at time of writing copied below:
 # ---
 # The MIT License
@@ -33,16 +35,3 @@ from .quaternion import *
 from .spherical import *
 from .vector3 import *
 from .vector4 import *
-
-
-# from math import acos, asin, atan2, ceil, floor, cos, sin
-
-
-# _tmp_vector = Vector3()
-# _tmp_vector2 = Vector3()
-# _tmp_vector3 = Vector3()
-# _tmp_quaternion = Quaternion()
-# _tmp_matrix4 = Matrix4()
-
-# _zero = Vector3(0, 0, 0)
-# _one = Vector3(1, 1, 1)

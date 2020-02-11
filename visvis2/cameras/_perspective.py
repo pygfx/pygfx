@@ -1,6 +1,5 @@
 from math import tan, pi
 
-from ..linalg import Matrix4
 from ._base import Camera
 
 
@@ -14,13 +13,13 @@ class PerspectiveCamera(Camera):
         self.zoom = 1
 
         self.update_projection_matrix()
-    
+
     def update_matrix_world(self, *args, **kwargs):
         super().update_matrix_world(*args, **kwargs)
         self.matrix_world_inverse.get_inverse(self.matrix_world)
 
     def update_projection_matrix(self):
-        top = self.near * tan( pi / 180 * 0.5 * self.fov ) / self.zoom
+        top = self.near * tan(pi / 180 * 0.5 * self.fov) / self.zoom
         height = 2 * top
         bottom = top - height
         width = self.aspect * height

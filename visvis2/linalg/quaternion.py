@@ -78,13 +78,13 @@ class Quaternion:
 
     def set_from_axis_angle(self, axis: "Vector3", angle: float) -> "Quaternion":
         # assumes axis is normalized
-        halfAngle = angle / 2
-        s = sin(halfAngle)
+        half_angle = angle / 2
+        s = sin(half_angle)
 
         self.x = axis.x * s
         self.y = axis.y * s
         self.z = axis.z * s
-        self.w = cos(halfAngle)
+        self.w = cos(half_angle)
 
         return self
 
@@ -132,27 +132,27 @@ class Quaternion:
 
         return self
 
-    def set_from_unit_vectors(self, vFrom: "Vector3", vTo: "Vector3") -> "Quaternion":
-        # assumes direction vectors vFrom and vTo are normalized
-        EPS = 0.000001
-        r = vFrom.dot(vTo) + 1
+    def set_from_unit_vectors(self, v_from: "Vector3", v_to: "Vector3") -> "Quaternion":
+        # assumes direction vectors v_from and v_to are normalized
+        eps = 0.000001
+        r = v_from.dot(v_to) + 1
 
-        if r < EPS:
+        if r < eps:
             r = 0
-            if abs(vFrom.x) > abs(vFrom.z):
-                self.x = -vFrom.y
-                self.y = vFrom.x
+            if abs(v_from.x) > abs(v_from.z):
+                self.x = -v_from.y
+                self.y = v_from.x
                 self.z = 0
                 self.w = r
             else:
                 self.x = 0
-                self.y = -vFrom.z
-                self.z = vFrom.y
+                self.y = -v_from.z
+                self.z = v_from.y
                 self.w = r
         else:
-            self.x = vFrom.y * vTo.z - vFrom.z * vTo.y
-            self.y = vFrom.z * vTo.x - vFrom.x * vTo.z
-            self.z = vFrom.x * vTo.y - vFrom.y * vTo.x
+            self.x = v_from.y * v_to.z - v_from.z * v_to.y
+            self.y = v_from.z * v_to.x - v_from.x * v_to.z
+            self.z = v_from.x * v_to.y - v_from.y * v_to.x
             self.w = r
 
         return self.normalize()
@@ -188,18 +188,18 @@ class Quaternion:
         return self.length_sq() ** 0.5
 
     def normalize(self) -> "Quaternion":
-        l = self.length()
+        length = self.length()
 
-        if l == 0:
+        if length == 0:
             self.x = 0
             self.y = 0
             self.z = 0
             self.w = 1
         else:
-            self.x /= l
-            self.y /= l
-            self.z /= l
-            self.w /= l
+            self.x /= length
+            self.y /= length
+            self.z /= length
+            self.w /= length
 
         return self
 
@@ -254,7 +254,7 @@ class Quaternion:
             return self
 
         sqr_sin_half_theta = 1.0 - cos_half_theta * cos_half_theta
-        if sqr_sin_half_theta <= MACHINE_EPSILON:
+        if sqr_sin_half_theta <= MACHINE_epsILON:
             s = 1 - t
             self.w = s * w + t * self.w
             self.x = s * x + t * self.x

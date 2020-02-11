@@ -236,8 +236,8 @@ class Vector3:
         self.z = clamp(self.z, min, max)
 
     def clamp_length(self, min: float, max: float) -> "Vector3":
-        l = self.length()
-        return self.divide_scalar(l or 1).multiply_scalar(clamp(l, min, max))
+        length = self.length()
+        return self.divide_scalar(length or 1).multiply_scalar(clamp(length, min, max))
 
     def floor(self) -> "Vector3":
         self.x = floor(self.x)

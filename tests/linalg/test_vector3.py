@@ -12,6 +12,7 @@ z = 4
 w = 5
 eps = 0.0001
 
+
 # INSTANCING
 def test_instancing():
     a = Vector3()
@@ -637,7 +638,7 @@ def test_to_array():
 
     array = []
     a.to_array(array, 1)
-    assert array[0] == None, "With array and offset: check [0]"
+    assert array[0] is None, "With array and offset: check [0]"
     assert array[1] == x, "With array and offset: check x"
     assert array[2] == y, "With array and offset: check y"
     assert array[3] == z, "With array and offset: check z"

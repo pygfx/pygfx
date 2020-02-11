@@ -130,10 +130,10 @@ class Euler:
     def set_from_vector3(self, v: "Vector3", order: RotationOrders = None) -> "Euler":
         return self.set(v.x, v.y, v.z, order=order)
 
-    def reorder(self, newOrder: RotationOrders) -> "Euler":
+    def reorder(self, new_order: RotationOrders) -> "Euler":
         # warning: revolution info lost
         _tmp_quaternion.set_from_euler(self)
-        return self.set_from_quaternion(_tmp_quaternion, order=newOrder)
+        return self.set_from_quaternion(_tmp_quaternion, order=new_order)
 
     def equals(self, euler: "Euler") -> bool:
         return (

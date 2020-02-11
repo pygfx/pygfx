@@ -124,28 +124,28 @@ class Matrix4:
         return self
 
     def extract_basis(
-        self, xAxis: "Vector3", yAxis: "Vector3", zAxis: "Vector3"
+        self, x_axis: "Vector3", y_axis: "Vector3", z_axis: "Vector3"
     ) -> "Matrix4":
-        xAxis.set_from_matrix_column(self, 0)
-        yAxis.set_from_matrix_column(self, 1)
-        zAxis.set_from_matrix_column(self, 2)
+        x_axis.set_from_matrix_column(self, 0)
+        y_axis.set_from_matrix_column(self, 1)
+        z_axis.set_from_matrix_column(self, 2)
         return self
 
     def make_basis(
-        self, xAxis: "Vector3", yAxis: "Vector3", zAxis: "Vector3"
+        self, x_axis: "Vector3", y_axis: "Vector3", z_axis: "Vector3"
     ) -> "Matrix4":
         self.set(
-            xAxis.x,
-            yAxis.x,
-            zAxis.x,
+            x_axis.x,
+            y_axis.x,
+            z_axis.x,
             0,
-            xAxis.y,
-            yAxis.y,
-            zAxis.y,
+            x_axis.y,
+            y_axis.y,
+            z_axis.y,
             0,
-            xAxis.z,
-            yAxis.z,
-            zAxis.z,
+            x_axis.z,
+            y_axis.z,
+            z_axis.z,
             0,
             0,
             0,
@@ -160,21 +160,21 @@ class Matrix4:
         te = self.elements
         me = m.elements
 
-        scaleX = 1 / _tmp_vector.set_from_matrix_column(m, 0).length()
-        scaleY = 1 / _tmp_vector.set_from_matrix_column(m, 1).length()
-        scaleZ = 1 / _tmp_vector.set_from_matrix_column(m, 2).length()
+        scale_x = 1 / _tmp_vector.set_from_matrix_column(m, 0).length()
+        scale_y = 1 / _tmp_vector.set_from_matrix_column(m, 1).length()
+        scale_z = 1 / _tmp_vector.set_from_matrix_column(m, 2).length()
 
-        te[0] = me[0] * scaleX
-        te[1] = me[1] * scaleX
-        te[2] = me[2] * scaleX
+        te[0] = me[0] * scale_x
+        te[1] = me[1] * scale_x
+        te[2] = me[2] * scale_x
         te[3] = 0
-        te[4] = me[4] * scaleY
-        te[5] = me[5] * scaleY
-        te[6] = me[6] * scaleY
+        te[4] = me[4] * scale_y
+        te[5] = me[5] * scale_y
+        te[6] = me[6] * scale_y
         te[7] = 0
-        te[8] = me[8] * scaleZ
-        te[9] = me[9] * scaleZ
-        te[10] = me[10] * scaleZ
+        te[8] = me[8] * scale_z
+        te[9] = me[9] * scale_z
+        te[10] = me[10] * scale_z
         te[11] = 0
         te[12] = 0
         te[13] = 0
@@ -604,9 +604,9 @@ class Matrix4:
         if det == 0:
             raise RuntimeError("matrix determinant is zero, cannot invert")
 
-        detInv = 1 / det
+        det_inv = 1 / det
 
-        te[0] = t11 * detInv
+        te[0] = t11 * det_inv
         te[1] = (
             n24 * n33 * n41
             - n23 * n34 * n41
@@ -614,7 +614,7 @@ class Matrix4:
             + n21 * n34 * n43
             + n23 * n31 * n44
             - n21 * n33 * n44
-        ) * detInv
+        ) * det_inv
         te[2] = (
             n22 * n34 * n41
             - n24 * n32 * n41
@@ -622,7 +622,7 @@ class Matrix4:
             - n21 * n34 * n42
             - n22 * n31 * n44
             + n21 * n32 * n44
-        ) * detInv
+        ) * det_inv
         te[3] = (
             n23 * n32 * n41
             - n22 * n33 * n41
@@ -630,9 +630,9 @@ class Matrix4:
             + n21 * n33 * n42
             + n22 * n31 * n43
             - n21 * n32 * n43
-        ) * detInv
+        ) * det_inv
 
-        te[4] = t12 * detInv
+        te[4] = t12 * det_inv
         te[5] = (
             n13 * n34 * n41
             - n14 * n33 * n41
@@ -640,7 +640,7 @@ class Matrix4:
             - n11 * n34 * n43
             - n13 * n31 * n44
             + n11 * n33 * n44
-        ) * detInv
+        ) * det_inv
         te[6] = (
             n14 * n32 * n41
             - n12 * n34 * n41
@@ -648,7 +648,7 @@ class Matrix4:
             + n11 * n34 * n42
             + n12 * n31 * n44
             - n11 * n32 * n44
-        ) * detInv
+        ) * det_inv
         te[7] = (
             n12 * n33 * n41
             - n13 * n32 * n41
@@ -656,9 +656,9 @@ class Matrix4:
             - n11 * n33 * n42
             - n12 * n31 * n43
             + n11 * n32 * n43
-        ) * detInv
+        ) * det_inv
 
-        te[8] = t13 * detInv
+        te[8] = t13 * det_inv
         te[9] = (
             n14 * n23 * n41
             - n13 * n24 * n41
@@ -666,7 +666,7 @@ class Matrix4:
             + n11 * n24 * n43
             + n13 * n21 * n44
             - n11 * n23 * n44
-        ) * detInv
+        ) * det_inv
         te[10] = (
             n12 * n24 * n41
             - n14 * n22 * n41
@@ -674,7 +674,7 @@ class Matrix4:
             - n11 * n24 * n42
             - n12 * n21 * n44
             + n11 * n22 * n44
-        ) * detInv
+        ) * det_inv
         te[11] = (
             n13 * n22 * n41
             - n12 * n23 * n41
@@ -682,9 +682,9 @@ class Matrix4:
             + n11 * n23 * n42
             + n12 * n21 * n43
             - n11 * n22 * n43
-        ) * detInv
+        ) * det_inv
 
-        te[12] = t14 * detInv
+        te[12] = t14 * det_inv
         te[13] = (
             n13 * n24 * n31
             - n14 * n23 * n31
@@ -692,7 +692,7 @@ class Matrix4:
             - n11 * n24 * n33
             - n13 * n21 * n34
             + n11 * n23 * n34
-        ) * detInv
+        ) * det_inv
         te[14] = (
             n14 * n22 * n31
             - n12 * n24 * n31
@@ -700,7 +700,7 @@ class Matrix4:
             + n11 * n24 * n32
             + n12 * n21 * n34
             - n11 * n22 * n34
-        ) * detInv
+        ) * det_inv
         te[15] = (
             n12 * n23 * n31
             - n13 * n22 * n31
@@ -708,7 +708,7 @@ class Matrix4:
             - n11 * n23 * n32
             - n12 * n21 * n33
             + n11 * n22 * n33
-        ) * detInv
+        ) * det_inv
 
         return self
 
@@ -736,11 +736,11 @@ class Matrix4:
     def get_max_scale_on_axis(self) -> float:
         te = self.elements
 
-        scaleXSq = te[0] * te[0] + te[1] * te[1] + te[2] * te[2]
-        scaleYSq = te[4] * te[4] + te[5] * te[5] + te[6] * te[6]
-        scaleZSq = te[8] * te[8] + te[9] * te[9] + te[10] * te[10]
+        scale_x_sq = te[0] * te[0] + te[1] * te[1] + te[2] * te[2]
+        scale_y_sq = te[4] * te[4] + te[5] * te[5] + te[6] * te[6]
+        scale_z_sq = te[8] * te[8] + te[9] * te[9] + te[10] * te[10]
 
-        return max(scaleXSq, scaleYSq, scaleZSq) ** 0.5
+        return max(scale_x_sq, scale_y_sq, scale_z_sq) ** 0.5
 
     def make_translation(self, x: float, y: float, z: float) -> "Matrix4":
         self.set(1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1)
@@ -871,21 +871,21 @@ class Matrix4:
         # scale the rotation part
         _tmp_matrix4.copy(self)
 
-        invSX = 1 / sx
-        invSY = 1 / sy
-        invSZ = 1 / sz
+        inv_sx = 1 / sx
+        inv_sy = 1 / sy
+        inv_sz = 1 / sz
 
-        _tmp_matrix4.elements[0] *= invSX
-        _tmp_matrix4.elements[1] *= invSX
-        _tmp_matrix4.elements[2] *= invSX
+        _tmp_matrix4.elements[0] *= inv_sx
+        _tmp_matrix4.elements[1] *= inv_sx
+        _tmp_matrix4.elements[2] *= inv_sx
 
-        _tmp_matrix4.elements[4] *= invSY
-        _tmp_matrix4.elements[5] *= invSY
-        _tmp_matrix4.elements[6] *= invSY
+        _tmp_matrix4.elements[4] *= inv_sy
+        _tmp_matrix4.elements[5] *= inv_sy
+        _tmp_matrix4.elements[6] *= inv_sy
 
-        _tmp_matrix4.elements[8] *= invSZ
-        _tmp_matrix4.elements[9] *= invSZ
-        _tmp_matrix4.elements[10] *= invSZ
+        _tmp_matrix4.elements[8] *= inv_sz
+        _tmp_matrix4.elements[9] *= inv_sz
+        _tmp_matrix4.elements[10] *= inv_sz
 
         quaternion.set_from_rotation_matrix(_tmp_matrix4)
 
