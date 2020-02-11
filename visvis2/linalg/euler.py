@@ -1,6 +1,8 @@
 from enum import Enum
 from math import asin, atan2
 
+from .utils import clamp
+
 
 class Euler:
     class RotationOrders(Enum):

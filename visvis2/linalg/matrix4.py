@@ -1,5 +1,8 @@
 from math import cos, sin
 
+from .vector3 import Vector3
+from .euler import Euler
+
 
 class Matrix4:
     def __init__(
@@ -351,7 +354,7 @@ class Matrix4:
 
         return self
 
-    def multiply(self, m: "Matrix4", n: "Matrix4") -> "Matrix4":
+    def multiply(self, m: "Matrix4") -> "Matrix4":
         return self.multiply_matrices(self, m)
 
     def premultiply(self, m: "Matrix4") -> "Matrix4":
@@ -534,9 +537,9 @@ class Matrix4:
 
     def set_position(self, v: "Vector3") -> "Matrix4":
         te = self.elements
-        te[12] = x.x
-        te[13] = x.y
-        te[14] = x.z
+        te[12] = v.x
+        te[13] = v.y
+        te[14] = v.z
         return self
 
     def set_position_xyz(self, x: float, y: float, z: float) -> "Matrix4":
@@ -546,7 +549,7 @@ class Matrix4:
         te[14] = z
         return self
 
-    def get_inverse(self, m: "Matrix4") -> "Matrix4":
+    def get_inverse(self, m: "Matrix4", throw_on_degenerate: bool = True) -> "Matrix4":
         te = self.elements
         me = m.elements
 
@@ -602,7 +605,10 @@ class Matrix4:
 
         det = n11 * t11 + n21 * t12 + n31 * t13 + n41 * t14
         if det == 0:
-            raise RuntimeError("matrix determinant is zero, cannot invert")
+            if throw_on_degenerate:
+                raise ValueError("matrix determinant is zero, cannot invert")
+            else:
+                return self.identity()
 
         det_inv = 1 / det
 
@@ -988,6 +994,15 @@ class Matrix4:
     def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
+        padding = offset + 16 - len(array)
+        if padding > 0:
+            array.extend((None for _ in range(padding)))
         for i in range(16):
             array[i + offset] = self.elements[i]
         return array
+
+
+_tmp_vector = Vector3()
+_tmp_vector2 = Vector3()
+_tmp_vector3 = Vector3()
+_tmp_matrix4 = Matrix4()
