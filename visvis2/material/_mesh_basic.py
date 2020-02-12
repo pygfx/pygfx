@@ -30,4 +30,4 @@ class MeshBasicMaterial(Material):
             "vertex": vertex_shader,
             "fragment": fragment_shader,
         }
-        self.primitiveTopology = wgpu.PrimitiveTopology.triangle_list
+        self.primitive_topology = wgpu.PrimitiveTopology.triangle_list
