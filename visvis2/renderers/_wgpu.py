@@ -150,6 +150,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             sampleMask=0xFFFFFFFF,
             alphaToCoverageEnabled=False,
         )
+        wobject.material.dirty = False
         return pipeline, bind_group, vertex_buffers
 
     def render(self, scene, camera):
