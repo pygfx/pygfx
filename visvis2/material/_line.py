@@ -21,13 +21,12 @@ def fragment_shader(out_color=(python_shader.RES_OUTPUT, 0, vec4),):
 
 class LineStripMaterial(Material):
     def __init__(self):
-        self.color = (255.0, 0.0, 0.0)
-
-    def get_renderer_info_wgpu(self):
-        return {
-            "shaders": [vertex_shader, fragment_shader],
-            "primitiveTopology": wgpu.PrimitiveTopology.line_strip,
+        super().__init__()
+        self.uniforms = {
+            "color": (255.0, 0.0, 0.0),
         }
-
-    def get_renderer_info_svg(self):
-        raise NotImplementedError()
+        self.shaders = {
+            "vertex": vertex_shader,
+            "fragment": fragment_shader,
+        }
+        self.primitiveTopology = wgpu.PrimitiveTopology.line_strip
