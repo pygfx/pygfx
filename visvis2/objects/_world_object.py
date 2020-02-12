@@ -17,13 +17,6 @@ class WorldObject:
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
 
-    # todo: or should the renderer look into .geometry and .material ?
-    def get_renderer_info_wgpu(self):
-        return {}
-
-    def get_renderer_info_svg(self):
-        return {}
-
     @property
     def children(self):
         return tuple(self._children)

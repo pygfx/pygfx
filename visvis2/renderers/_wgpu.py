@@ -38,16 +38,11 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             yield from self.traverse(child)
 
     def compose_pipeline(self, wobject):
-
         device = self._device
 
-        info = wobject.get_renderer_info_wgpu()
-        if not info:
-            return None, None, None
-
         # -- shaders
-        assert len(info["shaders"]) == 2, "compute shaders not yet supported"
-        vshader, fshader = info["shaders"]
+        assert len(wobject.material.shaders) == 2, "compute shaders not yet supported"
+        vshader, fshader = wobject.material.shaders["vertex"], wobject.material.shaders["fragment"]
         # python_shader.dev.validate(vshader)
         # python_shader.dev.validate(fshader)
         vs_module = device.createShaderModule(code=vshader)
@@ -60,7 +55,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
         vertex_buffers = []
         vertex_buffer_descriptors = []
-        for array in info.get("vertex_data", ()):
+        for array in wobject.geometry.vertex_data:
             nbytes = array.nbytes
             usage = wgpu.BufferUsage.VERTEX
             buffer = device.createBufferMapped(size=nbytes, usage=usage)
@@ -111,7 +106,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             layout=pipeline_layout,
             vertexStage={"module": vs_module, "entryPoint": "main"},
             fragmentStage={"module": fs_module, "entryPoint": "main"},
-            primitiveTopology=info["primitiveTopology"],
+            primitiveTopology=wobject.material.primitiveTopology,
             rasterizationState={
                 "frontFace": wgpu.FrontFace.ccw,
                 "cullMode": wgpu.CullMode.none,
@@ -153,7 +148,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         # First make sure that all objects in the scene have a pipeline
         for obj in self.traverse(scene):
-            if not hasattr(obj, "_pipeline_info"):
+            if obj.material.dirty or not hasattr(obj, "_pipeline_info"):
                 obj._pipeline_info = self.compose_pipeline(obj)
 
         current_texture_view = self._swap_chain.getCurrentTextureView()

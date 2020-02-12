@@ -27,7 +27,7 @@ class Main(QtWidgets.QWidget):
         layout.addWidget(self._canvas)
 
     def _on_button_click(self):
-        t = vv.Triangle()
+        t = vv.Mesh(vv.Geometry(), vv.TriangleMaterial())
         self._scene.add(t)
         self._canvas.update()
 
