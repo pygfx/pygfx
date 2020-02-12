@@ -3,6 +3,7 @@ import ctypes
 import wgpu.backend.rs
 
 from ._base import Renderer
+from ..objects import Mesh
 
 
 class WgpuBaseRenderer(Renderer):
@@ -39,6 +40,13 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
     def compose_pipeline(self, wobject):
         device = self._device
+
+        # object type determines pipeline composition
+        if not isinstance(wobject, Mesh):
+            return None, None, None
+
+        if not wobject.material.dirty and hasattr(wobject, "_pipeline_info"):
+            return wobject._pipeline_info
 
         # -- shaders
         assert len(wobject.material.shaders) == 2, "compute shaders not yet supported"
@@ -151,8 +159,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         # First make sure that all objects in the scene have a pipeline
         for obj in self.traverse(scene):
-            if obj.material.dirty or not hasattr(obj, "_pipeline_info"):
-                obj._pipeline_info = self.compose_pipeline(obj)
+            obj._pipeline_info = self.compose_pipeline(obj)
 
         current_texture_view = self._swap_chain.getCurrentTextureView()
         command_encoder = device.createCommandEncoder()
