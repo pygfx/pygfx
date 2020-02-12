@@ -3,6 +3,7 @@ from math import asin, atan2
 
 from .utils import clamp
 from .matrix4 import Matrix4
+from .quaternion import Quaternion
 
 
 class Euler:
@@ -160,6 +161,11 @@ class Euler:
     def to_array(self, array: list = None, offset: int = 0) -> list:
         if array is None:
             array = []
+
+        padding = offset + 4 - len(array)
+        if padding > 0:
+            array.extend((None for _ in range(padding)))
+
         array[offset] = self.x
         array[offset + 1] = self.y
         array[offset + 2] = self.z
@@ -167,6 +173,8 @@ class Euler:
         return array
 
     def to_vector3(self, output: "Vector3" = None) -> "Vector3":
+        from .vector3 import Vector3
+
         if output is not None:
             return output.set(self.x, self.y, self.z)
         else:
@@ -174,3 +182,4 @@ class Euler:
 
 
 _tmp_matrix4 = Matrix4()
+_tmp_quaternion = Quaternion()
