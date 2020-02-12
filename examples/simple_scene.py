@@ -27,6 +27,6 @@ def animate():
 
 
 if __name__ == "__main__":
-    canvas.drawFrame = animate
+    canvas.draw_frame = animate
     app.exec_()
     canvas.closeEvent = lambda *args: app.quit()

@@ -25,7 +25,7 @@ camera.position.z = 400
 
 def animate():
     # would prefer to do this in a resize event only
-    width, height, ratio = canvas.getSizeAndPixelRatio()
+    width, height, ratio = canvas.get_size_and_pixel_ratio()
     camera.aspect = width / height
     camera.update_projection_matrix()
 
@@ -34,5 +34,5 @@ def animate():
 
 
 if __name__ == "__main__":
-    canvas.drawFrame = animate
+    canvas.draw_frame = animate
     app.exec_()

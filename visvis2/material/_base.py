@@ -3,4 +3,4 @@ class Material:
         self.dirty = True
         self.shaders = {}
         self.uniforms = {}
-        self.primitiveTopology = None
+        self.primitive_topology = None

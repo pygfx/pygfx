@@ -29,4 +29,4 @@ class LineStripMaterial(Material):
             "vertex": vertex_shader,
             "fragment": fragment_shader,
         }
-        self.primitiveTopology = wgpu.PrimitiveTopology.line_strip
+        self.primitive_topology = wgpu.PrimitiveTopology.line_strip

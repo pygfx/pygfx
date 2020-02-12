@@ -19,7 +19,7 @@ class Main(QtWidgets.QWidget):
         self._scene = vv.Scene()
 
         # Hook up the animate callback
-        self._canvas.drawFrame = self.animate
+        self._canvas.draw_frame = self.animate
 
         layout = QtWidgets.QHBoxLayout()
         self.setLayout(layout)
