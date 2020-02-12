@@ -1,4 +1,4 @@
-from math import acos, sin, cos
+from math import acos, sin, cos, floor, ceil
 
 from .utils import clamp
 from .quaternion import Quaternion

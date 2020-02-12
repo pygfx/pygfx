@@ -330,14 +330,20 @@ def test_apply_quaternion():
     assert a.z == 216, "Normal rotation: check z"
 
 
-@pytest.mark.xfail(reason="todo")
-def test_project():
-    assert False
+def test_projectunproject():
+    a = Vector3(x, y, z)
+    camera = PerspectiveCamera(75, 16 / 9, 0.1, 300.0)
+    projected = Vector3(-0.36653213611158914, -0.9774190296309043, 1.0506835611870624)
 
+    a.project(camera)
+    assert abs(a.x - projected.x) <= eps, "project: check x"
+    assert abs(a.y - projected.y) <= eps, "project: check y"
+    assert abs(a.z - projected.z) <= eps, "project: check z"
 
-@pytest.mark.xfail(reason="todo")
-def test_unproject():
-    assert False
+    a.unproject(camera)
+    assert abs(a.x - x) <= eps, "unproject: check x"
+    assert abs(a.y - y) <= eps, "unproject: check y"
+    assert abs(a.z - z) <= eps, "unproject: check z"
 
 
 def test_transform_direction():
@@ -351,31 +357,6 @@ def test_transform_direction():
     assert abs(a.z - transformed.z) <= eps, "Check z"
 
 
-@pytest.mark.xfail(reason="todo")
-def test_divide():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_divide_scalar():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_min():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_max():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_clamp():
-    assert False
-
-
 def test_clamp_scalar():
     a = Vector3(-0.01, 0.5, 1.5)
     clamped = Vector3(0.1, 0.5, 1.0)
@@ -386,29 +367,31 @@ def test_clamp_scalar():
     assert abs(a.z - clamped.z) <= 0.001, "Check z"
 
 
-@pytest.mark.xfail(reason="todo")
 def test_clamp_length():
-    assert False
+    a = Vector3(-0.01, 0.5, 1.5)
+    clamped = Vector3(-0.006324428833024959, 0.31622144165124794, 0.9486643249537439)
+
+    assert a.clamp_length(0.5, 1.0) == clamped
 
 
-@pytest.mark.xfail(reason="todo")
 def test_floor():
-    assert False
+    a = Vector3(0.6, 0.4, 0.5)
+    assert a.floor() == Vector3(0, 0, 0)
 
 
-@pytest.mark.xfail(reason="todo")
 def test_ceil():
-    assert False
+    a = Vector3(0.6, 0.4, 0.5)
+    assert a.ceil() == Vector3(1, 1, 1)
 
 
-@pytest.mark.xfail(reason="todo")
 def test_round():
-    assert False
+    a = Vector3(0.6, 0.4, 0.5)
+    assert a.round() == Vector3(1, 0, 0)
 
 
-@pytest.mark.xfail(reason="todo")
 def test_round_to_zero():
-    assert False
+    a = Vector3(0.6, -0.4, 1.6)
+    assert a.round_to_zero() == Vector3(0, 0, 1)
 
 
 def test_negate():
@@ -430,16 +413,6 @@ def test_dot():
 
     result = a.dot(c)
     assert result == 0
-
-
-@pytest.mark.xfail(reason="todo")
-def test_length_sq():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_length():
-    assert False
 
 
 def test_manhattan_length():
@@ -488,16 +461,6 @@ def test_set_length():
     assert a.length() == 0
     with pytest.raises(TypeError):
         a.set_length()
-
-
-@pytest.mark.xfail(reason="todo")
-def test_lerp():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_lerp_vectors():
-    assert False
 
 
 def test_cross():
@@ -589,21 +552,6 @@ def test_angle_to():
     assert z.angle_to(x) == pi / 2
 
     assert abs(x.angle_to(Vector3(1, 1, 0)) - (pi / 4)) < 0.0000001
-
-
-@pytest.mark.xfail(reason="todo")
-def test_distance_to():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_distance_to_squared():
-    assert False
-
-
-@pytest.mark.xfail(reason="todo")
-def test_manhattan_distance_to():
-    assert False
 
 
 def test_set_from_spherical():
@@ -801,7 +749,7 @@ def test_minmaxclamp():
     assert c.z == -z
 
 
-def test_distance_todistance_to_squared():
+def test_distance_to():
     a = Vector3(x, 0, 0)
     b = Vector3(0, -y, 0)
     c = Vector3(0, 0, z)
@@ -809,12 +757,15 @@ def test_distance_todistance_to_squared():
 
     assert a.distance_to(d) == x
     assert a.distance_to_squared(d) == x * x
+    assert a.manhattan_distance_to(d) == x
 
     assert b.distance_to(d) == y
     assert b.distance_to_squared(d) == y * y
+    assert b.manhattan_distance_to(d) == y
 
     assert c.distance_to(d) == z
     assert c.distance_to_squared(d) == z * z
+    assert c.manhattan_distance_to(d) == z
 
 
 def test_set_scalaradd_scalarsub_scalar():
@@ -878,22 +829,6 @@ def test_multiplydivide2():
     assert b.z == -z
 
 
-def test_projectunproject():
-    a = Vector3(x, y, z)
-    camera = PerspectiveCamera(75, 16 / 9, 0.1, 300.0)
-    projected = Vector3(-0.36653213611158914, -0.9774190296309043, 1.0506835611870624)
-
-    a.project(camera)
-    assert abs(a.x - projected.x) <= eps, "project: check x"
-    assert abs(a.y - projected.y) <= eps, "project: check y"
-    assert abs(a.z - projected.z) <= eps, "project: check z"
-
-    a.unproject(camera)
-    assert abs(a.x - x) <= eps, "unproject: check x"
-    assert abs(a.y - y) <= eps, "unproject: check y"
-    assert abs(a.z - z) <= eps, "unproject: check z"
-
-
 def test_lengthlength_sq():
     a = Vector3(x, 0, 0)
     b = Vector3(0, -y, 0)
@@ -928,3 +863,12 @@ def test_lerpclone():
     assert a.clone().lerp(b, 0.5).z == z * 0.5
 
     assert a.clone().lerp(b, 1).equals(b)
+
+
+def test_lerp_vectors():
+    a = Vector3(x, 0, z)
+    b = Vector3(0, -y, 0)
+
+    assert Vector3().lerp_vectors(a, b, 0.0) == a
+    assert Vector3().lerp_vectors(a, b, 0.5) == Vector3(x * 0.5, -y * 0.5, z * 0.5)
+    assert Vector3().lerp_vectors(a, b, 1.0) == b
