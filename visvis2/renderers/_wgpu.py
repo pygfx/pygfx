@@ -42,7 +42,10 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         # -- shaders
         assert len(wobject.material.shaders) == 2, "compute shaders not yet supported"
-        vshader, fshader = wobject.material.shaders["vertex"], wobject.material.shaders["fragment"]
+        vshader, fshader = (
+            wobject.material.shaders["vertex"],
+            wobject.material.shaders["fragment"],
+        )
         # python_shader.dev.validate(vshader)
         # python_shader.dev.validate(fshader)
         vs_module = device.createShaderModule(code=vshader)
