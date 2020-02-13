@@ -11,7 +11,7 @@ class WorldObject:
 
         self.position = Vector3()
         self.rotation = Quaternion()
-        self.scale = Vector3()
+        self.scale = Vector3(1, 1, 1)
 
         self.matrix = Matrix4()
         self.matrix_world = Matrix4()
@@ -22,11 +22,20 @@ class WorldObject:
         return tuple(self._children)
 
     def add(self, obj):
+        # prevent loops in the graph
+        parent = self
+        while parent is not None:
+            if obj is parent:
+                raise ValueError("creating circular dependency")
+            parent = parent.parent
+        # orphan if needed
         if obj.parent is not None:
             obj.parent.remove(obj)
+        # attach to scene graph
         obj.parent = self
-        obj.matrix_world_dirty = True
         self._children.append(obj)
+        # flag world matrix as dirty
+        obj.matrix_world_dirty = True
         return self
 
     def remove(self, obj):
