@@ -21,14 +21,7 @@ class WorldObject:
     def children(self):
         return tuple(self._children)
 
-    def add(self, obj, throw_loop=True):
-        if throw_loop:
-            # prevent loops in the graph
-            parent = self
-            while parent is not None:
-                if obj is parent:
-                    raise ValueError("creating circular dependency")
-                parent = parent.parent
+    def add(self, obj):
         # orphan if needed
         if obj.parent is not None:
             obj.parent.remove(obj)
