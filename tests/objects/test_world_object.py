@@ -1,8 +1,6 @@
 from math import pi
 from unittest.mock import Mock, call
 
-import pytest
-
 from visvis2 import WorldObject
 from visvis2.linalg import Euler, Vector3, Quaternion
 
@@ -54,28 +52,6 @@ def test_remove():
     # layer1_child1 not removed
     assert layer1_child1.parent is root
     assert layer1_child1 in root.children
-
-
-def test_no_loops_1():
-    parent = WorldObject()
-    child = WorldObject()
-    parent.add(child)
-    with pytest.raises(ValueError):
-        child.add(parent)
-
-
-def test_no_loops_2():
-    parent = WorldObject()
-    child = WorldObject()
-    child.add(parent)
-    with pytest.raises(ValueError):
-        parent.add(child)
-
-
-def test_no_loops_3():
-    parent = WorldObject()
-    with pytest.raises(ValueError):
-        parent.add(parent)
 
 
 def test_update_matrix():
