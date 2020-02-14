@@ -17,7 +17,7 @@ for i in range(20):
     scene.add(vv.Mesh(vv.Geometry(), vv.TriangleMaterial()))
 
 
-camera = vv.PerspectiveCamera(45, 16/9, 0.1, 1000)
+camera = vv.PerspectiveCamera(45, 16 / 9, 0.1, 1000)
 
 
 def animate():

@@ -3,7 +3,7 @@ import ctypes
 import wgpu.backend.rs
 
 from ._base import Renderer
-from ..objects import Mesh, WorldObject
+from ..objects import WorldObject
 from ..cameras import Camera
 from ..linalg import Matrix4, Vector3
 
@@ -38,18 +38,26 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
     def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
         # start by gathering everything that is visible and has a material
         q = []
+
         def visit(wobject):
             nonlocal q
             if wobject.visible and hasattr(wobject, "material"):
-                q.append(wobject)       
+                q.append(wobject)
+
         scene.traverse(visit)
-        
+
         # next, sort them from back-to-front
         def sort_func(wobject: WorldObject):
-            z = Vector3().set_from_matrix_position(wobject.matrix_world).apply_matrix4(proj_screen_matrix).z
+            z = (
+                Vector3()
+                .set_from_matrix_position(wobject.matrix_world)
+                .apply_matrix4(proj_screen_matrix)
+                .z
+            )
             return wobject.render_order, z
+
         q = tuple(sorted(q, key=sort_func))
-        
+
         # finally ensure they have pipeline info
         for wobject in q:
             wobject._pipeline_info = self.compose_pipeline(wobject)
@@ -178,7 +186,9 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         # ensure camera projection matrix is up to date
         camera.update_projection_matrix()
         # compute the screen projection matrix
-        proj_screen_matrix = Matrix4().multiply_matrices(camera.projection_matrix, camera.matrix_world_inverse)
+        proj_screen_matrix = Matrix4().multiply_matrices(
+            camera.projection_matrix, camera.matrix_world_inverse
+        )
         # get the sorted list of objects to render (guaranteed to be visible and having a material)
         q = self.get_render_list(scene, proj_screen_matrix)
 

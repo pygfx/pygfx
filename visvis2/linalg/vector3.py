@@ -151,9 +151,9 @@ class Vector3:
 
         denom = e[3] * x + e[7] * y + e[11] * z + e[15]
         if denom == 0:
-            w = float('Inf')
+            w = float("Inf")
         elif denom == -0:
-            w = float('-Inf')
+            w = float("-Inf")
         else:
             w = 1 / denom
         self.x = (e[0] * x + e[4] * y + e[8] * z + e[12]) * w
