@@ -96,14 +96,14 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             ctypes.memmove(index_buffer.mapping, array.ctypes.data, nbytes)
             index_buffer.unmap()
             # Set format
-            M = {
+            index_format_map = {
                 "int16": wgpu.IndexFormat.uint16,
                 "uint16": wgpu.IndexFormat.uint16,
                 "int32": wgpu.IndexFormat.uint32,
                 "uint32": wgpu.IndexFormat.uint32,
             }
             try:
-                index_format = M[str(array.dtype)]
+                index_format = index_format_map[str(array.dtype)]
             except KeyError:
                 raise TypeError(
                     "Need dtype (u)int16 or (u)int32 for index data, not '{array.dtype}'."
@@ -121,7 +121,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             ctypes.memmove(buffer.mapping, array.ctypes.data, nbytes)
             buffer.unmap()
             shader_location = len(buffers)
-            buffers[shader_location] = buffer
+            # buffers[shader_location] = buffer
             vbo_des = {
                 "array_stride": 3 * 4,
                 "stepmode": wgpu.InputStepMode.vertex,
@@ -136,23 +136,43 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             vertex_buffers.append(buffer)
             vertex_buffer_descriptors.append(vbo_des)
 
+        # -- uniform buffer
+        if wobject.material.uniforms is None:
+            uniform_buffer = None
+        else:
+            nbytes = ctypes.sizeof(wobject.material.uniforms)
+            usage = wgpu.BufferUsage.UNIFORM
+            uniform_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
+            # Copy data from array to buffer
+            ctypes.memmove(
+                ctypes.addressof(uniform_buffer.mapping),
+                ctypes.addressof(wobject.material.uniforms),
+                nbytes,
+            )
+            # Replace material's uniform object. DO NOT UNMAP!
+            the_ctype = wobject.material.uniforms.__class__
+            wobject.material.uniforms = the_ctype.from_buffer(uniform_buffer.mapping)
+            buffers[0] = uniform_buffer
+
         # -- storage buffers
         binding_layouts = []
         bindings = []
-        # for binding_index, buffer in buffers.items():
-        #     bindings.append(
-        #         {
-        #             "binding": binding_index,
-        #             "resource": {"buffer": buffer, "offset": 0, "size": buffer.size},
-        #         }
-        #     )
-        #     binding_layouts.append(
-        #         {
-        #             "binding": binding_index,
-        #             "visibility": wgpu.ShaderStage.VERTEX,  # <- it depends!
-        #             "type": wgpu.BindingType.readonly_storage_buffer,
-        #         }
-        #     )
+        for binding_index, buffer in buffers.items():
+            bindings.append(
+                {
+                    "binding": binding_index,
+                    "resource": {"buffer": buffer, "offset": 0, "size": buffer.size},
+                }
+            )
+            binding_layouts.append(
+                {
+                    "binding": binding_index,
+                    "visibility": wgpu.ShaderStage.VERTEX
+                    | wgpu.ShaderStage.FRAGMENT
+                    | wgpu.ShaderStage.COMPUTE,
+                    "type": wgpu.BindingType.uniform_buffer,  # <- it depends!
+                }
+            )
 
         bind_group_layout = device.create_bind_group_layout(bindings=binding_layouts)
         pipeline_layout = device.create_pipeline_layout(

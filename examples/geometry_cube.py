@@ -1,5 +1,3 @@
-# NOTE: CURRENTLY BROKEN - WIP
-
 import visvis2 as vv
 
 from PyQt5 import QtWidgets

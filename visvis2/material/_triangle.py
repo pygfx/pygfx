@@ -1,7 +1,11 @@
 from ._base import Material
 
 import wgpu  # only for flags/enums
-from python_shader import python2shader, RES_INPUT, RES_OUTPUT
+from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
+from python_shader import Struct, vec3
+
+
+uniform_type = Struct(color=vec3)
 
 
 @python2shader
@@ -21,9 +25,10 @@ def vertex_shader(
 def fragment_shader(
     in_color: (RES_INPUT, 0, "vec3"),
     out_color: (RES_OUTPUT, 0, "vec4"),
-    # u_color: (RES_UNIFORM, 0, "vec3"),
+    uniforms: (RES_UNIFORM, 0, uniform_type),
 ):
-    out_color = vec4(in_color, 0.1)  # noqa
+    color = uniforms.color
+    out_color = vec4(color, 0.1)  # noqa
 
 
 class TriangleMaterial(Material):
@@ -33,4 +38,15 @@ class TriangleMaterial(Material):
             "vertex": vertex_shader,
             "fragment": fragment_shader,
         }
+
         self.primitive_topology = wgpu.PrimitiveTopology.triangle_list
+
+        # Instantiate uniforms. This produces a ctypes struct object.
+        # The renderer will use it to create a mapped buffer, create a
+        # new ctypes object with the same type, mapped onto that buffer,
+        # and copy the original data over. So we can just assign fields
+        # of our uniforms object and it Just Works!
+        self.uniforms = uniform_type(color=(1, 0, 0))
+
+    def set_color(self, color):
+        self.uniforms.color = color  # ctypes handles the setting
