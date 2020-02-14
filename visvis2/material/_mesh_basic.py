@@ -23,9 +23,7 @@ def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
 class MeshBasicMaterial(Material):
     def __init__(self):
         super().__init__()
-        self.uniforms = {
-            "color": (255.0, 0.0, 0.0),
-        }
+        self.uniforms = None
         self.shaders = {
             "vertex": vertex_shader,
             "fragment": fragment_shader,
