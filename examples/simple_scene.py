@@ -10,11 +10,11 @@ renderer = vv.WgpuSurfaceRenderer(canvas)
 
 scene = vv.Scene()
 
-t1 = vv.Mesh(vv.Geometry(), vv.TriangleMaterial())
+t1 = vv.Mesh(vv.Geometry(range(3)), vv.TriangleMaterial())
 scene.add(t1)
 
-for i in range(20):
-    scene.add(vv.Mesh(vv.Geometry(), vv.TriangleMaterial()))
+for i in range(2):
+    scene.add(vv.Mesh(vv.Geometry(range(3)), vv.TriangleMaterial()))
 
 
 camera = vv.PerspectiveCamera(45, 16 / 9, 0.1, 1000)

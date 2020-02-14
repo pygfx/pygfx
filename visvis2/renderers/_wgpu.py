@@ -60,14 +60,14 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         # finally ensure they have pipeline info
         for wobject in q:
-            wobject._pipeline_info = self.compose_pipeline(wobject)
+            wobject._wgpu_info = self.compose_pipeline(wobject)
         return q
 
     def compose_pipeline(self, wobject):
         device = self._device
 
-        if not wobject.material.dirty and hasattr(wobject, "_pipeline_info"):
-            return wobject._pipeline_info
+        if not wobject.material.dirty and hasattr(wobject, "_wgpu_info"):
+            return wobject._wgpu_info
 
         # -- shaders
         assert len(wobject.material.shaders) == 2, "compute shaders not yet supported"
@@ -82,6 +82,32 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         buffers = {}
         # todo: is there one namespace (of indices) for all buffers, or is vertex and storage separate?
+
+        # -- index buffer
+        if wobject.geometry.index is None:
+            index_buffer = None
+            index_format = wgpu.IndexFormat.uint32
+        else:
+            array = wobject.geometry.index
+            nbytes = array.nbytes
+            usage = wgpu.BufferUsage.INDEX
+            index_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
+            # Copy data from array to buffer
+            ctypes.memmove(index_buffer.mapping, array.ctypes.data, nbytes)
+            index_buffer.unmap()
+            # Set format
+            M = {
+                "int16": wgpu.IndexFormat.uint16,
+                "uint16": wgpu.IndexFormat.uint16,
+                "int32": wgpu.IndexFormat.uint32,
+                "uint32": wgpu.IndexFormat.uint32,
+            }
+            try:
+                index_format = M[str(array.dtype)]
+            except KeyError:
+                raise TypeError(
+                    "Need dtype (u)int16 or (u)int32 for index data, not '{array.dtype}'."
+                )
 
         # -- vertex buffers
         # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
@@ -136,6 +162,14 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             layout=bind_group_layout, bindings=bindings
         )
 
+        # Get draw_range (index range or vertex range)
+        if index_buffer is not None:
+            draw_range = 0, wobject.geometry.index.size
+        elif vertex_buffers:
+            draw_range = 0, len(wobject.geometry.vertex_data[0])
+        else:
+            draw_range = 0, 0  # null range
+
         pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex_stage={"module": vs_module, "entry_point": "main"},
@@ -166,15 +200,22 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             ],
             depth_stencil_state=None,
             vertex_state={
-                "index_format": wgpu.IndexFormat.uint32,
+                "index_format": index_format,
                 "vertex_buffers": vertex_buffer_descriptors,
             },
             sample_count=1,
             sample_mask=0xFFFFFFFF,
             alpha_to_coverage_enabled=False,
         )
+
         wobject.material.dirty = False
-        return pipeline, bind_group, vertex_buffers
+        return {
+            "pipeline": pipeline,
+            "bind_group": bind_group,
+            "draw_range": draw_range,
+            "index_buffer": index_buffer,
+            "vertex_buffers": vertex_buffers,
+        }
 
     def render(self, scene: WorldObject, camera: Camera):
         # Called by figure/canvas
@@ -211,16 +252,24 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         )
 
         for obj in q:
-            pipeline, bind_group, vertex_buffers = obj._pipeline_info
+            info = obj._wgpu_info
 
-            if pipeline is None:
+            if not info:
                 continue  # not drawn
 
-            render_pass.set_pipeline(pipeline)
-            render_pass.set_bind_group(0, bind_group, [], 0, 999999)
-            for slot, vertex_buffer in enumerate(vertex_buffers):
+            render_pass.set_pipeline(info["pipeline"])
+            render_pass.set_bind_group(0, info["bind_group"], [], 0, 999999)
+            for slot, vertex_buffer in enumerate(info["vertex_buffers"]):
                 render_pass.set_vertex_buffer(slot, vertex_buffer, 0)
-            render_pass.draw(12 * 3, 1, 0, 0)
+            # Draw with or without index buffer
+            draw_range = info["draw_range"]
+            first, count = draw_range[0], draw_range[1] - draw_range[0]
+            if info["index_buffer"] is not None:
+                render_pass.set_index_buffer(info["index_buffer"], 0)
+                base_vertex = 0  # or first?
+                render_pass.draw_indexed(count, 1, first, base_vertex, 0)
+            else:
+                render_pass.draw(count, 1, first, 0)
 
         render_pass.end_pass()
         command_buffers.append(command_encoder.finish())

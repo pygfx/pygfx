@@ -62,7 +62,7 @@ class BoxGeometry(Geometry):
                 5,
                 1,
             ],
-            dtype="i4",
+            dtype="u2",
         )
-        self.vertex_data = [vertices[index]]
+        self.vertex_data = [vertices]
         self.index = index
