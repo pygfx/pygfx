@@ -17,6 +17,7 @@ class Main(QtWidgets.QWidget):
         self._canvas = WgpuCanvas(parent=self)
         self._renderer = vv.WgpuSurfaceRenderer(self._canvas)
         self._scene = vv.Scene()
+        self._camera = vv.PerspectiveCamera(45, 16 / 9, 0.1, 1000)
 
         # Hook up the animate callback
         self._canvas.draw_frame = self.animate
@@ -32,8 +33,10 @@ class Main(QtWidgets.QWidget):
         self._canvas.update()
 
     def animate(self):
-        camera = None
-        self._renderer.render(self._scene, camera)
+        width, height, ratio = self._canvas.get_size_and_pixel_ratio()
+        self._camera.aspect = width / height
+        self._camera.update_projection_matrix()
+        self._renderer.render(self._scene, self._camera)
 
 
 app = QtWidgets.QApplication([])

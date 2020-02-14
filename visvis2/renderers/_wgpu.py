@@ -3,7 +3,9 @@ import ctypes
 import wgpu.backend.rs
 
 from ._base import Renderer
-from ..objects import Mesh
+from ..objects import WorldObject
+from ..cameras import Camera
+from ..linalg import Matrix4, Vector3
 
 
 class WgpuBaseRenderer(Renderer):
@@ -33,17 +35,36 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             wgpu.TextureUsage.OUTPUT_ATTACHMENT,
         )
 
-    def traverse(self, obj):
-        yield obj
-        for child in obj.children:
-            yield from self.traverse(child)
+    def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
+        # start by gathering everything that is visible and has a material
+        q = []
+
+        def visit(wobject):
+            nonlocal q
+            if wobject.visible and hasattr(wobject, "material"):
+                q.append(wobject)
+
+        scene.traverse(visit)
+
+        # next, sort them from back-to-front
+        def sort_func(wobject: WorldObject):
+            z = (
+                Vector3()
+                .set_from_matrix_position(wobject.matrix_world)
+                .apply_matrix4(proj_screen_matrix)
+                .z
+            )
+            return wobject.render_order, z
+
+        q = tuple(sorted(q, key=sort_func))
+
+        # finally ensure they have pipeline info
+        for wobject in q:
+            wobject._pipeline_info = self.compose_pipeline(wobject)
+        return q
 
     def compose_pipeline(self, wobject):
         device = self._device
-
-        # object type determines pipeline composition
-        if not isinstance(wobject, Mesh):
-            return None, None, None
 
         if not wobject.material.dirty and hasattr(wobject, "_pipeline_info"):
             return wobject._pipeline_info
@@ -155,14 +176,21 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         wobject.material.dirty = False
         return pipeline, bind_group, vertex_buffers
 
-    def render(self, scene, camera):
+    def render(self, scene: WorldObject, camera: Camera):
         # Called by figure/canvas
 
         device = self._device
 
-        # First make sure that all objects in the scene have a pipeline
-        for obj in self.traverse(scene):
-            obj._pipeline_info = self.compose_pipeline(obj)
+        # ensure all world matrices are up to date
+        scene.update_matrix_world()
+        # ensure camera projection matrix is up to date
+        camera.update_projection_matrix()
+        # compute the screen projection matrix
+        proj_screen_matrix = Matrix4().multiply_matrices(
+            camera.projection_matrix, camera.matrix_world_inverse
+        )
+        # get the sorted list of objects to render (guaranteed to be visible and having a material)
+        q = self.get_render_list(scene, proj_screen_matrix)
 
         current_texture_view = self._swap_chain.get_current_texture_view()
         command_encoder = device.create_command_encoder()
@@ -182,7 +210,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             depth_stencil_attachment=None,
         )
 
-        for obj in self.traverse(scene):
+        for obj in q:
             pipeline, bind_group, vertex_buffers = obj._pipeline_info
 
             if pipeline is None:
