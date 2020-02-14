@@ -17,6 +17,9 @@ class WorldObject:
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
 
+        self.visible = True
+        self.render_order = 0
+
     @property
     def children(self):
         return tuple(self._children)

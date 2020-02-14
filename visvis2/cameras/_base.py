@@ -9,3 +9,6 @@ class Camera(WorldObject):
         self.matrix_world_inverse = Matrix4()
         self.projection_matrix = Matrix4()
         self.projection_matrix_inverse = Matrix4()
+
+    def update_projection_matrix(self):
+        raise NotImplementedError()

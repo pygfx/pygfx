@@ -17,11 +17,13 @@ for i in range(20):
     scene.add(vv.Mesh(vv.Geometry(), vv.TriangleMaterial()))
 
 
-camera = vv.Camera()
-camera.projection_matrix.identity()
+camera = vv.PerspectiveCamera(45, 16/9, 0.1, 1000)
 
 
 def animate():
+    width, height, ratio = canvas.get_size_and_pixel_ratio()
+    camera.aspect = width / height
+    camera.update_projection_matrix()
     # Actually render the scene
     renderer.render(scene, camera)
 
