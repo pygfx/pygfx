@@ -6,6 +6,7 @@ from ._base import Renderer
 from ..objects import WorldObject
 from ..cameras import Camera
 from ..linalg import Matrix4, Vector3
+from ..material._base import stdinfo_type
 
 
 class WgpuBaseRenderer(Renderer):
@@ -136,6 +137,14 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             vertex_buffers.append(buffer)
             vertex_buffer_descriptors.append(vbo_des)
 
+        # -- standard buffer
+        stub_stdinfo_obj = stdinfo_type()
+        nbytes = ctypes.sizeof(stub_stdinfo_obj)
+        usage = wgpu.BufferUsage.UNIFORM
+        uniform_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
+        stdinfo = stub_stdinfo_obj.__class__.from_buffer(uniform_buffer.mapping)
+        buffers[0] = uniform_buffer  # stdinfo is at slot zero
+
         # -- uniform buffer
         if wobject.material.uniforms is None:
             uniform_buffer = None
@@ -152,7 +161,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             # Replace material's uniform object. DO NOT UNMAP!
             the_ctype = wobject.material.uniforms.__class__
             wobject.material.uniforms = the_ctype.from_buffer(uniform_buffer.mapping)
-            buffers[0] = uniform_buffer
+            buffers[1] = uniform_buffer
 
         # -- storage buffers
         binding_layouts = []
@@ -235,12 +244,14 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             "draw_range": draw_range,
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
+            "stdinfo": stdinfo,  # todo: or ... use a global object?
         }
 
     def render(self, scene: WorldObject, camera: Camera):
         # Called by figure/canvas
 
         device = self._device
+        width, height, pixelratio = self._canvas.get_size_and_pixel_ratio()
 
         # ensure all world matrices are up to date
         scene.update_matrix_world()
@@ -276,6 +287,15 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
             if not info:
                 continue  # not drawn
+
+            # Set info(if we use a per-scene stdinfo object, we'd only need to update world_transform)
+            stdinfo = info["stdinfo"]
+            eye = (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+            stdinfo.world_transform = tuple(obj.matrix_world.elements)
+            proj_screen_matrix_i = proj_screen_matrix.__class__().get_inverse(proj_screen_matrix)
+            stdinfo.projection_transform = tuple(proj_screen_matrix_i.elements)
+            stdinfo.physical_size = width, height  # or the other way around? :P
+            stdinfo.logical_size = width * pixelratio, height * pixelratio
 
             render_pass.set_pipeline(info["pipeline"])
             render_pass.set_bind_group(0, info["bind_group"], [], 0, 999999)

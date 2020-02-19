@@ -1,4 +1,4 @@
-from ._base import Material
+from ._base import Material, stdinfo_type
 
 import wgpu  # only for flags/enums
 import python_shader
@@ -7,12 +7,11 @@ from python_shader import vec3, vec4
 
 @python_shader.python2shader
 def vertex_shader(
+    stdinfo: (python_shader.RES_UNIFORM, 0, stdinfo_type),
     pos: (python_shader.RES_INPUT, 0, vec3),
-    # transform: (python_shader.RES_UNIFORM, 0, mat4),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
 ):
-    # out_pos = pos * transform
-    out_pos = pos  # noqa - shader assign to input arg
+    out_pos = stdinfo.world_transform * vec4(pos, 1.0) # noqa - shader assign to input arg
 
 
 @python_shader.python2shader

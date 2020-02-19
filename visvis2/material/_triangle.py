@@ -1,4 +1,4 @@
-from ._base import Material
+from ._base import Material, stdinfo_type
 
 import wgpu  # only for flags/enums
 from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
@@ -10,13 +10,19 @@ uniform_type = Struct(color=vec3)
 
 @python2shader
 def vertex_shader(
+    stdinfo: (RES_UNIFORM, 0, stdinfo_type),
     index: (RES_INPUT, "VertexId", "i32"),
     pos: (RES_OUTPUT, "Position", "vec4"),
     color: (RES_OUTPUT, 0, "vec3"),
 ):
-    positions = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
+    # Draw in NDC
+    # positions = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
+    # p = positions[index]
 
-    p = positions[index]
+    # Draw in screen coordinates
+    positions = [vec2(10.0, 10.0), vec2(90.0, 10.0), vec2(10.0, 90.0)]
+    p = 2.0 * positions[index] / stdinfo.logical_size - 1.0
+
     pos = vec4(p, 0.0, 1.0)  # noqa
     color = vec3(p, 0.5)  # noqa
 
@@ -25,7 +31,7 @@ def vertex_shader(
 def fragment_shader(
     in_color: (RES_INPUT, 0, "vec3"),
     out_color: (RES_OUTPUT, 0, "vec4"),
-    uniforms: (RES_UNIFORM, 0, uniform_type),
+    uniforms: (RES_UNIFORM, 1, uniform_type),
 ):
     color = uniforms.color
     out_color = vec4(color, 0.1)  # noqa
