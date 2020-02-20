@@ -3,7 +3,13 @@ from python_shader import Struct, vec2, mat4
 
 # Definition of struct with standard info,
 # provided to each world-object as uniform at slot 0.
-stdinfo_type = Struct(world_transform=mat4, projection_transform=mat4, physical_size=vec2, logical_size=vec2)
+stdinfo_type = Struct(
+    world_transform=mat4,
+    cam_transform=mat4,
+    projection_transform=mat4,
+    physical_size=vec2,
+    logical_size=vec2,
+)
 
 
 class Material:
@@ -12,4 +18,3 @@ class Material:
         self.shaders = {}
         self.uniforms = None
         self.primitive_topology = None
-

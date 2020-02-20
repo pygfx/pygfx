@@ -11,7 +11,10 @@ def vertex_shader(
     pos: (python_shader.RES_INPUT, 0, vec3),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
 ):
-    out_pos = stdinfo.world_transform * vec4(pos, 1.0) # noqa - shader assign to input arg
+    world_pos = stdinfo.world_transform * vec4(pos, 1.0)
+    ndc_pos = stdinfo.projection_transform * stdinfo.cam_transform * world_pos
+
+    out_pos = ndc_pos  # noqa - shader assign to input arg
 
 
 @python_shader.python2shader

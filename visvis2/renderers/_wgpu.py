@@ -256,7 +256,9 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         # ensure all world matrices are up to date
         scene.update_matrix_world()
         # ensure camera projection matrix is up to date
+        camera.update_matrix_world()
         camera.update_projection_matrix()
+
         # compute the screen projection matrix
         proj_screen_matrix = Matrix4().multiply_matrices(
             camera.projection_matrix, camera.matrix_world_inverse
@@ -290,10 +292,9 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
             # Set info(if we use a per-scene stdinfo object, we'd only need to update world_transform)
             stdinfo = info["stdinfo"]
-            eye = (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
             stdinfo.world_transform = tuple(obj.matrix_world.elements)
-            proj_screen_matrix_i = proj_screen_matrix.__class__().get_inverse(proj_screen_matrix)
-            stdinfo.projection_transform = tuple(proj_screen_matrix_i.elements)
+            stdinfo.cam_transform = tuple(camera.matrix_world_inverse.elements)
+            stdinfo.projection_transform = tuple(camera.projection_matrix.elements)
             stdinfo.physical_size = width, height  # or the other way around? :P
             stdinfo.logical_size = width * pixelratio, height * pixelratio
 
