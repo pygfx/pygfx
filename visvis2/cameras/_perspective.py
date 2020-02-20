@@ -17,9 +17,8 @@ class PerspectiveCamera(Camera):
     def __repr__(self) -> str:
         return f"PerspectiveCamera({self.fov}, {self.aspect}, {self.near}, {self.far})"
 
-    def update_matrix_world(self, *args, **kwargs):
-        super().update_matrix_world(*args, **kwargs)
-        self.matrix_world_inverse.get_inverse(self.matrix_world)
+    def update_viewport_size(self, width, height):
+        self.aspect = width / height
 
     def update_projection_matrix(self):
         top = self.near * tan(pi / 180 * 0.5 * self.fov) / self.zoom

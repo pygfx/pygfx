@@ -17,14 +17,13 @@ for i in range(2):
     scene.add(vv.Mesh(vv.Geometry(range(3)), vv.TriangleMaterial()))
 
 
-camera = vv.PerspectiveCamera(45, 16 / 9, 0.1, 1000)
+camera = vv.NDCCamera()  # This material does not use the camera anyway :P
 
 
 def animate():
     width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.aspect = width / height
-    camera.update_projection_matrix()
-    # Actually render the scene
+    camera.update_viewport_size(width, height)
+
     renderer.render(scene, camera)
 
 

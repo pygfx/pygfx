@@ -23,7 +23,7 @@ camera.position.z = 400
 def animate():
     # would prefer to do this in a resize event only
     width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.aspect = width / height
+    camera.update_viewport_size(width, height)
 
     # cube.rotation.x += 0.005
     # cube.rotation.y += 0.01
@@ -35,7 +35,7 @@ def animate():
 
 
 timer = QtCore.QTimer()
-timer.setInterval(1000 * 1 / 30)
+timer.setInterval(1000 * 1 / 50)
 timer.timeout.connect(canvas.update)
 timer.start()
 
