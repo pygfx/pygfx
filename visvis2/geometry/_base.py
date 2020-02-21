@@ -25,6 +25,7 @@ class Geometry:
 
         self.vertex_data = []
         self.bindings = {
-            slot: (np.array(array, np.float32), False) for array in vertex_data
+            slot: (np.array(array, np.float32), False)
+            for slot, array in enumerate(vertex_data)
         }
         # self.storage_data = {} ?

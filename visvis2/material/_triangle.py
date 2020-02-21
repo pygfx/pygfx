@@ -10,10 +10,12 @@ uniform_type = Struct(color=vec3)
 
 @python2shader
 def vertex_shader(
-    stdinfo: (RES_UNIFORM, 0, stdinfo_type),
+    # input/output
     index: (RES_INPUT, "VertexId", "i32"),
     pos: (RES_OUTPUT, "Position", "vec4"),
     color: (RES_OUTPUT, 0, "vec3"),
+    # stuff from scene, geometry, material
+    stdinfo: (RES_UNIFORM, (0, 0), stdinfo_type),
 ):
     # Draw in NDC
     # positions = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
@@ -31,7 +33,7 @@ def vertex_shader(
 def fragment_shader(
     in_color: (RES_INPUT, 0, "vec3"),
     out_color: (RES_OUTPUT, 0, "vec4"),
-    uniforms: (RES_UNIFORM, 1, uniform_type),
+    uniforms: (RES_UNIFORM, (2, 0), uniform_type),
 ):
     color = uniforms.color
     out_color = vec4(color, 0.1)  # noqa
@@ -53,18 +55,17 @@ class TriangleMaterial(Material):
         # and copy the original data over. So we can just assign fields
         # of our uniforms object and it Just Works!
         # self.uniforms = uniform_type(color=(1, 0, 0))
-        self.bindings = {}
 
         uniform_array = array_from_shader_type(uniform_type)
-        self.bindings[1] = uniform_array, True
+        self.bindings[0] = uniform_array, 2
         self.set_color((1, 0, 0))
 
-    @property
-    def uniforms(self):
-        return self.bindings[1][0]
+    # @property
+    # def uniforms(self):
+    #     return self.bindings[0][0]
 
     def set_color(self, color):
-        self.bindings[1][0]["color"] = color
+        self.bindings[0][0]["color"] = color
         # self.uniforms.color = color  # ctypes handles the setting
 
     # def _get_wgpu_info(self):

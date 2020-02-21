@@ -1,5 +1,6 @@
 import ctypes
 
+import python_shader  # noqa
 import wgpu.backend.rs
 import numpy as np
 
@@ -65,6 +66,33 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             wobject._wgpu_info = self.compose_pipeline(wobject)
         return q
 
+    def _create_buffers_and_textures(self, obj):
+        buffers = {}
+        textures = {}
+        for slot in list(obj.bindings.keys()):
+            array, mapped = obj.bindings[slot]
+            nbytes = array.nbytes  # ctypes.sizeof(array.nbytes)
+            if mapped == 2:
+                usage = wgpu.BufferUsage.UNIFORM
+            else:
+                usage = wgpu.BufferUsage.STORAGE  # | wgpu.BufferUsage.
+            buffer = self._device.create_buffer_mapped(size=nbytes, usage=usage)
+            # Copy data from array to buffer
+            ctypes.memmove(
+                ctypes.addressof(buffer.mapping), array.ctypes.data, nbytes,
+            )
+            if mapped:
+                # Replace geometry's binding array. DO NOT UNMAP!
+                new_array = np.frombuffer(buffer.mapping, np.uint8, nbytes)
+                new_array.dtype = array.dtype
+                new_array.shape = array.shape
+                obj.bindings[slot] = new_array, mapped
+            else:
+                # Simply unmap
+                buffer.unmap()
+            buffers[slot] = buffer
+        return buffers, textures
+
     def compose_pipeline(self, wobject):
         device = self._device
 
@@ -82,14 +110,13 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         vs_module = device.create_shader_module(code=vshader)
         fs_module = device.create_shader_module(code=fshader)
 
-        buffers = {}
-        # todo: is there one namespace (of indices) for all buffers, or is vertex and storage separate?
-
         # -- index buffer
         if wobject.geometry.index is None:
             index_buffer = None
             index_format = wgpu.IndexFormat.uint32
         else:
+            # todo: also allow a range object
+            # todo: also allow mapped indices (e.g. dynamic mesh)
             array = wobject.geometry.index
             nbytes = array.nbytes
             usage = wgpu.BufferUsage.INDEX
@@ -111,113 +138,99 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                     "Need dtype (u)int16 or (u)int32 for index data, not '{array.dtype}'."
                 )
 
-        # -- vertex buffers
+        # # -- vertex buffers
         # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
         vertex_buffers = []
         vertex_buffer_descriptors = []
-        for array in wobject.geometry.vertex_data:
-            nbytes = array.nbytes
-            usage = wgpu.BufferUsage.VERTEX
-            buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-            # Copy data from array to buffer
-            ctypes.memmove(buffer.mapping, array.ctypes.data, nbytes)
-            buffer.unmap()
-            shader_location = len(buffers)
-            # buffers[shader_location] = buffer
-            vbo_des = {
-                "array_stride": 3 * 4,
-                "stepmode": wgpu.InputStepMode.vertex,
-                "attributes": [
-                    {
-                        "format": wgpu.VertexFormat.float3,
-                        "offset": 0,
-                        "shader_location": shader_location,
-                    }
-                ],
-            }
-            vertex_buffers.append(buffer)
-            vertex_buffer_descriptors.append(vbo_des)
+        # We might just do it all without VBO's
+        # for array in wobject.geometry.vertex_data:
+        #     nbytes = array.nbytes
+        #     usage = wgpu.BufferUsage.VERTEX
+        #     buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
+        #     # Copy data from array to buffer
+        #     ctypes.memmove(buffer.mapping, array.ctypes.data, nbytes)
+        #     buffer.unmap()
+        #     shader_location = len(buffers)
+        #     # buffers[shader_location] = buffer
+        #     vbo_des = {
+        #         "array_stride": 3 * 4,
+        #         "stepmode": wgpu.InputStepMode.vertex,
+        #         "attributes": [
+        #             {
+        #                 "format": wgpu.VertexFormat.float3,
+        #                 "offset": 0,
+        #                 "shader_location": shader_location,
+        #             }
+        #         ],
+        #     }
+        #     vertex_buffers.append(buffer)
+        #     vertex_buffer_descriptors.append(vbo_des)
 
         # -- standard buffer
+        scene_buffers, scene_textures = {}, {}
         stub_stdinfo_obj = stdinfo_type()
         nbytes = ctypes.sizeof(stub_stdinfo_obj)
         usage = wgpu.BufferUsage.UNIFORM
         uniform_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
         stdinfo = stub_stdinfo_obj.__class__.from_buffer(uniform_buffer.mapping)
-        buffers[0] = uniform_buffer  # stdinfo is at slot zero
+        scene_buffers[0] = uniform_buffer  # stdinfo is at slot zero
 
         # -- buffers from the geometry
-        for slot in list(wobject.geometry.bindings.keys()):
-            array, mapped = wobject.geometry.bindings[slot]
-            nbytes = array.nbytes  # ctypes.sizeof(array.nbytes)
-            usage = wgpu.BufferUsage.STORAGE  # | wgpu.BufferUsage.
-            buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-            # Copy data from array to buffer
-            ctypes.memmove(
-                ctypes.addressof(buffer.mapping), array.ctypes.data, nbytes,
-            )
-            if mapped:
-                # Replace geometry's binding array. DO NOT UNMAP!
-                new_array = np.frombuffer(buffer.mapping, np.uint8, nbytes)
-                new_array.dtype = array.dtype
-                new_array.shape = array.shape
-                wobject.geometry.bindings[slot] = new_array, mapped
-            else:
-                # Simply unmap
-                buffer.unmap()
-            buffers[slot] = buffer
+        geometry_buffers, geometry_textures = self._create_buffers_and_textures(
+            wobject.geometry
+        )
 
         # -- uniform buffer
-        for slot in list(wobject.material.bindings.keys()):
-            array, mapped = wobject.material.bindings[slot]
-            nbytes = array.nbytes  # ctypes.sizeof(array.nbytes)
-            usage = wgpu.BufferUsage.UNIFORM
-            uniform_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-            # Copy data from array to buffer
-            ctypes.memmove(
-                ctypes.addressof(uniform_buffer.mapping), array.ctypes.data, nbytes,
-            )
-            if mapped:
-                # Replace material's binding array. DO NOT UNMAP!
-                new_array = np.frombuffer(uniform_buffer.mapping, np.uint8, nbytes)
-                new_array.dtype = array.dtype
-                new_array.shape = array.shape
-                wobject.material.bindings[slot] = new_array, mapped
-            else:
-                # Simply unmap
-                uniform_buffer.unmap()
-            buffers[slot] = uniform_buffer
-
-        # Create buffer bindings and layouts
-        binding_layouts = []
-        bindings = []
-        for binding_index, buffer in buffers.items():
-            bindings.append(
-                {
-                    "binding": binding_index,
-                    "resource": {"buffer": buffer, "offset": 0, "size": buffer.size},
-                }
-            )
-            if buffer.usage & wgpu.BufferUsage.UNIFORM:
-                buffer_type = wgpu.BindingType.uniform_buffer
-            elif buffer.usage & wgpu.BufferUsage.STORAGE:
-                buffer_type = wgpu.BindingType.storage_buffer
-            binding_layouts.append(
-                {
-                    "binding": binding_index,
-                    "visibility": wgpu.ShaderStage.VERTEX
-                    | wgpu.ShaderStage.FRAGMENT
-                    | wgpu.ShaderStage.COMPUTE,
-                    "type": buffer_type,  # <- it depends!
-                }
-            )
-
-        bind_group_layout = device.create_bind_group_layout(bindings=binding_layouts)
-        pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=[bind_group_layout]
+        # todo: actually store these on the respective object.material
+        material_buffers, material_textures = self._create_buffers_and_textures(
+            wobject.material
         )
-        bind_group = device.create_bind_group(
-            layout=bind_group_layout, bindings=bindings
+
+        # Create buffer bindings and layouts.
+        # These will go in bindgroup 0, 1, 2, respecitively.
+        bind_groups = []
+        bind_group_layouts = []
+        for buffers in [scene_buffers, geometry_buffers, material_buffers]:
+            binding_layouts = []
+            bindings = []
+            for slot, buffer in buffers.items():
+                bindings.append(
+                    {
+                        "binding": slot,
+                        "resource": {
+                            "buffer": buffer,
+                            "offset": 0,
+                            "size": buffer.size,
+                        },
+                    }
+                )
+                if buffer.usage & wgpu.BufferUsage.UNIFORM:
+                    buffer_type = wgpu.BindingType.uniform_buffer
+                elif buffer.usage & wgpu.BufferUsage.STORAGE:
+                    buffer_type = wgpu.BindingType.storage_buffer
+                else:
+                    assert False
+                binding_layouts.append(
+                    {
+                        "binding": slot,
+                        "visibility": wgpu.ShaderStage.VERTEX
+                        | wgpu.ShaderStage.FRAGMENT
+                        | wgpu.ShaderStage.COMPUTE,
+                        "type": buffer_type,
+                    }
+                )
+
+            bind_group_layout = device.create_bind_group_layout(
+                bindings=binding_layouts
+            )
+            bind_group = device.create_bind_group(
+                layout=bind_group_layout, bindings=bindings
+            )
+            bind_groups.append(bind_group)
+            bind_group_layouts.append(bind_group_layout)
+
+        pipeline_layout = device.create_pipeline_layout(
+            bind_group_layouts=bind_group_layouts
         )
 
         # Get draw_range (index range or vertex range)
@@ -269,7 +282,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         wobject.material.dirty = False
         return {
             "pipeline": pipeline,
-            "bind_group": bind_group,
+            "bind_groups": bind_groups,
             "draw_range": draw_range,
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
@@ -328,7 +341,8 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             stdinfo.logical_size = width * pixelratio, height * pixelratio
 
             render_pass.set_pipeline(info["pipeline"])
-            render_pass.set_bind_group(0, info["bind_group"], [], 0, 999999)
+            for bind_group_id, bind_group in enumerate(info["bind_groups"]):
+                render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 999999)
             for slot, vertex_buffer in enumerate(info["vertex_buffers"]):
                 render_pass.set_vertex_buffer(slot, vertex_buffer, 0)
             # Draw with or without index buffer

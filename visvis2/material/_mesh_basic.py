@@ -7,11 +7,12 @@ from python_shader import vec4, Array
 
 @python_shader.python2shader
 def vertex_shader(
+    # input and output
     index: (python_shader.RES_INPUT, "VertexId", "i32"),
-    stdinfo: (python_shader.RES_UNIFORM, 0, stdinfo_type),
-    # pos: (python_shader.RES_INPUT, 0, vec3),
-    positions: (python_shader.RES_BUFFER, 1, Array(vec4)),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
+    # uniform and storage buffers
+    stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_type),
+    positions: (python_shader.RES_BUFFER, (1, 0), Array(vec4)),
 ):
     pos3 = positions[index].xyz
     world_pos = stdinfo.world_transform * vec4(pos3, 1.0)

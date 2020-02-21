@@ -1,9 +1,9 @@
 import numpy as np
 
-from ._base import Geometry
+from ._mesh import MeshGeometry
 
 
-class BoxGeometry(Geometry):
+class BoxGeometry(MeshGeometry):
     def __init__(self, width, height, depth):
         super().__init__()
 
@@ -64,5 +64,5 @@ class BoxGeometry(Geometry):
             ],
             dtype="u2",
         )
-        self.bindings[1] = vertices, False
+        self.bindings[0] = vertices, False
         self.index = index
