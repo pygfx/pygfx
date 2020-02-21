@@ -1,4 +1,4 @@
-from ._base import Material, stdinfo_type
+from ._base import Material, stdinfo_type, array_from_shader_type
 
 import wgpu  # only for flags/enums
 from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
@@ -52,7 +52,24 @@ class TriangleMaterial(Material):
         # new ctypes object with the same type, mapped onto that buffer,
         # and copy the original data over. So we can just assign fields
         # of our uniforms object and it Just Works!
-        self.uniforms = uniform_type(color=(1, 0, 0))
+        # self.uniforms = uniform_type(color=(1, 0, 0))
+        self.bindings = {}
+
+        uniform_array = array_from_shader_type(uniform_type)
+        self.bindings[1] = uniform_array, True
+        self.set_color((1, 0, 0))
+
+    @property
+    def uniforms(self):
+        return self.bindings[1][0]
 
     def set_color(self, color):
-        self.uniforms.color = color  # ctypes handles the setting
+        self.bindings[1][0]["color"] = color
+        # self.uniforms.color = color  # ctypes handles the setting
+
+    # def _get_wgpu_info(self):
+    #
+    #     return {"shaders": [vertex_shader fragment_shader],
+    #             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+    #             "bindings": self.bindings,  # note: renderer may replace the arrays
+    #     }

@@ -1,6 +1,7 @@
 import ctypes
 
 import wgpu.backend.rs
+import numpy as np
 
 from ._base import Renderer
 from ..objects import WorldObject
@@ -146,22 +147,25 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         buffers[0] = uniform_buffer  # stdinfo is at slot zero
 
         # -- uniform buffer
-        if wobject.material.uniforms is None:
-            uniform_buffer = None
-        else:
-            nbytes = ctypes.sizeof(wobject.material.uniforms)
+        for slot in list(wobject.material.bindings.keys()):
+            array, mapped = wobject.material.bindings[slot]
+            nbytes = array.nbytes  # ctypes.sizeof(array.nbytes)
             usage = wgpu.BufferUsage.UNIFORM
             uniform_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
             # Copy data from array to buffer
             ctypes.memmove(
-                ctypes.addressof(uniform_buffer.mapping),
-                ctypes.addressof(wobject.material.uniforms),
-                nbytes,
+                ctypes.addressof(uniform_buffer.mapping), array.ctypes.data, nbytes,
             )
-            # Replace material's uniform object. DO NOT UNMAP!
-            the_ctype = wobject.material.uniforms.__class__
-            wobject.material.uniforms = the_ctype.from_buffer(uniform_buffer.mapping)
-            buffers[1] = uniform_buffer
+            if mapped:
+                # Replace material's binding array. DO NOT UNMAP!
+                new_array = np.frombuffer(uniform_buffer.mapping, np.uint8, nbytes)
+                new_array.dtype = array.dtype
+                new_array.shape = array.shape
+                wobject.material.bindings[slot] = new_array, mapped
+            else:
+                # Simply unmap
+                uniform_buffer.unmap()
+            buffers[slot] = uniform_buffer
 
         # -- storage buffers
         binding_layouts = []

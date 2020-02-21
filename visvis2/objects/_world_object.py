@@ -3,6 +3,13 @@ from ..linalg import Vector3, Matrix4, Quaternion
 
 class WorldObject:
     """ The base class for objects present in the "world", i.e. the scene graph.
+
+    Each WorldObject has geometry to define it's data, and material to define
+    its apearance. The object itself is only responsible for defining object
+    hierarchies (parent / children) and its position and orientation in the world.
+
+    This is considered a base class. Use Group to collect multiple world objects
+    into a single empty world object.
     """
 
     def __init__(self):

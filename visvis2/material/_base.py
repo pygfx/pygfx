@@ -1,4 +1,5 @@
 from python_shader import Struct, vec2, mat4
+import numpy as np
 
 
 # Definition of struct with standard info,
@@ -12,9 +13,16 @@ stdinfo_type = Struct(
 )
 
 
+def array_from_shader_type(spirv_type):
+    """ Get a numpy array object from a SpirV type from python-shader.
+    """
+    return np.asarray(spirv_type())
+
+
 class Material:
     def __init__(self):
         self.dirty = True
         self.shaders = {}
-        self.uniforms = None
+        self.bindings = {}
+        # self.uniforms = None
         self.primitive_topology = None
