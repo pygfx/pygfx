@@ -12,14 +12,14 @@ class BoxGeometry(Geometry):
         half_depth = depth / 2
         vertices = np.array(
             [
-                [-half_width, -half_height, -half_depth],
-                [-half_width, -half_height, +half_depth],
-                [-half_width, +half_height, -half_depth],
-                [-half_width, +half_height, +half_depth],
-                [+half_width, -half_height, -half_depth],
-                [+half_width, -half_height, +half_depth],
-                [+half_width, +half_height, -half_depth],
-                [+half_width, +half_height, +half_depth],
+                [-half_width, -half_height, -half_depth, 1],
+                [-half_width, -half_height, +half_depth, 1],
+                [-half_width, +half_height, -half_depth, 1],
+                [-half_width, +half_height, +half_depth, 1],
+                [+half_width, -half_height, -half_depth, 1],
+                [+half_width, -half_height, +half_depth, 1],
+                [+half_width, +half_height, -half_depth, 1],
+                [+half_width, +half_height, +half_depth, 1],
             ],
             dtype="f4",
         )
@@ -64,5 +64,5 @@ class BoxGeometry(Geometry):
             ],
             dtype="u2",
         )
-        self.vertex_data = [vertices]
+        self.bindings[1] = vertices, False
         self.index = index

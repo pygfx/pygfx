@@ -146,6 +146,27 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         stdinfo = stub_stdinfo_obj.__class__.from_buffer(uniform_buffer.mapping)
         buffers[0] = uniform_buffer  # stdinfo is at slot zero
 
+        # -- buffers from the geometry
+        for slot in list(wobject.geometry.bindings.keys()):
+            array, mapped = wobject.geometry.bindings[slot]
+            nbytes = array.nbytes  # ctypes.sizeof(array.nbytes)
+            usage = wgpu.BufferUsage.STORAGE  # | wgpu.BufferUsage.
+            buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
+            # Copy data from array to buffer
+            ctypes.memmove(
+                ctypes.addressof(buffer.mapping), array.ctypes.data, nbytes,
+            )
+            if mapped:
+                # Replace geometry's binding array. DO NOT UNMAP!
+                new_array = np.frombuffer(buffer.mapping, np.uint8, nbytes)
+                new_array.dtype = array.dtype
+                new_array.shape = array.shape
+                wobject.geometry.bindings[slot] = new_array, mapped
+            else:
+                # Simply unmap
+                buffer.unmap()
+            buffers[slot] = buffer
+
         # -- uniform buffer
         for slot in list(wobject.material.bindings.keys()):
             array, mapped = wobject.material.bindings[slot]
@@ -167,7 +188,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                 uniform_buffer.unmap()
             buffers[slot] = uniform_buffer
 
-        # -- storage buffers
+        # Create buffer bindings and layouts
         binding_layouts = []
         bindings = []
         for binding_index, buffer in buffers.items():
@@ -177,13 +198,17 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                     "resource": {"buffer": buffer, "offset": 0, "size": buffer.size},
                 }
             )
+            if buffer.usage & wgpu.BufferUsage.UNIFORM:
+                buffer_type = wgpu.BindingType.uniform_buffer
+            elif buffer.usage & wgpu.BufferUsage.STORAGE:
+                buffer_type = wgpu.BindingType.storage_buffer
             binding_layouts.append(
                 {
                     "binding": binding_index,
                     "visibility": wgpu.ShaderStage.VERTEX
                     | wgpu.ShaderStage.FRAGMENT
                     | wgpu.ShaderStage.COMPUTE,
-                    "type": wgpu.BindingType.uniform_buffer,  # <- it depends!
+                    "type": buffer_type,  # <- it depends!
                 }
             )
 
