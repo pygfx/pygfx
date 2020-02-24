@@ -1,6 +1,6 @@
 import visvis2 as vv
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 app = QtWidgets.QApplication([])
@@ -36,11 +36,8 @@ def animate():
     # actually render the scene
     renderer.render(scene, camera)
 
-
-timer = QtCore.QTimer()
-timer.setInterval(1000 * 1 / 50)
-timer.timeout.connect(canvas.update)
-timer.start()
+    # Request new frame
+    canvas.update()
 
 
 if __name__ == "__main__":
