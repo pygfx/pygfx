@@ -297,10 +297,10 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         # ensure all world matrices are up to date
         scene.update_matrix_world()
-        # ensure camera projection matrix is up to date
+        # ensure camera world matrix is up to date (it may not be member of the scene)
         camera.update_matrix_world()
+        # ensure camera projection matrix is up to date
         camera.update_projection_matrix()
-
         # compute the screen projection matrix
         proj_screen_matrix = Matrix4().multiply_matrices(
             camera.projection_matrix, camera.matrix_world_inverse
