@@ -20,9 +20,6 @@ camera = vv.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 400
 
 
-# positions = cube.geometry.bindings[0].array
-
-
 def animate():
     # would prefer to do this in a resize event only
     width, height, ratio = canvas.get_size_and_pixel_ratio()

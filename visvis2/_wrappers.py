@@ -58,6 +58,12 @@ class BaseBufferWrapper:
         return self._nbytes
 
     @property
+    def usage(self):
+        """ The buffer usage flags (as an int).
+        """
+        return self._usage
+
+    @property
     def mapped(self):
         """ Whether the data is mapped. Mapped data can be updated in-place
         to update the data on the GPU.
@@ -65,10 +71,16 @@ class BaseBufferWrapper:
         return self._mapped
 
     @property
-    def usage(self):
-        """ The buffer usage flags (as an int).
+    def dirty(self):
+        """ Whether the buffer is dirty (needs to be processed by the renderer).
         """
-        return self._usage
+        return self._dirty
+
+    @property
+    def gpu_buffer(self):
+        """ The WGPU buffer object. Can be None if the renderer has not set it (yet).
+        """
+        return self._gpu_buffer
 
     def set_mapped(self, mapped):
         self._mapped = bool(mapped)
@@ -85,6 +97,13 @@ class BaseBufferWrapper:
         self._nbytes = self._nbytes_from_data(data)
         self._dirty = True
 
+    def _renderer_set_gpu_buffer(self, buffer):
+        # This is how the renderer marks the buffer as non-dirty
+        self._gpu_buffer = buffer
+        self._dirty = False
+
+    # To implement in subclasses
+
     def _nbytes_from_data(self, data):
         raise NotImplementedError()
 
@@ -95,6 +114,11 @@ class BaseBufferWrapper:
 
     def _renderer_set_data_from_ctypes_object(self, ob):
         """ Allows renderer to replace the data.
+        """
+        raise NotImplementedError()
+
+    def _renderer_get_data_dtype_str(self):
+        """ Return numpy-ish dtype string, e.g. uint8, int16, float32.
         """
         raise NotImplementedError()
 
@@ -118,3 +142,6 @@ class BufferWrapper(BaseBufferWrapper):  # numpy-based
         new_array.dtype = self._data.dtype
         new_array.shape = self._data.shape
         self._data = new_array
+
+    def _renderer_get_data_dtype_str(self):
+        return str(self.data.dtype)

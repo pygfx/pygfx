@@ -24,7 +24,7 @@ for i in range(2):
     scene.add(Triangle(vv.TriangleMaterial()))
 
 
-camera = vv.NDCCamera()  # This material does not use the camera anyway :P
+camera = vv.NDCCamera()  # This material does not use a camera
 
 
 def animate():

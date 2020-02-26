@@ -166,11 +166,12 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                 "int32": wgpu.IndexFormat.uint32,
                 "uint32": wgpu.IndexFormat.uint32,
             }
+            dtype = index_buffer._renderer_get_data_dtype_str()
             try:
-                index_format = index_format_map[str(index_buffer.data.dtype)]
+                index_format = index_format_map[dtype]
             except KeyError:
                 raise TypeError(
-                    "Need dtype (u)int16 or (u)int32 for index data, not '{array.dtype}'."
+                    "Need dtype (u)int16 or (u)int32 for index data, not '{dtype}'."
                 )
 
         # Get indices
@@ -309,7 +310,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                     {
                         "binding": slot,
                         "resource": {
-                            "buffer": buffer._gpu_buffer,
+                            "buffer": buffer.gpu_buffer,
                             "offset": 0,
                             "size": buffer.nbytes,
                         },
@@ -346,8 +347,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
     def _update_buffer(self, resource):
         assert isinstance(resource, BufferWrapper)
-        if resource._dirty:
-            resource._dirty = False
+        if resource.dirty:
             if not resource.mapped and resource.data is None:
                 buffer = self._device.create_buffer(
                     size=resource.nbytes, usage=resource.usage
@@ -366,7 +366,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                     # Simply unmap
                     buffer.unmap()
             # Store ob the resource object
-            resource._gpu_buffer = buffer
+            resource._renderer_set_gpu_buffer(buffer)
             # todo: dispose an old buffer? / reuse an old buffer?
 
     def render(self, scene: WorldObject, camera: Camera):
@@ -456,7 +456,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                 # Draw with or without index buffer
                 if index_buffer is not None:
                     # todo: pr should index_buffer be a raw gpu buffer already?
-                    render_pass.set_index_buffer(index_buffer._gpu_buffer, 0)
+                    render_pass.set_index_buffer(index_buffer.gpu_buffer, 0)
                     render_pass.draw_indexed(*index_args)
                 else:
                     # print(count, first)
