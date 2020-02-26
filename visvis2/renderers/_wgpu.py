@@ -206,31 +206,24 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
 
         # # -- vertex buffers
         # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
+
         vertex_buffers = []
         vertex_buffer_descriptors = []
-        # We might just do it all without VBO's
-        # for array in wobject.geometry.vertex_data:
-        #     nbytes = array.nbytes
-        #     usage = wgpu.BufferUsage.VERTEX
-        #     buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-        #     # Copy data from array to buffer
-        #     ctypes.memmove(buffer.mapping, array.ctypes.data, nbytes)
-        #     buffer.unmap()
-        #     shader_location = len(buffers)
-        #     # buffers[shader_location] = buffer
-        #     vbo_des = {
-        #         "array_stride": 3 * 4,
-        #         "stepmode": wgpu.InputStepMode.vertex,
-        #         "attributes": [
-        #             {
-        #                 "format": wgpu.VertexFormat.float3,
-        #                 "offset": 0,
-        #                 "shader_location": shader_location,
-        #             }
-        #         ],
-        #     }
-        #     vertex_buffers.append(buffer)
-        #     vertex_buffer_descriptors.append(vbo_des)
+        for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
+            self._update_buffer(buffer)
+            vbo_des = {
+                "array_stride": buffer.strides[0],
+                "stepmode": wgpu.InputStepMode.vertex,  # vertex or instance
+                "attributes": [
+                    {
+                        "format": buffer._renderer_get_vertex_format(),
+                        "offset": 0,
+                        "shader_location": slot,
+                    }
+                ],
+            }
+            vertex_buffers.append(buffer.gpu_buffer)
+            vertex_buffer_descriptors.append(vbo_des)
 
         # ----- pipelines
 

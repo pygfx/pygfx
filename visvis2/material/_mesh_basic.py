@@ -4,16 +4,21 @@ import wgpu  # only for flags/enums
 import python_shader
 from python_shader import vec4, Array
 
+# todo: we should probably just use vertex buffers here,
+# but lets make sure to show this technique in another example.
+
 
 @python_shader.python2shader
 def vertex_shader(
     # input and output
     index: (python_shader.RES_INPUT, "VertexId", "i32"),
+    # position: (python_shader.RES_INPUT, 0, vec4),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
     # uniform and storage buffers
     stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_type),
     positions: (python_shader.RES_BUFFER, (1, 0), Array(vec4)),
 ):
+    # pos3 = position.xyz
     pos3 = positions[index].xyz
     world_pos = stdinfo.world_transform * vec4(pos3, 1.0)
     ndc_pos = stdinfo.projection_transform * stdinfo.cam_transform * world_pos
@@ -33,7 +38,6 @@ class MeshBasicMaterial(Material):
 
         n = len(geometry.index.data)  # number of faces
 
-        # todo: go back to using vertex buffers again, its easy now!
         return [
             {
                 "vertex_shader": vertex_shader,
@@ -41,6 +45,7 @@ class MeshBasicMaterial(Material):
                 "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
                 "indices": range(n),
                 "index_buffer": geometry.index,
+                # "vertex_buffers": [geometry.positions],
                 "bindings1": [geometry.positions],
                 "target": None,  # default
             },
