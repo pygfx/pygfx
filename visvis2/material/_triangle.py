@@ -1,4 +1,5 @@
 from ._base import Material, stdinfo_type, array_from_shader_type
+from .._wrappers import BufferWrapper
 
 import wgpu  # only for flags/enums
 from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
@@ -33,7 +34,7 @@ def vertex_shader(
 def fragment_shader(
     in_color: (RES_INPUT, 0, "vec3"),
     out_color: (RES_OUTPUT, 0, "vec4"),
-    uniforms: (RES_UNIFORM, (2, 0), uniform_type),
+    uniforms: (RES_UNIFORM, (1, 0), uniform_type),
 ):
     color = uniforms.color
     out_color = vec4(color, 0.1)  # noqa
@@ -42,35 +43,25 @@ def fragment_shader(
 class TriangleMaterial(Material):
     def __init__(self):
         super().__init__()
-        self.shaders = {
-            "vertex": vertex_shader,
-            "fragment": fragment_shader,
-        }
 
-        self.primitive_topology = wgpu.PrimitiveTopology.triangle_list
-
-        # Instantiate uniforms. This produces a ctypes struct object.
-        # The renderer will use it to create a mapped buffer, create a
-        # new ctypes object with the same type, mapped onto that buffer,
-        # and copy the original data over. So we can just assign fields
-        # of our uniforms object and it Just Works!
-        # self.uniforms = uniform_type(color=(1, 0, 0))
-
-        uniform_array = array_from_shader_type(uniform_type)
-        self.bindings[0] = uniform_array, 2
+        uniforms_array = array_from_shader_type(uniform_type)
+        self.uniforms = BufferWrapper(uniforms_array, mapped=1, usage="uniform")
         self.set_color((1, 0, 0))
 
-    # @property
-    # def uniforms(self):
-    #     return self.bindings[0][0]
-
     def set_color(self, color):
-        self.bindings[0][0]["color"] = color
-        # self.uniforms.color = color  # ctypes handles the setting
+        self.uniforms.data["color"] = color
 
-    # def _get_wgpu_info(self):
-    #
-    #     return {"shaders": [vertex_shader fragment_shader],
-    #             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
-    #             "bindings": self.bindings,  # note: renderer may replace the arrays
-    #     }
+    def get_wgpu_info(self, obj):
+
+        n = 3
+
+        return [
+            {
+                "vertex_shader": vertex_shader,
+                "fragment_shader": fragment_shader,
+                "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+                "indices": range(n),
+                "bindings1": [self.uniforms],
+                "target": None,  # default
+            },
+        ]

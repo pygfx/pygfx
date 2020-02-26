@@ -3,15 +3,7 @@ from .._wrappers import BufferWrapper
 
 import wgpu
 import python_shader
-from python_shader import vec3, vec4, mat4, Array
-
-
-# Idea:
-# scene objects (like stdinfo, lights) are at bind group 0
-# the objects defined by the geometry are at bind group 1
-# the objects defined by the material are at bind group 2
-# that leaves (by default) one bind group to be used for something else
-# what about vertex data, put all vertices in storage buffers?
+from python_shader import vec4, Array
 
 
 @python_shader.python2shader
@@ -49,21 +41,7 @@ def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
 class LineStripMaterial(Material):
     def __init__(self):
         super().__init__()
-        self.positions2 = BufferWrapper(nbytes=0)
-
-    #     self.uniforms = None
-    #
-    #     self.bindings = {0: (192, False)}
-    #
-    #
-    #     self.shaders = {
-    #         "compute": compute_shader,
-    #         "vertex": vertex_shader,
-    #         "fragment": fragment_shader,
-    #     }
-    #
-    #     # self.primitive_topology = wgpu.PrimitiveTopology.line_strip
-    #     self.primitive_topology = wgpu.PrimitiveTopology.triangle_strip
+        self.positions2 = BufferWrapper(nbytes=0, mapped=False, usage="storage")
 
     def get_wgpu_info(self, obj):
         # todo: we must hash the result by the len(geometry.position)
@@ -71,19 +49,19 @@ class LineStripMaterial(Material):
 
         n = len(geometry.positions.data)  # number of vertices
 
-        self.positions2.set_nbytes(2 * n * 4 * 4)
+        self.positions2.set_nbytes(2 * geometry.positions.nbytes)
 
         return [
             {
                 "compute_shader": compute_shader,
-                "indices": (range(n), range(1), range(1)),
+                "indices": (n, 1, 1),
                 "bindings1": [geometry.positions, self.positions2],
             },
             {
                 "vertex_shader": vertex_shader,
                 "fragment_shader": fragment_shader,
                 "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-                "indices": range(n * 2),
+                "indices": n * 2,
                 "target": None,  # default
                 "bindings1": [geometry.positions, self.positions2],
             },

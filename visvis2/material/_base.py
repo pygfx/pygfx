@@ -22,7 +22,3 @@ def array_from_shader_type(spirv_type):
 class Material:
     def __init__(self):
         self.dirty = True
-        self.shaders = {}
-        self.bindings = {}
-        # self.uniforms = None
-        self.primitive_topology = None

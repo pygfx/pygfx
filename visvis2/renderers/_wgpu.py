@@ -1,5 +1,3 @@
-import ctypes
-
 import python_shader  # noqa
 import wgpu.backend.rs
 import numpy as np
@@ -42,7 +40,9 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         # Create uniform buffer that containse transform related data
         # is reused for *all* objects.
         # todo: or have one per scene, or per object?
-        self._stdinfo_buffer = BufferWrapper(np.asarray(stdinfo_type()), mapped=2)
+        self._stdinfo_buffer = BufferWrapper(
+            np.asarray(stdinfo_type()), mapped=1, usage="uniform"
+        )
         # self._update_buffer(self._stdinfo_buffer)
 
     def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
@@ -73,250 +73,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             wobject._wgpu_info = self.compose_pipeline(wobject)
         return q
 
-    def _create_buffers_and_textures(self, obj):
-        buffers = {}
-        textures = {}
-        for slot in list(obj.bindings.keys()):
-            array, mapped = obj.bindings[slot]
-            if isinstance(array, int):
-                nbytes, array = array, None
-            else:
-                nbytes = array.nbytes
-            if mapped == 2:
-                usage = wgpu.BufferUsage.UNIFORM
-            else:
-                usage = wgpu.BufferUsage.STORAGE  # | wgpu.BufferUsage.
-            buffer = self._device.create_buffer_mapped(size=nbytes, usage=usage)
-            if array is not None:
-                # Copy data from array to buffer
-                ctypes.memmove(
-                    ctypes.addressof(buffer.mapping), array.ctypes.data, nbytes,
-                )
-                if mapped:
-                    # Replace geometry's binding array. DO NOT UNMAP!
-                    new_array = np.frombuffer(buffer.mapping, np.uint8, nbytes)
-                    new_array.dtype = array.dtype
-                    new_array.shape = array.shape
-                    obj.bindings[slot] = new_array, mapped
-                else:
-                    # Simply unmap
-                    buffer.unmap()
-            buffers[slot] = buffer
-        return buffers, textures
-
-    def compose_pipeline_xx(self, wobject):
-        device = self._device
-
-        if not wobject.material.dirty and hasattr(wobject, "_wgpu_info"):
-            return wobject._wgpu_info
-
-        # -- shaders
-        # assert len(wobject.material.shaders) == 2, "compute shaders not yet supported"
-        cshader = wobject.material.shaders.get("compute", None)
-        vshader, fshader = (
-            wobject.material.shaders["vertex"],
-            wobject.material.shaders["fragment"],
-        )
-        # python_shader.dev.validate(vshader)
-        # python_shader.dev.validate(fshader)
-
-        # -- index buffer
-        if wobject.geometry.index is None:
-            index_buffer = None
-            index_format = wgpu.IndexFormat.uint32
-        else:
-            # todo: also allow a range object
-            # todo: also allow mapped indices (e.g. dynamic mesh)
-            array = wobject.geometry.index
-            nbytes = array.nbytes
-            usage = wgpu.BufferUsage.INDEX
-            index_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-            # Copy data from array to buffer
-            ctypes.memmove(index_buffer.mapping, array.ctypes.data, nbytes)
-            index_buffer.unmap()
-            # Set format
-            index_format_map = {
-                "int16": wgpu.IndexFormat.uint16,
-                "uint16": wgpu.IndexFormat.uint16,
-                "int32": wgpu.IndexFormat.uint32,
-                "uint32": wgpu.IndexFormat.uint32,
-            }
-            try:
-                index_format = index_format_map[str(array.dtype)]
-            except KeyError:
-                raise TypeError(
-                    "Need dtype (u)int16 or (u)int32 for index data, not '{array.dtype}'."
-                )
-
-        # # -- vertex buffers
-        # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
-        vertex_buffers = []
-        vertex_buffer_descriptors = []
-        # We might just do it all without VBO's
-        # for array in wobject.geometry.vertex_data:
-        #     nbytes = array.nbytes
-        #     usage = wgpu.BufferUsage.VERTEX
-        #     buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-        #     # Copy data from array to buffer
-        #     ctypes.memmove(buffer.mapping, array.ctypes.data, nbytes)
-        #     buffer.unmap()
-        #     shader_location = len(buffers)
-        #     # buffers[shader_location] = buffer
-        #     vbo_des = {
-        #         "array_stride": 3 * 4,
-        #         "stepmode": wgpu.InputStepMode.vertex,
-        #         "attributes": [
-        #             {
-        #                 "format": wgpu.VertexFormat.float3,
-        #                 "offset": 0,
-        #                 "shader_location": shader_location,
-        #             }
-        #         ],
-        #     }
-        #     vertex_buffers.append(buffer)
-        #     vertex_buffer_descriptors.append(vbo_des)
-
-        # -- standard buffer
-        scene_buffers, scene_textures = {}, {}
-        stub_stdinfo_obj = stdinfo_type()
-        nbytes = ctypes.sizeof(stub_stdinfo_obj)
-        usage = wgpu.BufferUsage.UNIFORM
-        uniform_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-        stdinfo = stub_stdinfo_obj.__class__.from_buffer(uniform_buffer.mapping)
-        scene_buffers[0] = uniform_buffer  # stdinfo is at slot zero
-
-        # -- buffers from the geometry
-        geometry_buffers, geometry_textures = self._create_buffers_and_textures(
-            wobject.geometry
-        )
-
-        # -- uniform buffer
-        # todo: actually store these on the respective object.material
-        material_buffers, material_textures = self._create_buffers_and_textures(
-            wobject.material
-        )
-
-        # Create buffer bindings and layouts.
-        # These will go in bindgroup 0, 1, 2, respecitively.
-        bind_groups = []
-        bind_group_layouts = []
-        for buffers in [scene_buffers, geometry_buffers, material_buffers]:
-            binding_layouts = []
-            bindings = []
-            for slot, buffer in buffers.items():
-                bindings.append(
-                    {
-                        "binding": slot,
-                        "resource": {
-                            "buffer": buffer,
-                            "offset": 0,
-                            "size": buffer.size,
-                        },
-                    }
-                )
-                if buffer.usage & wgpu.BufferUsage.UNIFORM:
-                    buffer_type = wgpu.BindingType.uniform_buffer
-                elif buffer.usage & wgpu.BufferUsage.STORAGE:
-                    buffer_type = wgpu.BindingType.storage_buffer
-                else:
-                    assert False
-                binding_layouts.append(
-                    {
-                        "binding": slot,
-                        "visibility": wgpu.ShaderStage.VERTEX
-                        | wgpu.ShaderStage.FRAGMENT
-                        | wgpu.ShaderStage.COMPUTE,
-                        "type": buffer_type,
-                    }
-                )
-
-            bind_group_layout = device.create_bind_group_layout(
-                bindings=binding_layouts
-            )
-            bind_group = device.create_bind_group(
-                layout=bind_group_layout, bindings=bindings
-            )
-            bind_groups.append(bind_group)
-            bind_group_layouts.append(bind_group_layout)
-
-        pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=bind_group_layouts
-        )
-
-        # Get draw_range (index range or vertex range)
-        if index_buffer is not None:
-            draw_range = 0, wobject.geometry.index.size
-        elif vertex_buffers:
-            draw_range = 0, len(wobject.geometry.vertex_data[0])
-        else:
-            draw_range = 0, 0  # null range
-
-        # ----- pipelines
-
-        compute_pipeline = render_pipeline = None
-
-        if cshader is not None:
-            cs_module = device.create_shader_module(code=cshader)
-            compute_pipeline = device.create_compute_pipeline(
-                layout=pipeline_layout,
-                compute_stage={"module": cs_module, "entry_point": "main"},
-            )
-
-        if vshader:
-            vs_module = device.create_shader_module(code=vshader)
-            fs_module = device.create_shader_module(code=fshader)
-
-            render_pipeline = device.create_render_pipeline(
-                layout=pipeline_layout,
-                vertex_stage={"module": vs_module, "entry_point": "main"},
-                fragment_stage={"module": fs_module, "entry_point": "main"},
-                primitive_topology=wobject.material.primitive_topology,
-                rasterization_state={
-                    "front_face": wgpu.FrontFace.ccw,
-                    "cull_mode": wgpu.CullMode.none,
-                    "depth_bias": 0,
-                    "depth_bias_slope_scale": 0.0,
-                    "depth_bias_clamp": 0.0,
-                },
-                color_states=[
-                    {
-                        "format": wgpu.TextureFormat.bgra8unorm_srgb,
-                        "alpha_blend": (
-                            wgpu.BlendFactor.one,
-                            wgpu.BlendFactor.zero,
-                            wgpu.BlendOperation.add,
-                        ),
-                        "color_blend": (
-                            wgpu.BlendFactor.src_alpha,
-                            wgpu.BlendFactor.one_minus_src_alpha,
-                            wgpu.BlendOperation.add,
-                        ),
-                        "write_mask": wgpu.ColorWrite.ALL,
-                    }
-                ],
-                depth_stencil_state=None,
-                vertex_state={
-                    "index_format": index_format,
-                    "vertex_buffers": vertex_buffer_descriptors,
-                },
-                sample_count=1,
-                sample_mask=0xFFFFFFFF,
-                alpha_to_coverage_enabled=False,
-            )
-
-        wobject.material.dirty = False
-        return {
-            "compute_pipeline": compute_pipeline,
-            "render_pipeline": render_pipeline,
-            "bind_groups": bind_groups,
-            "draw_range": draw_range,
-            "index_buffer": index_buffer,
-            "vertex_buffers": vertex_buffers,
-            "stdinfo": self._stdinfo_buffer,  # todo: or ... use a global object?
-        }
-
     def compose_pipeline(self, wobject):
-        device = self._device
 
         if not wobject.material.dirty and hasattr(wobject, "_wgpu_info"):
             return wobject._wgpu_info
@@ -360,10 +117,6 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             "compute_pipelines": compute_pipelines,
             "render_pipelines": render_pipelines,
             "alt_render_pipelines": alt_render_pipelines,
-            # "bind_groups": bind_groups,
-            # "draw_range": draw_range,
-            # "index_buffer": index_buffer,
-            # "vertex_buffers": vertex_buffers,
             "stdinfo": self._stdinfo_buffer.data,  # todo: or ... use a global object?
         }
 
@@ -383,7 +136,17 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         )
 
         indices = pipeline_info["indices"]
-        return compute_pipeline, bind_groups, indices
+        if not (
+            isinstance(indices, tuple)
+            and len(indices) == 3
+            and all(isinstance(i, int) for i in indices)
+        ):
+            raise RuntimeError(
+                f"Compute indices must be 3-tuple of ints, not {indices}."
+            )
+        index_args = indices
+
+        return compute_pipeline, bind_groups, index_args
 
     def _compose_render_pipeline(self, wobject, pipeline_info, buffers_to_update):
         device = self._device
@@ -393,20 +156,10 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         )
 
         # -- index buffer
-        if wobject.geometry.index is None:
-            index_buffer = None
-            index_format = wgpu.IndexFormat.uint32
-        else:
-            # todo: also allow a range object
-            # todo: also allow mapped indices (e.g. dynamic mesh)
-            array = wobject.geometry.index
-            nbytes = array.nbytes
-            usage = wgpu.BufferUsage.INDEX
-            index_buffer = device.create_buffer_mapped(size=nbytes, usage=usage)
-            # Copy data from array to buffer
-            ctypes.memmove(index_buffer.mapping, array.ctypes.data, nbytes)
-            index_buffer.unmap()
-            # Set format
+        index_buffer = pipeline_info.get("index_buffer", None)
+        index_format = wgpu.IndexFormat.uint32
+        if index_buffer is not None:
+            self._update_buffer(index_buffer)
             index_format_map = {
                 "int16": wgpu.IndexFormat.uint16,
                 "uint16": wgpu.IndexFormat.uint16,
@@ -414,11 +167,41 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                 "uint32": wgpu.IndexFormat.uint32,
             }
             try:
-                index_format = index_format_map[str(array.dtype)]
+                index_format = index_format_map[str(index_buffer.data.dtype)]
             except KeyError:
                 raise TypeError(
                     "Need dtype (u)int16 or (u)int32 for index data, not '{array.dtype}'."
                 )
+
+        # Get indices
+        indices = pipeline_info.get("indices", None)
+        if indices is None:
+            if index_buffer is None:
+                raise RuntimeError("Need indices or index_buffer ")
+            indices = range(index_buffer.data.size)
+        # Convert to 2-element tuple (vertex, instance)
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+        if len(indices) == 1:
+            indices = indices + (1,)  # add instancing index
+        if len(indices) != 2:
+            raise RuntimeError("Render pipeline indices must be a 2-element tuple.")
+        # Convert to args (count_vertex, count_instance, first_vertex, first_instance)
+        index_args = [0, 0, 0, 0]
+        for i, index in enumerate(indices):
+            if isinstance(index, int):
+                index_args[i] = index
+            elif isinstance(index, range):
+                assert index.step == 1
+                index_args[i] = index.stop - index.start
+                index_args[i + 2] = index.start
+            else:
+                raise RuntimeError(
+                    "Render pipeline indices must be a 2-element tuple with ints or ranges."
+                )
+        if index_buffer is not None:
+            base_vertex = 0  # A value added to each index before reading [...]
+            index_args.insert(-1, base_vertex)  # insert at second-but-last place
 
         # # -- vertex buffers
         # Ref: https://github.com/gfx-rs/wgpu-rs/blob/master/examples/cube/main.rs
@@ -447,14 +230,6 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         #     }
         #     vertex_buffers.append(buffer)
         #     vertex_buffer_descriptors.append(vbo_des)
-
-        # Get draw_range (index range or vertex range)
-        if index_buffer is not None:
-            draw_range = 0, wobject.geometry.index.size
-        elif vertex_buffers:
-            draw_range = 0, len(wobject.geometry.vertex_data[0])
-        else:
-            draw_range = 0, 0  # null range
 
         # ----- pipelines
 
@@ -501,9 +276,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             alpha_to_coverage_enabled=False,
         )
 
-        indices = pipeline_info["indices"]
-
-        return render_pipeline, bind_groups, vertex_buffers, indices
+        return render_pipeline, bind_groups, vertex_buffers, index_buffer, index_args
 
     def _compose_binding_layout(self, pipeline_info, buffers_to_update):
         device = self._device
@@ -542,7 +315,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                         },
                     }
                 )
-                if buffer.mapped == 2:  # also see buffer._gpu_buffer.usage
+                if buffer.usage & wgpu.BufferUsage.UNIFORM:
                     buffer_type = wgpu.BindingType.uniform_buffer
                 else:
                     buffer_type = wgpu.BindingType.storage_buffer
@@ -575,15 +348,13 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         assert isinstance(resource, BufferWrapper)
         if resource._dirty:
             resource._dirty = False
-            if resource.mapped == 2:
-                usage = wgpu.BufferUsage.UNIFORM
-            else:
-                usage = wgpu.BufferUsage.STORAGE
             if not resource.mapped and resource.data is None:
-                buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
+                buffer = self._device.create_buffer(
+                    size=resource.nbytes, usage=resource.usage
+                )
             else:
                 buffer = self._device.create_buffer_mapped(
-                    size=resource.nbytes, usage=usage
+                    size=resource.nbytes, usage=resource.usage
                 )
                 if resource.data is not None:
                     # Copy data from array to new buffer
@@ -645,15 +416,14 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             if not info:
                 continue  # not drawn
 
-            for pipeline, bind_groups, indices in info["compute_pipelines"]:
+            for pipeline, bind_groups, index_args in info["compute_pipelines"]:
                 compute_pass.set_pipeline(pipeline)
                 for bind_group_id, bind_group in enumerate(bind_groups):
                     compute_pass.set_bind_group(
                         bind_group_id, bind_group, [], 0, 999999
                     )
-                args = indices[0].stop, indices[1].stop, indices[2].stop
                 # print(args)
-                compute_pass.dispatch(*args)
+                compute_pass.dispatch(*index_args)
 
         compute_pass.end_pass()
 
@@ -676,23 +446,21 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
             if not info:
                 continue  # not drawn
 
-            for pipeline, bind_groups, vertex_buffers, indices in info[
-                "render_pipelines"
-            ]:
+            for xx in info["render_pipelines"]:
+                pipeline, bind_groups, vertex_buffers, index_buffer, index_args = xx
                 render_pass.set_pipeline(pipeline)
                 for bind_group_id, bind_group in enumerate(bind_groups):
                     render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 999999)
                 for slot, vertex_buffer in enumerate(vertex_buffers):
                     render_pass.set_vertex_buffer(slot, vertex_buffer, 0)
                 # Draw with or without index buffer
-                first, count = indices.start, indices.stop - indices.start
-                if False:  # info["index_buffer"] is not None:
-                    render_pass.set_index_buffer(info["index_buffer"], 0)
-                    base_vertex = 0  # or first?
-                    render_pass.draw_indexed(count, 1, first, base_vertex, 0)
+                if index_buffer is not None:
+                    # todo: pr should index_buffer be a raw gpu buffer already?
+                    render_pass.set_index_buffer(index_buffer._gpu_buffer, 0)
+                    render_pass.draw_indexed(*index_args)
                 else:
                     # print(count, first)
-                    render_pass.draw(count, 1, first, 0)
+                    render_pass.draw(*index_args)
 
         render_pass.end_pass()
 

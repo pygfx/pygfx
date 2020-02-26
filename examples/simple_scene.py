@@ -10,11 +10,18 @@ renderer = vv.WgpuSurfaceRenderer(canvas)
 
 scene = vv.Scene()
 
-t1 = vv.Mesh(vv.Geometry(range(3)), vv.TriangleMaterial())
+
+class Triangle(vv.WorldObject):
+    def __init__(self, material):
+        super().__init__()
+        self.material = material
+
+
+t1 = Triangle(vv.TriangleMaterial())
 scene.add(t1)
 
 for i in range(2):
-    scene.add(vv.Mesh(vv.Geometry(range(3)), vv.TriangleMaterial()))
+    scene.add(Triangle(vv.TriangleMaterial()))
 
 
 camera = vv.NDCCamera()  # This material does not use the camera anyway :P

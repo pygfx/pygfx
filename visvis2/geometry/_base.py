@@ -1,9 +1,6 @@
 import numpy as np
 
-from collections import namedtuple
-
-
-BufferData = namedtuple("BufferData", ["array", "mapped"], defaults=[False])
+from .._wrappers import BufferWrapper
 
 
 class Geometry:
@@ -19,13 +16,10 @@ class Geometry:
     For the GPU, geometry objects are responsible for providing buffers.
     """
 
-    def __init__(self, index=None, *vertex_data):
-        # todo: don't cast if an array is already given
-        self.index = None if index is None else np.array(index, np.uint32)
-
-        self.vertex_data = []
-        self.bindings = {
-            slot: (np.array(array, np.float32), False)
-            for slot, array in enumerate(vertex_data)
-        }
-        # self.storage_data = {} ?
+    def __init__(self, **data):
+        for name, val in data.items():
+            val = np.asanyarray(val)
+            usage = None
+            if name.lower() in ("index", "indices"):
+                usage = wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.INDEX
+            setattr(name, BufferWrapper(val, usage=usage))

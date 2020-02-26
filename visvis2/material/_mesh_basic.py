@@ -27,11 +27,21 @@ def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
 
 
 class MeshBasicMaterial(Material):
-    def __init__(self):
-        super().__init__()
-        self.uniforms = None
-        self.shaders = {
-            "vertex": vertex_shader,
-            "fragment": fragment_shader,
-        }
-        self.primitive_topology = wgpu.PrimitiveTopology.triangle_list
+    def get_wgpu_info(self, obj):
+
+        geometry = obj.geometry
+
+        n = len(geometry.index.data)  # number of faces
+
+        # todo: go back to using vertex buffers again, its easy now!
+        return [
+            {
+                "vertex_shader": vertex_shader,
+                "fragment_shader": fragment_shader,
+                "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+                "indices": range(n),
+                "index_buffer": geometry.index,
+                "bindings1": [geometry.positions],
+                "target": None,  # default
+            },
+        ]

@@ -1,5 +1,6 @@
 import numpy as np
 
+from .._wrappers import BufferWrapper
 from ._mesh import MeshGeometry
 
 
@@ -64,5 +65,8 @@ class BoxGeometry(MeshGeometry):
             ],
             dtype="u2",
         )
-        self.bindings[0] = vertices, False
-        self.index = index
+
+        self.positions = BufferWrapper(
+            vertices, usage="storage|vertex"
+        )  # default mapped=False
+        self.index = BufferWrapper(index, usage="index|storage")
