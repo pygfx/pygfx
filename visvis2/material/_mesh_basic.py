@@ -32,9 +32,9 @@ def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
 
 
 class MeshBasicMaterial(Material):
-    def get_wgpu_info(self, obj):
+    def get_wgpu_info(self, wobject):
 
-        geometry = obj.geometry
+        geometry = wobject.geometry
 
         n = len(geometry.index.data)  # number of faces
 

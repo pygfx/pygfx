@@ -40,14 +40,17 @@ def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
 class LineStripMaterial(Material):
     def __init__(self):
         super().__init__()
+
+        # Create buffer that only exist on the GPU, we provide stub data so that
+        # the buffer knows type and strides (needed when used as vertex buffer)
         stub_array = np.zeros((0, 4), np.float32)
         self.positions2 = BufferWrapper(
             stub_array, nbytes=0, mapped=False, usage="vertex|storage"
         )
 
-    def get_wgpu_info(self, obj):
+    def get_wgpu_info(self, wobject):
         # todo: we must hash the result by the len(geometry.position)
-        geometry = obj.geometry
+        geometry = wobject.geometry
 
         n = len(geometry.positions.data)  # number of vertices
 

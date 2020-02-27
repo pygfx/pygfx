@@ -22,3 +22,30 @@ def array_from_shader_type(spirv_type):
 class Material:
     def __init__(self):
         self.dirty = True
+
+    def get_wgpu_info(self, obj):
+        """ Return a list of high level pipeline descriptions.
+        These can be compute or render pipelines.
+
+        Example compute pipeline:
+
+            {
+                "compute_shader": shader_module,
+                "indices": (n, 1, 1),  # the number of iterations (x, y, z)
+                "bindings1": [buffer1, texture1],  # optional
+                "bindings2": [buffer2],  # optional
+            },
+
+        Example render pipeline:
+
+            {
+                "vertex_shader": vertex_shader,
+                "fragment_shader": fragment_shader,
+                "primitive_topology": "triangle-strip",
+                "indices": range(10, n),  # int or range
+                "index_buffer": buffer3,  # optional
+                "vertex_buffers": [buffer4],  # optional
+                "target": texture2,  # optional, not-implemented
+            },
+        """
+        raise NotImplementedError()
