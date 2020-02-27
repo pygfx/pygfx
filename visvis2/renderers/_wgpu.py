@@ -77,10 +77,8 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         # todo: THIS IS WRONG BECAUSE stdinfo is global to the renderer. WOOPS
         # Set info(if we use a per-scene stdinfo object, we'd only need to update world_transform)
         for wobject in q:
-            info = wobject._wgpu_info
-            if not info:
-                continue  # not drawn
-            stdinfo = info["stdinfo"]
+            wgpu_data = wobject._wgpu_data
+            stdinfo = wgpu_data["stdinfo"]
             stdinfo["world_transform"] = tuple(wobject.matrix_world.elements)
             stdinfo["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
             stdinfo["projection_transform"] = tuple(camera.projection_matrix.elements)
@@ -92,11 +90,8 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for wobject in q:
-            info = wobject._wgpu_info
-            if not info:
-                continue  # not drawn
-
-            for pinfo in info["compute_pipelines"]:
+            wgpu_data = wobject._wgpu_data
+            for pinfo in wgpu_data["compute_pipelines"]:
                 compute_pass.set_pipeline(pinfo["pipeline"])
                 for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
                     compute_pass.set_bind_group(
@@ -121,11 +116,8 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         )
 
         for wobject in q:
-            info = wobject._wgpu_info
-            if not info:
-                continue  # not drawn
-
-            for pinfo in info["render_pipelines"]:
+            wgpu_data = wobject._wgpu_data
+            for pinfo in wgpu_data["render_pipelines"]:
                 render_pass.set_pipeline(pinfo["pipeline"])
                 for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
                     render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 999999)
@@ -177,8 +169,8 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
         """
 
         # Can return fast?
-        if not wobject.material.dirty and hasattr(wobject, "_wgpu_info"):
-            return wobject._wgpu_info
+        if not wobject.material.dirty and hasattr(wobject, "_wgpu_data"):
+            return wobject._wgpu_data
 
         wobject.material.dirty = False
 
@@ -211,7 +203,7 @@ class WgpuSurfaceRenderer(WgpuBaseRenderer):
                 )
 
         # Store on the wobject
-        wobject._wgpu_info = {
+        wobject._wgpu_data = {
             "compute_pipelines": compute_pipelines,
             "render_pipelines": render_pipelines,
             "alt_render_pipelines": alt_render_pipelines,
