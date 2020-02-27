@@ -6,7 +6,7 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.WgpuSurfaceRenderer(canvas)
+renderer = vv.renderers.WgpuRenderer(canvas)
 
 scene = vv.Scene()
 

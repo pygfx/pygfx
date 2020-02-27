@@ -2,35 +2,26 @@ import python_shader  # noqa
 import wgpu.backend.rs
 import numpy as np
 
-from ._base import Renderer
-from ..objects import WorldObject
-from ..cameras import Camera
-from ..linalg import Matrix4, Vector3
-from ..material._base import stdinfo_type
-from .._wrappers import BufferWrapper
+from .. import Renderer
+from ...objects import WorldObject
+from ...cameras import Camera
+from ...linalg import Matrix4, Vector3
+from ...material._base import stdinfo_type
+from ..._wrappers import BufferWrapper
 
 
-class WgpuBaseRenderer(Renderer):
-    """ Render using WGPU.
-    """
-
-
-class WgpuOffscreenRenderer(WgpuBaseRenderer):
-    """ Render using WGPU, but offscreen, not using a surface.
-    """
-
-
-class WgpuSurfaceRenderer(WgpuBaseRenderer):
+class WgpuRenderer(Renderer):
     """ A renderer that renders to a surface.
     """
 
     def __init__(self, canvas):
+        self._canvas = canvas
+
         self._pipelines = []
 
         adapter = wgpu.request_adapter(power_preference="high-performance")
         self._device = adapter.request_device(extensions=[], limits={})
 
-        self._canvas = canvas
         self._swap_chain = self._canvas.configure_swap_chain(
             self._device,
             wgpu.TextureFormat.bgra8unorm_srgb,

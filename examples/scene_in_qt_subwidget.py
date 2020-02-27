@@ -15,7 +15,7 @@ class Main(QtWidgets.QWidget):
 
         # Create canvas, renderer and a scene object
         self._canvas = WgpuCanvas(parent=self)
-        self._renderer = vv.WgpuSurfaceRenderer(self._canvas)
+        self._renderer = vv.WgpuRenderer(self._canvas)
         self._scene = vv.Scene()
         self._camera = vv.PerspectiveCamera(45, 16 / 9, 0.1, 1000)
 

@@ -6,7 +6,7 @@ import visvis2 as vv
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.WgpuSurfaceRenderer(canvas)
+renderer = vv.WgpuRenderer(canvas)
 
 scene = vv.Scene()
 

@@ -1,3 +1,13 @@
 # flake8: noqa
-from ._base import Renderer
-from ._wgpu import WgpuSurfaceRenderer
+
+
+class Renderer:
+    """ Base class for other renderers. A renderer takes a figure,
+    collect data that describe how it should be drawn, and then draws it.
+    """
+
+    pass
+
+
+from .wgpu import WgpuRenderer
+from .svg import SvgRenderer
