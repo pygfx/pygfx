@@ -12,6 +12,8 @@ def array_from_shader_type(spirv_type):
 
 # todo: can this be generic enough, keeping the GPU bits out / optional?
 
+# todo: Support for updating unmapped data. Use something like updateRange to do subBufferUpdate
+
 
 class BaseBufferWrapper:
     """ A base buffer wrapper that can be implemented for numpy, ctypes arrays,

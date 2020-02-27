@@ -35,7 +35,6 @@ class Main(QtWidgets.QWidget):
     def animate(self):
         width, height, ratio = self._canvas.get_size_and_pixel_ratio()
         self._camera.aspect = width / height
-        self._camera.update_projection_matrix()
         self._renderer.render(self._scene, self._camera)
 
 

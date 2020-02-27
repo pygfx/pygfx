@@ -29,7 +29,7 @@ camera = vv.NDCCamera()  # This material does not use a camera
 
 def animate():
     width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.update_viewport_size(width, height)
+    camera.set_viewport_size(width, height)
 
     renderer.render(scene, camera)
 

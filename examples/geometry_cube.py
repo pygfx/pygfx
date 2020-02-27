@@ -23,7 +23,7 @@ camera.position.z = 400
 def animate():
     # would prefer to do this in a resize event only
     width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.update_viewport_size(width, height)
+    camera.set_viewport_size(width, height)
 
     # cube.rotation.x += 0.005
     # cube.rotation.y += 0.01

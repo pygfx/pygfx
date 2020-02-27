@@ -37,7 +37,7 @@ camera = vv.ScreenCoordsCamera()
 def animate():
     # would prefer to do this in a resize event only
     width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.update_viewport_size(width, height)
+    camera.set_viewport_size(width, height)
     renderer.render(scene, camera)
     canvas.update()
 

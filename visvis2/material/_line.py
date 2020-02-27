@@ -6,6 +6,9 @@ import wgpu
 import python_shader
 from python_shader import vec4, Array
 
+# todo: use a compute shader or instancing?
+# https://wwwtyro.net/2019/11/18/instanced-lines.html
+
 
 @python_shader.python2shader
 def compute_shader(
