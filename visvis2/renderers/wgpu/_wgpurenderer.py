@@ -2,12 +2,26 @@ import python_shader  # noqa
 import wgpu.backend.rs
 import numpy as np
 
-from .. import Renderer
+from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
 from ...material._base import stdinfo_type
 from ..._wrappers import BufferWrapper
+
+
+registry = RenderFunctionRegistry()
+
+
+def register_wgpu_render_function(wobject_cls, material_cls):
+    """ Decorator to register a WGPU render function.
+    """
+
+    def _register_wgpu_renderer(f):
+        registry.register(wobject_cls, material_cls, f)
+        return f
+
+    return _register_wgpu_renderer
 
 
 class WgpuRenderer(Renderer):
@@ -58,6 +72,9 @@ class WgpuRenderer(Renderer):
         # Ensure each wobject has pipeline info
         for wobject in q:
             self._update_pipelines(wobject)
+
+        # Filter out objects that we cannot render
+        q = [wobject for wobject in q if wobject._wgpu_data is not None]
 
         # Prepare for rendering
         current_texture_view = self._swap_chain.get_current_texture_view()
@@ -161,12 +178,20 @@ class WgpuRenderer(Renderer):
 
         # Can return fast?
         if not wobject.material.dirty and hasattr(wobject, "_wgpu_data"):
-            return wobject._wgpu_data
+            return
 
         wobject.material.dirty = False
 
-        # Get high-level description of pipelines
-        pipeline_infos = wobject.material.get_wgpu_info(wobject)
+        # Get render function for this world object,
+        # and use it to get a high-level description of pipelines.
+        pipeline_infos = None
+        renderfunc = registry.get_render_function(wobject)
+        if renderfunc is not None:
+            pipeline_infos = renderfunc(wobject)
+        if pipeline_infos is None:
+            wobject._wgpu_data = None
+            return
+
         assert isinstance(pipeline_infos, list)
         assert all(isinstance(pipeline_info, dict) for pipeline_info in pipeline_infos)
 

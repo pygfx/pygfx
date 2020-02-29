@@ -1,13 +1,5 @@
 # flake8: noqa
 
-
-class Renderer:
-    """ Base class for other renderers. A renderer takes a figure,
-    collect data that describe how it should be drawn, and then draws it.
-    """
-
-    pass
-
-
+from ._base import Renderer, RenderFunctionRegistry
 from .wgpu import WgpuRenderer
 from .svg import SvgRenderer
