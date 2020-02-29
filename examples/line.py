@@ -8,6 +8,7 @@ app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = vv.WgpuRenderer(canvas)
+renderer_svg = vv.SvgRenderer(640, 480, "~/line.svg")
 
 scene = vv.Scene()
 
@@ -43,5 +44,6 @@ def animate():
 
 
 if __name__ == "__main__":
+    renderer_svg.render(scene, camera)
     canvas.draw_frame = animate
     app.exec_()
