@@ -21,6 +21,7 @@ class RenderFunctionRegistry:
 
     def __init__(self):
         self._store = {}
+        self._known_classes = set([WorldObject, Material])
 
     def register(self, wobject_cls, material_cls, func):
         """ Register a render function for the given combination of
@@ -51,6 +52,8 @@ class RenderFunctionRegistry:
                 "Each combination of WorldObject and Material can only be registered once."
             )
         self._store[key] = func
+        self._known_classes.add(wobject_cls)
+        self._known_classes.add(material_cls)
 
     def get_render_function(self, wobject):
         """ Get the render function for the given world object, based
@@ -76,14 +79,31 @@ class RenderFunctionRegistry:
         if not isinstance(material, Material):
             raise TypeError(f"Expected Material instance, got {material_cls}.")
 
+        # Get WorldObject mro, but stripped to classes of interest
+        wobject_classes = wobject_cls.mro()
+        while wobject_classes[-1] is not WorldObject:
+            wobject_classes.pop(-1)
+        while wobject_classes[0] not in self._known_classes:
+            wobject_classes.pop(0)
+
+        # Get Material mro, but stripped to classes of interest
+        material_classes = material_cls.mro()
+        while material_classes[-1] is not Material:
+            material_classes.pop(-1)
+        while material_classes[0] not in self._known_classes:
+            material_classes.pop(0)
+
         # Try to select a renderer. There is a double-loop here, but
-        for cls1 in wobject_cls.mro():
-            if issubclass(cls1, WorldObject):
-                for cls2 in material_cls.mro():
-                    if issubclass(cls2, Material):
-                        key = cls1, cls2
-                        f = self._store.get(key, None)
-                        if f is not None:
-                            return f
+        # both iters should be short, especially with the stripping
+        # above. An alternative implementation would be to walk over
+        # all registry entries and use isinstance, but the number of
+        # render functions will (over time) exceed the depth of
+        # subclasses that is traversed here.
+        for cls1 in wobject_classes:
+            for cls2 in material_classes:
+                key = cls1, cls2
+                f = self._store.get(key, None)
+                if f is not None:
+                    return f
 
         return None
