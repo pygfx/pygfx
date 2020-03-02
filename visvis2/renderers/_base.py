@@ -20,13 +20,11 @@ class RenderFunctionRegistry:
     """
 
     def __init__(self):
-        self._renderers = {}
+        self._store = {}
 
-    def register(self, wobject_cls, material_cls, func=None):
+    def register(self, wobject_cls, material_cls, func):
         """ Register a render function for the given combination of
-        world object and material class. If func is not given or None,
-        a function is returned that takes a single callable as argument,
-        so this method can be used as a decorator.
+        world object and material class.
 
         When a world object is being rendered, the renderer will select
         a render function based on the types of the world object and
@@ -43,28 +41,24 @@ class RenderFunctionRegistry:
             raise TypeError(f"Expected WorldObject subclass, got {wobject_cls}.")
         if not (isinstance(material_cls, type) and issubclass(material_cls, Material)):
             raise TypeError(f"Expected Material subclass, got {material_cls}.")
+        if not callable(func):
+            raise TypeError("Third argument must be a callable, not {func}")
 
+        # Store func with a key derived from the classes
         key = (wobject_cls, material_cls)
-
-        # Define function to insert in our dict-tree (or "sparse martrix")
-        def register_func(f):
-            assert callable(f)
-            if key in self._renderers:
-                raise ValueError(
-                    "Each combination of WorldObject and Material can only be registered once."
-                )
-            self._renderers[key] = f
-
-        if func is not None:
-            register_func(func)
-        else:
-            return register_func  # This call is probably a decorator
+        if key in self._store:
+            raise ValueError(
+                "Each combination of WorldObject and Material can only be registered once."
+            )
+        self._store[key] = func
 
     def get_render_function(self, wobject):
         """ Get the render function for the given world object, based
-        on the object's class, and the class of its material. Returns
-        None if the object has no material, or a suitable renderer
-        cannot be selected.
+        on the object's class, and the class of its material. The behavior
+        is similar to ``isinstance``; providing an instance of a custom
+        subclasses should not affect the selection. Returns None if the
+        object has no material, or a suitable renderer cannot be
+        selected.
         """
 
         # Get and check world object type
@@ -82,13 +76,13 @@ class RenderFunctionRegistry:
         if not isinstance(material, Material):
             raise TypeError(f"Expected Material instance, got {material_cls}.")
 
-        # Try to select a renderer
+        # Try to select a renderer. There is a double-loop here, but
         for cls1 in wobject_cls.mro():
             if issubclass(cls1, WorldObject):
                 for cls2 in material_cls.mro():
                     if issubclass(cls2, Material):
                         key = cls1, cls2
-                        f = self._renderers.get(key, None)
+                        f = self._store.get(key, None)
                         if f is not None:
                             return f
 
