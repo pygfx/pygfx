@@ -24,8 +24,8 @@ positions = np.array(
     ],
     np.float32,
 )
-geometry = vv.Geometry()
-geometry.positions = vv.BufferWrapper(positions * 5, mapped=True)
+geometry = vv.Geometry(positions=positions * 5)
+geometry.positions.set_mapped(True)
 
 
 material = vv.LineStripMaterial()

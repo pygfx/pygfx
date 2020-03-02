@@ -1,10 +1,10 @@
 import numpy as np
 
 from .._wrappers import BufferWrapper
-from ._mesh import MeshGeometry
+from ._base import Geometry
 
 
-class BoxGeometry(MeshGeometry):
+class BoxGeometry(Geometry):
     def __init__(self, width, height, depth):
         super().__init__()
 
