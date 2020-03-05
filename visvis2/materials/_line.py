@@ -2,7 +2,7 @@ from python_shader import Struct, vec3, f32
 
 from ._base import Material
 from ..utils import array_from_shadertype
-from .. import BufferWrapper
+from ..datawrappers import BufferWrapper
 
 
 class LineStripMaterial(Material):

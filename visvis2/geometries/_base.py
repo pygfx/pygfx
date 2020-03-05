@@ -1,6 +1,6 @@
 import numpy as np
 
-from .._wrappers import BufferWrapper
+from ..datawrappers import BufferWrapper
 
 
 class Geometry:

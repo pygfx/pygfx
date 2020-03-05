@@ -1,11 +1,11 @@
 # flake8: noqa
 
 from . import utils
-from ._wrappers import BufferWrapper
 
+from .datawrappers import *
 from .objects import *
-from .geometry import *
-from .material import *
+from .geometries import *
+from .materials import *
 from .cameras import *
 
 from .renderers import *

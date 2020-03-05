@@ -4,12 +4,6 @@ import wgpu
 import numpy as np
 
 
-def array_from_shader_type(spirv_type):
-    """ Get a numpy array object from a SpirV type from python-shader.
-    """
-    return np.asarray(spirv_type())
-
-
 # todo: can this be generic enough, keeping the GPU bits out / optional?
 
 # todo: Support for updating unmapped data. Use something like updateRange to do subBufferUpdate

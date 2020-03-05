@@ -3,9 +3,9 @@ import python_shader
 from python_shader import vec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
-from ...material._base import Material
 from ...objects import Mesh
-from ..._wrappers import BufferWrapper
+from ...materials import Material
+from ...datawrappers import BufferWrapper
 
 
 @python_shader.python2shader

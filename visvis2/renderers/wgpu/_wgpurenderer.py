@@ -1,12 +1,12 @@
 import python_shader  # noqa
 from python_shader import Struct, vec2, mat4
-import wgpu.backend.rs
+import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ..._wrappers import BufferWrapper
+from ...datawrappers import BufferWrapper
 from ...utils import array_from_shadertype
 
 
