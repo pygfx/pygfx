@@ -21,7 +21,8 @@ class Geometry:
 
     def __init__(self, **data):
         for name, val in data.items():
-            val = np.asanyarray(val)
+            if not isinstance(val, np.ndarray):
+                val = np.asanyarray(val, dtype=np.float32)
             if name.lower() == "index":
                 usage = wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.INDEX
             else:

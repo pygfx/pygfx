@@ -4,7 +4,7 @@ import python_shader
 from python_shader import vec4, Array
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
-from ...objects import Mesh  # todo -> Line
+from ...objects import Line
 from ...material import LineStripMaterial
 from ..._wrappers import BufferWrapper
 
@@ -48,7 +48,7 @@ def fragment_shader(
     out_color = vec4(material.color.rgb, 1.0)  # noqa - shader assign to input arg
 
 
-@register_wgpu_render_function(Mesh, LineStripMaterial)
+@register_wgpu_render_function(Line, LineStripMaterial)
 def line_renderer(wobject, render_info):
     """ Render function capable of rendering lines.
     """

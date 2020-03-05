@@ -1,5 +1,6 @@
+import random
+
 import visvis2 as vv
-import numpy as np
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -12,24 +13,12 @@ renderer_svg = vv.SvgRenderer(640, 480, "~/line.svg")
 
 scene = vv.Scene()
 
-positions = np.array(
-    [
-        [10, 10, 0, 1],
-        [20, 20, 0, 1],
-        [30, 40, 0, 1],
-        [40, 30, 0, 1],
-        [50, 50, 0, 1],
-        [60, 50, 0, 1],
-        [70, 30, 0, 1],
-    ],
-    np.float32,
-)
-geometry = vv.Geometry(positions=positions * 5)
+positions = [[10 + i * 20, 100 + random.uniform(0, 40), 0, 1] for i in range(20)]
+geometry = vv.Geometry(positions=positions)
 geometry.positions.set_mapped(True)
 
-
 material = vv.LineStripMaterial()
-line = vv.Mesh(geometry, material)  # Mesh??
+line = vv.Line(geometry, material)
 scene.add(line)
 
 camera = vv.ScreenCoordsCamera()
