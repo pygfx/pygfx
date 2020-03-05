@@ -4,7 +4,7 @@ from . import utils
 from ._wrappers import BufferWrapper
 
 from .objects import *
-from .geometry import *
+from .geometries import *
 from .material import *
 from .cameras import *
 
