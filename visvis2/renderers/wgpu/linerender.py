@@ -12,15 +12,12 @@ from ..._wrappers import BufferWrapper
 # https://wwwtyro.net/2019/11/18/instanced-lines.html
 
 
-# todo: Also allow this code to set binding of stdinfo. Explicit is better than implicit.
-
-
 @python_shader.python2shader
 def compute_shader(
     index: (python_shader.RES_INPUT, "GlobalInvocationId", "i32"),
-    pos1: (python_shader.RES_BUFFER, (1, 0), Array(vec4)),
-    pos2: (python_shader.RES_BUFFER, (1, 1), Array(vec4)),
-    material: (python_shader.RES_UNIFORM, (1, 2), LineStripMaterial.uniform_type),
+    pos1: (python_shader.RES_BUFFER, (0, 0), Array(vec4)),
+    pos2: (python_shader.RES_BUFFER, (0, 1), Array(vec4)),
+    material: (python_shader.RES_UNIFORM, (0, 2), LineStripMaterial.uniform_type),
 ):
     p = pos1[index] * 1.0
     dz = material.thickness
@@ -46,13 +43,13 @@ def vertex_shader(
 def fragment_shader(
     out_color: (python_shader.RES_OUTPUT, 0, vec4),
     stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    material: (python_shader.RES_UNIFORM, (1, 0), LineStripMaterial.uniform_type),
+    material: (python_shader.RES_UNIFORM, (0, 1), LineStripMaterial.uniform_type),
 ):
     out_color = vec4(material.color.rgb, 1.0)  # noqa - shader assign to input arg
 
 
 @register_wgpu_render_function(Mesh, LineStripMaterial)
-def line_renderer(wobject):
+def line_renderer(wobject, render_info):
     """ Render function capable of rendering lines.
     """
 
@@ -79,7 +76,7 @@ def line_renderer(wobject):
         {
             "compute_shader": compute_shader,
             "indices": (n, 1, 1),
-            "bindings1": [positions1, positions2, material.uniforms],
+            "bindings0": [positions1, positions2, material.uniforms],
         },
         {
             "vertex_shader": vertex_shader,
@@ -87,7 +84,7 @@ def line_renderer(wobject):
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": n * 2,
             "vertex_buffers": [positions2],
-            "bindings1": [material.uniforms],
+            "bindings0": [render_info.stdinfo, material.uniforms],
             "target": None,  # default
         },
     ]

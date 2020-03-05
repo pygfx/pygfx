@@ -9,6 +9,7 @@ from ...linalg import Matrix4, Vector3
 from ..._wrappers import BufferWrapper
 from ...utils import array_from_shadertype
 
+
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
 stdinfo_uniform_type = Struct(
@@ -34,6 +35,16 @@ def register_wgpu_render_function(wobject_cls, material_cls):
     return _register_wgpu_renderer
 
 
+class RenderInfo:
+    """ The type of object passed to each wgpu render function together
+    with the world object. Contains stdinfo buffer for now. In time
+    will probably also include lights etc.
+    """
+
+    def __init__(self, *, stdinfo):
+        self.stdinfo = stdinfo
+
+
 class WgpuRenderer(Renderer):
     """ A renderer that renders to a surface.
     """
@@ -50,13 +61,6 @@ class WgpuRenderer(Renderer):
             self._device,
             wgpu.TextureFormat.bgra8unorm_srgb,
             wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-        )
-
-        # Create uniform buffer that containse transform related data
-        # is reused for *all* objects.
-        # todo: or have one per scene, or per object?
-        self._stdinfo_buffer = BufferWrapper(
-            array_from_shadertype(stdinfo_uniform_type), mapped=1, usage="uniform"
         )
 
     def render(self, scene: WorldObject, camera: Camera):
@@ -91,17 +95,18 @@ class WgpuRenderer(Renderer):
         command_encoder = device.create_command_encoder()
         command_buffers = []
 
-        # Update stdinfo struct for all objects
-        # todo: THIS IS WRONG BECAUSE stdinfo is global to the renderer. WOOPS
-        # Set info(if we use a per-scene stdinfo object, we'd only need to update world_transform)
+        # Update stdinfo buffer for all objects
+        # todo: a lot of duplicate data here. Let's revisit when we implement point / line collections.
         for wobject in q:
             wgpu_data = wobject._wgpu_data
             stdinfo = wgpu_data["stdinfo"]
-            stdinfo["world_transform"] = tuple(wobject.matrix_world.elements)
-            stdinfo["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-            stdinfo["projection_transform"] = tuple(camera.projection_matrix.elements)
-            stdinfo["physical_size"] = width, height  # or the other way around? :P
-            stdinfo["logical_size"] = width * pixelratio, height * pixelratio
+            stdinfo.data["world_transform"] = tuple(wobject.matrix_world.elements)
+            stdinfo.data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
+            stdinfo.data["projection_transform"] = tuple(
+                camera.projection_matrix.elements
+            )
+            stdinfo.data["physical_size"] = width, height  # or the other way around? :P
+            stdinfo.data["logical_size"] = width * pixelratio, height * pixelratio
 
         # ----- compute pipelines
 
@@ -191,19 +196,30 @@ class WgpuRenderer(Renderer):
             return
 
         wobject.material.dirty = False
+        wobject._wgpu_data = None
 
         # Get render function for this world object,
         # and use it to get a high-level description of pipelines.
-        pipeline_infos = None
         renderfunc = registry.get_render_function(wobject)
-        if renderfunc is not None:
-            pipeline_infos = renderfunc(wobject)
-        if pipeline_infos is None:
+        if renderfunc is None:
             wobject._wgpu_data = None
-            return
 
-        assert isinstance(pipeline_infos, list)
-        assert all(isinstance(pipeline_info, dict) for pipeline_info in pipeline_infos)
+        # Make sure that the wobject has an stdinfo object
+        if not hasattr(wobject, "_wgpu_stdinfo_buffer"):
+            wobject._wgpu_stdinfo_buffer = BufferWrapper(
+                array_from_shadertype(stdinfo_uniform_type), mapped=1, usage="uniform"
+            )
+
+        # Call render function
+        render_info = RenderInfo(stdinfo=wobject._wgpu_stdinfo_buffer)
+        pipeline_infos = renderfunc(wobject, render_info)
+        if pipeline_infos is not None:
+            assert isinstance(pipeline_infos, list)
+            assert all(
+                isinstance(pipeline_info, dict) for pipeline_info in pipeline_infos
+            )
+        else:
+            return
 
         # Prepare the three kinds of pipelines that we can get
         compute_pipelines = []
@@ -233,7 +249,7 @@ class WgpuRenderer(Renderer):
             "compute_pipelines": compute_pipelines,
             "render_pipelines": render_pipelines,
             "alt_render_pipelines": alt_render_pipelines,
-            "stdinfo": self._stdinfo_buffer.data,  # todo: should we update info, or caller?
+            "stdinfo": wobject._wgpu_stdinfo_buffer,
         }
 
     def _compose_compute_pipeline(self, wobject, pipeline_info):
@@ -428,12 +444,8 @@ class WgpuRenderer(Renderer):
 
         device = self._device
 
-        # Standard resources for each object.
-        # The stdinfo is at slot 0 of bindgroup 0, but can be overwritten.
-        scene_buffers = [self._stdinfo_buffer]
-
         # Collect resource groups (keys e.g. "bindings1", "bindings132")
-        resource_groups = [scene_buffers]
+        resource_groups = []
         for key in pipeline_info.keys():
             if key.startswith("bindings"):
                 i = int(key[len("bindings") :])

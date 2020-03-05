@@ -53,7 +53,7 @@ def fragment_shader(
 
 # Tell visvis to use this render function for a Triangle with TriangleMaterial.
 @vv.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
-def triangle_render_function(wobject):
+def triangle_render_function(wobject, render_info):
     n = 3
     return [
         {
@@ -61,6 +61,7 @@ def triangle_render_function(wobject):
             "fragment_shader": fragment_shader,
             "primitive_topology": "triangle-list",
             "indices": range(n),
+            "bindings0": [render_info.stdinfo],
         },
     ]
 

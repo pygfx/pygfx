@@ -28,7 +28,7 @@ def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
 
 
 @register_wgpu_render_function(Mesh, Material)
-def mesh_renderer(wobject):
+def mesh_renderer(wobject, render_info):
     """ Render function capable of rendering meshes.
     """
 
@@ -69,5 +69,6 @@ def mesh_renderer(wobject):
             "indices": (range(n), range(1)),
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
+            "bindings0": [render_info.stdinfo],
         }
     ]
