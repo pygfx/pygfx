@@ -6,7 +6,7 @@ from python_shader import vec4, Array
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
 from ...materials import LineStripMaterial
-from ..._wrappers import BufferWrapper
+from ...datawrappers import BufferWrapper
 
 # todo: use a compute shader or instancing?
 # https://wwwtyro.net/2019/11/18/instanced-lines.html

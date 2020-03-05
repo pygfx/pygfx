@@ -6,7 +6,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ..._wrappers import BufferWrapper
+from ...datawrappers import BufferWrapper
 from ...utils import array_from_shadertype
 
 
