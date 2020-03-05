@@ -2,8 +2,8 @@ import wgpu  # only for flags/enums
 import python_shader
 from python_shader import vec4
 
-from . import register_wgpu_render_function
-from ...material._base import Material, stdinfo_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
+from ...material._base import Material
 from ...objects import Mesh
 from ..._wrappers import BufferWrapper
 
@@ -14,7 +14,7 @@ def vertex_shader(
     position: (python_shader.RES_INPUT, 0, vec4),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
     # uniform and storage buffers
-    stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_type),
+    stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
 ):
     world_pos = stdinfo.world_transform * vec4(position.xyz, 1.0)
     ndc_pos = stdinfo.projection_transform * stdinfo.cam_transform * world_pos

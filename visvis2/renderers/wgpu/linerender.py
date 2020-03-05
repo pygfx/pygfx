@@ -3,8 +3,7 @@ import wgpu  # only for flags/enums
 import python_shader
 from python_shader import vec4, Array
 
-from . import register_wgpu_render_function
-from ...material._base import stdinfo_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh  # todo -> Line
 from ...material import LineStripMaterial
 from ..._wrappers import BufferWrapper
@@ -13,15 +12,20 @@ from ..._wrappers import BufferWrapper
 # https://wwwtyro.net/2019/11/18/instanced-lines.html
 
 
+# todo: Also allow this code to set binding of stdinfo. Explicit is better than implicit.
+
+
 @python_shader.python2shader
 def compute_shader(
     index: (python_shader.RES_INPUT, "GlobalInvocationId", "i32"),
     pos1: (python_shader.RES_BUFFER, (1, 0), Array(vec4)),
     pos2: (python_shader.RES_BUFFER, (1, 1), Array(vec4)),
+    material: (python_shader.RES_UNIFORM, (1, 2), LineStripMaterial.uniform_type),
 ):
     p = pos1[index] * 1.0
-    pos2[index * 2 + 0] = vec4(p.x, p.y + 5.0, p.z, 1.0)
-    pos2[index * 2 + 1] = vec4(p.x, p.y - 5.0, p.z, 1.0)
+    dz = material.thickness
+    pos2[index * 2 + 0] = vec4(p.x, p.y + dz, p.z, 1.0)
+    pos2[index * 2 + 1] = vec4(p.x, p.y - dz, p.z, 1.0)
 
 
 @python_shader.python2shader
@@ -29,8 +33,8 @@ def vertex_shader(
     # io
     in_pos: (python_shader.RES_INPUT, 0, vec4),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
+    stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     # resources
-    stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_type),
 ):
     world_pos = stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = stdinfo.projection_transform * stdinfo.cam_transform * world_pos
@@ -39,8 +43,12 @@ def vertex_shader(
 
 
 @python_shader.python2shader
-def fragment_shader(out_color: (python_shader.RES_OUTPUT, 0, vec4),):
-    out_color = vec4(1.0, 0.0, 0.0, 1.0)  # noqa - shader assign to input arg
+def fragment_shader(
+    out_color: (python_shader.RES_OUTPUT, 0, vec4),
+    stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    material: (python_shader.RES_UNIFORM, (1, 0), LineStripMaterial.uniform_type),
+):
+    out_color = vec4(material.color.rgb, 1.0)  # noqa - shader assign to input arg
 
 
 @register_wgpu_render_function(Mesh, LineStripMaterial)
@@ -71,7 +79,7 @@ def line_renderer(wobject):
         {
             "compute_shader": compute_shader,
             "indices": (n, 1, 1),
-            "bindings1": [positions1, positions2],
+            "bindings1": [positions1, positions2, material.uniforms],
         },
         {
             "vertex_shader": vertex_shader,
@@ -79,6 +87,7 @@ def line_renderer(wobject):
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": n * 2,
             "vertex_buffers": [positions2],
+            "bindings1": [material.uniforms],
             "target": None,  # default
         },
     ]

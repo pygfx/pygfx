@@ -1,13 +1,23 @@
 import python_shader  # noqa
+from python_shader import Struct, vec2, mat4
 import wgpu.backend.rs
-import numpy as np
 
 from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ...material._base import stdinfo_type
 from ..._wrappers import BufferWrapper
+from ...utils import array_from_shadertype
+
+# Definition uniform struct with standard info related to transforms,
+# provided to each shader as uniform at slot 0.
+stdinfo_uniform_type = Struct(
+    world_transform=mat4,
+    cam_transform=mat4,
+    projection_transform=mat4,
+    physical_size=vec2,
+    logical_size=vec2,
+)
 
 
 registry = RenderFunctionRegistry()
@@ -46,7 +56,7 @@ class WgpuRenderer(Renderer):
         # is reused for *all* objects.
         # todo: or have one per scene, or per object?
         self._stdinfo_buffer = BufferWrapper(
-            np.asarray(stdinfo_type()), mapped=1, usage="uniform"
+            array_from_shadertype(stdinfo_uniform_type), mapped=1, usage="uniform"
         )
 
     def render(self, scene: WorldObject, camera: Camera):

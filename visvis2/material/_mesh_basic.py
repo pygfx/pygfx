@@ -1,5 +1,4 @@
-from visvis2.material._base import Material
-
+from ._base import Material
 
 # todo: put in an example somewhere how to use storage buffers for vertex data:
 # index: (python_shader.RES_INPUT, "VertexId", "i32")

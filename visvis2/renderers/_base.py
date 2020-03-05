@@ -1,5 +1,3 @@
-# from ..objects import WorldObject
-
 # todo: all do plural or singular here!
 from visvis2.objects import WorldObject
 from visvis2.material import Material

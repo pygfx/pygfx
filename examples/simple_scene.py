@@ -30,7 +30,7 @@ def vertex_shader(
     index: (RES_INPUT, "VertexId", "i32"),
     pos: (RES_OUTPUT, "Position", "vec4"),
     color: (RES_OUTPUT, 0, "vec3"),
-    stdinfo: (RES_UNIFORM, (0, 0), vv.material._base.stdinfo_type),
+    stdinfo: (RES_UNIFORM, (0, 0), vv.renderers.wgpu.stdinfo_uniform_type),
 ):
     # Draw in NDC
     # positions = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]

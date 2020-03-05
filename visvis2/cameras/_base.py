@@ -1,5 +1,5 @@
 from ..linalg import Matrix4
-from ..objects._world_object import WorldObject
+from ..objects._base import WorldObject
 
 
 class Camera(WorldObject):

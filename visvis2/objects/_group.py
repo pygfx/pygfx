@@ -1,4 +1,4 @@
-from ._world_object import WorldObject
+from ._base import WorldObject
 
 
 class Group(WorldObject):
