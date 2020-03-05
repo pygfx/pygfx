@@ -1,6 +1,6 @@
 from . import register_svg_render_function
 from ...objects import Line
-from ...material import LineStripMaterial
+from ...materials import LineStripMaterial
 
 
 @register_svg_render_function(Line, LineStripMaterial)
