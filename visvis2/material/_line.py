@@ -1,32 +1,32 @@
+from python_shader import Struct, vec3, f32
+
 from ._base import Material
-
-import python_shader
-from python_shader import vec3, mat4
-
-
-@python_shader.python2shader
-def vertex_shader(
-    pos: (python_shader.RES_INPUT, 0, vec3),
-    transform: (python_shader.RES_UNIFORM, 0, mat4),
-    out_pos=(python_shader.RES_OUTPUT, "Position", vec4),
-):
-    # out_pos = pos * transform
-    out_pos = pos  # noqa - shader assign to input arg
-
-
-@python_shader.python2shader
-def fragment_shader(out_color=(python_shader.RES_OUTPUT, 0, vec4),):
-    out_color = vec4(1.0, 0.0, 0.0, 1.0)  # noqa - shader assign to input arg
+from ..utils import array_from_shadertype
+from .. import BufferWrapper
 
 
 class LineStripMaterial(Material):
-    def __init__(self):
+
+    uniform_type = Struct(color=vec3, thickness=f32)
+
+    def __init__(self, color=(1, 1, 1), thickness=2.0):
         super().__init__()
-        self.uniforms = {
-            "color": (255.0, 0.0, 0.0),
-        }
-        self.shaders = {
-            "vertex": vertex_shader,
-            "fragment": fragment_shader,
-        }
-        self.primitive_topology = wgpu.PrimitiveTopology.line_strip
+
+        array = array_from_shadertype(self.uniform_type)
+        self.uniforms = BufferWrapper(array, usage="uniform", mapped=True)
+        self.set_color(color)
+        self.set_thickness(thickness)
+
+    @property
+    def color(self):
+        return self.uniforms.data["color"]
+
+    def set_color(self, color):
+        self.uniforms.data["color"] = tuple(color)
+
+    @property
+    def thickness(self):
+        return self.uniforms.data["thickness"]
+
+    def set_thickness(self, thickness):
+        self.uniforms.data["thickness"] = thickness

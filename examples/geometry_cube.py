@@ -1,5 +1,3 @@
-# NOTE: CURRENTLY BROKEN - WIP
-
 import visvis2 as vv
 
 from PyQt5 import QtWidgets
@@ -8,16 +6,15 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.WgpuSurfaceRenderer(canvas)
+renderer = vv.renderers.WgpuRenderer(canvas)
 
 scene = vv.Scene()
 
-geometry = vv.BoxGeometry(1, 1, 1)
+geometry = vv.BoxGeometry(200, 200, 200)
 material = vv.MeshBasicMaterial()
 cube = vv.Mesh(geometry, material)
 scene.add(cube)
 
-# todo: note that the camera is not yet actually used :P
 fov, aspect, near, far = 70, 16 / 9, 1, 1000
 camera = vv.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 400
@@ -26,11 +23,18 @@ camera.position.z = 400
 def animate():
     # would prefer to do this in a resize event only
     width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.aspect = width / height
-    camera.update_projection_matrix()
+    camera.set_viewport_size(width, height)
+
+    # cube.rotation.x += 0.005
+    # cube.rotation.y += 0.01
+    rot = vv.linalg.Quaternion().set_from_euler(vv.linalg.Euler(0.005, 0.01))
+    cube.rotation.multiply(rot)
 
     # actually render the scene
     renderer.render(scene, camera)
+
+    # Request new frame
+    canvas.update()
 
 
 if __name__ == "__main__":

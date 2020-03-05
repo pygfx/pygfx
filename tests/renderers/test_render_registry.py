@@ -1,0 +1,178 @@
+import visvis2 as vv
+from pytest import raises
+
+
+class Object1(vv.WorldObject):
+    def __init__(self, material):
+        self.material = material
+
+
+class Object2(vv.WorldObject):
+    def __init__(self, material):
+        self.material = material
+
+
+class Object3(Object1):
+    pass
+
+
+class Material1(vv.Material):
+    pass
+
+
+class Material2(vv.Material):
+    pass
+
+
+class Material3(Material1):
+    pass
+
+
+def foo1():
+    pass
+
+
+def foo2():
+    pass
+
+
+def foo3():
+    pass
+
+
+def test_render_registry_api():
+
+    assert vv.renderers.register_wgpu_render_function
+    assert vv.renderers.register_svg_render_function
+
+
+def test_render_registry_fails():
+
+    r = vv.renderers.RenderFunctionRegistry()
+
+    # This is ok
+    r.register(Object1, Material1, foo1)
+
+    # Type errors for first arg
+    with raises(TypeError):
+        r.register(4, Material1, foo1)
+    with raises(TypeError):
+        r.register(str, Material1, foo1)
+    # Type errors for second arg
+    with raises(TypeError):
+        r.register(Object1, 4, foo1)
+    with raises(TypeError):
+        r.register(Object1, str, foo1)
+    # Type errors for third arg
+    with raises(TypeError):
+        r.register(Object1, Material1, "not callable")
+
+    # Cannot register with the same types twice
+    with raises(ValueError):
+        r.register(Object1, Material1, foo1)
+
+    assert len(r._store) == 1
+
+    # This is ok
+    assert foo1 is r.get_render_function(Object1(Material1()))
+
+    # Material of None (or missing) is allowed, but returns None
+    assert None is r.get_render_function(Object1(None))
+
+    # Given object (and its material) must be the right type
+    with raises(TypeError):
+        r.get_render_function(3)
+    with raises(TypeError):
+        r.get_render_function(Object1(3))
+
+
+def test_render_registry_selection():
+
+    r = vv.renderers.RenderFunctionRegistry()
+
+    # Register one combo
+    r.register(Object1, Material1, foo1)
+
+    assert foo1 is r.get_render_function(Object1(Material1()))
+    assert None is r.get_render_function(Object1(Material2()))
+    assert foo1 is r.get_render_function(Object1(Material3()))
+
+    assert None is r.get_render_function(Object2(Material1()))
+    assert None is r.get_render_function(Object2(Material2()))
+    assert None is r.get_render_function(Object2(Material3()))
+
+    assert foo1 is r.get_render_function(Object3(Material1()))
+    assert None is r.get_render_function(Object3(Material2()))
+    assert foo1 is r.get_render_function(Object3(Material3()))
+
+    # Register another
+    r.register(Object2, Material2, foo2)
+
+    assert foo1 is r.get_render_function(Object1(Material1()))
+    assert None is r.get_render_function(Object1(Material2()))
+    assert foo1 is r.get_render_function(Object1(Material3()))
+
+    assert None is r.get_render_function(Object2(Material1()))
+    assert foo2 is r.get_render_function(Object2(Material2()))
+    assert None is r.get_render_function(Object2(Material3()))
+
+    assert foo1 is r.get_render_function(Object3(Material1()))
+    assert None is r.get_render_function(Object3(Material2()))
+    assert foo1 is r.get_render_function(Object3(Material3()))
+
+    # Register another two
+    r.register(Object3, Material1, foo3)
+    r.register(Object3, Material2, foo3)
+    # r.register(Object3, Material3, foo3) -> not necessary
+
+    assert foo1 is r.get_render_function(Object1(Material1()))
+    assert None is r.get_render_function(Object1(Material2()))
+    assert foo1 is r.get_render_function(Object1(Material3()))
+
+    assert None is r.get_render_function(Object2(Material1()))
+    assert foo2 is r.get_render_function(Object2(Material2()))
+    assert None is r.get_render_function(Object2(Material3()))
+
+    assert foo3 is r.get_render_function(Object3(Material1()))
+    assert foo3 is r.get_render_function(Object3(Material2()))
+    assert foo3 is r.get_render_function(Object3(Material3()))
+
+    # Now make foo1 and foo2 a catch all
+    r.register(Object1, vv.Material, foo1)
+    r.register(Object2, vv.Material, foo2)
+
+    assert foo1 is r.get_render_function(Object1(Material1()))
+    assert foo1 is r.get_render_function(Object1(Material2()))
+    assert foo1 is r.get_render_function(Object1(Material3()))
+
+    assert foo2 is r.get_render_function(Object2(Material1()))
+    assert foo2 is r.get_render_function(Object2(Material2()))
+    assert foo2 is r.get_render_function(Object2(Material3()))
+
+    assert foo3 is r.get_render_function(Object3(Material1()))
+    assert foo3 is r.get_render_function(Object3(Material2()))
+    assert foo3 is r.get_render_function(Object3(Material3()))
+
+
+def test_render_registry_of_wgpu():
+    r = vv.renderers.wgpu._wgpurenderer.registry
+
+    assert None is r.get_render_function(Object1(Material1()))
+
+    assert r.get_render_function(vv.Mesh(None, vv.MeshBasicMaterial()))
+
+
+def test_render_registry_of_svg():
+    r = vv.renderers.svg._svgrenderer.registry
+
+    assert None is r.get_render_function(Object1(Material1()))
+
+    assert r.get_render_function(vv.Mesh(None, vv.LineStripMaterial()))
+
+
+if __name__ == "__main__":
+    test_render_registry_api()
+    test_render_registry_fails()
+    test_render_registry_selection()
+    test_render_registry_of_wgpu()
+    test_render_registry_of_svg()

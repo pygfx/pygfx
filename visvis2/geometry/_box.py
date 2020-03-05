@@ -1,5 +1,6 @@
 import numpy as np
 
+from .._wrappers import BufferWrapper
 from ._base import Geometry
 
 
@@ -12,14 +13,14 @@ class BoxGeometry(Geometry):
         half_depth = depth / 2
         vertices = np.array(
             [
-                [-half_width, -half_height, -half_depth],
-                [-half_width, -half_height, +half_depth],
-                [-half_width, +half_height, -half_depth],
-                [-half_width, +half_height, +half_depth],
-                [+half_width, -half_height, -half_depth],
-                [+half_width, -half_height, +half_depth],
-                [+half_width, +half_height, -half_depth],
-                [+half_width, +half_height, +half_depth],
+                [-half_width, -half_height, -half_depth, 1],
+                [-half_width, -half_height, +half_depth, 1],
+                [-half_width, +half_height, -half_depth, 1],
+                [-half_width, +half_height, +half_depth, 1],
+                [+half_width, -half_height, -half_depth, 1],
+                [+half_width, -half_height, +half_depth, 1],
+                [+half_width, +half_height, -half_depth, 1],
+                [+half_width, +half_height, +half_depth, 1],
             ],
             dtype="f4",
         )
@@ -62,7 +63,10 @@ class BoxGeometry(Geometry):
                 5,
                 1,
             ],
-            dtype="i4",
+            dtype="u2",
         )
-        self.vertex_data = [vertices[index]]
-        self.index = index
+
+        self.positions = BufferWrapper(
+            vertices, usage="storage|vertex"
+        )  # default mapped=False
+        self.index = BufferWrapper(index, usage="index|storage")
