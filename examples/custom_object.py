@@ -32,24 +32,28 @@ def vertex_shader(
     color: (RES_OUTPUT, 0, "vec3"),
     stdinfo: (RES_UNIFORM, (0, 0), vv.renderers.wgpu.stdinfo_uniform_type),
 ):
-    # Draw in NDC
-    # positions = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
-    # p = positions[index]
+    positions1 = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
+    positions2 = [vec2(10.0, 10.0), vec2(90.0, 10.0), vec2(10.0, 90.0)]
 
-    # Draw in screen coordinates
-    positions = [vec2(10.0, 10.0), vec2(90.0, 10.0), vec2(10.0, 90.0)]
-    p = 2.0 * positions[index] / stdinfo.logical_size - 1.0
+    # Draw in NDC or screen coordinates
+    # p = positions1[index]
+    p = 2.0 * positions2[index] / stdinfo.logical_size - 1.0
 
     pos = vec4(p, 0.0, 1.0)  # noqa
-    color = vec3(p, 0.5)  # noqa
+    color = vec3(positions1[index], 0.5)  # noqa
 
 
 @python2shader
 def fragment_shader(
     in_color: (RES_INPUT, 0, "vec3"), out_color: (RES_OUTPUT, 0, "vec4"),
 ):
-    out_color = vec4(0.0, 1.0, 1.0, 0.1)  # noqa
+    out_color = vec4(in_color, 0.1)  # noqa
 
+
+import python_shader
+
+python_shader.dev.validate(vertex_shader)
+print(python_shader.dev.disassemble(vertex_shader))
 
 # Tell visvis to use this render function for a Triangle with TriangleMaterial.
 @vv.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
@@ -83,8 +87,8 @@ camera = vv.NDCCamera()  # This material does not actually use the camera
 
 
 def animate():
-    width, height, ratio = canvas.get_size_and_pixel_ratio()
-    camera.set_viewport_size(width, height)
+    physical_size = canvas.get_physical_size()
+    camera.set_viewport_size(*physical_size)
     renderer.render(scene, camera)
 
 

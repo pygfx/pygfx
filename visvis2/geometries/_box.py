@@ -67,6 +67,6 @@ class BoxGeometry(Geometry):
         )
 
         self.positions = BufferWrapper(
-            vertices, usage="storage|vertex"
+            vertices, usage="vertex|storage"
         )  # default mapped=False
         self.index = BufferWrapper(index, usage="index|storage")

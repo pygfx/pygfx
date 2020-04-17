@@ -14,29 +14,70 @@ class BaseBufferWrapper:
     or any other kind of array.
     """
 
-    def __init__(self, data=None, nbytes=None, usage=None, mapped=False):
-        self._data = data
-        if nbytes is not None:
-            self._nbytes = int(nbytes)
-        elif data is not None:
+    def __init__(self, data=None, *, nbytes=None, usage):
+        self._data = None
+        self._nbytes = 0
+        self._nitems = 1
+        self._pending_uploads = []
+        self._view_range = (0, 2 ** 50)
+
+        self._gpu_buffer = None  # Set by renderer
+
+        # Get nbytes
+        if data is not None:
+            self._data = data
             self._nbytes = self._nbytes_from_data(data)
+            self._nitems = self._nitems_from_data(data)
+            self._pending_uploads.append((0, self._nbytes))
+            if nbytes is not None:
+                if nbytes != self._nbytes:
+                    raise ValueError("Given nbytes does not match size of given data.")
+        elif nbytes is not None:
+            self._nbytes = int(nbytes)
         else:
             raise ValueError("Buffer must be instantiated with either data or nbytes.")
-        if isinstance(usage, int):
-            self._usage = usage
-        elif isinstance(usage, str):
+
+        # Determine usage
+        if isinstance(usage, str):
             usages = usage.upper().replace(",", " ").replace("|", " ").split()
             assert usages
-            self._usage = 0
-            for usage in usages:
-                self._usage |= getattr(wgpu.BufferUsage, usage)
+            self._usage = "|".join(usages)
         else:
-            self._usage = wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.VERTEX
-            # raise ValueError("BufferWrapper usage must be int or str.")
+            raise TypeError("Buffer usage must be str.")
 
-        self._mapped = bool(mapped)
-        self._dirty = True
-        self._gpu_buffer = None  # Set by renderer
+    @property
+    def nbytes(self):
+        """ Get the number of bytes in the buffer.
+        """
+        return self._nbytes
+
+    @property
+    def nitems(self):
+        """ Get the number of items in the buffer.
+        """
+        return self._nitems
+
+    @property
+    def view_range(self):
+        self._view_range
+
+    @property
+    def usage(self):
+        """ The buffer usage flags (as an int).
+        """
+        return self._usage
+
+    @property
+    def dirty(self):
+        """ Whether the buffer is dirty (needs to be processed by the renderer).
+        """
+        return bool(self._pending_uploads)
+
+    @property
+    def strides(self):
+        """ Stride info (as a tuple).
+        """
+        return self._get_strides()
 
     @property
     def data(self):
@@ -48,61 +89,46 @@ class BaseBufferWrapper:
         return self._data
 
     @property
-    def nbytes(self):
-        """ Get the number of bytes in the buffer.
-        """
-        return self._nbytes
-
-    @property
-    def usage(self):
-        """ The buffer usage flags (as an int).
-        """
-        return self._usage
-
-    @property
-    def mapped(self):
-        """ Whether the data is mapped. Mapped data can be updated in-place
-        to change the data on the GPU.
-        """
-        return self._mapped
-
-    @property
-    def dirty(self):
-        """ Whether the buffer is dirty (needs to be processed by the renderer).
-        """
-        return self._dirty
-
-    @property
-    def strides(self):
-        """ Stride info (as a tuple).
-        """
-        return self._get_strides()
-
-    @property
     def gpu_buffer(self):
         """ The WGPU buffer object. Can be None if the renderer has not set it (yet).
         """
         return self._gpu_buffer
 
-    def set_mapped(self, mapped):
-        self._mapped = bool(mapped)
-        self._dirty = True
+    # def resize(self):
+    #     pass
 
-    def set_nbytes(self, n):
-        self._nbytes = n
-        self._dirty = True
-
-    def set_data(self, data):
-        """ Allow user to reset the array data.
+    def set_view_range(self, start, stop):
+        """ Set the view range
         """
-        self._data = data
-        self._nbytes = self._nbytes_from_data(data)
-        self._dirty = True
+        self._view_range = int(start), int(stop)
+        # todo: implement this
+
+    # def set_data(self, data):
+    #     """ Reset the data.
+    #     """
+    #     self._data = data
+    #     self._nbytes = self._nbytes_from_data(data)
+    #     self._pending_data.append((data, 0))
+    #     self._dirty = True
+
+    def update_range(self, start=0, stop=2 ** 50):
+        """ Mark a certain range of the data for upload to the GPU. The
+        start and stop are expressed in elements.
+        """
+        # See ThreeJS BufferAttribute.updateRange
+        # Get in bytes
+        nbytes_per_item = self._nbytes // self._nitems
+        bstart, bstop = nbytes_per_item * int(start), nbytes_per_item * int(stop)
+        if self._pending_uploads:
+            current = self._pending_uploads.pop(-1)
+            bstart = max(0, min(bstart, current[0]))
+            bstop = min(self._nbytes, max(bstop, current[1]))
+        self._pending_uploads.append((bstart, bstop))
+        # todo: this can be smarter, we have logic for this in the morph tool
 
     def _renderer_set_gpu_buffer(self, buffer):
         # This is how the renderer marks the buffer as non-dirty
         self._gpu_buffer = buffer
-        self._dirty = False
 
     # To implement in subclasses
 
@@ -143,9 +169,16 @@ class BufferWrapper(BaseBufferWrapper):  # numpy-based
     def _nbytes_from_data(self, data):
         return data.nbytes
 
-    def _renderer_copy_data_to_ctypes_object(self, ob):
+    def _nitems_from_data(self, data):
+        if data.shape:
+            return data.shape[0]
+        else:
+            return 1
+
+    def _renderer_copy_data_to_ctypes_object(self, ob, offset=0):
+        nbytes = ctypes.sizeof(ob)
         ctypes.memmove(
-            ctypes.addressof(ob), self.data.ctypes.data, self.nbytes,
+            ctypes.addressof(ob), self.data.ctypes.data + offset, nbytes,
         )
 
     def _renderer_set_data_from_ctypes_object(self, ob):

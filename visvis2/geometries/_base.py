@@ -24,7 +24,7 @@ class Geometry:
             if not isinstance(val, np.ndarray):
                 val = np.asanyarray(val, dtype=np.float32)
             if name.lower() == "index":
-                usage = wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.INDEX
+                usage = "index|storage"
             else:
-                usage = None  # use BufferWrapper's default for vertex|storage
+                usage = "vertex|storage"
             setattr(self, name, BufferWrapper(val, usage=usage))

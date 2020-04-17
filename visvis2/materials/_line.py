@@ -13,7 +13,7 @@ class LineStripMaterial(Material):
         super().__init__()
 
         array = array_from_shadertype(self.uniform_type)
-        self.uniforms = BufferWrapper(array, usage="uniform", mapped=True)
+        self.uniforms = BufferWrapper(array, usage="uniform")
         self.set_color(color)
         self.set_thickness(thickness)
 
@@ -23,6 +23,7 @@ class LineStripMaterial(Material):
 
     def set_color(self, color):
         self.uniforms.data["color"] = tuple(color)
+        self.uniforms.update_range(0, 1)
 
     @property
     def thickness(self):
@@ -30,3 +31,4 @@ class LineStripMaterial(Material):
 
     def set_thickness(self, thickness):
         self.uniforms.data["thickness"] = thickness
+        self.uniforms.update_range(0, 1)

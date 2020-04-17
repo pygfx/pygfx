@@ -9,3 +9,4 @@ from ._base import Material
 class MeshBasicMaterial(Material):
     def __init__(self):
         super().__init__()
+        self.texture = None

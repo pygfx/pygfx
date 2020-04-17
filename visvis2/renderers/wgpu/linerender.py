@@ -63,7 +63,7 @@ def line_renderer(wobject, render_info):
         # the buffer knows type and strides (needed when used as vertex buffer)
         stub_array = np.zeros((0, 4), np.float32)
         geometry._line_renderer_positions2 = BufferWrapper(
-            stub_array, nbytes=0, mapped=False, usage="vertex|storage"
+            stub_array, nbytes=0, usage="vertex|storage"
         )
 
     positions1 = geometry.positions
