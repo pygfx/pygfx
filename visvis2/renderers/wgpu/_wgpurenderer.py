@@ -6,7 +6,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ...datawrappers import BaseBufferWrapper, BufferWrapper
+from ...datawrappers import BaseBufferWrapper, BufferWrapper, TextureView
 from ...utils import array_from_shadertype
 
 
@@ -22,6 +22,10 @@ stdinfo_uniform_type = Struct(
 
 
 registry = RenderFunctionRegistry()
+
+visibility_all = (
+    wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
+)
 
 
 def register_wgpu_render_function(wobject_cls, material_cls):
@@ -449,7 +453,6 @@ class WgpuRenderer(Renderer):
         wgpu objects and make sure that all buffers and textures are up-to-date.
         Returns (bind_groups, pipeline_layout).
         """
-
         # todo: cache bind_group_layout objects
         # todo: cache pipeline_layout objects
         # todo: can perhaps be more specific about visibility
@@ -469,40 +472,93 @@ class WgpuRenderer(Renderer):
         # Create bind groups and bind group layouts
         bind_groups = []
         bind_group_layouts = []
-        for buffers in resource_groups:
-            if not isinstance(buffers, dict):
-                buffers = {slot: buffer for slot, buffer in enumerate(buffers)}
+        for resources in resource_groups:
+            if not isinstance(resources, dict):
+                resources = {slot: resource for slot, resource in enumerate(resources)}
             # Collect list of dicts
             bindings = []
             binding_layouts = []
-            for slot, buffer in buffers.items():
-                self._update_buffer(buffer)
-                bindings.append(
-                    {
+            for slot, type_resource in resources.items():
+                assert isinstance(type_resource, tuple) and len(type_resource) == 2
+                binding_type, resource = type_resource
+
+                if binding_type in (
+                    wgpu.BindingType.uniform_buffer,
+                    wgpu.BindingType.storage_buffer,
+                    wgpu.BindingType.readonly_storage_buffer,
+                ):
+                    # A buffer resource
+                    assert isinstance(resource, BaseBufferWrapper)
+                    self._update_buffer(resource)
+                    bindings.append(
+                        {
+                            "binding": slot,
+                            "resource": {
+                                "buffer": resource.gpu_buffer,
+                                "offset": 0,
+                                "size": resource.nbytes,
+                            },
+                        }
+                    )
+                    binding_layouts.append(
+                        {
+                            "binding": slot,
+                            "visibility": visibility_all,
+                            "type": binding_type,
+                            "has_dynamic_offset": False,
+                        }
+                    )
+
+                elif binding_type in (
+                    wgpu.BindingType.sampled_texture,
+                    wgpu.BindingType.readonly_storage_texture,
+                    wgpu.BindingType.writeonly_storage_texture,
+                ):
+                    # A texture view resource
+                    assert isinstance(resource, TextureView)
+                    self._update_texture(resource.texture)
+                    self._update_texture_view(resource)
+                    bindings.append(
+                        {"binding": slot, "resource": resource._gpu_texture_view,}
+                    )
+                    fmt = resource._format or resource.texture.format
+                    dim = resource._dim or resource.texture.dim
+                    dim = f"d{dim}" if isinstance(dim, int) else dim
+                    component_type = wgpu.TextureComponentType.sint
+                    if "uint" in fmt:
+                        component_type = wgpu.TextureComponentType.uint
+                    if "float" in fmt or "norm" in fmt:
+                        component_type = wgpu.TextureComponentType.float
+                    binding_layout = {
                         "binding": slot,
-                        "resource": {
-                            "buffer": buffer.gpu_buffer,
-                            "offset": 0,
-                            "size": buffer.nbytes,
-                        },
+                        "visibility": visibility_all,
+                        "type": binding_type,
+                        "view_dimension": getattr(wgpu.TextureViewDimension, dim),
+                        "texture_component_type": component_type,
+                        "multisampled": False,
                     }
-                )
-                if "UNIFORM" in buffer.usage:
-                    buffer_type = wgpu.BindingType.uniform_buffer
-                else:
-                    assert False, "readonly or writeonly??"
-                    buffer_type = wgpu.BindingType.readonly_storage_buffer
-                    buffer_type = wgpu.BindingType.writeonly_storage_texture
-                binding_layouts.append(
-                    {
-                        "binding": slot,
-                        "visibility": wgpu.ShaderStage.VERTEX
-                        | wgpu.ShaderStage.FRAGMENT
-                        | wgpu.ShaderStage.COMPUTE,
-                        "type": buffer_type,
-                        "has_dynamic_offset": False,
-                    }
-                )
+                    if "storage" in binding_type:
+                        binding_layout["storage_texture_format"] = fmt
+                    binding_layouts.append(binding_layout)
+
+                elif binding_type in (
+                    wgpu.BindingType.sampler,
+                    wgpu.BindingType.comparison_sampler,
+                ):
+                    # A sampler resource
+                    assert isinstance(resource, TextureView)
+                    self._update_sampler(resource)
+                    bindings.append(
+                        {"binding": slot, "resource": resource._gpu_sampler,}
+                    )
+                    binding_layouts.append(
+                        {
+                            "binding": slot,
+                            "visibility": visibility_all,
+                            "type": binding_type,
+                        }
+                    )
+
             # Create wgpu objects
             bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
             bind_group = device.create_bind_group(
@@ -519,43 +575,127 @@ class WgpuRenderer(Renderer):
         return bind_groups, pipeline_layout
 
     def _update_buffer(self, resource):
-        """ Ensure that a buffer is up-to-date. If the buffer is not dirty,
-        this is a no-op.
-        """
-
-        # todo: dispose an old buffer? / reuse an old buffer?
-
-        assert isinstance(resource, BufferWrapper)
         if not resource.dirty:
             return
 
-        if isinstance(resource, BaseBufferWrapper):
+        # todo: dispose an old buffer? / reuse an old buffer?
 
-            buffer = resource.gpu_buffer
-            pending_uploads = resource._pending_uploads
-            resource._pending_uploads = []
-            # Create buffer if needed
-            if buffer is None or buffer.size != resource.nbytes:
-                usage = wgpu.BufferUsage.COPY_DST
-                for u in resource.usage.upper().replace("|", " ").split():
-                    usage |= getattr(wgpu.BufferUsage, u)
-                buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
+        buffer = resource.gpu_buffer
+        pending_uploads = resource._pending_uploads
+        resource._pending_uploads = []
 
-            # Upload any pending data
-            for start, stop in pending_uploads:
-                if stop <= start:
-                    continue
-                sub_buffer = self._device.create_buffer_mapped(
-                    size=stop - start, usage=wgpu.BufferUsage.COPY_SRC,
+        # Create buffer if needed
+        if buffer is None or buffer.size != resource.nbytes:
+            usage = wgpu.BufferUsage.COPY_DST
+            for u in resource.usage.split("|"):
+                usage |= getattr(wgpu.BufferUsage, u)
+            buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
+
+        # Upload any pending data
+        for offset, size in pending_uploads:
+            sub_buffer = self._device.create_buffer_mapped(
+                size=size, usage=wgpu.BufferUsage.COPY_SRC,
+            )
+            resource._renderer_copy_data_to_ctypes_object(sub_buffer.mapping, offset)
+            sub_buffer.unmap()
+            command_encoder = self._device.create_command_encoder()
+            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, offset, size)
+            self._device.default_queue.submit([command_encoder.finish()])
+        resource._renderer_set_gpu_buffer(buffer)
+
+    def _update_texture_view(self, resource):
+        if resource._gpu_texture_view is None:
+            if resource._is_default_view:
+                texture_view = resource.texture.gpu_texture.create_view()
+            else:
+                dim = resource._dim
+                assert resource._mip_range.step == 1
+                assert resource._layer_range.step == 1
+                texture_view = resource.texture.gpu_texture.create_view(
+                    format=resource._format,
+                    dimension=f"{dim}d" if isinstance(dim, int) else dim,
+                    aspect=resource._aspect,
+                    base_mip_level=resource._mip_range.start,
+                    mip_level_count=len(resource._mip_range),
+                    base_array_layer=resource._layer_range.start,
+                    array_layer_count=len(resource._layer_range),
                 )
-                resource._renderer_copy_data_to_ctypes_object(sub_buffer.mapping, start)
-                sub_buffer.unmap()
-                command_encoder = self._device.create_command_encoder()
-                command_encoder.copy_buffer_to_buffer(
-                    sub_buffer, 0, buffer, start, stop - start
-                )
-                self._device.default_queue.submit([command_encoder.finish()])
-            resource._renderer_set_gpu_buffer(buffer)
+            resource._gpu_texture_view = texture_view
 
-        else:
-            raise TypeError(f"Unsopported resource: {resource.__class__.__name__}")
+    def _update_texture(self, resource):
+        if not resource.dirty:
+            return
+
+        texture = resource.gpu_texture
+        pending_uploads = resource._pending_uploads
+        resource._pending_uploads = []
+
+        # Create texture if needed
+        if texture is None:  # todo: or needs to be replaced (e.g. resized)
+            usage = wgpu.TextureUsage.COPY_DST
+            for u in resource.usage.split("|"):
+                usage |= getattr(wgpu.TextureUsage, u)
+            texture = self._device.create_texture(
+                size=resource.size,
+                usage=usage,
+                dimension=f"{resource.dim}d",
+                format=getattr(wgpu.TextureFormat, resource.format),
+                mip_level_count=1,
+                sample_count=1,
+            )  # todo: let resource specify mip_level_count and sample_count
+
+        # Upload any pending data
+        for offset, size in pending_uploads:
+            bytes_per_pixel = resource.nbytes // (
+                resource.size[0] * resource.size[1] * resource.size[2]
+            )
+            nbytes = bytes_per_pixel * size[0] * size[1] * size[2]
+            sub_buffer = self._device.create_buffer_mapped(
+                size=nbytes, usage=wgpu.BufferUsage.COPY_SRC,
+            )
+            resource._renderer_copy_data_to_ctypes_object(
+                sub_buffer.mapping, offset, size
+            )
+            sub_buffer.unmap()
+            command_encoder = self._device.create_command_encoder()
+            command_encoder.copy_buffer_to_texture(
+                # todo: are bytes_per_row and rows_per_image for the subdata or for the final texture?
+                {
+                    "buffer": sub_buffer,
+                    "offset": 0,
+                    "bytes_per_row": size[0] * bytes_per_pixel,
+                    "rows_per_image": size[1],
+                },
+                {
+                    "texture": texture.create_view(),
+                    "mip_level": 0,
+                    "array_layer": 0,
+                    "origin": offset,
+                },
+                copy_size=size,
+            )
+            self._device.default_queue.submit([command_encoder.finish()])
+        resource._renderer_set_gpu_texture(texture)
+
+    def _update_sampler(self, resource):
+        # A sampler's info (and raw object) are stored on a TextureView
+        if resource._gpu_sampler is None:
+            amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
+            while len(amodes) < 3:
+                amodes.append(amodes[-1])
+            filters = resource._filter.replace(",", " ").split() or ["nearest"]
+            while len(filters) < 3:
+                filters.append(filters[-1])
+            ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
+            sampler = self._device.create_sampler(
+                address_mode_u=ammap.get(amodes[0], amodes[0]),
+                address_mode_v=ammap.get(amodes[1], amodes[1]),
+                address_mode_w=ammap.get(amodes[2], amodes[2]),
+                mag_filter=filters[0],
+                min_filter=filters[1],
+                mipmap_filter=filters[2],
+                # lod_min_clamp -> use default 0
+                # lod_max_clamp -> use default inf
+                # compare -> only not-None for comparison samplers!
+            )
+            resource._gpu_sampler = sampler

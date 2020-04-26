@@ -8,22 +8,25 @@ class BoxGeometry(Geometry):
     def __init__(self, width, height, depth):
         super().__init__()
 
-        half_width = width / 2
-        half_height = height / 2
-        half_depth = depth / 2
-        vertices = np.array(
+        texcoords = np.array(
             [
-                [-half_width, -half_height, -half_depth, 1],
-                [-half_width, -half_height, +half_depth, 1],
-                [-half_width, +half_height, -half_depth, 1],
-                [-half_width, +half_height, +half_depth, 1],
-                [+half_width, -half_height, -half_depth, 1],
-                [+half_width, -half_height, +half_depth, 1],
-                [+half_width, +half_height, -half_depth, 1],
-                [+half_width, +half_height, +half_depth, 1],
+                [0, 0, 0, 1],
+                [0, 0, 1, 1],
+                [0, 1, 0, 1],
+                [0, 1, 1, 1],
+                [1, 0, 0, 1],
+                [1, 0, 1, 1],
+                [1, 1, 0, 1],
+                [1, 1, 1, 1],
             ],
             dtype="f4",
         )
+
+        positions = texcoords.copy()
+        positions[:, 0] = (positions[:, 0] - 0.5) * width
+        positions[:, 1] = (positions[:, 1] - 0.5) * height
+        positions[:, 2] = (positions[:, 2] - 0.5) * depth
+
         index = np.array(
             [
                 0,
@@ -66,7 +69,6 @@ class BoxGeometry(Geometry):
             dtype="u2",
         )
 
-        self.positions = BufferWrapper(
-            vertices, usage="vertex|storage"
-        )  # default mapped=False
+        self.positions = BufferWrapper(positions, usage="vertex|storage")
+        self.texcoords = BufferWrapper(texcoords, usage="vertex|storage")
         self.index = BufferWrapper(index, usage="index|storage")

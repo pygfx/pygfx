@@ -15,13 +15,17 @@ class BaseBufferWrapper:
     """
 
     def __init__(self, data=None, *, nbytes=None, usage):
-        self._data = None
+        # To specify the buffer size
         self._nbytes = 0
         self._nitems = 1
-        self._pending_uploads = []
+        # We can use a view / subset
+        # todo: expose this via a BufferView class?
         self._view_range = (0, 2 ** 50)
-
-        self._gpu_buffer = None  # Set by renderer
+        # The actual data (optional)
+        self._data = None
+        self._pending_uploads = []  # list of (offset, size) tuples
+        # The native buffer object - created and set by the renderer
+        self._gpu_buffer = None
 
         # Get nbytes
         if data is not None:
@@ -111,19 +115,27 @@ class BaseBufferWrapper:
     #     self._pending_data.append((data, 0))
     #     self._dirty = True
 
-    def update_range(self, start=0, stop=2 ** 50):
+    def update_range(self, offset=0, size=2 ** 50):
         """ Mark a certain range of the data for upload to the GPU. The
-        start and stop are expressed in elements.
+        offset and size are expressed in integer number of elements.
         """
         # See ThreeJS BufferAttribute.updateRange
+        # Check input
+        if size == 0:
+            return
+        elif size < 0:
+            raise ValueError("Update size must be positive")
+        elif offset < 0:
+            raise ValueError("Update size must not be negative")
+        elif offset + size > self.nitems:
+            raise ValueError("Update size eout of range")
         # Get in bytes
         nbytes_per_item = self._nbytes // self._nitems
-        bstart, bstop = nbytes_per_item * int(start), nbytes_per_item * int(stop)
+        boffset, bsize = nbytes_per_item * int(offset), nbytes_per_item * int(size)
         if self._pending_uploads:
             current = self._pending_uploads.pop(-1)
-            bstart = max(0, min(bstart, current[0]))
-            bstop = min(self._nbytes, max(bstop, current[1]))
-        self._pending_uploads.append((bstart, bstop))
+            boffset, bsize = min(boffset, current[0]), max(bsize, current[1])
+        self._pending_uploads.append((boffset, bsize))
         # todo: this can be smarter, we have logic for this in the morph tool
 
     def _renderer_set_gpu_buffer(self, buffer):
@@ -138,7 +150,7 @@ class BaseBufferWrapper:
     def _nbytes_from_data(self, data):
         raise NotImplementedError()
 
-    def _renderer_copy_data_to_ctypes_object(self, ob):
+    def _renderer_copy_data_to_ctypes_object(self, ob, offset=0):
         """ Allows renderer to efficiently copy the data.
         """
         raise NotImplementedError()
