@@ -1,5 +1,5 @@
 import python_shader  # noqa
-from python_shader import Struct, vec2, mat4, vec4
+from python_shader import Struct, vec2, mat4
 import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry
@@ -66,6 +66,7 @@ class WgpuRenderer(Renderer):
         self._swap_chain = self._device.configure_swap_chain(
             canvas, wgpu.TextureFormat.bgra8unorm_srgb,
         )
+        self._depth_texture_size = (0, 0)
 
     def render(self, scene: WorldObject, camera: Camera):
         """ Main render method, called from the canvas.
@@ -97,6 +98,18 @@ class WgpuRenderer(Renderer):
 
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_data is not None]
+
+        # Prepate depth texture
+        if self._depth_texture_size != physical_size:
+            self._depth_texture_size = physical_size
+            self._depth_texture = device.create_texture(
+                size=(physical_size[0], physical_size[1], 1),
+                usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+                dimension="2d",
+                format=wgpu.TextureFormat.depth32float,
+            )
+            self._depth_texture_view = self._depth_texture.create_view()
+            # todo: explicit destroy the texture?
 
         # todo: move this down ...
         with self._swap_chain as texture_view_target:
@@ -149,7 +162,13 @@ class WgpuRenderer(Renderer):
                         "store_op": wgpu.StoreOp.store,
                     }
                 ],
-                depth_stencil_attachment=None,
+                depth_stencil_attachment={
+                    "attachment": self._depth_texture_view,
+                    "depth_load_value": 10 ** 38,
+                    "depth_store_op": wgpu.StoreOp.store,
+                    "stencil_load_value": wgpu.LoadOp.load,
+                    "stencil_store_op": wgpu.StoreOp.store,
+                },
                 occlusion_query_set=None,
             )
 
@@ -157,10 +176,10 @@ class WgpuRenderer(Renderer):
                 wgpu_data = wobject._wgpu_data
                 for pinfo in wgpu_data["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipeline"])
-                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                        render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 0)
                     for slot, vbuffer in enumerate(pinfo["vertex_buffers"]):
                         render_pass.set_vertex_buffer(slot, vbuffer, 0, vbuffer.size)
+                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                        render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
                     # Draw with or without index buffer
                     if pinfo["index_buffer"] is not None:
                         ibuffer = pinfo["index_buffer"]
@@ -430,7 +449,11 @@ class WgpuRenderer(Renderer):
                     "write_mask": wgpu.ColorWrite.ALL,
                 }
             ],
-            depth_stencil_state=None,
+            depth_stencil_state={
+                "format": wgpu.TextureFormat.depth32float,
+                "depth_write_enabled": True,  # optional
+                "depth_compare": wgpu.CompareFunction.less,  # optional
+            },
             vertex_state={
                 "index_format": index_format,
                 "vertex_buffers": vertex_buffer_descriptors,
@@ -521,6 +544,9 @@ class WgpuRenderer(Renderer):
                     bindings.append(
                         {"binding": slot, "resource": resource._gpu_texture_view,}
                     )
+                    visibility = visibility_all
+                    if binding_type == wgpu.BindingType.sampled_texture:
+                        visibility = wgpu.ShaderStage.FRAGMENT
                     fmt = resource._format or resource.texture.format
                     dim = resource._dim or resource.texture.dim
                     dim = f"d{dim}" if isinstance(dim, int) else dim
@@ -531,11 +557,11 @@ class WgpuRenderer(Renderer):
                         component_type = wgpu.TextureComponentType.float
                     binding_layout = {
                         "binding": slot,
-                        "visibility": visibility_all,
+                        "visibility": visibility,
                         "type": binding_type,
                         "view_dimension": getattr(wgpu.TextureViewDimension, dim),
                         "texture_component_type": component_type,
-                        "multisampled": False,
+                        # "multisampled": False,
                     }
                     if "storage" in binding_type:
                         binding_layout["storage_texture_format"] = fmt
@@ -554,7 +580,7 @@ class WgpuRenderer(Renderer):
                     binding_layouts.append(
                         {
                             "binding": slot,
-                            "visibility": visibility_all,
+                            "visibility": wgpu.ShaderStage.FRAGMENT,
                             "type": binding_type,
                         }
                     )

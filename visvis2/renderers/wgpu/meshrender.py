@@ -14,32 +14,30 @@ def vertex_shader(
     in_pos: (python_shader.RES_INPUT, 0, vec4),
     in_texcoord: (python_shader.RES_INPUT, 1, vec2),
     out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
-    out_texcoord: (python_shader.RES_OUTPUT, 0, vec2),
+    v_texcoord: (python_shader.RES_OUTPUT, 0, vec2),
     # uniform and storage buffers
     u_stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
 ):
     world_pos = u_stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
 
-    out_pos = ndc_pos  # noqa - shader assign to input arg
-    out_texcoord = in_texcoord
+    out_pos = ndc_pos  # noqa - shader output
+    v_texcoord = in_texcoord  # noqa - shader output
 
 
 @python_shader.python2shader
 def fragment_shader_simple(out_color: (python_shader.RES_OUTPUT, 0, vec4)):
-    out_color = vec4(1.0, 0.0, 0.0, 1.0)  # noqa - shader assign to input arg
-
+    out_color = vec4(1.0, 0.0, 0.0, 1.0)  # noqa - shader output
 
 @python_shader.python2shader
 def fragment_shader_textured(
-    in_texcoord: (python_shader.RES_INPUT, 1, vec2),
-    t_tex: (python_shader.RES_TEXTURE, (1, 0), "2d f32"),
-    s_sam: (python_shader.RES_SAMPLER, (1, 1), ""),
+    v_texcoord: (python_shader.RES_INPUT, 0, vec2),
+    s_sam: (python_shader.RES_SAMPLER, (0, 1), ""),
+    t_tex: (python_shader.RES_TEXTURE, (0, 2), "2d i32"),
     out_color: (python_shader.RES_OUTPUT, 0, vec4),
 ):
-    out_color = t_tex.sample(
-        s_sam, in_texcoord
-    )  # noqa  # noqa - shader assign to input arg
+    color = vec4(t_tex.sample(s_sam, v_texcoord)) / 255.0
+    out_color = vec4(color.rgb, 1.0)  # noqa - shader output
 
 
 @register_wgpu_render_function(Mesh, Material)
@@ -69,6 +67,8 @@ def mesh_renderer(wobject, render_info):
     if getattr(geometry, "texcoords", None) is not None:
         vertex_buffers.append(geometry.texcoords)
 
+    bindings0 = [(wgpu.BindingType.uniform_buffer, render_info.stdinfo)]
+
     # Collect texture and sampler
     bindings1 = []
     if getattr(material, "texture", None) is not None:
@@ -80,8 +80,8 @@ def mesh_renderer(wobject, render_info):
             raise ValueError(
                 "material.texture is present, but geometry has no texcoords"
             )
-        bindings1.append((wgpu.BindingType.sampled_texture, material.texture))
-        bindings1.append((wgpu.BindingType.sampler, material.texture))
+        bindings0.append((wgpu.BindingType.sampler, material.texture))
+        bindings0.append((wgpu.BindingType.sampled_texture, material.texture))
         fragment_shader = fragment_shader_textured
 
     if index_buffer:
@@ -99,7 +99,7 @@ def mesh_renderer(wobject, render_info):
             "indices": (range(n), range(1)),
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
-            "bindings0": [(wgpu.BindingType.uniform_buffer, render_info.stdinfo)],
-            "bindings1": bindings1,
+            "bindings0": bindings0,
+            # "bindings1": bindings1,
         }
     ]

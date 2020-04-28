@@ -1,3 +1,4 @@
+import numpy as np
 import imageio
 import visvis2 as vv
 
@@ -12,9 +13,8 @@ scene = vv.Scene()
 
 geometry = vv.BoxGeometry(200, 200, 200)
 material = vv.MeshBasicMaterial()
-material.texture = vv.TextureWrapper(
-    imageio.imread("imageio:chelsea.png"), dim=2, usage="sampled"
-).get_view()
+im1 = imageio.imread("imageio:checkerboard.png")
+material.texture = vv.TextureWrapper(im1, dim=2, usage="sampled").get_view()
 cube = vv.Mesh(geometry, material)
 scene.add(cube)
 
