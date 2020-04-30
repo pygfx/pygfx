@@ -5,7 +5,7 @@ from python_shader import vec2, vec4
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
 from ...materials._mesh_basic import uniform_type, MeshBasicMaterial
-from ...datawrappers import BaseBuffer, BaseTextureWrapper, TextureView
+from ...datawrappers import BaseBuffer, BaseTexture, TextureView
 
 
 @python_shader.python2shader
@@ -91,7 +91,7 @@ def mesh_renderer(wobject, render_info):
 
     # Collect texture and sampler
     if material.map is not None:
-        if isinstance(material.map, BaseTextureWrapper):
+        if isinstance(material.map, BaseTexture):
             raise TypeError("material.map is a Texture, but must be a TextureView")
         elif not isinstance(material.map, TextureView):
             raise TypeError("material.map must be a TextureView")

@@ -14,7 +14,7 @@ scene = vv.Scene()
 
 im = imageio.imread("imageio:chelsea.png")[:, :, :]
 im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
-tex = vv.TextureWrapper(im, dim=2, usage="sampled").get_view()
+tex = vv.Texture(im, dim=2, usage="sampled").get_view()
 
 geometry = vv.BoxGeometry(200, 200, 200)
 material = vv.MeshBasicMaterial(map=tex, clim=(100, 255))

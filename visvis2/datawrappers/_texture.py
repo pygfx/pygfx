@@ -4,7 +4,7 @@ import wgpu
 import numpy as np
 
 
-class BaseTextureWrapper:
+class BaseTexture:
     """ A base texture wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
 
@@ -170,7 +170,7 @@ class BaseTextureWrapper:
         raise NotImplementedError()
 
 
-class TextureWrapper(BaseTextureWrapper):  # numpy-based
+class Texture(BaseTexture):  # numpy-based
     """ Object that wraps a (GPU) texture object, optionally providing data
     for it, and optionally *mapping* the data so it's shared. But you can also
     use it as a placeholder for a texture with no representation on the CPU.
@@ -303,7 +303,7 @@ class TextureView:
         address_mode="clamp",
         filter="nearest",
     ):
-        assert isinstance(texture, BaseTextureWrapper)
+        assert isinstance(texture, BaseTexture)
         self._texture = texture
         self._format = format
         self._dim = dim
