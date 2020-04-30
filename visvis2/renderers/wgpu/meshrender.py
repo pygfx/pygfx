@@ -4,7 +4,7 @@ from python_shader import vec2, vec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
-from ...materials._mesh_basic import uniform_type, MeshBasicMaterial
+from ...materials import MeshBasicMaterial
 from ...datawrappers import BaseBuffer, BaseTexture, TextureView
 
 
@@ -25,7 +25,7 @@ def vertex_shader(
 
 @python_shader.python2shader
 def fragment_shader_simple(
-    u_mesh: (python_shader.RES_UNIFORM, (1, 0), uniform_type),
+    u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
     out_color: (python_shader.RES_OUTPUT, 0, vec4),
 ):
     out_color = u_mesh.color  # noqa - shader output
@@ -34,7 +34,7 @@ def fragment_shader_simple(
 @python_shader.python2shader
 def fragment_shader_textured_gray(
     v_texcoord: (python_shader.RES_INPUT, 0, vec2),
-    u_mesh: (python_shader.RES_UNIFORM, (1, 0), uniform_type),
+    u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
     s_sam: (python_shader.RES_SAMPLER, (1, 1), ""),
     t_tex: (python_shader.RES_TEXTURE, (1, 2), "2d i32"),
     out_color: (python_shader.RES_OUTPUT, 0, vec4),
@@ -47,7 +47,7 @@ def fragment_shader_textured_gray(
 @python_shader.python2shader
 def fragment_shader_textured_rgba(
     v_texcoord: (python_shader.RES_INPUT, 0, vec2),
-    u_mesh: (python_shader.RES_UNIFORM, (1, 0), uniform_type),
+    u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
     s_sam: (python_shader.RES_SAMPLER, (1, 1), ""),
     t_tex: (python_shader.RES_TEXTURE, (1, 2), "2d i32"),
     out_color: (python_shader.RES_OUTPUT, 0, vec4),

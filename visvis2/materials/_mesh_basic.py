@@ -9,19 +9,19 @@ from ._base import Material
 # positions: (python_shader.RES_BUFFER, (1, 0), "Array(vec4)")
 # position = positions[index]
 
-uniform_type = Struct(color=vec4, clim=vec2,)
-
 
 class MeshBasicMaterial(Material):
     """ A material for drawing geometries in a simple shaded (flat or
     wireframe) way. This material is not affected by lights.
     """
 
+    uniform_type = Struct(color=vec4, clim=vec2,)
+
     def __init__(self, **kwargs):
         super().__init__()
         self._map = None
         self.uniform_buffer = Buffer(
-            array_from_shadertype(uniform_type), usage="UNIFORM"
+            array_from_shadertype(self.uniform_type), usage="UNIFORM"
         )
         self.color = 1, 1, 1, 1
         self.clim = 0, 1

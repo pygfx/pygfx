@@ -14,10 +14,13 @@ class BaseBuffer:
     or any other kind of array.
     """
 
-    def __init__(self, data=None, *, nbytes=None, usage):
+    def __init__(
+        self, data=None, *, nbytes=None, nitems=None, vertex_format=None, usage
+    ):
         # To specify the buffer size
         self._nbytes = 0
         self._nitems = 1
+        self._vertex_format = vertex_format
         # We can use a view / subset
         # todo: expose this via a BufferView class?
         self._view_range = (0, 2 ** 50)
@@ -34,10 +37,16 @@ class BaseBuffer:
             if nbytes is not None:
                 if nbytes != self._nbytes:
                     raise ValueError("Given nbytes does not match size of given data.")
-        elif nbytes is not None:
+            if nitems is not None:
+                if nitems != self._nitems:
+                    raise ValueError("Given nitems does not match shape of given data.")
+        elif nbytes is not None and nitems is not None:
             self._nbytes = int(nbytes)
+            self._nitems = int(nitems)
         else:
-            raise ValueError("Buffer must be instantiated with either data or nbytes.")
+            raise ValueError(
+                "Buffer must be instantiated with either data or nbytes and nitems."
+            )
 
         # Determine usage
         if isinstance(usage, str):
@@ -75,6 +84,7 @@ class BaseBuffer:
         """
         return bool(self._pending_uploads)
 
+    # todo: remove this?
     @property
     def strides(self):
         """ Stride info (as a tuple).
@@ -191,6 +201,10 @@ class Buffer(BaseBuffer):  # numpy-based
         return str(self.data.dtype)
 
     def _renderer_get_vertex_format(self):
+        if self.data is None:
+            if self._vertex_format is None:
+                raise ValueError("Buffer has no data nor vertex_format.")
+            return self._vertex_format
         shape = self.data.shape
         if len(shape) == 1:
             shape = shape + (1,)

@@ -38,8 +38,8 @@ class Main(QtWidgets.QWidget):
         self._canvas.update()
 
     def animate(self):
-        physical_size, logical_size = self._canvas.get_size_and_pixel_ratio()
-        self._camera.set_viewport_size(*physical_size)
+        psize = self._canvas.get_physical_size()
+        self._camera.set_viewport_size(*psize)
         self._renderer.render(self._scene, self._camera)
 
 

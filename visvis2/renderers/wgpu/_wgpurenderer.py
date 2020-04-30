@@ -451,7 +451,7 @@ class WgpuRenderer(Renderer):
         vertex_buffer_descriptors = []
         for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
             vbo_des = {
-                "array_stride": buffer.strides[0],
+                "array_stride": buffer.nbytes // buffer.nitems,
                 "stepmode": wgpu.InputStepMode.vertex,  # vertex or instance
                 "attributes": [
                     {
@@ -651,12 +651,12 @@ class WgpuRenderer(Renderer):
         return bind_groups, pipeline_layout
 
     def _update_buffer(self, resource):
-        if not resource.dirty:
+        buffer = getattr(resource, "_wgpu_buffer", None)
+        if not (buffer is None or resource.dirty):
             return
 
         # todo: dispose an old buffer? / reuse an old buffer?
 
-        buffer = getattr(resource, "_wgpu_buffer", None)
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 

@@ -3,6 +3,7 @@ Example that implements a custom object and renders it.
 """
 
 from PyQt5 import QtWidgets
+import wgpu
 from wgpu.gui.qt import WgpuCanvas
 from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
 from python_shader import vec3
@@ -50,11 +51,6 @@ def fragment_shader(
     out_color = vec4(in_color, 0.1)  # noqa
 
 
-import python_shader
-
-python_shader.dev.validate(vertex_shader)
-print(python_shader.dev.disassemble(vertex_shader))
-
 # Tell visvis to use this render function for a Triangle with TriangleMaterial.
 @vv.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 def triangle_render_function(wobject, render_info):
@@ -65,7 +61,7 @@ def triangle_render_function(wobject, render_info):
             "fragment_shader": fragment_shader,
             "primitive_topology": "triangle-list",
             "indices": range(n),
-            "bindings0": [render_info.stdinfo],
+            "bindings0": {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)},
         },
     ]
 

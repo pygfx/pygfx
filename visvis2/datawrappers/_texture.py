@@ -23,7 +23,7 @@ class BaseTexture:
             (see wgpu.TextureUsage).
     """
 
-    # todo: what to do about these enums from wgpy. Copy them over?
+    # todo: what to do about these enums from wgpu. Copy them over?
 
     def __init__(self, data=None, *, dim, size=None, format=None, usage="SAMPLED"):
         # The dim specifies the texture dimension
