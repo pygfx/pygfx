@@ -6,7 +6,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ...datawrappers import BaseBufferWrapper, BufferWrapper, TextureView
+from ...datawrappers import BaseBuffer, Buffer, TextureView
 from ...utils import array_from_shadertype
 
 
@@ -241,7 +241,7 @@ class WgpuRenderer(Renderer):
 
         # Make sure that the wobject has an stdinfo object
         if not hasattr(wobject, "_wgpu_stdinfo_buffer"):
-            wobject._wgpu_stdinfo_buffer = BufferWrapper(
+            wobject._wgpu_stdinfo_buffer = Buffer(
                 array_from_shadertype(stdinfo_uniform_type), usage="uniform"
             )
 
@@ -466,8 +466,8 @@ class WgpuRenderer(Renderer):
         return {
             "pipeline": pipeline,  # wgpu object
             "index_args": index_args,  # tuple
-            "index_buffer": index_buffer,  # BufferWrapper
-            "vertex_buffers": vertex_buffers,  # list of BufferWrapper
+            "index_buffer": index_buffer,  # BaseBuffer
+            "vertex_buffers": vertex_buffers,  # list of BaseBuffer
             "bind_groups": bind_groups,  # list of wgpu bind_group objects
         }
 
@@ -511,7 +511,7 @@ class WgpuRenderer(Renderer):
                     wgpu.BindingType.readonly_storage_buffer,
                 ):
                     # A buffer resource
-                    assert isinstance(resource, BaseBufferWrapper)
+                    assert isinstance(resource, BaseBuffer)
                     self._update_buffer(resource)
                     bindings.append(
                         {

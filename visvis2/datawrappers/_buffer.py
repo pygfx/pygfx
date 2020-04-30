@@ -9,7 +9,7 @@ import numpy as np
 # todo: Support for updating unmapped data. Use something like updateRange to do subBufferUpdate
 
 
-class BaseBufferWrapper:
+class BaseBuffer:
     """ A base buffer wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
     """
@@ -169,7 +169,7 @@ class BaseBufferWrapper:
         raise NotImplementedError()
 
 
-class BufferWrapper(BaseBufferWrapper):  # numpy-based
+class Buffer(BaseBuffer):  # numpy-based
     """ Object that wraps a (GPU) buffer object, optionally providing data
     for it, and optionally *mapping* the data so it's shared. But you can also
     use it as a placeholder for a buffer with no representation on the CPU.

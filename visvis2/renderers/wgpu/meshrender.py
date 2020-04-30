@@ -5,7 +5,7 @@ from python_shader import vec2, vec4
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
 from ...materials import Material
-from ...datawrappers import BaseBufferWrapper, BaseTextureWrapper, TextureView
+from ...datawrappers import BaseBuffer, BaseTextureWrapper, TextureView
 
 
 @python_shader.python2shader
@@ -28,6 +28,7 @@ def vertex_shader(
 @python_shader.python2shader
 def fragment_shader_simple(out_color: (python_shader.RES_OUTPUT, 0, vec4)):
     out_color = vec4(1.0, 0.0, 0.0, 1.0)  # noqa - shader output
+
 
 @python_shader.python2shader
 def fragment_shader_textured(
@@ -58,7 +59,7 @@ def mesh_renderer(wobject, render_info):
 
     # Use index buffer if present on the geometry
     index_buffer = getattr(geometry, "index", None)
-    index_buffer = index_buffer if isinstance(index_buffer, BaseBufferWrapper) else None
+    index_buffer = index_buffer if isinstance(index_buffer, BaseBuffer) else None
 
     # Collect vertex buffers
     # todo: must vetex_buffers be a dict?

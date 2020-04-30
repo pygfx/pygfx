@@ -1,6 +1,6 @@
 import numpy as np
 
-from ..datawrappers import BufferWrapper
+from ..datawrappers import Buffer
 from ._base import Geometry
 
 
@@ -74,6 +74,6 @@ class BoxGeometry(Geometry):
             dtype="u2",
         )
 
-        self.positions = BufferWrapper(positions, usage="vertex|storage")
-        self.texcoords = BufferWrapper(texcoords, usage="vertex|storage")
-        self.index = BufferWrapper(index, usage="index|storage")
+        self.positions = Buffer(positions, usage="vertex|storage")
+        self.texcoords = Buffer(texcoords, usage="vertex|storage")
+        self.index = Buffer(index, usage="index|storage")

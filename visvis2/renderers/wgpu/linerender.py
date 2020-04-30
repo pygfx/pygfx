@@ -6,7 +6,7 @@ from python_shader import vec4, Array
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
 from ...materials import LineStripMaterial
-from ...datawrappers import BufferWrapper
+from ...datawrappers import Buffer
 
 # todo: use a compute shader or instancing?
 # https://wwwtyro.net/2019/11/18/instanced-lines.html
@@ -62,7 +62,7 @@ def line_renderer(wobject, render_info):
         # Create buffer that only exist on the GPU, we provide stub data so that
         # the buffer knows type and strides (needed when used as vertex buffer)
         stub_array = np.zeros((0, 4), np.float32)
-        geometry._line_renderer_positions2 = BufferWrapper(
+        geometry._line_renderer_positions2 = Buffer(
             stub_array, nbytes=0, usage="vertex|storage"
         )
 

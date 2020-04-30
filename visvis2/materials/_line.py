@@ -2,7 +2,7 @@ from python_shader import Struct, vec3, f32
 
 from ._base import Material
 from ..utils import array_from_shadertype
-from ..datawrappers import BufferWrapper
+from ..datawrappers import Buffer
 
 
 class LineStripMaterial(Material):
@@ -13,7 +13,7 @@ class LineStripMaterial(Material):
         super().__init__()
 
         array = array_from_shadertype(self.uniform_type)
-        self.uniforms = BufferWrapper(array, usage="uniform")
+        self.uniforms = Buffer(array, usage="uniform")
         self.set_color(color)
         self.set_thickness(thickness)
 
