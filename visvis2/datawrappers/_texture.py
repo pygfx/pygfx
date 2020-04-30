@@ -332,6 +332,10 @@ class TextureView:
         """
         return self._texture
 
+    @property
+    def format(self):
+        return self._format or self.texture.format
+
 
 class Sampler:
     pass

@@ -13,7 +13,8 @@ scene = vv.Scene()
 
 geometry = vv.BoxGeometry(200, 200, 200)
 material = vv.MeshBasicMaterial()
-im1 = imageio.imread("imageio:chelsea.png")[:, :, 1]
+im1 = imageio.imread("imageio:chelsea.png")[:, :, :]
+im1 = np.concatenate([im1, 255 * np.ones(im1.shape[:2] + (1,), dtype=im1.dtype)], 2)
 material.texture = vv.TextureWrapper(im1, dim=2, usage="sampled").get_view()
 cube = vv.Mesh(geometry, material)
 scene.add(cube)
