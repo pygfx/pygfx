@@ -68,7 +68,7 @@ def line_renderer(wobject, render_info):
         geometry._wgpu_line_renderer_positions2 = Buffer(
             nbytes=positions1.nitems * 2 * 4 * 4,
             nitems=positions1.nitems * 2,
-            vertex_format="float4",
+            format="float4",
             usage="vertex|storage",
         )
     positions2 = geometry._wgpu_line_renderer_positions2

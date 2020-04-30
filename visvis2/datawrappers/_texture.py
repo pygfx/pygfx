@@ -3,6 +3,9 @@ import ctypes
 import numpy as np
 
 
+# todo: what to do about these enums from wgpu. Copy them over?
+
+
 class BaseTexture:
     """ A base texture wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
@@ -10,6 +13,9 @@ class BaseTexture:
     Parameters:
         data (ndarray, optional): The array data as an nd array.
         dim (int): The dimensionality of the array (1, 2 or 3).
+        usage: The way(s) that the texture will be used. Default "SAMPLED",
+            set/add "STORAGE" if you're using it as a storage texture
+            (see wgpu.TextureUsage).
         size (3-tuple): The extent ``(width, height, depth)`` of the array.
             If not given or None, it is derived from dim and the shape of
             the data. By creating a 2D array with ``depth > 1``, a view can
@@ -18,20 +24,15 @@ class BaseTexture:
             it is derived from the given data dtype. Otherwise, provide a
             value from wgpu.TextureFormat.
             THIS IS NOT TRUE. we need to decided what happens with uint8
-        usage: The way(s) that the texture will be used. Default "SAMPLED",
-            set/add "STORAGE" if you're using it as a storage texture
-            (see wgpu.TextureUsage).
     """
 
-    # todo: what to do about these enums from wgpu. Copy them over?
-
-    def __init__(self, data=None, *, dim, size=None, format=None, usage="SAMPLED"):
+    def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
         self._dim = int(dim)
         # The size specifies the size on the GPU (width, height, depth)
         self._size = ()
-        self._format = None
+        self._format = None if format is None else str(format)
         self._nbytes = 0
         # The actual data (optional)
         self._data = None
@@ -42,14 +43,10 @@ class BaseTexture:
         if data is not None and size is None:
             self._data = data
             self._size = self._size_from_data(data, dim, size)
-            self._format = self._format_from_data(data)
             self._nbytes = self._nbytes_from_data(data)
             self._pending_uploads.append(((0, 0, 0), self._size))
-            if format is not None:
-                self._format = str(format)  # trust that the user knows what she's doing
         elif size is not None and format is not None:
             self._size = size
-            self._format = str(format)
         else:
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
@@ -63,14 +60,29 @@ class BaseTexture:
         else:
             raise TypeError("Buffer usage must be str.")
 
-    def get_view(self):
-        return TextureView(self)
+    @property
+    def dirty(self):
+        """ Whether the buffer is dirty (needs to be processed by the renderer).
+        """
+        return bool(self._pending_uploads)
+
+    def get_view(self, **kwargs):
+        """ Get a new view on the this texture.
+        """
+        return TextureView(self, **kwargs)
 
     @property
     def dim(self):
         """ The dimensionality of the texture (1, 2, or 3).
         """
         return self._dim
+
+    @property
+    def usage(self):
+        """ The texture usage flags as a string (compatible with the
+        wgpu.TextureUsage enum).
+        """
+        return self._usage
 
     @property
     def nbytes(self):
@@ -90,34 +102,19 @@ class BaseTexture:
         """ The texture format as a string (compatible with the
         wgpu.TextureFormat enum).
         """
-        return self._format
-
-    @property
-    def usage(self):
-        """ The texture usage flags as a string (compatible with the
-        wgpu.TextureUsage enum).
-        """
-        return self._usage
-
-    @property
-    def dirty(self):
-        """ Whether the buffer is dirty (needs to be processed by the renderer).
-        """
-        return bool(self._pending_uploads)
-
-    @property
-    def strides(self):
-        """ Stride info (as a tuple).
-        """
-        return self._get_strides()
+        if self._format is not None:
+            return self._format
+        elif self.data is not None:
+            self._format = self._format_from_data(self.data)
+            return self._format
+        else:
+            raise ValueError("Buffer has no data nor format.")
 
     @property
     def data(self):
         """ The data that is a view on the data. Can be None if the
         data only exists on the GPU.
-        Note that this array can be replaced, so get it via this property.
         """
-        # todo: maybe this class should not store _data if the data is not mapped?
         return self._data
 
     def update_range(self, offset, size):
@@ -128,9 +125,6 @@ class BaseTexture:
         raise NotImplementedError()
 
     # To implement in subclasses
-
-    def _get_strides(self):
-        raise NotImplementedError()
 
     def _nbytes_from_data(self, data):
         raise NotImplementedError()
@@ -146,25 +140,12 @@ class BaseTexture:
         """
         raise NotImplementedError()
 
-    def _renderer_set_data_from_ctypes_object(self, ob):
-        """ Allows renderer to replace the data.
-        """
-        raise NotImplementedError()
-
-    def _renderer_get_data_dtype_str(self):
-        """ Return numpy-ish dtype string, e.g. uint8, int16, float32.
-        """
-        raise NotImplementedError()
-
 
 class Texture(BaseTexture):  # numpy-based
     """ Object that wraps a (GPU) texture object, optionally providing data
     for it, and optionally *mapping* the data so it's shared. But you can also
     use it as a placeholder for a texture with no representation on the CPU.
     """
-
-    def _get_strides(self):
-        return self.data.strides
 
     def _nbytes_from_data(self, data):
         return data.nbytes
@@ -211,6 +192,7 @@ class Texture(BaseTexture):  # numpy-based
             raise ValueError("RGB textures not supported, use RGBA instead")
         # Process dtype
         # todo: pick one!!
+        # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
         formatmap = {
             # "int8": "8snorm",
             # "uint8": "8unorm",
@@ -244,15 +226,6 @@ class Texture(BaseTexture):  # numpy-based
             ctypes.addressof(ob), subdata.ctypes.data, nbytes,
         )
 
-    def _renderer_set_data_from_ctypes_object(self, ob):
-        new_array = np.asarray(ob)
-        new_array.dtype = self._data.dtype
-        new_array.shape = self._data.shape
-        self._data = new_array
-
-    def _renderer_get_data_dtype_str(self):
-        return str(self.data.dtype)
-
 
 # mipmaps: every texture can have a certain number of mipmap levels. Each
 # next level is half the size of the previous level. I think we can design our
@@ -265,8 +238,11 @@ class Texture(BaseTexture):  # numpy-based
 class TextureView:
     """ A view on a texture.
 
-    The view defines whether it is a texture array. It selects a range of mipmaps,
-    etc.
+    The view defines the sampling behavior and can specify a selection/different
+    view on the texture.
+
+    Passing no more than ``address_mode`` and ``filter`` will create a
+    default view on the texture with the given sampling parameters.
 
     Parameters:
         address_mode (str): How to sample beyond the edges. Use "clamp",
@@ -275,34 +251,40 @@ class TextureView:
         filter (str): Interpolation filter. Use "nearest" or "linear".
             Default "nearest". Can also use e.g. "linear,linear,nearest" to set
             mag, min and mipmap filters.
+        format (str): Omit or pass None to use the texture's format.
+        view_dim (str): Omit or pass None to use the texture's format. Or e.g.
+            get a "2d" slice view from a 3d texture, or e.g. "cube" or "2d-array".
+        aspect (str): Omit or pass None to use the default.
+        mip_range (range): A range object to specify what mip levels to view.
+        layer_range (range): A range object to specify what array layers to view.
     """
 
     def __init__(
         self,
         texture,
         *,
+        address_mode="clamp",
+        filter="nearest",
         format=None,
-        dim=None,
+        view_dim=None,
         aspect=None,
         mip_range=None,
         layer_range=None,
-        address_mode="clamp",
-        filter="nearest",
     ):
         assert isinstance(texture, BaseTexture)
         self._texture = texture
+        # Sampler parameters
+        self._address_mode = address_mode
+        self._filter = filter
+        # Texture view parameters
         self._format = format
-        self._dim = dim
+        self._view_dim = view_dim
         self._aspect = aspect
         self._mip_range = mip_range
         self._layer_range = layer_range
         self._is_default_view = all(
-            x is None for x in [format, dim, aspect, mip_range, layer_range]
+            x is None for x in [format, view_dim, aspect, mip_range, layer_range]
         )
-        # Sampler parameters
-        self._address_mode = address_mode
-        self._filter = filter
-        # The native texture object - created and set by the renderer
 
     @property
     def dirty(self):
@@ -318,8 +300,26 @@ class TextureView:
 
     @property
     def format(self):
+        """ The texture format.
+        """
         return self._format or self.texture.format
 
+    @property
+    def view_dim(self):
+        """ The dimensionality of this view, as a string.
+        See wgpu.TextureViewDimension.
+        """
+        return self._view_dim or f"{self.texture.dim}d"
 
-class Sampler:
-    pass
+    @property
+    def address_mode(self):
+        """ How to sample beyond the edges. Use "clamp",
+        "mirror" or "repeat". Default "clamp".
+        """
+        return self._address_mode
+
+    @property
+    def filter(self):
+        """ Interpolation filter. Use "nearest" or "linear".
+        """
+        return self._filter

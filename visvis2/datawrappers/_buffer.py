@@ -1,29 +1,32 @@
 import ctypes
 
 import wgpu
-import numpy as np
-
-
-# todo: can this be generic enough, keeping the GPU bits out / optional?
-
-# todo: Support for updating unmapped data. Use something like updateRange to do subBufferUpdate
 
 
 class BaseBuffer:
-    """ A base buffer wrapper that can be implemented for numpy, ctypes arrays,
-    or any other kind of array.
+    """ A base buffer class that does not make assumptions on the kind
+    of array (numpy, ctypes or otherwise).
+
+    Parameters:
+        data (array): Array data. Optional. If not given, nbytes and nitems
+            must be provided, and format if used as an index or vertex buffer.
+        usage (str): The way(s) that the texture will be used. E.g. "INDEX"
+            "VERTEX", "UNIFORM". Multiple values can be given separated
+            with "|". See wgpu.BufferUsage.
+        nbytes (int): The number of bytes. If data is given, it is derived.
+        nitems (int): The number of items. If data is given, it is derived.
+        vertex_format (str): The format to use when used as a vertex buffer.
+            If data is given, it is derived. Must be a value from
+            wgpu.VertexFormat.
     """
 
     def __init__(
-        self, data=None, *, nbytes=None, nitems=None, vertex_format=None, usage
+        self, data=None, *, usage, nbytes=None, nitems=None, format=None,
     ):
         # To specify the buffer size
         self._nbytes = 0
         self._nitems = 1
-        self._vertex_format = vertex_format
-        # We can use a view / subset
-        # todo: expose this via a BufferView class?
-        self._view_range = (0, 2 ** 50)
+        self._format = format
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
@@ -32,7 +35,7 @@ class BaseBuffer:
         if data is not None:
             self._data = data
             self._nbytes = self._nbytes_from_data(data)
-            self._nitems = self._nitems_from_data(data)
+            self._nitems = self._nitems_from_data(data, nitems)
             self._pending_uploads.append((0, self._nbytes))
             if nbytes is not None:
                 if nbytes != self._nbytes:
@@ -56,27 +59,8 @@ class BaseBuffer:
         else:
             raise TypeError("Buffer usage must be str.")
 
-    @property
-    def nbytes(self):
-        """ Get the number of bytes in the buffer.
-        """
-        return self._nbytes
-
-    @property
-    def nitems(self):
-        """ Get the number of items in the buffer.
-        """
-        return self._nitems
-
-    @property
-    def view_range(self):
-        self._view_range
-
-    @property
-    def usage(self):
-        """ The buffer usage flags (as an int).
-        """
-        return self._usage
+        # We can use a subset when used as a vertex buffer
+        self._vertex_byte_range = (0, self._nbytes)
 
     @property
     def dirty(self):
@@ -84,38 +68,55 @@ class BaseBuffer:
         """
         return bool(self._pending_uploads)
 
-    # todo: remove this?
     @property
-    def strides(self):
-        """ Stride info (as a tuple).
+    def usage(self):
+        """ The buffer usage flags (as a string with "|" as a separator).
         """
-        return self._get_strides()
+        return self._usage
+
+    @property
+    def nbytes(self):
+        """ The number of bytes in the buffer.
+        """
+        return self._nbytes
+
+    @property
+    def nitems(self):
+        """ The number of items in the buffer.
+        """
+        return self._nitems
+
+    @property
+    def format(self):
+        """ The vertex or index format (depending on the value of usage).
+        """
+        if self._format is not None:
+            return self._format
+        elif self.data is not None:
+            self._format = self._format_from_data(self.data)
+            return self._format
+        else:
+            raise ValueError("Buffer has no data nor format.")
+
+    @property
+    def vertex_byte_range(self):
+        """ The offset and size, in bytes, when used as a vertex buffer.
+        """
+        return self._vertex_byte_range
+
+    @vertex_byte_range.setter
+    def vertex_byte_range(self, offset_nbytes):
+        offset, nbytes = int(offset_nbytes[0]), int(offset_nbytes[1])
+        assert offset >= 0
+        assert offset + nbytes <= self.nbytes
+        self._vertex_byte_range = offset, nbytes
 
     @property
     def data(self):
-        """ The data that is a view on the data. Can be None if the
-        data only exists on the GPU.
-        Note that this array can be replaced, so get it via this property.
+        """ The data for this buffer as given when instantiated. Can
+        be None if the data only exists on the GPU.
         """
-        # todo: maybe this class should not store _data if the data is not mapped?
         return self._data
-
-    # def resize(self):
-    #     pass
-
-    def set_view_range(self, start, stop):
-        """ Set the view range
-        """
-        self._view_range = int(start), int(stop)
-        # todo: implement this
-
-    # def set_data(self, data):
-    #     """ Reset the data.
-    #     """
-    #     self._data = data
-    #     self._nbytes = self._nbytes_from_data(data)
-    #     self._pending_data.append((data, 0))
-    #     self._dirty = True
 
     def update_range(self, offset=0, size=2 ** 50):
         """ Mark a certain range of the data for upload to the GPU. The
@@ -142,10 +143,13 @@ class BaseBuffer:
 
     # To implement in subclasses
 
-    def _get_strides(self):
+    def _nbytes_from_data(self, data):
         raise NotImplementedError()
 
-    def _nbytes_from_data(self, data):
+    def _nitems_from_data(self, data, nitems):
+        raise NotImplementedError()
+
+    def _format_from_data(self, data):
         raise NotImplementedError()
 
     def _renderer_copy_data_to_ctypes_object(self, ob, offset=0):
@@ -153,93 +157,82 @@ class BaseBuffer:
         """
         raise NotImplementedError()
 
-    def _renderer_set_data_from_ctypes_object(self, ob):
-        """ Allows renderer to replace the data.
-        """
-        raise NotImplementedError()
-
-    def _renderer_get_data_dtype_str(self):
-        """ Return numpy-ish dtype string, e.g. uint8, int16, float32.
-        """
-        raise NotImplementedError()
-
-    def _renderer_get_vertex_format(self):
-        raise NotImplementedError()
-
 
 class Buffer(BaseBuffer):  # numpy-based
-    """ Object that wraps a (GPU) buffer object, optionally providing data
-    for it, and optionally *mapping* the data so it's shared. But you can also
-    use it as a placeholder for a buffer with no representation on the CPU.
+    """ A class that wraps a (GPU) buffer object, optionally providing
+    data for it. You can also use it as a placeholder for a buffer with
+    no representation on the CPU.
     """
-
-    def _get_strides(self):
-        return self.data.strides
 
     def _nbytes_from_data(self, data):
         return data.nbytes
 
-    def _nitems_from_data(self, data):
+    def _nitems_from_data(self, data, nitems):
         if data.shape:
             return data.shape[0]
         else:
             return 1
+
+    def _format_from_data(self, data):
+        if "INDEX" in self.usage:
+
+            key = str(data.dtype)
+            mapping = {
+                "int16": wgpu.IndexFormat.uint16,
+                "uint16": wgpu.IndexFormat.uint16,
+                "int32": wgpu.IndexFormat.uint32,
+                "uint32": wgpu.IndexFormat.uint32,
+            }
+            try:
+                return mapping[key]
+            except KeyError:
+                raise TypeError(
+                    "Need dtype (u)int16 or (u)int32 for index data, not '{dtype}'."
+                )
+
+        else:  # if "VERTEX" in self.usage:
+
+            shape = data.shape
+            if len(shape) == 1:
+                shape = shape + (1,)
+            assert len(shape) == 2
+            key = str(data.dtype), shape[-1]
+            mapping = {
+                ("float32", 1): wgpu.VertexFormat.float,
+                ("float32", 2): wgpu.VertexFormat.float2,
+                ("float32", 3): wgpu.VertexFormat.float3,
+                ("float32", 4): wgpu.VertexFormat.float4,
+                #
+                ("float16", 2): wgpu.VertexFormat.half2,
+                ("float16", 4): wgpu.VertexFormat.half4,
+                #
+                ("int8", 2): wgpu.VertexFormat.char2,
+                ("int8", 4): wgpu.VertexFormat.char4,
+                ("uint8", 2): wgpu.VertexFormat.uchar2,
+                ("uint8", 4): wgpu.VertexFormat.uchar4,
+                #
+                ("int16", 2): wgpu.VertexFormat.short2,
+                ("int16", 4): wgpu.VertexFormat.short4,
+                ("uint16", 2): wgpu.VertexFormat.ushort2,
+                ("uint16", 4): wgpu.VertexFormat.ushort4,
+                #
+                ("int32", 1): wgpu.VertexFormat.int,
+                ("int32", 2): wgpu.VertexFormat.int2,
+                ("int32", 3): wgpu.VertexFormat.int3,
+                ("int32", 4): wgpu.VertexFormat.int4,
+                #
+                ("uint32", 1): wgpu.VertexFormat.uint,
+                ("uint32", 2): wgpu.VertexFormat.uint2,
+                ("uint32", 3): wgpu.VertexFormat.uint3,
+                ("uint32", 4): wgpu.VertexFormat.uint4,
+            }
+            try:
+                return mapping[key]
+            except TypeError:
+                raise ValueError(f"Invalid dtype/shape for vertex data: {key}")
 
     def _renderer_copy_data_to_ctypes_object(self, ob, offset=0):
         nbytes = ctypes.sizeof(ob)
         ctypes.memmove(
             ctypes.addressof(ob), self.data.ctypes.data + offset, nbytes,
         )
-
-    def _renderer_set_data_from_ctypes_object(self, ob):
-        new_array = np.asarray(ob)
-        new_array.dtype = self._data.dtype
-        new_array.shape = self._data.shape
-        self._data = new_array
-
-    def _renderer_get_data_dtype_str(self):
-        return str(self.data.dtype)
-
-    def _renderer_get_vertex_format(self):
-        if self.data is None:
-            if self._vertex_format is None:
-                raise ValueError("Buffer has no data nor vertex_format.")
-            return self._vertex_format
-        shape = self.data.shape
-        if len(shape) == 1:
-            shape = shape + (1,)
-        assert len(shape) == 2
-        key = str(self.data.dtype), shape[-1]
-        mapping = {
-            ("float32", 1): wgpu.VertexFormat.float,
-            ("float32", 2): wgpu.VertexFormat.float2,
-            ("float32", 3): wgpu.VertexFormat.float3,
-            ("float32", 4): wgpu.VertexFormat.float4,
-            #
-            ("float16", 2): wgpu.VertexFormat.half2,
-            ("float16", 4): wgpu.VertexFormat.half4,
-            #
-            ("int8", 2): wgpu.VertexFormat.char2,
-            ("int8", 4): wgpu.VertexFormat.char4,
-            ("uint8", 2): wgpu.VertexFormat.uchar2,
-            ("uint8", 4): wgpu.VertexFormat.uchar4,
-            #
-            ("int16", 2): wgpu.VertexFormat.short2,
-            ("int16", 4): wgpu.VertexFormat.short4,
-            ("uint16", 2): wgpu.VertexFormat.ushort2,
-            ("uint16", 4): wgpu.VertexFormat.ushort4,
-            #
-            ("int32", 1): wgpu.VertexFormat.int,
-            ("int32", 2): wgpu.VertexFormat.int2,
-            ("int32", 3): wgpu.VertexFormat.int3,
-            ("int32", 4): wgpu.VertexFormat.int4,
-            #
-            ("uint32", 1): wgpu.VertexFormat.uint,
-            ("uint32", 2): wgpu.VertexFormat.uint2,
-            ("uint32", 3): wgpu.VertexFormat.uint3,
-            ("uint32", 4): wgpu.VertexFormat.uint4,
-        }
-        try:
-            return mapping[key]
-        except KeyError:
-            raise ValueError(f"Invalid dtype/shape for vertex data: {key}")

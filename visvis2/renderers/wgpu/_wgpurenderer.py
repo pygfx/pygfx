@@ -177,7 +177,12 @@ class WgpuRenderer(Renderer):
                 for pinfo in wgpu_data["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipeline"])
                     for slot, vbuffer in enumerate(pinfo["vertex_buffers"]):
-                        render_pass.set_vertex_buffer(slot, vbuffer, 0, vbuffer.size)
+                        render_pass.set_vertex_buffer(
+                            slot,
+                            vbuffer._wgpu_buffer,
+                            vbuffer.vertex_byte_range[0],
+                            vbuffer.vertex_byte_range[1],
+                        )
                     for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
                         render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
                     # Draw with or without index buffer
@@ -398,19 +403,7 @@ class WgpuRenderer(Renderer):
         index_buffer = pipeline_info.get("index_buffer", None)
         if index_buffer is not None:
             wgpu_index_buffer = index_buffer._wgpu_buffer
-            index_format_map = {
-                "int16": wgpu.IndexFormat.uint16,
-                "uint16": wgpu.IndexFormat.uint16,
-                "int32": wgpu.IndexFormat.uint32,
-                "uint32": wgpu.IndexFormat.uint32,
-            }
-            dtype = index_buffer._renderer_get_data_dtype_str()
-            try:
-                index_format = index_format_map[dtype]
-            except KeyError:
-                raise TypeError(
-                    "Need dtype (u)int16 or (u)int32 for index data, not '{dtype}'."
-                )
+            index_format = index_buffer.format
 
         # Convert and check high-level indices. Indices represent a range
         # of index id's, or define what indices in the index buffer are used.
@@ -449,19 +442,17 @@ class WgpuRenderer(Renderer):
         # Process vertex buffers. Update the buffer, and produces a descriptor.
         vertex_buffers = []
         vertex_buffer_descriptors = []
+        # todo: we can probably expose multiple attributes per buffer using a BufferView
+        # -> can we also leverage numpy here?
         for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
                 "stepmode": wgpu.InputStepMode.vertex,  # vertex or instance
                 "attributes": [
-                    {
-                        "format": buffer._renderer_get_vertex_format(),
-                        "offset": 0,
-                        "shader_location": slot,
-                    }
+                    {"format": buffer.format, "offset": 0, "shader_location": slot,}
                 ],
             }
-            vertex_buffers.append(buffer._wgpu_buffer)
+            vertex_buffers.append(buffer)
             vertex_buffer_descriptors.append(vbo_des)
 
         # Get bind groups and pipeline layout from the buffers in pipeline_info.
@@ -598,9 +589,8 @@ class WgpuRenderer(Renderer):
                     visibility = visibility_all
                     if binding_type == wgpu.BindingType.sampled_texture:
                         visibility = wgpu.ShaderStage.FRAGMENT
-                    fmt = resource._format or resource.texture.format
-                    dim = resource._dim or resource.texture.dim
-                    dim = f"d{dim}" if isinstance(dim, int) else dim
+                    fmt = resource.format
+                    dim = resource.view_dim
                     component_type = wgpu.TextureComponentType.sint
                     if "uint" in fmt:
                         component_type = wgpu.TextureComponentType.uint
@@ -610,7 +600,7 @@ class WgpuRenderer(Renderer):
                         "binding": slot,
                         "visibility": visibility,
                         "type": binding_type,
-                        "view_dimension": getattr(wgpu.TextureViewDimension, dim),
+                        "view_dimension": getattr(wgpu.TextureViewDimension, dim, dim),
                         "texture_component_type": component_type,
                         # "multisampled": False,
                     }
