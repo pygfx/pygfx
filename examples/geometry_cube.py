@@ -5,17 +5,19 @@ import visvis2 as vv
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
+
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = vv.renderers.WgpuRenderer(canvas)
 scene = vv.Scene()
 
+im = imageio.imread("imageio:chelsea.png")[:, :, :]
+im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
+tex = vv.TextureWrapper(im, dim=2, usage="sampled").get_view()
+
 geometry = vv.BoxGeometry(200, 200, 200)
-material = vv.MeshBasicMaterial()
-im1 = imageio.imread("imageio:chelsea.png")[:, :, :]
-im1 = np.concatenate([im1, 255 * np.ones(im1.shape[:2] + (1,), dtype=im1.dtype)], 2)
-material.texture = vv.TextureWrapper(im1, dim=2, usage="sampled").get_view()
+material = vv.MeshBasicMaterial(map=tex, clim=(100, 255))
 cube = vv.Mesh(geometry, material)
 scene.add(cube)
 

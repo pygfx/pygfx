@@ -94,7 +94,7 @@ class WgpuRenderer(Renderer):
 
         # Ensure each wobject has pipeline info
         for wobject in q:
-            self._update_pipelines(wobject)
+            self._make_up_to_date(wobject)
 
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_data is not None]
@@ -221,8 +221,8 @@ class WgpuRenderer(Renderer):
 
         return list(sorted(q, key=sort_func))
 
-    def _update_pipelines(self, wobject):
-        """ Update the pipelines associated with the given wobject. Returns
+    def _make_up_to_date(self, wobject):
+        """ Update the GPU objects associated with the given wobject. Returns
         quickly if no changes are needed.
         """
 
@@ -231,19 +231,73 @@ class WgpuRenderer(Renderer):
             return
 
         wobject.material.dirty = False
-        wobject._wgpu_data = None
 
-        # Get render function for this world object,
-        # and use it to get a high-level description of pipelines.
-        renderfunc = registry.get_render_function(wobject)
-        if renderfunc is None:
+        # Need a pipeline reset?
+        if getattr(wobject.material, "_wgpu_pipeline_dirty", False):
+            wobject._wgpu_pipeline_infos = None
+
+        # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
+        if getattr(wobject, "_wgpu_pipeline_infos", None) is None:
             wobject._wgpu_data = None
+            wobject._wgpu_pipeline_infos = self._get_pipeline_infos(wobject)
+
+        # This could be enough
+        if wobject._wgpu_pipeline_infos is None:
+            wobject._wgpu_data = None
+            return
+
+        # Check if we need to update any resources
+        # todo: this seems like a lot of work, can we keep track of what objects
+        # need an update with higher precision?
+        for pipeline_info in wobject._wgpu_pipeline_infos:
+            buffer = pipeline_info.get("index_buffer", None)
+            if buffer is not None:
+                self._update_buffer(buffer)
+            for buffer in pipeline_info.get("vertex_buffers", []):
+                self._update_buffer(buffer)
+            for key in pipeline_info.keys():
+                if key.startswith("bindings"):
+                    resources = pipeline_info[key]
+                    if isinstance(resources, dict):
+                        resources = resources.values()
+                    for binding_type, resource in resources:
+                        if binding_type in (
+                            wgpu.BindingType.uniform_buffer,
+                            wgpu.BindingType.storage_buffer,
+                            wgpu.BindingType.readonly_storage_buffer,
+                        ):
+                            assert isinstance(resource, BaseBuffer)
+                            self._update_buffer(resource)
+                        elif binding_type in (
+                            wgpu.BindingType.sampled_texture,
+                            wgpu.BindingType.readonly_storage_texture,
+                            wgpu.BindingType.writeonly_storage_texture,
+                        ):
+                            assert isinstance(resource, TextureView)
+                            self._update_texture(resource.texture)
+                            self._update_texture_view(resource)
+                        elif binding_type in (
+                            wgpu.BindingType.sampler,
+                            wgpu.BindingType.comparison_sampler,
+                        ):
+                            assert isinstance(resource, TextureView)
+                            self._update_sampler(resource)
+
+        # Create gpu data?
+        if wobject._wgpu_data is None:
+            wobject._wgpu_data = self._get_pipeline_objects(wobject)
+
+    def _get_pipeline_infos(self, wobject):
 
         # Make sure that the wobject has an stdinfo object
         if not hasattr(wobject, "_wgpu_stdinfo_buffer"):
             wobject._wgpu_stdinfo_buffer = Buffer(
                 array_from_shadertype(stdinfo_uniform_type), usage="uniform"
             )
+
+        # Get render function for this world object,
+        # and use it to get a high-level description of pipelines.
+        renderfunc = registry.get_render_function(wobject)
 
         # Call render function
         render_info = RenderInfo(stdinfo=wobject._wgpu_stdinfo_buffer)
@@ -253,8 +307,11 @@ class WgpuRenderer(Renderer):
             assert all(
                 isinstance(pipeline_info, dict) for pipeline_info in pipeline_infos
             )
+            return pipeline_infos
         else:
-            return
+            return None
+
+    def _get_pipeline_objects(self, wobject):
 
         # Prepare the three kinds of pipelines that we can get
         compute_pipelines = []
@@ -262,7 +319,7 @@ class WgpuRenderer(Renderer):
         alt_render_pipelines = []
 
         # Process each pipeline info object, converting each to a more concrete dict
-        for pipeline_info in pipeline_infos:
+        for pipeline_info in wobject._wgpu_pipeline_infos:
             if "vertex_shader" in pipeline_info and "fragment_shader" in pipeline_info:
                 pipeline = self._compose_render_pipeline(wobject, pipeline_info)
                 if pipeline_info.get("target", None) is None:
@@ -279,8 +336,7 @@ class WgpuRenderer(Renderer):
                     "Did not find compute_shader nor vertex_shader+fragment_shader in pipeline info."
                 )
 
-        # Store on the wobject
-        wobject._wgpu_data = {
+        return {
             "compute_pipelines": compute_pipelines,
             "render_pipelines": render_pipelines,
             "alt_render_pipelines": alt_render_pipelines,
@@ -341,7 +397,6 @@ class WgpuRenderer(Renderer):
         index_format = wgpu.IndexFormat.uint32
         index_buffer_wrapper = pipeline_info.get("index_buffer", None)
         if index_buffer_wrapper is not None:
-            self._update_buffer(index_buffer_wrapper)
             index_buffer = index_buffer_wrapper.gpu_buffer
             index_format_map = {
                 "int16": wgpu.IndexFormat.uint16,
@@ -395,7 +450,6 @@ class WgpuRenderer(Renderer):
         vertex_buffers = []
         vertex_buffer_descriptors = []
         for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
-            self._update_buffer(buffer)
             vbo_des = {
                 "array_stride": buffer.strides[0],
                 "stepmode": wgpu.InputStepMode.vertex,  # vertex or instance
@@ -512,7 +566,6 @@ class WgpuRenderer(Renderer):
                 ):
                     # A buffer resource
                     assert isinstance(resource, BaseBuffer)
-                    self._update_buffer(resource)
                     bindings.append(
                         {
                             "binding": slot,
@@ -539,8 +592,6 @@ class WgpuRenderer(Renderer):
                 ):
                     # A texture view resource
                     assert isinstance(resource, TextureView)
-                    self._update_texture(resource.texture)
-                    self._update_texture_view(resource)
                     bindings.append(
                         {"binding": slot, "resource": resource._gpu_texture_view,}
                     )
@@ -573,7 +624,6 @@ class WgpuRenderer(Renderer):
                 ):
                     # A sampler resource
                     assert isinstance(resource, TextureView)
-                    self._update_sampler(resource)
                     bindings.append(
                         {"binding": slot, "resource": resource._gpu_sampler,}
                     )
