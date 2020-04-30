@@ -1,6 +1,5 @@
 import ctypes
 
-import wgpu
 import numpy as np
 
 
@@ -37,8 +36,6 @@ class BaseTexture:
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
-        # The native texture object - created and set by the renderer
-        self._gpu_texture = None  # Set by renderer
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -123,22 +120,12 @@ class BaseTexture:
         # todo: maybe this class should not store _data if the data is not mapped?
         return self._data
 
-    @property
-    def gpu_texture(self):
-        """ The WGPU texture object. Can be None if the renderer has not set it (yet).
-        """
-        return self._gpu_texture
-
     def update_range(self, offset, size):
         """ Mark a certain range of the data for upload to the GPU.
         The offset and (sub) size should be (width, height, depth)
         tuples.
         """
         raise NotImplementedError()
-
-    def _renderer_set_gpu_texture(self, texture):
-        # This is how the renderer marks the texture as non-dirty
-        self._gpu_texture = texture
 
     # To implement in subclasses
 
@@ -213,7 +200,6 @@ class Texture(BaseTexture):  # numpy-based
         dtype = data.dtype
         # Process channels
         shape = data.shape
-        size = self.size
         if len(shape) == self.dim + 1:
             nchannels = shape[-1]
         else:
@@ -317,8 +303,6 @@ class TextureView:
         self._address_mode = address_mode
         self._filter = filter
         # The native texture object - created and set by the renderer
-        self._gpu_texture_view = None  # Set by renderer
-        self._gpu_sampler = None  # Set by renderer
 
     @property
     def dirty(self):

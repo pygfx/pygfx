@@ -393,18 +393,18 @@ class WgpuRenderer(Renderer):
         device = self._device
 
         # If an index buffer is present, update it, and get index_format.
-        index_buffer = None
+        wgpu_index_buffer = None
         index_format = wgpu.IndexFormat.uint32
-        index_buffer_wrapper = pipeline_info.get("index_buffer", None)
-        if index_buffer_wrapper is not None:
-            index_buffer = index_buffer_wrapper.gpu_buffer
+        index_buffer = pipeline_info.get("index_buffer", None)
+        if index_buffer is not None:
+            wgpu_index_buffer = index_buffer._wgpu_buffer
             index_format_map = {
                 "int16": wgpu.IndexFormat.uint16,
                 "uint16": wgpu.IndexFormat.uint16,
                 "int32": wgpu.IndexFormat.uint32,
                 "uint32": wgpu.IndexFormat.uint32,
             }
-            dtype = index_buffer_wrapper._renderer_get_data_dtype_str()
+            dtype = index_buffer._renderer_get_data_dtype_str()
             try:
                 index_format = index_format_map[dtype]
             except KeyError:
@@ -416,9 +416,9 @@ class WgpuRenderer(Renderer):
         # of index id's, or define what indices in the index buffer are used.
         indices = pipeline_info.get("indices", None)
         if indices is None:
-            if index_buffer_wrapper is None:
+            if index_buffer is None:
                 raise RuntimeError("Need indices or index_buffer ")
-            indices = range(index_buffer_wrapper.data.size)
+            indices = range(index_buffer.data.size)
         # Convert to 2-element tuple (vertex, instance)
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -442,7 +442,7 @@ class WgpuRenderer(Renderer):
                 raise RuntimeError(
                     "Render pipeline indices must be a 2-element tuple with ints or ranges."
                 )
-        if index_buffer is not None:
+        if wgpu_index_buffer is not None:
             base_vertex = 0  # A value added to each index before reading [...]
             index_args.insert(-1, base_vertex)
 
@@ -461,7 +461,7 @@ class WgpuRenderer(Renderer):
                     }
                 ],
             }
-            vertex_buffers.append(buffer.gpu_buffer)
+            vertex_buffers.append(buffer._wgpu_buffer)
             vertex_buffer_descriptors.append(vbo_des)
 
         # Get bind groups and pipeline layout from the buffers in pipeline_info.
@@ -520,7 +520,7 @@ class WgpuRenderer(Renderer):
         return {
             "pipeline": pipeline,  # wgpu object
             "index_args": index_args,  # tuple
-            "index_buffer": index_buffer,  # BaseBuffer
+            "index_buffer": wgpu_index_buffer,  # BaseBuffer
             "vertex_buffers": vertex_buffers,  # list of BaseBuffer
             "bind_groups": bind_groups,  # list of wgpu bind_group objects
         }
@@ -570,7 +570,7 @@ class WgpuRenderer(Renderer):
                         {
                             "binding": slot,
                             "resource": {
-                                "buffer": resource.gpu_buffer,
+                                "buffer": resource._wgpu_buffer,
                                 "offset": 0,
                                 "size": resource.nbytes,
                             },
@@ -593,7 +593,7 @@ class WgpuRenderer(Renderer):
                     # A texture view resource
                     assert isinstance(resource, TextureView)
                     bindings.append(
-                        {"binding": slot, "resource": resource._gpu_texture_view,}
+                        {"binding": slot, "resource": resource._wgpu_texture_view,}
                     )
                     visibility = visibility_all
                     if binding_type == wgpu.BindingType.sampled_texture:
@@ -625,7 +625,7 @@ class WgpuRenderer(Renderer):
                     # A sampler resource
                     assert isinstance(resource, TextureView)
                     bindings.append(
-                        {"binding": slot, "resource": resource._gpu_sampler,}
+                        {"binding": slot, "resource": resource._wgpu_sampler,}
                     )
                     binding_layouts.append(
                         {
@@ -656,7 +656,7 @@ class WgpuRenderer(Renderer):
 
         # todo: dispose an old buffer? / reuse an old buffer?
 
-        buffer = resource.gpu_buffer
+        buffer = getattr(resource, "_wgpu_buffer", None)
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 
@@ -677,17 +677,17 @@ class WgpuRenderer(Renderer):
             command_encoder = self._device.create_command_encoder()
             command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, offset, size)
             self._device.default_queue.submit([command_encoder.finish()])
-        resource._renderer_set_gpu_buffer(buffer)
+        resource._wgpu_buffer = buffer
 
     def _update_texture_view(self, resource):
-        if resource._gpu_texture_view is None:
+        if getattr(resource, "_wgpu_texture_view", None) is None:
             if resource._is_default_view:
-                texture_view = resource.texture.gpu_texture.create_view()
+                texture_view = resource.texture._wgpu_texture.create_view()
             else:
                 dim = resource._dim
                 assert resource._mip_range.step == 1
                 assert resource._layer_range.step == 1
-                texture_view = resource.texture.gpu_texture.create_view(
+                texture_view = resource.texture._wgpu_texture.create_view(
                     format=resource._format,
                     dimension=f"{dim}d" if isinstance(dim, int) else dim,
                     aspect=resource._aspect,
@@ -696,13 +696,13 @@ class WgpuRenderer(Renderer):
                     base_array_layer=resource._layer_range.start,
                     array_layer_count=len(resource._layer_range),
                 )
-            resource._gpu_texture_view = texture_view
+            resource._wgpu_texture_view = texture_view
 
     def _update_texture(self, resource):
         if not resource.dirty:
             return
 
-        texture = resource.gpu_texture
+        texture = getattr(resource, "_wgpu_texture", None)
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 
@@ -751,11 +751,11 @@ class WgpuRenderer(Renderer):
                 copy_size=size,
             )
             self._device.default_queue.submit([command_encoder.finish()])
-        resource._renderer_set_gpu_texture(texture)
+        resource._wgpu_texture = texture
 
     def _update_sampler(self, resource):
         # A sampler's info (and raw object) are stored on a TextureView
-        if resource._gpu_sampler is None:
+        if getattr(resource, "_wgpu_sampler", None) is None:
             amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
             while len(amodes) < 3:
                 amodes.append(amodes[-1])
@@ -774,4 +774,4 @@ class WgpuRenderer(Renderer):
                 # lod_max_clamp -> use default inf
                 # compare -> only not-None for comparison samplers!
             )
-            resource._gpu_sampler = sampler
+            resource._wgpu_sampler = sampler

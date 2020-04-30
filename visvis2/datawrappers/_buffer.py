@@ -24,8 +24,6 @@ class BaseBuffer:
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
-        # The native buffer object - created and set by the renderer
-        self._gpu_buffer = None
 
         # Get nbytes
         if data is not None:
@@ -92,12 +90,6 @@ class BaseBuffer:
         # todo: maybe this class should not store _data if the data is not mapped?
         return self._data
 
-    @property
-    def gpu_buffer(self):
-        """ The WGPU buffer object. Can be None if the renderer has not set it (yet).
-        """
-        return self._gpu_buffer
-
     # def resize(self):
     #     pass
 
@@ -137,10 +129,6 @@ class BaseBuffer:
             boffset, bsize = min(boffset, current[0]), max(bsize, current[1])
         self._pending_uploads.append((boffset, bsize))
         # todo: this can be smarter, we have logic for this in the morph tool
-
-    def _renderer_set_gpu_buffer(self, buffer):
-        # This is how the renderer marks the buffer as non-dirty
-        self._gpu_buffer = buffer
 
     # To implement in subclasses
 
