@@ -1,5 +1,6 @@
 import wgpu  # only for flags/enums
 import python_shader
+from python_shader import python2shader
 from python_shader import vec2, vec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
@@ -8,7 +9,7 @@ from ...materials import MeshBasicMaterial
 from ...datawrappers import BaseBuffer, BaseTexture, TextureView
 
 
-@python_shader.python2shader
+@python2shader
 def vertex_shader(
     in_pos: (python_shader.RES_INPUT, 0, vec4),
     in_texcoord: (python_shader.RES_INPUT, 1, vec2),
@@ -23,7 +24,7 @@ def vertex_shader(
     v_texcoord = in_texcoord  # noqa - shader output
 
 
-@python_shader.python2shader
+@python2shader
 def fragment_shader_simple(
     u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
     out_color: (python_shader.RES_OUTPUT, 0, vec4),
@@ -31,7 +32,7 @@ def fragment_shader_simple(
     out_color = u_mesh.color  # noqa - shader output
 
 
-@python_shader.python2shader
+@python2shader
 def fragment_shader_textured_gray(
     v_texcoord: (python_shader.RES_INPUT, 0, vec2),
     u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
@@ -44,7 +45,7 @@ def fragment_shader_textured_gray(
     out_color = vec4(val, val, val, 1.0)  # noqa - shader output
 
 
-@python_shader.python2shader
+@python2shader
 def fragment_shader_textured_rgba(
     v_texcoord: (python_shader.RES_INPUT, 0, vec2),
     u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
@@ -78,7 +79,7 @@ def mesh_renderer(wobject, render_info):
     index_buffer = index_buffer if isinstance(index_buffer, BaseBuffer) else None
 
     # Collect vertex buffers
-    # todo: must vetex_buffers be a dict?
+    # todo: must vertex_buffers be a dict?
     vertex_buffers = []
     vertex_buffers.append(geometry.positions)
     if getattr(geometry, "texcoords", None) is not None:
@@ -103,6 +104,15 @@ def mesh_renderer(wobject, render_info):
             fragment_shader = fragment_shader_textured_rgba
         else:
             fragment_shader = fragment_shader_textured_gray
+        # Use a version of the shader for float textures if necessary
+        if "float" in material.map.format:
+            if not hasattr(fragment_shader, "float_version"):
+                func = fragment_shader.input
+                tex_anno = func.__annotations__["t_tex"]
+                func.__annotations__["t_tex"] = tex_anno[:2] + ("2d f32",)
+                fragment_shader.float_version = python2shader(func)
+                func.__annotations__["t_tex"] = tex_anno
+            fragment_shader = fragment_shader.float_version
 
     if index_buffer:
         n = len(index_buffer.data)

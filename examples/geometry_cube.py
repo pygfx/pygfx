@@ -12,12 +12,13 @@ canvas = WgpuCanvas()
 renderer = vv.renderers.WgpuRenderer(canvas)
 scene = vv.Scene()
 
-im = imageio.imread("imageio:chelsea.png")[:, :, :]
-im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
+# todo: don't reduce image size, its needed now because a 1MB buffer size limit that has been fixed, but not yet in our build
+im = imageio.imread("imageio:chelsea.png")[:250, :250, :].astype(np.float32) / 255
+im = np.concatenate([im, np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
 tex = vv.Texture(im, dim=2, usage="sampled").get_view(filter="linear")
 
 geometry = vv.BoxGeometry(200, 200, 200)
-material = vv.MeshBasicMaterial(map=tex, clim=(100, 255))
+material = vv.MeshBasicMaterial(map=tex, clim=(0.2, 0.8))
 cube = vv.Mesh(geometry, material)
 scene.add(cube)
 
