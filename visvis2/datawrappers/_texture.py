@@ -137,7 +137,7 @@ class BaseTexture:
         if self._pending_uploads:
             cur_offset, cur_size = self._pending_uploads.pop(-1)
             offset = tuple(min(offset[i], cur_offset[i]) for i in range(3))
-            size = tuple(min(size[i], cur_size[i]) for i in range(3))
+            size = tuple(max(size[i], cur_size[i]) for i in range(3))
         # Apply
         self._pending_uploads.append((offset, size))
 

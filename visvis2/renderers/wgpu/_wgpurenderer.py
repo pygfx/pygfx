@@ -657,13 +657,17 @@ class WgpuRenderer(Renderer):
 
         # Upload any pending data
         for offset, size in pending_uploads:
+            bytes_per_item = resource.nbytes // resource.nitems
+            boffset, bsize = bytes_per_item * offset, bytes_per_item * size
             sub_buffer = self._device.create_buffer_mapped(
-                size=size, usage=wgpu.BufferUsage.COPY_SRC,
+                size=bsize, usage=wgpu.BufferUsage.COPY_SRC,
             )
-            resource._renderer_copy_data_to_ctypes_object(sub_buffer.mapping, offset)
+            resource._renderer_copy_data_to_ctypes_object(
+                sub_buffer.mapping, offset, size
+            )
             sub_buffer.unmap()
             command_encoder = self._device.create_command_encoder()
-            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, offset, size)
+            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, boffset, bsize)
             self._device.default_queue.submit([command_encoder.finish()])
         resource._wgpu_buffer = buffer
 
