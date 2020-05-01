@@ -1,4 +1,3 @@
-import numpy as np
 import wgpu  # only for flags/enums
 import python_shader
 from python_shader import vec4, Array
@@ -6,7 +5,7 @@ from python_shader import vec4, Array
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
 from ...materials import LineStripMaterial
-from ...datawrappers import BufferWrapper
+from ...datawrappers import Buffer
 
 # todo: use a compute shader or instancing?
 # https://wwwtyro.net/2019/11/18/instanced-lines.html
@@ -58,33 +57,42 @@ def line_renderer(wobject, render_info):
 
     assert isinstance(material, LineStripMaterial)
 
-    if not hasattr(geometry, "_line_renderer_positions2"):
+    positions1 = geometry.positions
+
+    positions2_nitems = -1
+    if hasattr(geometry, "_wgpu_line_renderer_positions2"):
+        positions2_nitems = geometry._wgpu_line_renderer_positions2.nitems
+    if positions2_nitems != positions1.nitems * 2:
         # Create buffer that only exist on the GPU, we provide stub data so that
         # the buffer knows type and strides (needed when used as vertex buffer)
-        stub_array = np.zeros((0, 4), np.float32)
-        geometry._line_renderer_positions2 = BufferWrapper(
-            stub_array, nbytes=0, mapped=False, usage="vertex|storage"
+        geometry._wgpu_line_renderer_positions2 = Buffer(
+            nbytes=positions1.nitems * 2 * 4 * 4,
+            nitems=positions1.nitems * 2,
+            format="float4",
+            usage="vertex|storage",
         )
-
-    positions1 = geometry.positions
-    positions2 = geometry._line_renderer_positions2
-
-    n = len(positions1.data)  # number of vertices
-    positions2.set_nbytes(2 * positions1.nbytes)
+    positions2 = geometry._wgpu_line_renderer_positions2
 
     return [
         {
             "compute_shader": compute_shader,
-            "indices": (n, 1, 1),
-            "bindings0": [positions1, positions2, material.uniforms],
+            "indices": (positions1.nitems, 1, 1),
+            "bindings0": {
+                0: (wgpu.BindingType.storage_buffer, positions1),
+                1: (wgpu.BindingType.storage_buffer, positions2),
+                2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+            },
         },
         {
             "vertex_shader": vertex_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "indices": n * 2,
+            "indices": positions1.nitems * 2,
             "vertex_buffers": [positions2],
-            "bindings0": [render_info.stdinfo, material.uniforms],
+            "bindings0": {
+                0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo),
+                1: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+            },
             "target": None,  # default
         },
     ]

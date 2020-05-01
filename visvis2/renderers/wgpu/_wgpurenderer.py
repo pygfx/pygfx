@@ -6,7 +6,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ...datawrappers import BufferWrapper
+from ...datawrappers import BaseBuffer, Buffer, TextureView
 from ...utils import array_from_shadertype
 
 
@@ -22,6 +22,10 @@ stdinfo_uniform_type = Struct(
 
 
 registry = RenderFunctionRegistry()
+
+visibility_all = (
+    wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
+)
 
 
 def register_wgpu_render_function(wobject_cls, material_cls):
@@ -54,23 +58,28 @@ class WgpuRenderer(Renderer):
 
         self._pipelines = []
 
-        adapter = wgpu.request_adapter(power_preference="high-performance")
-        self._device = adapter.request_device(extensions=[], limits={})
-
-        self._swap_chain = self._canvas.configure_swap_chain(
-            self._device,
-            wgpu.TextureFormat.bgra8unorm_srgb,
-            wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+        self._adapter = wgpu.request_adapter(
+            canvas=canvas, power_preference="high-performance"
         )
+        self._device = self._adapter.request_device(extensions=[], limits={})
+
+        self._swap_chain = self._device.configure_swap_chain(
+            canvas, wgpu.TextureFormat.bgra8unorm_srgb,
+        )
+        self._depth_texture_size = (0, 0)
 
     def render(self, scene: WorldObject, camera: Camera):
         """ Main render method, called from the canvas.
         """
 
         # todo: support for alt render pipelines (object that renders to texture than renders that)
+        # todo: also note that the fragment shader is (should be) optional
+        #      (e.g. depth only passes like shadow mapping or z prepass)
 
         device = self._device
-        width, height, pixelratio = self._canvas.get_size_and_pixel_ratio()
+        physical_size = self._canvas.get_physical_size()  # 2 ints
+        logical_size = self._canvas.get_logical_size()  # 2 floats
+        # pixelratio = self._canvas.get_pixel_ratio()
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -85,80 +94,111 @@ class WgpuRenderer(Renderer):
 
         # Ensure each wobject has pipeline info
         for wobject in q:
-            self._update_pipelines(wobject)
+            self._make_up_to_date(wobject)
 
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_data is not None]
 
-        # Prepare for rendering
-        current_texture_view = self._swap_chain.get_current_texture_view()
-        command_encoder = device.create_command_encoder()
-        command_buffers = []
-
-        # Update stdinfo buffer for all objects
-        # todo: a lot of duplicate data here. Let's revisit when we implement point / line collections.
-        for wobject in q:
-            wgpu_data = wobject._wgpu_data
-            stdinfo = wgpu_data["stdinfo"]
-            stdinfo.data["world_transform"] = tuple(wobject.matrix_world.elements)
-            stdinfo.data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-            stdinfo.data["projection_transform"] = tuple(
-                camera.projection_matrix.elements
+        # Prepate depth texture
+        if self._depth_texture_size != physical_size:
+            self._depth_texture_size = physical_size
+            self._depth_texture = device.create_texture(
+                size=(physical_size[0], physical_size[1], 1),
+                usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+                dimension="2d",
+                format=wgpu.TextureFormat.depth32float,
             )
-            stdinfo.data["physical_size"] = width, height  # or the other way around? :P
-            stdinfo.data["logical_size"] = width * pixelratio, height * pixelratio
+            self._depth_texture_view = self._depth_texture.create_view()
+            # todo: explicit destroy the texture?
 
-        # ----- compute pipelines
+        # todo: move this down ...
+        with self._swap_chain as texture_view_target:
 
-        compute_pass = command_encoder.begin_compute_pass()
+            # Prepare for rendering
+            command_encoder = device.create_command_encoder()
+            command_buffers = []
 
-        for wobject in q:
-            wgpu_data = wobject._wgpu_data
-            for pinfo in wgpu_data["compute_pipelines"]:
-                compute_pass.set_pipeline(pinfo["pipeline"])
-                for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                    compute_pass.set_bind_group(
-                        bind_group_id, bind_group, [], 0, 999999
-                    )
-                compute_pass.dispatch(*pinfo["index_args"])
+            # Update stdinfo buffer for all objects
+            # todo: a lot of duplicate data here. Let's revisit when we implement point / line collections.
+            for wobject in q:
+                wgpu_data = wobject._wgpu_data
+                stdinfo = wgpu_data["stdinfo"]
+                stdinfo.data["world_transform"] = tuple(wobject.matrix_world.elements)
+                stdinfo.data["cam_transform"] = tuple(
+                    camera.matrix_world_inverse.elements
+                )
+                stdinfo.data["projection_transform"] = tuple(
+                    camera.projection_matrix.elements
+                )
+                stdinfo.data["physical_size"] = physical_size
+                stdinfo.data["logical_size"] = logical_size
+                stdinfo.update_range(0, 1)
+                self._update_buffer(stdinfo)
 
-        compute_pass.end_pass()
+            # ----- compute pipelines
 
-        # ----- render pipelines rendering to the default target
+            compute_pass = command_encoder.begin_compute_pass()
 
-        render_pass = command_encoder.begin_render_pass(
-            color_attachments=[
-                {
-                    "attachment": current_texture_view,
-                    "resolve_target": None,
-                    "load_value": (0, 0, 0, 1),  # LoadOp.load or color
-                    "store_op": wgpu.StoreOp.store,
-                }
-            ],
-            depth_stencil_attachment=None,
-        )
+            for wobject in q:
+                wgpu_data = wobject._wgpu_data
+                for pinfo in wgpu_data["compute_pipelines"]:
+                    compute_pass.set_pipeline(pinfo["pipeline"])
+                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                        compute_pass.set_bind_group(
+                            bind_group_id, bind_group, [], 0, 999999
+                        )
+                    compute_pass.dispatch(*pinfo["index_args"])
 
-        for wobject in q:
-            wgpu_data = wobject._wgpu_data
-            for pinfo in wgpu_data["render_pipelines"]:
-                render_pass.set_pipeline(pinfo["pipeline"])
-                for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                    render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 999999)
-                for slot, vertex_buffer in enumerate(pinfo["vertex_buffers"]):
-                    render_pass.set_vertex_buffer(slot, vertex_buffer, 0)
-                # Draw with or without index buffer
-                if pinfo["index_buffer"] is not None:
-                    render_pass.set_index_buffer(pinfo["index_buffer"], 0)
-                    render_pass.draw_indexed(*pinfo["index_args"])
-                else:
-                    render_pass.draw(*pinfo["index_args"])
+            compute_pass.end_pass()
 
-        render_pass.end_pass()
+            # ----- render pipelines rendering to the default target
+
+            render_pass = command_encoder.begin_render_pass(
+                color_attachments=[
+                    {
+                        "attachment": texture_view_target,
+                        "resolve_target": None,
+                        "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                        "store_op": wgpu.StoreOp.store,
+                    }
+                ],
+                depth_stencil_attachment={
+                    "attachment": self._depth_texture_view,
+                    "depth_load_value": 10 ** 38,
+                    "depth_store_op": wgpu.StoreOp.store,
+                    "stencil_load_value": wgpu.LoadOp.load,
+                    "stencil_store_op": wgpu.StoreOp.store,
+                },
+                occlusion_query_set=None,
+            )
+
+            for wobject in q:
+                wgpu_data = wobject._wgpu_data
+                for pinfo in wgpu_data["render_pipelines"]:
+                    render_pass.set_pipeline(pinfo["pipeline"])
+                    for slot, vbuffer in enumerate(pinfo["vertex_buffers"]):
+                        render_pass.set_vertex_buffer(
+                            slot,
+                            vbuffer._wgpu_buffer,
+                            vbuffer.vertex_byte_range[0],
+                            vbuffer.vertex_byte_range[1],
+                        )
+                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                        render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
+                    # Draw with or without index buffer
+                    if pinfo["index_buffer"] is not None:
+                        ibuffer = pinfo["index_buffer"]
+                        render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
+                        render_pass.draw_indexed(*pinfo["index_args"])
+                    else:
+                        render_pass.draw(*pinfo["index_args"])
+
+            render_pass.end_pass()
+
+            command_buffers.append(command_encoder.finish())
+            device.default_queue.submit(command_buffers)
 
         # -----
-
-        command_buffers.append(command_encoder.finish())
-        device.default_queue.submit(command_buffers)
 
     def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
         """ Given a scene object, get a list of objects to render.
@@ -186,8 +226,8 @@ class WgpuRenderer(Renderer):
 
         return list(sorted(q, key=sort_func))
 
-    def _update_pipelines(self, wobject):
-        """ Update the pipelines associated with the given wobject. Returns
+    def _make_up_to_date(self, wobject):
+        """ Update the GPU objects associated with the given wobject. Returns
         quickly if no changes are needed.
         """
 
@@ -196,19 +236,73 @@ class WgpuRenderer(Renderer):
             return
 
         wobject.material.dirty = False
-        wobject._wgpu_data = None
+
+        # Need a pipeline reset?
+        if getattr(wobject.material, "_wgpu_pipeline_dirty", False):
+            wobject._wgpu_pipeline_infos = None
+
+        # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
+        if getattr(wobject, "_wgpu_pipeline_infos", None) is None:
+            wobject._wgpu_data = None
+            wobject._wgpu_pipeline_infos = self._get_pipeline_infos(wobject)
+
+        # This could be enough
+        if wobject._wgpu_pipeline_infos is None:
+            wobject._wgpu_data = None
+            return
+
+        # Check if we need to update any resources
+        # todo: this seems like a lot of work, can we keep track of what objects
+        # need an update with higher precision?
+        for pipeline_info in wobject._wgpu_pipeline_infos:
+            buffer = pipeline_info.get("index_buffer", None)
+            if buffer is not None:
+                self._update_buffer(buffer)
+            for buffer in pipeline_info.get("vertex_buffers", []):
+                self._update_buffer(buffer)
+            for key in pipeline_info.keys():
+                if key.startswith("bindings"):
+                    resources = pipeline_info[key]
+                    if isinstance(resources, dict):
+                        resources = resources.values()
+                    for binding_type, resource in resources:
+                        if binding_type in (
+                            wgpu.BindingType.uniform_buffer,
+                            wgpu.BindingType.storage_buffer,
+                            wgpu.BindingType.readonly_storage_buffer,
+                        ):
+                            assert isinstance(resource, BaseBuffer)
+                            self._update_buffer(resource)
+                        elif binding_type in (
+                            wgpu.BindingType.sampled_texture,
+                            wgpu.BindingType.readonly_storage_texture,
+                            wgpu.BindingType.writeonly_storage_texture,
+                        ):
+                            assert isinstance(resource, TextureView)
+                            self._update_texture(resource.texture)
+                            self._update_texture_view(resource)
+                        elif binding_type in (
+                            wgpu.BindingType.sampler,
+                            wgpu.BindingType.comparison_sampler,
+                        ):
+                            assert isinstance(resource, TextureView)
+                            self._update_sampler(resource)
+
+        # Create gpu data?
+        if wobject._wgpu_data is None:
+            wobject._wgpu_data = self._get_pipeline_objects(wobject)
+
+    def _get_pipeline_infos(self, wobject):
+
+        # Make sure that the wobject has an stdinfo object
+        if not hasattr(wobject, "_wgpu_stdinfo_buffer"):
+            wobject._wgpu_stdinfo_buffer = Buffer(
+                array_from_shadertype(stdinfo_uniform_type), usage="uniform"
+            )
 
         # Get render function for this world object,
         # and use it to get a high-level description of pipelines.
         renderfunc = registry.get_render_function(wobject)
-        if renderfunc is None:
-            wobject._wgpu_data = None
-
-        # Make sure that the wobject has an stdinfo object
-        if not hasattr(wobject, "_wgpu_stdinfo_buffer"):
-            wobject._wgpu_stdinfo_buffer = BufferWrapper(
-                array_from_shadertype(stdinfo_uniform_type), mapped=1, usage="uniform"
-            )
 
         # Call render function
         render_info = RenderInfo(stdinfo=wobject._wgpu_stdinfo_buffer)
@@ -218,8 +312,11 @@ class WgpuRenderer(Renderer):
             assert all(
                 isinstance(pipeline_info, dict) for pipeline_info in pipeline_infos
             )
+            return pipeline_infos
         else:
-            return
+            return None
+
+    def _get_pipeline_objects(self, wobject):
 
         # Prepare the three kinds of pipelines that we can get
         compute_pipelines = []
@@ -227,7 +324,7 @@ class WgpuRenderer(Renderer):
         alt_render_pipelines = []
 
         # Process each pipeline info object, converting each to a more concrete dict
-        for pipeline_info in pipeline_infos:
+        for pipeline_info in wobject._wgpu_pipeline_infos:
             if "vertex_shader" in pipeline_info and "fragment_shader" in pipeline_info:
                 pipeline = self._compose_render_pipeline(wobject, pipeline_info)
                 if pipeline_info.get("target", None) is None:
@@ -244,8 +341,7 @@ class WgpuRenderer(Renderer):
                     "Did not find compute_shader nor vertex_shader+fragment_shader in pipeline info."
                 )
 
-        # Store on the wobject
-        wobject._wgpu_data = {
+        return {
             "compute_pipelines": compute_pipelines,
             "render_pipelines": render_pipelines,
             "alt_render_pipelines": alt_render_pipelines,
@@ -302,33 +398,20 @@ class WgpuRenderer(Renderer):
         device = self._device
 
         # If an index buffer is present, update it, and get index_format.
-        index_buffer = None
+        wgpu_index_buffer = None
         index_format = wgpu.IndexFormat.uint32
-        index_buffer_wrapper = pipeline_info.get("index_buffer", None)
-        if index_buffer_wrapper is not None:
-            self._update_buffer(index_buffer_wrapper)
-            index_buffer = index_buffer_wrapper.gpu_buffer
-            index_format_map = {
-                "int16": wgpu.IndexFormat.uint16,
-                "uint16": wgpu.IndexFormat.uint16,
-                "int32": wgpu.IndexFormat.uint32,
-                "uint32": wgpu.IndexFormat.uint32,
-            }
-            dtype = index_buffer_wrapper._renderer_get_data_dtype_str()
-            try:
-                index_format = index_format_map[dtype]
-            except KeyError:
-                raise TypeError(
-                    "Need dtype (u)int16 or (u)int32 for index data, not '{dtype}'."
-                )
+        index_buffer = pipeline_info.get("index_buffer", None)
+        if index_buffer is not None:
+            wgpu_index_buffer = index_buffer._wgpu_buffer
+            index_format = index_buffer.format
 
         # Convert and check high-level indices. Indices represent a range
         # of index id's, or define what indices in the index buffer are used.
         indices = pipeline_info.get("indices", None)
         if indices is None:
-            if index_buffer_wrapper is None:
+            if index_buffer is None:
                 raise RuntimeError("Need indices or index_buffer ")
-            indices = range(index_buffer_wrapper.data.size)
+            indices = range(index_buffer.data.size)
         # Convert to 2-element tuple (vertex, instance)
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -352,27 +435,24 @@ class WgpuRenderer(Renderer):
                 raise RuntimeError(
                     "Render pipeline indices must be a 2-element tuple with ints or ranges."
                 )
-        if index_buffer is not None:
+        if wgpu_index_buffer is not None:
             base_vertex = 0  # A value added to each index before reading [...]
             index_args.insert(-1, base_vertex)
 
         # Process vertex buffers. Update the buffer, and produces a descriptor.
         vertex_buffers = []
         vertex_buffer_descriptors = []
+        # todo: we can probably expose multiple attributes per buffer using a BufferView
+        # -> can we also leverage numpy here?
         for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
-            self._update_buffer(buffer)
             vbo_des = {
-                "array_stride": buffer.strides[0],
+                "array_stride": buffer.nbytes // buffer.nitems,
                 "stepmode": wgpu.InputStepMode.vertex,  # vertex or instance
                 "attributes": [
-                    {
-                        "format": buffer._renderer_get_vertex_format(),
-                        "offset": 0,
-                        "shader_location": slot,
-                    }
+                    {"format": buffer.format, "offset": 0, "shader_location": slot,}
                 ],
             }
-            vertex_buffers.append(buffer.gpu_buffer)
+            vertex_buffers.append(buffer)
             vertex_buffer_descriptors.append(vbo_des)
 
         # Get bind groups and pipeline layout from the buffers in pipeline_info.
@@ -414,7 +494,11 @@ class WgpuRenderer(Renderer):
                     "write_mask": wgpu.ColorWrite.ALL,
                 }
             ],
-            depth_stencil_state=None,
+            depth_stencil_state={
+                "format": wgpu.TextureFormat.depth32float,
+                "depth_write_enabled": True,  # optional
+                "depth_compare": wgpu.CompareFunction.less,  # optional
+            },
             vertex_state={
                 "index_format": index_format,
                 "vertex_buffers": vertex_buffer_descriptors,
@@ -427,8 +511,8 @@ class WgpuRenderer(Renderer):
         return {
             "pipeline": pipeline,  # wgpu object
             "index_args": index_args,  # tuple
-            "index_buffer": index_buffer,  # BufferWrapper
-            "vertex_buffers": vertex_buffers,  # list of BufferWrapper
+            "index_buffer": wgpu_index_buffer,  # BaseBuffer
+            "vertex_buffers": vertex_buffers,  # list of BaseBuffer
             "bind_groups": bind_groups,  # list of wgpu bind_group objects
         }
 
@@ -437,7 +521,6 @@ class WgpuRenderer(Renderer):
         wgpu objects and make sure that all buffers and textures are up-to-date.
         Returns (bind_groups, pipeline_layout).
         """
-
         # todo: cache bind_group_layout objects
         # todo: cache pipeline_layout objects
         # todo: can perhaps be more specific about visibility
@@ -457,43 +540,95 @@ class WgpuRenderer(Renderer):
         # Create bind groups and bind group layouts
         bind_groups = []
         bind_group_layouts = []
-        for buffers in resource_groups:
-            if not isinstance(buffers, dict):
-                buffers = {slot: buffer for slot, buffer in enumerate(buffers)}
+        for resources in resource_groups:
+            if not isinstance(resources, dict):
+                resources = {slot: resource for slot, resource in enumerate(resources)}
             # Collect list of dicts
             bindings = []
             binding_layouts = []
-            for slot, buffer in buffers.items():
-                self._update_buffer(buffer)
-                bindings.append(
-                    {
+            for slot, type_resource in resources.items():
+                assert isinstance(type_resource, tuple) and len(type_resource) == 2
+                binding_type, resource = type_resource
+
+                if binding_type in (
+                    wgpu.BindingType.uniform_buffer,
+                    wgpu.BindingType.storage_buffer,
+                    wgpu.BindingType.readonly_storage_buffer,
+                ):
+                    # A buffer resource
+                    assert isinstance(resource, BaseBuffer)
+                    bindings.append(
+                        {
+                            "binding": slot,
+                            "resource": {
+                                "buffer": resource._wgpu_buffer,
+                                "offset": 0,
+                                "size": resource.nbytes,
+                            },
+                        }
+                    )
+                    binding_layouts.append(
+                        {
+                            "binding": slot,
+                            "visibility": visibility_all,
+                            "type": binding_type,
+                            "has_dynamic_offset": False,
+                        }
+                    )
+
+                elif binding_type in (
+                    wgpu.BindingType.sampled_texture,
+                    wgpu.BindingType.readonly_storage_texture,
+                    wgpu.BindingType.writeonly_storage_texture,
+                ):
+                    # A texture view resource
+                    assert isinstance(resource, TextureView)
+                    bindings.append(
+                        {"binding": slot, "resource": resource._wgpu_texture_view,}
+                    )
+                    visibility = visibility_all
+                    if binding_type == wgpu.BindingType.sampled_texture:
+                        visibility = wgpu.ShaderStage.FRAGMENT
+                    fmt = resource.format
+                    dim = resource.view_dim
+                    component_type = wgpu.TextureComponentType.sint
+                    if "uint" in fmt:
+                        component_type = wgpu.TextureComponentType.uint
+                    if "float" in fmt or "norm" in fmt:
+                        component_type = wgpu.TextureComponentType.float
+                    binding_layout = {
                         "binding": slot,
-                        "resource": {
-                            "buffer": buffer.gpu_buffer,
-                            "offset": 0,
-                            "size": buffer.nbytes,
-                        },
+                        "visibility": visibility,
+                        "type": binding_type,
+                        "view_dimension": getattr(wgpu.TextureViewDimension, dim, dim),
+                        "texture_component_type": component_type,
+                        # "multisampled": False,
                     }
-                )
-                if buffer.usage & wgpu.BufferUsage.UNIFORM:
-                    buffer_type = wgpu.BindingType.uniform_buffer
-                else:
-                    buffer_type = wgpu.BindingType.storage_buffer
-                binding_layouts.append(
-                    {
-                        "binding": slot,
-                        "visibility": wgpu.ShaderStage.VERTEX
-                        | wgpu.ShaderStage.FRAGMENT
-                        | wgpu.ShaderStage.COMPUTE,
-                        "type": buffer_type,
-                    }
-                )
+                    if "storage" in binding_type:
+                        binding_layout["storage_texture_format"] = fmt
+                    binding_layouts.append(binding_layout)
+
+                elif binding_type in (
+                    wgpu.BindingType.sampler,
+                    wgpu.BindingType.comparison_sampler,
+                ):
+                    # A sampler resource
+                    assert isinstance(resource, TextureView)
+                    bindings.append(
+                        {"binding": slot, "resource": resource._wgpu_sampler,}
+                    )
+                    binding_layouts.append(
+                        {
+                            "binding": slot,
+                            "visibility": wgpu.ShaderStage.FRAGMENT,
+                            "type": binding_type,
+                        }
+                    )
+
             # Create wgpu objects
-            bind_group_layout = device.create_bind_group_layout(
-                bindings=binding_layouts
-            )
+            bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
             bind_group = device.create_bind_group(
-                layout=bind_group_layout, bindings=bindings
+                layout=bind_group_layout, entries=bindings
             )
             bind_groups.append(bind_group)
             bind_group_layouts.append(bind_group_layout)
@@ -506,33 +641,127 @@ class WgpuRenderer(Renderer):
         return bind_groups, pipeline_layout
 
     def _update_buffer(self, resource):
-        """ Ensure that a buffer is up-to-date. If the buffer is not dirty,
-        this is a no-op.
-        """
+        buffer = getattr(resource, "_wgpu_buffer", None)
+        if not (buffer is None or resource.dirty):
+            return
 
         # todo: dispose an old buffer? / reuse an old buffer?
 
-        assert isinstance(resource, BufferWrapper)
+        pending_uploads = resource._pending_uploads
+        resource._pending_uploads = []
+
+        # Create buffer if needed
+        if buffer is None or buffer.size != resource.nbytes:
+            usage = wgpu.BufferUsage.COPY_DST
+            for u in resource.usage.split("|"):
+                usage |= getattr(wgpu.BufferUsage, u)
+            buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
+
+        # Upload any pending data
+        for offset, size in pending_uploads:
+            sub_buffer = self._device.create_buffer_mapped(
+                size=size, usage=wgpu.BufferUsage.COPY_SRC,
+            )
+            resource._renderer_copy_data_to_ctypes_object(sub_buffer.mapping, offset)
+            sub_buffer.unmap()
+            command_encoder = self._device.create_command_encoder()
+            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, offset, size)
+            self._device.default_queue.submit([command_encoder.finish()])
+        resource._wgpu_buffer = buffer
+
+    def _update_texture_view(self, resource):
+        if getattr(resource, "_wgpu_texture_view", None) is None:
+            if resource._is_default_view:
+                texture_view = resource.texture._wgpu_texture.create_view()
+            else:
+                dim = resource._dim
+                assert resource._mip_range.step == 1
+                assert resource._layer_range.step == 1
+                texture_view = resource.texture._wgpu_texture.create_view(
+                    format=resource._format,
+                    dimension=f"{dim}d" if isinstance(dim, int) else dim,
+                    aspect=resource._aspect,
+                    base_mip_level=resource._mip_range.start,
+                    mip_level_count=len(resource._mip_range),
+                    base_array_layer=resource._layer_range.start,
+                    array_layer_count=len(resource._layer_range),
+                )
+            resource._wgpu_texture_view = texture_view
+
+    def _update_texture(self, resource):
         if not resource.dirty:
             return
 
-        if not resource.mapped and resource.data is None:
-            buffer = self._device.create_buffer(
-                size=resource.nbytes, usage=resource.usage
-            )
-        else:
-            buffer = self._device.create_buffer_mapped(
-                size=resource.nbytes, usage=resource.usage
-            )
-            if resource.data is not None:
-                # Copy data from array to new buffer
-                resource._renderer_copy_data_to_ctypes_object(buffer.mapping)
-            if resource.mapped:
-                # Replace data in Python BufferWrapper object
-                resource._renderer_set_data_from_ctypes_object(buffer.mapping)
-            else:
-                # Simply unmap
-                buffer.unmap()
+        texture = getattr(resource, "_wgpu_texture", None)
+        pending_uploads = resource._pending_uploads
+        resource._pending_uploads = []
 
-        # Store buffer object on the resource object
-        resource._renderer_set_gpu_buffer(buffer)  # sets dirty to False
+        # Create texture if needed
+        if texture is None:  # todo: or needs to be replaced (e.g. resized)
+            usage = wgpu.TextureUsage.COPY_DST
+            for u in resource.usage.split("|"):
+                usage |= getattr(wgpu.TextureUsage, u)
+            texture = self._device.create_texture(
+                size=resource.size,
+                usage=usage,
+                dimension=f"{resource.dim}d",
+                format=getattr(wgpu.TextureFormat, resource.format),
+                mip_level_count=1,
+                sample_count=1,
+            )  # todo: let resource specify mip_level_count and sample_count
+
+        # Upload any pending data
+        for offset, size in pending_uploads:
+            bytes_per_pixel = resource.nbytes // (
+                resource.size[0] * resource.size[1] * resource.size[2]
+            )
+            nbytes = bytes_per_pixel * size[0] * size[1] * size[2]
+            sub_buffer = self._device.create_buffer_mapped(
+                size=nbytes, usage=wgpu.BufferUsage.COPY_SRC,
+            )
+            resource._renderer_copy_data_to_ctypes_object(
+                sub_buffer.mapping, offset, size
+            )
+            sub_buffer.unmap()
+            command_encoder = self._device.create_command_encoder()
+            command_encoder.copy_buffer_to_texture(
+                # todo: are bytes_per_row and rows_per_image for the subdata or for the final texture?
+                {
+                    "buffer": sub_buffer,
+                    "offset": 0,
+                    "bytes_per_row": size[0] * bytes_per_pixel,
+                    "rows_per_image": size[1],
+                },
+                {
+                    "texture": texture.create_view(),
+                    "mip_level": 0,
+                    "array_layer": 0,
+                    "origin": offset,
+                },
+                copy_size=size,
+            )
+            self._device.default_queue.submit([command_encoder.finish()])
+        resource._wgpu_texture = texture
+
+    def _update_sampler(self, resource):
+        # A sampler's info (and raw object) are stored on a TextureView
+        if getattr(resource, "_wgpu_sampler", None) is None:
+            amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
+            while len(amodes) < 3:
+                amodes.append(amodes[-1])
+            filters = resource._filter.replace(",", " ").split() or ["nearest"]
+            while len(filters) < 3:
+                filters.append(filters[-1])
+            ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
+            sampler = self._device.create_sampler(
+                address_mode_u=ammap.get(amodes[0], amodes[0]),
+                address_mode_v=ammap.get(amodes[1], amodes[1]),
+                address_mode_w=ammap.get(amodes[2], amodes[2]),
+                mag_filter=filters[0],
+                min_filter=filters[1],
+                mipmap_filter=filters[2],
+                # lod_min_clamp -> use default 0
+                # lod_max_clamp -> use default inf
+                # compare -> only not-None for comparison samplers!
+            )
+            resource._wgpu_sampler = sampler

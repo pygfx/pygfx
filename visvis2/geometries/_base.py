@@ -1,6 +1,6 @@
 import numpy as np
 
-from ..datawrappers import BufferWrapper
+from ..datawrappers import Buffer
 
 
 class Geometry:
@@ -9,7 +9,7 @@ class Geometry:
     and custom data buffers. Face indices can be given using `index`.
 
     Buffer data can be provided as kwargs, these are converted to numpy arrays
-    (if necessary) and wrapped in a BufferWrapper.
+    (if necessary) and wrapped in a Buffer.
 
     Example:
 
@@ -24,7 +24,7 @@ class Geometry:
             if not isinstance(val, np.ndarray):
                 val = np.asanyarray(val, dtype=np.float32)
             if name.lower() == "index":
-                usage = wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.INDEX
+                usage = "index|storage"
             else:
-                usage = None  # use BufferWrapper's default for vertex|storage
-            setattr(self, name, BufferWrapper(val, usage=usage))
+                usage = "vertex|storage"
+            setattr(self, name, Buffer(val, usage=usage))

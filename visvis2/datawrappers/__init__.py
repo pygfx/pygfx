@@ -1,3 +1,4 @@
 # flake8: noqa
 
-from ._bufferwrapper import BufferWrapper
+from ._buffer import BaseBuffer, Buffer
+from ._texture import BaseTexture, Texture, TextureView
