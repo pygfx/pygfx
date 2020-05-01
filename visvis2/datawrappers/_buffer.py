@@ -127,12 +127,13 @@ class BaseBuffer:
         if size == 0:
             return
         elif size < 0:
-            raise ValueError("Update size must be positive")
-        elif offset < 0:
             raise ValueError("Update size must not be negative")
+        elif offset < 0:
+            raise ValueError("Update offset must not be negative")
         elif offset + size > self.nitems:
-            raise ValueError("Update size eout of range")
+            raise ValueError("Update size out of range")
         # Get in bytes
+        # todo: no, keep in item units and translate later
         nbytes_per_item = self._nbytes // self._nitems
         boffset, bsize = nbytes_per_item * int(offset), nbytes_per_item * int(size)
         if self._pending_uploads:
