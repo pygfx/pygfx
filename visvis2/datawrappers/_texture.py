@@ -120,9 +120,26 @@ class BaseTexture:
     def update_range(self, offset, size):
         """ Mark a certain range of the data for upload to the GPU.
         The offset and (sub) size should be (width, height, depth)
-        tuples.
+        tuples. Numpy users beware that an arrays shape is (height, width)!
         """
-        raise NotImplementedError()
+        # Check input
+        assert isinstance(offset, tuple) and len(offset) == 3
+        assert isinstance(size, tuple) and len(size) == 3
+        if any(s == 0 for s in size):
+            return
+        elif any(s < 0 for s in size):
+            raise ValueError("Update size must not be negative")
+        elif any(b < 0 for b in offset):
+            raise ValueError("Update offset must not be negative")
+        elif any(b + s > refsize for b, s, refsize in zip(offset, size, self.size)):
+            raise ValueError("Update size out of range")
+        # Merge with current entry?
+        if self._pending_uploads:
+            cur_offset, cur_size = self._pending_uploads.pop(-1)
+            offset = tuple(min(offset[i], cur_offset[i]) for i in range(3))
+            size = tuple(max(size[i], cur_size[i]) for i in range(3))
+        # Apply
+        self._pending_uploads.append((offset, size))
 
     # To implement in subclasses
 
@@ -190,8 +207,9 @@ class Texture(BaseTexture):  # numpy-based
         format = [None, "r", "rg", "rgb", "rgba"][nchannels]
         if format == "rgb":
             raise ValueError("RGB textures not supported, use RGBA instead")
-        # Process dtype
-        # todo: pick one!!
+        # Process dtype. We select the format that matches the dtype.
+        # This means that uint8 values become 0..255 in the shader.
+        # todo: not yet entirely sure about this
         # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
         formatmap = {
             # "int8": "8snorm",

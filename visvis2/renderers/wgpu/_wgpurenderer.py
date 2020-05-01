@@ -72,7 +72,7 @@ class WgpuRenderer(Renderer):
         """ Main render method, called from the canvas.
         """
 
-        # todo: support for alt render pipelines (object that renders to texture than renders that)
+        # todo: support for alt render pipelines (object that renders to texture then renders that)
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
 
@@ -109,49 +109,46 @@ class WgpuRenderer(Renderer):
                 format=wgpu.TextureFormat.depth32float,
             )
             self._depth_texture_view = self._depth_texture.create_view()
-            # todo: explicit destroy the texture?
+            self._depth_texture.destroy()
 
-        # todo: move this down ...
+        # Prepare for rendering
+        command_encoder = device.create_command_encoder()
+        command_buffers = []
+
+        # Update stdinfo buffer for all objects
+        # todo: a lot of duplicate data here. Let's revisit when we implement point / line collections.
+        for wobject in q:
+            wgpu_data = wobject._wgpu_data
+            stdinfo = wgpu_data["stdinfo"]
+            stdinfo.data["world_transform"] = tuple(wobject.matrix_world.elements)
+            stdinfo.data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
+            stdinfo.data["projection_transform"] = tuple(
+                camera.projection_matrix.elements
+            )
+            stdinfo.data["physical_size"] = physical_size
+            stdinfo.data["logical_size"] = logical_size
+            stdinfo.update_range(0, 1)
+            self._update_buffer(stdinfo)
+
+        # ----- compute pipelines
+
+        compute_pass = command_encoder.begin_compute_pass()
+
+        for wobject in q:
+            wgpu_data = wobject._wgpu_data
+            for pinfo in wgpu_data["compute_pipelines"]:
+                compute_pass.set_pipeline(pinfo["pipeline"])
+                for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                    compute_pass.set_bind_group(
+                        bind_group_id, bind_group, [], 0, 999999
+                    )
+                compute_pass.dispatch(*pinfo["index_args"])
+
+        compute_pass.end_pass()
+
+        # ----- render pipelines rendering to the default target
+
         with self._swap_chain as texture_view_target:
-
-            # Prepare for rendering
-            command_encoder = device.create_command_encoder()
-            command_buffers = []
-
-            # Update stdinfo buffer for all objects
-            # todo: a lot of duplicate data here. Let's revisit when we implement point / line collections.
-            for wobject in q:
-                wgpu_data = wobject._wgpu_data
-                stdinfo = wgpu_data["stdinfo"]
-                stdinfo.data["world_transform"] = tuple(wobject.matrix_world.elements)
-                stdinfo.data["cam_transform"] = tuple(
-                    camera.matrix_world_inverse.elements
-                )
-                stdinfo.data["projection_transform"] = tuple(
-                    camera.projection_matrix.elements
-                )
-                stdinfo.data["physical_size"] = physical_size
-                stdinfo.data["logical_size"] = logical_size
-                stdinfo.update_range(0, 1)
-                self._update_buffer(stdinfo)
-
-            # ----- compute pipelines
-
-            compute_pass = command_encoder.begin_compute_pass()
-
-            for wobject in q:
-                wgpu_data = wobject._wgpu_data
-                for pinfo in wgpu_data["compute_pipelines"]:
-                    compute_pass.set_pipeline(pinfo["pipeline"])
-                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                        compute_pass.set_bind_group(
-                            bind_group_id, bind_group, [], 0, 999999
-                        )
-                    compute_pass.dispatch(*pinfo["index_args"])
-
-            compute_pass.end_pass()
-
-            # ----- render pipelines rendering to the default target
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=[
@@ -443,6 +440,7 @@ class WgpuRenderer(Renderer):
         vertex_buffers = []
         vertex_buffer_descriptors = []
         # todo: we can probably expose multiple attributes per buffer using a BufferView
+        # todo: also, must vertex_buffers be a dict?
         # -> can we also leverage numpy here?
         for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
             vbo_des = {
@@ -659,13 +657,17 @@ class WgpuRenderer(Renderer):
 
         # Upload any pending data
         for offset, size in pending_uploads:
+            bytes_per_item = resource.nbytes // resource.nitems
+            boffset, bsize = bytes_per_item * offset, bytes_per_item * size
             sub_buffer = self._device.create_buffer_mapped(
-                size=size, usage=wgpu.BufferUsage.COPY_SRC,
+                size=bsize, usage=wgpu.BufferUsage.COPY_SRC,
             )
-            resource._renderer_copy_data_to_ctypes_object(sub_buffer.mapping, offset)
+            resource._renderer_copy_data_to_ctypes_object(
+                sub_buffer.mapping, offset, size
+            )
             sub_buffer.unmap()
             command_encoder = self._device.create_command_encoder()
-            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, offset, size)
+            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, boffset, bsize)
             self._device.default_queue.submit([command_encoder.finish()])
         resource._wgpu_buffer = buffer
 
@@ -725,7 +727,6 @@ class WgpuRenderer(Renderer):
             sub_buffer.unmap()
             command_encoder = self._device.create_command_encoder()
             command_encoder.copy_buffer_to_texture(
-                # todo: are bytes_per_row and rows_per_image for the subdata or for the final texture?
                 {
                     "buffer": sub_buffer,
                     "offset": 0,
@@ -733,7 +734,7 @@ class WgpuRenderer(Renderer):
                     "rows_per_image": size[1],
                 },
                 {
-                    "texture": texture.create_view(),
+                    "texture": texture,
                     "mip_level": 0,
                     "array_layer": 0,
                     "origin": offset,

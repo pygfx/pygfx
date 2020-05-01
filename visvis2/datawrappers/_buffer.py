@@ -124,22 +124,23 @@ class BaseBuffer:
         """
         # See ThreeJS BufferAttribute.updateRange
         # Check input
+        assert isinstance(offset, int) and isinstance(size, int)
         if size == 0:
             return
         elif size < 0:
-            raise ValueError("Update size must be positive")
-        elif offset < 0:
             raise ValueError("Update size must not be negative")
+        elif offset < 0:
+            raise ValueError("Update offset must not be negative")
         elif offset + size > self.nitems:
-            raise ValueError("Update size eout of range")
-        # Get in bytes
-        nbytes_per_item = self._nbytes // self._nitems
-        boffset, bsize = nbytes_per_item * int(offset), nbytes_per_item * int(size)
+            raise ValueError("Update size out of range")
+        # Merge with current entry?
         if self._pending_uploads:
-            current = self._pending_uploads.pop(-1)
-            boffset, bsize = min(boffset, current[0]), max(bsize, current[1])
-        self._pending_uploads.append((boffset, bsize))
-        # todo: this can be smarter, we have logic for this in the morph tool
+            cur_offset, cur_size = self._pending_uploads.pop(-1)
+            offset = min(offset, cur_offset)
+            size = max(size, cur_size)
+        # Limit and apply
+        self._pending_uploads.append((offset, size))
+        # todo: this can be smarter, we have logic for chunking in the morph tool
 
     # To implement in subclasses
 
@@ -152,7 +153,7 @@ class BaseBuffer:
     def _format_from_data(self, data):
         raise NotImplementedError()
 
-    def _renderer_copy_data_to_ctypes_object(self, ob, offset=0):
+    def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
         """ Allows renderer to efficiently copy the data.
         """
         raise NotImplementedError()
@@ -231,8 +232,11 @@ class Buffer(BaseBuffer):  # numpy-based
             except TypeError:
                 raise ValueError(f"Invalid dtype/shape for vertex data: {key}")
 
-    def _renderer_copy_data_to_ctypes_object(self, ob, offset=0):
-        nbytes = ctypes.sizeof(ob)
+    def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
+        nbytes_per_item = self._nbytes // self._nitems
+        byte_offset = offset * nbytes_per_item
+        byte_size = size * nbytes_per_item
+        assert byte_size == ctypes.sizeof(ob)
         ctypes.memmove(
-            ctypes.addressof(ob), self.data.ctypes.data + offset, nbytes,
+            ctypes.addressof(ob), self.data.ctypes.data + byte_offset, byte_size,
         )

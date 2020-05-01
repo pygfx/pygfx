@@ -79,7 +79,6 @@ def mesh_renderer(wobject, render_info):
     index_buffer = index_buffer if isinstance(index_buffer, BaseBuffer) else None
 
     # Collect vertex buffers
-    # todo: must vertex_buffers be a dict?
     vertex_buffers = []
     vertex_buffers.append(geometry.positions)
     if getattr(geometry, "texcoords", None) is not None:
