@@ -290,8 +290,8 @@ class Vector3:
     def normalize(self) -> "Vector3":
         return self.divide_scalar(self.length() or 1)
 
-    def set_length(self, l: float) -> "Vector3":
-        return self.normalize().multiply_scalar(l)
+    def set_length(self, length: float) -> "Vector3":
+        return self.normalize().multiply_scalar(length)
 
     def lerp(self, v: "Vector3", a: float) -> "Vector3":
         self.x += (v.x - self.x) * a
