@@ -109,7 +109,6 @@ class WgpuRenderer(Renderer):
                 format=wgpu.TextureFormat.depth32float,
             )
             self._depth_texture_view = self._depth_texture.create_view()
-            self._depth_texture.destroy()
 
         # Prepare for rendering
         command_encoder = device.create_command_encoder()
@@ -445,7 +444,7 @@ class WgpuRenderer(Renderer):
         for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
-                "stepmode": wgpu.InputStepMode.vertex,  # vertex or instance
+                "step_mode": wgpu.InputStepMode.vertex,  # vertex or instance
                 "attributes": [
                     {"format": buffer.format, "offset": 0, "shader_location": slot,}
                 ],
