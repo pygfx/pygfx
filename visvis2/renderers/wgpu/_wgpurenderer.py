@@ -675,7 +675,7 @@ class WgpuRenderer(Renderer):
             if resource._is_default_view:
                 texture_view = resource.texture._wgpu_texture.create_view()
             else:
-                dim = resource._dim
+                dim = resource._view_dim
                 assert resource._mip_range.step == 1
                 assert resource._layer_range.step == 1
                 texture_view = resource.texture._wgpu_texture.create_view(

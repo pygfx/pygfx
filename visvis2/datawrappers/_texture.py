@@ -40,7 +40,7 @@ class BaseTexture:
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
-        if data is not None and size is None:
+        if data is not None:
             self._data = data
             self._size = self._size_from_data(data, dim, size)
             self._nbytes = self._nbytes_from_data(data)
@@ -170,10 +170,6 @@ class Texture(BaseTexture):  # numpy-based
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
         shape = data.shape
-        if len(shape) not in (dim, dim + 1):
-            raise ValueError(
-                f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
-            )
 
         if size:
             # Get version of size with trailing ones stripped
@@ -186,6 +182,10 @@ class Texture(BaseTexture):  # numpy-based
                 raise ValueError(f"Given size does not match the data shape.")
             return size
         else:
+            if len(shape) not in (dim, dim + 1):
+                raise ValueError(
+                    f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
+                )
             # Determine size based on dim and shape
             if dim == 1:
                 return shape[0], 1, 1
@@ -198,10 +198,11 @@ class Texture(BaseTexture):  # numpy-based
         dtype = data.dtype
         # Process channels
         shape = data.shape
-        if len(shape) == self.dim + 1:
+        collapsed_size = [x for x in self._size if x > 1]
+        if len(shape) == len(collapsed_size) + 1:
             nchannels = shape[-1]
         else:
-            assert len(shape) == self.dim
+            assert len(shape) == len(collapsed_size)
             nchannels = 1
         assert 1 <= nchannels <= 4
         format = [None, "r", "rg", "rgb", "rgba"][nchannels]
@@ -298,8 +299,8 @@ class TextureView:
         self._format = format
         self._view_dim = view_dim
         self._aspect = aspect
-        self._mip_range = mip_range
-        self._layer_range = layer_range
+        self._mip_range = mip_range or range(1)
+        self._layer_range = layer_range or range(1)
         self._is_default_view = all(
             x is None for x in [format, view_dim, aspect, mip_range, layer_range]
         )
