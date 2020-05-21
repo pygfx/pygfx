@@ -31,7 +31,7 @@ index = nslices // 2
 
 tex_size = tuple(reversed(vol.shape))
 tex = vv.Texture(vol, dim=2, size=tex_size, usage="sampled")
-view = tex.get_view(filter="nearest", view_dim="2d", layer_range=(index, index + 1))
+view = tex.get_view(filter="linear", view_dim="2d", layer_range=(index, index + 1))
 
 geometry = vv.PlaneGeometry(200, 200, 12, 12)
 material = vv.MeshBasicMaterial(map=view, clim=(0, 255))
@@ -48,7 +48,7 @@ def scroll(degrees):
     global index
     index = index + int(degrees / 15)
     index = max(0, min(nslices - 1, index))
-    view = tex.get_view(filter="nearest", view_dim="2d", layer_range=(index, index + 1))
+    view = tex.get_view(filter="linear", view_dim="2d", layer_range=(index, index + 1))
     material.map = view
     material.dirty = 1
     canvas.request_draw()

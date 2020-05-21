@@ -30,7 +30,7 @@ im = vol[index].copy()
 tex = vv.Texture(im, dim=2, usage="sampled")
 
 geometry = vv.PlaneGeometry(200, 200, 12, 12)
-material = vv.MeshBasicMaterial(map=tex.get_view(filter="nearest"), clim=(0, 255))
+material = vv.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))
 plane = vv.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
