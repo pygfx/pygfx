@@ -1,7 +1,10 @@
 """
-Render slices through a volume, by uploading to a 2D texture.
-Simple and ... slow.
+Render slices through a volume, by creating a 3D texture, with 2D views.
+Simple and relatively fast, but no subslices.
 """
+
+# todo: not working ATM, a Rust assertion fails in _update_texture(),
+# let's wait til the next release of wgpu-native and try again
 
 import imageio
 import visvis2 as vv
@@ -24,13 +27,14 @@ scene = vv.Scene()
 
 vol = imageio.volread("imageio:stent.npz")
 nslices = vol.shape[0]
-index = nslices // 3
-im = vol[index].copy()
+index = nslices // 2
 
-tex = vv.Texture(im, dim=2, usage="sampled")
+tex_size = tuple(reversed(vol.shape))
+tex = vv.Texture(vol, dim=2, size=tex_size, usage="sampled")
+view = tex.get_view(filter="nearest", view_dim="2d", layer_range=(index, index + 1))
 
 geometry = vv.PlaneGeometry(200, 200, 12, 12)
-material = vv.MeshBasicMaterial(map=tex.get_view(filter="nearest"), clim=(0, 255))
+material = vv.MeshBasicMaterial(map=view, clim=(0, 255))
 plane = vv.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
@@ -44,9 +48,8 @@ def scroll(degrees):
     global index
     index = index + int(degrees / 15)
     index = max(0, min(nslices - 1, index))
-    im = vol[index]
-    tex.data[:] = im
-    tex.update_range((0, 0, 0), tex.size)
+    view = tex.get_view(filter="nearest", view_dim="2d", layer_range=(index, index + 1))
+    material.map = view
     material.dirty = 1
     canvas.request_draw()
 

@@ -4,7 +4,7 @@ Example showing a single geometric cube.
 Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.rs
 """
 
-# todo: not working, a Rust assertion fails in _update_texture(),
+# todo: not working ATM, a Rust assertion fails in _update_texture(),
 # let's wait til the next release of wgpu-native and try again
 
 import numpy as np
