@@ -36,7 +36,7 @@ class BaseBuffer:
             self._data = data
             self._nbytes = self._nbytes_from_data(data)
             self._nitems = self._nitems_from_data(data, nitems)
-            self._pending_uploads.append((0, self._nbytes))
+            self._pending_uploads.append((0, self._nitems))
             if nbytes is not None:
                 if nbytes != self._nbytes:
                     raise ValueError("Given nbytes does not match size of given data.")
