@@ -5,8 +5,8 @@ Example that implements a custom object and renders it.
 from PyQt5 import QtWidgets
 import wgpu
 from wgpu.gui.qt import WgpuCanvas
-from python_shader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
-from python_shader import vec3
+from pyshader import python2shader, RES_INPUT, RES_OUTPUT, RES_UNIFORM
+from pyshader import vec3
 
 import visvis2 as vv
 
