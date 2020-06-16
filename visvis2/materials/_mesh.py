@@ -19,10 +19,12 @@ class MeshBasicMaterial(Material):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self._map = None
+
         self.uniform_buffer = Buffer(
             array_from_shadertype(self.uniform_type), usage="UNIFORM"
         )
+
+        self._map = None
         self.color = 1, 1, 1, 1
         self.clim = 0, 1
 

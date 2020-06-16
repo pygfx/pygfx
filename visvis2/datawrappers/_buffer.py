@@ -229,7 +229,11 @@ class Buffer(BaseBuffer):  # numpy-based
             }
             try:
                 return mapping[key]
-            except TypeError:
+            except KeyError:
+                if data.dtype == "float64":
+                    raise ValueError(
+                        "64-bit float is not supported, use 32-bit float instead"
+                    )
                 raise ValueError(f"Invalid dtype/shape for vertex data: {key}")
 
     def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
