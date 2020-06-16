@@ -1,5 +1,5 @@
-import python_shader  # noqa
-from python_shader import Struct, vec2, mat4
+import pyshader  # noqa
+from pyshader import Struct, vec2, mat4
 import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry

@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
-import python_shader
-from python_shader import python2shader
-from python_shader import vec2, vec4
+import pyshader
+from pyshader import python2shader
+from pyshader import vec2, vec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
@@ -11,11 +11,11 @@ from ...datawrappers import BaseBuffer, BaseTexture, TextureView
 
 @python2shader
 def vertex_shader(
-    in_pos: (python_shader.RES_INPUT, 0, vec4),
-    in_texcoord: (python_shader.RES_INPUT, 1, vec2),
-    out_pos: (python_shader.RES_OUTPUT, "Position", vec4),
-    v_texcoord: (python_shader.RES_OUTPUT, 0, vec2),
-    u_stdinfo: (python_shader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_texcoord: (pyshader.RES_INPUT, 1, vec2),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_texcoord: (pyshader.RES_OUTPUT, 0, vec2),
+    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
 ):
     world_pos = u_stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
@@ -26,19 +26,19 @@ def vertex_shader(
 
 @python2shader
 def fragment_shader_simple(
-    u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
-    out_color: (python_shader.RES_OUTPUT, 0, vec4),
+    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     out_color = u_mesh.color  # noqa - shader output
 
 
 @python2shader
 def fragment_shader_textured_gray(
-    v_texcoord: (python_shader.RES_INPUT, 0, vec2),
-    u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
-    s_sam: (python_shader.RES_SAMPLER, (1, 1), ""),
-    t_tex: (python_shader.RES_TEXTURE, (1, 2), "2d i32"),
-    out_color: (python_shader.RES_OUTPUT, 0, vec4),
+    v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 2), "2d i32"),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
     val = (val - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
@@ -47,11 +47,11 @@ def fragment_shader_textured_gray(
 
 @python2shader
 def fragment_shader_textured_rgba(
-    v_texcoord: (python_shader.RES_INPUT, 0, vec2),
-    u_mesh: (python_shader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
-    s_sam: (python_shader.RES_SAMPLER, (1, 1), ""),
-    t_tex: (python_shader.RES_TEXTURE, (1, 2), "2d i32"),
-    out_color: (python_shader.RES_OUTPUT, 0, vec4),
+    v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 2), "2d i32"),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     color = vec4(t_tex.sample(s_sam, v_texcoord))
     color = (color - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
