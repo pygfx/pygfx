@@ -1,13 +1,13 @@
-import visvis2 as vv
+import pygfx as gfx
 from pytest import raises
 
 
-class Object1(vv.WorldObject):
+class Object1(gfx.WorldObject):
     def __init__(self, material):
         self.material = material
 
 
-class Object2(vv.WorldObject):
+class Object2(gfx.WorldObject):
     def __init__(self, material):
         self.material = material
 
@@ -16,11 +16,11 @@ class Object3(Object1):
     pass
 
 
-class Material1(vv.Material):
+class Material1(gfx.Material):
     pass
 
 
-class Material2(vv.Material):
+class Material2(gfx.Material):
     pass
 
 
@@ -42,13 +42,13 @@ def foo3():
 
 def test_render_registry_api():
 
-    assert vv.renderers.register_wgpu_render_function
-    assert vv.renderers.register_svg_render_function
+    assert gfx.renderers.register_wgpu_render_function
+    assert gfx.renderers.register_svg_render_function
 
 
 def test_render_registry_fails():
 
-    r = vv.renderers.RenderFunctionRegistry()
+    r = gfx.renderers.RenderFunctionRegistry()
 
     # This is ok
     r.register(Object1, Material1, foo1)
@@ -88,7 +88,7 @@ def test_render_registry_fails():
 
 def test_render_registry_selection():
 
-    r = vv.renderers.RenderFunctionRegistry()
+    r = gfx.renderers.RenderFunctionRegistry()
 
     # Register one combo
     r.register(Object1, Material1, foo1)
@@ -138,8 +138,8 @@ def test_render_registry_selection():
     assert foo3 is r.get_render_function(Object3(Material3()))
 
     # Now make foo1 and foo2 a catch all
-    r.register(Object1, vv.Material, foo1)
-    r.register(Object2, vv.Material, foo2)
+    r.register(Object1, gfx.Material, foo1)
+    r.register(Object2, gfx.Material, foo2)
 
     assert foo1 is r.get_render_function(Object1(Material1()))
     assert foo1 is r.get_render_function(Object1(Material2()))
@@ -155,19 +155,19 @@ def test_render_registry_selection():
 
 
 def test_render_registry_of_wgpu():
-    r = vv.renderers.wgpu._wgpurenderer.registry
+    r = gfx.renderers.wgpu._wgpurenderer.registry
 
     assert None is r.get_render_function(Object1(Material1()))
 
-    assert r.get_render_function(vv.Mesh(None, vv.MeshBasicMaterial()))
+    assert r.get_render_function(gfx.Mesh(None, gfx.MeshBasicMaterial()))
 
 
 def test_render_registry_of_svg():
-    r = vv.renderers.svg._svgrenderer.registry
+    r = gfx.renderers.svg._svgrenderer.registry
 
     assert None is r.get_render_function(Object1(Material1()))
 
-    assert r.get_render_function(vv.Mesh(None, vv.LineStripMaterial()))
+    assert r.get_render_function(gfx.Mesh(None, gfx.LineStripMaterial()))
 
 
 if __name__ == "__main__":

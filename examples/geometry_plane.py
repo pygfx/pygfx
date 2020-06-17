@@ -4,7 +4,7 @@ Use a plane geometry to show a texture, which is continuously updated to show vi
 
 import time
 import imageio
-import visvis2 as vv
+import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -13,22 +13,22 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.renderers.WgpuRenderer(canvas)
-scene = vv.Scene()
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
 
 reader = imageio.get_reader("imageio:cockatoo.mp4")
 im = reader.get_next_data()[:, :, 1]
 
-tex = vv.Texture(im, dim=2, usage="sampled")
+tex = gfx.Texture(im, dim=2, usage="sampled")
 
-geometry = vv.PlaneGeometry(200, 200, 12, 12)
-material = vv.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))
-plane = vv.Mesh(geometry, material)
+geometry = gfx.PlaneGeometry(200, 200, 12, 12)
+material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))
+plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
 
 fov, aspect, near, far = 70, -16 / 9, 1, 1000
-camera = vv.PerspectiveCamera(fov, aspect, near, far)
+camera = gfx.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 200
 
 

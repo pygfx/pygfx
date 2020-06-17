@@ -1,6 +1,6 @@
 from math import pi, sqrt
 
-from visvis2.linalg import (
+from pygfx.linalg import (
     Vector3,
     Vector4,
     Euler,

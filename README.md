@@ -1,3 +1,5 @@
-# visvis2
+# pygfx
 
-Experimental succesor to visvis
+A render engine, inspired by ThreeJS, but for Python and targeting [WGPU](https://github.com/pygfx/wgpu-py).
+
+

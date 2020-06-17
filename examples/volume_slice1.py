@@ -4,7 +4,7 @@ Simple and ... slow.
 """
 
 import imageio
-import visvis2 as vv
+import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -19,24 +19,24 @@ class WgpuCanvasWithScroll(WgpuCanvas):
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvasWithScroll()
-renderer = vv.renderers.WgpuRenderer(canvas)
-scene = vv.Scene()
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
 
 vol = imageio.volread("imageio:stent.npz")
 nslices = vol.shape[0]
 index = nslices // 3
 im = vol[index].copy()
 
-tex = vv.Texture(im, dim=2, usage="sampled")
+tex = gfx.Texture(im, dim=2, usage="sampled")
 
-geometry = vv.PlaneGeometry(200, 200, 12, 12)
-material = vv.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))
-plane = vv.Mesh(geometry, material)
+geometry = gfx.PlaneGeometry(200, 200, 12, 12)
+material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))
+plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
 
 fov, aspect, near, far = 70, -16 / 9, 1, 1000
-camera = vv.PerspectiveCamera(fov, aspect, near, far)
+camera = gfx.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 200
 
 

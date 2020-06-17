@@ -3,17 +3,17 @@ import re
 from setuptools import find_packages, setup
 
 
-NAME = "visvis2"
-SUMMARY = "Experimental succesor to visvis"
+NAME = "pygfx"
+SUMMARY = "A threejs-like render engine based on wgpu"
 
 with open(f"{NAME}/__init__.py") as fh:
     VERSION = re.search(r"__version__ = \"(.*?)\"", fh.read()).group(1)
 
 
 runtime_deps = [
-    "pyshader>=0.5.0",
-    "wgpu>=0.2.0",
     "numpy",
+    "wgpu>=0.2.0",
+    "pyshader>=0.5.0",
 ]
 
 
@@ -31,6 +31,6 @@ setup(
     long_description_content_type="text/markdown",
     author="Almar Klein",
     author_email="almar.klein@gmail.com",
-    url="https://github.com/almarklein/visvis2",
+    url="https://github.com/pygfx/pygfx",
     data_files=[("", ["LICENSE"])],
 )

@@ -5,7 +5,7 @@ Simple, fast and subpixel!
 
 import imageio
 import numpy as np
-import visvis2 as vv
+import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -20,29 +20,29 @@ class WgpuCanvasWithScroll(WgpuCanvas):
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvasWithScroll()
-renderer = vv.renderers.WgpuRenderer(canvas)
-scene = vv.Scene()
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
 
 vol = imageio.volread("imageio:stent.npz")[::2, ::2, ::2]
 nslices = vol.shape[0]
 index = nslices // 2
 
-tex = vv.Texture(vol, dim=3, usage="sampled")
+tex = gfx.Texture(vol, dim=3, usage="sampled")
 view = tex.get_view(filter="linear")
 
-geometry = vv.PlaneGeometry(200, 200, 1, 1)
+geometry = gfx.PlaneGeometry(200, 200, 1, 1)
 texcoords = np.hstack(
     [geometry.texcoords.data, np.ones((4, 1), np.float32) * nslices / 2]
 )
-geometry.texcoords = vv.Buffer(texcoords, usage="vertex|storage")
+geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
 
-material = vv.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
-plane = vv.Mesh(geometry, material)
+material = gfx.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
+plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
 
 fov, aspect, near, far = 70, -16 / 9, 1, 1000
-camera = vv.PerspectiveCamera(fov, aspect, near, far)
+camera = gfx.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 200
 
 

@@ -1,6 +1,6 @@
 import random
 
-import visvis2 as vv
+import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -8,19 +8,19 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.WgpuRenderer(canvas)
-renderer_svg = vv.SvgRenderer(640, 480, "~/line.svg")
+renderer = gfx.WgpuRenderer(canvas)
+renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
-scene = vv.Scene()
+scene = gfx.Scene()
 
 positions = [[10 + i * 20, 100 + random.uniform(0, 40), 0, 1] for i in range(20)]
-geometry = vv.Geometry(positions=positions)
+geometry = gfx.Geometry(positions=positions)
 
-material = vv.LineStripMaterial()
-line = vv.Line(geometry, material)
+material = gfx.LineStripMaterial()
+line = gfx.Line(geometry, material)
 scene.add(line)
 
-camera = vv.ScreenCoordsCamera()
+camera = gfx.ScreenCoordsCamera()
 
 
 def animate():
