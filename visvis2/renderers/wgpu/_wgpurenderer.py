@@ -299,6 +299,11 @@ class WgpuRenderer(Renderer):
         # Get render function for this world object,
         # and use it to get a high-level description of pipelines.
         renderfunc = registry.get_render_function(wobject)
+        if renderfunc is None:
+            raise ValueError(
+                f"Could not get a render function for {wobject.__class__.__name__} "
+                f"with {wobject.material.__class__.__name__}"
+            )
 
         # Call render function
         render_info = RenderInfo(stdinfo=wobject._wgpu_stdinfo_buffer)
