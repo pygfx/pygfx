@@ -33,4 +33,13 @@ setup(
     author_email="almar.klein@gmail.com",
     url="https://github.com/pygfx/pygfx",
     data_files=[("", ["LICENSE"])],
+    zip_safe=True,
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: BSD License",
+        "Programming Language :: Python :: 3",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Scientific/Engineering :: Visualization",
+    ],
 )
