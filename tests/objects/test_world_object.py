@@ -1,8 +1,8 @@
 from math import pi
 from unittest.mock import Mock, call
 
-from visvis2 import WorldObject
-from visvis2.linalg import Euler, Vector3, Quaternion
+from pygfx import WorldObject
+from pygfx.linalg import Euler, Vector3, Quaternion
 
 
 def test_traverse():

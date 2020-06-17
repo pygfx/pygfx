@@ -7,7 +7,7 @@ Simple and relatively fast, but no subslices.
 # let's wait til the next release of wgpu-native and try again
 
 import imageio
-import visvis2 as vv
+import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -22,25 +22,25 @@ class WgpuCanvasWithScroll(WgpuCanvas):
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvasWithScroll()
-renderer = vv.renderers.WgpuRenderer(canvas)
-scene = vv.Scene()
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
 
 vol = imageio.volread("imageio:stent.npz")
 nslices = vol.shape[0]
 index = nslices // 2
 
 tex_size = tuple(reversed(vol.shape))
-tex = vv.Texture(vol, dim=2, size=tex_size, usage="sampled")
+tex = gfx.Texture(vol, dim=2, size=tex_size, usage="sampled")
 view = tex.get_view(filter="linear", view_dim="2d", layer_range=(index, index + 1))
 
-geometry = vv.PlaneGeometry(200, 200, 12, 12)
-material = vv.MeshBasicMaterial(map=view, clim=(0, 255))
-plane = vv.Mesh(geometry, material)
+geometry = gfx.PlaneGeometry(200, 200, 12, 12)
+material = gfx.MeshBasicMaterial(map=view, clim=(0, 255))
+plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
 
 fov, aspect, near, far = 70, -16 / 9, 1, 1000
-camera = vv.PerspectiveCamera(fov, aspect, near, far)
+camera = gfx.PerspectiveCamera(fov, aspect, near, far)
 camera.position.z = 200
 
 

@@ -1,5 +1,5 @@
 import numpy as np
-import visvis2 as vv
+import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -7,20 +7,20 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas)
 
-scene = vv.Scene()
+scene = gfx.Scene()
 
 positions = np.zeros((100, 4), np.float32)
 positions[:, 0:2] = np.random.normal(0, 0.5, (100, 2))
 positions[:, 3] = 1
-geometry = vv.Geometry(positions=positions)
+geometry = gfx.Geometry(positions=positions)
 
-material = vv.PointsMaterial(size=10, color=(0, 1, 0.5, 0.7))
-points = vv.Points(geometry, material)
+material = gfx.PointsMaterial(size=10, color=(0, 1, 0.5, 0.7))
+points = gfx.Points(geometry, material)
 scene.add(points)
 
-camera = vv.NDCCamera()
+camera = gfx.NDCCamera()
 
 
 def animate():

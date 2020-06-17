@@ -8,21 +8,21 @@ from wgpu.gui.qt import WgpuCanvas
 from pyshader import python2shader
 from pyshader import vec3
 
-import visvis2 as vv
+import pygfx as gfx
 
 
 # %% Custom object, material, and matching render function
 
 
 # This class has mostly a semantic purpose here
-class Triangle(vv.WorldObject):
+class Triangle(gfx.WorldObject):
     def __init__(self, material):
         super().__init__()
         self.material = material
 
 
 # Create a triangle material. We could e.g. define it's color here.
-class TriangleMaterial(vv.Material):
+class TriangleMaterial(gfx.Material):
     pass
 
 
@@ -31,7 +31,7 @@ def vertex_shader(
     index: ("input", "VertexId", "i32"),
     pos: ("output", "Position", "vec4"),
     color: ("output", 0, "vec3"),
-    stdinfo: ("uniform", (0, 0), vv.renderers.wgpu.stdinfo_uniform_type),
+    stdinfo: ("uniform", (0, 0), gfx.renderers.wgpu.stdinfo_uniform_type),
 ):
     positions1 = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
     positions2 = [vec2(10.0, 10.0), vec2(90.0, 10.0), vec2(10.0, 90.0)]
@@ -51,8 +51,8 @@ def fragment_shader(
     out_color = vec4(in_color, 0.1)  # noqa
 
 
-# Tell visvis to use this render function for a Triangle with TriangleMaterial.
-@vv.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
+# Tell pygfx to use this render function for a Triangle with TriangleMaterial.
+@gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 def triangle_render_function(wobject, render_info):
     n = 3
     return [
@@ -71,15 +71,15 @@ def triangle_render_function(wobject, render_info):
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = vv.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas)
 
-scene = vv.Scene()
+scene = gfx.Scene()
 t1 = Triangle(TriangleMaterial())
 scene.add(t1)
 for i in range(2):
     scene.add(Triangle(TriangleMaterial()))
 
-camera = vv.NDCCamera()  # This material does not actually use the camera
+camera = gfx.NDCCamera()  # This material does not actually use the camera
 
 
 def animate():

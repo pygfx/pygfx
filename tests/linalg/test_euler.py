@@ -1,4 +1,4 @@
-from visvis2.linalg import (
+from pygfx.linalg import (
     Vector3,
     Euler,
     Matrix4,

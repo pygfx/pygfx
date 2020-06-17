@@ -1,4 +1,4 @@
-from visvis2 import linalg
+from pygfx import linalg
 
 
 def test_clamp():

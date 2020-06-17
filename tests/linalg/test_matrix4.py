@@ -2,7 +2,7 @@ from math import pi, sqrt, radians
 
 import pytest
 
-from visvis2.linalg import (
+from pygfx.linalg import (
     Vector3,
     Euler,
     Matrix4,

@@ -3,7 +3,7 @@ import random
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
-import visvis2 as vv
+import pygfx as vv
 
 
 class Main(QtWidgets.QWidget):
@@ -17,9 +17,9 @@ class Main(QtWidgets.QWidget):
 
         # Create canvas, renderer and a scene object
         self._canvas = WgpuCanvas(parent=self)
-        self._renderer = vv.WgpuRenderer(self._canvas)
-        self._scene = vv.Scene()
-        self._camera = vv.ScreenCoordsCamera()
+        self._renderer = gfx.WgpuRenderer(self._canvas)
+        self._scene = gfx.Scene()
+        self._camera = gfx.ScreenCoordsCamera()
 
         # Hook up the animate callback
         self._canvas.draw_frame = self.animate
@@ -33,7 +33,7 @@ class Main(QtWidgets.QWidget):
         positions = [
             [random.uniform(0, 400), random.uniform(0, 400), 0, 1] for i in range(8)
         ]
-        line = vv.Line(vv.Geometry(positions=positions), vv.LineStripMaterial())
+        line = gfx.Line(gfx.Geometry(positions=positions), gfx.LineStripMaterial())
         self._scene.add(line)
         self._canvas.update()
 

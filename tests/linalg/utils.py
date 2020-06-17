@@ -1,4 +1,4 @@
-from visvis2.linalg import (
+from pygfx.linalg import (
     Euler,
     Matrix4,
     Quaternion,

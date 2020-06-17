@@ -2,8 +2,8 @@ from math import pi, sqrt, acos
 
 import pytest
 
-from visvis2 import PerspectiveCamera
-from visvis2.linalg import (
+from pygfx import PerspectiveCamera
+from pygfx.linalg import (
     Vector3,
     Euler,
     Matrix3,
