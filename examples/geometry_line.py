@@ -14,14 +14,27 @@ renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 scene = gfx.Scene()
 
 positions = [
-    [200 + np.sin(i) * i * 6, 250 + np.cos(i) * i * 6, 0, 1] for i in range(20)
+    [200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0, 1] for i in range(20)
 ]
 positions += [
-    [400 - np.sin(i) * i * 6, 250 + np.cos(i) * i * 6, 0, 1] for i in range(20)
+    [400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0, 1] for i in range(20)
 ]
+positions += [
+    [450, 400, 0, 1],
+    [375, 400, 0, 1],
+    [300, 400, 0, 1],
+    [400, 370, 0, 1],
+    [300, 340, 0, 1],
+]
+
+# positions = [[100, 300, 0, 1], [400, 300, 0, 1]]
 geometry = gfx.Geometry(positions=positions)
 
-material = gfx.LineStripMaterial(thickness=10.0, color=(0.8, 0.7, 0.0, 1.0))
+# Spiral away in z
+for i in range(len(positions)):
+    positions[i][2] = i
+
+material = gfx.LineStripMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0))
 line = gfx.Line(geometry, material)
 scene.add(line)
 
