@@ -6,7 +6,6 @@ from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
 from ...materials import LineStripMaterial
 
-# from ...datawrappers import Buffer
 
 # ## Notes
 #
@@ -43,10 +42,6 @@ def compute_shader(
     dz = material.thickness
     pos2[index * 2 + 0] = vec4(p.x, p.y + dz, p.z, 1.0)
     pos2[index * 2 + 1] = vec4(p.x, p.y - dz, p.z, 1.0)
-
-
-# todo: Figure out what to do with transparency ...
-# - make the actual ine thicker to account for aa
 
 
 @pyshader.python2shader
@@ -102,7 +97,6 @@ def vertex_shader(
     # - we can prepare the nodes' screen coordinates in a compute shader.
 
     # Prepare some numbers
-    eps = 0.00001
     screen_factor = stdinfo.logical_size.xy / 2.0
     l2p = stdinfo.physical_size.x / stdinfo.logical_size.x
     half_line_width = material.thickness * 0.5  # in logical pixels
@@ -159,19 +153,14 @@ def vertex_shader(
         angle = atan2(na.y, na.x) - atan2(nc.y, nc.x)
         angle = (angle + math.pi) % (2.0 * math.pi) - math.pi
 
-        vec_mag_inv = cos(0.5 * angle)
+        # From the angle we can also calculate the intersection of the lines.
+        # We express it in a vector magnifier, and limit it to a factor 2,
+        # since when the angle is ~pi, the intersection is near infinity.
+        vec_mag = 1.0 / max(0.25, cos(0.5 * angle))
         if angle < 0.0:
-            # n_longest = mix(nb, nd, length(v2) / (length(v1) + length(v2) + eps))
-            # n_between = normalize((nb + nd) * 0.5) / (vec_mag_inv + eps)
-            # n_between = mix(n_longest, n_between, min(vec_mag_inv, 0.2) * 5.0)
-            n_between = normalize(0.5 * (nb + nd)) / (vec_mag_inv + eps)
-            ne = vec2(0.0, 0.0) - n_between  # the extra point
+            ne = vec2(0.0, 0.0) - normalize(0.5 * (nb + nd)) * vec_mag
         else:
-            # n_longest = mix(na, nc, length(v2) / (length(v1) + length(v2) + eps))
-            # n_between = normalize((na + nc) * 0.5)  / (vec_mag_inv + eps)
-            # n_between = mix(n_longest, n_between, min(vec_mag_inv, 0.2) * 5.0)
-            n_between = normalize(0.5 * (na + nc)) / (vec_mag_inv + eps)
-            ne = vec2(0.0, 0.0) - n_between  # the extra point
+            ne = vec2(0.0, 0.0) - normalize(0.5 * (na + nc)) * vec_mag
 
     # Select the correct vector, and the corresponding vertex pos.
     # Note that all except ne are unit.
@@ -196,20 +185,29 @@ def fragment_shader(
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
 ):
+    # Discard fragments outside of the radius. This is what makes round
+    # joins and caps. If we ever want bevel or miter joins, we should
+    # change the vertex positions a bit, and drop these lines below.
     dist_to_node_p = length(v_vec_from_node_p)
     if dist_to_node_p > v_line_width_p * 0.5:
         return  # discard
 
     alpha = 1.0
+
+    # Anti-aliasing. Note that because of the discarding above, we cannot
+    # use MSAA for aa. But maybe we use another generic approach to aa. We'll see.
+    # todo: because of this, our line gets a wee bit thinner, so we have to
+    # output ticker lines in the vertex shader!
     aa_width = 1.2
     alpha = ((0.5 * v_line_width_p) - abs(dist_to_node_p)) / aa_width
     alpha = min(1.0, alpha) ** 2
 
-    color = material.color
-    out_color = vec4(color.rgb, min(1.0, color.a) * alpha)  # noqa - shader assign
-
     # The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
     out_depth = in_coord.z + 0.0001 * (0.8 - min(0.8, alpha))  # noqa
+
+    # Set color
+    color = material.color
+    out_color = vec4(color.rgb, min(1.0, color.a) * alpha)  # noqa - shader assign
 
 
 @register_wgpu_render_function(Line, LineStripMaterial)
@@ -223,20 +221,6 @@ def line_renderer(wobject, render_info):
     assert isinstance(material, LineStripMaterial)
 
     positions1 = geometry.positions
-
-    # positions2_nitems = -1
-    # if hasattr(geometry, "_wgpu_line_renderer_positions2"):
-    #     positions2_nitems = geometry._wgpu_line_renderer_positions2.nitems
-    # if positions2_nitems != positions1.nitems * 2:
-    #     # Create buffer that only exist on the GPU, we provide stub data so that
-    #     # the buffer knows type and strides (needed when used as vertex buffer)
-    #     geometry._wgpu_line_renderer_positions2 = Buffer(
-    #         nbytes=positions1.nitems * 2 * 4 * 4,
-    #         nitems=positions1.nitems * 2,
-    #         format="float4",
-    #         usage="vertex|storage",
-    #     )
-    # positions2 = geometry._wgpu_line_renderer_positions2
 
     return [
         # {
