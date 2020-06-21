@@ -157,10 +157,7 @@ def vertex_shader(
         # We express it in a vector magnifier, and limit it to a factor 2,
         # since when the angle is ~pi, the intersection is near infinity.
         vec_mag = 1.0 / max(0.25, cos(0.5 * angle))
-        if angle < 0.0:
-            ne = vec2(0.0, 0.0) - normalize(0.5 * (nb + nd)) * vec_mag
-        else:
-            ne = vec2(0.0, 0.0) - normalize(0.5 * (na + nc)) * vec_mag
+        ne = normalize(normalize(v1) - normalize(v2)) * vec_mag
 
     # Select the correct vector, and the corresponding vertex pos.
     # Note that all except ne are unit.

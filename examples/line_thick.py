@@ -14,13 +14,11 @@ app = QtWidgets.QApplication([])
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
-# A line consisting of two points
-line1 = [[100, 100, 0, 1], [400, 100, 0, 1]]
+# A straight line
+line1 = [[100, 100, 0, 1], [200, 100, 0, 1], [400, 100, 0, 1]]
 
-# A line with a 180 degree turn
-# todo: fix this adversarial use-case
+# A line with a 180 degree turn (a bit of a special case for the implementation)
 line2 = [[100, 200, 0, 1], [400, 200, 0, 1], [100, 200, 0, 1]]
-# line2 = [[400, 200, 0, 1], [200, 200, 0, 1], [400, 200, 0, 1]]
 
 # A swiggly line
 line3 = [[100 + i * 3, 300 + random.randint(-10, 10), 0, 1] for i in range(100)]
