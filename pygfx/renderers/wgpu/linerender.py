@@ -9,10 +9,11 @@ from ...materials import LineStripMaterial
 
 # ## Notes
 #
-# Rendering lines on the GPU is hard! The approach used here uses VertexId
-# and storage buffers instead of vertex buffers. That way we can create
-# 5 vertices for each point on the line. These vertices are positioned such
-# that rendering with triangle_strip results in a tick line. More info below.
+# Rendering lines on the GPU is hard! The approach used here uses
+# VertexId and storage buffers instead of vertex buffers. That way we
+# can create multiple vertices for each point on the line. These
+# vertices are positioned such that rendering with triangle_strip
+# results in a tick line. More info below.
 #
 # An alternative (used by e.g. ThreeJS) is to draw the geometry of a
 # line segment many times using instancing. Note that some Intel drivers
@@ -21,8 +22,7 @@ from ...materials import LineStripMaterial
 # https://wwwtyro.net/2019/11/18/instanced-lines.html
 #
 # Another alternative is a geometry shader, but wgpu does not have that.
-#
-# Another alternative is to use a geometry shader to prepare the triangle-based
+# But we have compute shaders, which can be used to prepare the triangle-based
 # geometry and store it in a buffer, which can be used as a vertex buffer in
 # the render pass. The downside of this approach is the memory consumption.
 # But a hybrid approach may be viable: the current approach using VertexId,
@@ -69,8 +69,8 @@ def vertex_shader(
     # - We define four normal vectors (na, nb, nc, nd) which represent the
     #   vertices. Two for the previous segment, two for the next. One extra
     #   normal/vertex is defined at the join.
-    # - These calculations are done for 5x (yeah, bit of a waste), we select
-    #   just one as output.
+    # - These calculations are done for each vertex (yeah, bit of a waste),
+    #   we select just one as output.
     #
     #            /  o     node 3
     #           /  /  /
@@ -92,8 +92,8 @@ def vertex_shader(
     # Possible improvents:
     #
     # - can we do dashes/stipling?
-    # - also implement bevel joins, maybe miters too?
-    # - also implement different caps.
+    # - also implement bevel and miter joins
+    # - also implement different caps
     # - we can prepare the nodes' screen coordinates in a compute shader.
 
     # Prepare some numbers
@@ -103,12 +103,10 @@ def vertex_shader(
     half_line_width_p = half_line_width * l2p  # in physical pixels
 
     # What i in the node list (point on the line) is this?
-    i = i32(f32(index) / 5.0)
+    i = index // 5
 
-    # Sample the vertex and it's two neighbours, and convert to NDC
-    pos1 = buf_pos[i - 1]
-    pos2 = buf_pos[i]
-    pos3 = buf_pos[i + 1]
+    # Sample the current node and it's two neighbours, and convert to NDC
+    pos1, pos2, pos3 = buf_pos[i - 1], buf_pos[i], buf_pos[i + 1]
     wpos1 = stdinfo.world_transform * vec4(pos1.xyz, 1.0)
     wpos2 = stdinfo.world_transform * vec4(pos2.xyz, 1.0)
     wpos3 = stdinfo.world_transform * vec4(pos3.xyz, 1.0)
@@ -122,31 +120,30 @@ def vertex_shader(
     ppos3 = (npos3.xy + 1.0) * screen_factor
 
     # Get vectors normal to the line segments
-    v1 = ppos2.xy - ppos1.xy
-    v2 = ppos3.xy - ppos2.xy
+    v1, v2 = ppos2.xy - ppos1.xy, ppos3.xy - ppos2.xy
 
     if pos1.w == 0.0:
         # This is the first point on the line: create a cap.
         v1 = v2
-        nc = normalize(vec2(v2.y, 0.0 - v2.x))
-        nd = vec2(0.0, 0.0) - nc
+        nc = normalize(vec2(+v2.y, -v2.x))
+        nd = -nc
         na = nd
         nb = nd - normalize(v2)
         ne = nc - normalize(v2)
     elif pos3.w == 0.0:
         # This is the last point on the line: create a cap.
         v2 = v1
-        na = normalize(vec2(v1.y, 0.0 - v1.x))
-        nb = vec2(0.0, 0.0) - na
+        na = normalize(vec2(+v1.y, -v1.x))
+        nb = -na
         ne = nb + normalize(v1)
         nc = na + normalize(v1)
         nd = na
     else:
         # Create a join
-        na = normalize(vec2(v1.y, 0.0 - v1.x))
-        nb = vec2(0.0, 0.0) - na
-        nc = normalize(vec2(v2.y, 0.0 - v2.x))
-        nd = vec2(0.0, 0.0) - nc
+        na = normalize(vec2(+v1.y, -v1.x))
+        nb = -na
+        nc = normalize(vec2(+v2.y, -v2.x))
+        nd = -nc
 
         # Determine the angle between two of the normals. If this angle is smaller
         # than zero, the inside of the join is at nb/nd, otherwise it is at na/nc.
@@ -156,20 +153,22 @@ def vertex_shader(
         # From the angle we can also calculate the intersection of the lines.
         # We express it in a vector magnifier, and limit it to a factor 2,
         # since when the angle is ~pi, the intersection is near infinity.
+        # For a bevel join we can omit ne (or set vec_mag to 1.0).
+        # For a miter join we'd need an extra vertex to smoothly transition
+        # from a miter to a bevel when the angle is too small.
+        # Note that ne becomes inf if v1 == v2, but that's ok, because the
+        # triangles in which ne takes part are degenerate for this use-case.
         vec_mag = 1.0 / max(0.25, cos(0.5 * angle))
         ne = normalize(normalize(v1) - normalize(v2)) * vec_mag
 
-    # Select the correct vector, and the corresponding vertex pos.
-    # Note that all except ne are unit.
+    # Select the correct vector, note that all except ne are unit.
     vectors = [na, nb, ne, nc, nd]
-    the_vec = vectors[index % 5]
-    ppos = ppos2 + the_vec * half_line_width
-    npos = vec4(ppos / screen_factor - 1.0, npos2.zw)
+    the_vec = vectors[index % 5] * half_line_width
 
     # Outputs
-    out_pos = npos  # noqa - shader assign
-    v_line_width_p = half_line_width_p * 2.0  # noqa - shader assign
-    v_vec_from_node_p = the_vec * half_line_width * l2p  # noqa
+    out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
+    v_line_width_p = half_line_width_p * 2.0  # noqa
+    v_vec_from_node_p = the_vec * l2p  # noqa
 
 
 @pyshader.python2shader

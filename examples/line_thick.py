@@ -15,16 +15,16 @@ canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 # A straight line
-line1 = [[100, 100, 0, 1], [200, 100, 0, 1], [400, 100, 0, 1]]
+line1 = [[100, 100, 0, 1], [100, 200, 0, 1], [100, 400, 0, 1]]
 
 # A line with a 180 degree turn (a bit of a special case for the implementation)
-line2 = [[100, 200, 0, 1], [400, 200, 0, 1], [100, 200, 0, 1]]
+line2 = [[200, 100, 0, 1], [200, 400, 0, 1], [200, 100, 0, 1]]
 
 # A swiggly line
-line3 = [[100 + i * 3, 300 + random.randint(-10, 10), 0, 1] for i in range(100)]
+line3 = [[300 + random.randint(-10, 10), 100 + i * 3, 0, 1] for i in range(100)]
 
 # A line with other turns
-line4 = [[100, 400, 0, 1], [200, 500, 0, 1], [300, 400, 0, 1], [400, 450, 0, 1]]
+line4 = [[400, 100, 0, 1], [500, 200, 0, 1], [400, 300, 0, 1], [450, 400, 0, 1]]
 
 scene = gfx.Scene()
 
