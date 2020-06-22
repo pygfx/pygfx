@@ -4,7 +4,7 @@ from pyshader import f32, vec2, vec4, Array
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
-from ...materials import LineStripMaterial
+from ...materials import LineMaterial, LineThinMaterial, LineSegmentMaterial
 
 
 # ## Notes
@@ -29,6 +29,9 @@ from ...materials import LineStripMaterial
 # but preparing some data in a buffer.
 
 
+# %% Shaders
+
+
 # This compute shader is wrong and unused, but left as an example for what
 # such a "geometry shader pass" could look like.
 @pyshader.python2shader
@@ -36,7 +39,7 @@ def compute_shader(
     index: (pyshader.RES_INPUT, "GlobalInvocationId", "i32"),
     pos1: (pyshader.RES_BUFFER, (0, 0), Array(vec4)),
     pos2: (pyshader.RES_BUFFER, (0, 1), Array(vec4)),
-    material: (pyshader.RES_UNIFORM, (0, 2), LineStripMaterial.uniform_type),
+    material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
 ):
     p = pos1[index] * 1.0
     dz = material.thickness
@@ -45,11 +48,30 @@ def compute_shader(
 
 
 @pyshader.python2shader
+def vertex_shader_thin(
+    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+):
+    wpos = stdinfo.world_transform * in_pos
+    npos = stdinfo.projection_transform * stdinfo.cam_transform * wpos
+    out_pos = npos  # noqa
+
+
+@pyshader.python2shader
+def fragment_shader_thin(
+    material: (pyshader.RES_UNIFORM, (0, 1), LineMaterial.uniform_type),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
+):
+    out_color = material.color  # noqa - shader assign
+
+
+@pyshader.python2shader
 def vertex_shader(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     buf_pos: (pyshader.RES_BUFFER, (0, 2), Array(vec4)),
     stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    material: (pyshader.RES_UNIFORM, (0, 1), LineStripMaterial.uniform_type),
+    material: (pyshader.RES_UNIFORM, (0, 1), LineMaterial.uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
@@ -177,7 +199,7 @@ def fragment_shader(
     v_line_width_p: (pyshader.RES_INPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_INPUT, 1, vec2),
     stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    material: (pyshader.RES_UNIFORM, (0, 1), LineStripMaterial.uniform_type),
+    material: (pyshader.RES_UNIFORM, (0, 1), LineMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
 ):
@@ -206,7 +228,98 @@ def fragment_shader(
     out_color = vec4(color.rgb, min(1.0, color.a) * alpha)  # noqa - shader assign
 
 
-@register_wgpu_render_function(Line, LineStripMaterial)
+@pyshader.python2shader
+def vertex_shader_segment(
+    index: (pyshader.RES_INPUT, "VertexId", "i32"),
+    buf_pos: (pyshader.RES_BUFFER, (0, 2), Array(vec4)),
+    stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    material: (pyshader.RES_UNIFORM, (0, 1), LineMaterial.uniform_type),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
+    v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
+):
+    # Similar to the normal vertex shader, except we only draw segments,
+    # using 5 vertices per node. Four for the segments, and 1 to create
+    # a degenerate triangle for the space in between. So we only draw
+    # caps, no joins.
+
+    # Prepare some numbers
+    screen_factor = stdinfo.logical_size.xy / 2.0
+    l2p = stdinfo.physical_size.x / stdinfo.logical_size.x
+    half_line_width = material.thickness * 0.5  # in logical pixels
+    half_line_width_p = half_line_width * l2p  # in physical pixels
+    # What i in the node list (point on the line) is this?
+    i = index // 5
+    # Sample the current node and either of its neighbours
+    pos2 = buf_pos[i]
+    pos3 = buf_pos[i + 1 - (i % 2) * 2]  # (i + 1) if i is even else (i - 1)
+    # Convert to ndc
+    wpos2 = stdinfo.world_transform * vec4(pos2.xyz, 1.0)
+    wpos3 = stdinfo.world_transform * vec4(pos3.xyz, 1.0)
+    npos2 = stdinfo.projection_transform * stdinfo.cam_transform * wpos2
+    npos3 = stdinfo.projection_transform * stdinfo.cam_transform * wpos3
+    # Convert to logical screen coordinates, because that's were the lines work
+    ppos2 = (npos2.xy + 1.0) * screen_factor
+    ppos3 = (npos3.xy + 1.0) * screen_factor
+
+    # Get vectors normal to the line segments
+    if (i % 2) == 0:
+        # A left-cap
+        v = normalize(ppos3.xy - ppos2.xy)
+        nc = vec2(+v.y, -v.x)
+        nd = -nc
+        na = nc - v
+        nb = nd - v
+    else:
+        # A right cap
+        v = normalize(ppos2.xy - ppos3.xy)
+        na = vec2(+v.y, -v.x)
+        nb = -na
+        nc = na + v
+        nd = nb + v
+
+    # Select the correct vector
+    # Note the replicated vertices to create degenerate triangles
+    vectors = [na, na, nb, nc, nd, na, nb, nc, nd, nd]
+    the_vec = vectors[index % 10] * half_line_width
+
+    # Outputs
+    out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
+    v_line_width_p = half_line_width_p * 2.0  # noqa
+    v_vec_from_node_p = the_vec * l2p  # noqa
+
+
+# %% Render functions
+
+
+@register_wgpu_render_function(Line, LineThinMaterial)
+def thin_line_renderer(wobject, render_info):
+    """ Render function capable of rendering lines.
+    """
+
+    material = wobject.material
+    geometry = wobject.geometry
+
+    positions1 = geometry.positions
+
+    return [
+        {
+            "vertex_shader": vertex_shader_thin,
+            "fragment_shader": fragment_shader_thin,
+            "primitive_topology": wgpu.PrimitiveTopology.line_strip,
+            "indices": (positions1.nitems, 1),
+            "vertex_buffers": [positions1],
+            "bindings0": {
+                0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo),
+                1: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+            },
+            # "bindings1": {},
+            "target": None,  # default
+        },
+    ]
+
+
+@register_wgpu_render_function(Line, LineMaterial)
 def line_renderer(wobject, render_info):
     """ Render function capable of rendering lines.
     """
@@ -214,9 +327,16 @@ def line_renderer(wobject, render_info):
     material = wobject.material
     geometry = wobject.geometry
 
-    assert isinstance(material, LineStripMaterial)
+    assert isinstance(material, LineMaterial)
 
     positions1 = geometry.positions
+
+    if isinstance(material, LineSegmentMaterial):
+        vert_shader = vertex_shader_segment
+        n = (positions1.nitems // 2) * 2 * 5
+    else:
+        vert_shader = vertex_shader
+        n = positions1.nitems * 5
 
     return [
         # {
@@ -229,10 +349,10 @@ def line_renderer(wobject, render_info):
         #     },
         # },
         {
-            "vertex_shader": vertex_shader,
+            "vertex_shader": vert_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "indices": (positions1.nitems * 5, 1),
+            "indices": (n, 1),
             "bindings0": {
                 0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo),
                 1: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),

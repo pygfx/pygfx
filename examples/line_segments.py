@@ -1,5 +1,5 @@
 """
-Some basic line drawing.
+Display line segments. Can be useful e.g. for visializing vector fields.
 """
 
 import numpy as np
@@ -13,31 +13,16 @@ app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
-renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
 scene = gfx.Scene()
 
-positions = [
-    [200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0, 1] for i in range(20)
-]
-positions += [
-    [400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0, 1] for i in range(20)
-]
-positions += [
-    [450, 400, 0, 1],
-    [375, 400, 0, 1],
-    [300, 400, 0, 1],
-    [400, 370, 0, 1],
-    [300, 340, 0, 1],
-]
+x = np.linspace(20, 620, 200, dtype=np.float32)
+y = np.sin(x / 10) * 100 + 200
 
+positions = np.column_stack([x, y, np.zeros_like(x), np.ones_like(x)])
 geometry = gfx.Geometry(positions=positions)
 
-# Spiral away in z
-for i in range(len(positions)):
-    positions[i][2] = i
-
-material = gfx.LineMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0))
+material = gfx.LineSegmentMaterial(thickness=4.0, color=(0.0, 0.7, 0.3, 1.0))
 line = gfx.Line(geometry, material)
 scene.add(line)
 
@@ -53,6 +38,5 @@ def animate():
 
 
 if __name__ == "__main__":
-    renderer_svg.render(scene, camera)
     canvas.draw_frame = animate
     app.exec_()

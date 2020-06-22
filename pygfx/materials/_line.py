@@ -5,7 +5,9 @@ from ..utils import array_from_shadertype
 from ..datawrappers import Buffer
 
 
-class LineStripMaterial(Material):
+class LineMaterial(Material):
+    """ The default material to draw lines.
+    """
 
     uniform_type = Struct(color=vec4, thickness=f32)
 
@@ -36,3 +38,14 @@ class LineStripMaterial(Material):
     def set_thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
         self.uniform_buffer.update_range(0, 1)
+
+
+class LineThinMaterial(LineMaterial):
+    """ A simple line, drawn with line_strip primitives that has a width
+    of one physical pixel. The thickness is ignored.
+    """
+
+
+class LineSegmentMaterial(LineMaterial):
+    """ A material that renders line segments between each two subsequent points.
+    """
