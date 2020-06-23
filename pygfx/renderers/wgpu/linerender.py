@@ -4,7 +4,12 @@ from pyshader import f32, vec2, vec4, Array
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
-from ...materials import LineMaterial, LineThinMaterial, LineSegmentMaterial
+from ...materials import (
+    LineMaterial,
+    LineThinMaterial,
+    LineSegmentMaterial,
+    LineArrowMaterial,
+)
 
 
 # ## Notes
@@ -289,6 +294,63 @@ def vertex_shader_segment(
     v_vec_from_node_p = the_vec * l2p  # noqa
 
 
+@pyshader.python2shader
+def vertex_shader_arrow(
+    index: (pyshader.RES_INPUT, "VertexId", "i32"),
+    buf_pos: (pyshader.RES_BUFFER, (0, 2), Array(vec4)),
+    stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    material: (pyshader.RES_UNIFORM, (0, 1), LineMaterial.uniform_type),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
+    v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
+):
+    # Similar to the normal vertex shader, except we only draw segments,
+    # using 3 vertices per node: 6 per segment. 4 for the arrow, and 2
+    # to create a degenerate triangle for the space in between. So we
+    # only draw caps, no joins.
+
+    # Prepare some numbers
+    screen_factor = stdinfo.logical_size.xy / 2.0
+    l2p = stdinfo.physical_size.x / stdinfo.logical_size.x
+    half_line_width = material.thickness * 0.5  # in logical pixels
+    half_line_width_p = half_line_width * l2p  # in physical pixels
+    # What i in the node list (point on the line) is this?
+    i = index // 3
+    # Sample the current node and either of its neighbours
+    pos2 = buf_pos[i]
+    pos3 = buf_pos[i + 1 - (i % 2) * 2]  # (i + 1) if i is even else (i - 1)
+    # Convert to ndc
+    wpos2 = stdinfo.world_transform * vec4(pos2.xyz, 1.0)
+    wpos3 = stdinfo.world_transform * vec4(pos3.xyz, 1.0)
+    npos2 = stdinfo.projection_transform * stdinfo.cam_transform * wpos2
+    npos3 = stdinfo.projection_transform * stdinfo.cam_transform * wpos3
+    # Convert to logical screen coordinates, because that's were the lines work
+    ppos2 = (npos2.xy + 1.0) * screen_factor
+    ppos3 = (npos3.xy + 1.0) * screen_factor
+
+    # Get vectors normal to the line segments
+    if (i % 2) == 0:
+        # A left-cap
+        v = ppos3.xy - ppos2.xy
+        na = normalize(vec2(+v.y, -v.x)) * half_line_width
+        nb = v
+    else:
+        # A right cap
+        v = ppos2.xy - ppos3.xy
+        na = -0.75 * v
+        nb = normalize(vec2(-v.y, +v.x)) * half_line_width - v
+
+    # Select the correct vector
+    # Note the replicated vertices to create degenerate triangles
+    vectors = [na, na, nb, na, nb, nb]
+    the_vec = vectors[index % 6]
+
+    # Outputs
+    out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
+    v_line_width_p = half_line_width_p * 2.0  # noqa
+    v_vec_from_node_p = vec2(0.0, 0.0)  # noqa
+
+
 # %% Render functions
 
 
@@ -331,7 +393,10 @@ def line_renderer(wobject, render_info):
 
     positions1 = geometry.positions
 
-    if isinstance(material, LineSegmentMaterial):
+    if isinstance(material, LineArrowMaterial):
+        vert_shader = vertex_shader_arrow
+        n = (positions1.nitems // 2) * 2 * 4
+    elif isinstance(material, LineSegmentMaterial):
         vert_shader = vertex_shader_segment
         n = (positions1.nitems // 2) * 2 * 5
     else:

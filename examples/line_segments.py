@@ -22,7 +22,8 @@ y = np.sin(x / 10) * 100 + 200
 positions = np.column_stack([x, y, np.zeros_like(x), np.ones_like(x)])
 geometry = gfx.Geometry(positions=positions)
 
-material = gfx.LineSegmentMaterial(thickness=4.0, color=(0.0, 0.7, 0.3, 1.0))
+# Also see LineSegmentMaterial
+material = gfx.LineArrowMaterial(thickness=6.0, color=(0.0, 0.7, 0.3, 0.5))
 line = gfx.Line(geometry, material)
 scene.add(line)
 

@@ -49,3 +49,8 @@ class LineThinMaterial(LineMaterial):
 class LineSegmentMaterial(LineMaterial):
     """ A material that renders line segments between each two subsequent points.
     """
+
+
+class LineArrowMaterial(LineSegmentMaterial):
+    """ A material that renders line segments that look like little vectors.
+    """
