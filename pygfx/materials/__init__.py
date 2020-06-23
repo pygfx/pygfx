@@ -6,6 +6,7 @@ from ._points import PointsMaterial, GaussianPointsMaterial
 from ._line import (
     LineMaterial,
     LineThinMaterial,
+    LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
 )

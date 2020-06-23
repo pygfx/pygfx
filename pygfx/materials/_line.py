@@ -46,6 +46,12 @@ class LineThinMaterial(LineMaterial):
     """
 
 
+class LineThinSegmentMaterial(LineMaterial):
+    """ Simple line segments, drawn with line primitives that has a width
+    of one physical pixel. The thickness is ignored.
+    """
+
+
 class LineSegmentMaterial(LineMaterial):
     """ A material that renders line segments between each two subsequent points.
     """

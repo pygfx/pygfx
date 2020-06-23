@@ -7,6 +7,7 @@ from ...objects import Line
 from ...materials import (
     LineMaterial,
     LineThinMaterial,
+    LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
 )
@@ -354,6 +355,7 @@ def vertex_shader_arrow(
 # %% Render functions
 
 
+@register_wgpu_render_function(Line, LineThinSegmentMaterial)
 @register_wgpu_render_function(Line, LineThinMaterial)
 def thin_line_renderer(wobject, render_info):
     """ Render function capable of rendering lines.
@@ -364,11 +366,15 @@ def thin_line_renderer(wobject, render_info):
 
     positions1 = geometry.positions
 
+    primitive = wgpu.PrimitiveTopology.line_strip
+    if isinstance(material, LineThinSegmentMaterial):
+        primitive = wgpu.PrimitiveTopology.line_list
+
     return [
         {
             "vertex_shader": vertex_shader_thin,
             "fragment_shader": fragment_shader_thin,
-            "primitive_topology": wgpu.PrimitiveTopology.line_strip,
+            "primitive_topology": primitive,
             "indices": (positions1.nitems, 1),
             "vertex_buffers": [positions1],
             "bindings0": {
