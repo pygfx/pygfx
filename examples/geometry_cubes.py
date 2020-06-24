@@ -27,9 +27,8 @@ for i, cube in enumerate(cubes):
     cube.position.set(350 - i * 100, 0, 0)
     scene.add(cube)
 
-fov, aspect, near, far = 70, 16 / 9, 1, 1000
-camera = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera.position.z = 400
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.z = 500
 
 
 def animate():

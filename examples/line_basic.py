@@ -41,7 +41,8 @@ material = gfx.LineMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0))
 line = gfx.Line(geometry, material)
 scene.add(line)
 
-camera = gfx.ScreenCoordsCamera()
+camera = gfx.OrthographicCamera(600, 500)
+camera.position.set(300, 250, 0)
 
 
 def animate():

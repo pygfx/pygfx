@@ -43,8 +43,7 @@ material = gfx.MeshBasicMaterial(map=view, clim=(0.2, 0.8))
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 
-fov, aspect, near, far = 70, 16 / 9, 1, 1000
-camera = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera = gfx.PerspectiveCamera(70)
 camera.position.z = 400
 
 

@@ -27,9 +27,9 @@ plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
 
-fov, aspect, near, far = 70, -16 / 9, 1, 1000
-camera = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera = gfx.PerspectiveCamera(70)
 camera.position.z = 200
+camera.scale.y = -1
 
 
 t = time.time()
