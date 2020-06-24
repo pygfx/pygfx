@@ -3,5 +3,11 @@
 from ._base import Material
 from ._mesh import MeshBasicMaterial
 from ._points import PointsMaterial, GaussianPointsMaterial
-from ._line import LineStripMaterial
+from ._line import (
+    LineMaterial,
+    LineThinMaterial,
+    LineThinSegmentMaterial,
+    LineSegmentMaterial,
+    LineArrowMaterial,
+)
 from ._volume import MeshVolumeSliceMaterial

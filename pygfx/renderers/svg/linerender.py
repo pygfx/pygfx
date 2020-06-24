@@ -1,9 +1,9 @@
 from . import register_svg_render_function
 from ...objects import Line
-from ...materials import LineStripMaterial
+from ...materials import LineMaterial
 
 
-@register_svg_render_function(Line, LineStripMaterial)
+@register_svg_render_function(Line, LineMaterial)
 def line_renderer(wobject):
     """ Render function capable of rendering lines.
     """

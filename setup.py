@@ -13,7 +13,7 @@ with open(f"{NAME}/__init__.py") as fh:
 runtime_deps = [
     "numpy",
     "wgpu>=0.2.0",
-    "pyshader>=0.5.0",
+    "pyshader>=0.6.0",
 ]
 
 

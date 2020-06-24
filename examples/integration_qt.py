@@ -3,7 +3,7 @@ import random
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
-import pygfx as vv
+import pygfx as gfx
 
 
 class Main(QtWidgets.QWidget):

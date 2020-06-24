@@ -12,6 +12,7 @@ from ...utils import array_from_shadertype
 
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
+# todo: a combined transform would be nice too, for performance
 stdinfo_uniform_type = Struct(
     world_transform=mat4,
     cam_transform=mat4,
