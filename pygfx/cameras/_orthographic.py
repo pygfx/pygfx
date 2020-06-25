@@ -3,7 +3,8 @@ from ._base import Camera
 
 class OrthographicCamera(Camera):
     """ An orthographic camera, useful for non-perspective views and
-    visualizing 2D content.
+    visualizing 2D content. You may also want to set the position of
+    the camera.
 
     Parameters:
         width (float): The (minimum) width of the view-cube. The actual view

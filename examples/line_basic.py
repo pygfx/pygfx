@@ -17,23 +17,21 @@ renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
 scene = gfx.Scene()
 
-positions = [
-    [200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0, 1] for i in range(20)
-]
+positions = [[200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6] for i in range(20)]
+positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6] for i in range(20)]
 positions += [
-    [400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0, 1] for i in range(20)
-]
-positions += [
-    [450, 400, 0, 1],
-    [375, 400, 0, 1],
-    [300, 400, 0, 1],
-    [400, 370, 0, 1],
-    [300, 340, 0, 1],
+    [450, 400],
+    [375, 400],
+    [300, 400],
+    [400, 370],
+    [300, 340],
 ]
 
+# Our data must be Nx4 (for now?)
+positions = [pos + [0, 1] for pos in positions]
 geometry = gfx.Geometry(positions=positions)
 
-# Spiral away in z
+# Spiral away in z (to make the depth buffer less boring)
 for i in range(len(positions)):
     positions[i][2] = i
 

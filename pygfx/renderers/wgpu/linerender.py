@@ -135,6 +135,8 @@ def vertex_shader(
 
     # Sample the current node and it's two neighbours, and convert to NDC
     pos1, pos2, pos3 = buf_pos[i - 1], buf_pos[i], buf_pos[i + 1]
+    # pos1, pos2, pos3 = vec4(pos1, 1.0), vec4(buf_pos[i], 1.0), vec4(buf_pos[i + 1], 1.0)
+    # pos1, pos2, pos3 = vec4(pos1.x, pos1.y, 0.0, 1.0), vec4(pos2.x, pos2.y, 0.0, 1.0), vec4(pos3.x, pos3.y, 0.0 , 1.0)
     wpos1 = stdinfo.world_transform * vec4(pos1.xyz, 1.0)
     wpos2 = stdinfo.world_transform * vec4(pos2.xyz, 1.0)
     wpos3 = stdinfo.world_transform * vec4(pos3.xyz, 1.0)
@@ -398,6 +400,20 @@ def line_renderer(wobject, render_info):
     assert isinstance(material, LineMaterial)
 
     positions1 = geometry.positions
+
+    # With vertex buffers, if a shader input is vec4, and the vbo has
+    # Nx2, the z and w element will be zero. This works, because for
+    # vertex buffers we provide additional information about the
+    # striding of the data.
+    # With storage buffers (aka SSBO) we just have some bytes that we read
+    # from/write to in the shader. This is more free, but it means that
+    # the data in the buffer must match with what the shader expects.
+    # Plus there's this thing with vec3's which are padded to 16 bytes.
+    # So we require our users to provide Nx4 data.
+    if positions1.data.shape[1] != 4:
+        raise ValueError(
+            "For rendering (thick) lines, the geometry.positions must be Nx4."
+        )
 
     if isinstance(material, LineArrowMaterial):
         vert_shader = vertex_shader_arrow
