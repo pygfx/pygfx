@@ -29,12 +29,12 @@ positions += [
 
 # Our data must be Nx4 (for now?)
 positions = [pos + [0, 1] for pos in positions]
-geometry = gfx.Geometry(positions=positions)
 
 # Spiral away in z (to make the depth buffer less boring)
 for i in range(len(positions)):
     positions[i][2] = i
 
+geometry = gfx.Geometry(positions=positions)
 material = gfx.LineMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0))
 line = gfx.Line(geometry, material)
 scene.add(line)

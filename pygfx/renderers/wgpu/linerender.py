@@ -59,7 +59,7 @@ def vertex_shader_thin(
     stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
 ):
-    wpos = stdinfo.world_transform * in_pos
+    wpos = stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
     npos = stdinfo.projection_transform * stdinfo.cam_transform * wpos
     out_pos = npos  # noqa
 
