@@ -1,4 +1,5 @@
 from ._base import Camera
+from ..linalg import Matrix4
 
 
 class OrthographicCamera(Camera):
@@ -49,7 +50,12 @@ class OrthographicCamera(Camera):
         left = -0.5 * width
         right = +0.5 * width
         # Set matrices
+        # The orthographic projection puts xyz in the range -1..1, but since
+        # the depth is expressed in 0..1, we also scale and translate with 0.5
         self.projection_matrix.make_orthographic(
             left, right, top, bottom, self.near, self.far
+        )
+        self.projection_matrix.premultiply(
+            Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)
         )
         self.projection_matrix_inverse.get_inverse(self.projection_matrix)

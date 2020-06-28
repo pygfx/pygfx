@@ -955,7 +955,7 @@ class Matrix4:
 
         x = (right + left) * w
         y = (top + bottom) * h
-        z = near * p
+        z = (far + near) * p
 
         te[0] = 2 * w
         te[4] = 0
@@ -967,7 +967,7 @@ class Matrix4:
         te[13] = -y
         te[2] = 0
         te[6] = 0
-        te[10] = -1 * p
+        te[10] = -2 * p
         te[14] = -z
         te[3] = 0
         te[7] = 0
