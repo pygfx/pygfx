@@ -26,7 +26,7 @@ scene = gfx.Scene()
 
 # Define near and far plane
 near, far = -40, 300  # example for ortho
-# near, far = 1, 10  # example for perspective
+# near, far = 5, 10  # example for perspective
 
 # Select camera
 camera = gfx.OrthographicCamera(2.2, 2.2, near, far)
@@ -47,10 +47,10 @@ plane4 = gfx.Mesh(geometry, red_material)
 # Note the negation of near and far in the plane's position. This is
 # because the camera looks down the z-axis: more negative means moving
 # away from the camera, positive values are behind the camera.
-plane1.position = gfx.linalg.Vector3(-0.51, -0.51, -(near + 1))  # in range
-plane2.position = gfx.linalg.Vector3(+0.51, -0.51, -(near - 1))  # out range
-plane3.position = gfx.linalg.Vector3(-0.51, +0.51, -(far - 1))  # in range
-plane4.position = gfx.linalg.Vector3(+0.51, +0.51, -(far + 1))  # out range
+plane1.position = gfx.linalg.Vector3(-0.51, -0.51, -(near + 0.01))  # in range
+plane2.position = gfx.linalg.Vector3(+0.51, -0.51, -(near - 0.01))  # out range
+plane3.position = gfx.linalg.Vector3(-0.51, +0.51, -(far - 0.01))  # in range
+plane4.position = gfx.linalg.Vector3(+0.51, +0.51, -(far + 0.01))  # out range
 
 for plane in (plane1, plane2, plane3, plane4):
     scene.add(plane)

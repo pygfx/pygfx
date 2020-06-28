@@ -12,7 +12,7 @@ class OrthographicCamera(Camera):
            may be wider if the viewport is wide.
         height (float): The (minimum) height of the view-cube.
         near (float): The near clipping plane. Default -1000.
-        far (float): The far clipping plane. Default +1000.
+        far (float): The far clipping plane. Must be larger than near. Default +1000.
     """
 
     def __init__(self, width=1, height=1, near=-1000, far=1000):
@@ -21,6 +21,7 @@ class OrthographicCamera(Camera):
         self.height = float(height)
         self.near = float(near)
         self.far = float(far)
+        assert self.near < self.far
         self.zoom = 1
         self._maintain_aspect = True
         self._view_aspect = 1
@@ -50,8 +51,9 @@ class OrthographicCamera(Camera):
         left = -0.5 * width
         right = +0.5 * width
         # Set matrices
-        # The orthographic projection puts xyz in the range -1..1, but since
-        # the depth is expressed in 0..1, we also scale and translate with 0.5
+        # The linalgo ortho projection puts xyz in the range -1..1, but
+        # in the coordinate system of wgpu (and this lib) the depth is
+        # expressed in 0..1, so we also correct for that.
         self.projection_matrix.make_orthographic(
             left, right, top, bottom, self.near, self.far
         )
