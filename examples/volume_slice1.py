@@ -35,9 +35,7 @@ plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
 
-fov, aspect, near, far = 70, -16 / 9, 1, 1000
-camera = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera.position.z = 200
+camera = gfx.OrthographicCamera(200, 200)
 
 
 def scroll(degrees):

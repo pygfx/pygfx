@@ -11,9 +11,7 @@ renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
 
-positions = np.zeros((100, 4), np.float32)
-positions[:, 0:2] = np.random.normal(0, 0.5, (100, 2))
-positions[:, 3] = 1
+positions = np.random.normal(0, 0.5, (100, 2)).astype(np.float32)
 geometry = gfx.Geometry(positions=positions)
 
 material = gfx.PointsMaterial(size=10, color=(0, 1, 0.5, 0.7))

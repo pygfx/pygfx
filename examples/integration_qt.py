@@ -19,7 +19,7 @@ class Main(QtWidgets.QWidget):
         self._canvas = WgpuCanvas(parent=self)
         self._renderer = gfx.WgpuRenderer(self._canvas)
         self._scene = gfx.Scene()
-        self._camera = gfx.ScreenCoordsCamera()
+        self._camera = gfx.OrthographicCamera(110, 110)
 
         # Hook up the animate callback
         self._canvas.draw_frame = self.animate
@@ -31,9 +31,11 @@ class Main(QtWidgets.QWidget):
 
     def _on_button_click(self):
         positions = [
-            [random.uniform(0, 400), random.uniform(0, 400), 0, 1] for i in range(8)
+            [random.uniform(-50, 50), random.uniform(-50, 50), 0, 1] for i in range(8)
         ]
-        line = gfx.Line(gfx.Geometry(positions=positions), gfx.LineStripMaterial())
+        line = gfx.Line(
+            gfx.Geometry(positions=positions), gfx.LineMaterial(thickness=3)
+        )
         self._scene.add(line)
         self._canvas.update()
 
