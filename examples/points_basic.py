@@ -21,14 +21,6 @@ scene.add(points)
 camera = gfx.NDCCamera()
 
 
-def animate():
-    # would prefer to do this in a resize event only
-    psize = canvas.get_physical_size()
-    camera.set_viewport_size(*psize)
-    renderer.render(scene, camera)
-    canvas.request_draw()
-
-
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     app.exec_()

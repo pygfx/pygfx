@@ -44,14 +44,10 @@ camera.position.set(300, 250, 0)
 
 
 def animate():
-    # would prefer to do this in a resize event only
-    lsize = canvas.get_logical_size()
-    camera.set_viewport_size(*lsize)
     renderer.render(scene, camera)
-    canvas.request_draw()
 
 
 if __name__ == "__main__":
     renderer_svg.render(scene, camera)
-    canvas.draw_frame = animate
+    canvas.request_draw(animate)
     app.exec_()

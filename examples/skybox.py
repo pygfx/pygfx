@@ -21,7 +21,7 @@ base_url = "C:/dev/pylib/imageio-binaries/images/"
 for suffix in ("negx", "negy", "negz", "posx", "posy", "posz"):
     im = imageio.imread(base_url + "meadow_" + suffix + ".jpg")
     im = np.concatenate([im, np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
-    im = im[::3, ::3, :]  # todo: don't reduce size when we can use >1MB buffers
+    im = im[::3, ::3, :]  # todo: ? prevent TooManyObjects error
     images.append(im)
 
 # Turn it into a 3D image (a 4d nd array)
@@ -44,26 +44,19 @@ cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 
 camera = gfx.PerspectiveCamera(70)
-camera.position.z = 400
+camera.position.z = 0
 
 
 def animate():
-    # would prefer to do this in a resize event only
-    physical_size = canvas.get_physical_size()
-    camera.set_viewport_size(*physical_size)
-
     # cube.rotation.x += 0.005
     # cube.rotation.y += 0.01
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0005, 0.001))
     cube.rotation.multiply(rot)
 
-    # actually render the scene
     renderer.render(scene, camera)
-
-    # Request new frame
     canvas.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(animate)
     app.exec_()

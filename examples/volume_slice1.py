@@ -49,17 +49,6 @@ def scroll(degrees):
     canvas.request_draw()
 
 
-def animate():
-    global t
-
-    # would prefer to do this in a resize event only
-    physical_size = canvas.get_physical_size()
-    camera.set_viewport_size(*physical_size)
-
-    # actually render the scene
-    renderer.render(scene, camera)
-
-
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     app.exec_()

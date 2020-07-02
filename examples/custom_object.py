@@ -83,12 +83,10 @@ camera = gfx.NDCCamera()  # This material does not actually use the camera
 
 
 def animate():
-    physical_size = canvas.get_physical_size()
-    camera.set_viewport_size(*physical_size)
     renderer.render(scene, camera)
 
 
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(animate)
     app.exec_()
     canvas.closeEvent = lambda *args: app.quit()

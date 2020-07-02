@@ -38,10 +38,6 @@ t = time.time()
 def animate():
     global t
 
-    # would prefer to do this in a resize event only
-    physical_size = canvas.get_physical_size()
-    camera.set_viewport_size(*physical_size)
-
     if time.time() - t > 0.05:
         # Read next frame, rewind if we reach the end
         t = time.time()
@@ -53,10 +49,7 @@ def animate():
             tex.update_range((0, 0, 0), tex.size)
             material.dirty = 1
 
-    # actually render the scene
     renderer.render(scene, camera)
-
-    # Request new frame
     canvas.request_draw()
 
 
