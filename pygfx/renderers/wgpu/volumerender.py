@@ -6,7 +6,7 @@ from pyshader import vec3, vec4
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
 from ...materials import MeshVolumeSliceMaterial
-from ...datawrappers import BaseBuffer, BaseTexture, TextureView
+from ...datawrappers import Buffer, Texture, TextureView
 
 
 @python2shader
@@ -55,7 +55,7 @@ def mesh_slice_renderer(wobject, render_info):
 
     # Use index buffer if present on the geometry
     index_buffer = getattr(geometry, "index", None)
-    index_buffer = index_buffer if isinstance(index_buffer, BaseBuffer) else None
+    index_buffer = index_buffer if isinstance(index_buffer, Buffer) else None
 
     # Collect vertex buffers
     vertex_buffers = []
@@ -70,7 +70,7 @@ def mesh_slice_renderer(wobject, render_info):
 
     # Collect texture and sampler
     if material.map is not None:
-        if isinstance(material.map, BaseTexture):
+        if isinstance(material.map, Texture):
             raise TypeError("material.map is a Texture, but must be a TextureView")
         elif not isinstance(material.map, TextureView):
             raise TypeError("material.map must be a TextureView")

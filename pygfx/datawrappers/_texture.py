@@ -1,17 +1,19 @@
-import ctypes
-
 import numpy as np
 
+from ._buffer import STRUCT_FORMAT_ALIASES
 
 # todo: what to do about these enums from wgpu. Copy them over?
 
 
-class BaseTexture:
+class Texture:
     """ A base texture wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
 
     Parameters:
-        data (ndarray, optional): The array data as an nd array.
+        data (array, optional): Array data of any type that supports the
+            buffer-protocol, (e.g. a bytes or numpy array). If not given
+            or None, nbytes and nitems must be provided. The data is
+            copied if it's float64 or not contiguous.
         dim (int): The dimensionality of the array (1, 2 or 3).
         usage: The way(s) that the texture will be used. Default "SAMPLED",
             set/add "STORAGE" if you're using it as a storage texture
@@ -23,7 +25,7 @@ class BaseTexture:
         format (enum str): the GPU format of texture. If not given or None,
             it is derived from the given data dtype. Otherwise, provide a
             value from wgpu.TextureFormat.
-            THIS IS NOT TRUE. we need to decided what happens with uint8
+            THIS IS NOT TRUE. we need to decide what happens with uint8
     """
 
     def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
@@ -41,9 +43,13 @@ class BaseTexture:
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
         if data is not None:
+            mem = memoryview(data)
+            if mem.format == "d":
+                raise ValueError("Float64 data is not supported, use float32 instead.")
             self._data = data
-            self._size = self._size_from_data(data, dim, size)
-            self._nbytes = self._nbytes_from_data(data)
+            self._mem = mem
+            self._nbytes = mem.nbytes
+            self._size = self._size_from_data(mem, dim, size)
             self._pending_uploads.append(((0, 0, 0), self._size))
         elif size is not None and format is not None:
             self._size = size
@@ -58,11 +64,11 @@ class BaseTexture:
             assert usages
             self._usage = "|".join(usages)
         else:
-            raise TypeError("Buffer usage must be str.")
+            raise TypeError("Texture usage must be str.")
 
     @property
     def dirty(self):
-        """ Whether the buffer is dirty (needs to be processed by the renderer).
+        """ Whether the texture is dirty (needs to be processed by the renderer).
         """
         return bool(self._pending_uploads)
 
@@ -85,6 +91,20 @@ class BaseTexture:
         return self._usage
 
     @property
+    def data(self):
+        """ The data for this texture as originally provided. Can be None if the
+        data only exists on the GPU.
+        """
+        return self._data
+
+    @property
+    def mem(self):
+        """ The data for this buffer as a memoryview. Can be None if
+        the data only exists on the GPU.
+        """
+        return self._mem
+
+    @property
     def nbytes(self):
         """ Get the number of bytes in the texture.
         """
@@ -104,18 +124,13 @@ class BaseTexture:
         """
         if self._format is not None:
             return self._format
+        elif self.usage == "UNIFORM":
+            return None
         elif self.data is not None:
-            self._format = self._format_from_data(self.data)
+            self._format = format_from_memoryview(self.mem, self.size)
             return self._format
         else:
-            raise ValueError("Buffer has no data nor format.")
-
-    @property
-    def data(self):
-        """ The data that is a view on the data. Can be None if the
-        data only exists on the GPU.
-        """
-        return self._data
+            raise ValueError("Texture has no data nor format.")
 
     def update_range(self, offset, size):
         """ Mark a certain range of the data for upload to the GPU.
@@ -140,32 +155,6 @@ class BaseTexture:
             size = tuple(max(size[i], cur_size[i]) for i in range(3))
         # Apply
         self._pending_uploads.append((offset, size))
-
-    # To implement in subclasses
-
-    def _nbytes_from_data(self, data):
-        raise NotImplementedError()
-
-    def _size_from_data(self, data, dim, size):
-        raise NotImplementedError()
-
-    def _format_from_data(self, data):
-        raise NotImplementedError()
-
-    def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
-        """ Allows renderer to efficiently copy the data.
-        """
-        raise NotImplementedError()
-
-
-class Texture(BaseTexture):  # numpy-based
-    """ Object that wraps a (GPU) texture object, optionally providing data
-    for it, and optionally *mapping* the data so it's shared. But you can also
-    use it as a placeholder for a texture with no representation on the CPU.
-    """
-
-    def _nbytes_from_data(self, data):
-        return data.nbytes
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
@@ -194,56 +183,68 @@ class Texture(BaseTexture):  # numpy-based
             else:  # dim == 3:
                 return shape[2], shape[1], shape[0]
 
-    def _format_from_data(self, data):
-        dtype = data.dtype
-        # Process channels
-        shape = data.shape
-        collapsed_size = [x for x in self._size if x > 1]
-        if len(shape) == len(collapsed_size) + 1:
-            nchannels = shape[-1]
-        else:
-            assert len(shape) == len(collapsed_size)
-            nchannels = 1
-        assert 1 <= nchannels <= 4
-        format = [None, "r", "rg", "rgb", "rgba"][nchannels]
-        if format == "rgb":
-            raise ValueError("RGB textures not supported, use RGBA instead")
-        # Process dtype. We select the format that matches the dtype.
-        # This means that uint8 values become 0..255 in the shader.
-        # todo: not yet entirely sure about this
-        # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
-        formatmap = {
-            # "int8": "8snorm",
-            # "uint8": "8unorm",
-            "int8": "8sint",
-            "uint8": "8uint",
-            "int16": "16sint",
-            "uint16": "16uint",
-            "int32": "32sint",
-            "uint32": "32uint",
-            "float16": "16float",
-            "float32": "32float",
-        }
-        if dtype == np.float64:
-            raise TypeError("GPU's don't support float64 texture formats.")
-        elif dtype.name not in formatmap:
-            raise TypeError(
-                f"Cannot convert {dtype} to texture format. Maybe specify format?"
+    def _get_subdata(self, offset, size):
+        """ Return subdata as a contiguous array.
+        """
+        # If this is a full range, this is easy
+        if offset == 0 and size == self.nitems and self.mem.contiguous:
+            return self.mem
+        # Get a numpy array, because memoryviews do not support nd slicing
+        if isinstance(self.data, np.ndarray):
+            arr = self.data
+        elif not self.mem.c_contiguous:
+            raise ValueError(
+                "Non-contiguous texture data is only supported for numpy array."
             )
-        format += formatmap[dtype.name]
-        return format
-
-    def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
-        # todo: double check that we don't make unnecessary copies here
+        else:
+            arr = np.frombuffer(self.mem, self.mem.format).reshape(self.mem.shape)
+        # Slice it
         slices = []
         for d in reversed(range(self.dim)):
             slices.append(slice(offset[d], offset[d] + size[d]))
-        subdata = np.ascontiguousarray(self._data[tuple(slices)])
-        nbytes = ctypes.sizeof(ob)
-        assert nbytes == subdata.nbytes
-        ctypes.memmove(
-            ctypes.addressof(ob), subdata.ctypes.data, nbytes,
+        sub_arr = arr[tuple(slices)]
+        return memoryview(np.ascontiguousarray(sub_arr))
+
+
+def format_from_memoryview(mem, size):
+    format = str(mem.format)
+    format = STRUCT_FORMAT_ALIASES.get(format, format)
+    # Process channels
+    shape = mem.shape
+    collapsed_size = [x for x in size if x > 1]
+    if len(shape) == len(collapsed_size) + 1:
+        nchannels = shape[-1]
+    else:
+        assert len(shape) == len(collapsed_size)
+        nchannels = 1
+    assert 1 <= nchannels <= 4
+    tex_format = [None, "r", "rg", "rgb", "rgba"][nchannels]
+    if tex_format == "rgb":
+        raise ValueError("RGB textures not supported, use RGBA instead")
+    # Process dtype. We select the tex_format that matches the dtype.
+    # This means that uint8 values become 0..255 in the shader.
+    # todo: not yet entirely sure about this
+    # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
+    texformatmap = {
+        # "int8": "8snorm",
+        # "uint8": "8unorm",
+        "b": "8sint",
+        "B": "8uint",
+        "h": "16sint",
+        "H": "16uint",
+        "i": "32sint",
+        "U": "32uint",
+        "e": "16float",
+        "f": "32float",
+    }
+    if format in ("d", "float64"):
+        raise TypeError("GPU's don't support float64 texture formats.")
+    elif format not in texformatmap:
+        raise TypeError(
+            f"Cannot convert {format!r} to texture format. Maybe specify format?"
         )
+    tex_format += texformatmap[format]
+    return tex_format
 
 
 # mipmaps: every texture can have a certain number of mipmap levels. Each
@@ -290,7 +291,7 @@ class TextureView:
         mip_range=None,
         layer_range=None,
     ):
-        assert isinstance(texture, BaseTexture)
+        assert isinstance(texture, Texture)
         self._texture = texture
         # Sampler parameters
         self._address_mode = address_mode

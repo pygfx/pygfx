@@ -6,7 +6,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...linalg import Matrix4, Vector3
-from ...datawrappers import BaseBuffer, Buffer, TextureView
+from ...datawrappers import Buffer, TextureView
 from ...utils import array_from_shadertype
 
 
@@ -67,7 +67,6 @@ class WgpuRenderer(Renderer):
         self._swap_chain = self._device.configure_swap_chain(
             canvas, wgpu.TextureFormat.bgra8unorm_srgb,
         )
-        self._depth_texture_size = (0, 0)
 
     def render(self, scene: WorldObject, camera: Camera):
         """ Main render method, called from the canvas.
@@ -84,6 +83,7 @@ class WgpuRenderer(Renderer):
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
+        camera.set_viewport_size(*logical_size)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
@@ -99,17 +99,6 @@ class WgpuRenderer(Renderer):
 
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_data is not None]
-
-        # Prepate depth texture
-        if self._depth_texture_size != physical_size:
-            self._depth_texture_size = physical_size
-            self._depth_texture = device.create_texture(
-                size=(physical_size[0], physical_size[1], 1),
-                usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-                dimension="2d",
-                format=wgpu.TextureFormat.depth32float,
-            )
-            self._depth_texture_view = self._depth_texture.create_view()
 
         # Prepare for rendering
         command_encoder = device.create_command_encoder()
@@ -149,6 +138,17 @@ class WgpuRenderer(Renderer):
         # ----- render pipelines rendering to the default target
 
         with self._swap_chain as texture_view_target:
+
+            # Prepate depth texture
+            if texture_view_target.size != getattr(self, "_swap_chain_size", None):
+                self._swap_chain_size = texture_view_target.size
+                self._depth_texture = device.create_texture(
+                    size=texture_view_target.size,
+                    usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+                    dimension="2d",
+                    format=wgpu.TextureFormat.depth32float,
+                )
+                self._depth_texture_view = self._depth_texture.create_view()
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=[
@@ -268,7 +268,7 @@ class WgpuRenderer(Renderer):
                             wgpu.BindingType.storage_buffer,
                             wgpu.BindingType.readonly_storage_buffer,
                         ):
-                            assert isinstance(resource, BaseBuffer)
+                            assert isinstance(resource, Buffer)
                             self._update_buffer(resource)
                         elif binding_type in (
                             wgpu.BindingType.sampled_texture,
@@ -514,8 +514,8 @@ class WgpuRenderer(Renderer):
         return {
             "pipeline": pipeline,  # wgpu object
             "index_args": index_args,  # tuple
-            "index_buffer": wgpu_index_buffer,  # BaseBuffer
-            "vertex_buffers": vertex_buffers,  # list of BaseBuffer
+            "index_buffer": wgpu_index_buffer,  # Buffer
+            "vertex_buffers": vertex_buffers,  # list of Buffer
             "bind_groups": bind_groups,  # list of wgpu bind_group objects
         }
 
@@ -559,7 +559,7 @@ class WgpuRenderer(Renderer):
                     wgpu.BindingType.readonly_storage_buffer,
                 ):
                     # A buffer resource
-                    assert isinstance(resource, BaseBuffer)
+                    assert isinstance(resource, Buffer)
                     bindings.append(
                         {
                             "binding": slot,
@@ -652,6 +652,7 @@ class WgpuRenderer(Renderer):
 
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
+        bytes_per_item = resource.nbytes // resource.nitems
 
         # Create buffer if needed
         if buffer is None or buffer.size != resource.nbytes:
@@ -660,20 +661,28 @@ class WgpuRenderer(Renderer):
                 usage |= getattr(wgpu.BufferUsage, u)
             buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
 
+        queue = self._device.default_queue
+        encoder = self._device.create_command_encoder()
+
         # Upload any pending data
         for offset, size in pending_uploads:
-            bytes_per_item = resource.nbytes // resource.nitems
+            subdata = resource._get_subdata(offset, size)
+            # A: map the buffer, writes to it, then unmaps.
+            # Seems nice, but requires BufferUsage.MAP_WRITE. Not recommended.
+            # buffer.write_data(subdata, bytes_per_item * offset)
+            # B: roll data in new buffer, copy from there to existing buffer
+            tmp_buffer = self._device.create_buffer_with_data(
+                data=subdata, usage=wgpu.BufferUsage.COPY_SRC,
+            )
             boffset, bsize = bytes_per_item * offset, bytes_per_item * size
-            sub_buffer = self._device.create_buffer_mapped(
-                size=bsize, usage=wgpu.BufferUsage.COPY_SRC,
-            )
-            resource._renderer_copy_data_to_ctypes_object(
-                sub_buffer.mapping, offset, size
-            )
-            sub_buffer.unmap()
-            command_encoder = self._device.create_command_encoder()
-            command_encoder.copy_buffer_to_buffer(sub_buffer, 0, buffer, boffset, bsize)
-            self._device.default_queue.submit([command_encoder.finish()])
+            encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)
+            # C: using queue. This may be sugar for B, but it may also be optimized
+            # Unfortunately, this seems to crash the device :/
+            # queue.write_buffer(buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes)
+            # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
+            # todo: look into staging buffers?
+
+        queue.submit([encoder.finish()])
         resource._wgpu_buffer = buffer
 
     def _update_texture_view(self, resource):
@@ -685,7 +694,7 @@ class WgpuRenderer(Renderer):
                 assert resource._mip_range.step == 1
                 assert resource._layer_range.step == 1
                 texture_view = resource.texture._wgpu_texture.create_view(
-                    format=resource._format,
+                    format=resource.format,
                     dimension=f"{dim}d" if isinstance(dim, int) else dim,
                     aspect=resource._aspect,
                     base_mip_level=resource._mip_range.start,
@@ -717,36 +726,43 @@ class WgpuRenderer(Renderer):
                 sample_count=1,
             )  # todo: let resource specify mip_level_count and sample_count
 
+        bytes_per_pixel = resource.nbytes // (
+            resource.size[0] * resource.size[1] * resource.size[2]
+        )
+
+        queue = self._device.default_queue
+        encoder = self._device.create_command_encoder()
+
         # Upload any pending data
         for offset, size in pending_uploads:
-            bytes_per_pixel = resource.nbytes // (
-                resource.size[0] * resource.size[1] * resource.size[2]
+            subdata = resource._get_subdata(offset, size)
+            # B: using a temp buffer
+            # tmp_buffer = self._device.create_buffer_with_data(data=subdata,
+            #     usage=wgpu.BufferUsage.COPY_SRC,
+            # )
+            # encoder.copy_buffer_to_texture(
+            #     {
+            #         "buffer": tmp_buffer,
+            #         "offset": 0,
+            #         "bytes_per_row": size[0] * bytes_per_pixel,
+            #         "rows_per_image": size[1],
+            #     },
+            #     {
+            #         "texture": texture,
+            #         "mip_level": 0,
+            #         "origin": offset,
+            #     },
+            #     copy_size=size,
+            # )
+            # C: using the queue, which may be doing B, but may also be optimized
+            queue.write_texture(
+                {"texture": texture, "origin": offset, "mip_level": 0},
+                subdata,
+                {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
+                size,
             )
-            nbytes = bytes_per_pixel * size[0] * size[1] * size[2]
-            sub_buffer = self._device.create_buffer_mapped(
-                size=nbytes, usage=wgpu.BufferUsage.COPY_SRC,
-            )
-            resource._renderer_copy_data_to_ctypes_object(
-                sub_buffer.mapping, offset, size
-            )
-            sub_buffer.unmap()
-            command_encoder = self._device.create_command_encoder()
-            command_encoder.copy_buffer_to_texture(
-                {
-                    "buffer": sub_buffer,
-                    "offset": 0,
-                    "bytes_per_row": size[0] * bytes_per_pixel,
-                    "rows_per_image": size[1],
-                },
-                {
-                    "texture": texture,
-                    "mip_level": 0,
-                    "array_layer": 0,
-                    "origin": offset,
-                },
-                copy_size=size,
-            )
-            self._device.default_queue.submit([command_encoder.finish()])
+
+        queue.submit([encoder.finish()])
         resource._wgpu_texture = texture
 
     def _update_sampler(self, resource):

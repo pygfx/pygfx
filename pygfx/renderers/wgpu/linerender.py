@@ -34,6 +34,7 @@ from ...materials import (
 # But a hybrid approach may be viable: the current approach using VertexId,
 # but preparing some data in a buffer.
 
+# todo: we can learn about dashing, unfolding and more at http://jcgt.org/published/0002/02/08/paper.pdf
 
 # %% Shaders
 
