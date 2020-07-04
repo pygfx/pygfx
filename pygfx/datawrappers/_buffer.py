@@ -225,8 +225,8 @@ def format_from_memoryview(mem, usage):
             #
             ("h", 2): wgpu.VertexFormat.short2,
             ("h", 4): wgpu.VertexFormat.short4,
-            ("I", 2): wgpu.VertexFormat.ushort2,
-            ("I", 4): wgpu.VertexFormat.ushort4,
+            ("H", 2): wgpu.VertexFormat.ushort2,
+            ("H", 4): wgpu.VertexFormat.ushort4,
             #
             ("i", 1): wgpu.VertexFormat.int,
             ("i", 2): wgpu.VertexFormat.int2,

@@ -11,3 +11,4 @@ from ._line import (
     LineArrowMaterial,
 )
 from ._volume import MeshVolumeSliceMaterial
+from ._background import BackgroundMaterial, BackgroundImageMaterial

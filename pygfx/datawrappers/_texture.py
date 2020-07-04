@@ -50,7 +50,7 @@ class Texture:
             self._mem = mem
             self._nbytes = mem.nbytes
             self._size = self._size_from_data(mem, dim, size)
-            self._pending_uploads.append(((0, 0, 0), self._size))
+            self.update_range((0, 0, 0), self._size)
         elif size is not None and format is not None:
             self._size = size
         else:
@@ -148,13 +148,21 @@ class Texture:
             raise ValueError("Update offset must not be negative")
         elif any(b + s > refsize for b, s, refsize in zip(offset, size, self.size)):
             raise ValueError("Update size out of range")
-        # Merge with current entry?
-        if self._pending_uploads:
-            cur_offset, cur_size = self._pending_uploads.pop(-1)
-            offset = tuple(min(offset[i], cur_offset[i]) for i in range(3))
-            size = tuple(max(size[i], cur_size[i]) for i in range(3))
-        # Apply
-        self._pending_uploads.append((offset, size))
+        # Apply - consider that texture arrays want to be uploaded per-texture
+        # todo: avoid duplicates by merging with existing pending uploads
+        if self.dim == 1:
+            for z in range(size[2]):
+                for y in range(size[1]):
+                    offset2 = offset[0], y, z
+                    size2 = size[0], 1, 1
+                    self._pending_uploads.append((offset2, size2))
+        elif self.dim == 2:
+            for z in range(size[2]):
+                offset2 = offset[0], offset[1], z
+                size2 = size[0], size[1], 1
+                self._pending_uploads.append((offset2, size2))
+        else:
+            self._pending_uploads.append((offset, size))
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
@@ -197,10 +205,11 @@ class Texture:
                 "Non-contiguous texture data is only supported for numpy array."
             )
         else:
-            arr = np.frombuffer(self.mem, self.mem.format).reshape(self.mem.shape)
+            arr = np.frombuffer(self.mem, self.mem.format)
+        arr = arr.reshape(self.size[2], self.size[1], self.size[0], -1)
         # Slice it
         slices = []
-        for d in reversed(range(self.dim)):
+        for d in reversed(range(3)):
             slices.append(slice(offset[d], offset[d] + size[d]))
         sub_arr = arr[tuple(slices)]
         return memoryview(np.ascontiguousarray(sub_arr))
