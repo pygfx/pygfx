@@ -15,13 +15,13 @@ from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 # Read images
+# The order of the images here is determined by how the GPU samples cube textures.
 images = []
 # base_url = "https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/"
 base_url = "C:/dev/pylib/imageio-binaries/images/"
-for suffix in ("negx", "negy", "negz", "posx", "posy", "posz"):
+for suffix in ("posx", "negx", "posy", "negy", "posz", "negz"):
     im = imageio.imread(base_url + "meadow_" + suffix + ".jpg")
-    im = np.concatenate([im, np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
-    im = im[::3, ::3, :]  # todo: ? prevent TooManyObjects error
+    im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
     images.append(im)
 
 # Turn it into a 3D image (a 4d nd array)
@@ -38,20 +38,31 @@ tex_size = images[0].shape[0], images[0].shape[1], 6
 tex = gfx.Texture(cubemap_image, dim=2, size=tex_size, usage="sampled")
 view = tex.get_view(view_dim="cube", layer_range=range(6))
 
-geometry = gfx.BoxGeometry(200, 200, 200)
-material = gfx.MeshBasicMaterial(map=view, clim=(0.2, 0.8))
-cube = gfx.Mesh(geometry, material)
-scene.add(cube)
+# And the background image with the cube texture
+background = gfx.Background(gfx.BackgroundImageMaterial(map=view))
+scene.add(background)
+
+# Let's add some cubes to make the scene less boring
+cubes = []
+for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
+    clr = (0.5, 0.6, 0.0, 1.0)
+    cube = gfx.Mesh(gfx.BoxGeometry(200, 200, 200), gfx.MeshBasicMaterial(color=clr))
+    cube.position.from_array(pos)
+    cubes.append(cube)
+    scene.add(cube)
+
 
 camera = gfx.PerspectiveCamera(70)
 camera.position.z = 0
 
 
 def animate():
-    # cube.rotation.x += 0.005
-    # cube.rotation.y += 0.01
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0005, 0.001))
-    cube.rotation.multiply(rot)
+    for cube in cubes:
+        cube.rotation.multiply(rot)
+
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0, 0.0005))
+    camera.rotation.multiply(rot)
 
     renderer.render(scene, camera)
     canvas.request_draw()

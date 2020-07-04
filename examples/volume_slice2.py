@@ -26,7 +26,6 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 vol = imageio.volread("imageio:stent.npz")
-vol[:, 30:-30, 30:-30] = vol.mean()
 nslices = vol.shape[0]
 index = nslices // 2
 
@@ -47,7 +46,6 @@ def scroll(degrees):
     global index
     index = index + int(degrees / 15)
     index = max(0, min(nslices - 1, index))
-    print(index)
     view = tex.get_view(
         filter="linear", view_dim="2d", layer_range=range(index, index + 1)
     )
