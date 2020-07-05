@@ -108,13 +108,11 @@ class BackgroundMaterial(Material):
         self.dirty = True
 
 
-# todo: needs a way to orient the skybox (by default the world is in the x-z plane, with +y pointing up)
-
-
 class BackgroundImageMaterial(BackgroundMaterial):
     """ A background material that displays an image. If map is a 2D
     texture view, it is used as a static background. If it is a cube
     texture view, (on a NxMx6 texture) it is used as a skybox.
+    Use the Background object's transform to orient the image.
     """
 
     def __init__(self, map=None):

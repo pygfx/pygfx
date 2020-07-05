@@ -1,11 +1,9 @@
 """
-Example showing a single geometric cube.
+Example with a skybox background.
 
 Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.rs
 """
 
-# todo: not working ATM, a Rust assertion fails in _update_texture(),
-# let's wait til the next release of wgpu-native and try again
 
 import numpy as np
 import imageio
@@ -28,7 +26,6 @@ for suffix in ("posx", "negx", "posy", "negy", "posz", "negz"):
 cubemap_image = np.concatenate(images, 0).reshape(-1, *images[0].shape)
 
 app = QtWidgets.QApplication([])
-
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

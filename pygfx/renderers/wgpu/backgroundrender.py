@@ -64,7 +64,7 @@ def vertex_shader_skybox(
     ndc_pos1 = positions[index]
     ndc_pos2 = vec4(ndc_pos1.xy, ndc_pos1.z + 0.1, ndc_pos1.z)
     # Project both points to world coordinates
-    inv_proj = matrix_inverse(u_stdinfo.projection_transform * u_stdinfo.cam_transform)
+    inv_proj = matrix_inverse(u_stdinfo.projection_transform * u_stdinfo.cam_transform *  u_stdinfo.world_transform)
     wpos1 = inv_proj * ndc_pos1
     wpos2 = inv_proj * ndc_pos2
     wpos1 = wpos1.xyzw / wpos1.w
