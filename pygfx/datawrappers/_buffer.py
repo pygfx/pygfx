@@ -21,8 +21,10 @@ class Buffer:
             with "|". See wgpu.BufferUsage.
         nbytes (int): The number of bytes. If data is given, it is derived.
         nitems (int): The number of items. If data is given, it is derived.
-        vertex_format (str): The format to use when used as a vertex buffer.
-            If data is given, it is derived. Must be a value from wgpu.VertexFormat.
+        format (str): The format to use when used as a vertex buffer.
+            Must be a value from wgpu.VertexFormat. By default it is
+            derived from the data. Set when data is not given or when
+            you want to overload the derived value.
     """
 
     def __init__(
@@ -88,8 +90,11 @@ class Buffer:
 
     @property
     def data(self):
-        """ The data for this buffer as originally provided. Can be None if
-        the data only exists on the GPU.
+        """ The data for this buffer. Can be None if the data only
+        exists on the GPU.
+
+        Note: the data is the same reference that was given to instantiate this object,
+        but this may change.
         """
         return self._data
 

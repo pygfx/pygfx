@@ -22,10 +22,9 @@ class Texture:
             If not given or None, it is derived from dim and the shape of
             the data. By creating a 2D array with ``depth > 1``, a view can
             be created with format 'd2_array' or 'cube'.
-        format (enum str): the GPU format of texture. If not given or None,
-            it is derived from the given data dtype. Otherwise, provide a
-            value from wgpu.TextureFormat.
-            THIS IS NOT TRUE. we need to decide what happens with uint8
+        format (enum str): the GPU format of texture. Must be a value from
+            wgpu.TextureFormat. By default it is derived from the data. Set when
+            data is not given or when you want to overload the derived value.
     """
 
     def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
@@ -92,8 +91,11 @@ class Texture:
 
     @property
     def data(self):
-        """ The data for this texture as originally provided. Can be None if the
-        data only exists on the GPU.
+        """ The data for this texture. Can be None if the data only
+        exists on the GPU.
+
+        Note: the data is the same reference that was given to
+        instantiate this object, but this may change.
         """
         return self._data
 
