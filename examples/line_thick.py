@@ -39,14 +39,6 @@ for line in [line1, line2, line3, line4]:
 camera = gfx.ScreenCoordsCamera()
 
 
-def animate():
-    # would prefer to do this in a resize event only
-    lsize = canvas.get_logical_size()
-    camera.set_viewport_size(*lsize)
-    renderer.render(scene, camera)
-    canvas.request_draw()
-
-
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     app.exec_()

@@ -1,23 +1,30 @@
-import ctypes
+import numpy as np
 
 import wgpu
 
+STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
-class BaseBuffer:
-    """ A base buffer class that does not make assumptions on the kind
-    of array (numpy, ctypes or otherwise).
+
+class Buffer:
+    """ A buffer object represents a piece of memory to the GPU, that can be
+    used as index buffer, vertex buffer, uniform buffer, or storage buffer.
+    You can provide (and update data for it), or use it as a placeholder
+    for a buffer with no representation on the CPU.
 
     Parameters:
-        data (array): Array data. Optional. If not given, nbytes and nitems
-            must be provided, and format if used as an index or vertex buffer.
+        data (array, optional): Array data of any type that supports the
+            buffer-protocol, (e.g. a bytes or numpy array). If not given
+            or None, nbytes and nitems must be provided. The data is
+            copied if it's float64 or not contiguous.
         usage (str): The way(s) that the texture will be used. E.g. "INDEX"
             "VERTEX", "UNIFORM". Multiple values can be given separated
             with "|". See wgpu.BufferUsage.
         nbytes (int): The number of bytes. If data is given, it is derived.
         nitems (int): The number of items. If data is given, it is derived.
-        vertex_format (str): The format to use when used as a vertex buffer.
-            If data is given, it is derived. Must be a value from
-            wgpu.VertexFormat.
+        format (str): The format to use when used as a vertex buffer.
+            Must be a value from wgpu.VertexFormat. By default it is
+            derived from the data. Set when data is not given or when
+            you want to overload the derived value.
     """
 
     def __init__(
@@ -33,16 +40,23 @@ class BaseBuffer:
 
         # Get nbytes
         if data is not None:
+            mem = memoryview(data)
+            if mem.format == "d":
+                raise ValueError("Float64 data is not supported, use float32 instead.")
+            # if not mem.contiguous or mem.format == "d":
+            #     format = "f" if mmemformat == "d" else mem.format
+            #     x = np.empty(mem.shape, format)
+            #     x[:] = mem
+            #     mem = memoryview(x)
             self._data = data
-            self._nbytes = self._nbytes_from_data(data)
-            self._nitems = self._nitems_from_data(data, nitems)
+            self._mem = mem
+            self._nbytes = mem.nbytes
+            self._nitems = mem.shape[0] if mem.shape else 1
             self._pending_uploads.append((0, self._nitems))
-            if nbytes is not None:
-                if nbytes != self._nbytes:
-                    raise ValueError("Given nbytes does not match size of given data.")
-            if nitems is not None:
-                if nitems != self._nitems:
-                    raise ValueError("Given nitems does not match shape of given data.")
+            if nbytes is not None and nbytes != self._nbytes:
+                raise ValueError("Given nbytes does not match size of given data.")
+            if nitems is not None and nitems != self._nitems:
+                raise ValueError("Given nitems does not match shape of given data.")
         elif nbytes is not None and nitems is not None:
             self._nbytes = int(nbytes)
             self._nitems = int(nitems)
@@ -75,6 +89,23 @@ class BaseBuffer:
         return self._usage
 
     @property
+    def data(self):
+        """ The data for this buffer. Can be None if the data only
+        exists on the GPU.
+
+        Note: the data is the same reference that was given to instantiate this object,
+        but this may change.
+        """
+        return self._data
+
+    @property
+    def mem(self):
+        """ The data for this buffer as a memoryview. Can be None if
+        the data only exists on the GPU.
+        """
+        return self._mem
+
+    @property
     def nbytes(self):
         """ The number of bytes in the buffer.
         """
@@ -93,7 +124,7 @@ class BaseBuffer:
         if self._format is not None:
             return self._format
         elif self.data is not None:
-            self._format = self._format_from_data(self.data)
+            self._format = format_from_memoryview(self.mem, self.usage)
             return self._format
         else:
             raise ValueError("Buffer has no data nor format.")
@@ -110,13 +141,6 @@ class BaseBuffer:
         assert offset >= 0
         assert offset + nbytes <= self.nbytes
         self._vertex_byte_range = offset, nbytes
-
-    @property
-    def data(self):
-        """ The data for this buffer as given when instantiated. Can
-        be None if the data only exists on the GPU.
-        """
-        return self._data
 
     def update_range(self, offset=0, size=2 ** 50):
         """ Mark a certain range of the data for upload to the GPU. The
@@ -142,105 +166,88 @@ class BaseBuffer:
         self._pending_uploads.append((offset, size))
         # todo: this can be smarter, we have logic for chunking in the morph tool
 
-    # To implement in subclasses
-
-    def _nbytes_from_data(self, data):
-        raise NotImplementedError()
-
-    def _nitems_from_data(self, data, nitems):
-        raise NotImplementedError()
-
-    def _format_from_data(self, data):
-        raise NotImplementedError()
-
-    def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
-        """ Allows renderer to efficiently copy the data.
+    def _get_subdata(self, offset, size):
+        """ Return subdata as a contiguous array.
         """
-        raise NotImplementedError()
-
-
-class Buffer(BaseBuffer):  # numpy-based
-    """ A class that wraps a (GPU) buffer object, optionally providing
-    data for it. You can also use it as a placeholder for a buffer with
-    no representation on the CPU.
-    """
-
-    def _nbytes_from_data(self, data):
-        return data.nbytes
-
-    def _nitems_from_data(self, data, nitems):
-        if data.shape:
-            return data.shape[0]
+        # If this is a full range, this is easy
+        if offset == 0 and size == self.nitems and self.mem.contiguous:
+            return self.mem
+        # Get a numpy array, because memoryviews do not support nd slicing
+        if isinstance(self.data, np.ndarray):
+            arr = self.data
+        elif not self.mem.c_contiguous:
+            raise ValueError(
+                "Non-contiguous texture data is only supported for numpy array."
+            )
         else:
-            return 1
+            arr = np.frombuffer(self.mem, self.mem.format).reshape(self.mem.shape)
+        # Slice it
+        sub_arr = arr[offset:size]
+        return memoryview(np.ascontiguousarray(sub_arr))
 
-    def _format_from_data(self, data):
-        if "INDEX" in self.usage:
 
-            key = str(data.dtype)
-            mapping = {
-                "int16": wgpu.IndexFormat.uint16,
-                "uint16": wgpu.IndexFormat.uint16,
-                "int32": wgpu.IndexFormat.uint32,
-                "uint32": wgpu.IndexFormat.uint32,
-            }
-            try:
-                return mapping[key]
-            except KeyError:
-                raise TypeError(
-                    "Need dtype (u)int16 or (u)int32 for index data, not '{dtype}'."
+def format_from_memoryview(mem, usage):
+
+    if "INDEX" in usage:
+
+        format = str(mem.format)
+        format = STRUCT_FORMAT_ALIASES.get(format, format)
+        mapping = {
+            "h": wgpu.IndexFormat.uint16,
+            "H": wgpu.IndexFormat.uint16,
+            "i": wgpu.IndexFormat.uint32,
+            "I": wgpu.IndexFormat.uint32,
+        }
+        try:
+            return mapping[format]
+        except KeyError:
+            raise TypeError(
+                f"Need 16bit or 32bit signed/unsigned int (hHiI) for index data, not '{format}'."
+            )
+
+    else:  # if "VERTEX" in self.usage:
+
+        shape = mem.shape
+        if len(shape) == 1:
+            shape = shape + (1,)
+        assert len(shape) == 2
+        format = str(mem.format)
+        format = STRUCT_FORMAT_ALIASES.get(format, format)
+        key = format, shape[-1]
+        mapping = {
+            ("f", 1): wgpu.VertexFormat.float,
+            ("f", 2): wgpu.VertexFormat.float2,
+            ("f", 3): wgpu.VertexFormat.float3,
+            ("f", 4): wgpu.VertexFormat.float4,
+            #
+            ("e", 2): wgpu.VertexFormat.half2,
+            ("e", 4): wgpu.VertexFormat.half4,
+            #
+            ("b", 2): wgpu.VertexFormat.char2,
+            ("b", 4): wgpu.VertexFormat.char4,
+            ("B", 2): wgpu.VertexFormat.uchar2,
+            ("B", 4): wgpu.VertexFormat.uchar4,
+            #
+            ("h", 2): wgpu.VertexFormat.short2,
+            ("h", 4): wgpu.VertexFormat.short4,
+            ("H", 2): wgpu.VertexFormat.ushort2,
+            ("H", 4): wgpu.VertexFormat.ushort4,
+            #
+            ("i", 1): wgpu.VertexFormat.int,
+            ("i", 2): wgpu.VertexFormat.int2,
+            ("i", 3): wgpu.VertexFormat.int3,
+            ("i", 4): wgpu.VertexFormat.int4,
+            #
+            ("I", 1): wgpu.VertexFormat.uint,
+            ("I", 2): wgpu.VertexFormat.uint2,
+            ("I", 3): wgpu.VertexFormat.uint3,
+            ("I", 4): wgpu.VertexFormat.uint4,
+        }
+        try:
+            return mapping[key]
+        except KeyError:
+            if format in ("d", "float64"):
+                raise ValueError(
+                    "64-bit float is not supported, use 32-bit float instead"
                 )
-
-        else:  # if "VERTEX" in self.usage:
-
-            shape = data.shape
-            if len(shape) == 1:
-                shape = shape + (1,)
-            assert len(shape) == 2
-            key = str(data.dtype), shape[-1]
-            mapping = {
-                ("float32", 1): wgpu.VertexFormat.float,
-                ("float32", 2): wgpu.VertexFormat.float2,
-                ("float32", 3): wgpu.VertexFormat.float3,
-                ("float32", 4): wgpu.VertexFormat.float4,
-                #
-                ("float16", 2): wgpu.VertexFormat.half2,
-                ("float16", 4): wgpu.VertexFormat.half4,
-                #
-                ("int8", 2): wgpu.VertexFormat.char2,
-                ("int8", 4): wgpu.VertexFormat.char4,
-                ("uint8", 2): wgpu.VertexFormat.uchar2,
-                ("uint8", 4): wgpu.VertexFormat.uchar4,
-                #
-                ("int16", 2): wgpu.VertexFormat.short2,
-                ("int16", 4): wgpu.VertexFormat.short4,
-                ("uint16", 2): wgpu.VertexFormat.ushort2,
-                ("uint16", 4): wgpu.VertexFormat.ushort4,
-                #
-                ("int32", 1): wgpu.VertexFormat.int,
-                ("int32", 2): wgpu.VertexFormat.int2,
-                ("int32", 3): wgpu.VertexFormat.int3,
-                ("int32", 4): wgpu.VertexFormat.int4,
-                #
-                ("uint32", 1): wgpu.VertexFormat.uint,
-                ("uint32", 2): wgpu.VertexFormat.uint2,
-                ("uint32", 3): wgpu.VertexFormat.uint3,
-                ("uint32", 4): wgpu.VertexFormat.uint4,
-            }
-            try:
-                return mapping[key]
-            except KeyError:
-                if data.dtype == "float64":
-                    raise ValueError(
-                        "64-bit float is not supported, use 32-bit float instead"
-                    )
-                raise ValueError(f"Invalid dtype/shape for vertex data: {key}")
-
-    def _renderer_copy_data_to_ctypes_object(self, ob, offset, size):
-        nbytes_per_item = self._nbytes // self._nitems
-        byte_offset = offset * nbytes_per_item
-        byte_size = size * nbytes_per_item
-        assert byte_size == ctypes.sizeof(ob)
-        ctypes.memmove(
-            ctypes.addressof(ob), self.data.ctypes.data + byte_offset, byte_size,
-        )
+            raise ValueError(f"Invalid format/shape for vertex data: {key}")

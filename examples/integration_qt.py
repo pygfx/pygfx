@@ -22,7 +22,7 @@ class Main(QtWidgets.QWidget):
         self._camera = gfx.OrthographicCamera(110, 110)
 
         # Hook up the animate callback
-        self._canvas.draw_frame = self.animate
+        self._canvas.request_draw(self.animate)
 
         layout = QtWidgets.QHBoxLayout()
         self.setLayout(layout)
@@ -40,8 +40,6 @@ class Main(QtWidgets.QWidget):
         self._canvas.update()
 
     def animate(self):
-        psize = self._canvas.get_physical_size()
-        self._camera.set_viewport_size(*psize)
         self._renderer.render(self._scene, self._camera)
 
 

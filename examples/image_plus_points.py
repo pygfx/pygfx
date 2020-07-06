@@ -18,7 +18,7 @@ scene = gfx.Scene()
 
 # %% add image
 
-im = imageio.imread("imageio:astronaut.png")[::2, ::2, :]
+im = imageio.imread("imageio:astronaut.png")
 im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)  # yuk!
 
 tex = gfx.Texture(im, dim=2, usage="sampled")
@@ -50,15 +50,9 @@ camera.position.set(256, 256, 0)
 
 
 def animate():
-    # would prefer to do this in a resize event only
-    logical_size = canvas.get_logical_size()
-    camera.set_viewport_size(*logical_size)
-    # actually render the scene
     renderer.render(scene, camera)
-    # Request new frame
-    canvas.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(animate)
     app.exec_()

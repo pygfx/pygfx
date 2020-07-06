@@ -57,15 +57,9 @@ for plane in (plane1, plane2, plane3, plane4):
 
 
 def animate():
-    # would prefer to do this in a resize event only
-    logical_size = canvas.get_logical_size()
-    camera.set_viewport_size(*logical_size)
-    # actually render the scene
     renderer.render(scene, camera)
-    # Request new frame
-    canvas.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.draw_frame = animate
+    canvas.request_draw(animate)
     app.exec_()
