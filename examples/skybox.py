@@ -4,7 +4,6 @@ Example with a skybox background.
 Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.rs
 """
 
-
 import numpy as np
 import imageio
 import pygfx as gfx
@@ -12,18 +11,14 @@ import pygfx as gfx
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
-# Read images
-# The order of the images here is determined by how the GPU samples cube textures.
-images = []
-# base_url = "https://raw.githubusercontent.com/imageio/imageio-binaries/master/images/"
-base_url = "C:/dev/pylib/imageio-binaries/images/"
-for suffix in ("posx", "negx", "posy", "negy", "posz", "negz"):
-    im = imageio.imread(base_url + "meadow_" + suffix + ".jpg")
-    im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
-    images.append(im)
+# Read the image
+# The order of the images is already correct for GPU cubemap texture sampling
+im = imageio.imread("imageio:meadow_cube.jpg")
+im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
 
 # Turn it into a 3D image (a 4d nd array)
-cubemap_image = np.concatenate(images, 0).reshape(-1, *images[0].shape)
+width = height = im.shape[1]
+im.shape = -1, width, height, 4
 
 app = QtWidgets.QApplication([])
 canvas = WgpuCanvas()
@@ -31,8 +26,8 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 # Create cubemap texture
-tex_size = images[0].shape[0], images[0].shape[1], 6
-tex = gfx.Texture(cubemap_image, dim=2, size=tex_size, usage="sampled")
+tex_size = width, height, 6
+tex = gfx.Texture(im, dim=2, size=tex_size, usage="sampled")
 view = tex.get_view(view_dim="cube", layer_range=range(6))
 
 # And the background image with the cube texture
