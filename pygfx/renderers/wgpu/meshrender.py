@@ -44,6 +44,8 @@ def mesh_renderer(wobject, render_info):
     if getattr(geometry, "texcoords", None) is not None:
         vertex_buffers.append(geometry.texcoords)
 
+    # todo: fail if no texcoords are given, make vertex_buffers a dict!
+
     # Normals
     if getattr(geometry, "normals", None) is not None:
         normal_buffer = geometry.normals
@@ -258,26 +260,43 @@ def fragment_shader_phong(
     v_light: (pyshader.RES_INPUT, 3, vec3),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
-    albeido = u_mesh.color.rgb
-    ambient_color = vec3(0.002, 0.002, 0.002)
-    light_color = vec3(1.0, 1.0, 1.0)
+    # todo: configure lights, and multiple lights
+    # todo: allow configuring material specularity
 
+    # Base colors
+    albeido = u_mesh.color.rgb
+    light_color = vec3(1, 1, 1)
+
+    # Scale factors
+    ambient_factor = 0.1
+    diffuse_factor = 0.7
+    specular_factor = 0.3
+
+    # Base vectors
     normal = normalize(v_normal)
     view = normalize(v_view)
     light = normalize(v_light)
+
+    # Maybe flip the normal - otherwise backfacing faces are not lit
+    dotted = view.x * normal.x + view.y * normal.y + view.z * normal.z
+    normal = mix(normal, -normal, f32(dotted < 0.0))
+
+    # Ambient
+    ambient_color = light_color * ambient_factor
 
     # Diffuse (blinn-phong light model)
     # lambert_term = clamp(dot(light, normal), 0.0, 1.0)
     dotted = light.x * normal.x + light.y * normal.y + light.z * normal.z
     lambert_term = clamp(dotted, 0.0, 1.0)
-    diffuse_color = light_color * lambert_term
+    diffuse_color = diffuse_factor * light_color * lambert_term
 
     # Specular
     shininess = 16.0
     halfway = normalize(light + view)  # halfway vector
     dotted = halfway.x * normal.x + halfway.y * normal.y + halfway.z * normal.z
     specular_term = clamp(dotted, 0.0, 1.0) ** shininess
-    specular_color = specular_term * light_color
+    specular_color = specular_factor * specular_term * light_color
 
+    # Put together
     final_color = albeido * (ambient_color + diffuse_color) + specular_color
     out_color = vec4(final_color, u_mesh.color.a)  # noqa - shader output
