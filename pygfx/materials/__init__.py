@@ -1,7 +1,12 @@
 # flake8: noqa
 
 from ._base import Material
-from ._mesh import MeshBasicMaterial
+from ._mesh import (
+    MeshBasicMaterial,
+    MeshNormalMaterial,
+    MeshNormalLinesMaterial,
+    MeshPhongMaterial,
+)
 from ._points import PointsMaterial, GaussianPointsMaterial
 from ._line import (
     LineMaterial,

@@ -73,6 +73,16 @@ class MeshBasicMaterial(Material):
         self.dirty = True
 
 
+class MeshNormalMaterial(MeshBasicMaterial):
+    """ A material that maps the normal vectors to RGB colors.
+    """
+
+
+class MeshNormalLinesMaterial(MeshBasicMaterial):
+    """ A material that shows surface normals as lines sticking out of the mesh.
+    """
+
+
 class MeshLambertMaterial(MeshBasicMaterial):
     """ A material for non-shiny surfaces, without specular highlights.
     """
