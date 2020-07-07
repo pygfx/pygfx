@@ -1,5 +1,5 @@
 """
-Example showing a single geometric cube.
+Example showing a Klein Bottle.
 """
 
 import numpy as np
@@ -22,20 +22,19 @@ tex = gfx.Texture(im, dim=2, usage="sampled").get_view(
     filter="linear", address_mode="repeat"
 )
 
-geometry = gfx.BoxGeometry(200, 200, 200)
-geometry.texcoords.data[:] *= 2  # smaller bricks
-material = gfx.MeshBasicMaterial(map=tex, clim=(0.2, 0.8))
-cube = gfx.Mesh(geometry, material)
-scene.add(cube)
+geometry = gfx.TorusKnotGeometry(1, 0.3, 128, 16)
+material = gfx.MeshPhongMaterial(map=tex, clim=(0.2, 0.8))
+obj = gfx.Mesh(geometry, material)
+scene.add(obj)
 
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera = gfx.PerspectiveCamera(70, 1)
+camera.position.z = 4
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0005, 0.001))
-    cube.rotation.multiply(rot)
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.00071, 0.001))
+    obj.rotation.multiply(rot)
 
     renderer.render(scene, camera)
     canvas.request_draw()

@@ -198,7 +198,7 @@ def vertex_shader_normal_lines(
 
     pos = buf_pos[i].xyz
     normal = vec3(buf_normal[i * 3 + 0], buf_normal[i * 3 + 1], buf_normal[i * 3 + 2])
-    pos = pos + f32(r) * normal * 10.0  # todo: allow user to specify normal length
+    pos = pos + f32(r) * normal * 0.1  # todo: allow user to specify normal length
 
     world_pos = u_stdinfo.world_transform * vec4(pos, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
