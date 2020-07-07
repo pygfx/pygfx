@@ -90,6 +90,11 @@ class MeshLambertMaterial(MeshBasicMaterial):
 
 class MeshPhongMaterial(MeshBasicMaterial):
     """ A material for shiny surfaces with specular highlights.
+
+    The material uses a non-physically based Blinn-Phong model for
+    calculating reflectance. Unlike the Lambertian model used in the
+    MeshLambertMaterial this can simulate shiny surfaces with specular
+    highlights (such as varnished wood).
     """
 
 

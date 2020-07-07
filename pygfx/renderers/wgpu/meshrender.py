@@ -7,7 +7,12 @@ from pyshader import f32, vec2, vec3, vec4, Array
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
-from ...materials import MeshBasicMaterial, MeshNormalMaterial, MeshNormalLinesMaterial
+from ...materials import (
+    MeshBasicMaterial,
+    MeshNormalMaterial,
+    MeshNormalLinesMaterial,
+    MeshPhongMaterial,
+)
 from ...datawrappers import Buffer, Texture, TextureView
 
 
@@ -57,13 +62,15 @@ def mesh_renderer(wobject, render_info):
         fragment_shader = fragment_shader_normals
     elif isinstance(material, MeshNormalLinesMaterial):
         topology = wgpu.PrimitiveTopology.line_list
-        vertex_shader = vertex_shader_lines
+        vertex_shader = vertex_shader_normal_lines
         fragment_shader = fragment_shader_simple
         bindings0[1] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
         bindings0[2] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
         vertex_buffers = []
         index_buffer = None
         n = geometry.positions.nitems * 2
+    elif isinstance(material, MeshPhongMaterial):
+        fragment_shader = fragment_shader_phong
     elif material.map is not None:
         if isinstance(material.map, Texture):
             raise TypeError("material.map is a Texture, but must be a TextureView")
@@ -150,18 +157,33 @@ def vertex_shader_mesh(
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_texcoord: (pyshader.RES_OUTPUT, 0, vec2),
     v_normal: (pyshader.RES_OUTPUT, 1, vec3),
+    v_view: (pyshader.RES_OUTPUT, 2, vec3),
+    v_light: (pyshader.RES_OUTPUT, 3, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
 ):
     world_pos = u_stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
 
+    ndc_to_world = matrix_inverse(
+        u_stdinfo.cam_transform * u_stdinfo.projection_transform
+    )
+
+    normal_vec = u_stdinfo.world_transform * vec4(in_normal.xyz, 1.0)
+
+    view_vec = ndc_to_world * vec4(0, 0, 1, 1)
+    view_vec = normalize(view_vec.xyz / view_vec.w)
+
     out_pos = ndc_pos  # noqa - shader output
     v_texcoord = in_texcoord  # noqa - shader output
-    v_normal = in_normal  # noqa
+
+    # Vectors for lighting, all in world coordinates
+    v_normal = normal_vec  # noqa
+    v_view = view_vec  # noqa
+    v_light = view_vec  # noqa
 
 
 @python2shader
-def vertex_shader_lines(
+def vertex_shader_normal_lines(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     buf_pos: (pyshader.RES_BUFFER, (0, 1), Array(vec4)),
     buf_normal: (pyshader.RES_BUFFER, (0, 2), Array(f32)),
@@ -187,6 +209,8 @@ def fragment_shader_simple(
     u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
+    """ Just draw the fragment in the mesh's color.
+    """
     out_color = u_mesh.color  # noqa - shader output
 
 
@@ -194,6 +218,8 @@ def fragment_shader_simple(
 def fragment_shader_normals(
     v_normal: (pyshader.RES_INPUT, 1, vec3), out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
+    """ Draws the mesh in a color derived from the normal.
+    """
     v = normalize(v_normal) * 0.5 + 0.5
     out_color = vec4(v, 1.0)  # noqa - shader output
 
@@ -227,6 +253,31 @@ def fragment_shader_textured_rgba(
 @python2shader
 def fragment_shader_phong(
     u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    v_normal: (pyshader.RES_INPUT, 1, vec3),
+    v_view: (pyshader.RES_INPUT, 2, vec3),
+    v_light: (pyshader.RES_INPUT, 3, vec3),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
-    out_color = u_mesh.color  # noqa - shader output
+    albeido = u_mesh.color.rgb
+    ambient_color = vec3(0.002, 0.002, 0.002)
+    light_color = vec3(1.0, 1.0, 1.0)
+
+    normal = normalize(v_normal)
+    view = normalize(v_view)
+    light = normalize(v_light)
+
+    # Diffuse (blinn-phong light model)
+    # lambert_term = clamp(dot(light, normal), 0.0, 1.0)
+    dotted = light.x * normal.x + light.y * normal.y + light.z * normal.z
+    lambert_term = clamp(dotted, 0.0, 1.0)
+    diffuse_color = light_color * lambert_term
+
+    # Specular
+    shininess = 16.0
+    halfway = normalize(light + view)  # halfway vector
+    dotted = halfway.x * normal.x + halfway.y * normal.y + halfway.z * normal.z
+    specular_term = clamp(dotted, 0.0, 1.0) ** shininess
+    specular_color = specular_term * light_color
+
+    final_color = albeido * (ambient_color + diffuse_color) + specular_color
+    out_color = vec4(final_color, u_mesh.color.a)  # noqa - shader output
