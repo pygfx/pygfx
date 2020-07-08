@@ -27,7 +27,6 @@ def mesh_renderer(wobject, render_info):
     # Initialize some pipeline things
     topology = wgpu.PrimitiveTopology.triangle_list
     vertex_shader = vertex_shader_mesh
-    fragment_shader = fragment_shader_simple
 
     # Use index buffer if present on the geometry
     index_buffer = getattr(geometry, "index", None)
@@ -59,6 +58,16 @@ def mesh_renderer(wobject, render_info):
 
     bindings1[0] = wgpu.BindingType.uniform_buffer, material.uniform_buffer
 
+    if material.map is not None:
+        if isinstance(material.map, Texture):
+            raise TypeError("material.map is a Texture, but must be a TextureView")
+        elif not isinstance(material.map, TextureView):
+            raise TypeError("material.map must be a TextureView")
+        elif getattr(geometry, "texcoords", None) is None:
+            raise ValueError("material.map is present, but geometry has no texcoords")
+        bindings1[1] = wgpu.BindingType.sampler, material.map
+        bindings1[2] = wgpu.BindingType.sampled_texture, material.map
+
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
         fragment_shader = fragment_shader_normals
@@ -73,20 +82,23 @@ def mesh_renderer(wobject, render_info):
         n = geometry.positions.nitems * 2
     elif isinstance(material, MeshPhongMaterial):
         fragment_shader = fragment_shader_phong
-    elif material.map is not None:
-        if isinstance(material.map, Texture):
-            raise TypeError("material.map is a Texture, but must be a TextureView")
-        elif not isinstance(material.map, TextureView):
-            raise TypeError("material.map must be a TextureView")
-        elif getattr(geometry, "texcoords", None) is None:
-            raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[1] = wgpu.BindingType.sampler, material.map
-        bindings1[2] = wgpu.BindingType.sampled_texture, material.map
-        if "rgba" in material.map.format:
-            fragment_shader = fragment_shader_textured_rgba
-        else:
-            fragment_shader = fragment_shader_textured_gray
-        # Use a version of the shader for float textures if necessary
+        if material.map is not None:
+            if "rgba" in material.map.format:
+                fragment_shader = fragment_shader_textured_rgba_phong
+            else:
+                raise ValueError(
+                    "Meshes with phong shading and grayscale textures is not yet supported"
+                )
+    else:
+        fragment_shader = fragment_shader_simple
+        if material.map is not None:
+            if "rgba" in material.map.format:
+                fragment_shader = fragment_shader_textured_rgba
+            else:
+                fragment_shader = fragment_shader_textured_gray
+
+    # Use a version of the shader for float textures if necessary
+    if material.map is not None:
         if "float" in material.map.format:
             if not hasattr(fragment_shader, "float_version"):
                 func = fragment_shader.input
@@ -97,7 +109,6 @@ def mesh_renderer(wobject, render_info):
             fragment_shader = fragment_shader.float_version
 
     # Put it together!
-
     return [
         {
             "vertex_shader": vertex_shader,
@@ -198,11 +209,15 @@ def vertex_shader_normal_lines(
 
     pos = buf_pos[i].xyz
     normal = vec3(buf_normal[i * 3 + 0], buf_normal[i * 3 + 1], buf_normal[i * 3 + 2])
-    pos = pos + f32(r) * normal * 0.1  # todo: allow user to specify normal length
 
-    world_pos = u_stdinfo.world_transform * vec4(pos, 1.0)
+    world_pos1 = u_stdinfo.world_transform * vec4(pos, 1.0)
+    world_pos2 = u_stdinfo.world_transform * vec4(pos + normal, 1.0)
+
+    # The normal is sized in world coordinates
+    world_normal = normalize(world_pos2 - world_pos1)
+
+    world_pos = world_pos1 + f32(r) * world_normal * 1.0
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
-
     out_pos = ndc_pos  # noqa - shader output
 
 
@@ -261,16 +276,17 @@ def fragment_shader_phong(
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     # todo: configure lights, and multiple lights
-    # todo: allow configuring material specularity
 
     # Base colors
     albeido = u_mesh.color.rgb
     light_color = vec3(1, 1, 1)
 
-    # Scale factors
+    # Parameters
+    # todo: allow configuring material specularity
     ambient_factor = 0.1
     diffuse_factor = 0.7
     specular_factor = 0.3
+    shininess = 16.0
 
     # Base vectors
     normal = normalize(v_normal)
@@ -291,7 +307,6 @@ def fragment_shader_phong(
     diffuse_color = diffuse_factor * light_color * lambert_term
 
     # Specular
-    shininess = 16.0
     halfway = normalize(light + view)  # halfway vector
     dotted = halfway.x * normal.x + halfway.y * normal.y + halfway.z * normal.z
     specular_term = clamp(dotted, 0.0, 1.0) ** shininess
@@ -300,3 +315,57 @@ def fragment_shader_phong(
     # Put together
     final_color = albeido * (ambient_color + diffuse_color) + specular_color
     out_color = vec4(final_color, u_mesh.color.a)  # noqa - shader output
+
+
+@python2shader
+def fragment_shader_textured_rgba_phong(
+    v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 2), "2d i32"),
+    v_normal: (pyshader.RES_INPUT, 1, vec3),
+    v_view: (pyshader.RES_INPUT, 2, vec3),
+    v_light: (pyshader.RES_INPUT, 3, vec3),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
+):
+    color = vec4(t_tex.sample(s_sam, v_texcoord))
+    color = (color - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
+
+    # Base colors
+    albeido = color.rgb
+    light_color = vec3(1, 1, 1)
+
+    # Parameters
+    # todo: allow configuring material specularity
+    ambient_factor = 0.1
+    diffuse_factor = 0.7
+    specular_factor = 0.3
+    shininess = 16.0
+
+    # Base vectors
+    normal = normalize(v_normal)
+    view = normalize(v_view)
+    light = normalize(v_light)
+
+    # Maybe flip the normal - otherwise backfacing faces are not lit
+    dotted = view.x * normal.x + view.y * normal.y + view.z * normal.z
+    normal = mix(normal, -normal, f32(dotted < 0.0))
+
+    # Ambient
+    ambient_color = light_color * ambient_factor
+
+    # Diffuse (blinn-phong light model)
+    # lambert_term = clamp(dot(light, normal), 0.0, 1.0)
+    dotted = light.x * normal.x + light.y * normal.y + light.z * normal.z
+    lambert_term = clamp(dotted, 0.0, 1.0)
+    diffuse_color = diffuse_factor * light_color * lambert_term
+
+    # Specular
+    halfway = normalize(light + view)  # halfway vector
+    dotted = halfway.x * normal.x + halfway.y * normal.y + halfway.z * normal.z
+    specular_term = clamp(dotted, 0.0, 1.0) ** shininess
+    specular_color = specular_factor * specular_term * light_color
+
+    # Put together
+    final_color = albeido * (ambient_color + diffuse_color) + specular_color
+    out_color = vec4(final_color, color.a)  # noqa - shader output

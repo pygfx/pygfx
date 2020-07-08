@@ -23,7 +23,7 @@ obj2 = gfx.Mesh(geometry, gfx.MeshNormalLinesMaterial(color=(0, 0, 1, 1)))
 obj.add(obj2)
 
 camera = gfx.PerspectiveCamera(70, 1)
-camera.position.z = 10
+camera.position.z = 30
 
 
 def animate():
