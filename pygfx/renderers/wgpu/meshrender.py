@@ -304,22 +304,18 @@ def fragment_shader_phong(
     light = normalize(v_light)
 
     # Maybe flip the normal - otherwise backfacing faces are not lit
-    dotted = view.x * normal.x + view.y * normal.y + view.z * normal.z
-    normal = mix(normal, -normal, f32(dotted < 0.0))
+    normal = mix(normal, -normal, f32(view @ normal < 0.0))
 
     # Ambient
     ambient_color = light_color * ambient_factor
 
     # Diffuse (blinn-phong light model)
-    # lambert_term = clamp(dot(light, normal), 0.0, 1.0)
-    dotted = light.x * normal.x + light.y * normal.y + light.z * normal.z
-    lambert_term = clamp(dotted, 0.0, 1.0)
+    lambert_term = clamp(light @ normal, 0.0, 1.0)
     diffuse_color = diffuse_factor * light_color * lambert_term
 
     # Specular
     halfway = normalize(light + view)  # halfway vector
-    dotted = halfway.x * normal.x + halfway.y * normal.y + halfway.z * normal.z
-    specular_term = clamp(dotted, 0.0, 1.0) ** shininess
+    specular_term = clamp(halfway @ normal, 0.0, 1.0) ** shininess
     specular_color = specular_factor * specular_term * light_color
 
     # Put together
@@ -358,22 +354,18 @@ def fragment_shader_textured_rgba_phong(
     light = normalize(v_light)
 
     # Maybe flip the normal - otherwise backfacing faces are not lit
-    dotted = view.x * normal.x + view.y * normal.y + view.z * normal.z
-    normal = mix(normal, -normal, f32(dotted < 0.0))
+    normal = mix(normal, -normal, f32(view @ normal < 0.0))
 
     # Ambient
     ambient_color = light_color * ambient_factor
 
     # Diffuse (blinn-phong light model)
-    # lambert_term = clamp(dot(light, normal), 0.0, 1.0)
-    dotted = light.x * normal.x + light.y * normal.y + light.z * normal.z
-    lambert_term = clamp(dotted, 0.0, 1.0)
+    lambert_term = clamp(light @ normal, 0.0, 1.0)
     diffuse_color = diffuse_factor * light_color * lambert_term
 
     # Specular
     halfway = normalize(light + view)  # halfway vector
-    dotted = halfway.x * normal.x + halfway.y * normal.y + halfway.z * normal.z
-    specular_term = clamp(dotted, 0.0, 1.0) ** shininess
+    specular_term = clamp(halfway @ normal, 0.0, 1.0) ** shininess
     specular_color = specular_factor * specular_term * light_color
 
     # Put together
@@ -425,16 +417,13 @@ def vertex_shader_mesh_slice(
 
     # Intersect the plane with pos 1 and 2
     p, u = pos1.xyz, pos2.xyz - pos1.xyz
-    nu = n.x * u.x + n.y * u.y + n.z * u.z  # dot product
-    t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / nu
+    t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / (n @ u)
     # Intersect the plane with pos 2 and 3
     p, u = pos2.xyz, pos3.xyz - pos2.xyz
-    nu = n.x * u.x + n.y * u.y + n.z * u.z  # dot product
-    t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / nu
+    t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / (n @ u)
     # Intersect the plane with pos 3 and 1
     p, u = pos3.xyz, pos1.xyz - pos3.xyz
-    nu = n.x * u.x + n.y * u.y + n.z * u.z  # dot product
-    t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / nu
+    t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / (n @ u)
 
     # Get the positions where the frame intersects the plane
     pos12, pos23, pos31 = mix(pos1, pos2, t1), mix(pos2, pos3, t2), mix(pos3, pos1, t3)
@@ -454,7 +443,7 @@ def vertex_shader_mesh_slice(
     pos_a = positions_a[pos_index]
     pos_b = positions_b[pos_index]
 
-    if pos_index == 0:  # or nu == 0
+    if pos_index == 0:  # or n@u == 0
         # Just return the same vertex, resulting in degenerate triangles
         wpos1 = u_stdinfo.world_transform * vec4(pos1, 1.0)
         the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos1
