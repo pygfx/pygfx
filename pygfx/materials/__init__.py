@@ -6,6 +6,7 @@ from ._mesh import (
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshPhongMaterial,
+    MeshSliceMaterial,
 )
 from ._points import PointsMaterial, GaussianPointsMaterial
 from ._line import (

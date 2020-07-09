@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 import pyshader
 import numpy as np
 from pyshader import python2shader
-from pyshader import f32, vec2, vec3, vec4, Array
+from pyshader import f32, i32, vec2, vec3, vec4, Array
 
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
@@ -12,6 +12,7 @@ from ...materials import (
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshPhongMaterial,
+    MeshSliceMaterial,
 )
 from ...datawrappers import Buffer, Texture, TextureView
 
@@ -80,6 +81,15 @@ def mesh_renderer(wobject, render_info):
         vertex_buffers = []
         index_buffer = None
         n = geometry.positions.nitems * 2
+    elif isinstance(material, MeshSliceMaterial):
+        topology = wgpu.PrimitiveTopology.triangle_list
+        vertex_shader = vertex_shader_mesh_slice
+        fragment_shader = fragment_shader_mesh_slice
+        bindings0[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
+        bindings0[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
+        vertex_buffers = []
+        index_buffer = None
+        n = (geometry.index.nitems // 3) * 6
     elif isinstance(material, MeshPhongMaterial):
         fragment_shader = fragment_shader_phong
         if material.map is not None:
@@ -369,3 +379,159 @@ def fragment_shader_textured_rgba_phong(
     # Put together
     final_color = albeido * (ambient_color + diffuse_color) + specular_color
     out_color = vec4(final_color, color.a)  # noqa - shader output
+
+
+# %% Mesh slice
+
+
+@python2shader
+def vertex_shader_mesh_slice(
+    index: (pyshader.RES_INPUT, "VertexId", "i32"),
+    buf_indices: (pyshader.RES_BUFFER, (0, 2), Array(i32)),
+    buf_positions: (pyshader.RES_BUFFER, (0, 3), Array(vec4)),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (1, 0), MeshSliceMaterial.uniform_type),
+    v_dist2center: (pyshader.RES_OUTPUT, 0, vec2),
+    v_segment_length: (pyshader.RES_OUTPUT, 1, f32),
+    v_segment_width: (pyshader.RES_OUTPUT, 2, f32),
+):
+    # This vertex shader uses VertexId and storage buffers instead of
+    # vertex buffers. It creates 6 vertices for each face in the mesh,
+    # drawn with triangle-list. For the faces that cross the plane, we
+    # draw a (thick) line segment with round caps. Other faces become
+    # degenerate triangles.
+
+    # Prepare some numbers
+    screen_factor = u_stdinfo.logical_size.xy / 2.0
+    l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x
+    half_line_width = u_material.thickness * 0.5  # in logical pixels
+
+    # Get the face index, and sample the vertex indices
+    segment_index = index % 6
+    face_index = index // 6
+    i1 = buf_indices[face_index * 3 + 0]
+    i2 = buf_indices[face_index * 3 + 1]
+    i3 = buf_indices[face_index * 3 + 2]
+
+    # Vertex positions of this face, in local object coordinates
+    pos1 = buf_positions[i1].xyz
+    pos2 = buf_positions[i2].xyz
+    pos3 = buf_positions[i3].xyz
+
+    # Get the plane definition
+    plane = u_material.plane.xyzw  # ax + by + cz + d
+    n = plane.xyz  # not necessarily a unit vector
+
+    # Intersect the plane with pos 1 and 2
+    p, u = pos1.xyz, pos2.xyz - pos1.xyz
+    nu = n.x * u.x + n.y * u.y + n.z * u.z  # dot product
+    t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / nu
+    # Intersect the plane with pos 2 and 3
+    p, u = pos2.xyz, pos3.xyz - pos2.xyz
+    nu = n.x * u.x + n.y * u.y + n.z * u.z  # dot product
+    t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / nu
+    # Intersect the plane with pos 3 and 1
+    p, u = pos3.xyz, pos1.xyz - pos3.xyz
+    nu = n.x * u.x + n.y * u.y + n.z * u.z  # dot product
+    t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / nu
+
+    # Get the positions where the frame intersects the plane
+    pos12, pos23, pos31 = mix(pos1, pos2, t1), mix(pos2, pos3, t2), mix(pos3, pos1, t3)
+    pos00 = pos1
+
+    # Selectors
+    b1 = i32(t1 >= 0.0) * i32(t1 <= 1.0) * 4
+    b2 = i32(t2 >= 0.0) * i32(t2 <= 1.0) * 2
+    b3 = i32(t3 >= 0.0) * i32(t3 <= 1.0) * 1
+
+    # b1+b2+b3     000    001    010    011    100    101    110    111
+    positions_a = [pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12]
+    positions_b = [pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23]
+
+    # Select the two positions that define the line segment
+    pos_index = b1 + b2 + b3
+    pos_a = positions_a[pos_index]
+    pos_b = positions_b[pos_index]
+
+    if pos_index == 0:  # or nu == 0
+        # Just return the same vertex, resulting in degenerate triangles
+        wpos1 = u_stdinfo.world_transform * vec4(pos1, 1.0)
+        the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos1
+        the_coord = vec2(0, 0)
+        segment_length = 0.0
+
+    else:
+        # Go from local coordinates to NDC
+        wpos_a = u_stdinfo.world_transform * vec4(pos_a, 1.0)
+        wpos_b = u_stdinfo.world_transform * vec4(pos_b, 1.0)
+        npos_a = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_a
+        npos_b = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_b
+
+        # And to logical pixel coordinates (don't worry about offset)
+        ppos_a = npos_a.xy * screen_factor
+        ppos_b = npos_b.xy * screen_factor
+
+        # Get the segment vector, its length, and how much it scales because of line width
+        v0 = ppos_b - ppos_a
+        segment_length = length(v0)  # in logical pixels
+        segment_factor = (segment_length + 2.0 * half_line_width) / segment_length
+
+        # Get the (orthogonal) unit vectors that span the segment
+        v1 = normalize(v0)
+        v2 = vec2(+v1.y, -v1.x)
+
+        # Get the vector, in local logical pixels for the segment's square
+        pvec_local = vec2(0.5 * segment_length + half_line_width, half_line_width)
+
+        # Select one of the four corners of the segment rectangle
+        vecs = [
+            vec2(-1, -1),
+            vec2(+1, +1),
+            vec2(-1, +1),
+            vec2(+1, +1),
+            vec2(-1, -1),
+            vec2(+1, -1),
+        ]
+        the_vec = vecs[segment_index]
+
+        # Construct the position, also make sure zw scales correctly
+        pvec = the_vec.x * pvec_local.x * v1 + the_vec.y * pvec_local.y * v2
+        zw_range = (npos_b.zw - npos_a.zw) * segment_factor
+        the_pos_p = 0.5 * (ppos_a + ppos_b) + pvec
+        the_pos_zw = 0.5 * (npos_a.zw + npos_b.zw) + the_vec.x * zw_range * 0.5
+        the_pos = vec4(the_pos_p / screen_factor, the_pos_zw)
+
+        # Define the local coordinate in physical pixels
+        the_coord = the_vec * pvec_local
+
+    # Shader output
+    out_pos = the_pos  # noqa
+    v_dist2center = the_coord * l2p  # noqa
+    v_segment_length = segment_length * l2p  # noqa
+    v_segment_width = 2.0 * half_line_width * l2p  # noqa
+
+
+@pyshader.python2shader
+def fragment_shader_mesh_slice(
+    in_coord: (pyshader.RES_INPUT, "FragCoord", vec4),
+    v_dist2center: (pyshader.RES_INPUT, 0, vec2),
+    v_segment_length: (pyshader.RES_INPUT, 1, f32),
+    v_segment_width: (pyshader.RES_INPUT, 2, f32),
+    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (1, 0), MeshSliceMaterial.uniform_type),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
+):
+    # Discart fragments that are too far from the centerline. This makes round caps.
+    distx = max(0.0, abs(v_dist2center.x) - 0.5 * v_segment_length)
+    dist = length(vec2(distx, v_dist2center.y))
+    if dist > v_segment_width * 0.5:
+        return  # discard
+
+    # No aa. This is something we need to decide on. See line renderer.
+    alpha = 1.0
+
+    # Set color
+    color = u_material.color
+    out_color = vec4(color.rgb, min(1.0, color.a) * alpha)  # noqa - shader assign
