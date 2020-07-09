@@ -405,11 +405,11 @@ def vertex_shader_mesh_slice(
     # Prepare some numbers
     screen_factor = u_stdinfo.logical_size.xy / 2.0
     l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x
-    half_line_width = u_material.thickness * 0.5  # in logical pixels
+    line_width = u_material.thickness  # in logical pixels
 
     # Get the face index, and sample the vertex indices
     segment_index = index % 6
-    face_index = index // 6
+    face_index = (index - segment_index) // 6
     i1 = buf_indices[face_index * 3 + 0]
     i2 = buf_indices[face_index * 3 + 1]
     i3 = buf_indices[face_index * 3 + 2]
@@ -441,9 +441,9 @@ def vertex_shader_mesh_slice(
     pos00 = pos1
 
     # Selectors
-    b1 = i32(t1 >= 0.0) * i32(t1 <= 1.0) * 4
-    b2 = i32(t2 >= 0.0) * i32(t2 <= 1.0) * 2
-    b3 = i32(t3 >= 0.0) * i32(t3 <= 1.0) * 1
+    b1 = i32(t1 > 0.0) * i32(t1 < 1.0) * 4
+    b2 = i32(t2 > 0.0) * i32(t2 < 1.0) * 2
+    b3 = i32(t3 > 0.0) * i32(t3 < 1.0) * 1
 
     # b1+b2+b3     000    001    010    011    100    101    110    111
     positions_a = [pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12]
@@ -467,6 +467,10 @@ def vertex_shader_mesh_slice(
         wpos_b = u_stdinfo.world_transform * vec4(pos_b, 1.0)
         npos_a = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_a
         npos_b = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_b
+        # Don't forget to "normalize"!
+        # todo: omitting this step diminish the line width with distance, but it that the way?
+        npos_a = npos_a / npos_a.w
+        npos_b = npos_b / npos_b.w
 
         # And to logical pixel coordinates (don't worry about offset)
         ppos_a = npos_a.xy * screen_factor
@@ -475,14 +479,14 @@ def vertex_shader_mesh_slice(
         # Get the segment vector, its length, and how much it scales because of line width
         v0 = ppos_b - ppos_a
         segment_length = length(v0)  # in logical pixels
-        segment_factor = (segment_length + 2.0 * half_line_width) / segment_length
+        segment_factor = (segment_length + line_width) / segment_length
 
         # Get the (orthogonal) unit vectors that span the segment
         v1 = normalize(v0)
         v2 = vec2(+v1.y, -v1.x)
 
         # Get the vector, in local logical pixels for the segment's square
-        pvec_local = vec2(0.5 * segment_length + half_line_width, half_line_width)
+        pvec_local = 0.5 * vec2(segment_length + line_width, line_width)
 
         # Select one of the four corners of the segment rectangle
         vecs = [
@@ -509,7 +513,7 @@ def vertex_shader_mesh_slice(
     out_pos = the_pos  # noqa
     v_dist2center = the_coord * l2p  # noqa
     v_segment_length = segment_length * l2p  # noqa
-    v_segment_width = 2.0 * half_line_width * l2p  # noqa
+    v_segment_width = line_width * l2p  # noqa
 
 
 @pyshader.python2shader
@@ -524,6 +528,7 @@ def fragment_shader_mesh_slice(
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
 ):
     # Discart fragments that are too far from the centerline. This makes round caps.
+    # Note that we operate in physical pixels here.
     distx = max(0.0, abs(v_dist2center.x) - 0.5 * v_segment_length)
     dist = length(vec2(distx, v_dist2center.y))
     if dist > v_segment_width * 0.5:

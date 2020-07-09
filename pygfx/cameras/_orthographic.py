@@ -51,7 +51,7 @@ class OrthographicCamera(Camera):
         left = -0.5 * width
         right = +0.5 * width
         # Set matrices
-        # The linalgo ortho projection puts xyz in the range -1..1, but
+        # The linalg ortho projection puts xyz in the range -1..1, but
         # in the coordinate system of wgpu (and this lib) the depth is
         # expressed in 0..1, so we also correct for that.
         self.projection_matrix.make_orthographic(

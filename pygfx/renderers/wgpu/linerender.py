@@ -129,7 +129,6 @@ def vertex_shader(
     screen_factor = stdinfo.logical_size.xy / 2.0
     l2p = stdinfo.physical_size.x / stdinfo.logical_size.x
     half_line_width = material.thickness * 0.5  # in logical pixels
-    half_line_width_p = half_line_width * l2p  # in physical pixels
 
     # What i in the node list (point on the line) is this?
     i = index // 5
@@ -144,6 +143,8 @@ def vertex_shader(
     npos1 = stdinfo.projection_transform * stdinfo.cam_transform * wpos1
     npos2 = stdinfo.projection_transform * stdinfo.cam_transform * wpos2
     npos3 = stdinfo.projection_transform * stdinfo.cam_transform * wpos3
+    npos2 = npos2 / npos2.w
+    npos3 = npos3 / npos3.w
 
     # Convert to logical screen coordinates, because that's were the lines work
     ppos1 = (npos1.xy + 1.0) * screen_factor
@@ -198,7 +199,7 @@ def vertex_shader(
 
     # Outputs
     out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
-    v_line_width_p = half_line_width_p * 2.0  # noqa
+    v_line_width_p = half_line_width * 2.0 * l2p  # noqa
     v_vec_from_node_p = the_vec * l2p  # noqa
 
 
@@ -256,7 +257,6 @@ def vertex_shader_segment(
     screen_factor = stdinfo.logical_size.xy / 2.0
     l2p = stdinfo.physical_size.x / stdinfo.logical_size.x
     half_line_width = material.thickness * 0.5  # in logical pixels
-    half_line_width_p = half_line_width * l2p  # in physical pixels
     # What i in the node list (point on the line) is this?
     i = index // 5
     # Sample the current node and either of its neighbours
@@ -267,6 +267,8 @@ def vertex_shader_segment(
     wpos3 = stdinfo.world_transform * vec4(pos3.xyz, 1.0)
     npos2 = stdinfo.projection_transform * stdinfo.cam_transform * wpos2
     npos3 = stdinfo.projection_transform * stdinfo.cam_transform * wpos3
+    npos2 = npos2 / npos2.w
+    npos3 = npos3 / npos3.w
     # Convert to logical screen coordinates, because that's were the lines work
     ppos2 = (npos2.xy + 1.0) * screen_factor
     ppos3 = (npos3.xy + 1.0) * screen_factor
@@ -294,7 +296,7 @@ def vertex_shader_segment(
 
     # Outputs
     out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
-    v_line_width_p = half_line_width_p * 2.0  # noqa
+    v_line_width_p = half_line_width * 2.0 * l2p  # noqa
     v_vec_from_node_p = the_vec * l2p  # noqa
 
 
@@ -317,7 +319,6 @@ def vertex_shader_arrow(
     screen_factor = stdinfo.logical_size.xy / 2.0
     l2p = stdinfo.physical_size.x / stdinfo.logical_size.x
     half_line_width = material.thickness * 0.5  # in logical pixels
-    half_line_width_p = half_line_width * l2p  # in physical pixels
     # What i in the node list (point on the line) is this?
     i = index // 3
     # Sample the current node and either of its neighbours
@@ -328,6 +329,8 @@ def vertex_shader_arrow(
     wpos3 = stdinfo.world_transform * vec4(pos3.xyz, 1.0)
     npos2 = stdinfo.projection_transform * stdinfo.cam_transform * wpos2
     npos3 = stdinfo.projection_transform * stdinfo.cam_transform * wpos3
+    npos2 = npos2 / npos2.w
+    npos3 = npos3 / npos3.w
     # Convert to logical screen coordinates, because that's were the lines work
     ppos2 = (npos2.xy + 1.0) * screen_factor
     ppos3 = (npos3.xy + 1.0) * screen_factor
@@ -351,7 +354,7 @@ def vertex_shader_arrow(
 
     # Outputs
     out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
-    v_line_width_p = half_line_width_p * 2.0  # noqa
+    v_line_width_p = half_line_width * 2.0 * l2p  # noqa
     v_vec_from_node_p = vec2(0.0, 0.0)  # noqa
 
 
