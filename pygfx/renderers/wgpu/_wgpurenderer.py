@@ -173,7 +173,7 @@ class WgpuRenderer(Renderer):
                 wgpu_data = wobject._wgpu_data
                 for pinfo in wgpu_data["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipeline"])
-                    for slot, vbuffer in enumerate(pinfo["vertex_buffers"]):
+                    for slot, vbuffer in pinfo["vertex_buffers"].items():
                         render_pass.set_vertex_buffer(
                             slot,
                             vbuffer._wgpu_buffer,
@@ -255,7 +255,7 @@ class WgpuRenderer(Renderer):
             buffer = pipeline_info.get("index_buffer", None)
             if buffer is not None:
                 self._update_buffer(buffer)
-            for buffer in pipeline_info.get("vertex_buffers", []):
+            for buffer in pipeline_info.get("vertex_buffers", {}).values():
                 self._update_buffer(buffer)
             for key in pipeline_info.keys():
                 if key.startswith("bindings"):
@@ -442,12 +442,12 @@ class WgpuRenderer(Renderer):
             index_args.insert(-1, base_vertex)
 
         # Process vertex buffers. Update the buffer, and produces a descriptor.
-        vertex_buffers = []
+        vertex_buffers = {}
         vertex_buffer_descriptors = []
         # todo: we can probably expose multiple attributes per buffer using a BufferView
-        # todo: also, must vertex_buffers be a dict?
         # -> can we also leverage numpy here?
-        for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
+        for slot, buffer in pipeline_info.get("vertex_buffers", {}).items():
+            slot = int(slot)
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
                 "step_mode": wgpu.InputStepMode.vertex,  # vertex or instance
@@ -455,7 +455,7 @@ class WgpuRenderer(Renderer):
                     {"format": buffer.format, "offset": 0, "shader_location": slot,}
                 ],
             }
-            vertex_buffers.append(buffer)
+            vertex_buffers[slot] = buffer
             vertex_buffer_descriptors.append(vbo_des)
 
         # Get bind groups and pipeline layout from the buffers in pipeline_info.
@@ -515,7 +515,7 @@ class WgpuRenderer(Renderer):
             "pipeline": pipeline,  # wgpu object
             "index_args": index_args,  # tuple
             "index_buffer": wgpu_index_buffer,  # Buffer
-            "vertex_buffers": vertex_buffers,  # list of Buffer
+            "vertex_buffers": vertex_buffers,  # dict of slot -> Buffer
             "bind_groups": bind_groups,  # list of wgpu bind_group objects
         }
 

@@ -36,15 +36,16 @@ def mesh_renderer(wobject, render_info):
     if index_buffer:
         n = len(index_buffer.data)
     else:
-        n = len(vertex_buffers[0].data)
+        n = len(geometry.positions.data)
 
     # Collect vertex buffers
-    vertex_buffers = []
-    vertex_buffers.append(geometry.positions)
+    vertex_buffers = {}
+    vertex_buffers[0] = geometry.positions
     if getattr(geometry, "texcoords", None) is not None:
-        vertex_buffers.append(geometry.texcoords)
-
-    # todo: fail if no texcoords are given, make vertex_buffers a dict!
+        vertex_buffers[1] = geometry.texcoords
+    else:
+        # meh, we need to specify a buffer if the shader uses it
+        vertex_buffers[1] = geometry.positions
 
     # Normals
     if getattr(geometry, "normals", None) is not None:
@@ -52,7 +53,7 @@ def mesh_renderer(wobject, render_info):
     else:
         normal_data = _calculate_normals(geometry.positions.data, index_buffer.data)
         normal_buffer = Buffer(normal_data, usage="vertex|storage")
-    vertex_buffers.append(normal_buffer)
+    vertex_buffers[2] = normal_buffer
 
     bindings0 = {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)}
     bindings1 = {}
@@ -78,7 +79,7 @@ def mesh_renderer(wobject, render_info):
         fragment_shader = fragment_shader_simple
         bindings0[1] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
         bindings0[2] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
-        vertex_buffers = []
+        vertex_buffers = {}
         index_buffer = None
         n = geometry.positions.nitems * 2
     elif isinstance(material, MeshSliceMaterial):
@@ -87,7 +88,7 @@ def mesh_renderer(wobject, render_info):
         fragment_shader = fragment_shader_mesh_slice
         bindings0[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
         bindings0[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
-        vertex_buffers = []
+        vertex_buffers = {}
         index_buffer = None
         n = (geometry.index.nitems // 3) * 6
     elif isinstance(material, MeshPhongMaterial):

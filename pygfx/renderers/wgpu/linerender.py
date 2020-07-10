@@ -382,7 +382,7 @@ def thin_line_renderer(wobject, render_info):
             "fragment_shader": fragment_shader_thin,
             "primitive_topology": primitive,
             "indices": (positions1.nitems, 1),
-            "vertex_buffers": [positions1],
+            "vertex_buffers": {0: positions1},
             "bindings0": {
                 0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo),
                 1: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),

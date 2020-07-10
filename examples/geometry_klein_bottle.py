@@ -15,6 +15,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 geometry = gfx.KleinBottleGeometry(10)
+geometry.texcoords = None
 material = gfx.MeshPhongMaterial(color=(1, 0.5, 0, 1))
 obj = gfx.Mesh(geometry, material)
 scene.add(obj)
