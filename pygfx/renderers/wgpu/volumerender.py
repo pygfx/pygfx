@@ -58,10 +58,10 @@ def mesh_slice_renderer(wobject, render_info):
     index_buffer = index_buffer if isinstance(index_buffer, Buffer) else None
 
     # Collect vertex buffers
-    vertex_buffers = []
-    vertex_buffers.append(geometry.positions)
+    vertex_buffers = {}
+    vertex_buffers[0] = geometry.positions
     if getattr(geometry, "texcoords", None) is not None:
-        vertex_buffers.append(geometry.texcoords)
+        vertex_buffers[1] = geometry.texcoords
 
     bindings0 = {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)}
     bindings1 = {}
@@ -94,7 +94,7 @@ def mesh_slice_renderer(wobject, render_info):
     if index_buffer:
         n = len(index_buffer.data)
     else:
-        n = len(vertex_buffers[0].data)
+        n = len(geometry.positions.data)
 
     # Put it together!
 

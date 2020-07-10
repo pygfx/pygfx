@@ -1,4 +1,4 @@
-from pyshader import Struct, vec4, vec2
+from pyshader import Struct, f32, vec4, vec2
 
 from ..utils import array_from_shadertype
 from ..datawrappers import Buffer
@@ -73,21 +73,69 @@ class MeshBasicMaterial(Material):
         self.dirty = True
 
 
-class MeshLambertMaterial(MeshBasicMaterial):
-    """ A material for non-shiny surfaces, without specular highlights.
+class MeshNormalMaterial(MeshBasicMaterial):
+    """ A material that maps the normal vectors to RGB colors.
     """
+
+
+class MeshNormalLinesMaterial(MeshBasicMaterial):
+    """ A material that shows surface normals as lines sticking out of the mesh.
+    """
+
+
+# todo: MeshLambertMaterial(MeshBasicMaterial):
+# A material for non-shiny surfaces, without specular highlights.
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
     """ A material for shiny surfaces with specular highlights.
+
+    The material uses a non-physically based Blinn-Phong model for
+    calculating reflectance. Unlike the Lambertian model used in the
+    MeshLambertMaterial this can simulate shiny surfaces with specular
+    highlights (such as varnished wood).
     """
 
 
-class MeshStandardMaterial(MeshBasicMaterial):
-    """ A standard physically based material, using Metallic-Roughness workflow.
-    """
+# todo: MeshStandardMaterial(MeshBasicMaterial):
+# A standard physically based material, using Metallic-Roughness workflow.
 
 
-class MeshToonMaterial(MeshBasicMaterial):
-    """ A standard physically based material, using Metallic-Roughness workflow.
+# todo: MeshToonMaterial(MeshBasicMaterial):
+# A cartoon-style mesh material.
+
+
+class MeshSliceMaterial(MeshBasicMaterial):
+    """ A material that displays a slices of the mesh.
     """
+
+    uniform_type = Struct(color=vec4, clim=vec2, plane=vec4, thickness=f32)
+
+    def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):
+        super().__init__(plane=plane, thickness=thickness, **kwargs)
+
+    @property
+    def plane(self):
+        """ The plane to slice at, represented as the equation:
+        ``ax + by + cz + d = 0`` The plane definition applies to the
+        object's local coordinate frame.
+        """
+        return self.uniform_buffer.data["plane"]
+
+    @plane.setter
+    def plane(self, plane):
+        self.uniform_buffer.data["plane"] = plane
+        self.uniform_buffer.update_range(0, 1)
+        self.dirty = True
+
+    @property
+    def thickness(self):
+        """ The thickness of the line to draw the edge of the mesh.
+        """
+        return self.uniform_buffer.data["thickness"]
+
+    @thickness.setter
+    def thickness(self, thickness):
+        self.uniform_buffer.data["thickness"] = thickness
+        self.uniform_buffer.update_range(0, 1)
+        self.dirty = True

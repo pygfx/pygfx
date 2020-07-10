@@ -80,7 +80,7 @@ def points_renderer(wobject, render_info):
 
     # Collect vertex buffers
     n = geometry.positions.nitems
-    vertex_buffers = [geometry.positions]
+    vertex_buffers = {0: geometry.positions}
 
     # Collect bindings
     bindings0 = {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)}
