@@ -1,6 +1,5 @@
 import wgpu  # only for flags/enums
 import pyshader
-import numpy as np
 from pyshader import python2shader
 from pyshader import f32, i32, vec2, vec3, vec4, Array
 
@@ -15,6 +14,7 @@ from ...materials import (
     MeshSliceMaterial,
 )
 from ...datawrappers import Buffer, Texture, TextureView
+from ...utils import normals_from_vertices
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
@@ -47,11 +47,11 @@ def mesh_renderer(wobject, render_info):
         # meh, we need to specify a buffer if the shader uses it
         vertex_buffers[1] = geometry.positions
 
-    # Normals
+    # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
     if getattr(geometry, "normals", None) is not None:
         normal_buffer = geometry.normals
     else:
-        normal_data = _calculate_normals(geometry.positions.data, index_buffer.data)
+        normal_data = normals_from_vertices(geometry.positions.data, index_buffer.data)
         normal_buffer = Buffer(normal_data, usage="vertex|storage")
     vertex_buffers[2] = normal_buffer
 
@@ -132,42 +132,6 @@ def mesh_renderer(wobject, render_info):
             "bindings1": bindings1,
         }
     ]
-
-
-# Taken from Vispy
-def _calculate_normals(rr, tris):
-    """Efficiently compute vertex normals for triangulated surface"""
-    # ensure highest precision for our summation/vectorization "trick"
-    rr = rr[:, :3].astype(np.float64)
-    tris = tris.reshape(-1, 3)
-    # first, compute triangle normals
-    r1 = rr[tris[:, 0], :]
-    r2 = rr[tris[:, 1], :]
-    r3 = rr[tris[:, 2], :]
-    tri_nn = np.cross((r2 - r1), (r3 - r1))
-
-    # Triangle normals and areas
-    size = np.sqrt(np.sum(tri_nn * tri_nn, axis=1))
-    size[size == 0] = 1.0  # prevent ugly divide-by-zero
-    tri_nn /= size[:, np.newaxis]
-
-    npts = len(rr)
-
-    # the following code replaces this, but is faster (vectorized):
-    #
-    # for p, verts in enumerate(tris):
-    #     nn[verts, :] += tri_nn[p, :]
-    #
-    nn = np.zeros((npts, 3))
-    for verts in tris.T:  # note this only loops 3x (number of verts per tri)
-        for idx in range(3):  # x, y, z
-            nn[:, idx] += np.bincount(
-                verts.astype(np.int32), tri_nn[:, idx], minlength=npts
-            )
-    size = np.sqrt(np.sum(nn * nn, axis=1))
-    size[size == 0] = 1.0  # prevent ugly divide-by-zero
-    nn /= size[:, np.newaxis]
-    return nn.astype(np.float32)
 
 
 # %% Shaders
