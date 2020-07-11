@@ -14,6 +14,56 @@ rotate_start = None
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 
 
+class OrbitControls:
+    _m = gfx.linalg.Matrix4()
+    _v = gfx.linalg.Vector3()
+    _q1 = gfx.linalg.Quaternion()
+    _q2 = gfx.linalg.Quaternion()
+    _e = gfx.linalg.Euler()
+
+    def __init__(self, eye: gfx.linalg.Vector3, target: gfx.linalg.Vector3, up: gfx.linalg.Vector3) -> None:
+        self.rotation = gfx.linalg.Quaternion()
+        self.look_at(eye, target, up)
+
+    def look_at(self, eye: gfx.linalg.Vector3, target: gfx.linalg.Vector3, up: gfx.linalg.Vector3) -> "OrbitControls":
+        self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
+        self.target = target
+        self.distance = eye.distance_to(target)
+        return self
+
+    def pan(self, x: float, y: float) -> "OrbitControls":
+        self._v.set(-x, y).apply_quaternion(self.rotation)
+        self.target.add(self._v)
+        return self
+
+    def rotate(self, cur_x: float, cur_y: float, prev_x: float, prev_y: float) -> "OrbitControls":
+        self._q1.set_from_euler(self._e.set(-cur_x, cur_y, 0))
+        self._q2.set_from_euler(self._e.set(-prev_x, prev_y, 0))
+        self._q2.inverse()
+        self._q1.multiply(self._q2)
+        if self._q1.length() < 1e-6:
+            return
+        self.rotation.multiply(self._q1)
+        self.rotation.normalize()
+        return self
+
+    def zoom(self, delta: float) -> "OrbitControls":
+        self.distance += delta
+        if self.distance < 0:
+            self.distance = 0
+        return self
+
+    @property
+    def position(self) -> None:
+        # TODO
+        pass
+    
+    @property
+    def rotation(self) -> None:
+        # TODO
+        pass
+
+
 class WgpuCanvasWithInputEvents(WgpuCanvas):
     def wheelEvent(self, event):  # noqa: N802
         # degrees = event.angleDelta().y() / 8
