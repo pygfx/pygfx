@@ -9,3 +9,5 @@ twine
 
 # examples
 PyQt5
+imageio
+imageio-ffmpeg
