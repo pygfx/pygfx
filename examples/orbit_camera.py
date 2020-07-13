@@ -1,5 +1,5 @@
 """
-Example showing multiple rotating cubes. This also tests the depth buffer.
+Example showing orbit camera controls.
 """
 
 import numpy as np
@@ -38,32 +38,34 @@ class OrbitControls:
         target: gfx.linalg.Vector3,
         up: gfx.linalg.Vector3,
     ) -> "OrbitControls":
-        self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
-        self.target = target
         self.distance = eye.distance_to(target)
+        self.target = target
         self.up = up
+        self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         return self
 
     def pan(self, x: float, y: float) -> "OrbitControls":
-        self._v.set(-x, y).apply_quaternion(self.rotation)
+        self._v.set(x, y, self._v.z).apply_quaternion(self.rotation)
         self.target.add(self._v)
         return self
 
-    def rotate(
-        self, cur_x: float, cur_y: float, prev_x: float, prev_y: float
-    ) -> "OrbitControls":
-        self._q1.set_from_euler(self._e.set(-cur_x, cur_y, 0))
-        self._q2.set_from_euler(self._e.set(-prev_x, prev_y, 0))
-        self._q2.inverse()
-        self._q1.multiply(self._q2)
-        if self._q1.length() < 1e-6:
-            return
+    def rotate(self, x: float, y: float) -> "OrbitControls":
+        # TODO: fix this
+        self._q1.set_from_unit_vectors
+        self._q1.set_from_euler(self._e.set(0, x, 0))
+        self._q1.set_from_euler(self._e.set(0, x, 0))
+        # self._q1.set_from_euler(self._e.set(cur_x, cur_y, 0))
+        # self._q2.set_from_euler(self._e.set(prev_x, prev_y, 0))
+        # self._q2.inverse()
+        # self._q1.multiply(self._q2)
+        # if self._q1.length() < 1e-6:
+        #     return
         self.rotation.multiply(self._q1)
-        self.rotation.normalize()
+        # self.rotation.normalize()
         return self
 
     def zoom(self, delta: float) -> "OrbitControls":
-        self.distance += delta
+        self.distance -= delta
         if self.distance < 0:
             self.distance = 0
         return self
@@ -71,8 +73,8 @@ class OrbitControls:
     def get_view(self) -> (gfx.linalg.Vector3, gfx.linalg.Vector3):
         rot = self.rotation.clone().conjugate()
         pos = (
-            gfx.linalg.Vector3(0, 0, -self.distance)
-            .apply_quaternion(self.rotation)
+            gfx.linalg.Vector3(0, 0, self.distance)
+            .apply_quaternion(rot)
             .sub(self.target)
         )
         return rot, pos
@@ -103,10 +105,11 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         global controls
         pos = event.windowPos()
         mouse_end = np.array([pos.x(), pos.y()])
+        delta = mouse_end - self.mouse_start
         if self.pan:
-            controls.pan(*(mouse_end - self.mouse_start))
+            controls.pan(*delta)
         else:
-            controls.rotate(*mouse_end, *self.mouse_start)
+            controls.rotate(*(delta * .02))
         self.mouse_start = mouse_end
 
     def keyPressEvent(self, event):  # noqa: N802
