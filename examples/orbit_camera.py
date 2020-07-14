@@ -86,7 +86,7 @@ class OrbitControls:
         position = (
             gfx.linalg.Vector3(0, 0, self.distance)
             .apply_quaternion(self.rotation)
-            .sub(self.target)
+            .add(self.target)
         )
         return self.rotation, position
 
@@ -151,7 +151,8 @@ background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-controls = OrbitControls(gfx.linalg.Vector3(500, 500, 500))
+camera.position.set(500, 500, 500)
+controls = OrbitControls(camera.position.clone())
 
 
 def animate():
