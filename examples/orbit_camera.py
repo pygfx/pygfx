@@ -50,7 +50,7 @@ class OrbitControls:
 
     def pan(self, x: float, y: float) -> "OrbitControls":
         self._v.set(x, y, 0).apply_quaternion(self.rotation)
-        self.target.add(self._v)
+        self.target.sub(self._v)
         return self
 
     def rotate(self, x: float, y: float) -> "OrbitControls":
@@ -92,6 +92,8 @@ class OrbitControls:
 
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
+    _flip_y = np.array([1, -1])
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mouse_start = None
@@ -116,7 +118,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         global controls
         pos = event.windowPos()
         mouse_end = np.array([pos.x(), pos.y()])
-        delta = mouse_end - self.mouse_start
+        delta = (mouse_end - self.mouse_start) * self._flip_y
         if self.pan:
             controls.pan(*delta)
         else:
