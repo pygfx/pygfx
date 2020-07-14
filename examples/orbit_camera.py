@@ -13,9 +13,12 @@ from wgpu.gui.qt import WgpuCanvas
 class OrbitControls:
     _m = gfx.linalg.Matrix4()
     _v = gfx.linalg.Vector3()
+    _origin = gfx.linalg.Vector3()
+    _orbit_up = gfx.linalg.Vector3(0, 1, 0)
     _q1 = gfx.linalg.Quaternion()
     _q2 = gfx.linalg.Quaternion()
     _e = gfx.linalg.Euler()
+    _s = gfx.linalg.Spherical()
 
     def __init__(
         self,
@@ -42,26 +45,34 @@ class OrbitControls:
         self.target = target
         self.up = up
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
+        self._up_quat = gfx.linalg.Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
+        self._up_quat_inv = self._up_quat.clone().inverse()
         return self
 
     def pan(self, x: float, y: float) -> "OrbitControls":
-        self._v.set(x, y, self._v.z).apply_quaternion(self.rotation)
+        self._v.set(x, y, 0).apply_quaternion(self.rotation)
         self.target.add(self._v)
         return self
 
     def rotate(self, x: float, y: float) -> "OrbitControls":
-        # TODO: fix this
-        self._q1.set_from_unit_vectors
-        self._q1.set_from_euler(self._e.set(0, x, 0))
-        self._q1.set_from_euler(self._e.set(0, x, 0))
-        # self._q1.set_from_euler(self._e.set(cur_x, cur_y, 0))
-        # self._q2.set_from_euler(self._e.set(prev_x, prev_y, 0))
-        # self._q2.inverse()
-        # self._q1.multiply(self._q2)
-        # if self._q1.length() < 1e-6:
-        #     return
-        self.rotation.multiply(self._q1)
-        # self.rotation.normalize()
+        # (implicit target=(0,0,0))
+        # offset
+        self._v.set(0, 0, self.distance).apply_quaternion(self.rotation)
+        # to neutral up
+        self._v.apply_quaternion(self._up_quat)
+        # to spherical
+        self._s.set_from_vector3(self._v)
+        # apply delta
+        self._s.theta -= x
+        self._s.phi += y
+        # clip
+        self._s.make_safe()
+        # back to cartesian
+        self._v.set_from_spherical(self._s)
+        # back to camera up
+        self._v.apply_quaternion(self._up_quat_inv)
+        # compute new rotation
+        self.rotation.set_from_rotation_matrix(self._m.look_at(self._v, self._origin, self.up))
         return self
 
     def zoom(self, delta: float) -> "OrbitControls":
@@ -71,7 +82,7 @@ class OrbitControls:
         return self
 
     def get_view(self) -> (gfx.linalg.Vector3, gfx.linalg.Vector3):
-        rot = self.rotation.clone().conjugate()
+        rot = self.rotation.clone()
         pos = (
             gfx.linalg.Vector3(0, 0, self.distance)
             .apply_quaternion(rot)
