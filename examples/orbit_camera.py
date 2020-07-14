@@ -95,9 +95,7 @@ def animate():
         )
         cube.rotation.multiply(rot)
 
-    rot, pos = controls.get_view()
-    camera.rotation.copy(rot)
-    camera.position.copy(pos)
+    controls.update_camera(camera)
 
     renderer.render(scene, camera)
     canvas.request_draw()

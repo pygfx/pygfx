@@ -74,3 +74,8 @@ class OrbitControls:
             .add(self.target)
         )
         return self.rotation, position
+
+    def update_camera(self, camera: "Camera") -> None:
+        rot, pos = self.get_view()
+        camera.rotation.copy(rot)
+        camera.position.copy(pos)

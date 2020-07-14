@@ -1,6 +1,5 @@
 """
-Render slices through a volume, by creating a 3D texture, and sample it in the shader.
-Simple, fast and subpixel!
+Slice a volume and a mesh through the three primary planes (XY, XZ, YZ)
 """
 
 import imageio
@@ -31,6 +30,9 @@ for axis in [0, 1, 2]:
 
     # TODO: if we could set the slicing plane on the material parametrically
     # we could reuse the same plane geometry for all slices here
+    # TODO: there seems to be a problem with the texcoords... only one plane looks correct
+    # TODO: why is the third axis not in [0..1] range?
+    # TODO: also add a mesh slice for each plane
     geometry = gfx.PlaneGeometry(200, 200, 1, 1)
     if axis == 0:  # YZ plane
         texcoords = np.array(
@@ -66,21 +68,12 @@ for axis in [0, 1, 2]:
         plane.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 0.5 * np.pi)
     scene.add(plane)
 
-    # TODO: also add a mesh slice for each plane
-
 camera = gfx.OrthographicCamera(200, 200)
 camera.position.set(50, 50, 50)
 camera.look_at(gfx.linalg.Vector3())
 
 
 def animate():
-    # global index
-    # index = index + degrees / 30
-    # index = max(0, min(nslices - 1, index))
-    # geometry.texcoords.data[:, 2] = index / nslices
-    # geometry.texcoords.update_range(0, geometry.texcoords.nitems)
-    # material.dirty = 1  # todo: we should not have to mark the *material* dirty!
-
     renderer.render(scene, camera)
     canvas.request_draw()
 
