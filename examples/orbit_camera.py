@@ -15,9 +15,6 @@ class OrbitControls:
     _v = gfx.linalg.Vector3()
     _origin = gfx.linalg.Vector3()
     _orbit_up = gfx.linalg.Vector3(0, 1, 0)
-    _q1 = gfx.linalg.Quaternion()
-    _q2 = gfx.linalg.Quaternion()
-    _e = gfx.linalg.Euler()
     _s = gfx.linalg.Spherical()
 
     def __init__(
@@ -45,7 +42,9 @@ class OrbitControls:
         self.target = target
         self.up = up
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
-        self._up_quat = gfx.linalg.Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
+        self._up_quat = gfx.linalg.Quaternion().set_from_unit_vectors(
+            self.up, self._orbit_up
+        )
         self._up_quat_inv = self._up_quat.clone().inverse()
         return self
 
@@ -72,7 +71,9 @@ class OrbitControls:
         # back to camera up
         self._v.apply_quaternion(self._up_quat_inv)
         # compute new rotation
-        self.rotation.set_from_rotation_matrix(self._m.look_at(self._v, self._origin, self.up))
+        self.rotation.set_from_rotation_matrix(
+            self._m.look_at(self._v, self._origin, self.up)
+        )
         return self
 
     def zoom(self, delta: float) -> "OrbitControls":
@@ -120,7 +121,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         if self.pan:
             controls.pan(*delta)
         else:
-            controls.rotate(*(delta * .02))
+            controls.rotate(*(delta * 0.02))
         self.mouse_start = mouse_end
 
     def keyPressEvent(self, event):  # noqa: N802
