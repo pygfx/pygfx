@@ -83,13 +83,12 @@ class OrbitControls:
         return self
 
     def get_view(self) -> (gfx.linalg.Vector3, gfx.linalg.Vector3):
-        rot = self.rotation.clone()
-        pos = (
+        position = (
             gfx.linalg.Vector3(0, 0, self.distance)
-            .apply_quaternion(rot)
+            .apply_quaternion(self.rotation)
             .sub(self.target)
         )
-        return rot, pos
+        return self.rotation, position
 
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
@@ -152,8 +151,7 @@ background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 500
-controls = OrbitControls(camera.position.clone())
+controls = OrbitControls(gfx.linalg.Vector3(500, 500, 500))
 
 
 def animate():
