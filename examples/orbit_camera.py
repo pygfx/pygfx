@@ -161,6 +161,7 @@ def animate():
         )
         cube.rotation.multiply(rot)
 
+    # for some reason, y axis appears to be rendered upside down?
     rot, pos = controls.get_view()
     camera.rotation.copy(rot)
     camera.position.copy(pos)
