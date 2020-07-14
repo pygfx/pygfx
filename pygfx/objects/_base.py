@@ -20,6 +20,8 @@ class WorldObject:
         self.rotation = Quaternion()
         self.scale = Vector3(1, 1, 1)
 
+        self.up = Vector3(0, 1, 0)
+
         self.matrix = Matrix4()
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
@@ -77,3 +79,13 @@ class WorldObject:
         if update_children:
             for child in self._children:
                 child.update_matrix_world()
+
+    def look_at(self, target: Vector3):
+        self.update_matrix_world(update_parents=True, update_children=False)
+        v = Vector3().set_from_matrix_position(self.matrix_world)
+        m = Matrix4().look_at(v, target, self.up)
+        self.rotation.set_from_rotation_matrix(m)
+        if self.parent:
+            m.extract_rotation(self.parent.matrix_world)
+            q = Quaternion().set_from_rotation_matrix(m)
+            self.rotation.premultiply(q.inverse())

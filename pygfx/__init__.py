@@ -7,6 +7,7 @@ from .objects import *
 from .geometries import *
 from .materials import *
 from .cameras import *
+from .helpers import *
 
 from .renderers import *
 
