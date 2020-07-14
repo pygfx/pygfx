@@ -10,120 +10,49 @@ from PyQt5 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
 
 
-class OrbitControls:
-    _m = gfx.linalg.Matrix4()
-    _v = gfx.linalg.Vector3()
-    _origin = gfx.linalg.Vector3()
-    _orbit_up = gfx.linalg.Vector3(0, 1, 0)
-    _s = gfx.linalg.Spherical()
-
-    def __init__(
-        self,
-        eye: gfx.linalg.Vector3 = None,
-        target: gfx.linalg.Vector3 = None,
-        up: gfx.linalg.Vector3 = None,
-    ) -> None:
-        self.rotation = gfx.linalg.Quaternion()
-        if eye is None:
-            eye = gfx.linalg.Vector3(50.0, 50.0, 50.0)
-        if target is None:
-            target = gfx.linalg.Vector3()
-        if up is None:
-            up = gfx.linalg.Vector3(0.0, 1.0, 0.0)
-        self.look_at(eye, target, up)
-
-    def look_at(
-        self,
-        eye: gfx.linalg.Vector3,
-        target: gfx.linalg.Vector3,
-        up: gfx.linalg.Vector3,
-    ) -> "OrbitControls":
-        self.distance = eye.distance_to(target)
-        self.target = target
-        self.up = up
-        self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
-        self._up_quat = gfx.linalg.Quaternion().set_from_unit_vectors(
-            self.up, self._orbit_up
-        )
-        self._up_quat_inv = self._up_quat.clone().inverse()
-        return self
-
-    def pan(self, x: float, y: float) -> "OrbitControls":
-        self._v.set(x, y, 0).apply_quaternion(self.rotation)
-        self.target.sub(self._v)
-        return self
-
-    def rotate(self, x: float, y: float) -> "OrbitControls":
-        # (implicit target=(0,0,0))
-        # offset
-        self._v.set(0, 0, self.distance).apply_quaternion(self.rotation)
-        # to neutral up
-        self._v.apply_quaternion(self._up_quat)
-        # to spherical
-        self._s.set_from_vector3(self._v)
-        # apply delta
-        self._s.theta -= x
-        self._s.phi += y
-        # clip
-        self._s.make_safe()
-        # back to cartesian
-        self._v.set_from_spherical(self._s)
-        # back to camera up
-        self._v.apply_quaternion(self._up_quat_inv)
-        # compute new rotation
-        self.rotation.set_from_rotation_matrix(
-            self._m.look_at(self._v, self._origin, self.up)
-        )
-        return self
-
-    def zoom(self, delta: float) -> "OrbitControls":
-        self.distance -= delta
-        if self.distance < 0:
-            self.distance = 0
-        return self
-
-    def get_view(self) -> (gfx.linalg.Vector3, gfx.linalg.Vector3):
-        position = (
-            gfx.linalg.Vector3(0, 0, self.distance)
-            .apply_quaternion(self.rotation)
-            .add(self.target)
-        )
-        return self.rotation, position
-
-
 class WgpuCanvasWithInputEvents(WgpuCanvas):
     _flip_y = np.array([1, -1])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mouse_start = None
-        self.pan = False
+        self.drag = {}
 
     def wheelEvent(self, event):  # noqa: N802
-        # TODO: emit inputs from canvas
-        # TODO: link canvas to controls in glue layer instead of here
         global controls
         degrees = event.angleDelta().y() / 8
         controls.zoom(degrees)
 
     def mousePressEvent(self, event):  # noqa: N802
+        button = event.button()
+        mode = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate",}.get(
+            button, None
+        )
+        if self.drag or not mode:
+            return  # drag is already initiated, or unknown button pressed
         pos = event.windowPos()
-        self.pan = event.button() == QtCore.Qt.RightButton
-        self.mouse_start = np.array([pos.x(), pos.y()])
+        self.drag = {
+            "mode": mode,
+            "button": button,
+            "start": np.array([pos.x(), pos.y()]),
+        }
 
     def mouseReleaseEvent(self, event):  # noqa: N802
-        self.mouse_start = None
+        if self.drag.get("button") == event.button():
+            # stop when the initiating button is released
+            self.drag = {}
 
     def mouseMoveEvent(self, event):  # noqa: N802
-        global controls
+        if not self.drag:
+            return
         pos = event.windowPos()
         mouse_end = np.array([pos.x(), pos.y()])
-        delta = (mouse_end - self.mouse_start) * self._flip_y
-        if self.pan:
+        delta = (mouse_end - self.drag["start"]) * self._flip_y
+        global controls
+        if self.drag["mode"] == "pan":
             controls.pan(*delta)
-        else:
+        elif self.drag["mode"] == "rotate":
             controls.rotate(*(delta * 0.02))
-        self.mouse_start = mouse_end
+        self.drag["start"] = mouse_end
 
     def keyPressEvent(self, event):  # noqa: N802
         pass
@@ -156,7 +85,7 @@ scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(0, 0, 500)
-controls = OrbitControls(camera.position.clone())
+controls = gfx.OrbitControls(camera.position.clone())
 
 
 def animate():
@@ -166,7 +95,6 @@ def animate():
         )
         cube.rotation.multiply(rot)
 
-    # for some reason, y axis appears to be rendered upside down?
     rot, pos = controls.get_view()
     camera.rotation.copy(rot)
     camera.position.copy(pos)
