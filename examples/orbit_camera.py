@@ -11,29 +11,25 @@ from wgpu.gui.qt import WgpuCanvas
 
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
-    _flip_y = np.array([1, -1])
+    _drag_modes = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.drag = {}
+        self.drag = None
 
     def wheelEvent(self, event):  # noqa: N802
         global controls
-        degrees = event.angleDelta().y() / 8
-        controls.zoom(degrees)
+        controls.zoom(event.angleDelta().y())
 
     def mousePressEvent(self, event):  # noqa: N802
         button = event.button()
-        mode = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate",}.get(
-            button, None
-        )
+        mode = self._drag_modes.get(button, None)
         if self.drag or not mode:
             return  # drag is already initiated, or unknown button pressed
-        pos = event.windowPos()
         self.drag = {
             "mode": mode,
             "button": button,
-            "start": np.array([pos.x(), pos.y()]),
+            "start": (event.x(), event.y()),
         }
         QtWidgets.QApplication.instance().setOverrideCursor(QtCore.Qt.BlankCursor)
 
@@ -46,14 +42,13 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
     def mouseMoveEvent(self, event):  # noqa: N802
         if not self.drag:
             return
-        pos = event.windowPos()
-        mouse_end = np.array([pos.x(), pos.y()])
-        delta = (mouse_end - self.drag["start"]) * self._flip_y
+        mouse_end = (event.x(), event.y())
+        delta = tuple(mouse_end[i] - self.drag["start"][i] for i in range(2))
         global controls
         if self.drag["mode"] == "pan":
             controls.pan(*delta)
         elif self.drag["mode"] == "rotate":
-            controls.rotate(*(delta * 0.02))
+            controls.rotate(*delta)
         self.drag["start"] = mouse_end
 
     def keyPressEvent(self, event):  # noqa: N802

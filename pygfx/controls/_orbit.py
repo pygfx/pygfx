@@ -1,7 +1,3 @@
-"""
-Example showing orbit camera controls.
-"""
-
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 
 
@@ -23,8 +19,11 @@ class OrbitControls:
         if up is None:
             up = Vector3(0.0, 1.0, 0.0)
         self.look_at(eye, target, up)
+        self.rotate_speed = 0.02
+        self.zoom_speed = 0.125
+        self.pan_speed = 1.0
 
-    def look_at(self, eye: Vector3, target: Vector3, up: Vector3,) -> "OrbitControls":
+    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "OrbitControls":
         self.distance = eye.distance_to(target)
         self.target = target
         self.up = up
@@ -34,12 +33,13 @@ class OrbitControls:
         return self
 
     def pan(self, x: float, y: float) -> "OrbitControls":
-        self._v.set(x, y, 0).apply_quaternion(self.rotation)
+        self._v.set(x, -y, 0).multiply_scalar(self.pan_speed).apply_quaternion(
+            self.rotation
+        )
         self.target.sub(self._v)
         return self
 
     def rotate(self, x: float, y: float) -> "OrbitControls":
-        # (implicit target=(0,0,0))
         # offset
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation)
         # to neutral up
@@ -47,8 +47,8 @@ class OrbitControls:
         # to spherical
         self._s.set_from_vector3(self._v)
         # apply delta
-        self._s.theta -= x
-        self._s.phi += y
+        self._s.theta -= x * self.rotate_speed
+        self._s.phi -= y * self.rotate_speed
         # clip
         self._s.make_safe()
         # back to cartesian
@@ -62,18 +62,17 @@ class OrbitControls:
         return self
 
     def zoom(self, delta: float) -> "OrbitControls":
-        self.distance -= delta
+        self.distance -= delta * self.zoom_speed
         if self.distance < 0:
             self.distance = 0
         return self
 
     def get_view(self) -> (Vector3, Vector3):
-        position = (
-            Vector3(0, 0, self.distance)
-            .apply_quaternion(self.rotation)
-            .add(self.target)
+        # returns (rotation, position)
+        self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
+            self.target
         )
-        return self.rotation, position
+        return self.rotation, self._v
 
     def update_camera(self, camera: "Camera") -> None:
         rot, pos = self.get_view()
