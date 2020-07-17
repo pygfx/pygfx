@@ -48,12 +48,6 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         getattr(controls, self.drag["mode"])(*delta)
         self.drag["start"] = mouse_end
 
-    def keyPressEvent(self, event):  # noqa: N802
-        pass
-
-    def keyReleaseEvent(self, event):  # noqa: N802
-        pass
-
 
 app = QtWidgets.QApplication([])
 
