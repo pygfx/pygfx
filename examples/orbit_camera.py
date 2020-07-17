@@ -36,7 +36,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
     def mouseReleaseEvent(self, event):  # noqa: N802
         if self.drag.get("button") == event.button():
             # stop when the initiating button is released
-            self.drag = {}
+            self.drag = None
             QtWidgets.QApplication.instance().restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):  # noqa: N802
