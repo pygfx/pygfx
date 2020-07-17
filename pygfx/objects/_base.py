@@ -12,6 +12,10 @@ class WorldObject:
     into a single empty world object.
     """
 
+    _v = Vector3()
+    _m = Matrix4()
+    _q = Quaternion()
+
     def __init__(self):
         self.parent = None
         self._children = []
@@ -82,10 +86,10 @@ class WorldObject:
 
     def look_at(self, target: Vector3):
         self.update_matrix_world(update_parents=True, update_children=False)
-        v = Vector3().set_from_matrix_position(self.matrix_world)
-        m = Matrix4().look_at(v, target, self.up)
-        self.rotation.set_from_rotation_matrix(m)
+        self._v.set_from_matrix_position(self.matrix_world)
+        self._m.look_at(self._v, target, self.up)
+        self.rotation.set_from_rotation_matrix(self._m)
         if self.parent:
-            m.extract_rotation(self.parent.matrix_world)
-            q = Quaternion().set_from_rotation_matrix(m)
-            self.rotation.premultiply(q.inverse())
+            self._m.extract_rotation(self.parent.matrix_world)
+            self._q.set_from_rotation_matrix(self._m)
+            self.rotation.premultiply(self._q.inverse())

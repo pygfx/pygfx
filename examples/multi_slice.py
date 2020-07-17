@@ -24,6 +24,7 @@ scene.add(gfx.AxesHelper(size=10))
 vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3, usage="sampled")
 view = tex.get_view(filter="linear")
+material = gfx.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
 
 for axis in [0, 1, 2]:
     nslices = vol.shape[0]
@@ -58,7 +59,6 @@ for axis in [0, 1, 2]:
     print(texcoords)
     geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
 
-    material = gfx.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
     plane = gfx.Mesh(geometry, material)
 
     # by default the plane is in XY plane

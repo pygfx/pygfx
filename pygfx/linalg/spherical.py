@@ -34,3 +34,4 @@ class Spherical:
         self.phi = max(self._eps, min(math.pi - self._eps, self.phi))
         # restrict theta to (0, 2*pi)
         self.theta = self.theta % self._2pi
+        return self
