@@ -45,10 +45,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         mouse_end = (event.x(), event.y())
         delta = tuple(mouse_end[i] - self.drag["start"][i] for i in range(2))
         global controls
-        if self.drag["mode"] == "pan":
-            controls.pan(*delta)
-        elif self.drag["mode"] == "rotate":
-            controls.rotate(*delta)
+        getattr(controls, self.drag["mode"])(*delta)
         self.drag["start"] = mouse_end
 
     def keyPressEvent(self, event):  # noqa: N802
