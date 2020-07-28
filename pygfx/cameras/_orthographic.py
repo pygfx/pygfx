@@ -17,14 +17,12 @@ class OrthographicCamera(Camera):
 
     def __init__(self, width=1, height=1, near=-1000, far=1000):
         super().__init__()
-        self.width = float(width)
-        self.height = float(height)
         self.near = float(near)
         self.far = float(far)
         assert self.near < self.far
         self.zoom = 1
         self._maintain_aspect = True
-        self._view_aspect = 1
+        self.set_viewport_size(width, height)
         self.update_projection_matrix()
 
     def __repr__(self) -> str:
@@ -33,29 +31,35 @@ class OrthographicCamera(Camera):
         )
 
     def set_viewport_size(self, width, height):
-        self._view_aspect = width / height
+        self.width = float(width)
+        self.height = float(height)
+        self._view_aspect = self.width / self.height
+        self.update_bounds()
 
-    def update_projection_matrix(self):
+    def update_bounds(self):
         # Get the reference width / height
+        # TODO: when can this lead to a change? unclear to me
         width = self.width / self.zoom
         height = self.height / self.zoom
-        # Increase eihter the width or height, depending on the view size
+        # Increase either the width or height, depending on the view size
         aspect = width / height
         if aspect < self._view_aspect:
             width *= self._view_aspect / aspect
         else:
             height *= aspect / self._view_aspect
         # Calculate bounds
-        top = +0.5 * height
-        bottom = -0.5 * height
-        left = -0.5 * width
-        right = +0.5 * width
+        self.top = +0.5 * height
+        self.bottom = -0.5 * height
+        self.left = -0.5 * width
+        self.right = +0.5 * width
+
+    def update_projection_matrix(self):
         # Set matrices
         # The linalg ortho projection puts xyz in the range -1..1, but
         # in the coordinate system of wgpu (and this lib) the depth is
         # expressed in 0..1, so we also correct for that.
         self.projection_matrix.make_orthographic(
-            left, right, top, bottom, self.near, self.far
+            self.left, self.right, self.top, self.bottom, self.near, self.far
         )
         self.projection_matrix.premultiply(
             Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)

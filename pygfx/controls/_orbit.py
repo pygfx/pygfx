@@ -9,7 +9,11 @@ class OrbitControls:
     _s = Spherical()
 
     def __init__(
-        self, eye: Vector3 = None, target: Vector3 = None, up: Vector3 = None,
+        self,
+        eye: Vector3 = None,
+        target: Vector3 = None,
+        up: Vector3 = None,
+        zoom: str = "distance",
     ) -> None:
         self.rotation = Quaternion()
         if eye is None:
@@ -22,6 +26,9 @@ class OrbitControls:
         self.rotate_speed = 0.02
         self.zoom_speed = 0.125
         self.pan_speed = 1.0
+        self.zoom_type = zoom
+        self.zoom_ = 1.0
+        self.min_zoom = 0.0001
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "OrbitControls":
         self.distance = eye.distance_to(target)
@@ -62,19 +69,29 @@ class OrbitControls:
         return self
 
     def zoom(self, delta: float) -> "OrbitControls":
-        self.distance -= delta * self.zoom_speed
-        if self.distance < 0:
-            self.distance = 0
+        if self.zoom_type == "distance":
+            self.distance -= delta * self.zoom_speed
+            if self.distance < 0:
+                self.distance = 0
+        elif self.zoom_type == "zoom":
+            delta = delta * self.zoom_speed * 0.01
+            if self.zoom_ < 1.0:
+                delta *= self.zoom_
+            self.zoom_ += delta
+            if self.zoom_ < self.min_zoom:
+                self.zoom_ = self.min_zoom
         return self
 
-    def get_view(self) -> (Vector3, Vector3):
-        # returns (rotation, position)
+    def get_view(self) -> (Vector3, Vector3, float):
+        # returns (rotation, position, zoom)
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )
-        return self.rotation, self._v
+        return self.rotation, self._v, self.zoom_
 
     def update_camera(self, camera: "Camera") -> None:
-        rot, pos = self.get_view()
+        rot, pos, zoom = self.get_view()
         camera.rotation.copy(rot)
         camera.position.copy(pos)
+        if self.zoom_type == "zoom":
+            camera.zoom = zoom
