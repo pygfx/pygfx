@@ -18,7 +18,6 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         self.drag = None
 
     def wheelEvent(self, event):  # noqa: N802
-        global controls
         controls.zoom(event.angleDelta().y())
 
     def mousePressEvent(self, event):  # noqa: N802
@@ -44,7 +43,6 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             return
         mouse_end = (event.x(), event.y())
         delta = tuple(mouse_end[i] - self.drag["start"][i] for i in range(2))
-        global controls
         getattr(controls, self.drag["mode"])(*delta)
         self.drag["start"] = mouse_end
 
