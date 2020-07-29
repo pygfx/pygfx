@@ -24,27 +24,23 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         button = event.button()
         mode = self._drag_modes.get(button, None)
         if self.drag or not mode:
-            return  # drag is already initiated, or unknown button pressed
-        self.drag = {
-            "mode": mode,
-            "button": button,
-            "start": (event.x(), event.y()),
-        }
-        QtWidgets.QApplication.instance().setOverrideCursor(QtCore.Qt.BlankCursor)
+            return
+        pos = event.x(), event.y()
+        self.drag = {"mode": mode, "button": button, "start": pos}
+        app.setOverrideCursor(QtCore.Qt.BlankCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
         if self.drag and self.drag.get("button") == event.button():
-            # stop when the initiating button is released
             self.drag = None
-            QtWidgets.QApplication.instance().restoreOverrideCursor()
+            app.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):  # noqa: N802
         if not self.drag:
             return
-        mouse_end = (event.x(), event.y())
-        delta = tuple(mouse_end[i] - self.drag["start"][i] for i in range(2))
+        pos = event.x(), event.y()
+        delta = tuple(pos[i] - self.drag["start"][i] for i in range(2))
         getattr(controls, self.drag["mode"])(*delta)
-        self.drag["start"] = mouse_end
+        self.drag["start"] = pos
 
 
 app = QtWidgets.QApplication([])

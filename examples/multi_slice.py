@@ -21,12 +21,13 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         controls.zoom(event.angleDelta().y())
 
     def mousePressEvent(self, event):  # noqa: N802
-        pos = event.x(), event.y()
         button = event.button()
         mode = self._drag_modes.get(button, None)
-        if mode and not self.drag:
-            self.drag = {"mode": mode, "button": button, "start": pos}
-            app.setOverrideCursor(QtCore.Qt.BlankCursor)
+        if self.drag or not mode:
+            return
+        pos = event.x(), event.y()
+        self.drag = {"mode": mode, "button": button, "start": pos}
+        app.setOverrideCursor(QtCore.Qt.BlankCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
         if self.drag and self.drag.get("button") == event.button():
@@ -34,11 +35,12 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             app.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):  # noqa: N802
-        if self.drag:
-            pos = event.x(), event.y()
-            delta = tuple(pos[i] - self.drag["start"][i] for i in range(2))
-            getattr(controls, self.drag["mode"])(*delta)
-            self.drag["start"] = pos
+        if not self.drag:
+            return
+        pos = event.x(), event.y()
+        delta = tuple(pos[i] - self.drag["start"][i] for i in range(2))
+        getattr(controls, self.drag["mode"])(*delta)
+        self.drag["start"] = pos
 
 
 app = QtWidgets.QApplication([])
