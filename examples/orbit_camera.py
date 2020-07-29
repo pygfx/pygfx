@@ -34,7 +34,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         QtWidgets.QApplication.instance().setOverrideCursor(QtCore.Qt.BlankCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
-        if self.drag.get("button") == event.button():
+        if self.drag and self.drag.get("button") == event.button():
             # stop when the initiating button is released
             self.drag = None
             QtWidgets.QApplication.instance().restoreOverrideCursor()

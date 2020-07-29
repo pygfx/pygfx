@@ -29,7 +29,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             app.setOverrideCursor(QtCore.Qt.BlankCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
-        if self.drag.get("button") == event.button():
+        if self.drag and self.drag.get("button") == event.button():
             self.drag = None
             app.restoreOverrideCursor()
 
@@ -86,8 +86,8 @@ for axis in [0, 1, 2]:
         plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi))
     scene.add(plane)
 
-camera = gfx.OrthographicCamera(200, 200)
-camera.position.set(50, 50, 50)
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.set(125, 125, 125)
 camera.look_at(gfx.linalg.Vector3())
 controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
 
