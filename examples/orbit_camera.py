@@ -12,13 +12,14 @@ from wgpu.gui.qt import WgpuCanvas
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
     _drag_modes = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate"}
+    _speed = {"pan": 1.0, "rotate": 0.02}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.drag = None
 
     def wheelEvent(self, event):  # noqa: N802
-        controls.zoom(event.angleDelta().y())
+        controls.zoom(event.angleDelta().y() * 0.125)
 
     def mousePressEvent(self, event):  # noqa: N802
         button = event.button()
@@ -38,7 +39,8 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         if not self.drag:
             return
         pos = event.x(), event.y()
-        delta = tuple(pos[i] - self.drag["start"][i] for i in range(2))
+        speed = self._speed[self.drag["mode"]]
+        delta = tuple((pos[i] - self.drag["start"][i]) * speed for i in range(2))
         getattr(controls, self.drag["mode"])(*delta)
         self.drag["start"] = pos
 

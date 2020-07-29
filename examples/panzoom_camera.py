@@ -18,22 +18,10 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         self.drag = None
 
     def wheelEvent(self, event):  # noqa: N802
-        # compute current mouse position relative to widget center
         dim = self.width(), self.height()
         pos = event.x(), event.y()
-        fracpos = tuple((pos[i] - dim[i] * 0.5) / dim[i] for i in range(2))
-        view_old = camera.right - camera.left, camera.top - camera.bottom
-        relpos_old = tuple(fracpos[i] * view_old[i] for i in range(2))
-        # apply zoom and compute change in dimensions of camera frustum
-        controls.zoom(event.angleDelta().y())
-        controls.update_camera(camera)
-        camera.update_bounds()
-        view = camera.right - camera.left, camera.top - camera.bottom
-        # compute new mouse position relative to widget center
-        relpos = tuple(fracpos[i] * view[i] for i in range(2))
-        # compute delta and pan accordingly
-        delta = tuple(relpos[i] - relpos_old[i] for i in range(2))
-        controls.pan(*delta)
+        delta = event.angleDelta().y() * 0.00125
+        controls.zoom_to_point(delta, pos, dim, camera)
 
     def mousePressEvent(self, event):  # noqa: N802
         button = event.button()
@@ -80,7 +68,7 @@ scene.add(plane)
 
 camera = gfx.OrthographicCamera(512, 512)
 camera.position.set(0, 0, 500)
-controls = gfx.OrbitControls(camera.position.clone(), zoom="zoom")
+controls = gfx.PanZoomControls(camera.position.clone())
 
 
 def animate():
