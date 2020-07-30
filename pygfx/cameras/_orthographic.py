@@ -33,20 +33,8 @@ class OrthographicCamera(Camera):
     def set_viewport_size(self, width, height):
         self.width = float(width)
         self.height = float(height)
-        self._view_aspect = self.width / self.height
-        self.update_bounds()
-
-    def update_bounds(self):
-        # Get the reference width / height
-        # TODO: when can this lead to a change? unclear to me
         width = self.width / self.zoom
         height = self.height / self.zoom
-        # Increase either the width or height, depending on the view size
-        aspect = width / height
-        if aspect < self._view_aspect:
-            width *= self._view_aspect / aspect
-        else:
-            height *= aspect / self._view_aspect
         # Calculate bounds
         self.top = +0.5 * height
         self.bottom = -0.5 * height

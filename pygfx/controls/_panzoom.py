@@ -56,23 +56,21 @@ class PanZoomControls:
         delta: float,
         mouse: Tuple[float, float],
         canvas: Tuple[float, float],
-        camera: "OrthographicCamera",
+        view: Tuple[float, float],
     ) -> "PanZoomControls":
         # convert current mouse position to fractions relative to widget center
         # (fracpos x and y range becomes [-50%, 50%])
         fracpos = tuple((mouse[i] - canvas[i] * 0.5) / canvas[i] for i in range(2))
-        # compute current viewport dimensions
-        view_old = camera.right - camera.left, camera.top - camera.bottom
         # this gives us the relative position of the mouse in viewport space
-        relpos_old = tuple(fracpos[i] * view_old[i] for i in range(2))
+        relpos_old = tuple(fracpos[i] * view[i] for i in range(2))
         # now apply the zoom delta
+        zoom_old = self.zoom_
         self.zoom(delta)
-        self.update_camera(camera)
         # compute the new viewport dimensions
-        camera.update_bounds()
-        view = camera.right - camera.left, camera.top - camera.bottom
+        zoom_ratio = zoom_old / self.zoom_
+        view_new = tuple(view[i] * zoom_ratio for i in range(2))
         # and the new relative position of the mouse in viewport space
-        relpos = tuple(fracpos[i] * view[i] for i in range(2))
+        relpos = tuple(fracpos[i] * view_new[i] for i in range(2))
         # finally compute the delta and pan accordingly to compensate
         # such that the point under the mouse stays under the mouse
         delta = tuple(relpos[i] - relpos_old[i] for i in range(2))

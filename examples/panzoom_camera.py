@@ -21,7 +21,8 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         dim = self.width(), self.height()
         pos = event.x(), event.y()
         delta = event.angleDelta().y() * 0.00125
-        controls.zoom_to_point(delta, pos, dim, camera)
+        view = camera.right - camera.left, camera.top - camera.bottom
+        controls.zoom_to_point(delta, pos, dim, view)
 
     def mousePressEvent(self, event):  # noqa: N802
         button = event.button()

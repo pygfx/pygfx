@@ -2,6 +2,8 @@
 Slice a volume and a mesh through the three primary planes (XY, XZ, YZ)
 """
 
+from time import time
+
 import imageio
 import numpy as np
 import pygfx as gfx
@@ -63,32 +65,31 @@ material = gfx.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
 
 # TODO: also add a mesh slice for each plane
 
+planes = []
+texcoords = {
+    0: [[0.5, 0, 0], [0.5, 1, 0], [0.5, 0, 1], [0.5, 1, 1]],
+    1: [[0, 0.5, 0], [1, 0.5, 0], [0, 0.5, 1], [1, 0.5, 1]],
+    2: [[0, 0, 0.5], [1, 0, 0.5], [0, 1, 0.5], [1, 1, 0.5]],
+}
+shape = {
+    0: (vol.shape[1], vol.shape[0]),  # YZ plane
+    1: (vol.shape[2], vol.shape[0]),  # XZ plane
+    2: (vol.shape[2], vol.shape[1]),  # XY plane (default)
+}
 for axis in [0, 1, 2]:
-    if axis == 0:  # YZ plane
-        geometry = gfx.PlaneGeometry(vol.shape[1], vol.shape[0], 1, 1)
-        texcoords = np.array(
-            [[0.5, 0, 0], [0.5, 1, 0], [0.5, 0, 1], [0.5, 1, 1]], dtype=np.float32,
-        )
-    elif axis == 1:  # XZ plane
-        geometry = gfx.PlaneGeometry(vol.shape[2], vol.shape[0], 1, 1)
-        texcoords = np.array(
-            [[0, 0.5, 0], [1, 0.5, 0], [0, 0.5, 1], [1, 0.5, 1]], dtype=np.float32,
-        )
-    elif axis == 2:  # XY plane (default)
-        geometry = gfx.PlaneGeometry(vol.shape[2], vol.shape[1], 1, 1)
-        texcoords = np.array(
-            [[0, 0, 0.5], [1, 0, 0.5], [0, 1, 0.5], [1, 1, 0.5]], dtype=np.float32,
-        )
-    geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
-
+    geometry = gfx.PlaneGeometry(*shape[axis], 1, 1)
+    geometry.texcoords = gfx.Buffer(
+        np.array(texcoords[axis], dtype="f4"), usage="vertex|storage"
+    )
     plane = gfx.Mesh(geometry, material)
+    planes.append(plane)
+    scene.add(plane)
 
-    # by default the plane is in XY plane
     if axis == 0:  # YZ plane
         plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi, 0.5 * np.pi))
     elif axis == 1:  # XZ plane
         plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi))
-    scene.add(plane)
+    # else: XY plane
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(125, 125, 125)
@@ -97,7 +98,13 @@ controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0
 
 
 def animate():
-    # todo: should the control set it directly?
+    t = np.cos(time() / 2)
+    plane = planes[2]
+    plane.position.z = t * vol.shape[0] * 0.5
+    plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
+    plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
+    material.dirty = 1  # todo: we should not have to mark the *material* dirty!
+
     controls.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
