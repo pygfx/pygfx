@@ -71,13 +71,13 @@ texcoords = {
     1: [[0, 0.5, 0], [1, 0.5, 0], [0, 0.5, 1], [1, 0.5, 1]],
     2: [[0, 0, 0.5], [1, 0, 0.5], [0, 1, 0.5], [1, 1, 0.5]],
 }
-shape = {
+sizes = {
     0: (vol.shape[1], vol.shape[0]),  # YZ plane
     1: (vol.shape[2], vol.shape[0]),  # XZ plane
     2: (vol.shape[2], vol.shape[1]),  # XY plane (default)
 }
 for axis in [0, 1, 2]:
-    geometry = gfx.PlaneGeometry(*shape[axis], 1, 1)
+    geometry = gfx.PlaneGeometry(*sizes[axis], 1, 1)
     geometry.texcoords = gfx.Buffer(
         np.array(texcoords[axis], dtype="f4"), usage="vertex|storage"
     )
