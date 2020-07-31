@@ -26,7 +26,7 @@ class PanZoomControls:
         if up is None:
             up = Vector3(0.0, 1.0, 0.0)
         self.look_at(eye, target, up)
-        self.zoom_ = zoom
+        self.zoom_value = zoom
         self.min_zoom = min_zoom
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "PanZoomControls":
@@ -43,12 +43,8 @@ class PanZoomControls:
         self.target.sub(self._v)
         return self
 
-    def zoom(self, delta: float) -> "PanZoomControls":
-        if self.zoom_ < 1.0:
-            delta *= self.zoom_
-        self.zoom_ += delta
-        if self.zoom_ < self.min_zoom:
-            self.zoom_ = self.min_zoom
+    def zoom(self, multiplier: float) -> "PanZoomControls":
+        self.zoom_value = max(self.min_zoom, float(multiplier) * self.zoom_value)
         return self
 
     def zoom_to_point(
@@ -64,10 +60,10 @@ class PanZoomControls:
         # this gives us the relative position of the mouse in viewport space
         relpos_old = tuple(fracpos[i] * view[i] for i in range(2))
         # now apply the zoom delta
-        zoom_old = self.zoom_
+        zoom_old = self.zoom_value
         self.zoom(delta)
         # compute the new viewport dimensions
-        zoom_ratio = zoom_old / self.zoom_
+        zoom_ratio = zoom_old / self.zoom_value
         view_new = tuple(view[i] * zoom_ratio for i in range(2))
         # and the new relative position of the mouse in viewport space
         relpos = tuple(fracpos[i] * view_new[i] for i in range(2))
@@ -81,7 +77,7 @@ class PanZoomControls:
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )
-        return self.rotation, self._v, self.zoom_
+        return self.rotation, self._v, self.zoom_value
 
     def update_camera(self, camera: "Camera") -> "PanZoomControls":
         rot, pos, zoom = self.get_view()

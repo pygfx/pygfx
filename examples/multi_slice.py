@@ -21,7 +21,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         self.drag = None
 
     def wheelEvent(self, event):  # noqa: N802
-        controls.zoom(event.angleDelta().y() * 0.125)
+        controls.zoom(2 ** (event.angleDelta().y() * 0.0015))
 
     def mousePressEvent(self, event):  # noqa: N802
         button = event.button()
@@ -91,10 +91,13 @@ for axis in [0, 1, 2]:
         plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi))
     # else: XY plane
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
+# camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera = gfx.OrthographicCamera(200, 200)
 camera.position.set(125, 125, 125)
 camera.look_at(gfx.linalg.Vector3())
-controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
+controls = gfx.OrbitControls(
+    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1), zoom_changes_distance=False
+)
 
 
 def animate():

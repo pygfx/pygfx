@@ -17,12 +17,16 @@ class OrthographicCamera(Camera):
 
     def __init__(self, width=1, height=1, near=-1000, far=1000):
         super().__init__()
+        # These width and height represent the view-pane in world coordinates
+        # and has little to do with the canvas/viewport size.
+        self.width = float(width)
+        self.height = float(height)
         self.near = float(near)
         self.far = float(far)
         assert self.near < self.far
         self.zoom = 1
         self._maintain_aspect = True
-        self.set_viewport_size(width, height)
+        self.set_viewport_size(1, 1)
         self.update_projection_matrix()
 
     def __repr__(self) -> str:
@@ -31,10 +35,16 @@ class OrthographicCamera(Camera):
         )
 
     def set_viewport_size(self, width, height):
-        self.width = float(width)
-        self.height = float(height)
+        self._view_aspect = width / height
+
         width = self.width / self.zoom
         height = self.height / self.zoom
+        # Increase eihter the width or height, depending on the view size
+        aspect = width / height
+        if aspect < self._view_aspect:
+            width *= self._view_aspect / aspect
+        else:
+            height *= aspect / self._view_aspect
         # Calculate bounds
         self.top = +0.5 * height
         self.bottom = -0.5 * height

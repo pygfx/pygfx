@@ -1,6 +1,9 @@
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 
 
+# todo: maybe make an OrbitOrthoControls for ortho cameras, instead of this zoom param?
+
+
 class OrbitControls:
     _m = Matrix4()
     _v = Vector3()
@@ -9,7 +12,12 @@ class OrbitControls:
     _s = Spherical()
 
     def __init__(
-        self, eye: Vector3 = None, target: Vector3 = None, up: Vector3 = None,
+        self,
+        eye: Vector3 = None,
+        target: Vector3 = None,
+        up: Vector3 = None,
+        zoom_changes_distance=True,
+        min_zoom: float = 0.0001,
     ) -> None:
         self.rotation = Quaternion()
         if eye is None:
@@ -19,6 +27,10 @@ class OrbitControls:
         if up is None:
             up = Vector3(0.0, 1.0, 0.0)
         self.look_at(eye, target, up)
+        self.zoom_changes_distance = bool(zoom_changes_distance)
+        self.zoom_value = 1
+        self.min_zoom = min_zoom
+        self._initial_distance = self.distance
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "OrbitControls":
         self.distance = eye.distance_to(target)
@@ -56,20 +68,22 @@ class OrbitControls:
         )
         return self
 
-    def zoom(self, delta: float) -> "OrbitControls":
-        self.distance -= delta
-        if self.distance < 0:
-            self.distance = 0
+    def zoom(self, multiplier: float) -> "OrbitControls":
+        self.zoom_value = max(self.min_zoom, float(multiplier) * self.zoom_value)
+        if self.zoom_changes_distance:
+            self.distance = self._initial_distance * self.zoom_value
         return self
 
     def get_view(self) -> (Vector3, Vector3):
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )
-        return self.rotation, self._v
+        zoom = 1 if self.zoom_changes_distance else self.zoom_value
+        return self.rotation, self._v, zoom
 
     def update_camera(self, camera: "Camera") -> "OrbitControls":
-        rot, pos = self.get_view()
+        rot, pos, zoom = self.get_view()
         camera.rotation.copy(rot)
         camera.position.copy(pos)
+        camera.zoom = zoom
         return self
