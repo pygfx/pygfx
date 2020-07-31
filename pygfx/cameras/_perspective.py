@@ -47,8 +47,8 @@ class PerspectiveCamera(Camera):
         else:
             height *= self.aspect / self._view_aspect
         # Calculate bounds
-        top = -0.5 * height
-        bottom = +0.5 * height
+        top = +0.5 * height
+        bottom = -0.5 * height
         left = -0.5 * width
         right = +0.5 * width
         # Set matrices
