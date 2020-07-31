@@ -18,7 +18,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         self.drag = None
 
     def wheelEvent(self, event):  # noqa: N802
-        dim = self.width(), self.height()
+        dim = self.get_logical_size()
         pos = event.x(), event.y()
         zoom_multiplier = 2 ** (event.angleDelta().y() * 0.0015)
         view = camera.right - camera.left, camera.top - camera.bottom
