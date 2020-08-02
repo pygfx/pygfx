@@ -14,37 +14,33 @@ from wgpu.gui.qt import WgpuCanvas
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
     _drag_modes = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate"}
-    _speed = {"pan": 1.0, "rotate": 0.02}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.drag = None
+    _mode = None
 
     def wheelEvent(self, event):  # noqa: N802
         controls.zoom(2 ** (event.angleDelta().y() * 0.0015))
 
     def mousePressEvent(self, event):  # noqa: N802
-        button = event.button()
-        mode = self._drag_modes.get(button, None)
-        if self.drag or not mode:
+        mode = self._drag_modes.get(event.button(), None)
+        if self._mode or not mode:
             return
-        pos = event.x(), event.y()
-        self.drag = {"mode": mode, "button": button, "start": pos}
-        app.setOverrideCursor(QtCore.Qt.BlankCursor)
+        self._mode = mode
+        drag_start = (
+            controls.pan_start if self._mode == "pan" else controls.rotate_start
+        )
+        drag_start((event.x(), event.y()), self.get_logical_size(), camera)
+        app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
-        if self.drag and self.drag.get("button") == event.button():
-            self.drag = None
+        if self._mode and self._mode == self._drag_modes.get(event.button(), None):
+            self._mode = None
             app.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):  # noqa: N802
-        if not self.drag:
-            return
-        pos = event.x(), event.y()
-        speed = self._speed[self.drag["mode"]]
-        delta = tuple((pos[i] - self.drag["start"][i]) * speed for i in range(2))
-        getattr(controls, self.drag["mode"])(*delta)
-        self.drag["start"] = pos
+        if self._mode is not None:
+            drag_move = (
+                controls.pan_move if self._mode == "pan" else controls.rotate_move
+            )
+            drag_move((event.x(), event.y()))
 
 
 app = QtWidgets.QApplication([])
