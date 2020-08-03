@@ -1,39 +1,28 @@
 from typing import Tuple
 
-from ..linalg import Vector3, Vector4, Matrix4, Quaternion, Spherical
+from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 
 
 # todo: maybe make an OrbitOrthoControls for ortho cameras, instead of this zoom param?
 
 
-def get_screen_vectors_in_world_cords(center_world, canvas_size, camera):
+def get_screen_vectors_in_world_cords(
+    center_world: Vector3, canvas_size: Tuple[float, float], camera: "Camera"
+) -> Tuple[Vector3, Vector3]:
     """ Given a reference center location (in 3D world coordinates)
     Get the vectors corresponding to the x and y direction in screen coordinates.
     These vectors are scaled so that they can simply be multiplied with the
     delta x and delta y.
     """
-    center = Vector4(center_world.x, center_world.y, center_world.z, 1)
-    center.apply_matrix4(camera.matrix_world_inverse)
-    center.apply_matrix4(camera.projection_matrix)
-    pos1 = Vector4(100, 0, center.z / center.w, 1)
-    pos2 = Vector4(0, 100, center.z / center.w, 1)
-    for p in (pos1, pos2):
-        p.apply_matrix4(camera.projection_matrix_inverse)
-        p.apply_matrix4(camera.matrix_world)
-    pos1 = Vector3(pos1.x / pos1.w, pos1.y / pos1.w, pos1.z / pos1.w)
-    pos2 = Vector3(pos2.x / pos2.w, pos2.y / pos2.w, pos2.z / pos2.w)
+    center = center_world.clone().project(camera)
+    pos1 = Vector3(100, 0, center.z).unproject(camera)
+    pos2 = Vector3(0, 100, center.z).unproject(camera)
     pos1.multiply_scalar(0.02 / canvas_size[0])
     pos2.multiply_scalar(0.02 / canvas_size[1])
     return pos1, pos2  # now they're vecs, really
 
 
 class OrbitControls:
-    _m = Matrix4()
-    _v = Vector3()  # todo: euhm, this vector is shared between all instances? :P
-    _origin = Vector3()
-    _orbit_up = Vector3(0, 1, 0)
-    _s = Spherical()
-
     def __init__(
         self,
         eye: Vector3 = None,
@@ -49,15 +38,24 @@ class OrbitControls:
             target = Vector3()
         if up is None:
             up = Vector3(0.0, 1.0, 0.0)
-        self.look_at(eye, target, up)
         self.zoom_changes_distance = bool(zoom_changes_distance)
         self.zoom_value = 1
         self.min_zoom = min_zoom
-        self._initial_distance = self.distance
 
         # State info used during a pan or rotate operation
         self._pan_info = None
         self._rotate_info = None
+
+        # Temp objects (to avoid garbage collection)
+        self._m = Matrix4()
+        self._v = Vector3()
+        self._origin = Vector3()
+        self._orbit_up = Vector3(0, 1, 0)
+        self._s = Spherical()
+
+        # Initialize orientation
+        self.look_at(eye, target, up)
+        self._initial_distance = self.distance
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "OrbitControls":
         self.distance = eye.distance_to(target)
@@ -75,27 +73,35 @@ class OrbitControls:
         return self
 
     def pan_start(
-        self, pos: Tuple[float, float], canvas_size: Tuple[float, float], camera
-    ):
+        self,
+        pos: Tuple[float, float],
+        canvas_size: Tuple[float, float],
+        camera: "Camera",
+    ) -> "OrbitControls":
         """ Start a panning operation based (2D) screen coordinates.
         """
         vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+        return self
 
-    def pan_stop(self):
+    def pan_stop(self) -> "OrbitControls":
         self._pan_info = None
+        return self
 
-    def pan_move(self, pos: Tuple[float, float]):
+    def pan_move(self, pos: Tuple[float, float]) -> "OrbitControls":
         """ Pan the center of rotation, based on a (2D) screen location. Call pan_start first.
         """
         if self._pan_info is None:
             return
         delta = tuple((pos[i] - self._pan_info["last"][i]) for i in range(2))
-        self.pan(self._pan_info["vecx"].clone().multiply_scalar(-delta[0]))
-        self.pan(self._pan_info["vecy"].clone().multiply_scalar(+delta[1]))
-        # todo: this should really be:
-        # controls.pan(self._drag["vecx"] * delta[0] + self._drag["vecy"] * delta[1])
+        self.pan(
+            self._pan_info["vecx"]
+            .clone()
+            .multiply_scalar(-delta[0])
+            .add_scaled_vector(self._pan_info["vecy"], +delta[1])
+        )
         self._pan_info["last"] = pos
+        return self
 
     def rotate(self, theta: float, phi: float) -> "OrbitControls":
         """ Rotate using angles (in radians). theta and phi are also known
@@ -122,24 +128,33 @@ class OrbitControls:
         )
         return self
 
-    def rotate_start(self, pos, canvas_size, camera):
+    def rotate_start(
+        self,
+        pos: Tuple[float, float],
+        canvas_size: Tuple[float, float],
+        camera: "Camera",
+    ) -> "OrbitControls":
         """ Start a rotation operation based (2D) screen coordinates.
         """
         self._rotate_info = {"last": pos}
+        return self
 
-    def rotate_stop(self):
+    def rotate_stop(self) -> "OrbitControls":
         self._rotate_info = None
+        return self
 
-    def rotate_move(self, pos, speed=0.0175):
+    def rotate_move(
+        self, pos: Tuple[float, float], speed: float = 0.0175
+    ) -> "OrbitControls":
         """ Rotate, based on a (2D) screen location. Call rotate_start first.
         The speed is 1 degree per pixel by default.
         """
         if self._rotate_info is None:
             return
-        delta = tuple((pos[i] - self._rotate_info["last"][i]) for i in range(2))
-        delta = tuple(delta[i] * speed for i in range(2))
+        delta = tuple((pos[i] - self._rotate_info["last"][i]) * speed for i in range(2))
         self.rotate(*delta)
         self._rotate_info["last"] = pos
+        return self
 
     def zoom(self, multiplier: float) -> "OrbitControls":
         self.zoom_value = max(self.min_zoom, float(multiplier) * self.zoom_value)
@@ -147,7 +162,7 @@ class OrbitControls:
             self.distance = self._initial_distance / self.zoom_value
         return self
 
-    def get_view(self) -> (Vector3, Vector3):
+    def get_view(self) -> Tuple[Vector3, Vector3, float]:
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )

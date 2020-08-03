@@ -39,7 +39,7 @@ class OrthographicCamera(Camera):
         # The reference view plane is scaled with the zoom factor
         width = self.width / self.zoom
         height = self.height / self.zoom
-        # Increase eihter the width or height, depending on the viewport shape
+        # Increase either the width or height, depending on the viewport shape
         aspect = width / height
         if aspect < self._view_aspect:
             width *= self._view_aspect / aspect

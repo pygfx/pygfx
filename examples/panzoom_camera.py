@@ -31,6 +31,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
     def mouseReleaseEvent(self, event):  # noqa: N802
         if self._mode and self._mode == self._drag_modes.get(event.button(), None):
             self._mode = None
+            controls.pan_stop()
             app.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):  # noqa: N802
