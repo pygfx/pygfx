@@ -1,15 +1,10 @@
 from typing import Tuple
 
-from ..linalg import Vector3, Matrix4, Quaternion, Spherical
+from ..linalg import Vector3, Matrix4, Quaternion
+from ._orbit import get_screen_vectors_in_world_cords
 
 
 class PanZoomControls:
-    _m = Matrix4()
-    _v = Vector3()
-    _origin = Vector3()
-    _orbit_up = Vector3(0, 1, 0)
-    _s = Spherical()
-
     def __init__(
         self,
         eye: Vector3 = None,
@@ -25,22 +20,62 @@ class PanZoomControls:
             target = Vector3()
         if up is None:
             up = Vector3(0.0, 1.0, 0.0)
-        self.look_at(eye, target, up)
         self.zoom_value = zoom
         self.min_zoom = min_zoom
+
+        # State info used during a pan or rotate operation
+        self._pan_info = None
+
+        # Temp objects (to avoid garbage collection)
+        self._m = Matrix4()
+        self._v = Vector3()
+
+        # Initialize orientation
+        self.look_at(eye, target, up)
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "PanZoomControls":
         self.distance = eye.distance_to(target)
         self.target = target
         self.up = up
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
-        self._up_quat = Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
-        self._up_quat_inv = self._up_quat.clone().inverse()
         return self
 
-    def pan(self, x: float, y: float) -> "PanZoomControls":
-        self._v.set(x, -y, 0).apply_quaternion(self.rotation)
-        self.target.sub(self._v)
+    def pan(self, vec3: Vector3) -> "PanZoomControls":
+        """ Pan in 3D world coordinates.
+        """
+        self.target.add(vec3)
+        return self
+
+    def pan_start(
+        self,
+        pos: Tuple[float, float],
+        canvas_size: Tuple[float, float],
+        camera: "Camera",
+    ) -> "PanZoomControls":
+        # Using this function may be a bit overkill. We can also simply
+        # get the ortho cameras world_size (camera.visible_world_size).
+        # However, now the panzoom controls work with a perspecive camera ...
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
+        self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+        return self
+
+    def pan_stop(self) -> "PanZoomControls":
+        self._pan_info = None
+        return self
+
+    def pan_move(self, pos: Tuple[float, float]) -> "PanZoomControls":
+        """ Pan the camera, based on a (2D) screen location. Call pan_start first.
+        """
+        if self._pan_info is None:
+            return
+        delta = tuple((pos[i] - self._pan_info["last"][i]) for i in range(2))
+        self.pan(
+            self._pan_info["vecx"]
+            .clone()
+            .multiply_scalar(-delta[0])
+            .add_scaled_vector(self._pan_info["vecy"], +delta[1])
+        )
+        self._pan_info["last"] = pos
         return self
 
     def zoom(self, multiplier: float) -> "PanZoomControls":
@@ -49,31 +84,26 @@ class PanZoomControls:
 
     def zoom_to_point(
         self,
-        delta: float,
-        mouse: Tuple[float, float],
-        canvas: Tuple[float, float],
-        view: Tuple[float, float],
+        multiplier: float,
+        pos: Tuple[float, float],
+        canvas_size: Tuple[float, float],
+        camera: "Camera",
     ) -> "PanZoomControls":
-        # convert current mouse position to fractions relative to widget center
-        # (fracpos x and y range becomes [-50%, 50%])
-        fracpos = tuple((mouse[i] - canvas[i] * 0.5) / canvas[i] for i in range(2))
-        # this gives us the relative position of the mouse in viewport space
-        relpos_old = tuple(fracpos[i] * view[i] for i in range(2))
-        # now apply the zoom delta
+
+        # Apply zoom
         zoom_old = self.zoom_value
-        self.zoom(delta)
-        # compute the new viewport dimensions
-        zoom_ratio = zoom_old / self.zoom_value
-        view_new = tuple(view[i] * zoom_ratio for i in range(2))
-        # and the new relative position of the mouse in viewport space
-        relpos = tuple(fracpos[i] * view_new[i] for i in range(2))
-        # finally compute the delta and pan accordingly to compensate
-        # such that the point under the mouse stays under the mouse
-        delta = tuple(relpos[i] - relpos_old[i] for i in range(2))
-        self.pan(*delta)
+        self.zoom(multiplier)
+        zoom_ratio = zoom_old / self.zoom_value  # usually == multiplier
+
+        # Now pan such that what was previously under the mouse is again under the mouse.
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
+        delta = tuple(pos[i] - canvas_size[i] / 2 for i in (0, 1))
+        delta1 = vecx.multiply_scalar(delta[0]).add(vecy.multiply_scalar(-delta[1]))
+        delta2 = delta1.clone().multiply_scalar(zoom_ratio)
+        self.pan(delta1.sub(delta2))
         return self
 
-    def get_view(self) -> (Vector3, Vector3, float):
+    def get_view(self) -> Tuple[Vector3, Vector3, float]:
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )

@@ -12,39 +12,31 @@ from wgpu.gui.qt import WgpuCanvas
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
     _drag_modes = {QtCore.Qt.RightButton: "pan"}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.drag = None
+    _mode = None
 
     def wheelEvent(self, event):  # noqa: N802
-        dim = self.get_logical_size()
-        pos = event.x(), event.y()
         zoom_multiplier = 2 ** (event.angleDelta().y() * 0.0015)
-        view = camera.right - camera.left, camera.top - camera.bottom
-        controls.zoom_to_point(zoom_multiplier, pos, dim, view)
+        controls.zoom_to_point(
+            zoom_multiplier, (event.x(), event.y()), self.get_logical_size(), camera
+        )
 
     def mousePressEvent(self, event):  # noqa: N802
-        button = event.button()
-        mode = self._drag_modes.get(button, None)
-        if self.drag or not mode:
+        mode = self._drag_modes.get(event.button(), None)
+        if self._mode or not mode:
             return
-        pos = event.x(), event.y()
-        self.drag = {"mode": mode, "button": button, "start": pos}
-        app.setOverrideCursor(QtCore.Qt.BlankCursor)
+        self._mode = mode
+        controls.pan_start((event.x(), event.y()), self.get_logical_size(), camera)
+        app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
-        if self.drag and self.drag.get("button") == event.button():
-            self.drag = None
+        if self._mode and self._mode == self._drag_modes.get(event.button(), None):
+            self._mode = None
+            controls.pan_stop()
             app.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):  # noqa: N802
-        if not self.drag:
-            return
-        pos = event.x(), event.y()
-        delta = tuple(pos[i] - self.drag["start"][i] for i in range(2))
-        getattr(controls, self.drag["mode"])(*delta)
-        self.drag["start"] = pos
+        if self._mode is not None:
+            controls.pan_move((event.x(), event.y()))
 
 
 app = QtWidgets.QApplication([])

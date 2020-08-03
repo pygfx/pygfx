@@ -17,7 +17,7 @@ class OrthographicCamera(Camera):
 
     def __init__(self, width=1, height=1, near=-1000, far=1000):
         super().__init__()
-        # These width and height represent the view-pane in world coordinates
+        # These width and height represent the view-plane in world coordinates
         # and has little to do with the canvas/viewport size.
         self.width = float(width)
         self.height = float(height)
@@ -36,28 +36,30 @@ class OrthographicCamera(Camera):
 
     def set_viewport_size(self, width, height):
         self._view_aspect = width / height
-
+        # The reference view plane is scaled with the zoom factor
         width = self.width / self.zoom
         height = self.height / self.zoom
-        # Increase eihter the width or height, depending on the view size
+        # Increase either the width or height, depending on the viewport shape
         aspect = width / height
         if aspect < self._view_aspect:
             width *= self._view_aspect / aspect
         else:
             height *= aspect / self._view_aspect
-        # Calculate bounds
-        self.top = +0.5 * height
-        self.bottom = -0.5 * height
-        self.left = -0.5 * width
-        self.right = +0.5 * width
+        # Store the size if the visible view plane in world coordinates
+        self.visible_world_size = width, height
 
     def update_projection_matrix(self):
+        w, h = self.visible_world_size
+        bottom = -0.5 * h
+        top = +0.5 * h
+        left = -0.5 * w
+        right = +0.5 * w
         # Set matrices
         # The linalg ortho projection puts xyz in the range -1..1, but
         # in the coordinate system of wgpu (and this lib) the depth is
         # expressed in 0..1, so we also correct for that.
         self.projection_matrix.make_orthographic(
-            self.left, self.right, self.top, self.bottom, self.near, self.far
+            left, right, top, bottom, self.near, self.far
         )
         self.projection_matrix.premultiply(
             Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)
