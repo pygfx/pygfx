@@ -25,7 +25,7 @@ class OrthographicCamera(Camera):
         self.far = float(far)
         assert self.near < self.far
         self.zoom = 1
-        self._maintain_aspect = True
+        self.maintain_aspect = True
         self.set_viewport_size(1, 1)
         self.update_projection_matrix()
 
@@ -41,7 +41,9 @@ class OrthographicCamera(Camera):
         height = self.height / self.zoom
         # Increase either the width or height, depending on the viewport shape
         aspect = width / height
-        if aspect < self._view_aspect:
+        if not self.maintain_aspect:
+            pass
+        elif aspect < self._view_aspect:
             width *= self._view_aspect / aspect
         else:
             height *= aspect / self._view_aspect
