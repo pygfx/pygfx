@@ -4,7 +4,7 @@ from pyshader import python2shader
 from pyshader import f32, i32, vec2, vec3, vec4, Array
 
 
-from . import register_wgpu_render_function, stdinfo_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
 from ...objects import Mesh
 from ...materials import (
     MeshBasicMaterial,
@@ -55,10 +55,12 @@ def mesh_renderer(wobject, render_info):
         normal_buffer = Buffer(normal_data, usage="vertex|storage")
     vertex_buffers[2] = normal_buffer
 
-    bindings0 = {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)}
+    bindings0 = {
+        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
+        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+    }
     bindings1 = {}
-
-    bindings1[0] = wgpu.BindingType.uniform_buffer, material.uniform_buffer
 
     if material.map is not None:
         if isinstance(material.map, Texture):
@@ -67,8 +69,8 @@ def mesh_renderer(wobject, render_info):
             raise TypeError("material.map must be a TextureView")
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[1] = wgpu.BindingType.sampler, material.map
-        bindings1[2] = wgpu.BindingType.sampled_texture, material.map
+        bindings1[0] = wgpu.BindingType.sampler, material.map
+        bindings1[1] = wgpu.BindingType.sampled_texture, material.map
 
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
@@ -77,8 +79,8 @@ def mesh_renderer(wobject, render_info):
         topology = wgpu.PrimitiveTopology.line_list
         vertex_shader = vertex_shader_normal_lines
         fragment_shader = fragment_shader_simple
-        bindings0[1] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
-        bindings0[2] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
+        bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
+        bindings1[3] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
         vertex_buffers = {}
         index_buffer = None
         n = geometry.positions.nitems * 2
@@ -86,8 +88,8 @@ def mesh_renderer(wobject, render_info):
         topology = wgpu.PrimitiveTopology.triangle_list
         vertex_shader = vertex_shader_mesh_slice
         fragment_shader = fragment_shader_mesh_slice
-        bindings0[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
-        bindings0[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
+        bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
+        bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
         vertex_buffers = {}
         index_buffer = None
         n = (geometry.index.nitems // 3) * 6
@@ -148,15 +150,16 @@ def vertex_shader_mesh(
     v_view: (pyshader.RES_OUTPUT, 2, vec3),
     v_light: (pyshader.RES_OUTPUT, 3, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
 ):
-    world_pos = u_stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
+    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
 
     ndc_to_world = matrix_inverse(
         u_stdinfo.cam_transform * u_stdinfo.projection_transform
     )
 
-    normal_vec = u_stdinfo.world_transform * vec4(in_normal.xyz, 1.0)
+    normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
 
     view_vec = ndc_to_world * vec4(0, 0, 1, 1)
     view_vec = normalize(view_vec.xyz / view_vec.w)
@@ -173,10 +176,11 @@ def vertex_shader_mesh(
 @python2shader
 def vertex_shader_normal_lines(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
-    buf_pos: (pyshader.RES_BUFFER, (0, 1), Array(vec4)),
-    buf_normal: (pyshader.RES_BUFFER, (0, 2), Array(f32)),
-    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    buf_pos: (pyshader.RES_BUFFER, (1, 2), Array(vec4)),
+    buf_normal: (pyshader.RES_BUFFER, (1, 3), Array(f32)),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
 ):
 
     r = index % 2
@@ -185,8 +189,8 @@ def vertex_shader_normal_lines(
     pos = buf_pos[i].xyz
     normal = vec3(buf_normal[i * 3 + 0], buf_normal[i * 3 + 1], buf_normal[i * 3 + 2])
 
-    world_pos1 = u_stdinfo.world_transform * vec4(pos, 1.0)
-    world_pos2 = u_stdinfo.world_transform * vec4(pos + normal, 1.0)
+    world_pos1 = u_wobject.world_transform * vec4(pos, 1.0)
+    world_pos2 = u_wobject.world_transform * vec4(pos + normal, 1.0)
 
     # The normal is sized in world coordinates
     world_normal = normalize(world_pos2 - world_pos1)
@@ -198,7 +202,7 @@ def vertex_shader_normal_lines(
 
 @python2shader
 def fragment_shader_simple(
-    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     """ Just draw the fragment in the mesh's color.
@@ -219,9 +223,9 @@ def fragment_shader_normals(
 @python2shader
 def fragment_shader_textured_gray(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
-    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
-    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
-    t_tex: (pyshader.RES_TEXTURE, (1, 2), "2d i32"),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
@@ -232,9 +236,9 @@ def fragment_shader_textured_gray(
 @python2shader
 def fragment_shader_textured_rgba(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
-    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
-    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
-    t_tex: (pyshader.RES_TEXTURE, (1, 2), "2d i32"),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     color = vec4(t_tex.sample(s_sam, v_texcoord))
@@ -244,7 +248,7 @@ def fragment_shader_textured_rgba(
 
 @python2shader
 def fragment_shader_phong(
-    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     v_normal: (pyshader.RES_INPUT, 1, vec3),
     v_view: (pyshader.RES_INPUT, 2, vec3),
     v_light: (pyshader.RES_INPUT, 3, vec3),
@@ -291,9 +295,9 @@ def fragment_shader_phong(
 @python2shader
 def fragment_shader_textured_rgba_phong(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
-    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshBasicMaterial.uniform_type),
-    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
-    t_tex: (pyshader.RES_TEXTURE, (1, 2), "2d i32"),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
     v_normal: (pyshader.RES_INPUT, 1, vec3),
     v_view: (pyshader.RES_INPUT, 2, vec3),
     v_light: (pyshader.RES_INPUT, 3, vec3),
@@ -344,11 +348,12 @@ def fragment_shader_textured_rgba_phong(
 @python2shader
 def vertex_shader_mesh_slice(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
-    buf_indices: (pyshader.RES_BUFFER, (0, 2), Array(i32)),
-    buf_positions: (pyshader.RES_BUFFER, (0, 3), Array(vec4)),
-    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_material: (pyshader.RES_UNIFORM, (1, 0), MeshSliceMaterial.uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
+    buf_indices: (pyshader.RES_BUFFER, (1, 2), Array(i32)),
+    buf_positions: (pyshader.RES_BUFFER, (1, 3), Array(vec4)),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_dist2center: (pyshader.RES_OUTPUT, 0, vec2),
     v_segment_length: (pyshader.RES_OUTPUT, 1, f32),
     v_segment_width: (pyshader.RES_OUTPUT, 2, f32),
@@ -410,15 +415,15 @@ def vertex_shader_mesh_slice(
 
     if pos_index == 0:  # or n@u == 0
         # Just return the same vertex, resulting in degenerate triangles
-        wpos1 = u_stdinfo.world_transform * vec4(pos1, 1.0)
+        wpos1 = u_wobject.world_transform * vec4(pos1, 1.0)
         the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos1
         the_coord = vec2(0, 0)
         segment_length = 0.0
 
     else:
         # Go from local coordinates to NDC
-        wpos_a = u_stdinfo.world_transform * vec4(pos_a, 1.0)
-        wpos_b = u_stdinfo.world_transform * vec4(pos_b, 1.0)
+        wpos_a = u_wobject.world_transform * vec4(pos_a, 1.0)
+        wpos_b = u_wobject.world_transform * vec4(pos_b, 1.0)
         npos_a = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_a
         npos_b = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_b
         # Don't forget to "normalize"!
@@ -477,7 +482,8 @@ def fragment_shader_mesh_slice(
     v_segment_length: (pyshader.RES_INPUT, 1, f32),
     v_segment_width: (pyshader.RES_INPUT, 2, f32),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_material: (pyshader.RES_UNIFORM, (1, 0), MeshSliceMaterial.uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
 ):

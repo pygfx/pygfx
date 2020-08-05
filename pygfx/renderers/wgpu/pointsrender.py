@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 from pyshader import python2shader
 from pyshader import f32, vec2, vec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
 from ...objects import Points
 from ...materials import PointsMaterial, GaussianPointsMaterial
 
@@ -11,12 +11,13 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 def vertex_shader(
     in_pos: ("input", 0, vec4),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
-    u_points: ("uniform", (1, 0), PointsMaterial.uniform_type),
+    u_wobject: ("uniform", (0, 1), wobject_uniform_type),
+    u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
     out_pos: ("output", "Position", vec4),
     out_point_size: ("output", "PointSize", f32),
     out_size: ("output", 0, f32),
 ):
-    world_pos = u_stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
+    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
 
     scale_factor = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x
@@ -31,7 +32,7 @@ def vertex_shader(
 def fragment_shader_points(
     in_size: ("input", 0, f32),
     in_point_coord: ("input", "PointCoord", vec2),
-    u_points: ("uniform", (1, 0), PointsMaterial.uniform_type),
+    u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
     out_color: ("output", 0, vec4),
 ):
     # See https://github.com/vispy/vispy/blob/master/vispy/visuals/markers.py
@@ -54,7 +55,7 @@ def fragment_shader_points(
 def fragment_shader_gaussian(
     in_size: ("input", 0, f32),
     in_point_coord: ("input", "PointCoord", vec2),
-    u_points: ("uniform", (1, 0), PointsMaterial.uniform_type),
+    u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
     out_color: ("output", 0, vec4),
 ):
     color = u_points.color
@@ -83,8 +84,11 @@ def points_renderer(wobject, render_info):
     vertex_buffers = {0: geometry.positions}
 
     # Collect bindings
-    bindings0 = {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)}
-    bindings1 = {0: (wgpu.BindingType.uniform_buffer, material.uniform_buffer)}
+    bindings0 = {
+        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
+        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+    }
 
     if isinstance(material, GaussianPointsMaterial):
         fragment_shader = fragment_shader_gaussian
@@ -100,6 +104,5 @@ def points_renderer(wobject, render_info):
             "indices": (range(n), range(1)),
             "vertex_buffers": vertex_buffers,
             "bindings0": bindings0,
-            "bindings1": bindings1,
         }
     ]

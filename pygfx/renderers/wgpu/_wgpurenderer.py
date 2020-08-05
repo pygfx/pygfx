@@ -14,12 +14,13 @@ from ...utils import array_from_shadertype
 # provided to each shader as uniform at slot 0.
 # todo: a combined transform would be nice too, for performance
 stdinfo_uniform_type = Struct(
-    world_transform=mat4,
     cam_transform=mat4,
     projection_transform=mat4,
     physical_size=vec2,
     logical_size=vec2,
 )
+
+wobject_uniform_type = Struct(world_transform=mat4,)
 
 
 registry = RenderFunctionRegistry()
@@ -46,8 +47,9 @@ class RenderInfo:
     will probably also include lights etc.
     """
 
-    def __init__(self, *, stdinfo):
-        self.stdinfo = stdinfo
+    def __init__(self, *, stdinfo_uniform, wobject_uniform):
+        self.stdinfo_uniform = stdinfo_uniform
+        self.wobject_uniform = wobject_uniform
 
 
 class WgpuRenderer(Renderer):
@@ -87,6 +89,19 @@ class WgpuRenderer(Renderer):
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
+        # Set stdinfo uniform buffer object. Set on camera or is self ok?
+        if not hasattr(self, "_wgpu_stdinfo_buffer"):
+            self._wgpu_stdinfo_buffer = Buffer(
+                array_from_shadertype(stdinfo_uniform_type), usage="uniform"
+            )
+        stdinfo_data = self._wgpu_stdinfo_buffer.data
+        stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
+        stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
+        stdinfo_data["physical_size"] = physical_size
+        stdinfo_data["logical_size"] = logical_size
+        self._wgpu_stdinfo_buffer.update_range(0, 1)
+        self._update_buffer(self._wgpu_stdinfo_buffer)
+
         # Get the sorted list of objects to render (guaranteed to be visible and having a material)
         proj_screen_matrix = Matrix4().multiply_matrices(
             camera.projection_matrix, camera.matrix_world_inverse
@@ -100,24 +115,42 @@ class WgpuRenderer(Renderer):
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_data is not None]
 
-        # Prepare for rendering
-        command_encoder = device.create_command_encoder()
-        command_buffers = []
+        with self._swap_chain as texture_view_target:
 
-        # Update stdinfo buffer for all objects
-        # todo: a lot of duplicate data here. Let's revisit when we implement point / line collections.
-        for wobject in q:
-            wgpu_data = wobject._wgpu_data
-            stdinfo = wgpu_data["stdinfo"]
-            stdinfo.data["world_transform"] = tuple(wobject.matrix_world.elements)
-            stdinfo.data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-            stdinfo.data["projection_transform"] = tuple(
-                camera.projection_matrix.elements
-            )
-            stdinfo.data["physical_size"] = physical_size
-            stdinfo.data["logical_size"] = logical_size
-            stdinfo.update_range(0, 1)
-            self._update_buffer(stdinfo)
+            # Prepare depth texture
+            if texture_view_target.size != getattr(self, "_swap_chain_size", None):
+                self._swap_chain_size = texture_view_target.size
+                self._depth_texture = device.create_texture(
+                    size=texture_view_target.size,
+                    usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+                    dimension="2d",
+                    format=wgpu.TextureFormat.depth32float,
+                )
+                self._depth_texture_view = self._depth_texture.create_view()
+                #
+                # self._render_texture = device.create_texture(
+                #     size=texture_view_target.size,
+                #     usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
+                #     dimension="2d",
+                #     format=wgpu.TextureFormat.bgra8unorm_srgb,
+                # )
+                # self._render_texture_view = self._render_texture.create_view()
+
+            self._render_texture_view = texture_view_target
+
+            command_encoder = device.create_command_encoder()
+            self._record_render(command_encoder, q)
+            self._command_buffers = [command_encoder.finish()]
+
+            device.default_queue.submit(self._command_buffers)
+
+    def _record_render(self, command_encoder, q):
+
+        # You might think that this is slow for large number of world
+        # object. But it is actually pretty good. It does iterate over
+        # all world objects, and over stuff in each object. But that's
+        # it, really.
+        # todo: we may be able to speed this up with render bundles though
 
         # ----- compute pipelines
 
@@ -137,65 +170,47 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines rendering to the default target
 
-        with self._swap_chain as texture_view_target:
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=[
+                {
+                    "attachment": self._render_texture_view,  # texture_view_target,
+                    "resolve_target": None,
+                    "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                    "store_op": wgpu.StoreOp.store,
+                }
+            ],
+            depth_stencil_attachment={
+                "attachment": self._depth_texture_view,
+                "depth_load_value": 10 ** 38,
+                "depth_store_op": wgpu.StoreOp.store,
+                "stencil_load_value": wgpu.LoadOp.load,
+                "stencil_store_op": wgpu.StoreOp.store,
+            },
+            occlusion_query_set=None,
+        )
 
-            # Prepate depth texture
-            if texture_view_target.size != getattr(self, "_swap_chain_size", None):
-                self._swap_chain_size = texture_view_target.size
-                self._depth_texture = device.create_texture(
-                    size=texture_view_target.size,
-                    usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-                    dimension="2d",
-                    format=wgpu.TextureFormat.depth32float,
-                )
-                self._depth_texture_view = self._depth_texture.create_view()
+        for wobject in q:
+            wgpu_data = wobject._wgpu_data
+            for pinfo in wgpu_data["render_pipelines"]:
+                render_pass.set_pipeline(pinfo["pipeline"])
+                for slot, vbuffer in pinfo["vertex_buffers"].items():
+                    render_pass.set_vertex_buffer(
+                        slot,
+                        vbuffer._wgpu_buffer,
+                        vbuffer.vertex_byte_range[0],
+                        vbuffer.vertex_byte_range[1],
+                    )
+                for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                    render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
+                # Draw with or without index buffer
+                if pinfo["index_buffer"] is not None:
+                    ibuffer = pinfo["index_buffer"]
+                    render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
+                    render_pass.draw_indexed(*pinfo["index_args"])
+                else:
+                    render_pass.draw(*pinfo["index_args"])
 
-            render_pass = command_encoder.begin_render_pass(
-                color_attachments=[
-                    {
-                        "attachment": texture_view_target,
-                        "resolve_target": None,
-                        "load_value": (0, 0, 0, 0),  # LoadOp.load or color
-                        "store_op": wgpu.StoreOp.store,
-                    }
-                ],
-                depth_stencil_attachment={
-                    "attachment": self._depth_texture_view,
-                    "depth_load_value": 10 ** 38,
-                    "depth_store_op": wgpu.StoreOp.store,
-                    "stencil_load_value": wgpu.LoadOp.load,
-                    "stencil_store_op": wgpu.StoreOp.store,
-                },
-                occlusion_query_set=None,
-            )
-
-            for wobject in q:
-                wgpu_data = wobject._wgpu_data
-                for pinfo in wgpu_data["render_pipelines"]:
-                    render_pass.set_pipeline(pinfo["pipeline"])
-                    for slot, vbuffer in pinfo["vertex_buffers"].items():
-                        render_pass.set_vertex_buffer(
-                            slot,
-                            vbuffer._wgpu_buffer,
-                            vbuffer.vertex_byte_range[0],
-                            vbuffer.vertex_byte_range[1],
-                        )
-                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                        render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
-                    # Draw with or without index buffer
-                    if pinfo["index_buffer"] is not None:
-                        ibuffer = pinfo["index_buffer"]
-                        render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
-                        render_pass.draw_indexed(*pinfo["index_args"])
-                    else:
-                        render_pass.draw(*pinfo["index_args"])
-
-            render_pass.end_pass()
-
-            command_buffers.append(command_encoder.finish())
-            device.default_queue.submit(command_buffers)
-
-        # -----
+        render_pass.end_pass()
 
     def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
         """ Given a scene object, get a list of objects to render.
@@ -221,12 +236,24 @@ class WgpuRenderer(Renderer):
             )
             return wobject.render_order, z
 
-        return list(sorted(q, key=sort_func))
+        return q
+        # return list(sorted(q, key=sort_func))
 
     def _make_up_to_date(self, wobject):
         """ Update the GPU objects associated with the given wobject. Returns
         quickly if no changes are needed.
         """
+
+        if True:  # wobject.matrix_world_dirty:
+            if not hasattr(wobject, "_wgpu_uniform_buffer"):
+                wobject._wgpu_uniform_buffer = Buffer(
+                    array_from_shadertype(wobject_uniform_type), usage="uniform"
+                )
+            wobject._wgpu_uniform_buffer.data["world_transform"] = tuple(
+                wobject.matrix_world.elements
+            )
+            # todo: wobject.matrix_world_dirty is not the right flag :P
+            # todo: use a "version" instead of a bool
 
         # Can return fast?
         if not wobject.material.dirty and hasattr(wobject, "_wgpu_data"):
@@ -291,12 +318,6 @@ class WgpuRenderer(Renderer):
 
     def _get_pipeline_infos(self, wobject):
 
-        # Make sure that the wobject has an stdinfo object
-        if not hasattr(wobject, "_wgpu_stdinfo_buffer"):
-            wobject._wgpu_stdinfo_buffer = Buffer(
-                array_from_shadertype(stdinfo_uniform_type), usage="uniform"
-            )
-
         # Get render function for this world object,
         # and use it to get a high-level description of pipelines.
         renderfunc = registry.get_render_function(wobject)
@@ -307,7 +328,10 @@ class WgpuRenderer(Renderer):
             )
 
         # Call render function
-        render_info = RenderInfo(stdinfo=wobject._wgpu_stdinfo_buffer)
+        render_info = RenderInfo(
+            stdinfo_uniform=self._wgpu_stdinfo_buffer,
+            wobject_uniform=wobject._wgpu_uniform_buffer,
+        )
         pipeline_infos = renderfunc(wobject, render_info)
         if pipeline_infos is not None:
             assert isinstance(pipeline_infos, list)
@@ -347,7 +371,6 @@ class WgpuRenderer(Renderer):
             "compute_pipelines": compute_pipelines,
             "render_pipelines": render_pipelines,
             "alt_render_pipelines": alt_render_pipelines,
-            "stdinfo": wobject._wgpu_stdinfo_buffer,
         }
 
     def _compose_compute_pipeline(self, wobject, pipeline_info):
