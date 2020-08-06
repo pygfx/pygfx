@@ -43,11 +43,12 @@ from ...materials import (
 # such a "geometry shader pass" could look like.
 @pyshader.python2shader
 def compute_shader(
-    index: (pyshader.RES_INPUT, "GlobalInvocationId", "i32"),
+    index_xyz: (pyshader.RES_INPUT, "GlobalInvocationId", "ivec3"),
     pos1: (pyshader.RES_BUFFER, (0, 0), Array(vec4)),
     pos2: (pyshader.RES_BUFFER, (0, 1), Array(vec4)),
     material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
 ):
+    index = index_xyz.x
     p = pos1[index] * 1.0
     dz = material.thickness
     pos2[index * 2 + 0] = vec4(p.x, p.y + dz, p.z, 1.0)
