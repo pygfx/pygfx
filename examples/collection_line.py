@@ -1,5 +1,6 @@
 """
-Display multiple lines in a collection for performance.
+Display a lot of line objects. Because of the architecture of wgpu,
+this is still performant.
 """
 
 import time  # noqa

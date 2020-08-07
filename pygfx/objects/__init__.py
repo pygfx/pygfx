@@ -5,4 +5,4 @@ from ._group import Group
 from ._scene import Scene, Background
 from ._points import Points
 from ._line import Line
-from ._mesh import Mesh
+from ._mesh import Mesh, InstancedMesh

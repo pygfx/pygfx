@@ -1,11 +1,11 @@
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import f32, i32, vec2, vec3, vec4, Array
+from pyshader import f32, i32, vec2, vec3, vec4, mat4, Array
 
 
 from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
-from ...objects import Mesh
+from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
     MeshNormalMaterial,
@@ -110,6 +110,15 @@ def mesh_renderer(wobject, render_info):
             else:
                 fragment_shader = fragment_shader_textured_gray
 
+    # Instanced meshes have their own vertex shader
+    n_instances = 1
+    if isinstance(wobject, InstancedMesh):
+        if vertex_shader is not vertex_shader_mesh:
+            raise TypeError(f"Instanced mesh does not work with {material}")
+        vertex_shader = vertex_shader_mesh_instanced
+        bindings1[4] = wgpu.BindingType.readonly_storage_buffer, wobject.matrices
+        n_instances = wobject.matrices.nitems
+
     # Use a version of the shader for float textures if necessary
     if material.map is not None:
         if "float" in material.map.format:
@@ -127,7 +136,7 @@ def mesh_renderer(wobject, render_info):
             "vertex_shader": vertex_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": topology,
-            "indices": (range(n), range(1)),
+            "indices": (range(n), range(n_instances)),
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
             "bindings0": bindings0,
@@ -198,6 +207,44 @@ def vertex_shader_normal_lines(
     world_pos = world_pos1 + f32(r) * world_normal * 1.0
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
     out_pos = ndc_pos  # noqa - shader output
+
+
+@python2shader
+def vertex_shader_mesh_instanced(
+    instance_id: (pyshader.RES_INPUT, "InstanceId", i32),
+    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_texcoord: (pyshader.RES_INPUT, 1, vec2),
+    in_normal: (pyshader.RES_INPUT, 2, vec3),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_texcoord: (pyshader.RES_OUTPUT, 0, vec2),
+    v_normal: (pyshader.RES_OUTPUT, 1, vec3),
+    v_view: (pyshader.RES_OUTPUT, 2, vec3),
+    v_light: (pyshader.RES_OUTPUT, 3, vec3),
+    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    b_matrices: (pyshader.RES_BUFFER, (1, 4), Array(mat4)),
+):
+    # Note the extra matrix for the instance
+    submatrix = b_matrices[instance_id]
+    world_pos = u_wobject.world_transform * submatrix * vec4(in_pos.xyz, 1.0)
+    ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
+
+    ndc_to_world = matrix_inverse(
+        u_stdinfo.cam_transform * u_stdinfo.projection_transform
+    )
+
+    normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
+
+    view_vec = ndc_to_world * vec4(0, 0, 1, 1)
+    view_vec = normalize(view_vec.xyz / view_vec.w)
+
+    out_pos = ndc_pos  # noqa - shader output
+    v_texcoord = in_texcoord  # noqa - shader output
+
+    # Vectors for lighting, all in world coordinates
+    v_normal = normal_vec  # noqa
+    v_view = view_vec  # noqa
+    v_light = view_vec  # noqa
 
 
 @python2shader
