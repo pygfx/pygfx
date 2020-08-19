@@ -3,7 +3,7 @@ import pyshader
 from pyshader import python2shader
 from pyshader import vec3, vec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
 from ...objects import Mesh
 from ...materials import MeshVolumeSliceMaterial
 from ...datawrappers import Buffer, Texture, TextureView
@@ -13,11 +13,12 @@ from ...datawrappers import Buffer, Texture, TextureView
 def vertex_shader(
     in_pos: (pyshader.RES_INPUT, 0, vec4),
     in_texcoord: (pyshader.RES_INPUT, 1, vec3),
+    u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
+    u_wobject: ("uniform", (0, 1), wobject_uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
-    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
 ):
-    world_pos = u_stdinfo.world_transform * vec4(in_pos.xyz, 1.0)
+    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
 
     out_pos = ndc_pos  # noqa - shader output
@@ -27,9 +28,9 @@ def vertex_shader(
 @python2shader
 def fragment_shader_textured_gray(
     v_texcoord: (pyshader.RES_INPUT, 0, vec3),
-    u_mesh: (pyshader.RES_UNIFORM, (1, 0), MeshVolumeSliceMaterial.uniform_type),
-    s_sam: (pyshader.RES_SAMPLER, (1, 1), ""),
-    t_tex: (pyshader.RES_TEXTURE, (1, 2), "3d i32"),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshVolumeSliceMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 1), "3d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
@@ -63,10 +64,12 @@ def mesh_slice_renderer(wobject, render_info):
     if getattr(geometry, "texcoords", None) is not None:
         vertex_buffers[1] = geometry.texcoords
 
-    bindings0 = {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)}
+    bindings0 = {
+        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
+        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+    }
     bindings1 = {}
-
-    bindings1[0] = wgpu.BindingType.uniform_buffer, material.uniform_buffer
 
     # Collect texture and sampler
     if material.map is not None:
@@ -79,8 +82,8 @@ def mesh_slice_renderer(wobject, render_info):
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
         # todo: check that texcoords is 3D, but the Buffer has no API for it yet
-        bindings1[1] = wgpu.BindingType.sampler, material.map
-        bindings1[2] = wgpu.BindingType.sampled_texture, material.map
+        bindings1[0] = wgpu.BindingType.sampler, material.map
+        bindings1[1] = wgpu.BindingType.sampled_texture, material.map
         # Use a version of the shader for float textures if necessary
         if "float" in material.map.format:
             if not hasattr(fragment_shader, "float_version"):
