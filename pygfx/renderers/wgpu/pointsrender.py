@@ -79,6 +79,15 @@ def points_renderer(wobject, render_info):
     geometry = wobject.geometry
     material = wobject.material
 
+    # Specify what changes to wobject, geometry and material would
+    # invalidate the render info that this function returns.
+    for name in ["geometry", "material"]:
+        wobject._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in ["positions"]:
+        geometry._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in []:
+        material._listen(name, wobject._wgpu_set_pipeline_dirty)
+
     # Collect vertex buffers
     n = geometry.positions.nitems
     vertex_buffers = {0: geometry.positions}

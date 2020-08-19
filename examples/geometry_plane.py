@@ -47,7 +47,6 @@ def animate():
             reader.set_image_index(0)
         else:
             tex.update_range((0, 0, 0), tex.size)
-            material.dirty = 1
 
     renderer.render(scene, camera)
     canvas.request_draw()

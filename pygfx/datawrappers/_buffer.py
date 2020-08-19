@@ -30,6 +30,7 @@ class Buffer:
     def __init__(
         self, data=None, *, usage, nbytes=None, nitems=None, format=None,
     ):
+        self._versionflag = 0
         # To specify the buffer size
         self._nbytes = 0
         self._nitems = 1
@@ -77,10 +78,10 @@ class Buffer:
         self._vertex_byte_range = (0, self._nbytes)
 
     @property
-    def dirty(self):
-        """ Whether the buffer is dirty (needs to be processed by the renderer).
+    def versionflag(self):
+        """ An integer that is increased when update_range() is called.
         """
-        return bool(self._pending_uploads)
+        return self._versionflag
 
     @property
     def usage(self):
@@ -164,6 +165,7 @@ class Buffer:
             size = max(size, cur_size)
         # Limit and apply
         self._pending_uploads.append((offset, size))
+        self._versionflag += 1
         # todo: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):

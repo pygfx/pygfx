@@ -1,9 +1,10 @@
 import numpy as np
 
+from ..objects._base import TrackableObject
 from ..datawrappers import Buffer
 
 
-class Geometry:
+class Geometry(TrackableObject):
     """ A geometry represents the (input) data of mesh, line, or point
     geometry. It can include vertex positions, normals, colors, uvs,
     and custom data buffers. Face indices can be given using `index`.
@@ -19,6 +20,7 @@ class Geometry:
     """
 
     def __init__(self, **data):
+        super().__init__()
         for name, val in data.items():
             if not isinstance(val, np.ndarray):
                 val = np.asanyarray(val, dtype=np.float32)

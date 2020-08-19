@@ -406,6 +406,15 @@ def line_renderer(wobject, render_info):
     material = wobject.material
     geometry = wobject.geometry
 
+    # Specify what changes to wobject, geometry and material would
+    # invalidate the render info that this function returns.
+    for name in ["geometry", "material"]:
+        wobject._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in ["positions"]:
+        geometry._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in []:
+        material._listen(name, wobject._wgpu_set_pipeline_dirty)
+
     assert isinstance(material, LineMaterial)
 
     positions1 = geometry.positions

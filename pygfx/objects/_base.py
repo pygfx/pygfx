@@ -1,7 +1,31 @@
+import weakref
+
 from ..linalg import Vector3, Matrix4, Quaternion
 
 
-class WorldObject:
+class TrackableObject:
+    def __init__(self):
+        self._set_attr_callbacks = {}
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        try:
+            callbacks = self._set_attr_callbacks[name]
+        except KeyError:
+            pass
+        else:
+            if not callbacks:
+                self._set_attr_callbacks.pop(name)  # Make it quicker next time
+            for cb in callbacks:
+                cb(self, name)
+
+    def _listen(self, name, fn):
+        # Private, because only intended for private use
+        callbacks = self._set_attr_callbacks.setdefault(name, weakref.WeakSet())
+        callbacks.add(fn)
+
+
+class WorldObject(TrackableObject):
     """ The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
@@ -17,6 +41,7 @@ class WorldObject:
     _q = Quaternion()
 
     def __init__(self):
+        super().__init__()
         self.parent = None
         self._children = []
 

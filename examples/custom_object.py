@@ -61,7 +61,9 @@ def triangle_render_function(wobject, render_info):
             "fragment_shader": fragment_shader,
             "primitive_topology": "triangle-list",
             "indices": range(n),
-            "bindings0": {0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo)},
+            "bindings0": {
+                0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform)
+            },
         },
     ]
 

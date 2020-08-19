@@ -48,10 +48,6 @@ class PointsMaterial(Material):
     # @map.setter
     # def map(self, map):
     #     self._map = map
-    #     self.dirty = True
-    #     # todo: figure out a way for render funcs to tell when the pipelines that they create become invalid
-    #     # but this code should not know about wgpu!
-    #     self._wgpu_pipeline_dirty = True
 
     @property
     def size(self):

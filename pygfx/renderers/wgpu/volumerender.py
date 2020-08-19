@@ -46,11 +46,14 @@ def mesh_slice_renderer(wobject, render_info):
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
-    # Get stuff from material
-
-    # ...
-
-    # Get stuff from geometry
+    # Specify what changes to wobject, geometry and material would
+    # invalidate the render info that this function returns.
+    for name in ["geometry", "material"]:
+        wobject._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in ["index", "positions", "texcoords"]:
+        geometry._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in ["map"]:
+        material._listen(name, wobject._wgpu_set_pipeline_dirty)
 
     fragment_shader = fragment_shader_textured_gray
 

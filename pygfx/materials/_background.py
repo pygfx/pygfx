@@ -69,7 +69,6 @@ class BackgroundMaterial(Material):
     def color_bottom_left(self, color):
         self.uniform_buffer.data["color_bottom_left"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def color_bottom_right(self):
@@ -81,7 +80,6 @@ class BackgroundMaterial(Material):
     def color_bottom_right(self, color):
         self.uniform_buffer.data["color_bottom_right"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def color_top_left(self):
@@ -93,7 +91,6 @@ class BackgroundMaterial(Material):
     def color_top_left(self, color):
         self.uniform_buffer.data["color_top_left"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def color_top_right(self):
@@ -105,7 +102,6 @@ class BackgroundMaterial(Material):
     def color_top_right(self, color):
         self.uniform_buffer.data["color_top_right"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
 
 class BackgroundImageMaterial(BackgroundMaterial):
@@ -128,4 +124,3 @@ class BackgroundImageMaterial(BackgroundMaterial):
     @map.setter
     def map(self, map):
         self._map = map
-        self.dirty = True

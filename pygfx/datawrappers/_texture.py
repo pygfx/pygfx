@@ -28,6 +28,7 @@ class Texture:
     """
 
     def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
+        self._versionflag = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
         self._dim = int(dim)
@@ -66,10 +67,10 @@ class Texture:
             raise TypeError("Texture usage must be str.")
 
     @property
-    def dirty(self):
-        """ Whether the texture is dirty (needs to be processed by the renderer).
+    def versionflag(self):
+        """ An integer that is increased when update_range() is called.
         """
-        return bool(self._pending_uploads)
+        return self._versionflag
 
     def get_view(self, **kwargs):
         """ Get a new view on the this texture.
@@ -165,6 +166,7 @@ class Texture:
                 self._pending_uploads.append((offset2, size2))
         else:
             self._pending_uploads.append((offset, size))
+        self._versionflag += 1
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
@@ -302,6 +304,7 @@ class TextureView:
         mip_range=None,
         layer_range=None,
     ):
+        self._versionflag = 1
         assert isinstance(texture, Texture)
         self._texture = texture
         # Sampler parameters
@@ -318,10 +321,9 @@ class TextureView:
         )
 
     @property
-    def dirty(self):
-        """ Whether this resource needs syncing with the GPU.
-        """
-        return self._texture.dirty
+    def versionflag(self):
+        # This is not actually increased anywhere, but it's added for consistency
+        return self._versionflag
 
     @property
     def texture(self):

@@ -104,6 +104,14 @@ def fragment_shader_tex_gray(
 def background_renderer(wobject, render_info):
 
     material = wobject.material
+
+    # Specify what changes to wobject, geometry and material would
+    # invalidate the render info that this function returns.
+    for name in ["material"]:
+        wobject._listen(name, wobject._wgpu_set_pipeline_dirty)
+    for name in ["map"]:
+        material._listen(name, wobject._wgpu_set_pipeline_dirty)
+
     vertex_shader = vertex_shader_simple
     fragment_shader = fragment_shader_tex_rgba
     bindings0 = {
