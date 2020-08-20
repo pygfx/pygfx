@@ -1,11 +1,11 @@
 import numpy as np
 
-from ._buffer import STRUCT_FORMAT_ALIASES
+from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
 # todo: what to do about these enums from wgpu. Copy them over?
 
 
-class Texture:
+class Texture(Resource):
     """ A base texture wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
 
@@ -268,7 +268,7 @@ def format_from_memoryview(mem, size):
 # cube_array: I suppose you'd have an array of 6xn textures in this case?
 
 
-class TextureView:
+class TextureView(Resource):
     """ A view on a texture.
 
     The view defines the sampling behavior and can specify a selection/different

@@ -259,8 +259,8 @@ class WgpuRenderer(Renderer):
             # todo: wobject.matrix_world_dirty is not quite the right flag :P -> versioning too?
 
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
-        if getattr(wobject, "_wgpu_pipeline_dirty", True):
-            wobject._wgpu_pipeline_dirty = False
+        if wobject.versionflag > getattr(wobject, "_wgpu_versionflag", 0):
+            wobject._wgpu_versionflag = wobject.versionflag
             wobject._wgpu_pipeline_infos = self._create_pipeline_infos(wobject)
             wobject._wgpu_pipeline_res = self._collect_pipeline_resources(wobject)
             wobject._wgpu_pipeline_objects = None  # Invalidate
@@ -289,12 +289,14 @@ class WgpuRenderer(Renderer):
         and return a list of dicts representing pipelines in an abstract way.
         These dicts can then be turned into actual pipeline objects.
         """
+        print("create pipeline for", wobject)
 
         # Set/update function to mark the pipeline dirty. Renderfuncs
         # can make this function be called when certain props on
         # wobject/material/geometry are set
+        # todo: can remove this?
         wref = weakref.ref(wobject)
-        dirtymaker = lambda *_: setattr(wref(), "_wgpu_pipeline_dirty", True)  # noqa
+        dirtymaker = lambda *_:None # lambda *_: setattr(wref(), "_wgpu_pipeline_dirty", True)  # noqa
         wobject._wgpu_set_pipeline_dirty = dirtymaker
 
         # Get render function for this world object,

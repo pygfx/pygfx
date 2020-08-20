@@ -1,28 +1,60 @@
 import weakref
 
 from ..linalg import Vector3, Matrix4, Quaternion
+from ..datawrappers import Resource
 
 
-class TrackableObject:
+# class TrackableObject:
+#     def __init__(self):
+#         self._set_attr_callbacks = {}
+#
+#     def __setattr__(self, name, value):
+#         super().__setattr__(name, value)
+#         try:
+#             callbacks = self._set_attr_callbacks[name]
+#         except KeyError:
+#             pass
+#         else:
+#             if not callbacks:
+#                 self._set_attr_callbacks.pop(name)  # Make it quicker next time
+#             for cb in callbacks:
+#                 cb(self, name)
+#
+#     def _listen(self, name, fn):
+#         # Private, because only intended for private use
+#         callbacks = self._set_attr_callbacks.setdefault(name, weakref.WeakSet())
+#         callbacks.add(fn)
+
+
+class TrackableObject:# ObjectWithResources:
+
     def __init__(self):
-        self._set_attr_callbacks = {}
+        self._owr_parents = weakref.WeakSet()
+        self._versionflag = 0
+
+    @property
+    def versionflag(self):
+        return self._versionflag
+
+    # todo: we can similarly let bumping of a resource's versionflag bump a resource_version_flag here
+    def invalidate(self):
+        """ Bump the versionflag (and that of any "parents")
+        """
+        self._versionflag += 1
+        for x in self._owr_parents:
+            x._versionflag += 1
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        try:
-            callbacks = self._set_attr_callbacks[name]
-        except KeyError:
-            pass
-        else:
-            if not callbacks:
-                self._set_attr_callbacks.pop(name)  # Make it quicker next time
-            for cb in callbacks:
-                cb(self, name)
+        if isinstance(value, TrackableObject):
+            value._owr_parents.add(self)
+            self.invalidate()
+        elif isinstance(value, Resource):
+            self.invalidate()
 
     def _listen(self, name, fn):
-        # Private, because only intended for private use
-        callbacks = self._set_attr_callbacks.setdefault(name, weakref.WeakSet())
-        callbacks.add(fn)
+        # todo: clean this up, and the commented code above
+        pass
 
 
 class WorldObject(TrackableObject):

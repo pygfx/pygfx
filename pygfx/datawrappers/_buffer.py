@@ -5,7 +5,11 @@ import wgpu
 STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
 
-class Buffer:
+class Resource:
+    pass
+
+
+class Buffer(Resource):
     """ A buffer object represents a piece of memory to the GPU, that can be
     used as index buffer, vertex buffer, uniform buffer, or storage buffer.
     You can provide (and update data for it), or use it as a placeholder
