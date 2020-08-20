@@ -84,11 +84,7 @@ for i in range(2):
 camera = gfx.NDCCamera()  # This material does not actually use the camera
 
 
-def animate():
-    renderer.render(scene, camera)
-
-
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     app.exec_()
     canvas.closeEvent = lambda *args: app.quit()
