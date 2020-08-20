@@ -1,3 +1,4 @@
+import time
 import weakref
 
 import pyshader  # noqa
@@ -74,6 +75,16 @@ class WgpuRenderer(Renderer):
     def render(self, scene: WorldObject, camera: Camera):
         """ Main render method, called from the canvas.
         """
+
+        now = time.perf_counter()  # noqa
+        # Uncomment to show FPS each second
+        # if not hasattr(self, "_fps"):
+        #     self._fps = now, now, 1
+        # elif now > self._fps[0] + 1:
+        #     print(f"FPS mean: {self._fps[2]/(now - self._fps[0]):0.1f} last: {1/(now-self._fps[1]):0.1f}")
+        #     self._fps = now, now, 1
+        # else:
+        #     self._fps = self._fps[0], now, self._fps[2] + 1
 
         # todo: support for alt render pipelines (object that renders to texture then renders that)
         # todo: also note that the fragment shader is (should be) optional
@@ -282,8 +293,8 @@ class WgpuRenderer(Renderer):
         # Set/update function to mark the pipeline dirty. Renderfuncs
         # can make this function be called when certain props on
         # wobject/material/geometry are set
-        wobject_ref = weakref.ref(wobject)
-        dirtymaker = lambda *args: setattr(wobject_ref(), "_wgpu_pipeline_dirty", True)  # noqa
+        wref = weakref.ref(wobject)
+        dirtymaker = lambda *_: setattr(wref(), "_wgpu_pipeline_dirty", True)  # noqa
         wobject._wgpu_set_pipeline_dirty = dirtymaker
 
         # Get render function for this world object,
