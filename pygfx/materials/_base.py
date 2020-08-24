@@ -1,5 +1,8 @@
+from pyshader import Struct
+
 from ..objects._base import TrackableObject
 
 
 class Material(TrackableObject):
-    pass
+
+    uniform_type = Struct()

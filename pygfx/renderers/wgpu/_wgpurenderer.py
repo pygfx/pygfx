@@ -246,7 +246,10 @@ class WgpuRenderer(Renderer):
         """
 
         # Update the wobject's uniform
-        if True:  # wobject.matrix_world_dirty:
+        if wobject.matrix_world_version > getattr(
+            wobject, "_wgpu_matrix_world_version", 0
+        ):
+            wobject._wgpu_matrix_world_version = wobject.matrix_world_version
             if not hasattr(wobject, "_wgpu_uniform_buffer"):
                 wobject._wgpu_uniform_buffer = Buffer(
                     array_from_shadertype(wobject_uniform_type), usage="uniform"
@@ -256,7 +259,6 @@ class WgpuRenderer(Renderer):
             )
             wobject._wgpu_uniform_buffer.update_range(0, 1)
             self._update_buffer(wobject._wgpu_uniform_buffer)
-            # todo: wobject.matrix_world_dirty is not quite the right flag :P -> versioning too?
 
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
         if wobject.versionflag > getattr(wobject, "_wgpu_versionflag", 0):
@@ -289,14 +291,15 @@ class WgpuRenderer(Renderer):
         and return a list of dicts representing pipelines in an abstract way.
         These dicts can then be turned into actual pipeline objects.
         """
-        print("create pipeline for", wobject)
 
         # Set/update function to mark the pipeline dirty. Renderfuncs
         # can make this function be called when certain props on
         # wobject/material/geometry are set
         # todo: can remove this?
         wref = weakref.ref(wobject)
-        dirtymaker = lambda *_:None # lambda *_: setattr(wref(), "_wgpu_pipeline_dirty", True)  # noqa
+        dirtymaker = (
+            lambda *_: None
+        )  # lambda *_: setattr(wref(), "_wgpu_pipeline_dirty", True)  # noqa
         wobject._wgpu_set_pipeline_dirty = dirtymaker
 
         # Get render function for this world object,

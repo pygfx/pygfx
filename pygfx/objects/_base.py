@@ -26,8 +26,7 @@ from ..datawrappers import Resource
 #         callbacks.add(fn)
 
 
-class TrackableObject:# ObjectWithResources:
-
+class TrackableObject:  # ObjectWithResources:
     def __init__(self):
         self._owr_parents = weakref.WeakSet()
         self._versionflag = 0
@@ -80,12 +79,14 @@ class WorldObject(TrackableObject):
         self.position = Vector3()
         self.rotation = Quaternion()
         self.scale = Vector3(1, 1, 1)
+        self._transform_hash = ()
 
         self.up = Vector3(0, 1, 0)
 
         self.matrix = Matrix4()
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
+        self.matrix_world_version = 0
 
         self.visible = True
         self.render_order = 0
@@ -116,8 +117,12 @@ class WorldObject(TrackableObject):
             child.traverse(callback)
 
     def update_matrix(self):
-        self.matrix.compose(self.position, self.rotation, self.scale)
-        self.matrix_world_dirty = True
+        p, r, s = self.position, self.rotation, self.scale
+        hash = p.x, p.y, p.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z
+        if hash != self._transform_hash:
+            self._transform_hash = hash
+            self.matrix.compose(self.position, self.rotation, self.scale)
+            self.matrix_world_dirty = True
 
     def update_matrix_world(
         self, force=False, update_children=True, update_parents=False
@@ -135,6 +140,7 @@ class WorldObject(TrackableObject):
                     self.parent.matrix_world, self.matrix
                 )
             self.matrix_world_dirty = False
+            self.matrix_world_version += 1
             for child in self._children:
                 child.matrix_world_dirty = True
         if update_children:
