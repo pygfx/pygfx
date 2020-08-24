@@ -4,35 +4,20 @@ from ..linalg import Vector3, Matrix4, Quaternion
 from ..datawrappers import Resource
 
 
-# class TrackableObject:
-#     def __init__(self):
-#         self._set_attr_callbacks = {}
-#
-#     def __setattr__(self, name, value):
-#         super().__setattr__(name, value)
-#         try:
-#             callbacks = self._set_attr_callbacks[name]
-#         except KeyError:
-#             pass
-#         else:
-#             if not callbacks:
-#                 self._set_attr_callbacks.pop(name)  # Make it quicker next time
-#             for cb in callbacks:
-#                 cb(self, name)
-#
-#     def _listen(self, name, fn):
-#         # Private, because only intended for private use
-#         callbacks = self._set_attr_callbacks.setdefault(name, weakref.WeakSet())
-#         callbacks.add(fn)
+class DataWrapperContainer:
+    """ Base class for WorldObject, Geometry and Material.
+    """
 
-
-class TrackableObject:  # ObjectWithResources:
     def __init__(self):
         self._owr_parents = weakref.WeakSet()
         self._versionflag = 0
 
     @property
     def versionflag(self):
+        """ Monotonically increasing integer that gets bumped when any
+        of its buffers or textures are set. (Not when updates are made to these
+        resources themselves).
+        """
         return self._versionflag
 
     # todo: we can similarly let bumping of a resource's versionflag bump a resource_version_flag here
@@ -45,18 +30,14 @@ class TrackableObject:  # ObjectWithResources:
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if isinstance(value, TrackableObject):
+        if isinstance(value, DataWrapperContainer):
             value._owr_parents.add(self)
             self.invalidate()
         elif isinstance(value, Resource):
             self.invalidate()
 
-    def _listen(self, name, fn):
-        # todo: clean this up, and the commented code above
-        pass
 
-
-class WorldObject(TrackableObject):
+class WorldObject(DataWrapperContainer):
     """ The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define

@@ -25,15 +25,6 @@ def mesh_renderer(wobject, render_info):
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
-    # Specify what changes to wobject, geometry and material would
-    # invalidate the render info that this function returns.
-    for name in ["geometry", "material"]:
-        wobject._listen(name, wobject._wgpu_set_pipeline_dirty)
-    for name in ["index", "positions", "texcoords", "normals"]:
-        geometry._listen(name, wobject._wgpu_set_pipeline_dirty)
-    for name in ["map"]:
-        material._listen(name, wobject._wgpu_set_pipeline_dirty)
-
     # Initialize some pipeline things
     topology = wgpu.PrimitiveTopology.triangle_list
     vertex_shader = vertex_shader_mesh

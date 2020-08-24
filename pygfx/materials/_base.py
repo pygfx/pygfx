@@ -1,8 +1,8 @@
 from pyshader import Struct
 
-from ..objects._base import TrackableObject
+from ..objects._base import DataWrapperContainer
 
 
-class Material(TrackableObject):
+class Material(DataWrapperContainer):
 
     uniform_type = Struct()

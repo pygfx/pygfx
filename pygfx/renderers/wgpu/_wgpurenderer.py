@@ -1,5 +1,4 @@
 import time
-import weakref
 
 import pyshader  # noqa
 from pyshader import Struct, vec2, mat4
@@ -291,16 +290,6 @@ class WgpuRenderer(Renderer):
         and return a list of dicts representing pipelines in an abstract way.
         These dicts can then be turned into actual pipeline objects.
         """
-
-        # Set/update function to mark the pipeline dirty. Renderfuncs
-        # can make this function be called when certain props on
-        # wobject/material/geometry are set
-        # todo: can remove this?
-        wref = weakref.ref(wobject)
-        dirtymaker = (
-            lambda *_: None
-        )  # lambda *_: setattr(wref(), "_wgpu_pipeline_dirty", True)  # noqa
-        wobject._wgpu_set_pipeline_dirty = dirtymaker
 
         # Get render function for this world object,
         # and use it to get a high-level description of pipelines.

@@ -1,10 +1,10 @@
 import numpy as np
 
-from ..objects._base import TrackableObject
+from ..objects._base import DataWrapperContainer
 from ..datawrappers import Buffer
 
 
-class Geometry(TrackableObject):
+class Geometry(DataWrapperContainer):
     """ A geometry represents the (input) data of mesh, line, or point
     geometry. It can include vertex positions, normals, colors, uvs,
     and custom data buffers. Face indices can be given using `index`.
