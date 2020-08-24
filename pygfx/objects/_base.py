@@ -1,7 +1,10 @@
 import weakref
 
+from pyshader import Struct, mat4
+
 from ..linalg import Vector3, Matrix4, Quaternion
-from ..datawrappers import Resource
+from ..datawrappers import Resource, Buffer
+from ..utils import array_from_shadertype
 
 
 class DataWrapperContainer:
@@ -9,7 +12,7 @@ class DataWrapperContainer:
     """
 
     def __init__(self):
-        self._owr_parents = weakref.WeakSet()
+        self._datawrapper_parents = weakref.WeakSet()
         self._versionflag = 0
 
     @property
@@ -20,21 +23,25 @@ class DataWrapperContainer:
         """
         return self._versionflag
 
-    # todo: we can similarly let bumping of a resource's versionflag bump a resource_version_flag here
-    def invalidate(self):
+    # NOTE: we could similarly let bumping of a resource's versionflag
+    # bump a resource_version_flag here. But it is not clear whether
+    # the (minor?) increase in performance is worth the added
+    # complecity.
+
+    def bump_versionflag(self):
         """ Bump the versionflag (and that of any "parents")
         """
         self._versionflag += 1
-        for x in self._owr_parents:
+        for x in self._datawrapper_parents:
             x._versionflag += 1
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if isinstance(value, DataWrapperContainer):
-            value._owr_parents.add(self)
-            self.invalidate()
+            value._datawrapper_parents.add(self)
+            self.bump_versionflag()
         elif isinstance(value, Resource):
-            self.invalidate()
+            self.bump_versionflag()
 
 
 class WorldObject(DataWrapperContainer):
@@ -47,6 +54,11 @@ class WorldObject(DataWrapperContainer):
     This is considered a base class. Use Group to collect multiple world objects
     into a single empty world object.
     """
+
+    # The uniform type describes the structured info for this object, which represents
+    # every "propery" that a renderer would need to know in order to visualize it.
+    # todo: rename uniform to info or something?
+    uniform_type = Struct(world_transform=mat4,)
 
     _v = Vector3()
     _m = Matrix4()
@@ -67,7 +79,10 @@ class WorldObject(DataWrapperContainer):
         self.matrix = Matrix4()
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
-        self.matrix_world_version = 0
+
+        self.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), usage="uniform"
+        )
 
         self.visible = True
         self.render_order = 0
@@ -120,8 +135,11 @@ class WorldObject(DataWrapperContainer):
                 self.matrix_world.multiply_matrices(
                     self.parent.matrix_world, self.matrix
                 )
+            self.uniform_buffer.data["world_transform"] = tuple(
+                self.matrix_world.elements
+            )
+            self.uniform_buffer.update_range(0, 1)
             self.matrix_world_dirty = False
-            self.matrix_world_version += 1
             for child in self._children:
                 child.matrix_world_dirty = True
         if update_children:

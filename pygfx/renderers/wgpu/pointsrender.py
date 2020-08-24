@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 from pyshader import python2shader
 from pyshader import f32, vec2, vec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Points
 from ...materials import PointsMaterial, GaussianPointsMaterial
 
@@ -11,7 +11,7 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 def vertex_shader(
     in_pos: ("input", 0, vec4),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
-    u_wobject: ("uniform", (0, 1), wobject_uniform_type),
+    u_wobject: ("uniform", (0, 1), Points.uniform_type),
     u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
     out_pos: ("output", "Position", vec4),
     out_point_size: ("output", "PointSize", f32),
@@ -86,7 +86,7 @@ def points_renderer(wobject, render_info):
     # Collect bindings
     bindings0 = {
         0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
 

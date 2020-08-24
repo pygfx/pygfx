@@ -4,7 +4,7 @@ from pyshader import python2shader
 from pyshader import f32, i32, vec2, vec3, vec4, mat4, Array
 
 
-from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -57,7 +57,7 @@ def mesh_renderer(wobject, render_info):
 
     bindings0 = {
         0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
     bindings1 = {}
@@ -159,7 +159,7 @@ def vertex_shader_mesh(
     v_view: (pyshader.RES_OUTPUT, 2, vec3),
     v_light: (pyshader.RES_OUTPUT, 3, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
 ):
     world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
@@ -186,7 +186,7 @@ def vertex_shader_mesh(
 def vertex_shader_normal_lines(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 2), Array(vec4)),
     buf_normal: (pyshader.RES_BUFFER, (1, 3), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -221,7 +221,7 @@ def vertex_shader_mesh_instanced(
     v_view: (pyshader.RES_OUTPUT, 2, vec3),
     v_light: (pyshader.RES_OUTPUT, 3, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), InstancedMesh.uniform_type),
     b_matrices: (pyshader.RES_BUFFER, (1, 4), Array(mat4)),
 ):
     # Note the extra matrix for the instance
@@ -396,7 +396,7 @@ def fragment_shader_textured_rgba_phong(
 def vertex_shader_mesh_slice(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
     buf_indices: (pyshader.RES_BUFFER, (1, 2), Array(i32)),
     buf_positions: (pyshader.RES_BUFFER, (1, 3), Array(vec4)),
@@ -529,7 +529,7 @@ def fragment_shader_mesh_slice(
     v_segment_length: (pyshader.RES_INPUT, 1, f32),
     v_segment_width: (pyshader.RES_INPUT, 2, f32),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),

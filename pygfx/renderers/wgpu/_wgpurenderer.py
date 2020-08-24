@@ -21,8 +21,6 @@ stdinfo_uniform_type = Struct(
     logical_size=vec2,
 )
 
-wobject_uniform_type = Struct(world_transform=mat4,)
-
 
 registry = RenderFunctionRegistry()
 
@@ -48,9 +46,8 @@ class RenderInfo:
     will probably also include lights etc.
     """
 
-    def __init__(self, *, stdinfo_uniform, wobject_uniform):
+    def __init__(self, *, stdinfo_uniform):
         self.stdinfo_uniform = stdinfo_uniform
-        self.wobject_uniform = wobject_uniform
 
 
 class WgpuRenderer(Renderer):
@@ -244,21 +241,6 @@ class WgpuRenderer(Renderer):
         quickly if no changes are needed.
         """
 
-        # Update the wobject's uniform
-        if wobject.matrix_world_version > getattr(
-            wobject, "_wgpu_matrix_world_version", 0
-        ):
-            wobject._wgpu_matrix_world_version = wobject.matrix_world_version
-            if not hasattr(wobject, "_wgpu_uniform_buffer"):
-                wobject._wgpu_uniform_buffer = Buffer(
-                    array_from_shadertype(wobject_uniform_type), usage="uniform"
-                )
-            wobject._wgpu_uniform_buffer.data["world_transform"] = tuple(
-                wobject.matrix_world.elements
-            )
-            wobject._wgpu_uniform_buffer.update_range(0, 1)
-            self._update_buffer(wobject._wgpu_uniform_buffer)
-
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
         if wobject.versionflag > getattr(wobject, "_wgpu_versionflag", 0):
             wobject._wgpu_versionflag = wobject.versionflag
@@ -301,10 +283,7 @@ class WgpuRenderer(Renderer):
             )
 
         # Prepare info for the render function
-        render_info = RenderInfo(
-            stdinfo_uniform=self._wgpu_stdinfo_buffer,
-            wobject_uniform=wobject._wgpu_uniform_buffer,
-        )
+        render_info = RenderInfo(stdinfo_uniform=self._wgpu_stdinfo_buffer,)
 
         # Call render function
         pipeline_infos = renderfunc(wobject, render_info)
