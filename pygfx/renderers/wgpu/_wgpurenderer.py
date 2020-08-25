@@ -5,6 +5,7 @@ from pyshader import Struct, vec2, mat4
 import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry
+from ...linalg import Matrix4, Vector3
 from ...objects import WorldObject
 from ...cameras import Camera
 from ...datawrappers import Buffer, TextureView
@@ -98,7 +99,7 @@ class WgpuRenderer(Renderer):
         camera.update_projection_matrix()
 
         # Get the list of objects to render (visible and having a material)
-        q = self.get_render_list(scene)
+        q = self.get_render_list(scene, camera)
 
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, physical_size, logical_size)
@@ -223,10 +224,11 @@ class WgpuRenderer(Renderer):
         self._wgpu_stdinfo_buffer.update_range(0, 1)
         self._update_buffer(self._wgpu_stdinfo_buffer)
 
-    def get_render_list(self, scene: WorldObject):
+    def get_render_list(self, scene: WorldObject, camera: Camera):
         """ Given a scene object, get a flat list of objects to render.
         """
 
+        # Collect items
         def visit(wobject):
             nonlocal q
             if wobject.visible and hasattr(wobject, "material"):
@@ -234,6 +236,21 @@ class WgpuRenderer(Renderer):
 
         q = []
         scene.traverse(visit)
+
+        # Next, sort them from back-to-front
+        def sort_func(wobject: WorldObject):
+            z = (
+                Vector3()
+                .set_from_matrix_position(wobject.matrix_world)
+                .apply_matrix4(proj_screen_matrix)
+                .z
+            )
+            return wobject.render_order, z
+
+        proj_screen_matrix = Matrix4().multiply_matrices(
+            camera.projection_matrix, camera.matrix_world_inverse
+        )
+        q.sort(key=sort_func)
         return q
 
     def _ensure_up_to_date(self, wobject):
