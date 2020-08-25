@@ -24,11 +24,6 @@ camera.position.set(50, 50, 50)
 camera.look_at(gfx.linalg.Vector3())
 
 
-def animate():
-    renderer.render(scene, camera)
-    canvas.request_draw()
-
-
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     app.exec_()

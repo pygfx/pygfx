@@ -1,7 +1,49 @@
+import weakref
+
+from pyshader import Struct, mat4
+
 from ..linalg import Vector3, Matrix4, Quaternion
+from ..resources import Resource, Buffer
+from ..utils import array_from_shadertype
 
 
-class WorldObject:
+class ResourceContainer:
+    """ Base class for WorldObject, Geometry and Material.
+    """
+
+    def __init__(self):
+        self._resource_parents = weakref.WeakSet()
+        self._rev = 0
+
+    @property
+    def rev(self):
+        """ Monotonically increasing integer that gets bumped when any
+        of its buffers or textures are set. (Not when updates are made
+        to these resources themselves).
+        """
+        return self._rev
+
+    # NOTE: we could similarly let bumping of a resource's rev bump a
+    # data_rev here. But it is not clear whether the (minor?) increase
+    # in performance is worth the added complexity.
+
+    def _bump_rev(self):
+        """ Bump the rev (and that of any "parents")
+        """
+        self._rev += 1
+        for x in self._resource_parents:
+            x._rev += 1
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if isinstance(value, ResourceContainer):
+            value._resource_parents.add(self)
+            self._bump_rev()
+        elif isinstance(value, Resource):
+            self._bump_rev()
+
+
+class WorldObject(ResourceContainer):
     """ The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
@@ -12,23 +54,34 @@ class WorldObject:
     into a single empty world object.
     """
 
+    # The uniform type describes the structured info for this object, which represents
+    # every "propery" that a renderer would need to know in order to visualize it.
+    # todo: rename uniform to info or something?
+    uniform_type = Struct(world_transform=mat4,)
+
     _v = Vector3()
     _m = Matrix4()
     _q = Quaternion()
 
     def __init__(self):
+        super().__init__()
         self.parent = None
         self._children = []
 
         self.position = Vector3()
         self.rotation = Quaternion()
         self.scale = Vector3(1, 1, 1)
+        self._transform_hash = ()
 
         self.up = Vector3(0, 1, 0)
 
         self.matrix = Matrix4()
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
+
+        self.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), usage="uniform"
+        )
 
         self.visible = True
         self.render_order = 0
@@ -59,8 +112,12 @@ class WorldObject:
             child.traverse(callback)
 
     def update_matrix(self):
-        self.matrix.compose(self.position, self.rotation, self.scale)
-        self.matrix_world_dirty = True
+        p, r, s = self.position, self.rotation, self.scale
+        hash = p.x, p.y, p.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z
+        if hash != self._transform_hash:
+            self._transform_hash = hash
+            self.matrix.compose(self.position, self.rotation, self.scale)
+            self.matrix_world_dirty = True
 
     def update_matrix_world(
         self, force=False, update_children=True, update_parents=False
@@ -77,6 +134,10 @@ class WorldObject:
                 self.matrix_world.multiply_matrices(
                     self.parent.matrix_world, self.matrix
                 )
+            self.uniform_buffer.data["world_transform"] = tuple(
+                self.matrix_world.elements
+            )
+            self.uniform_buffer.update_range(0, 1)
             self.matrix_world_dirty = False
             for child in self._children:
                 child.matrix_world_dirty = True

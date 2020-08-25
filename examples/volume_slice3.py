@@ -48,7 +48,6 @@ def scroll(degrees):
     index = max(0, min(nslices - 1, index))
     geometry.texcoords.data[:, 2] = index / nslices
     geometry.texcoords.update_range(0, geometry.texcoords.nitems)
-    material.dirty = 1  # todo: we should not have to mark the *material* dirty!
     canvas.request_draw()
 
 

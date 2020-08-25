@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 import pyshader
 from pyshader import f32, vec2, vec4, Array
 
-from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Line
 from ...materials import (
     LineMaterial,
@@ -59,7 +59,7 @@ def compute_shader(
 def vertex_shader_thin(
     in_pos: (pyshader.RES_INPUT, 0, vec4),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
 ):
     wpos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
@@ -79,7 +79,7 @@ def fragment_shader_thin(
 def vertex_shader(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(vec4)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -244,7 +244,7 @@ def fragment_shader(
 def vertex_shader_segment(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(vec4)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -307,7 +307,7 @@ def vertex_shader_segment(
 def vertex_shader_arrow(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(vec4)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -389,7 +389,7 @@ def thin_line_renderer(wobject, render_info):
             "vertex_buffers": {0: positions1},
             "bindings0": {
                 0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-                1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+                1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
                 2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
             },
             # "bindings1": {},
@@ -451,7 +451,7 @@ def line_renderer(wobject, render_info):
             "indices": (n, 1),
             "bindings0": {
                 0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-                1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+                1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
                 2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
             },
             "bindings1": {0: (wgpu.BindingType.storage_buffer, positions1),},

@@ -50,7 +50,6 @@ def scroll(degrees):
         filter="linear", view_dim="2d", layer_range=range(index, index + 1)
     )
     material.map = view
-    material.dirty = 1
     canvas.request_draw()
 
 

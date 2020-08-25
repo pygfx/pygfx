@@ -45,7 +45,6 @@ def scroll(degrees):
     im = vol[index]
     tex.data[:] = im
     tex.update_range((0, 0, 0), tex.size)
-    material.dirty = 1
     canvas.request_draw()
 
 

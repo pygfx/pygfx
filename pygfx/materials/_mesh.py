@@ -1,7 +1,7 @@
 from pyshader import Struct, f32, vec4, vec2
 
 from ..utils import array_from_shadertype
-from ..datawrappers import Buffer
+from ..resources import Buffer
 from ._base import Material
 
 # todo: put in an example somewhere how to use storage buffers for vertex data:
@@ -44,7 +44,6 @@ class MeshBasicMaterial(Material):
     def color(self, color):
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def map(self):
@@ -55,10 +54,6 @@ class MeshBasicMaterial(Material):
     @map.setter
     def map(self, map):
         self._map = map
-        self.dirty = True
-        # todo: figure out a way for render funcs to tell when the pipelines that they create become invalid
-        # but this code should not know about wgpu!
-        self._wgpu_pipeline_dirty = True
 
     @property
     def clim(self):
@@ -70,7 +65,6 @@ class MeshBasicMaterial(Material):
     def clim(self, clim):
         self.uniform_buffer.data["clim"] = clim
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
 
 class MeshNormalMaterial(MeshBasicMaterial):
@@ -126,7 +120,6 @@ class MeshSliceMaterial(MeshBasicMaterial):
     def plane(self, plane):
         self.uniform_buffer.data["plane"] = plane
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def thickness(self):
@@ -138,4 +131,3 @@ class MeshSliceMaterial(MeshBasicMaterial):
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True

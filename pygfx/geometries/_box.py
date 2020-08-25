@@ -1,6 +1,6 @@
 import numpy as np
 
-from ..datawrappers import Buffer
+from ..resources import Buffer
 from ._base import Geometry
 
 

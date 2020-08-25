@@ -3,10 +3,10 @@ import pyshader
 from pyshader import python2shader
 from pyshader import vec3, vec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
 from ...materials import MeshVolumeSliceMaterial
-from ...datawrappers import Buffer, Texture, TextureView
+from ...resources import Buffer, Texture, TextureView
 
 
 @python2shader
@@ -14,7 +14,7 @@ def vertex_shader(
     in_pos: (pyshader.RES_INPUT, 0, vec4),
     in_texcoord: (pyshader.RES_INPUT, 1, vec3),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
-    u_wobject: ("uniform", (0, 1), wobject_uniform_type),
+    u_wobject: ("uniform", (0, 1), Mesh.uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
 ):
@@ -46,12 +46,6 @@ def mesh_slice_renderer(wobject, render_info):
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
-    # Get stuff from material
-
-    # ...
-
-    # Get stuff from geometry
-
     fragment_shader = fragment_shader_textured_gray
 
     # Use index buffer if present on the geometry
@@ -66,7 +60,7 @@ def mesh_slice_renderer(wobject, render_info):
 
     bindings0 = {
         0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
     bindings1 = {}

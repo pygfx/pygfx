@@ -2,7 +2,6 @@
 Use a plane geometry to show a texture, which is continuously updated to show video.
 """
 
-import time
 import imageio
 import pygfx as gfx
 
@@ -32,22 +31,14 @@ camera.position.z = 200
 camera.scale.y = -1
 
 
-t = time.time()
-
-
 def animate():
-    global t
-
-    if time.time() - t > 0.05:
-        # Read next frame, rewind if we reach the end
-        t = time.time()
-        try:
-            tex.data[:] = reader.get_next_data()[:, :, 1]
-        except IndexError:
-            reader.set_image_index(0)
-        else:
-            tex.update_range((0, 0, 0), tex.size)
-            material.dirty = 1
+    # Read next frame, rewind if we reach the end
+    try:
+        tex.data[:] = reader.get_next_data()[:, :, 1]
+    except IndexError:
+        reader.set_image_index(0)
+    else:
+        tex.update_range((0, 0, 0), tex.size)
 
     renderer.render(scene, camera)
     canvas.request_draw()

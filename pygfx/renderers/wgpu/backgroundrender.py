@@ -3,10 +3,10 @@ import pyshader
 from pyshader import python2shader
 from pyshader import vec3, vec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type, wobject_uniform_type
+from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
-from ...datawrappers import Texture, TextureView
+from ...resources import Texture, TextureView
 
 
 @python2shader
@@ -51,7 +51,7 @@ def vertex_shader_skybox(
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), wobject_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Background.uniform_type),
 ):
     # Define positions at the four corners of the viewport, at the largest depth
     positions = [
@@ -104,11 +104,12 @@ def fragment_shader_tex_gray(
 def background_renderer(wobject, render_info):
 
     material = wobject.material
+
     vertex_shader = vertex_shader_simple
     fragment_shader = fragment_shader_tex_rgba
     bindings0 = {
         0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, render_info.wobject_uniform),
+        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
     bindings1 = {}

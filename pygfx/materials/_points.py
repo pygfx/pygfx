@@ -2,7 +2,7 @@ from pyshader import Struct, f32, vec4
 
 from ._base import Material
 from ..utils import array_from_shadertype
-from ..datawrappers import Buffer
+from ..resources import Buffer
 
 
 class PointsMaterial(Material):
@@ -48,10 +48,6 @@ class PointsMaterial(Material):
     # @map.setter
     # def map(self, map):
     #     self._map = map
-    #     self.dirty = True
-    #     # todo: figure out a way for render funcs to tell when the pipelines that they create become invalid
-    #     # but this code should not know about wgpu!
-    #     self._wgpu_pipeline_dirty = True
 
     @property
     def size(self):

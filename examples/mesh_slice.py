@@ -30,7 +30,7 @@ camera.position.z = 4
 def animate():
 
     dist = material2.plane[3]
-    dist += 0.001
+    dist += 0.02
     if dist > 1:
         dist = -1.5
     material2.plane = 1, 0, 1, dist

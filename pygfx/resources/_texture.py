@@ -1,11 +1,11 @@
 import numpy as np
 
-from ._buffer import STRUCT_FORMAT_ALIASES
+from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
 # todo: what to do about these enums from wgpu. Copy them over?
 
 
-class Texture:
+class Texture(Resource):
     """ A base texture wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
 
@@ -28,6 +28,7 @@ class Texture:
     """
 
     def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
+        self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
         self._dim = int(dim)
@@ -66,10 +67,10 @@ class Texture:
             raise TypeError("Texture usage must be str.")
 
     @property
-    def dirty(self):
-        """ Whether the texture is dirty (needs to be processed by the renderer).
+    def rev(self):
+        """ An integer that is increased when update_range() is called.
         """
-        return bool(self._pending_uploads)
+        return self._rev
 
     def get_view(self, **kwargs):
         """ Get a new view on the this texture.
@@ -165,6 +166,7 @@ class Texture:
                 self._pending_uploads.append((offset2, size2))
         else:
             self._pending_uploads.append((offset, size))
+        self._rev += 1
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
@@ -266,7 +268,7 @@ def format_from_memoryview(mem, size):
 # cube_array: I suppose you'd have an array of 6xn textures in this case?
 
 
-class TextureView:
+class TextureView(Resource):
     """ A view on a texture.
 
     The view defines the sampling behavior and can specify a selection/different
@@ -302,6 +304,7 @@ class TextureView:
         mip_range=None,
         layer_range=None,
     ):
+        self._rev = 1
         assert isinstance(texture, Texture)
         self._texture = texture
         # Sampler parameters
@@ -318,10 +321,9 @@ class TextureView:
         )
 
     @property
-    def dirty(self):
-        """ Whether this resource needs syncing with the GPU.
-        """
-        return self._texture.dirty
+    def rev(self):
+        # This is not actually increased anywhere, but it's added for consistency
+        return self._rev
 
     @property
     def texture(self):

@@ -37,7 +37,7 @@ camera.position.z = 500
 def animate():
     for i, cube in enumerate(cubes):
         rot = gfx.linalg.Quaternion().set_from_euler(
-            gfx.linalg.Euler(0.0005 * i, 0.001 * i)
+            gfx.linalg.Euler(0.01 * i, 0.02 * i)
         )
         cube.rotation.multiply(rot)
 

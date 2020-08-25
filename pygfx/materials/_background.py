@@ -2,7 +2,7 @@ from pyshader import Struct, vec4
 
 from ._base import Material
 from ..utils import array_from_shadertype
-from ..datawrappers import Buffer
+from ..resources import Buffer
 
 # todo: in ThreeJS you can simply set a CubeTexture as the scene.background
 # we could do that, and the scene could use these objects automatically.
@@ -69,7 +69,6 @@ class BackgroundMaterial(Material):
     def color_bottom_left(self, color):
         self.uniform_buffer.data["color_bottom_left"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def color_bottom_right(self):
@@ -81,7 +80,6 @@ class BackgroundMaterial(Material):
     def color_bottom_right(self, color):
         self.uniform_buffer.data["color_bottom_right"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def color_top_left(self):
@@ -93,7 +91,6 @@ class BackgroundMaterial(Material):
     def color_top_left(self, color):
         self.uniform_buffer.data["color_top_left"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
     @property
     def color_top_right(self):
@@ -105,7 +102,6 @@ class BackgroundMaterial(Material):
     def color_top_right(self, color):
         self.uniform_buffer.data["color_top_right"] = color
         self.uniform_buffer.update_range(0, 1)
-        self.dirty = True
 
 
 class BackgroundImageMaterial(BackgroundMaterial):
@@ -128,4 +124,3 @@ class BackgroundImageMaterial(BackgroundMaterial):
     @map.setter
     def map(self, map):
         self._map = map
-        self.dirty = True

@@ -1,7 +1,7 @@
 import numpy as np
 
 from ._base import WorldObject
-from ..datawrappers import Buffer
+from ..resources import Buffer
 
 
 class Mesh(WorldObject):

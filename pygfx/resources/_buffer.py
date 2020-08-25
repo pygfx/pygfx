@@ -5,7 +5,11 @@ import wgpu
 STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
 
-class Buffer:
+class Resource:
+    pass
+
+
+class Buffer(Resource):
     """ A buffer object represents a piece of memory to the GPU, that can be
     used as index buffer, vertex buffer, uniform buffer, or storage buffer.
     You can provide (and update data for it), or use it as a placeholder
@@ -30,6 +34,7 @@ class Buffer:
     def __init__(
         self, data=None, *, usage, nbytes=None, nitems=None, format=None,
     ):
+        self._rev = 0
         # To specify the buffer size
         self._nbytes = 0
         self._nitems = 1
@@ -77,10 +82,10 @@ class Buffer:
         self._vertex_byte_range = (0, self._nbytes)
 
     @property
-    def dirty(self):
-        """ Whether the buffer is dirty (needs to be processed by the renderer).
+    def rev(self):
+        """ An integer that is increased when update_range() is called.
         """
-        return bool(self._pending_uploads)
+        return self._rev
 
     @property
     def usage(self):
@@ -164,6 +169,7 @@ class Buffer:
             size = max(size, cur_size)
         # Limit and apply
         self._pending_uploads.append((offset, size))
+        self._rev += 1
         # todo: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):

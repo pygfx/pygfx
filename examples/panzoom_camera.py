@@ -19,6 +19,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         controls.zoom_to_point(
             zoom_multiplier, (event.x(), event.y()), self.get_logical_size(), camera
         )
+        canvas.request_draw()
 
     def mousePressEvent(self, event):  # noqa: N802
         mode = self._drag_modes.get(event.button(), None)
@@ -33,10 +34,12 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             self._mode = None
             controls.pan_stop()
             app.restoreOverrideCursor()
+        canvas.request_draw()
 
     def mouseMoveEvent(self, event):  # noqa: N802
         if self._mode is not None:
             controls.pan_move((event.x(), event.y()))
+        canvas.request_draw()
 
 
 app = QtWidgets.QApplication([])
@@ -66,9 +69,8 @@ controls = gfx.PanZoomControls(camera.position.clone())
 
 def animate():
     controls.update_camera(camera)
-
     renderer.render(scene, camera)
-    canvas.request_draw()
+    # canvas.request_draw()  # not needed it we request a draw on user interaction
 
 
 if __name__ == "__main__":

@@ -1,12 +1,14 @@
+import time
+
 import pyshader  # noqa
 from pyshader import Struct, vec2, mat4
 import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry
+from ...linalg import Matrix4, Vector3
 from ...objects import WorldObject
 from ...cameras import Camera
-from ...linalg import Matrix4, Vector3
-from ...datawrappers import Buffer, TextureView
+from ...resources import Buffer, TextureView
 from ...utils import array_from_shadertype
 
 
@@ -19,8 +21,6 @@ stdinfo_uniform_type = Struct(
     physical_size=vec2,
     logical_size=vec2,
 )
-
-wobject_uniform_type = Struct(world_transform=mat4,)
 
 
 registry = RenderFunctionRegistry()
@@ -47,9 +47,8 @@ class RenderInfo:
     will probably also include lights etc.
     """
 
-    def __init__(self, *, stdinfo_uniform, wobject_uniform):
+    def __init__(self, *, stdinfo_uniform):
         self.stdinfo_uniform = stdinfo_uniform
-        self.wobject_uniform = wobject_uniform
 
 
 class WgpuRenderer(Renderer):
@@ -74,6 +73,16 @@ class WgpuRenderer(Renderer):
         """ Main render method, called from the canvas.
         """
 
+        now = time.perf_counter()  # noqa
+        # Uncomment to show FPS each second
+        # if not hasattr(self, "_fps"):
+        #     self._fps = now, now, 1
+        # elif now > self._fps[0] + 1:
+        #     print(f"FPS mean: {self._fps[2]/(now - self._fps[0]):0.1f} last: {1/(now-self._fps[1]):0.1f}")
+        #     self._fps = now, now, 1
+        # else:
+        #     self._fps = self._fps[0], now, self._fps[2] + 1
+
         # todo: support for alt render pipelines (object that renders to texture then renders that)
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
@@ -89,31 +98,18 @@ class WgpuRenderer(Renderer):
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
-        # Set stdinfo uniform buffer object. Set on camera or is self ok?
-        if not hasattr(self, "_wgpu_stdinfo_buffer"):
-            self._wgpu_stdinfo_buffer = Buffer(
-                array_from_shadertype(stdinfo_uniform_type), usage="uniform"
-            )
-        stdinfo_data = self._wgpu_stdinfo_buffer.data
-        stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-        stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
-        stdinfo_data["physical_size"] = physical_size
-        stdinfo_data["logical_size"] = logical_size
-        self._wgpu_stdinfo_buffer.update_range(0, 1)
-        self._update_buffer(self._wgpu_stdinfo_buffer)
+        # Get the list of objects to render (visible and having a material)
+        q = self.get_render_list(scene, camera)
 
-        # Get the sorted list of objects to render (guaranteed to be visible and having a material)
-        proj_screen_matrix = Matrix4().multiply_matrices(
-            camera.projection_matrix, camera.matrix_world_inverse
-        )
-        q = self.get_render_list(scene, proj_screen_matrix)
+        # Update stdinfo uniform buffer object that we'll use during this render call
+        self._update_stdinfo_buffer(camera, physical_size, logical_size)
 
         # Ensure each wobject has pipeline info
         for wobject in q:
-            self._make_up_to_date(wobject)
+            self._ensure_up_to_date(wobject)
 
         # Filter out objects that we cannot render
-        q = [wobject for wobject in q if wobject._wgpu_data is not None]
+        q = [wobject for wobject in q if wobject._wgpu_pipeline_objects is not None]
 
         with self._swap_chain as texture_view_target:
 
@@ -139,12 +135,12 @@ class WgpuRenderer(Renderer):
             self._render_texture_view = texture_view_target
 
             command_encoder = device.create_command_encoder()
-            self._record_render(command_encoder, q)
+            self._render_recording(command_encoder, q)
             self._command_buffers = [command_encoder.finish()]
 
             device.default_queue.submit(self._command_buffers)
 
-    def _record_render(self, command_encoder, q):
+    def _render_recording(self, command_encoder, q):
 
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -157,7 +153,7 @@ class WgpuRenderer(Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for wobject in q:
-            wgpu_data = wobject._wgpu_data
+            wgpu_data = wobject._wgpu_pipeline_objects
             for pinfo in wgpu_data["compute_pipelines"]:
                 compute_pass.set_pipeline(pinfo["pipeline"])
                 for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
@@ -190,13 +186,13 @@ class WgpuRenderer(Renderer):
         )
 
         for wobject in q:
-            wgpu_data = wobject._wgpu_data
+            wgpu_data = wobject._wgpu_pipeline_objects
             for pinfo in wgpu_data["render_pipelines"]:
                 render_pass.set_pipeline(pinfo["pipeline"])
                 for slot, vbuffer in pinfo["vertex_buffers"].items():
                     render_pass.set_vertex_buffer(
                         slot,
-                        vbuffer._wgpu_buffer,
+                        vbuffer._wgpu_buffer[1],
                         vbuffer.vertex_byte_range[0],
                         vbuffer.vertex_byte_range[1],
                     )
@@ -212,21 +208,36 @@ class WgpuRenderer(Renderer):
 
         render_pass.end_pass()
 
-    def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
-        """ Given a scene object, get a list of objects to render.
+    def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
+        # Make sure we have a buffer object
+        if not hasattr(self, "_wgpu_stdinfo_buffer"):
+            self._wgpu_stdinfo_buffer = Buffer(
+                array_from_shadertype(stdinfo_uniform_type), usage="uniform"
+            )
+        # Update its data
+        stdinfo_data = self._wgpu_stdinfo_buffer.data
+        stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
+        stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
+        stdinfo_data["physical_size"] = physical_size
+        stdinfo_data["logical_size"] = logical_size
+        # Upload to GPU
+        self._wgpu_stdinfo_buffer.update_range(0, 1)
+        self._update_buffer(self._wgpu_stdinfo_buffer)
+
+    def get_render_list(self, scene: WorldObject, camera: Camera):
+        """ Given a scene object, get a flat list of objects to render.
         """
 
-        # start by gathering everything that is visible and has a material
-        q = []
-
+        # Collect items
         def visit(wobject):
             nonlocal q
             if wobject.visible and hasattr(wobject, "material"):
                 q.append(wobject)
 
+        q = []
         scene.traverse(visit)
 
-        # next, sort them from back-to-front
+        # Next, sort them from back-to-front
         def sort_func(wobject: WorldObject):
             z = (
                 Vector3()
@@ -236,54 +247,85 @@ class WgpuRenderer(Renderer):
             )
             return wobject.render_order, z
 
+        proj_screen_matrix = Matrix4().multiply_matrices(
+            camera.projection_matrix, camera.matrix_world_inverse
+        )
+        q.sort(key=sort_func)
         return q
-        # return list(sorted(q, key=sort_func))
 
-    def _make_up_to_date(self, wobject):
+    def _ensure_up_to_date(self, wobject):
         """ Update the GPU objects associated with the given wobject. Returns
         quickly if no changes are needed.
         """
 
-        if True:  # wobject.matrix_world_dirty:
-            if not hasattr(wobject, "_wgpu_uniform_buffer"):
-                wobject._wgpu_uniform_buffer = Buffer(
-                    array_from_shadertype(wobject_uniform_type), usage="uniform"
-                )
-            wobject._wgpu_uniform_buffer.data["world_transform"] = tuple(
-                wobject.matrix_world.elements
-            )
-            # todo: wobject.matrix_world_dirty is not the right flag :P
-            # todo: use a "version" instead of a bool
-
-        # Can return fast?
-        if not wobject.material.dirty and hasattr(wobject, "_wgpu_data"):
-            return
-
-        wobject.material.dirty = False
-
-        # Need a pipeline reset?
-        if getattr(wobject.material, "_wgpu_pipeline_dirty", False):
-            wobject._wgpu_pipeline_infos = None
-
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
-        if getattr(wobject, "_wgpu_pipeline_infos", None) is None:
-            wobject._wgpu_data = None
-            wobject._wgpu_pipeline_infos = self._get_pipeline_infos(wobject)
+        if wobject.rev > getattr(wobject, "_wgpu_rev", 0):
+            wobject._wgpu_rev = wobject.rev
+            wobject._wgpu_pipeline_infos = self._create_pipeline_infos(wobject)
+            wobject._wgpu_pipeline_res = self._collect_pipeline_resources(wobject)
+            wobject._wgpu_pipeline_objects = None  # Invalidate
 
-        # This could be enough
-        if wobject._wgpu_pipeline_infos is None:
-            wobject._wgpu_data = None
+        # Early exit?
+        if not wobject._wgpu_pipeline_infos:
             return
 
-        # Check if we need to update any resources
-        # todo: this seems like a lot of work, can we keep track of what objects
-        # need an update with higher precision?
-        for pipeline_info in wobject._wgpu_pipeline_infos:
+        # Check if we need to update any resources. The number of
+        # resources should typically be small. We could implement a
+        # hook in the resource's rev setter so we only have to check
+        # one flag ... but let's not optimize prematurely.
+        for kind, resource in wobject._wgpu_pipeline_res:
+            our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
+            if resource.rev > our_version:
+                update_func = getattr(self, "_update_" + kind)
+                update_func(resource)
+                # one of self._update_buffer self._update_texture, self._update_texture_view, self._update_sampler
+
+        # Create gpu objects?
+        if wobject._wgpu_pipeline_objects is None:
+            wobject._wgpu_pipeline_objects = self._create_pipeline_objects(wobject)
+
+    def _create_pipeline_infos(self, wobject):
+        """ Use the render function for this wobject and material,
+        and return a list of dicts representing pipelines in an abstract way.
+        These dicts can then be turned into actual pipeline objects.
+        """
+
+        # Get render function for this world object,
+        # and use it to get a high-level description of pipelines.
+        renderfunc = registry.get_render_function(wobject)
+        if renderfunc is None:
+            raise ValueError(
+                f"Could not get a render function for {wobject.__class__.__name__} "
+                f"with {wobject.material.__class__.__name__}"
+            )
+
+        # Prepare info for the render function
+        render_info = RenderInfo(stdinfo_uniform=self._wgpu_stdinfo_buffer,)
+
+        # Call render function
+        pipeline_infos = renderfunc(wobject, render_info)
+        if not pipeline_infos:
+            pipeline_infos = None
+        else:
+            assert isinstance(pipeline_infos, list)
+
+        return pipeline_infos
+
+    def _collect_pipeline_resources(self, wobject):
+
+        pipeline_infos = wobject._wgpu_pipeline_infos or []
+
+        pipeline_resources = []  # List, because order matters
+
+        # Collect list of resources. That we can we can easily iterate over
+        # dependent resource on each render call.
+        for pipeline_info in pipeline_infos:
+            assert isinstance(pipeline_info, dict)
             buffer = pipeline_info.get("index_buffer", None)
             if buffer is not None:
-                self._update_buffer(buffer)
+                pipeline_resources.append(("buffer", buffer))
             for buffer in pipeline_info.get("vertex_buffers", {}).values():
-                self._update_buffer(buffer)
+                pipeline_resources.append(("buffer", buffer))
             for key in pipeline_info.keys():
                 if key.startswith("bindings"):
                     resources = pipeline_info[key]
@@ -296,53 +338,31 @@ class WgpuRenderer(Renderer):
                             wgpu.BindingType.readonly_storage_buffer,
                         ):
                             assert isinstance(resource, Buffer)
-                            self._update_buffer(resource)
+                            pipeline_resources.append(("buffer", resource))
                         elif binding_type in (
                             wgpu.BindingType.sampled_texture,
                             wgpu.BindingType.readonly_storage_texture,
                             wgpu.BindingType.writeonly_storage_texture,
                         ):
                             assert isinstance(resource, TextureView)
-                            self._update_texture(resource.texture)
-                            self._update_texture_view(resource)
+                            pipeline_resources.append(("texture", resource.texture))
+                            pipeline_resources.append(("texture_view", resource))
                         elif binding_type in (
                             wgpu.BindingType.sampler,
                             wgpu.BindingType.comparison_sampler,
                         ):
                             assert isinstance(resource, TextureView)
-                            self._update_sampler(resource)
+                            pipeline_resources.append(("sampler", resource))
+                        else:
+                            assert (
+                                False
+                            ), f"Unknown resource binding type {binding_type}"
 
-        # Create gpu data?
-        if wobject._wgpu_data is None:
-            wobject._wgpu_data = self._get_pipeline_objects(wobject)
+        return pipeline_resources
 
-    def _get_pipeline_infos(self, wobject):
-
-        # Get render function for this world object,
-        # and use it to get a high-level description of pipelines.
-        renderfunc = registry.get_render_function(wobject)
-        if renderfunc is None:
-            raise ValueError(
-                f"Could not get a render function for {wobject.__class__.__name__} "
-                f"with {wobject.material.__class__.__name__}"
-            )
-
-        # Call render function
-        render_info = RenderInfo(
-            stdinfo_uniform=self._wgpu_stdinfo_buffer,
-            wobject_uniform=wobject._wgpu_uniform_buffer,
-        )
-        pipeline_infos = renderfunc(wobject, render_info)
-        if pipeline_infos is not None:
-            assert isinstance(pipeline_infos, list)
-            assert all(
-                isinstance(pipeline_info, dict) for pipeline_info in pipeline_infos
-            )
-            return pipeline_infos
-        else:
-            return None
-
-    def _get_pipeline_objects(self, wobject):
+    def _create_pipeline_objects(self, wobject):
+        """ Generate wgpu pipeline objects from the list of pipeline info dicts.
+        """
 
         # Prepare the three kinds of pipelines that we can get
         compute_pipelines = []
@@ -427,7 +447,7 @@ class WgpuRenderer(Renderer):
         index_format = wgpu.IndexFormat.uint32
         index_buffer = pipeline_info.get("index_buffer", None)
         if index_buffer is not None:
-            wgpu_index_buffer = index_buffer._wgpu_buffer
+            wgpu_index_buffer = index_buffer._wgpu_buffer[1]
             index_format = index_buffer.format
 
         # Convert and check high-level indices. Indices represent a range
@@ -544,7 +564,7 @@ class WgpuRenderer(Renderer):
 
     def _get_bind_groups(self, pipeline_info):
         """ Given high-level information on bindings, create the corresponding
-        wgpu objects and make sure that all buffers and textures are up-to-date.
+        wgpu objects. This assumes that all buffers and textures are up-to-date.
         Returns (bind_groups, pipeline_layout).
         """
         # todo: cache bind_group_layout objects
@@ -587,7 +607,7 @@ class WgpuRenderer(Renderer):
                         {
                             "binding": slot,
                             "resource": {
-                                "buffer": resource._wgpu_buffer,
+                                "buffer": resource._wgpu_buffer[1],
                                 "offset": 0,
                                 "size": resource.nbytes,
                             },
@@ -610,7 +630,7 @@ class WgpuRenderer(Renderer):
                     # A texture view resource
                     assert isinstance(resource, TextureView)
                     bindings.append(
-                        {"binding": slot, "resource": resource._wgpu_texture_view,}
+                        {"binding": slot, "resource": resource._wgpu_texture_view[1]}
                     )
                     visibility = visibility_all
                     if binding_type == wgpu.BindingType.sampled_texture:
@@ -641,7 +661,7 @@ class WgpuRenderer(Renderer):
                     # A sampler resource
                     assert isinstance(resource, TextureView)
                     bindings.append(
-                        {"binding": slot, "resource": resource._wgpu_sampler,}
+                        {"binding": slot, "resource": resource._wgpu_sampler[1]}
                     )
                     binding_layouts.append(
                         {
@@ -667,9 +687,7 @@ class WgpuRenderer(Renderer):
         return bind_groups, pipeline_layout
 
     def _update_buffer(self, resource):
-        buffer = getattr(resource, "_wgpu_buffer", None)
-        if not (buffer is None or resource.dirty):
-            return
+        buffer = getattr(resource, "_wgpu_buffer", (-1, None))[1]
 
         # todo: dispose an old buffer? / reuse an old buffer?
 
@@ -706,32 +724,29 @@ class WgpuRenderer(Renderer):
             # todo: look into staging buffers?
 
         queue.submit([encoder.finish()])
-        resource._wgpu_buffer = buffer
+        resource._wgpu_buffer = resource.rev, buffer
 
     def _update_texture_view(self, resource):
-        if getattr(resource, "_wgpu_texture_view", None) is None:
-            if resource._is_default_view:
-                texture_view = resource.texture._wgpu_texture.create_view()
-            else:
-                dim = resource._view_dim
-                assert resource._mip_range.step == 1
-                assert resource._layer_range.step == 1
-                texture_view = resource.texture._wgpu_texture.create_view(
-                    format=resource.format,
-                    dimension=f"{dim}d" if isinstance(dim, int) else dim,
-                    aspect=resource._aspect,
-                    base_mip_level=resource._mip_range.start,
-                    mip_level_count=len(resource._mip_range),
-                    base_array_layer=resource._layer_range.start,
-                    array_layer_count=len(resource._layer_range),
-                )
-            resource._wgpu_texture_view = texture_view
+        if resource._is_default_view:
+            texture_view = resource.texture._wgpu_texture[1].create_view()
+        else:
+            dim = resource._view_dim
+            assert resource._mip_range.step == 1
+            assert resource._layer_range.step == 1
+            texture_view = resource.texture._wgpu_texture[1].create_view(
+                format=resource.format,
+                dimension=f"{dim}d" if isinstance(dim, int) else dim,
+                aspect=resource._aspect,
+                base_mip_level=resource._mip_range.start,
+                mip_level_count=len(resource._mip_range),
+                base_array_layer=resource._layer_range.start,
+                array_layer_count=len(resource._layer_range),
+            )
+        resource._wgpu_texture_view = resource.rev, texture_view
 
     def _update_texture(self, resource):
-        if not resource.dirty:
-            return
 
-        texture = getattr(resource, "_wgpu_texture", None)
+        texture = getattr(resource, "_wgpu_texture", (-1, None))[1]
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 
@@ -786,27 +801,26 @@ class WgpuRenderer(Renderer):
             )
 
         queue.submit([encoder.finish()])
-        resource._wgpu_texture = texture
+        resource._wgpu_texture = resource.rev, texture
 
     def _update_sampler(self, resource):
         # A sampler's info (and raw object) are stored on a TextureView
-        if getattr(resource, "_wgpu_sampler", None) is None:
-            amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
-            while len(amodes) < 3:
-                amodes.append(amodes[-1])
-            filters = resource._filter.replace(",", " ").split() or ["nearest"]
-            while len(filters) < 3:
-                filters.append(filters[-1])
-            ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
-            sampler = self._device.create_sampler(
-                address_mode_u=ammap.get(amodes[0], amodes[0]),
-                address_mode_v=ammap.get(amodes[1], amodes[1]),
-                address_mode_w=ammap.get(amodes[2], amodes[2]),
-                mag_filter=filters[0],
-                min_filter=filters[1],
-                mipmap_filter=filters[2],
-                # lod_min_clamp -> use default 0
-                # lod_max_clamp -> use default inf
-                # compare -> only not-None for comparison samplers!
-            )
-            resource._wgpu_sampler = sampler
+        amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
+        while len(amodes) < 3:
+            amodes.append(amodes[-1])
+        filters = resource._filter.replace(",", " ").split() or ["nearest"]
+        while len(filters) < 3:
+            filters.append(filters[-1])
+        ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
+        sampler = self._device.create_sampler(
+            address_mode_u=ammap.get(amodes[0], amodes[0]),
+            address_mode_v=ammap.get(amodes[1], amodes[1]),
+            address_mode_w=ammap.get(amodes[2], amodes[2]),
+            mag_filter=filters[0],
+            min_filter=filters[1],
+            mipmap_filter=filters[2],
+            # lod_min_clamp -> use default 0
+            # lod_max_clamp -> use default inf
+            # compare -> only not-None for comparison samplers!
+        )
+        resource._wgpu_sampler = resource.rev, sampler

@@ -49,11 +49,11 @@ camera.position.z = 0
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0005, 0.001))
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.01, 0.02))
     for cube in cubes:
         cube.rotation.multiply(rot)
 
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0, 0.0005))
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0, 0.005))
     camera.rotation.multiply(rot)
 
     renderer.render(scene, camera)

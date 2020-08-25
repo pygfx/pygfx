@@ -106,7 +106,6 @@ def animate():
     plane.position.z = t * vol.shape[0] * 0.5
     plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
     plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
-    material.dirty = 1  # todo: we should not have to mark the *material* dirty!
 
     controls.update_camera(camera)
     renderer.render(scene, camera)
