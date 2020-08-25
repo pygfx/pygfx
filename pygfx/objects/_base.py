@@ -13,35 +13,34 @@ class DataWrapperContainer:
 
     def __init__(self):
         self._datawrapper_parents = weakref.WeakSet()
-        self._versionflag = 0
+        self._rev = 0
 
     @property
-    def versionflag(self):
+    def rev(self):
         """ Monotonically increasing integer that gets bumped when any
         of its buffers or textures are set. (Not when updates are made to these
         resources themselves).
         """
-        return self._versionflag
+        return self._rev
 
-    # NOTE: we could similarly let bumping of a resource's versionflag
-    # bump a resource_version_flag here. But it is not clear whether
-    # the (minor?) increase in performance is worth the added
-    # complecity.
+    # NOTE: we could similarly let bumping of a resource's rev bump a
+    # data_rev here. But it is not clear whether the (minor?) increase
+    # in performance is worth the added complexity.
 
-    def bump_versionflag(self):
-        """ Bump the versionflag (and that of any "parents")
+    def _bump_rev(self):
+        """ Bump the rev (and that of any "parents")
         """
-        self._versionflag += 1
+        self._rev += 1
         for x in self._datawrapper_parents:
-            x._versionflag += 1
+            x._rev += 1
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if isinstance(value, DataWrapperContainer):
             value._datawrapper_parents.add(self)
-            self.bump_versionflag()
+            self._bump_rev()
         elif isinstance(value, Resource):
-            self.bump_versionflag()
+            self._bump_rev()
 
 
 class WorldObject(DataWrapperContainer):

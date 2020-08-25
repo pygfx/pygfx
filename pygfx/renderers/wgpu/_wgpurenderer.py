@@ -259,8 +259,8 @@ class WgpuRenderer(Renderer):
         """
 
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
-        if wobject.versionflag > getattr(wobject, "_wgpu_versionflag", 0):
-            wobject._wgpu_versionflag = wobject.versionflag
+        if wobject.rev > getattr(wobject, "_wgpu_rev", 0):
+            wobject._wgpu_rev = wobject.rev
             wobject._wgpu_pipeline_infos = self._create_pipeline_infos(wobject)
             wobject._wgpu_pipeline_res = self._collect_pipeline_resources(wobject)
             wobject._wgpu_pipeline_objects = None  # Invalidate
@@ -271,11 +271,11 @@ class WgpuRenderer(Renderer):
 
         # Check if we need to update any resources. The number of
         # resources should typically be small. We could implement a
-        # hook in the resource's versionflag setter so we only have to check
+        # hook in the resource's rev setter so we only have to check
         # one flag ... but let's not optimize prematurely.
         for kind, resource in wobject._wgpu_pipeline_res:
             our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
-            if resource.versionflag > our_version:
+            if resource.rev > our_version:
                 update_func = getattr(self, "_update_" + kind)
                 update_func(resource)
                 # one of self._update_buffer self._update_texture, self._update_texture_view, self._update_sampler
@@ -724,7 +724,7 @@ class WgpuRenderer(Renderer):
             # todo: look into staging buffers?
 
         queue.submit([encoder.finish()])
-        resource._wgpu_buffer = resource.versionflag, buffer
+        resource._wgpu_buffer = resource.rev, buffer
 
     def _update_texture_view(self, resource):
         if resource._is_default_view:
@@ -742,7 +742,7 @@ class WgpuRenderer(Renderer):
                 base_array_layer=resource._layer_range.start,
                 array_layer_count=len(resource._layer_range),
             )
-        resource._wgpu_texture_view = resource.versionflag, texture_view
+        resource._wgpu_texture_view = resource.rev, texture_view
 
     def _update_texture(self, resource):
 
@@ -801,7 +801,7 @@ class WgpuRenderer(Renderer):
             )
 
         queue.submit([encoder.finish()])
-        resource._wgpu_texture = resource.versionflag, texture
+        resource._wgpu_texture = resource.rev, texture
 
     def _update_sampler(self, resource):
         # A sampler's info (and raw object) are stored on a TextureView
@@ -823,4 +823,4 @@ class WgpuRenderer(Renderer):
             # lod_max_clamp -> use default inf
             # compare -> only not-None for comparison samplers!
         )
-        resource._wgpu_sampler = resource.versionflag, sampler
+        resource._wgpu_sampler = resource.rev, sampler

@@ -28,7 +28,7 @@ class Texture(Resource):
     """
 
     def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
-        self._versionflag = 0
+        self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
         self._dim = int(dim)
@@ -67,10 +67,10 @@ class Texture(Resource):
             raise TypeError("Texture usage must be str.")
 
     @property
-    def versionflag(self):
+    def rev(self):
         """ An integer that is increased when update_range() is called.
         """
-        return self._versionflag
+        return self._rev
 
     def get_view(self, **kwargs):
         """ Get a new view on the this texture.
@@ -166,7 +166,7 @@ class Texture(Resource):
                 self._pending_uploads.append((offset2, size2))
         else:
             self._pending_uploads.append((offset, size))
-        self._versionflag += 1
+        self._rev += 1
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
@@ -304,7 +304,7 @@ class TextureView(Resource):
         mip_range=None,
         layer_range=None,
     ):
-        self._versionflag = 1
+        self._rev = 1
         assert isinstance(texture, Texture)
         self._texture = texture
         # Sampler parameters
@@ -321,9 +321,9 @@ class TextureView(Resource):
         )
 
     @property
-    def versionflag(self):
+    def rev(self):
         # This is not actually increased anywhere, but it's added for consistency
-        return self._versionflag
+        return self._rev
 
     @property
     def texture(self):

@@ -34,7 +34,7 @@ class Buffer(Resource):
     def __init__(
         self, data=None, *, usage, nbytes=None, nitems=None, format=None,
     ):
-        self._versionflag = 0
+        self._rev = 0
         # To specify the buffer size
         self._nbytes = 0
         self._nitems = 1
@@ -82,10 +82,10 @@ class Buffer(Resource):
         self._vertex_byte_range = (0, self._nbytes)
 
     @property
-    def versionflag(self):
+    def rev(self):
         """ An integer that is increased when update_range() is called.
         """
-        return self._versionflag
+        return self._rev
 
     @property
     def usage(self):
@@ -169,7 +169,7 @@ class Buffer(Resource):
             size = max(size, cur_size)
         # Limit and apply
         self._pending_uploads.append((offset, size))
-        self._versionflag += 1
+        self._rev += 1
         # todo: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):
