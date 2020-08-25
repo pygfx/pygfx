@@ -2,7 +2,7 @@
 
 from . import utils
 
-from .datawrappers import *
+from .resources import *
 from .objects import *
 from .geometries import *
 from .materials import *

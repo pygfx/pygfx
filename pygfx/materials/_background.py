@@ -2,7 +2,7 @@ from pyshader import Struct, vec4
 
 from ._base import Material
 from ..utils import array_from_shadertype
-from ..datawrappers import Buffer
+from ..resources import Buffer
 
 # todo: in ThreeJS you can simply set a CubeTexture as the scene.background
 # we could do that, and the scene could use these objects automatically.

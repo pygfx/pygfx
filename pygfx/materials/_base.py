@@ -1,8 +1,8 @@
 from pyshader import Struct
 
-from ..objects._base import DataWrapperContainer
+from ..objects._base import ResourceContainer
 
 
-class Material(DataWrapperContainer):
+class Material(ResourceContainer):
 
     uniform_type = Struct()

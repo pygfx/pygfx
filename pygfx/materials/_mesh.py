@@ -1,7 +1,7 @@
 from pyshader import Struct, f32, vec4, vec2
 
 from ..utils import array_from_shadertype
-from ..datawrappers import Buffer
+from ..resources import Buffer
 from ._base import Material
 
 # todo: put in an example somewhere how to use storage buffers for vertex data:

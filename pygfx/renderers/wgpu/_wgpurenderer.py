@@ -8,7 +8,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...linalg import Matrix4, Vector3
 from ...objects import WorldObject
 from ...cameras import Camera
-from ...datawrappers import Buffer, TextureView
+from ...resources import Buffer, TextureView
 from ...utils import array_from_shadertype
 
 

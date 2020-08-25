@@ -13,7 +13,7 @@ from ...materials import (
     MeshPhongMaterial,
     MeshSliceMaterial,
 )
-from ...datawrappers import Buffer, Texture, TextureView
+from ...resources import Buffer, Texture, TextureView
 from ...utils import normals_from_vertices
 
 

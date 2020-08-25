@@ -6,7 +6,7 @@ from pyshader import vec3, vec4
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
-from ...datawrappers import Texture, TextureView
+from ...resources import Texture, TextureView
 
 
 @python2shader

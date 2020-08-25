@@ -6,7 +6,7 @@ from pyshader import vec3, vec4
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Mesh
 from ...materials import MeshVolumeSliceMaterial
-from ...datawrappers import Buffer, Texture, TextureView
+from ...resources import Buffer, Texture, TextureView
 
 
 @python2shader

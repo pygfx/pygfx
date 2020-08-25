@@ -3,23 +3,23 @@ import weakref
 from pyshader import Struct, mat4
 
 from ..linalg import Vector3, Matrix4, Quaternion
-from ..datawrappers import Resource, Buffer
+from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
 
 
-class DataWrapperContainer:
+class ResourceContainer:
     """ Base class for WorldObject, Geometry and Material.
     """
 
     def __init__(self):
-        self._datawrapper_parents = weakref.WeakSet()
+        self._resource_parents = weakref.WeakSet()
         self._rev = 0
 
     @property
     def rev(self):
         """ Monotonically increasing integer that gets bumped when any
-        of its buffers or textures are set. (Not when updates are made to these
-        resources themselves).
+        of its buffers or textures are set. (Not when updates are made
+        to these resources themselves).
         """
         return self._rev
 
@@ -31,19 +31,19 @@ class DataWrapperContainer:
         """ Bump the rev (and that of any "parents")
         """
         self._rev += 1
-        for x in self._datawrapper_parents:
+        for x in self._resource_parents:
             x._rev += 1
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if isinstance(value, DataWrapperContainer):
-            value._datawrapper_parents.add(self)
+        if isinstance(value, ResourceContainer):
+            value._resource_parents.add(self)
             self._bump_rev()
         elif isinstance(value, Resource):
             self._bump_rev()
 
 
-class WorldObject(DataWrapperContainer):
+class WorldObject(ResourceContainer):
     """ The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
