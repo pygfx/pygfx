@@ -76,6 +76,7 @@ class WorldObject(ResourceContainer):
         self.up = Vector3(0, 1, 0)
 
         self.matrix = Matrix4()
+        self.matrix_auto_update = True
         self.matrix_world = Matrix4()
         self.matrix_world_dirty = True
 
@@ -119,6 +120,18 @@ class WorldObject(ResourceContainer):
             self.matrix.compose(self.position, self.rotation, self.scale)
             self.matrix_world_dirty = True
 
+    def set_matrix(self, matrix):
+        self.matrix.copy(matrix)
+        self.matrix.decompose(self.position, self.rotation, self.scale)
+        self.matrix_world_dirty = True
+
+    def apply_matrix(self, matrix):
+        if self.matrix_auto_update:
+            self.update_matrix()
+        self.matrix.premultiply(matrix)
+        self.matrix.decompose(self.position, self.rotation, self.scale)
+        self.matrix_world_dirty = True
+
     def update_matrix_world(
         self, force=False, update_children=True, update_parents=False
     ):
@@ -126,7 +139,8 @@ class WorldObject(ResourceContainer):
             self.parent.update_matrix_world(
                 force=force, update_children=False, update_parents=True
             )
-        self.update_matrix()
+        if self.matrix_auto_update:
+            self.update_matrix()
         if self.matrix_world_dirty or force:
             if self.parent is None:
                 self.matrix_world.copy(self.matrix)
