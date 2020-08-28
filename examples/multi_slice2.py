@@ -60,36 +60,16 @@ scene.add(gfx.AxesHelper(size=50))
 
 vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3, usage="sampled")
-view = tex.get_view(filter="linear")
-material = gfx.MeshBasicMaterial(map=view, clim=(0, 255))
-
+material = gfx.VolumeSliceMaterial(clim=(0, 255))
 # TODO: also add a mesh slice for each plane
 
 planes = []
-texcoords = {
-    0: [[0.5, 0, 0], [0.5, 1, 0], [0.5, 0, 1], [0.5, 1, 1]],
-    1: [[0, 0.5, 0], [1, 0.5, 0], [0, 0.5, 1], [1, 0.5, 1]],
-    2: [[0, 0, 0.5], [1, 0, 0.5], [0, 1, 0.5], [1, 1, 0.5]],
-}
-sizes = {
-    0: (vol.shape[1], vol.shape[0]),  # YZ plane
-    1: (vol.shape[2], vol.shape[0]),  # XZ plane
-    2: (vol.shape[2], vol.shape[1]),  # XY plane (default)
-}
 for axis in [0, 1, 2]:
-    geometry = gfx.PlaneGeometry(*sizes[axis], 1, 1)
-    geometry.texcoords = gfx.Buffer(
-        np.array(texcoords[axis], dtype="f4"), usage="vertex|storage"
-    )
-    plane = gfx.Mesh(geometry, material)
+
+    plane = gfx.Volume(tex, material)
     planes.append(plane)
     scene.add(plane)
 
-    if axis == 0:  # YZ plane
-        plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi, 0.5 * np.pi))
-    elif axis == 1:  # XZ plane
-        plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi))
-    # else: XY plane
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.OrthographicCamera(200, 200)
@@ -101,11 +81,11 @@ controls = gfx.OrbitControls(
 
 
 def animate():
-    t = np.cos(time() / 2)
-    plane = planes[2]
-    plane.position.z = t * vol.shape[0] * 0.5
-    plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
-    plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
+    # t = np.cos(time() / 2)
+    # plane = planes[2]
+    # plane.position.z = t * vol.shape[0] * 0.5
+    # plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
+    # plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
 
     controls.update_camera(camera)
     renderer.render(scene, camera)

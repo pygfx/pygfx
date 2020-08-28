@@ -70,6 +70,10 @@ def mesh_renderer(wobject, render_info):
             raise ValueError("material.map is present, but geometry has no texcoords")
         bindings1[0] = wgpu.BindingType.sampler, material.map
         bindings1[1] = wgpu.BindingType.sampled_texture, material.map
+        if material.map.view_dim == "2d":
+            pass  # ok!
+        elif material.map.view_dim == "3d":
+            vertex_shader = vertex_shader_mesh_3dtex
 
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
@@ -104,10 +108,13 @@ def mesh_renderer(wobject, render_info):
     else:
         fragment_shader = fragment_shader_simple
         if material.map is not None:
-            if "rgba" in material.map.format:
-                fragment_shader = fragment_shader_textured_rgba
-            else:
-                fragment_shader = fragment_shader_textured_gray
+            if material.map.view_dim == "2d":
+                if "rgba" in material.map.format:
+                    fragment_shader = fragment_shader_textured_rgba
+                else:
+                    fragment_shader = fragment_shader_textured_gray
+            elif material.map.view_dim == "3d":
+                fragment_shader = fragment_shader_textured_gray_3dtex
 
     # Instanced meshes have their own vertex shader
     n_instances = 1
@@ -179,6 +186,25 @@ def vertex_shader_mesh(
     v_normal = normal_vec  # noqa
     v_view = view_vec  # noqa
     v_light = view_vec  # noqa
+
+
+# todo: *sigh* it looks like we do need some form of templating
+
+
+@python2shader
+def vertex_shader_mesh_3dtex(  # also, no normals and lights
+    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_texcoord: (pyshader.RES_INPUT, 1, vec3),
+    u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
+    u_wobject: ("uniform", (0, 1), Mesh.uniform_type),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
+):
+    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
+    ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
+
+    out_pos = ndc_pos  # noqa - shader output
+    v_texcoord = in_texcoord  # noqa - shader output
 
 
 @python2shader
@@ -271,6 +297,19 @@ def fragment_shader_textured_gray(
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
+):
+    val = f32(t_tex.sample(s_sam, v_texcoord).r)
+    val = (val - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
+    out_color = vec4(val, val, val, 1.0)  # noqa - shader output
+
+
+@python2shader
+def fragment_shader_textured_gray_3dtex(
+    v_texcoord: (pyshader.RES_INPUT, 0, vec3),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 1), "3d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
