@@ -11,11 +11,14 @@ from ._base import Material
 
 
 class MeshBasicMaterial(Material):
-    """ A material for drawing geometries in a simple shaded (flat or
+    """A material for drawing geometries in a simple shaded (flat or
     wireframe) way. This material is not affected by lights.
     """
 
-    uniform_type = Struct(color=vec4, clim=vec2,)
+    uniform_type = Struct(
+        color=vec4,
+        clim=vec2,
+    )
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -35,7 +38,7 @@ class MeshBasicMaterial(Material):
 
     @property
     def color(self):
-        """ The uniform color of the mesh, as an rgba tuple.
+        """The uniform color of the mesh, as an rgba tuple.
         This value is ignored if a texture map is used.
         """
         return self.uniform_buffer.data["color"]
@@ -47,8 +50,7 @@ class MeshBasicMaterial(Material):
 
     @property
     def map(self):
-        """ The texture map specifying the color for each texture coordinate.
-        """
+        """The texture map specifying the color for each texture coordinate."""
         return self._map
 
     @map.setter
@@ -57,8 +59,7 @@ class MeshBasicMaterial(Material):
 
     @property
     def clim(self):
-        """ The contrast limits to apply to the map. Default (0, 1)
-        """
+        """The contrast limits to apply to the map. Default (0, 1)"""
         return self.uniform_buffer.data["clim"]
 
     @clim.setter
@@ -68,13 +69,11 @@ class MeshBasicMaterial(Material):
 
 
 class MeshNormalMaterial(MeshBasicMaterial):
-    """ A material that maps the normal vectors to RGB colors.
-    """
+    """A material that maps the normal vectors to RGB colors."""
 
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):
-    """ A material that shows surface normals as lines sticking out of the mesh.
-    """
+    """A material that shows surface normals as lines sticking out of the mesh."""
 
 
 # todo: MeshLambertMaterial(MeshBasicMaterial):
@@ -82,7 +81,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
-    """ A material for shiny surfaces with specular highlights.
+    """A material for shiny surfaces with specular highlights.
 
     The material uses a non-physically based Blinn-Phong model for
     calculating reflectance. Unlike the Lambertian model used in the
@@ -100,8 +99,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
 
 class MeshSliceMaterial(MeshBasicMaterial):
-    """ A material that displays a slices of the mesh.
-    """
+    """A material that displays a slices of the mesh."""
 
     uniform_type = Struct(color=vec4, clim=vec2, plane=vec4, thickness=f32)
 
@@ -110,7 +108,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
 
     @property
     def plane(self):
-        """ The plane to slice at, represented as the equation:
+        """The plane to slice at, represented as the equation:
         ``ax + by + cz + d = 0`` The plane definition applies to the
         object's local coordinate frame.
         """
@@ -123,8 +121,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
 
     @property
     def thickness(self):
-        """ The thickness of the line to draw the edge of the mesh.
-        """
+        """The thickness of the line to draw the edge of the mesh."""
         return self.uniform_buffer.data["thickness"]
 
     @thickness.setter

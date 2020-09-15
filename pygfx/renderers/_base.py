@@ -3,7 +3,7 @@ from ..materials import Material
 
 
 class Renderer:
-    """ Base class for other renderers. A renderer takes a figure,
+    """Base class for other renderers. A renderer takes a figure,
     collect data that describe how it should be drawn, and then draws it.
     """
 
@@ -11,7 +11,7 @@ class Renderer:
 
 
 class RenderFunctionRegistry:
-    """ A registry for render functions capable of rendering specific
+    """A registry for render functions capable of rendering specific
     object-material combinations. This registry allows for a scalable
     plugin-like system for a renderer's capabilities.
     """
@@ -21,7 +21,7 @@ class RenderFunctionRegistry:
         self._known_classes = set([WorldObject, Material])
 
     def register(self, wobject_cls, material_cls, func):
-        """ Register a render function for the given combination of
+        """Register a render function for the given combination of
         world object and material class.
 
         When a world object is being rendered, the renderer will select
@@ -53,7 +53,7 @@ class RenderFunctionRegistry:
         self._known_classes.add(material_cls)
 
     def get_render_function(self, wobject):
-        """ Get the render function for the given world object, based
+        """Get the render function for the given world object, based
         on the object's class, and the class of its material. The behavior
         is similar to ``isinstance``; providing an instance of a custom
         subclasses should not affect the selection. Returns None if the

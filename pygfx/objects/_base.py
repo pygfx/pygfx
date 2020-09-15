@@ -8,8 +8,7 @@ from ..utils import array_from_shadertype
 
 
 class ResourceContainer:
-    """ Base class for WorldObject, Geometry and Material.
-    """
+    """Base class for WorldObject, Geometry and Material."""
 
     def __init__(self):
         self._resource_parents = weakref.WeakSet()
@@ -17,7 +16,7 @@ class ResourceContainer:
 
     @property
     def rev(self):
-        """ Monotonically increasing integer that gets bumped when any
+        """Monotonically increasing integer that gets bumped when any
         of its buffers or textures are set. (Not when updates are made
         to these resources themselves).
         """
@@ -28,8 +27,7 @@ class ResourceContainer:
     # in performance is worth the added complexity.
 
     def _bump_rev(self):
-        """ Bump the rev (and that of any "parents")
-        """
+        """Bump the rev (and that of any "parents")"""
         self._rev += 1
         for x in self._resource_parents:
             x._rev += 1
@@ -44,7 +42,7 @@ class ResourceContainer:
 
 
 class WorldObject(ResourceContainer):
-    """ The base class for objects present in the "world", i.e. the scene graph.
+    """The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
     its apearance. The object itself is only responsible for defining object
@@ -57,7 +55,9 @@ class WorldObject(ResourceContainer):
     # The uniform type describes the structured info for this object, which represents
     # every "propery" that a renderer would need to know in order to visualize it.
     # todo: rename uniform to info or something?
-    uniform_type = Struct(world_transform=mat4,)
+    uniform_type = Struct(
+        world_transform=mat4,
+    )
 
     _v = Vector3()
     _m = Matrix4()

@@ -5,7 +5,7 @@ from ..resources import Buffer
 
 
 class Geometry(ResourceContainer):
-    """ A geometry represents the (input) data of mesh, line, or point
+    """A geometry represents the (input) data of mesh, line, or point
     geometry. It can include vertex positions, normals, colors, uvs,
     and custom data buffers. Face indices can be given using `index`.
 

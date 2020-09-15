@@ -3,7 +3,7 @@ from ..linalg import Matrix4
 
 
 class OrthographicCamera(Camera):
-    """ An orthographic camera, useful for non-perspective views and
+    """An orthographic camera, useful for non-perspective views and
     visualizing 2D content. You may also want to set the position of
     the camera.
 

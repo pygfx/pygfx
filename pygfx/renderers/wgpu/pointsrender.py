@@ -73,8 +73,7 @@ def fragment_shader_gaussian(
 
 @register_wgpu_render_function(Points, PointsMaterial)
 def points_renderer(wobject, render_info):
-    """ Render function capable of rendering meshes displaying a volume slice.
-    """
+    """Render function capable of rendering meshes displaying a volume slice."""
 
     geometry = wobject.geometry
     material = wobject.material

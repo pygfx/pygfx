@@ -40,9 +40,11 @@ def animate():
     for i, cube in enumerate(cubes):
         pos = gfx.linalg.Matrix4().set_position_xyz(350 - i * 100, 0, 0)
         rot = gfx.linalg.Matrix4().extract_rotation(cube.matrix)
-        rot.premultiply(gfx.linalg.Matrix4().make_rotation_from_euler(
-            gfx.linalg.Euler(0.01 * i, 0.02 * i)
-        ))
+        rot.premultiply(
+            gfx.linalg.Matrix4().make_rotation_from_euler(
+                gfx.linalg.Euler(0.01 * i, 0.02 * i)
+            )
+        )
         rot.premultiply(pos)
         cube.set_matrix(rot)
 

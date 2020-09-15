@@ -5,7 +5,7 @@ from ..linalg import Matrix4
 
 
 class PerspectiveCamera(Camera):
-    """ A 3D perspective camera.
+    """A 3D perspective camera.
 
     Parameters:
         fov (float): The field of view as an angle. Higher values give

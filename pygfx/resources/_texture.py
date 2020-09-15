@@ -6,7 +6,7 @@ from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
 
 class Texture(Resource):
-    """ A base texture wrapper that can be implemented for numpy, ctypes arrays,
+    """A base texture wrapper that can be implemented for numpy, ctypes arrays,
     or any other kind of array.
 
     Parameters:
@@ -68,31 +68,28 @@ class Texture(Resource):
 
     @property
     def rev(self):
-        """ An integer that is increased when update_range() is called.
-        """
+        """An integer that is increased when update_range() is called."""
         return self._rev
 
     def get_view(self, **kwargs):
-        """ Get a new view on the this texture.
-        """
+        """Get a new view on the this texture."""
         return TextureView(self, **kwargs)
 
     @property
     def dim(self):
-        """ The dimensionality of the texture (1, 2, or 3).
-        """
+        """The dimensionality of the texture (1, 2, or 3)."""
         return self._dim
 
     @property
     def usage(self):
-        """ The texture usage flags as a string (compatible with the
+        """The texture usage flags as a string (compatible with the
         wgpu.TextureUsage enum).
         """
         return self._usage
 
     @property
     def data(self):
-        """ The data for this texture. Can be None if the data only
+        """The data for this texture. Can be None if the data only
         exists on the GPU.
 
         Note: the data is the same reference that was given to
@@ -102,27 +99,26 @@ class Texture(Resource):
 
     @property
     def mem(self):
-        """ The data for this buffer as a memoryview. Can be None if
+        """The data for this buffer as a memoryview. Can be None if
         the data only exists on the GPU.
         """
         return self._mem
 
     @property
     def nbytes(self):
-        """ Get the number of bytes in the texture.
-        """
+        """Get the number of bytes in the texture."""
         return self._nbytes
 
     @property
     def size(self):
-        """ The size of the texture as (width, height, depth).
+        """The size of the texture as (width, height, depth).
         (always a 3-tuple, regardless of the dimension).
         """
         return self._size
 
     @property
     def format(self):
-        """ The texture format as a string (compatible with the
+        """The texture format as a string (compatible with the
         wgpu.TextureFormat enum).
         """
         if self._format is not None:
@@ -136,7 +132,7 @@ class Texture(Resource):
             raise ValueError("Texture has no data nor format.")
 
     def update_range(self, offset, size):
-        """ Mark a certain range of the data for upload to the GPU.
+        """Mark a certain range of the data for upload to the GPU.
         The offset and (sub) size should be (width, height, depth)
         tuples. Numpy users beware that an arrays shape is (height, width)!
         """
@@ -196,8 +192,7 @@ class Texture(Resource):
                 return shape[2], shape[1], shape[0]
 
     def _get_subdata(self, offset, size):
-        """ Return subdata as a contiguous array.
-        """
+        """Return subdata as a contiguous array."""
         # If this is a full range, this is easy
         if offset == 0 and size == self.nitems and self.mem.contiguous:
             return self.mem
@@ -269,7 +264,7 @@ def format_from_memoryview(mem, size):
 
 
 class TextureView(Resource):
-    """ A view on a texture.
+    """A view on a texture.
 
     The view defines the sampling behavior and can specify a selection/different
     view on the texture.
@@ -327,32 +322,29 @@ class TextureView(Resource):
 
     @property
     def texture(self):
-        """ The Texture object holding the data for this texture view.
-        """
+        """The Texture object holding the data for this texture view."""
         return self._texture
 
     @property
     def format(self):
-        """ The texture format.
-        """
+        """The texture format."""
         return self._format or self.texture.format
 
     @property
     def view_dim(self):
-        """ The dimensionality of this view, as a string.
+        """The dimensionality of this view, as a string.
         See wgpu.TextureViewDimension.
         """
         return self._view_dim or f"{self.texture.dim}d"
 
     @property
     def address_mode(self):
-        """ How to sample beyond the edges. Use "clamp",
+        """How to sample beyond the edges. Use "clamp",
         "mirror" or "repeat". Default "clamp".
         """
         return self._address_mode
 
     @property
     def filter(self):
-        """ Interpolation filter. Use "nearest" or "linear".
-        """
+        """Interpolation filter. Use "nearest" or "linear"."""
         return self._filter

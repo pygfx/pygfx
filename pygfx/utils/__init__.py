@@ -3,15 +3,13 @@ import numpy as np
 
 
 def array_from_shadertype(shadertype):
-    """ Get a numpy array object from a shadertype (from pyshader).
-    """
+    """Get a numpy array object from a shadertype (from pyshader)."""
     ctype = shadertype_as_ctype(shadertype)
     return np.asarray(ctype())
 
 
 def normals_from_vertices(rr, tris):
-    """Efficiently compute vertex normals for a triangulated surface.
-    """
+    """Efficiently compute vertex normals for a triangulated surface."""
     # This code was taken from Vispy
     # ensure highest precision for our summation/vectorization "trick"
     rr = rr[:, :3].astype(np.float64)

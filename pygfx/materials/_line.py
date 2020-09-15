@@ -6,8 +6,7 @@ from ..resources import Buffer
 
 
 class LineMaterial(Material):
-    """ The default material to draw lines.
-    """
+    """The default material to draw lines."""
 
     uniform_type = Struct(color=vec4, thickness=f32)
 
@@ -31,8 +30,7 @@ class LineMaterial(Material):
     # todo: thickness? maybe rename to width?
     @property
     def thickness(self):
-        """ The line thickness expressed in logical pixels.
-        """
+        """The line thickness expressed in logical pixels."""
         return self.uniform_buffer.data["thickness"]
 
     def set_thickness(self, thickness):
@@ -41,22 +39,20 @@ class LineMaterial(Material):
 
 
 class LineThinMaterial(LineMaterial):
-    """ A simple line, drawn with line_strip primitives that has a width
+    """A simple line, drawn with line_strip primitives that has a width
     of one physical pixel. The thickness is ignored.
     """
 
 
 class LineThinSegmentMaterial(LineMaterial):
-    """ Simple line segments, drawn with line primitives that has a width
+    """Simple line segments, drawn with line primitives that has a width
     of one physical pixel. The thickness is ignored.
     """
 
 
 class LineSegmentMaterial(LineMaterial):
-    """ A material that renders line segments between each two subsequent points.
-    """
+    """A material that renders line segments between each two subsequent points."""
 
 
 class LineArrowMaterial(LineSegmentMaterial):
-    """ A material that renders line segments that look like little vectors.
-    """
+    """A material that renders line segments that look like little vectors."""

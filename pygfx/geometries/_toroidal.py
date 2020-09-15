@@ -5,7 +5,7 @@ from ._base import Geometry
 
 
 class KleinBottleGeometry(Geometry):
-    """ The Klein bottle is a surface for which the inside and outside
+    """The Klein bottle is a surface for which the inside and outside
     are the same. A bit like a Möbius strip. In fact, a Klein bottle
     can be constructed by glueing together two Möbius strips.
 
@@ -91,7 +91,7 @@ def klein_bottle_surface(u, v):
 
 
 class TorusKnotGeometry(Geometry):
-    """ Creates a torus knot, the particular shape of which is defined
+    """Creates a torus knot, the particular shape of which is defined
     by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
 
@@ -175,7 +175,8 @@ class TorusKnotGeometry(Geometry):
         # Create indices
         # Two triangles onto the "top-left" rectangle (six vertices)
         indices = np.array(
-            [0, radial_verts, radial_verts + 1, radial_verts + 1, 1, 0], np.int32,
+            [0, radial_verts, radial_verts + 1, radial_verts + 1, 1, 0],
+            np.int32,
         )
         # Replicate to all rectangles, add offsets
         indices = np.tile(indices, (tubular_segments, radial_segments, 1))
@@ -197,8 +198,7 @@ class TorusKnotGeometry(Geometry):
 
 
 def torus_knot_surface(u, p, q, radius):
-    """ Taken from ThreeJS, but vectorized.
-    """
+    """Taken from ThreeJS, but vectorized."""
     cu = np.cos(u)
     su = np.sin(u)
     qu_over_p = q / p * u

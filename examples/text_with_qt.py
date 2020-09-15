@@ -9,8 +9,7 @@ from wgpu.gui.qt import WgpuCanvas
 
 
 class CanvasWithOverlay(WgpuCanvas):
-    """ A Qt canvas with support for 2D overlay.
-    """
+    """A Qt canvas with support for 2D overlay."""
 
     overlay = None
 
@@ -24,24 +23,23 @@ class CanvasWithOverlay(WgpuCanvas):
         self.overlay.show()
         self.overlay.raise_()
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event):  # noqa: N802
         super().resizeEvent(event)
         if self.overlay:
             self.overlay.setGeometry(self.geometry())
 
-    def moveEvent(self, event):
+    def moveEvent(self, event):  # noqa: N802
         super().moveEvent(event)
         if self.overlay:
             self.overlay.setGeometry(self.geometry())
 
     def set_text_labels(self, wobjects):
-        """ Set text labels to overlay. Must be a list of TextOverlay objects.
-        """
+        """Set text labels to overlay. Must be a list of TextOverlay objects."""
         self._text_labels = wobjects
 
 
 class Overlay(QtWidgets.QWidget):
-    """ Overlay that draws 2D featues using the canvas API.
+    """Overlay that draws 2D featues using the canvas API.
 
     We cannot draw in the wgpu widget directly, because that widget has
     no paint engine (we have to remove it to prevent Qt from overwriting
@@ -56,7 +54,8 @@ class Overlay(QtWidgets.QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
         # We want a tranlucent background, and no window frame.
         # Setting the Tool flag make it always on top of the parent widget.
@@ -65,7 +64,7 @@ class Overlay(QtWidgets.QWidget):
         # No background, just in case.
         self.setAutoFillBackground(False)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
 
         painter = QtGui.QPainter()
         if not painter.begin(self):
@@ -86,12 +85,11 @@ class Overlay(QtWidgets.QWidget):
 
 # %% wgpu world object and renderer
 
-from pygfx.renderers import Renderer
+from pygfx.renderers import Renderer  # noqa: E402
 
 
 class TextOverlay(gfx.WorldObject):
-    """ A text label that can get overlaid on the visualization using e.q. Qt.
-    """
+    """A text label that can get overlaid on the visualization using e.q. Qt."""
 
     def __init__(self, text, size=12, color="f000000", position=(0, 0, 0)):
         super().__init__()
@@ -103,7 +101,7 @@ class TextOverlay(gfx.WorldObject):
 
 
 class QtOverlayRenderer(Renderer):
-    """ A special renderer that can draw certain 2D overlays over a Qt canvas.
+    """A special renderer that can draw certain 2D overlays over a Qt canvas.
     Currently only text (TextOverlay objects).
     """
 
@@ -115,8 +113,7 @@ class QtOverlayRenderer(Renderer):
         assert isinstance(canvas, CanvasWithOverlay)
 
     def render(self, scene: gfx.WorldObject, camera: gfx.Camera):
-        """ Main render method, called from the canvas.
-        """
+        """Main render method, called from the canvas."""
 
         logical_size = self._canvas.get_logical_size()
 

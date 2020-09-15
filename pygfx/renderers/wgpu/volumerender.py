@@ -40,8 +40,7 @@ def fragment_shader_textured_gray(
 
 @register_wgpu_render_function(Mesh, MeshVolumeSliceMaterial)
 def mesh_slice_renderer(wobject, render_info):
-    """ Render function capable of rendering meshes displaying a volume slice.
-    """
+    """Render function capable of rendering meshes displaying a volume slice."""
 
     geometry = wobject.geometry
     material = wobject.material  # noqa

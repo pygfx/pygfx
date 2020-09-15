@@ -3,7 +3,7 @@ from ..objects._base import WorldObject
 
 
 class Camera(WorldObject):
-    """ Abstract base camera. The purpose of a camera is to project
+    """Abstract base camera. The purpose of a camera is to project
     world coordinates to normalized device coordinates (NDC). This is
     done by the (inverse of) the camera's own world matrix and the
     camera's projection transform. The former represent the camera's
@@ -35,12 +35,12 @@ class Camera(WorldObject):
 
 
 class NDCCamera(Camera):
-    """ A Camera operating in NDC coordinates: its projection matrix
+    """A Camera operating in NDC coordinates: its projection matrix
     is the identity transform (but its matrix_world can still be set).
 
     In the NDC coordinate system of WGPU (and pygfx), x and y are in
     the range 0..1, z is in the range 0..1, and (-1, -1, 0) represents
-    the bottom left corner. """
+    the bottom left corner."""
 
     def update_projection_matrix(self):
         eye = 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
@@ -49,7 +49,7 @@ class NDCCamera(Camera):
 
 
 class ScreenCoordsCamera(Camera):
-    """ A Camera operating in screen coordinates. The depth range is the same
+    """A Camera operating in screen coordinates. The depth range is the same
     as in NDC (0 to 1).
     """
 
