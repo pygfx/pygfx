@@ -41,8 +41,7 @@ class PanZoomControls:
         return self
 
     def pan(self, vec3: Vector3) -> "PanZoomControls":
-        """ Pan in 3D world coordinates.
-        """
+        """Pan in 3D world coordinates."""
         self.target.add(vec3)
         return self
 
@@ -64,8 +63,7 @@ class PanZoomControls:
         return self
 
     def pan_move(self, pos: Tuple[float, float]) -> "PanZoomControls":
-        """ Pan the camera, based on a (2D) screen location. Call pan_start first.
-        """
+        """Pan the camera, based on a (2D) screen location. Call pan_start first."""
         if self._pan_info is None:
             return
         delta = tuple((pos[i] - self._pan_info["last"][i]) for i in range(2))

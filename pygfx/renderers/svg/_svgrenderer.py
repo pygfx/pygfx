@@ -12,8 +12,7 @@ registry = RenderFunctionRegistry()
 
 
 def register_svg_render_function(wobject_cls, material_cls):
-    """ Decorator to register an SVG render function.
-    """
+    """Decorator to register an SVG render function."""
 
     def _register_svg_render_function(f):
         registry.register(wobject_cls, material_cls, f)
@@ -23,8 +22,7 @@ def register_svg_render_function(wobject_cls, material_cls):
 
 
 class SvgRenderer(Renderer):
-    """ A renderer that generates an SVG.
-    """
+    """A renderer that generates an SVG."""
 
     def __init__(self, width, height, filename):
         self._width = width
@@ -36,8 +34,7 @@ class SvgRenderer(Renderer):
         self._filename = filename
 
     def render(self, scene: WorldObject, camera: Camera):
-        """ Render the scene to a file.
-        """
+        """Render the scene to a file."""
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -73,8 +70,7 @@ class SvgRenderer(Renderer):
             f2.write(f.getvalue().encode())
 
     def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
-        """ Given a scene object, get a list of objects to render.
-        """
+        """Given a scene object, get a list of objects to render."""
 
         # start by gathering everything that is visible and has a material
         q = []

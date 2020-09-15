@@ -19,8 +19,7 @@ from ...utils import normals_from_vertices
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 def mesh_renderer(wobject, render_info):
-    """ Render function capable of rendering meshes.
-    """
+    """Render function capable of rendering meshes."""
 
     geometry = wobject.geometry
     material = wobject.material  # noqa
@@ -252,17 +251,16 @@ def fragment_shader_simple(
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
-    """ Just draw the fragment in the mesh's color.
-    """
+    """Just draw the fragment in the mesh's color."""
     out_color = u_mesh.color  # noqa - shader output
 
 
 @python2shader
 def fragment_shader_normals(
-    v_normal: (pyshader.RES_INPUT, 1, vec3), out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    v_normal: (pyshader.RES_INPUT, 1, vec3),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
-    """ Draws the mesh in a color derived from the normal.
-    """
+    """Draws the mesh in a color derived from the normal."""
     v = normalize(v_normal) * 0.5 + 0.5
     out_color = vec4(v, 1.0)  # noqa - shader output
 

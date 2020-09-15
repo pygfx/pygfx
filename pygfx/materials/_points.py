@@ -6,7 +6,7 @@ from ..resources import Buffer
 
 
 class PointsMaterial(Material):
-    """ The default material used by Points. Renders (antialiased) disks
+    """The default material used by Points. Renders (antialiased) disks
     of the given size and color.
     """
 
@@ -30,8 +30,7 @@ class PointsMaterial(Material):
 
     @property
     def color(self):
-        """ The color of the points (if map is not set).
-        """
+        """The color of the points (if map is not set)."""
         return self.uniform_buffer.data["color"]
 
     @color.setter
@@ -51,8 +50,7 @@ class PointsMaterial(Material):
 
     @property
     def size(self):
-        """ The size (diameter) of the points, in logical pixels.
-        """
+        """The size (diameter) of the points, in logical pixels."""
         return self.uniform_buffer.data["size"]
 
     @size.setter
@@ -63,7 +61,7 @@ class PointsMaterial(Material):
 
 
 class GaussianPointsMaterial(PointsMaterial):
-    """ A material for points, renders Gaussian blobs with a standard
+    """A material for points, renders Gaussian blobs with a standard
     deviation of 1/6 of the size.
     """
 

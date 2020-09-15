@@ -10,7 +10,7 @@ class Resource:
 
 
 class Buffer(Resource):
-    """ A buffer object represents a piece of memory to the GPU, that can be
+    """A buffer object represents a piece of memory to the GPU, that can be
     used as index buffer, vertex buffer, uniform buffer, or storage buffer.
     You can provide (and update data for it), or use it as a placeholder
     for a buffer with no representation on the CPU.
@@ -32,7 +32,13 @@ class Buffer(Resource):
     """
 
     def __init__(
-        self, data=None, *, usage, nbytes=None, nitems=None, format=None,
+        self,
+        data=None,
+        *,
+        usage,
+        nbytes=None,
+        nitems=None,
+        format=None,
     ):
         self._rev = 0
         # To specify the buffer size
@@ -83,19 +89,17 @@ class Buffer(Resource):
 
     @property
     def rev(self):
-        """ An integer that is increased when update_range() is called.
-        """
+        """An integer that is increased when update_range() is called."""
         return self._rev
 
     @property
     def usage(self):
-        """ The buffer usage flags (as a string with "|" as a separator).
-        """
+        """The buffer usage flags (as a string with "|" as a separator)."""
         return self._usage
 
     @property
     def data(self):
-        """ The data for this buffer. Can be None if the data only
+        """The data for this buffer. Can be None if the data only
         exists on the GPU.
 
         Note: the data is the same reference that was given to instantiate this object,
@@ -105,27 +109,24 @@ class Buffer(Resource):
 
     @property
     def mem(self):
-        """ The data for this buffer as a memoryview. Can be None if
+        """The data for this buffer as a memoryview. Can be None if
         the data only exists on the GPU.
         """
         return self._mem
 
     @property
     def nbytes(self):
-        """ The number of bytes in the buffer.
-        """
+        """The number of bytes in the buffer."""
         return self._nbytes
 
     @property
     def nitems(self):
-        """ The number of items in the buffer.
-        """
+        """The number of items in the buffer."""
         return self._nitems
 
     @property
     def format(self):
-        """ The vertex or index format (depending on the value of usage).
-        """
+        """The vertex or index format (depending on the value of usage)."""
         if self._format is not None:
             return self._format
         elif self.data is not None:
@@ -136,8 +137,7 @@ class Buffer(Resource):
 
     @property
     def vertex_byte_range(self):
-        """ The offset and size, in bytes, when used as a vertex buffer.
-        """
+        """The offset and size, in bytes, when used as a vertex buffer."""
         return self._vertex_byte_range
 
     @vertex_byte_range.setter
@@ -148,7 +148,7 @@ class Buffer(Resource):
         self._vertex_byte_range = offset, nbytes
 
     def update_range(self, offset=0, size=2 ** 50):
-        """ Mark a certain range of the data for upload to the GPU. The
+        """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.
         """
         # See ThreeJS BufferAttribute.updateRange
@@ -173,8 +173,7 @@ class Buffer(Resource):
         # todo: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):
-        """ Return subdata as a contiguous array.
-        """
+        """Return subdata as a contiguous array."""
         # If this is a full range, this is easy
         if offset == 0 and size == self.nitems and self.mem.contiguous:
             return self.mem

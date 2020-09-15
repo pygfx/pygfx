@@ -10,7 +10,7 @@ from ..resources import Buffer
 
 
 class BackgroundMaterial(Material):
-    """ A background material that draws the background is a uniform color
+    """A background material that draws the background is a uniform color
     or in a gradient.
     """
 
@@ -31,7 +31,7 @@ class BackgroundMaterial(Material):
         self.set_color(*colors)
 
     def set_color(self, *colors):
-        """ Set the background color. If one color is given, it will be used
+        """Set the background color. If one color is given, it will be used
         as a uniform color. If two colors are given, it will be used for
         the botton and top. If four colors are given, it will be used for the
         four corners.
@@ -61,8 +61,7 @@ class BackgroundMaterial(Material):
 
     @property
     def color_bottom_left(self):
-        """ The color in the bottom left corner.
-        """
+        """The color in the bottom left corner."""
         return self.uniform_buffer.data["color_bottom_left"]
 
     @color_bottom_left.setter
@@ -72,8 +71,7 @@ class BackgroundMaterial(Material):
 
     @property
     def color_bottom_right(self):
-        """ The color in the bottom right corner.
-        """
+        """The color in the bottom right corner."""
         return self.uniform_buffer.data["color_bottom_right"]
 
     @color_bottom_right.setter
@@ -83,8 +81,7 @@ class BackgroundMaterial(Material):
 
     @property
     def color_top_left(self):
-        """ The color in the top left corner.
-        """
+        """The color in the top left corner."""
         return self.uniform_buffer.data["color_top_left"]
 
     @color_top_left.setter
@@ -94,8 +91,7 @@ class BackgroundMaterial(Material):
 
     @property
     def color_top_right(self):
-        """ The color in the top right corner.
-        """
+        """The color in the top right corner."""
         return self.uniform_buffer.data["color_top_right"]
 
     @color_top_right.setter
@@ -105,7 +101,7 @@ class BackgroundMaterial(Material):
 
 
 class BackgroundImageMaterial(BackgroundMaterial):
-    """ A background material that displays an image. If map is a 2D
+    """A background material that displays an image. If map is a 2D
     texture view, it is used as a static background. If it is a cube
     texture view, (on a NxMx6 texture) it is used as a skybox.
     Use the Background object's transform to orient the image.
@@ -117,8 +113,7 @@ class BackgroundImageMaterial(BackgroundMaterial):
 
     @property
     def map(self):
-        """ The texture map specifying the background image
-        """
+        """The texture map specifying the background image"""
         return self._map
 
     @map.setter

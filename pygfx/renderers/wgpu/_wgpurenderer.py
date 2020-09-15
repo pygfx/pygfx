@@ -31,8 +31,7 @@ visibility_all = (
 
 
 def register_wgpu_render_function(wobject_cls, material_cls):
-    """ Decorator to register a WGPU render function.
-    """
+    """Decorator to register a WGPU render function."""
 
     def _register_wgpu_renderer(f):
         registry.register(wobject_cls, material_cls, f)
@@ -42,7 +41,7 @@ def register_wgpu_render_function(wobject_cls, material_cls):
 
 
 class RenderInfo:
-    """ The type of object passed to each wgpu render function together
+    """The type of object passed to each wgpu render function together
     with the world object. Contains stdinfo buffer for now. In time
     will probably also include lights etc.
     """
@@ -52,8 +51,7 @@ class RenderInfo:
 
 
 class WgpuRenderer(Renderer):
-    """ A renderer that renders to a surface.
-    """
+    """A renderer that renders to a surface."""
 
     def __init__(self, canvas):
         self._canvas = canvas
@@ -66,12 +64,12 @@ class WgpuRenderer(Renderer):
         self._device = self._adapter.request_device(extensions=[], limits={})
 
         self._swap_chain = self._device.configure_swap_chain(
-            canvas, wgpu.TextureFormat.bgra8unorm_srgb,
+            canvas,
+            wgpu.TextureFormat.bgra8unorm_srgb,
         )
 
     def render(self, scene: WorldObject, camera: Camera):
-        """ Main render method, called from the canvas.
-        """
+        """Main render method, called from the canvas."""
 
         now = time.perf_counter()  # noqa
         # Uncomment to show FPS each second
@@ -225,8 +223,7 @@ class WgpuRenderer(Renderer):
         self._update_buffer(self._wgpu_stdinfo_buffer)
 
     def get_render_list(self, scene: WorldObject, camera: Camera):
-        """ Given a scene object, get a flat list of objects to render.
-        """
+        """Given a scene object, get a flat list of objects to render."""
 
         # Collect items
         def visit(wobject):
@@ -254,7 +251,7 @@ class WgpuRenderer(Renderer):
         return q
 
     def _ensure_up_to_date(self, wobject):
-        """ Update the GPU objects associated with the given wobject. Returns
+        """Update the GPU objects associated with the given wobject. Returns
         quickly if no changes are needed.
         """
 
@@ -285,7 +282,7 @@ class WgpuRenderer(Renderer):
             wobject._wgpu_pipeline_objects = self._create_pipeline_objects(wobject)
 
     def _create_pipeline_infos(self, wobject):
-        """ Use the render function for this wobject and material,
+        """Use the render function for this wobject and material,
         and return a list of dicts representing pipelines in an abstract way.
         These dicts can then be turned into actual pipeline objects.
         """
@@ -300,7 +297,9 @@ class WgpuRenderer(Renderer):
             )
 
         # Prepare info for the render function
-        render_info = RenderInfo(stdinfo_uniform=self._wgpu_stdinfo_buffer,)
+        render_info = RenderInfo(
+            stdinfo_uniform=self._wgpu_stdinfo_buffer,
+        )
 
         # Call render function
         pipeline_infos = renderfunc(wobject, render_info)
@@ -361,8 +360,7 @@ class WgpuRenderer(Renderer):
         return pipeline_resources
 
     def _create_pipeline_objects(self, wobject):
-        """ Generate wgpu pipeline objects from the list of pipeline info dicts.
-        """
+        """Generate wgpu pipeline objects from the list of pipeline info dicts."""
 
         # Prepare the three kinds of pipelines that we can get
         compute_pipelines = []
@@ -394,7 +392,7 @@ class WgpuRenderer(Renderer):
         }
 
     def _compose_compute_pipeline(self, wobject, pipeline_info):
-        """ Given a high-level compute pipeline description, creates a
+        """Given a high-level compute pipeline description, creates a
         lower-level representation that can be consumed by wgpu.
         """
 
@@ -433,7 +431,7 @@ class WgpuRenderer(Renderer):
         }
 
     def _compose_render_pipeline(self, wobject, pipeline_info):
-        """ Given a high-level render pipeline description, creates a
+        """Given a high-level render pipeline description, creates a
         lower-level representation that can be consumed by wgpu.
         """
 
@@ -495,7 +493,11 @@ class WgpuRenderer(Renderer):
                 "array_stride": buffer.nbytes // buffer.nitems,
                 "step_mode": wgpu.InputStepMode.vertex,  # vertex or instance
                 "attributes": [
-                    {"format": buffer.format, "offset": 0, "shader_location": slot,}
+                    {
+                        "format": buffer.format,
+                        "offset": 0,
+                        "shader_location": slot,
+                    }
                 ],
             }
             vertex_buffers[slot] = buffer
@@ -563,7 +565,7 @@ class WgpuRenderer(Renderer):
         }
 
     def _get_bind_groups(self, pipeline_info):
-        """ Given high-level information on bindings, create the corresponding
+        """Given high-level information on bindings, create the corresponding
         wgpu objects. This assumes that all buffers and textures are up-to-date.
         Returns (bind_groups, pipeline_layout).
         """
@@ -713,7 +715,8 @@ class WgpuRenderer(Renderer):
             # buffer.write_data(subdata, bytes_per_item * offset)
             # B: roll data in new buffer, copy from there to existing buffer
             tmp_buffer = self._device.create_buffer_with_data(
-                data=subdata, usage=wgpu.BufferUsage.COPY_SRC,
+                data=subdata,
+                usage=wgpu.BufferUsage.COPY_SRC,
             )
             boffset, bsize = bytes_per_item * offset, bytes_per_item * size
             encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)

@@ -368,8 +368,7 @@ def vertex_shader_arrow(
 @register_wgpu_render_function(Line, LineThinSegmentMaterial)
 @register_wgpu_render_function(Line, LineThinMaterial)
 def thin_line_renderer(wobject, render_info):
-    """ Render function capable of rendering lines.
-    """
+    """Render function capable of rendering lines."""
 
     material = wobject.material
     geometry = wobject.geometry
@@ -400,8 +399,7 @@ def thin_line_renderer(wobject, render_info):
 
 @register_wgpu_render_function(Line, LineMaterial)
 def line_renderer(wobject, render_info):
-    """ Render function capable of rendering lines.
-    """
+    """Render function capable of rendering lines."""
 
     material = wobject.material
     geometry = wobject.geometry
@@ -454,7 +452,9 @@ def line_renderer(wobject, render_info):
                 1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
                 2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
             },
-            "bindings1": {0: (wgpu.BindingType.storage_buffer, positions1),},
+            "bindings1": {
+                0: (wgpu.BindingType.storage_buffer, positions1),
+            },
             # "bindings1": {},
             "target": None,  # default
         },

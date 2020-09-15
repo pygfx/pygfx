@@ -5,8 +5,7 @@ from ...materials import LineMaterial
 
 @register_svg_render_function(Line, LineMaterial)
 def line_renderer(wobject):
-    """ Render function capable of rendering lines.
-    """
+    """Render function capable of rendering lines."""
 
     geometry = wobject.geometry
     positions = geometry.positions.data
