@@ -34,18 +34,20 @@ def volume_slice_renderer(wobject, render_info):
 
     # Collect texture and sampler
     if material.map is not None:
-        if isinstance(material.map, Texture):
-            raise TypeError("material.map is a Texture, but must be a TextureView")
-        elif not isinstance(material.map, TextureView):
+        if isinstance(material.map, TextureView):
+            view = material.map
+        elif isinstance(material.map, Texture):
+            view = material.map.get_view(filter="linear")
+        else:
             raise TypeError("material.map must be a TextureView")
-        elif material.map.view_dim.lower() != "3d":
-            raise TypeError("material.map must a 3D texture view")
+        if view.view_dim.lower() != "3d":
+            raise TypeError("material.map must a 3D texture (view)")
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[2] = wgpu.BindingType.sampler, material.map
-        bindings1[3] = wgpu.BindingType.sampled_texture, material.map
+        bindings1[2] = wgpu.BindingType.sampler, view
+        bindings1[3] = wgpu.BindingType.sampled_texture, view
         # Use a version of the shader for float textures if necessary
-        if "float" in material.map.format:
+        if "float" in view.format:
             if not hasattr(fragment_shader, "float_version"):
                 func = fragment_shader.input
                 tex_anno = func.__annotations__["t_tex"]
