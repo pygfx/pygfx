@@ -260,8 +260,8 @@ def vertex_shader_mesh_instanced(
 
     normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
 
-    view_vec = ndc_to_world * vec4(0, 0, 1, 1)
-    view_vec = normalize(view_vec.xyz / view_vec.w)
+    view_vec4 = ndc_to_world * vec4(0, 0, 1, 1)
+    view_vec = normalize(view_vec4.xyz / view_vec4.w)
 
     out_pos = ndc_pos  # noqa - shader output
     v_texcoord = in_texcoord  # noqa - shader output
