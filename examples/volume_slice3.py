@@ -1,6 +1,6 @@
 """
-Render slices through a volume, by creating a 3D texture, and sample it in the shader.
-Simple, fast and subpixel!
+Render slices through a volume, by creating a 3D texture, and sampling onto
+a plane geometry. Simple, fast and subpixel!
 """
 
 import imageio
