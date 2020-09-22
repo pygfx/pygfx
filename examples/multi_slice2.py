@@ -7,6 +7,7 @@ from time import time
 import imageio
 import numpy as np
 import pygfx as gfx
+from skimage.measure import marching_cubes
 
 from PyQt5 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
@@ -60,12 +61,20 @@ scene.add(gfx.AxesHelper(size=50))
 
 vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3, usage="sampled")
-material = gfx.VolumeSliceMaterial(clim=(0, 255))
-# TODO: also add a mesh slice for each plane
+
+surface = marching_cubes(vol[0:], 200)
+geo = gfx.Geometry(
+    positions=np.fliplr(surface[0]), index=surface[1], normals=surface[2]
+)
+mesh = gfx.Mesh(geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2)))
+scene.add(mesh)
 
 planes = []
-for axis in [0, 1, 2]:
-
+for dim in [0, 1, 2]:  # xyz
+    abcd = [0, 0, 0, 0]
+    abcd[dim] = -1
+    abcd[-1] = vol.shape[2 - dim] / 2
+    material = gfx.VolumeSliceMaterial(clim=(0, 255), plane=abcd)
     plane = gfx.Volume(tex, material)
     planes.append(plane)
     scene.add(plane)
@@ -73,19 +82,21 @@ for axis in [0, 1, 2]:
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.OrthographicCamera(200, 200)
-camera.position.set(125, 125, 125)
-camera.look_at(gfx.linalg.Vector3())
+camera.position.set(170, 170, 170)
 controls = gfx.OrbitControls(
-    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1), zoom_changes_distance=False
+    camera.position.clone(),
+    gfx.linalg.Vector3(64, 64, 128),
+    up=gfx.linalg.Vector3(0, 0, 1),
+    zoom_changes_distance=False,
 )
 
 
 def animate():
-    # t = np.cos(time() / 2)
-    # plane = planes[2]
-    # plane.position.z = t * vol.shape[0] * 0.5
-    # plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
-    # plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
+    t = np.cos(time() / 2) * 0.5 + 0.5  # 0..1
+    z = t * vol.shape[0]
+    planes[2].material.plane = 0, 0, -1, z
+    # mesh.material.plane = 0, 0, -1, z
+    # todo: make mesh work
 
     controls.update_camera(camera)
     renderer.render(scene, camera)

@@ -1,7 +1,6 @@
 from ._base import WorldObject
 from ..geometries import BoxGeometry
-
-from ..resources import Texture, TextureView
+from ..resources import Buffer, Texture, TextureView
 
 
 class Volume(WorldObject):
@@ -15,9 +14,19 @@ class Volume(WorldObject):
         self.material = material
         self.texture = texture
 
-        # Create geometry
-        self.geometry = BoxGeometry(*self.texture.size)
-        # self.geometry.texcoords = ...
+        # Create box geometry, and map to 0..1
+        geometry = BoxGeometry(1, 1, 1)
+        geometry.positions.data[:, :3] += 0.5
+        # This is our 3D texture coords
+        geometry.texcoords = Buffer(
+            geometry.positions.data[:, :3].copy(), usage="vertex|storage"
+        )
+        # Map to volume size
+        for i in range(3):
+            geometry.positions.data[:, i] *= self.texture.size[i]
+        self.geometry = geometry
+
+        # todo: how to handle spacing and origin, do we express these using transorms, or directly?
 
     @property
     def texture(self):

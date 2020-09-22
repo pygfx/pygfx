@@ -5,8 +5,8 @@ from pyshader import Array, f32, i32, vec3, vec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Volume
-from ...materials import VolumeBasicMaterial, VolumeSliceMaterial
-from ...resources import Buffer, Texture, TextureView
+from ...materials import VolumeSliceMaterial
+from ...resources import Texture, TextureView
 
 
 @register_wgpu_render_function(Volume, VolumeSliceMaterial)
@@ -97,8 +97,7 @@ def vertex_shader_volume_slice(
 
     ##
 
-    # plane = u_material.plane.xyzw  # ax + by + cz + d
-    plane = vec4(0.1, 0.1, 1, -40)
+    plane = u_material.plane.xyzw  # ax + by + cz + d
     n = plane.xyz
 
     # Define edges (using vertex indices), and their matching plane
@@ -240,7 +239,6 @@ def vertex_shader_volume_slice(
             break
 
     # Make the rest degenerate triangles
-    n_intersections = max_iter
     for i in range(max_iter, 6):
         vertices[i] = vertices[0]
 
