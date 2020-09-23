@@ -95,7 +95,7 @@ def mesh_renderer(wobject, render_info):
     elif isinstance(material, MeshPhongMaterial):
         fragment_shader = fragment_shader_phong
         if material.map is not None:
-            if "rgba" in material.map.format:
+            if "rgb" in material.map.format:  # rgb maps to rgba
                 fragment_shader = fragment_shader_textured_rgba_phong
             else:
                 raise ValueError(
@@ -104,10 +104,13 @@ def mesh_renderer(wobject, render_info):
     else:
         fragment_shader = fragment_shader_simple
         if material.map is not None:
-            if "rgba" in material.map.format:
-                fragment_shader = fragment_shader_textured_rgba
-            else:
-                fragment_shader = fragment_shader_textured_gray
+            if material.map.view_dim == "2d":
+                if "rgb" in material.map.format:
+                    fragment_shader = fragment_shader_textured_rgba
+                else:
+                    fragment_shader = fragment_shader_textured_gray
+            elif material.map.view_dim == "3d":
+                fragment_shader = fragment_shader_textured_gray_3dtex
 
     # Instanced meshes have their own vertex shader
     n_instances = 1

@@ -19,8 +19,6 @@ scene = gfx.Scene()
 # %% add image
 
 im = imageio.imread("imageio:astronaut.png")
-im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)  # yuk!
-
 tex = gfx.Texture(im, dim=2, usage="sampled")
 
 geometry = gfx.PlaneGeometry(512, 512)

@@ -14,11 +14,10 @@ from wgpu.gui.qt import WgpuCanvas
 # Read the image
 # The order of the images is already correct for GPU cubemap texture sampling
 im = imageio.imread("imageio:meadow_cube.jpg")
-im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
 
 # Turn it into a 3D image (a 4d nd array)
 width = height = im.shape[1]
-im.shape = -1, width, height, 4
+im.shape = -1, width, height, 3
 
 app = QtWidgets.QApplication([])
 canvas = WgpuCanvas()

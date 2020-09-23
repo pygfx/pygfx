@@ -132,7 +132,7 @@ def background_renderer(wobject, render_info):
             raise ValueError(
                 "BackgroundImageMaterial should have map with texture view 2d or cube."
             )
-        if "rgba" in material.map.format:
+        if "rgb" in material.map.format:
             fragment_shader = fragment_shader_tex_rgba
         else:
             fragment_shader = fragment_shader_tex_gray
