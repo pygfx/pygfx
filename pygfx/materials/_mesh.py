@@ -110,7 +110,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
     def plane(self):
         """The plane to slice at, represented with 4 floats ``(a, b, c, d)``,
         which make up the equation: ``ax + by + cz + d = 0`` The plane
-        definition applies to the object's local coordinate frame.
+        definition applies to the world space (of the scene).
         """
         return self.uniform_buffer.data["plane"]
 

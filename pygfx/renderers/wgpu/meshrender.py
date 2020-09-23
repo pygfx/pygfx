@@ -462,9 +462,12 @@ def vertex_shader_mesh_slice(
     i3 = buf_indices[face_index * 3 + 2]
 
     # Vertex positions of this face, in local object coordinates
-    pos1 = buf_positions[i1].xyz
-    pos2 = buf_positions[i2].xyz
-    pos3 = buf_positions[i3].xyz
+    pos1_ = u_wobject.world_transform * vec4(buf_positions[i1].xyz, 1.0)
+    pos2_ = u_wobject.world_transform * vec4(buf_positions[i2].xyz, 1.0)
+    pos3_ = u_wobject.world_transform * vec4(buf_positions[i3].xyz, 1.0)
+    pos1 = pos1_.xyz / pos1_.w
+    pos2 = pos2_.xyz / pos2_.w
+    pos3 = pos3_.xyz / pos3_.w
 
     # Get the plane definition
     plane = u_material.plane.xyzw  # ax + by + cz + d
@@ -500,15 +503,15 @@ def vertex_shader_mesh_slice(
 
     if pos_index == 0:  # or n@u == 0
         # Just return the same vertex, resulting in degenerate triangles
-        wpos1 = u_wobject.world_transform * vec4(pos1, 1.0)
+        wpos1 = vec4(pos1, 1.0)
         the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos1
         the_coord = vec2(0, 0)
         segment_length = 0.0
 
     else:
         # Go from local coordinates to NDC
-        wpos_a = u_wobject.world_transform * vec4(pos_a, 1.0)
-        wpos_b = u_wobject.world_transform * vec4(pos_b, 1.0)
+        wpos_a = vec4(pos_a, 1.0)
+        wpos_b = vec4(pos_b, 1.0)
         npos_a = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_a
         npos_b = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_b
         # Don't forget to "normalize"!

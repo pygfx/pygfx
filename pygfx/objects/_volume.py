@@ -6,13 +6,15 @@ from ..resources import Buffer
 class Volume(WorldObject):
     """A volume represents a 3D image in space. It has an implicit
     geometry based on the shape of the texture (the map of the
-    material), and the voxel (0,0,0) will be at the origin of the local
-    coordinate frame. Positioning and dealing with anisotropy should
-    be dealt with using the scale and position properties.
+    material), and the center of voxel (0,0,0) will be at the origin
+    of the local coordinate frame. Positioning and dealing with
+    anisotropy should be dealt with using the scale and position
+    properties.
     """
 
-    def __init__(self, material):
+    def __init__(self, size, material):
         super().__init__()
+        self.size = size
         self.material = material
 
     @property
@@ -23,9 +25,17 @@ class Volume(WorldObject):
     @material.setter
     def material(self, material):
         self._material = material
-        self._set_geometry(material.map.size)
 
-    def _set_geometry(self, size):
+    @property
+    def size(self):
+        """The size of the volume (xyz)."""
+        return self._size
+
+    @size.setter
+    def size(self, size):
+        # Check and store
+        x, y, z = size
+        self._size = size = int(x), int(y), int(z)
         # Create box geometry, and map to 0..1
         geometry = BoxGeometry(1, 1, 1)
         geometry.positions.data[:, :3] += 0.5
@@ -35,6 +45,9 @@ class Volume(WorldObject):
         )
         # Map to volume size
         for i in range(3):
-            geometry.positions.data[:, i] *= size[i]
+            column = geometry.positions.data[:, i]
+            column *= size[i]
+            column -= 0.5  # Pixel centers are in origin and size
+
         # Apply
         self.geometry = geometry

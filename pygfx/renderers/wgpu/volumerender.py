@@ -171,6 +171,10 @@ def vertex_shader_volume_slice(
         edge = edges[i]
         p1 = buf_positions[edge[0]].xyz
         p2 = buf_positions[edge[1]].xyz
+        p1_ = u_wobject.world_transform * vec4(p1, 1.0)
+        p2_ = u_wobject.world_transform * vec4(p2, 1.0)
+        p1 = p1_.xyz / p1_.w
+        p2 = p2_.xyz / p2_.w
         tc1 = vec3(
             buf_texcoords[edge[0] * 3],
             buf_texcoords[edge[0] * 3 + 1],
@@ -250,7 +254,7 @@ def vertex_shader_volume_slice(
     the_pos = vertices[indexmap[index]]
     the_tc = texcoords[indexmap[index]]
 
-    world_pos = u_wobject.world_transform * vec4(the_pos.xyz, 1.0)
+    world_pos = vec4(the_pos, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
     out_pos = ndc_pos  # noqa - shader output
     v_texcoord = the_tc  # noqa - shader output

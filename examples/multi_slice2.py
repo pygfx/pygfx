@@ -68,10 +68,10 @@ tex = gfx.Texture(vol, dim=3, usage="sampled")
 surface = marching_cubes(vol[0:], 200)
 positions = np.fliplr(surface[0])
 positions = np.column_stack([positions, np.ones((positions.shape[0], 1), np.float32)])
-geo = gfx.Geometry(
-    positions=positions, index=surface[1], normals=surface[2]
+geo = gfx.Geometry(positions=positions, index=surface[1], normals=surface[2])
+mesh = gfx.Mesh(
+    geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1))
 )
-mesh = gfx.Mesh(geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1)))
 scene.add(mesh)
 
 planes = []
@@ -80,7 +80,7 @@ for dim in [0, 1, 2]:  # xyz
     abcd[dim] = -1
     abcd[-1] = vol.shape[2 - dim] / 2
     material = gfx.VolumeSliceMaterial(map=tex, clim=(0, 255), plane=abcd)
-    plane = gfx.Volume(material)
+    plane = gfx.Volume(tex.size, material)
     planes.append(plane)
     scene.add(plane)
 
@@ -94,6 +94,11 @@ controls = gfx.OrbitControls(
     up=gfx.linalg.Vector3(0, 0, 1),
     zoom_changes_distance=False,
 )
+
+# Add a slight tilt. This is to show that the slices are still orthogonal
+# to the world coordinates.
+for ob in planes + [mesh]:
+    ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 0.1)
 
 
 def animate():

@@ -28,7 +28,7 @@ index = nslices // 2
 
 tex = gfx.Texture(voldata, dim=3, usage="sampled")
 vol = gfx.Volume(
-    gfx.VolumeSliceMaterial(map=tex, clim=(0, 255), plane=(0, 0, -1, index))
+    tex.size, gfx.VolumeSliceMaterial(map=tex, clim=(0, 255), plane=(0, 0, -1, index))
 )
 scene.add(vol)
 
