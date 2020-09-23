@@ -95,7 +95,8 @@ def mesh_renderer(wobject, render_info):
         bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
         vertex_buffers = {}
         index_buffer = None
-        n = (geometry.index.nitems // 3) * 6
+        # n = (geometry.index.nitems // 3) * 6  # but what if data was nx3?
+        n = (geometry.index.data.size // 3) * 6
     elif isinstance(material, MeshPhongMaterial):
         fragment_shader = fragment_shader_phong
         if material.map is not None:

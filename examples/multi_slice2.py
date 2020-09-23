@@ -66,10 +66,12 @@ vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3, usage="sampled")
 
 surface = marching_cubes(vol[0:], 200)
+positions = np.fliplr(surface[0])
+positions = np.column_stack([positions, np.ones((positions.shape[0], 1), np.float32)])
 geo = gfx.Geometry(
-    positions=np.fliplr(surface[0]), index=surface[1], normals=surface[2]
+    positions=positions, index=surface[1], normals=surface[2]
 )
-mesh = gfx.Mesh(geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2)))
+mesh = gfx.Mesh(geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1)))
 scene.add(mesh)
 
 planes = []
@@ -96,10 +98,8 @@ controls = gfx.OrbitControls(
 
 def animate():
     t = np.cos(time() / 2) * 0.5 + 0.5  # 0..1
-    z = t * vol.shape[0]
-    planes[2].material.plane = 0, 0, -1, z
-    # mesh.material.plane = 0, 0, -1, z
-    # todo: make mesh work
+    planes[2].material.plane = 0, 0, -1, t * vol.shape[0]
+    mesh.material.plane = 0, 0, -1, (1 - t) * vol.shape[0]
 
     controls.update_camera(camera)
     renderer.render(scene, camera)
