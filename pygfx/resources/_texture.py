@@ -231,7 +231,7 @@ def format_from_memoryview(mem, size):
     assert 1 <= nchannels <= 4
     tex_format = [None, "r", "rg", "rgb", "rgba"][nchannels]
     # if tex_format == "rgb":
-    #     raise ValueError("RGB textures not supported, use RGBA instead")
+    #     -> no raise: WGPU does not support rgb, but we handle it in the renderer
     # Process dtype. We select the tex_format that matches the dtype.
     # This means that uint8 values become 0..255 in the shader.
     # todo: not yet entirely sure about this
