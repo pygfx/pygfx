@@ -1,6 +1,6 @@
 """
-Render slices through a volume, by creating a 3D texture, and sample it in the shader.
-Simple, fast and subpixel!
+Render slices through a volume, by creating a 3D texture, and sampling onto
+a plane geometry. Simple, fast and subpixel!
 """
 
 import imageio
@@ -34,7 +34,7 @@ geometry = gfx.PlaneGeometry(200, 200, 1, 1)
 texcoords = np.hstack([geometry.texcoords.data, np.ones((4, 1), np.float32) * 0.5])
 geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
 
-material = gfx.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
+material = gfx.MeshBasicMaterial(map=view, clim=(0, 255))
 plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)
