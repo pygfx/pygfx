@@ -16,15 +16,14 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
-im = np.concatenate([im, np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
+im = imageio.imread("imageio:bricks.jpg")
 tex = gfx.Texture(im, dim=2, usage="sampled").get_view(
     filter="linear", address_mode="repeat"
 )
 
 geometry = gfx.TorusKnotGeometry(1, 0.3, 128, 32)
 geometry.texcoords.data[:, 0] *= 10  # stretch the texture
-material = gfx.MeshPhongMaterial(map=tex, clim=(0.2, 0.8))
+material = gfx.MeshPhongMaterial(map=tex, clim=(10, 240))
 obj = gfx.Mesh(geometry, material)
 scene.add(obj)
 

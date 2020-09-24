@@ -16,11 +16,10 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:chelsea.png").astype(np.float32) / 255
-im = np.concatenate([im, np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
+im = imageio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2, usage="sampled").get_view(filter="linear")
 
-material = gfx.MeshBasicMaterial(map=tex, clim=(0.2, 0.8))
+material = gfx.MeshBasicMaterial(map=tex, clim=(0, 250))
 geometry = gfx.BoxGeometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):

@@ -29,6 +29,21 @@ visibility_all = (
     wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
 )
 
+# Alternative texture formats that we support by padding channels as needed.
+# Maps virtual_format -> (wgpu_format, pad_value, nbytes)
+ALTTEXFORMAT = {
+    "rgb8snorm": ("rgba8snorm", 127, 1),
+    "rgb8unorm": ("rgba8unorm", 255, 1),
+    "rgb8sint": ("rgba8sint", 127, 1),
+    "rgb8uint": ("rgba8uint", 255, 1),
+    "rgb16sint": ("rgba16sint", 32767, 2),
+    "rgb16uint": ("rgba16uint", 65535, 2),
+    "rgb32sint": ("rgba32sint", 2147483647, 4),
+    "rgb32uint": ("rgba32uint", 4294967295, 4),
+    "rgb16float": ("rgba16float", 1, 2),
+    "rgb32float": ("rgba32float", 1, 4),
+}
+
 
 def register_wgpu_render_function(wobject_cls, material_cls):
     """Decorator to register a WGPU render function."""
@@ -637,7 +652,7 @@ class WgpuRenderer(Renderer):
                     visibility = visibility_all
                     if binding_type == wgpu.BindingType.sampled_texture:
                         visibility = wgpu.ShaderStage.FRAGMENT
-                    fmt = resource.format
+                    fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
                     dim = resource.view_dim
                     component_type = wgpu.TextureComponentType.sint
                     if "uint" in fmt:
@@ -737,7 +752,7 @@ class WgpuRenderer(Renderer):
             assert resource._mip_range.step == 1
             assert resource._layer_range.step == 1
             texture_view = resource.texture._wgpu_texture[1].create_view(
-                format=resource.format,
+                format=ALTTEXFORMAT.get(resource.format, [resource.format])[0],
                 dimension=f"{dim}d" if isinstance(dim, int) else dim,
                 aspect=resource._aspect,
                 base_mip_level=resource._mip_range.start,
@@ -753,6 +768,11 @@ class WgpuRenderer(Renderer):
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 
+        format = resource.format
+        pixel_padding = None
+        if format in ALTTEXFORMAT:
+            format, pixel_padding, extra_bytes = ALTTEXFORMAT[format]
+
         # Create texture if needed
         if texture is None:  # todo: or needs to be replaced (e.g. resized)
             usage = wgpu.TextureUsage.COPY_DST
@@ -762,7 +782,7 @@ class WgpuRenderer(Renderer):
                 size=resource.size,
                 usage=usage,
                 dimension=f"{resource.dim}d",
-                format=getattr(wgpu.TextureFormat, resource.format),
+                format=getattr(wgpu.TextureFormat, format),
                 mip_level_count=1,
                 sample_count=1,
             )  # todo: let resource specify mip_level_count and sample_count
@@ -770,13 +790,15 @@ class WgpuRenderer(Renderer):
         bytes_per_pixel = resource.nbytes // (
             resource.size[0] * resource.size[1] * resource.size[2]
         )
+        if pixel_padding is not None:
+            bytes_per_pixel += extra_bytes
 
         queue = self._device.default_queue
         encoder = self._device.create_command_encoder()
 
         # Upload any pending data
         for offset, size in pending_uploads:
-            subdata = resource._get_subdata(offset, size)
+            subdata = resource._get_subdata(offset, size, pixel_padding)
             # B: using a temp buffer
             # tmp_buffer = self._device.create_buffer_with_data(data=subdata,
             #     usage=wgpu.BufferUsage.COPY_SRC,

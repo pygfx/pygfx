@@ -54,7 +54,6 @@ background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
 im = imageio.imread("imageio:astronaut.png")
-im = np.concatenate([im, 255 * np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)  # yuk!
 tex = gfx.Texture(im, dim=2, usage="sampled")
 geometry = gfx.PlaneGeometry(512, 512)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))

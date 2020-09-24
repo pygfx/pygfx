@@ -191,7 +191,7 @@ class Texture(Resource):
             else:  # dim == 3:
                 return shape[2], shape[1], shape[0]
 
-    def _get_subdata(self, offset, size):
+    def _get_subdata(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
         # If this is a full range, this is easy
         if offset == 0 and size == self.nitems and self.mem.contiguous:
@@ -211,6 +211,9 @@ class Texture(Resource):
         for d in reversed(range(3)):
             slices.append(slice(offset[d], offset[d] + size[d]))
         sub_arr = arr[tuple(slices)]
+        if pixel_padding is not None:
+            padding = np.ones(sub_arr.shape[:3] + (1,), dtype=sub_arr.dtype)
+            sub_arr = np.concatenate([sub_arr, pixel_padding * padding], -1)
         return memoryview(np.ascontiguousarray(sub_arr))
 
 
@@ -227,8 +230,8 @@ def format_from_memoryview(mem, size):
         nchannels = 1
     assert 1 <= nchannels <= 4
     tex_format = [None, "r", "rg", "rgb", "rgba"][nchannels]
-    if tex_format == "rgb":
-        raise ValueError("RGB textures not supported, use RGBA instead")
+    # if tex_format == "rgb":
+    #     -> no raise: WGPU does not support rgb, but we handle it in the renderer
     # Process dtype. We select the tex_format that matches the dtype.
     # This means that uint8 values become 0..255 in the shader.
     # todo: not yet entirely sure about this

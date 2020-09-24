@@ -17,7 +17,6 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
-im = np.concatenate([im, np.ones(im.shape[:2] + (1,), dtype=im.dtype)], 2)
 tex = gfx.Texture(im, dim=2, usage="sampled").get_view(
     filter="linear", address_mode="repeat"
 )
