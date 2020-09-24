@@ -1,5 +1,8 @@
 """
-Slice a volume and a mesh through the three primary planes (XY, XZ, YZ)
+Slice a volume and a mesh through the three primary planes (XY, XZ, YZ).
+This example uses Volume object with a VolumeSliceMaterial, which
+produces an implicit geometry defined by the volume data.
+See multi_slice1.py for a more generic approach.
 """
 
 from time import time
@@ -7,6 +10,7 @@ from time import time
 import imageio
 import numpy as np
 import pygfx as gfx
+from skimage.measure import marching_cubes
 
 from PyQt5 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
@@ -60,52 +64,47 @@ scene.add(gfx.AxesHelper(size=50))
 
 vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3, usage="sampled")
-view = tex.get_view(filter="linear")
-material = gfx.MeshVolumeSliceMaterial(map=view, clim=(0, 255))
 
-# TODO: also add a mesh slice for each plane
+surface = marching_cubes(vol[0:], 200)
+positions = np.fliplr(surface[0])
+positions = np.column_stack([positions, np.ones((positions.shape[0], 1), np.float32)])
+geo = gfx.Geometry(positions=positions, index=surface[1], normals=surface[2])
+mesh = gfx.Mesh(
+    geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1))
+)
+scene.add(mesh)
 
 planes = []
-texcoords = {
-    0: [[0.5, 0, 0], [0.5, 1, 0], [0.5, 0, 1], [0.5, 1, 1]],
-    1: [[0, 0.5, 0], [1, 0.5, 0], [0, 0.5, 1], [1, 0.5, 1]],
-    2: [[0, 0, 0.5], [1, 0, 0.5], [0, 1, 0.5], [1, 1, 0.5]],
-}
-sizes = {
-    0: (vol.shape[1], vol.shape[0]),  # YZ plane
-    1: (vol.shape[2], vol.shape[0]),  # XZ plane
-    2: (vol.shape[2], vol.shape[1]),  # XY plane (default)
-}
-for axis in [0, 1, 2]:
-    geometry = gfx.PlaneGeometry(*sizes[axis], 1, 1)
-    geometry.texcoords = gfx.Buffer(
-        np.array(texcoords[axis], dtype="f4"), usage="vertex|storage"
-    )
-    plane = gfx.Mesh(geometry, material)
+for dim in [0, 1, 2]:  # xyz
+    abcd = [0, 0, 0, 0]
+    abcd[dim] = -1
+    abcd[-1] = vol.shape[2 - dim] / 2
+    material = gfx.VolumeSliceMaterial(map=tex, clim=(0, 255), plane=abcd)
+    plane = gfx.Volume(tex.size, material)
     planes.append(plane)
     scene.add(plane)
 
-    if axis == 0:  # YZ plane
-        plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi, 0.5 * np.pi))
-    elif axis == 1:  # XZ plane
-        plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi))
-    # else: XY plane
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.OrthographicCamera(200, 200)
-camera.position.set(125, 125, 125)
-camera.look_at(gfx.linalg.Vector3())
+camera.position.set(170, 170, 170)
 controls = gfx.OrbitControls(
-    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1), zoom_changes_distance=False
+    camera.position.clone(),
+    gfx.linalg.Vector3(64, 64, 128),
+    up=gfx.linalg.Vector3(0, 0, 1),
+    zoom_changes_distance=False,
 )
+
+# Add a slight tilt. This is to show that the slices are still orthogonal
+# to the world coordinates.
+for ob in planes + [mesh]:
+    ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 0.1)
 
 
 def animate():
-    t = np.cos(time() / 2)
-    plane = planes[2]
-    plane.position.z = t * vol.shape[0] * 0.5
-    plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
-    plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
+    t = np.cos(time() / 2) * 0.5 + 0.5  # 0..1
+    planes[2].material.plane = 0, 0, -1, t * vol.shape[0]
+    mesh.material.plane = 0, 0, -1, (1 - t) * vol.shape[0]
 
     controls.update_camera(camera)
     renderer.render(scene, camera)

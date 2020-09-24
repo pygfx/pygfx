@@ -33,7 +33,7 @@ def mesh_renderer(wobject, render_info):
     index_buffer = index_buffer if isinstance(index_buffer, Buffer) else None
 
     if index_buffer:
-        n = len(index_buffer.data)
+        n = index_buffer.data.size
     else:
         n = len(geometry.positions.data)
 
@@ -70,6 +70,10 @@ def mesh_renderer(wobject, render_info):
             raise ValueError("material.map is present, but geometry has no texcoords")
         bindings1[0] = wgpu.BindingType.sampler, material.map
         bindings1[1] = wgpu.BindingType.sampled_texture, material.map
+        if material.map.view_dim == "2d":
+            pass  # ok!
+        elif material.map.view_dim == "3d":
+            vertex_shader = vertex_shader_mesh_3dtex
 
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
@@ -91,7 +95,8 @@ def mesh_renderer(wobject, render_info):
         bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
         vertex_buffers = {}
         index_buffer = None
-        n = (geometry.index.nitems // 3) * 6
+        # n = (geometry.index.nitems // 3) * 6  # but what if data was nx3?
+        n = (geometry.index.data.size // 3) * 6
     elif isinstance(material, MeshPhongMaterial):
         fragment_shader = fragment_shader_phong
         if material.map is not None:
@@ -172,8 +177,8 @@ def vertex_shader_mesh(
 
     normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
 
-    view_vec = ndc_to_world * vec4(0, 0, 1, 1)
-    view_vec = normalize(view_vec.xyz / view_vec.w)
+    view_vec4 = ndc_to_world * vec4(0, 0, 1, 1)
+    view_vec = normalize(view_vec4.xyz / view_vec4.w)
 
     out_pos = ndc_pos  # noqa - shader output
     v_texcoord = in_texcoord  # noqa - shader output
@@ -182,6 +187,25 @@ def vertex_shader_mesh(
     v_normal = normal_vec  # noqa
     v_view = view_vec  # noqa
     v_light = view_vec  # noqa
+
+
+# todo: *sigh* it looks like we do need some form of templating
+
+
+@python2shader
+def vertex_shader_mesh_3dtex(  # also, no normals and lights
+    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_texcoord: (pyshader.RES_INPUT, 1, vec3),
+    u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
+    u_wobject: ("uniform", (0, 1), Mesh.uniform_type),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
+):
+    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
+    ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
+
+    out_pos = ndc_pos  # noqa - shader output
+    v_texcoord = in_texcoord  # noqa - shader output
 
 
 @python2shader
@@ -237,8 +261,8 @@ def vertex_shader_mesh_instanced(
 
     normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
 
-    view_vec = ndc_to_world * vec4(0, 0, 1, 1)
-    view_vec = normalize(view_vec.xyz / view_vec.w)
+    view_vec4 = ndc_to_world * vec4(0, 0, 1, 1)
+    view_vec = normalize(view_vec4.xyz / view_vec4.w)
 
     out_pos = ndc_pos  # noqa - shader output
     v_texcoord = in_texcoord  # noqa - shader output
@@ -274,6 +298,19 @@ def fragment_shader_textured_gray(
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
+):
+    val = f32(t_tex.sample(s_sam, v_texcoord).r)
+    val = (val - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
+    out_color = vec4(val, val, val, 1.0)  # noqa - shader output
+
+
+@python2shader
+def fragment_shader_textured_gray_3dtex(
+    v_texcoord: (pyshader.RES_INPUT, 0, vec3),
+    u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
+    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
+    t_tex: (pyshader.RES_TEXTURE, (1, 1), "3d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
@@ -425,9 +462,12 @@ def vertex_shader_mesh_slice(
     i3 = buf_indices[face_index * 3 + 2]
 
     # Vertex positions of this face, in local object coordinates
-    pos1 = buf_positions[i1].xyz
-    pos2 = buf_positions[i2].xyz
-    pos3 = buf_positions[i3].xyz
+    pos1_ = u_wobject.world_transform * vec4(buf_positions[i1].xyz, 1.0)
+    pos2_ = u_wobject.world_transform * vec4(buf_positions[i2].xyz, 1.0)
+    pos3_ = u_wobject.world_transform * vec4(buf_positions[i3].xyz, 1.0)
+    pos1 = pos1_.xyz / pos1_.w
+    pos2 = pos2_.xyz / pos2_.w
+    pos3 = pos3_.xyz / pos3_.w
 
     # Get the plane definition
     plane = u_material.plane.xyzw  # ax + by + cz + d
@@ -463,15 +503,15 @@ def vertex_shader_mesh_slice(
 
     if pos_index == 0:  # or n@u == 0
         # Just return the same vertex, resulting in degenerate triangles
-        wpos1 = u_wobject.world_transform * vec4(pos1, 1.0)
+        wpos1 = vec4(pos1, 1.0)
         the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos1
         the_coord = vec2(0, 0)
         segment_length = 0.0
 
     else:
         # Go from local coordinates to NDC
-        wpos_a = u_wobject.world_transform * vec4(pos_a, 1.0)
-        wpos_b = u_wobject.world_transform * vec4(pos_b, 1.0)
+        wpos_a = vec4(pos_a, 1.0)
+        wpos_b = vec4(pos_b, 1.0)
         npos_a = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_a
         npos_b = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos_b
         # Don't forget to "normalize"!

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>ThreeJS playground</title>
+    <script src="https://threejs.org/build/three.js"></script>
+</head>
+<body>
+
+<script>
+var box1 = new THREE.BoxGeometry(4, 6, 8);
+var box2 = new THREE.BoxBufferGeometry(4, 6, 8);
+
+document.write('<br><br>BoxBufferGeometry index<br>')
+document.write(box2.index.array)
+
+document.write('<br><br>BoxBufferGeometry positions<br>')
+document.write(box2.attributes.position.array)
+
+document.write('<br><br>BoxBufferGeometry normals<br>')
+document.write(box2.attributes.normal.array)
+
+document.write('<br><br>BoxBufferGeometry uv<br>')
+document.write(box2.attributes.uv.array)
+
+</script>
+
+</body>
+</html>
