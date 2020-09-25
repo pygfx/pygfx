@@ -4,7 +4,6 @@ Example with a skybox background.
 Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.rs
 """
 
-import numpy as np
 import imageio
 import pygfx as gfx
 

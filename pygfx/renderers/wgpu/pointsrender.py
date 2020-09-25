@@ -1,6 +1,6 @@
 import wgpu  # only for flags/enums
 from pyshader import python2shader
-from pyshader import f32, vec2, vec4
+from pyshader import f32, vec2, vec3, vec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Points
@@ -9,7 +9,7 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 
 @python2shader
 def vertex_shader(
-    in_pos: ("input", 0, vec4),
+    in_pos: ("input", 0, vec3),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
     u_wobject: ("uniform", (0, 1), Points.uniform_type),
     u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),

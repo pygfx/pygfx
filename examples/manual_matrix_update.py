@@ -2,7 +2,6 @@
 Example showing transform control flow without matrix auto updating.
 """
 
-import numpy as np
 import imageio
 import pygfx as gfx
 

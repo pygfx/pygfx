@@ -4,7 +4,6 @@ Show an image with points overlaid.
 
 import imageio
 import pygfx as gfx
-import numpy as np
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
@@ -35,7 +34,7 @@ scene.add(plane)
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
 
-geometry_p = gfx.Geometry(positions=[(x, y, 0, 1) for x, y in zip(xx, yy)])
+geometry_p = gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)])
 material_p = gfx.PointsMaterial(color=(0, 1, 1, 1), size=10)
 points = gfx.Points(geometry_p, material_p)
 points.position.z = 1  # move points in front of the image

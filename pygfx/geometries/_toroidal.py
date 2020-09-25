@@ -40,11 +40,10 @@ class KleinBottleGeometry(Geometry):
         z = (z + 0.00000) * (0.0833333 * scale)
 
         # Put into an Nx4 array
-        positions = np.empty((x.size, 4), np.float32)
+        positions = np.empty((x.size, 3), np.float32)
         positions[:, 0] = x.flat
         positions[:, 1] = y.flat
         positions[:, 2] = z.flat
-        positions[:, 3] = 1
 
         # Texcoords are easy
         texcoords = np.column_stack([ux.flat, vx.flat]).astype(np.float32, copy=False)
@@ -162,10 +161,6 @@ class TorusKnotGeometry(Geometry):
         normals = positions - pos
         positions.shape = -1, 3
         normals.shape = -1, 3
-        # Make nx4
-        positions = np.column_stack(
-            (positions, np.ones((positions.shape[0], 1), np.float32))
-        )
 
         # Create texcords
         # ty, tx = np.meshgrid(u / u[-1], v / v[-1])

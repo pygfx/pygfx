@@ -2,7 +2,6 @@
 Example showing a Torus knot, with a texture and lighting.
 """
 
-import numpy as np
 import imageio
 import pygfx as gfx
 

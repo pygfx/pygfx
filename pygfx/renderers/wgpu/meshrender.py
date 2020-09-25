@@ -157,7 +157,7 @@ def mesh_renderer(wobject, render_info):
 
 @python2shader
 def vertex_shader_mesh(
-    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_pos: (pyshader.RES_INPUT, 0, vec3),
     in_texcoord: (pyshader.RES_INPUT, 1, vec2),
     in_normal: (pyshader.RES_INPUT, 2, vec3),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -194,7 +194,7 @@ def vertex_shader_mesh(
 
 @python2shader
 def vertex_shader_mesh_3dtex(  # also, no normals and lights
-    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_pos: (pyshader.RES_INPUT, 0, vec3),
     in_texcoord: (pyshader.RES_INPUT, 1, vec3),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
     u_wobject: ("uniform", (0, 1), Mesh.uniform_type),
@@ -213,7 +213,7 @@ def vertex_shader_normal_lines(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
-    buf_pos: (pyshader.RES_BUFFER, (1, 2), Array(vec4)),
+    buf_pos: (pyshader.RES_BUFFER, (1, 2), Array(f32)),
     buf_normal: (pyshader.RES_BUFFER, (1, 3), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
 ):
@@ -221,7 +221,7 @@ def vertex_shader_normal_lines(
     r = index % 2
     i = (index - r) // 2
 
-    pos = buf_pos[i].xyz
+    pos = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])
     normal = vec3(buf_normal[i * 3 + 0], buf_normal[i * 3 + 1], buf_normal[i * 3 + 2])
 
     world_pos1 = u_wobject.world_transform * vec4(pos, 1.0)
@@ -238,7 +238,7 @@ def vertex_shader_normal_lines(
 @python2shader
 def vertex_shader_mesh_instanced(
     instance_id: (pyshader.RES_INPUT, "InstanceId", i32),
-    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_pos: (pyshader.RES_INPUT, 0, vec3),
     in_texcoord: (pyshader.RES_INPUT, 1, vec2),
     in_normal: (pyshader.RES_INPUT, 2, vec3),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -437,7 +437,7 @@ def vertex_shader_mesh_slice(
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
     buf_indices: (pyshader.RES_BUFFER, (1, 2), Array(i32)),
-    buf_positions: (pyshader.RES_BUFFER, (1, 3), Array(vec4)),
+    buf_pos: (pyshader.RES_BUFFER, (1, 3), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_dist2center: (pyshader.RES_OUTPUT, 0, vec2),
     v_segment_length: (pyshader.RES_OUTPUT, 1, f32),
@@ -462,9 +462,12 @@ def vertex_shader_mesh_slice(
     i3 = buf_indices[face_index * 3 + 2]
 
     # Vertex positions of this face, in local object coordinates
-    pos1_ = u_wobject.world_transform * vec4(buf_positions[i1].xyz, 1.0)
-    pos2_ = u_wobject.world_transform * vec4(buf_positions[i2].xyz, 1.0)
-    pos3_ = u_wobject.world_transform * vec4(buf_positions[i3].xyz, 1.0)
+    pos1 = vec3(buf_pos[i1 * 3 + 0], buf_pos[i1 * 3 + 1], buf_pos[i1 * 3 + 2])
+    pos2 = vec3(buf_pos[i2 * 3 + 0], buf_pos[i2 * 3 + 1], buf_pos[i2 * 3 + 2])
+    pos3 = vec3(buf_pos[i3 * 3 + 0], buf_pos[i3 * 3 + 1], buf_pos[i3 * 3 + 2])
+    pos1_ = u_wobject.world_transform * vec4(pos1, 1.0)
+    pos2_ = u_wobject.world_transform * vec4(pos2, 1.0)
+    pos3_ = u_wobject.world_transform * vec4(pos3, 1.0)
     pos1 = pos1_.xyz / pos1_.w
     pos2 = pos2_.xyz / pos2_.w
     pos3 = pos3_.xyz / pos3_.w

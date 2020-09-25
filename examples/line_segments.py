@@ -19,7 +19,7 @@ scene = gfx.Scene()
 x = np.linspace(20, 620, 200, dtype=np.float32)
 y = np.sin(x / 10) * 100 + 200
 
-positions = np.column_stack([x, y, np.zeros_like(x), np.ones_like(x)])
+positions = np.column_stack([x, y, np.zeros_like(x)])
 geometry = gfx.Geometry(positions=positions)
 
 # Also see LineSegmentMaterial and LineThinSegmentMaterial

@@ -20,7 +20,7 @@ scene = gfx.Scene()
 x = np.linspace(0, 100, 10_000, dtype=np.float32)
 y = np.sin(x) * 30 + np.random.normal(0, 5, len(x)).astype(np.float32)
 
-positions = np.column_stack([x, y, np.zeros_like(x), np.ones_like(x)])
+positions = np.column_stack([x, y, np.zeros_like(x)])
 geometry = gfx.Geometry(positions=positions)
 
 material = gfx.LineMaterial(thickness=2.0, color=(0.0, 0.7, 0.3, 1.0))
