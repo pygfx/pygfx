@@ -2,7 +2,6 @@
 Example showing orbit camera controls.
 """
 
-import numpy as np
 import imageio
 import pygfx as gfx
 

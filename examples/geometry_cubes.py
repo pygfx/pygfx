@@ -2,7 +2,6 @@
 Example showing multiple rotating cubes. This also tests the depth buffer.
 """
 
-import numpy as np
 import imageio
 import pygfx as gfx
 

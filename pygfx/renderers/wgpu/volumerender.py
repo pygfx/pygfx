@@ -74,8 +74,7 @@ def volume_slice_renderer(wobject, render_info):
 @python2shader
 def vertex_shader_volume_slice(
     index: ("input", "VertexId", "i32"),
-    # in_pos: (pyshader.RES_INPUT, 0, vec4),
-    buf_positions: ("buffer", (1, 0), Array(vec4)),
+    buf_positions: ("buffer", (1, 0), Array(f32)),
     buf_texcoords: ("buffer", (1, 1), Array(f32)),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
     u_wobject: ("uniform", (0, 1), Volume.uniform_type),
@@ -169,8 +168,16 @@ def vertex_shader_volume_slice(
     # Intersect the 12 edges
     for i in range(12):
         edge = edges[i]
-        p1 = buf_positions[edge[0]].xyz
-        p2 = buf_positions[edge[1]].xyz
+        p1 = vec3(
+            buf_positions[edge[0] * 3],
+            buf_positions[edge[0] * 3 + 1],
+            buf_positions[edge[0] * 3 + 2],
+        )
+        p2 = vec3(
+            buf_positions[edge[1] * 3],
+            buf_positions[edge[1] * 3 + 1],
+            buf_positions[edge[1] * 3 + 2],
+        )
         p1_ = u_wobject.world_transform * vec4(p1, 1.0)
         p2_ = u_wobject.world_transform * vec4(p2, 1.0)
         p1 = p1_.xyz / p1_.w

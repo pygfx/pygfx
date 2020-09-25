@@ -1,8 +1,10 @@
 import wgpu  # only for flags/enums
 import pyshader
-from pyshader import f32, vec2, vec4, Array
+from pyshader import Struct, i32, f32, vec2, vec3, vec4, Array
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
+from ...utils import array_from_shadertype
+from ...resources import Buffer
 from ...objects import Line
 from ...materials import (
     LineMaterial,
@@ -36,6 +38,9 @@ from ...materials import (
 
 # todo: we can learn about dashing, unfolding and more at http://jcgt.org/published/0002/02/08/paper.pdf
 
+
+renderer_uniform_type = Struct(last_i=i32)
+
 # %% Shaders
 
 
@@ -44,20 +49,24 @@ from ...materials import (
 @pyshader.python2shader
 def compute_shader(
     index_xyz: (pyshader.RES_INPUT, "GlobalInvocationId", "ivec3"),
-    pos1: (pyshader.RES_BUFFER, (0, 0), Array(vec4)),
-    pos2: (pyshader.RES_BUFFER, (0, 1), Array(vec4)),
+    pos1: (pyshader.RES_BUFFER, (0, 0), Array(f32)),
+    pos2: (pyshader.RES_BUFFER, (0, 1), Array(f32)),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
 ):
     index = index_xyz.x
-    p = pos1[index] * 1.0
+    p = vec3(pos1[index * 3 + 0], pos1[index * 3 + 1], pos1[index * 3 + 2])
     dz = u_material.thickness
-    pos2[index * 2 + 0] = vec4(p.x, p.y + dz, p.z, 1.0)
-    pos2[index * 2 + 1] = vec4(p.x, p.y - dz, p.z, 1.0)
+    pos2[index * 6 + 0] = p.x
+    pos2[index * 6 + 1] = p.y + dz
+    pos2[index * 6 + 2] = p.z
+    pos2[index * 6 + 3] = p.x
+    pos2[index * 6 + 4] = p.y - dz
+    pos2[index * 6 + 5] = p.x
 
 
 @pyshader.python2shader
 def vertex_shader_thin(
-    in_pos: (pyshader.RES_INPUT, 0, vec4),
+    in_pos: (pyshader.RES_INPUT, 0, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -81,7 +90,8 @@ def vertex_shader(
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
-    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(vec4)),
+    u_renderer: (pyshader.RES_UNIFORM, (0, 3), renderer_uniform_type),
+    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
@@ -137,9 +147,9 @@ def vertex_shader(
     i = index // 5
 
     # Sample the current node and it's two neighbours, and convert to NDC
-    pos1, pos2, pos3 = buf_pos[i - 1], buf_pos[i], buf_pos[i + 1]
-    # pos1, pos2, pos3 = vec4(pos1, 1.0), vec4(buf_pos[i], 1.0), vec4(buf_pos[i + 1], 1.0)
-    # pos1, pos2, pos3 = vec4(pos1.x, pos1.y, 0.0, 1.0), vec4(pos2.x, pos2.y, 0.0, 1.0), vec4(pos3.x, pos3.y, 0.0 , 1.0)
+    pos1 = vec3(buf_pos[i * 3 - 3], buf_pos[i * 3 - 2], buf_pos[i * 3 - 1])
+    pos2 = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])
+    pos3 = vec3(buf_pos[i * 3 + 3], buf_pos[i * 3 + 4], buf_pos[i * 3 + 5])
     wpos1 = u_wobject.world_transform * vec4(pos1.xyz, 1.0)
     wpos2 = u_wobject.world_transform * vec4(pos2.xyz, 1.0)
     wpos3 = u_wobject.world_transform * vec4(pos3.xyz, 1.0)
@@ -157,7 +167,7 @@ def vertex_shader(
     # Get vectors normal to the line segments
     v1, v2 = ppos2.xy - ppos1.xy, ppos3.xy - ppos2.xy
 
-    if pos1.w == 0.0:
+    if i == 0:
         # This is the first point on the line: create a cap.
         v1 = v2
         nc = normalize(vec2(+v2.y, -v2.x))
@@ -165,7 +175,7 @@ def vertex_shader(
         na = nd
         nb = nd - normalize(v2)
         ne = nc - normalize(v2)
-    elif pos3.w == 0.0:
+    elif i == u_renderer.last_i:
         # This is the last point on the line: create a cap.
         v2 = v1
         na = normalize(vec2(+v1.y, -v1.x))
@@ -246,7 +256,7 @@ def vertex_shader_segment(
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
-    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(vec4)),
+    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
@@ -263,8 +273,9 @@ def vertex_shader_segment(
     # What i in the node list (point on the line) is this?
     i = index // 5
     # Sample the current node and either of its neighbours
-    pos2 = buf_pos[i]
-    pos3 = buf_pos[i + 1 - (i % 2) * 2]  # (i + 1) if i is even else (i - 1)
+    i3 = i + 1 - (i % 2) * 2  # (i + 1) if i is even else (i - 1)
+    pos2 = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])
+    pos3 = vec3(buf_pos[i3 * 3 + 0], buf_pos[i3 * 3 + 1], buf_pos[i3 * 3 + 2])
     # Convert to ndc
     wpos2 = u_wobject.world_transform * vec4(pos2.xyz, 1.0)
     wpos3 = u_wobject.world_transform * vec4(pos3.xyz, 1.0)
@@ -309,7 +320,7 @@ def vertex_shader_arrow(
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
-    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(vec4)),
+    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
@@ -326,8 +337,9 @@ def vertex_shader_arrow(
     # What i in the node list (point on the line) is this?
     i = index // 3
     # Sample the current node and either of its neighbours
-    pos2 = buf_pos[i]
-    pos3 = buf_pos[i + 1 - (i % 2) * 2]  # (i + 1) if i is even else (i - 1)
+    i3 = i + 1 - (i % 2) * 2  # (i + 1) if i is even else (i - 1)
+    pos2 = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])
+    pos3 = vec3(buf_pos[i3 * 3 + 0], buf_pos[i3 * 3 + 1], buf_pos[i3 * 3 + 2])
     # Convert to ndc
     wpos2 = u_wobject.world_transform * vec4(pos2.xyz, 1.0)
     wpos3 = u_wobject.world_transform * vec4(pos3.xyz, 1.0)
@@ -412,15 +424,24 @@ def line_renderer(wobject, render_info):
     # Nx2, the z and w element will be zero. This works, because for
     # vertex buffers we provide additional information about the
     # striding of the data.
-    # With storage buffers (aka SSBO) we just have some bytes that we read
-    # from/write to in the shader. This is more free, but it means that
-    # the data in the buffer must match with what the shader expects.
-    # Plus there's this thing with vec3's which are padded to 16 bytes.
-    # So we require our users to provide Nx4 data.
-    if positions1.data.shape[1] != 4:
+    # With storage buffers (aka SSBO) we just have some bytes that we
+    # read from/write to in the shader. This is more free, but it means
+    # that the data in the buffer must match with what the shader
+    # expects. In addition to that, there's this thing with vec3's which
+    # are padded to 16 bytes. So we either have to require our users
+    # to provide Nx4 data, or read them as an array of f32.
+    # Anyway, extra check here to make sure the data matches!
+    # todo: data.something in here, which means we assume numpy-ish arrays
+    if positions1.data.shape[1] != 3:
         raise ValueError(
-            "For rendering (thick) lines, the geometry.positions must be Nx4."
+            "For rendering (thick) lines, the geometry.positions must be Nx3."
         )
+
+    bindings0 = {
+        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
+        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
+        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+    }
 
     if isinstance(material, LineArrowMaterial):
         vert_shader = vertex_shader_arrow
@@ -431,27 +452,19 @@ def line_renderer(wobject, render_info):
     else:
         vert_shader = vertex_shader
         n = positions1.nitems * 5
+        uniform_buffer = Buffer(
+            array_from_shadertype(renderer_uniform_type), usage="UNIFORM"
+        )
+        uniform_buffer.data["last_i"] = positions1.nitems - 1
+        bindings0[3] = wgpu.BindingType.uniform_buffer, uniform_buffer
 
     return [
-        # {
-        #     "compute_shader": compute_shader,
-        #     "indices": (positions1.nitems, 1, 1),
-        #     "bindings0": {
-        #         0: (wgpu.BindingType.storage_buffer, positions1),
-        #         1: (wgpu.BindingType.storage_buffer, positions2),
-        #         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
-        #     },
-        # },
         {
             "vertex_shader": vert_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": (n, 1),
-            "bindings0": {
-                0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-                1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-                2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
-            },
+            "bindings0": bindings0,
             "bindings1": {
                 0: (wgpu.BindingType.storage_buffer, positions1),
             },

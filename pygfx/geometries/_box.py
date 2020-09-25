@@ -66,9 +66,6 @@ class BoxGeometry(Geometry):
         positions[:, 1] *= height / 2
         positions[:, 2] *= depth / 2
 
-        # Add a fourth column, currently needed, can be removed later
-        positions = np.column_stack((positions, np.ones((24, 1), "f4")))
-
         texcoords = np.array(
             [
                 # right

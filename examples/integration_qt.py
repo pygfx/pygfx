@@ -31,7 +31,7 @@ class Main(QtWidgets.QWidget):
 
     def _on_button_click(self):
         positions = [
-            [random.uniform(-50, 50), random.uniform(-50, 50), 0, 1] for i in range(8)
+            [random.uniform(-50, 50), random.uniform(-50, 50), 0] for i in range(8)
         ]
         line = gfx.Line(
             gfx.Geometry(positions=positions), gfx.LineMaterial(thickness=3)

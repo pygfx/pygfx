@@ -61,7 +61,7 @@ x = np.linspace(0.05, 0.95, nvertices, dtype=np.float32)
 for row in range(rows):
     for col in range(cols):
         y = np.sin(x * 25) * 0.45 + np.random.normal(0, 0.02, len(x)).astype(np.float32)
-        positions = np.column_stack([x, y, np.zeros_like(x), np.ones_like(x)])
+        positions = np.column_stack([x, y, np.zeros_like(x)])
         geometry = gfx.Geometry(positions=positions)
         material = gfx.LineMaterial(
             thickness=0.2 + 2 * row / rows, color=(col / cols, row / rows, 0.5, 1.0)

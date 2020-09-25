@@ -13,7 +13,7 @@ class PlaneGeometry(Geometry):
         y = np.linspace(-height / 2, height / 2, ny, dtype=np.float32)
         xx, yy = np.meshgrid(x, y)
         xx, yy = xx.flatten(), yy.flatten()
-        positions = np.column_stack([xx, yy, np.zeros_like(xx), np.ones_like(xx)])
+        positions = np.column_stack([xx, yy, np.zeros_like(xx)])
 
         x = np.linspace(0, 1, nx, dtype=np.float32)
         y = np.linspace(0, 1, ny, dtype=np.float32)
