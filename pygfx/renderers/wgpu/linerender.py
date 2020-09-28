@@ -519,7 +519,7 @@ def vertex_shader_vtxclr_segment(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
-    u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (0, 2), LineVertexColorMaterial.uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
     buf_clr: (pyshader.RES_BUFFER, (1, 1), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -589,7 +589,6 @@ def fragment_shader_vtxclr(
     v_line_width_p: (pyshader.RES_INPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_INPUT, 1, vec2),
     v_clr: (pyshader.RES_INPUT, 2, vec4),
-    u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
 ):
