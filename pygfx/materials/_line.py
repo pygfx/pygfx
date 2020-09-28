@@ -56,3 +56,31 @@ class LineSegmentMaterial(LineMaterial):
 
 class LineArrowMaterial(LineSegmentMaterial):
     """A material that renders line segments that look like little vectors."""
+
+
+class LineVertexColorMaterial(Material):
+    """Line drawing material with vertex color support."""
+
+    uniform_type = Struct(thickness=f32)
+
+    def __init__(self, thickness=2.0):
+        super().__init__()
+
+        self.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), usage="UNIFORM"
+        )
+        self.set_thickness(thickness)
+
+    # todo: thickness? maybe rename to width?
+    @property
+    def thickness(self):
+        """The line thickness expressed in logical pixels."""
+        return self.uniform_buffer.data["thickness"]
+
+    def set_thickness(self, thickness):
+        self.uniform_buffer.data["thickness"] = thickness
+        self.uniform_buffer.update_range(0, 1)
+
+
+class LineSegmentVertexColorMaterial(LineVertexColorMaterial):
+    """A material that renders line segments between each two subsequent points."""
