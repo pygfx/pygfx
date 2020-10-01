@@ -12,8 +12,6 @@ from ...materials import (
     LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
-    LineVertexColorMaterial,
-    LineSegmentVertexColorMaterial,
 )
 
 
@@ -377,11 +375,76 @@ def vertex_shader_arrow(
 
 
 @pyshader.python2shader
+def vertex_shader_arrow_vtxclr(
+    index: (pyshader.RES_INPUT, "VertexId", "i32"),
+    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
+    buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
+    buf_clr: (pyshader.RES_BUFFER, (1, 1), Array(f32)),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
+    v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
+    v_clr: (pyshader.RES_OUTPUT, 2, vec4),
+):
+    # Similar to the normal vertex shader, except we only draw segments,
+    # using 3 vertices per node: 6 per segment. 4 for the arrow, and 2
+    # to create a degenerate triangle for the space in between. So we
+    # only draw caps, no joins.
+
+    # Prepare some numbers
+    screen_factor = u_stdinfo.logical_size.xy / 2.0
+    l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x
+    half_line_width = u_material.thickness * 0.5  # in logical pixels
+    # What i in the node list (point on the line) is this?
+    i = index // 3
+    # Sample the current node's color
+    color = vec4(buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3])
+    # Sample the current node and either of its neighbours
+    i3 = i + 1 - (i % 2) * 2  # (i + 1) if i is even else (i - 1)
+    pos2 = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])
+    pos3 = vec3(buf_pos[i3 * 3 + 0], buf_pos[i3 * 3 + 1], buf_pos[i3 * 3 + 2])
+    # Convert to ndc
+    wpos2 = u_wobject.world_transform * vec4(pos2.xyz, 1.0)
+    wpos3 = u_wobject.world_transform * vec4(pos3.xyz, 1.0)
+    npos2 = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos2
+    npos3 = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos3
+    npos2 = npos2 / npos2.w
+    npos3 = npos3 / npos3.w
+    # Convert to logical screen coordinates, because that's were the lines work
+    ppos2 = (npos2.xy + 1.0) * screen_factor
+    ppos3 = (npos3.xy + 1.0) * screen_factor
+
+    # Get vectors normal to the line segments
+    if (i % 2) == 0:
+        # A left-cap
+        v = ppos3.xy - ppos2.xy
+        na = normalize(vec2(+v.y, -v.x)) * half_line_width
+        nb = v
+    else:
+        # A right cap
+        v = ppos2.xy - ppos3.xy
+        na = -0.75 * v
+        nb = normalize(vec2(-v.y, +v.x)) * half_line_width - v
+
+    # Select the correct vector
+    # Note the replicated vertices to create degenerate triangles
+    vectors = [na, na, nb, na, nb, nb]
+    the_vec = vectors[index % 6]
+
+    # Outputs
+    out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
+    v_line_width_p = half_line_width * 2.0 * l2p  # noqa
+    v_vec_from_node_p = vec2(0.0, 0.0)  # noqa
+    v_clr = color  # noqa
+
+
+@pyshader.python2shader
 def vertex_shader_vtxclr(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
-    u_material: (pyshader.RES_UNIFORM, (0, 2), LineVertexColorMaterial.uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     u_renderer: (pyshader.RES_UNIFORM, (0, 3), renderer_uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
     buf_clr: (pyshader.RES_BUFFER, (1, 1), Array(f32)),
@@ -519,7 +582,7 @@ def vertex_shader_vtxclr_segment(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
-    u_material: (pyshader.RES_UNIFORM, (0, 2), LineVertexColorMaterial.uniform_type),
+    u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     buf_pos: (pyshader.RES_BUFFER, (1, 0), Array(f32)),
     buf_clr: (pyshader.RES_BUFFER, (1, 1), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
@@ -686,14 +749,32 @@ def line_renderer(wobject, render_info):
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
 
+    bindings1 = {
+        0: (wgpu.BindingType.storage_buffer, positions1),
+    }
+
+    if material.vertex_colors:
+        colors1 = geometry.colors
+        if colors1.data.shape[1] != 4:
+            raise ValueError(
+                "For rendering (thick) lines, the geometry.colors must be Nx4."
+            )
+        bindings1[1] = (wgpu.BindingType.storage_buffer, colors1)
+
     if isinstance(material, LineArrowMaterial):
         vert_shader = vertex_shader_arrow
+        if material.vertex_colors:
+            vert_shader = vertex_shader_arrow_vtxclr
         n = (positions1.nitems // 2) * 2 * 4
     elif isinstance(material, LineSegmentMaterial):
         vert_shader = vertex_shader_segment
+        if material.vertex_colors:
+            vert_shader = vertex_shader_vtxclr_segment
         n = (positions1.nitems // 2) * 2 * 5
     else:
         vert_shader = vertex_shader
+        if material.vertex_colors:
+            vert_shader = vertex_shader_vtxclr
         n = positions1.nitems * 5
         uniform_buffer = Buffer(
             array_from_shadertype(renderer_uniform_type), usage="UNIFORM"
@@ -701,84 +782,18 @@ def line_renderer(wobject, render_info):
         uniform_buffer.data["last_i"] = positions1.nitems - 1
         bindings0[3] = wgpu.BindingType.uniform_buffer, uniform_buffer
 
-    return [
-        {
-            "vertex_shader": vert_shader,
-            "fragment_shader": fragment_shader,
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "indices": (n, 1),
-            "bindings0": bindings0,
-            "bindings1": {
-                0: (wgpu.BindingType.storage_buffer, positions1),
-            },
-            # "bindings1": {},
-            "target": None,  # default
-        },
-    ]
-
-
-@register_wgpu_render_function(Line, LineVertexColorMaterial)
-def line_renderer_vtxclr(wobject, render_info):
-    """Render function capable of rendering lines with vertex coloring."""
-
-    material = wobject.material
-    geometry = wobject.geometry
-
-    assert isinstance(material, LineVertexColorMaterial)
-
-    positions1 = geometry.positions
-    colors1 = geometry.colors
-
-    # With vertex buffers, if a shader input is vec4, and the vbo has
-    # Nx2, the z and w element will be zero. This works, because for
-    # vertex buffers we provide additional information about the
-    # striding of the data.
-    # With storage buffers (aka SSBO) we just have some bytes that we
-    # read from/write to in the shader. This is more free, but it means
-    # that the data in the buffer must match with what the shader
-    # expects. In addition to that, there's this thing with vec3's which
-    # are padded to 16 bytes. So we either have to require our users
-    # to provide Nx4 data, or read them as an array of f32.
-    # Anyway, extra check here to make sure the data matches!
-    # todo: data.something in here, which means we assume numpy-ish arrays
-    if positions1.data.shape[1] != 3:
-        raise ValueError(
-            "For rendering (thick) lines, the geometry.positions must be Nx3."
-        )
-    if colors1.data.shape[1] != 4:
-        raise ValueError(
-            "For rendering (thick) lines, the geometry.colors must be Nx4."
-        )
-
-    bindings0 = {
-        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
-    }
-
-    if isinstance(material, LineSegmentVertexColorMaterial):
-        vert_shader = vertex_shader_vtxclr_segment
-        n = (positions1.nitems // 2) * 2 * 5
-    else:
-        vert_shader = vertex_shader_vtxclr
-        n = positions1.nitems * 5
-        uniform_buffer = Buffer(
-            array_from_shadertype(renderer_uniform_type), usage="UNIFORM"
-        )
-        uniform_buffer.data["last_i"] = positions1.nitems - 1
-        bindings0[3] = wgpu.BindingType.uniform_buffer, uniform_buffer
+    frag_shader = fragment_shader
+    if material.vertex_colors:
+        frag_shader = fragment_shader_vtxclr
 
     return [
         {
             "vertex_shader": vert_shader,
-            "fragment_shader": fragment_shader_vtxclr,
+            "fragment_shader": frag_shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": (n, 1),
             "bindings0": bindings0,
-            "bindings1": {
-                0: (wgpu.BindingType.storage_buffer, positions1),
-                1: (wgpu.BindingType.storage_buffer, colors1),
-            },
+            "bindings1": bindings1,
             "target": None,  # default
         },
     ]

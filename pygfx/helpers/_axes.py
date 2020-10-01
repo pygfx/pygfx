@@ -1,6 +1,6 @@
 import numpy as np
 
-from .. import Geometry, Line, LineSegmentVertexColorMaterial
+from .. import Geometry, Line, LineSegmentMaterial
 
 
 class AxesHelper(Line):
@@ -21,6 +21,6 @@ class AxesHelper(Line):
         ], dtype='f4')
 
         geometry = Geometry(positions=positions, colors=colors)
-        material = LineSegmentVertexColorMaterial(thickness=thickness)
+        material = LineSegmentMaterial(thickness=thickness, vertex_colors=True)
 
         super().__init__(geometry, material)

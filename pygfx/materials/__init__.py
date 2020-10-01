@@ -15,8 +15,6 @@ from ._line import (
     LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
-    LineVertexColorMaterial,
-    LineSegmentVertexColorMaterial,
 )
 from ._volume import VolumeBasicMaterial, VolumeSliceMaterial
 from ._background import BackgroundMaterial, BackgroundImageMaterial
