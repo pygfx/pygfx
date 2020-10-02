@@ -36,7 +36,6 @@ colors = np.hstack([colors, np.ones((colors.shape[0], 1))])
 colors = colors.astype("f4")
 
 geometry = gfx.Geometry(positions=positions, colors=colors)
-# material = gfx.LineThinMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0))
 material = gfx.LineThinMaterial(thickness=12.0, vertex_colors=True)
 line = gfx.Line(geometry, material)
 scene.add(line)
