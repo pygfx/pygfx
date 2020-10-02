@@ -77,6 +77,29 @@ def vertex_shader_thin(
 
 
 @pyshader.python2shader
+def vertex_shader_thin_vtxclr(
+    in_pos: (pyshader.RES_INPUT, 0, vec3),
+    in_clr: (pyshader.RES_INPUT, 1, vec4),
+    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
+    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+    v_clr: (pyshader.RES_OUTPUT, 0, vec4),
+):
+    wpos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
+    npos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos
+    out_pos = npos  # noqa
+    v_clr = in_clr  # noqa
+
+
+@pyshader.python2shader
+def fragment_shader_thin_vtxclr(
+    v_clr: (pyshader.RES_INPUT, 0, vec4),
+    out_color: (pyshader.RES_OUTPUT, 0, vec4),
+):
+    out_color = v_clr  # noqa - shader assign
+
+
+@pyshader.python2shader
 def fragment_shader_thin(
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
@@ -697,19 +720,32 @@ def thin_line_renderer(wobject, render_info):
     if isinstance(material, LineThinSegmentMaterial):
         primitive = wgpu.PrimitiveTopology.line_list
 
+    vertex_buffers = {0: positions1}
+    vert_shader = vertex_shader_thin
+    frag_shader = fragment_shader_thin
+
+    if material.vertex_colors:
+        colors1 = geometry.colors
+        if colors1.data.shape[1] != 4:
+            raise ValueError(
+                "For rendering (thick) lines, the geometry.colors must be Nx4."
+            )
+        vertex_buffers[1] = colors1
+        vert_shader = vertex_shader_thin_vtxclr
+        frag_shader = fragment_shader_thin_vtxclr
+
     return [
         {
-            "vertex_shader": vertex_shader_thin,
-            "fragment_shader": fragment_shader_thin,
+            "vertex_shader": vert_shader,
+            "fragment_shader": frag_shader,
             "primitive_topology": primitive,
             "indices": (positions1.nitems, 1),
-            "vertex_buffers": {0: positions1},
+            "vertex_buffers": vertex_buffers,
             "bindings0": {
                 0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
                 1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
                 2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
             },
-            # "bindings1": {},
             "target": None,  # default
         },
     ]
