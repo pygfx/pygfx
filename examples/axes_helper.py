@@ -17,7 +17,7 @@ scene = gfx.Scene()
 background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
-scene.add(gfx.AxesHelper(size=10))
+scene.add(gfx.AxesHelper(size=40))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(50, 50, 50)

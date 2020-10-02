@@ -10,7 +10,7 @@ class LineMaterial(Material):
 
     uniform_type = Struct(color=vec4, thickness=f32)
 
-    def __init__(self, color=(1, 1, 1, 1), thickness=2.0):
+    def __init__(self, color=(1, 1, 1, 1), thickness=2.0, vertex_colors=False):
         super().__init__()
 
         self.uniform_buffer = Buffer(
@@ -19,6 +19,8 @@ class LineMaterial(Material):
         self.set_color(color)
         self.set_thickness(thickness)
 
+        self._vertex_colors = vertex_colors
+
     @property
     def color(self):
         return self.uniform_buffer.data["color"]
@@ -26,6 +28,16 @@ class LineMaterial(Material):
     def set_color(self, color):
         self.uniform_buffer.data["color"] = tuple(color)
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def vertex_colors(self):
+        return self._vertex_colors
+
+    @vertex_colors.setter
+    def vertex_colors(self, value):
+        if value != self._vertex_colors:
+            self._vertex_colors = value
+            self._bump_rev()
 
     # todo: thickness? maybe rename to width?
     @property
