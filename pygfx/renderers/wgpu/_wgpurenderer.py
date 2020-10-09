@@ -85,12 +85,13 @@ class WgpuRenderer(Renderer):
         # object, its size, and its format. The final (canvas) texture
         # has bgra format, because that's what hardware seems to like,
         # and srgb for perseptive color mapping.
-        self._canvas_texture = RenderTexture(wgpu.TextureFormat.brgra8unorm_srgb)
+        self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
         self._color_texture = RenderTexture(wgpu.TextureFormat.rgba8unorm)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
         # The texture to render the scene to, either _canvas_texture or _color_texture
         self._scene_texture = None
         self._post_processing = True
+        self._render_sampling = None
 
         # Initialize swapchain
         self._swap_chain = self._device.configure_swap_chain(
@@ -129,13 +130,27 @@ class WgpuRenderer(Renderer):
         device = self._device
         physical_size = self._canvas.get_physical_size()  # 2 ints
         logical_size = self._canvas.get_logical_size()  # 2 floats
-        # pixelratio = self._canvas.get_pixel_ratio()
+        pixelratio = (
+            physical_size[0] / logical_size[0]
+        )  # self._canvas.get_pixel_ratio()
 
         # Select the texture to render the scene to
-        if self._post_processing:
-            self._scene_texture = self._color_texture
-        else:
+        if not self._post_processing:
             self._scene_texture = self._canvas_texture
+        else:
+            self._scene_texture = self._color_texture
+            if not self._render_sampling:
+                if pixelratio > 1:
+                    size = physical_size
+                else:
+                    size = tuple(2 * x for x in physical_size)
+            elif isinstance(self._render_sampling, (int, float)):
+                size = tuple(int(x * self._render_sampling) for x in logical_size)
+            elif isinstance(self._render_sampling, tuple):
+                size = self._render_sampling[0], self._render_sampling[1]
+            else:
+                raise RuntimeError("Invalid value for _render_sampling")
+            self._color_texture.ensure_size(device, size + (1,))
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -160,8 +175,6 @@ class WgpuRenderer(Renderer):
 
             # Update the render textures (which are placeholder objects)
             self._canvas_texture.set_texture_view(texture_view_target)
-            if self._post_processing:
-                self._color_texture.ensure_size(device, self._canvas_texture.size)
             self._depth_texture.ensure_size(device, self._scene_texture.size)
 
             # Render the scene graph (to the scene_texture

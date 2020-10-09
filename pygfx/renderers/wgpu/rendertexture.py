@@ -1,7 +1,9 @@
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import i32, vec2, vec4
+from pyshader import i32, vec2, vec4, Struct
+
+from ...utils import array_from_shadertype
 
 
 class RenderTexture:
@@ -41,6 +43,17 @@ def render_full_screen_texture(
 ):
     """Render one texture to another."""
 
+    uniform_data = array_from_shadertype(texture_render_uniform_type)
+    uniform_data["size"] = render_texture_src.size[:2]
+    # todo: Gaussian function for aa kernel
+    uniform_data["kernel"] = 1, 1, 0, 0
+    uniform_data["support"] = 2
+
+    uniforms = device.create_buffer_with_data(
+        data=uniform_data,
+        usage=wgpu.BufferUsage.UNIFORM,
+    )
+
     binding_layouts = [
         {
             "binding": 0,
@@ -55,10 +68,19 @@ def render_full_screen_texture(
             "texture_component_type": wgpu.TextureComponentType.float,
             "multisampled": False,
         },
+        {
+            "binding": 2,
+            "visibility": wgpu.ShaderStage.FRAGMENT,
+            "type": wgpu.BindingType.uniform_buffer,
+        },
     ]
     bindings = [
         {"binding": 0, "resource": wgpu_sampler},
         {"binding": 1, "resource": render_texture_src.texture_view},
+        {
+            "binding": 2,
+            "resource": {"buffer": uniforms, "offset": 0, "size": uniform_data.nbytes},
+        },
     ]
 
     bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
@@ -119,6 +141,9 @@ def render_full_screen_texture(
 # %% Shaders
 
 
+texture_render_uniform_type = Struct(kernel=vec4, size=vec2, support=i32)
+
+
 @python2shader
 def vertex_shader(
     index: (pyshader.RES_INPUT, "VertexId", "i32"),
@@ -136,6 +161,26 @@ def fragment_shader(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
     s_sam: (pyshader.RES_SAMPLER, (0, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (0, 1), "2d f32"),
+    u_render: (pyshader.RES_UNIFORM, (0, 2), texture_render_uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
-    out_color = vec4(t_tex.sample(s_sam, v_texcoord))  # noqa - shader output
+
+    step = vec2(1.0 / u_render.size.x, 1.0 / u_render.size.y)
+    kernel = [
+        u_render.kernel.x,
+        u_render.kernel.y,
+        u_render.kernel.z,
+        u_render.kernel.w,
+    ]
+    support = min(3, u_render.support)
+
+    val = vec4(0.0, 0.0, 0.0, 0.0)
+    weight = 0.0
+    for y in range(-support, support + 1):
+        for x in range(-support, support + 1):
+            texcoord = v_texcoord + vec2(x, y) * step
+            w = kernel[abs(x)] * kernel[abs(y)]
+            val += t_tex.sample(s_sam, texcoord) * w
+            weight += w
+
+    out_color = val / weight  # noqa - shader output
