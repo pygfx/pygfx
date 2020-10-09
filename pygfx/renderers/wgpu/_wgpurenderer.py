@@ -11,6 +11,8 @@ from ...cameras import Camera
 from ...resources import Buffer, TextureView
 from ...utils import array_from_shadertype
 
+from .rendertexture import RenderTexture, render_full_screen_texture
+
 
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
@@ -78,9 +80,33 @@ class WgpuRenderer(Renderer):
         )
         self._device = self._adapter.request_device(extensions=[], limits={})
 
+        # Prepare render targets. These are placeholders to set during
+        # each renderpass, intended to keep together the texture-view
+        # object, its size, and its format. The final (canvas) texture
+        # has bgra format, because that's what hardware seems to like,
+        # and srgb for perseptive color mapping.
+        self._canvas_texture = RenderTexture(wgpu.TextureFormat.brgra8unorm_srgb)
+        self._color_texture = RenderTexture(wgpu.TextureFormat.rgba8unorm)
+        self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
+        # The texture to render the scene to, either _canvas_texture or _color_texture
+        self._scene_texture = None
+        self._post_processing = True
+
+        # Initialize swapchain
         self._swap_chain = self._device.configure_swap_chain(
             canvas,
-            wgpu.TextureFormat.bgra8unorm_srgb,
+            self._canvas_texture.format,
+        )
+        self._pixel_info_buffer = self._device.create_buffer(
+            size=32,
+            usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
+        )
+
+        # Sampler
+        self._render_sampler = self._device.create_sampler(
+            label="render sampler",
+            mag_filter="nearest",
+            min_filter="nearest",
         )
 
     def render(self, scene: WorldObject, camera: Camera):
@@ -105,6 +131,12 @@ class WgpuRenderer(Renderer):
         logical_size = self._canvas.get_logical_size()  # 2 floats
         # pixelratio = self._canvas.get_pixel_ratio()
 
+        # Select the texture to render the scene to
+        if self._post_processing:
+            self._scene_texture = self._color_texture
+        else:
+            self._scene_texture = self._canvas_texture
+
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
         camera.set_viewport_size(*logical_size)
@@ -126,32 +158,26 @@ class WgpuRenderer(Renderer):
 
         with self._swap_chain as texture_view_target:
 
-            # Prepare depth texture
-            if texture_view_target.size != getattr(self, "_swap_chain_size", None):
-                self._swap_chain_size = texture_view_target.size
-                self._depth_texture = device.create_texture(
-                    size=texture_view_target.size,
-                    usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-                    dimension="2d",
-                    format=wgpu.TextureFormat.depth32float,
-                )
-                self._depth_texture_view = self._depth_texture.create_view()
-                #
-                # self._render_texture = device.create_texture(
-                #     size=texture_view_target.size,
-                #     usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-                #     dimension="2d",
-                #     format=wgpu.TextureFormat.bgra8unorm_srgb,
-                # )
-                # self._render_texture_view = self._render_texture.create_view()
+            # Update the render textures (which are placeholder objects)
+            self._canvas_texture.set_texture_view(texture_view_target)
+            if self._post_processing:
+                self._color_texture.ensure_size(device, self._canvas_texture.size)
+            self._depth_texture.ensure_size(device, self._scene_texture.size)
 
-            self._render_texture_view = texture_view_target
-
+            # Render the scene graph (to the scene_texture
             command_encoder = device.create_command_encoder()
             self._render_recording(command_encoder, q)
-            self._command_buffers = [command_encoder.finish()]
+            command_buffers = [command_encoder.finish()]
+            device.default_queue.submit(command_buffers)
 
-            device.default_queue.submit(self._command_buffers)
+            # If we rendered off-screen, render texture to the canvas
+            if self._post_processing:
+                render_full_screen_texture(
+                    device,
+                    self._scene_texture,
+                    self._canvas_texture,
+                    self._render_sampler,
+                )
 
     def _render_recording(self, command_encoder, q):
 
@@ -179,17 +205,19 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines rendering to the default target
 
+        assert self._scene_texture.texture_view
+        assert self._depth_texture.texture_view
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "attachment": self._render_texture_view,  # texture_view_target,
+                    "attachment": self._scene_texture.texture_view,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
             depth_stencil_attachment={
-                "attachment": self._depth_texture_view,
+                "attachment": self._depth_texture.texture_view,
                 "depth_load_value": 10 ** 38,
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
@@ -543,7 +571,7 @@ class WgpuRenderer(Renderer):
             },
             color_states=[
                 {
-                    "format": wgpu.TextureFormat.bgra8unorm_srgb,
+                    "format": self._scene_texture.format,
                     "alpha_blend": (
                         wgpu.BlendFactor.one,
                         wgpu.BlendFactor.zero,
@@ -558,7 +586,7 @@ class WgpuRenderer(Renderer):
                 }
             ],
             depth_stencil_state={
-                "format": wgpu.TextureFormat.depth32float,
+                "format": self._depth_texture.format,
                 "depth_write_enabled": True,  # optional
                 "depth_compare": wgpu.CompareFunction.less,  # optional
             },
@@ -849,3 +877,53 @@ class WgpuRenderer(Renderer):
             # compare -> only not-None for comparison samplers!
         )
         resource._wgpu_sampler = resource.rev, sampler
+
+    # Picking
+
+    def get_info_at(self, pos):
+        """Get the color at the specified point. The given pos is a 2D point
+        in logical pixels, with the origin at the bottom-left.
+        """
+
+        # Make pos 0..1, so we can scale it to the render texture
+        w, h = self._canvas.get_logical_size()
+        float_pos = pos[0] / w, pos[1] / h
+
+        # Sample
+        encoder = self._device.create_command_encoder()
+        self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
+        if self._color_texture.texture:
+            self._copy_pixel(encoder, self._color_texture, float_pos, 4)
+        queue = self._device.default_queue
+        queue.submit([encoder.finish()])
+
+        # Collect data from the buffer
+        data = self._pixel_info_buffer.read_data()
+        return {
+            "depth": data[0:4].cast("f")[0],
+            "rgba": tuple(data[4:8].cast("B")),
+        }
+
+    def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):
+
+        # Map position to the texture index
+        w, h, d = render_texture.size
+        x = max(0, min(w - 1, int(float_pos[0] * w)))
+        y = max(0, min(h - 1, int(float_pos[1] * h)))
+
+        bytes_per_pixel = 4  # todo: let's derive this from the format?
+
+        encoder.copy_texture_to_buffer(
+            {
+                "texture": render_texture.texture,
+                "mip_level": 0,
+                "origin": (x, y, 0),
+            },
+            {
+                "buffer": self._pixel_info_buffer,
+                "offset": buf_offset,
+                "bytes_per_row": bytes_per_pixel,
+                "rows_per_image": 1,
+            },
+            copy_size=(1, 1, 1),
+        )
