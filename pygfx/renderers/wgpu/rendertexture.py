@@ -5,7 +5,7 @@ from pyshader import i32, vec2, vec4
 
 
 class RenderTexture:
-    """Class used internally to store a render texture."""
+    """Class used internally to store a render texture and meta data."""
 
     def __init__(self, format):
         self.format = format
@@ -14,11 +14,17 @@ class RenderTexture:
         self.size = (0, 0, 0)
 
     def set_texture_view(self, texture_view):
+        """Set from a texture view. Intended when the texture comes
+        from elsewhere. Make sure it matches the format!
+        """
         self.texture = None
         self.texture_view = texture_view
         self.size = self.texture_view.size
 
     def ensure_size(self, device, size):
+        """Make sure that the texture has the given size. If necessary,
+        recreates the texture and texture-view objects.
+        """
         if size != self.size:
             self.size = size
             usage = wgpu.TextureUsage.OUTPUT_ATTACHMENT | wgpu.TextureUsage.COPY_SRC
@@ -33,6 +39,7 @@ class RenderTexture:
 def render_full_screen_texture(
     device, render_texture_src, render_texture_dst, wgpu_sampler
 ):
+    """Render one texture to another."""
 
     binding_layouts = [
         {

@@ -15,8 +15,11 @@ app = QtWidgets.QApplication([])
 
 class PickingWgpuCanvas(WgpuCanvas):
     def mousePressEvent(self, event):  # noqa: N802
-        xy = event.x(), self.height() - event.y()  # renderer as origin at bottom left
-        print(renderer.get_info_at(xy))
+        # Get location in logical pixels (with origin at bottom left)
+        xy = event.x(), self.height() - event.y()
+        # Get a dict with info about that location
+        info = renderer.get_info_at(xy)
+        print(info)
 
 
 canvas = PickingWgpuCanvas()

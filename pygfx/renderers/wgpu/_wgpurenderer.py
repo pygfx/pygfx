@@ -882,7 +882,8 @@ class WgpuRenderer(Renderer):
 
     def get_info_at(self, pos):
         """Get the color at the specified point. The given pos is a 2D point
-        in logical pixels, with the origin at the bottom-left.
+        in logical pixels, with the origin at the bottom-left. Returns a dict
+        with fields: "rgba", "depth".
         """
 
         # Make pos 0..1, so we can scale it to the render texture
