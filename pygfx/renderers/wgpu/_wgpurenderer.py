@@ -90,8 +90,9 @@ class WgpuRenderer(Renderer):
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
         # The texture to render the scene to, either _canvas_texture or _color_texture
         self._scene_texture = None
-        self._post_processing = True
+        self._post_processing = False
         self._render_sampling = None
+        self._aa_ms = 1  # todo: cannot set sample_count of render_pass yet
 
         # Initialize swapchain
         self._swap_chain = self._device.configure_swap_chain(
@@ -607,7 +608,7 @@ class WgpuRenderer(Renderer):
                 "index_format": index_format,
                 "vertex_buffers": vertex_buffer_descriptors,
             },
-            sample_count=1,
+            sample_count=self._aa_ms,
             sample_mask=0xFFFFFFFF,
             alpha_to_coverage_enabled=False,
         )
@@ -825,7 +826,7 @@ class WgpuRenderer(Renderer):
                 dimension=f"{resource.dim}d",
                 format=getattr(wgpu.TextureFormat, format),
                 mip_level_count=1,
-                sample_count=1,
+                sample_count=1,  # msaa?
             )  # todo: let resource specify mip_level_count and sample_count
 
         bytes_per_pixel = resource.nbytes // (
