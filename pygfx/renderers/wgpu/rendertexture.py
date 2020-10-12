@@ -221,7 +221,7 @@ def vertex_shader(
 ):
     positions = [vec2(0, 1), vec2(0, 0), vec2(1, 1), vec2(1, 0)]
     pos = positions[index]
-    v_texcoord = pos  # noqa - shader output
+    v_texcoord = vec2(pos.x, 1.0 - pos.y)  # noqa - shader output
     out_pos = vec4(pos * 2.0 - 1.0, 0.0, 1.0)  # noqa - shader output
 
 
