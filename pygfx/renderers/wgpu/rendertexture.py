@@ -1,8 +1,11 @@
+import math
+import time
+
 import numpy as np
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import i32, vec2, vec4, Struct
+from pyshader import f32, i32, vec2, vec4, Struct
 
 from ...utils import array_from_shadertype
 
@@ -60,6 +63,8 @@ def render_full_screen_texture(
         support = 0
         k = [1, 0, 0, 0]
 
+    uniform_data["time"] = time.perf_counter()
+    uniform_data["noise"] = 0.02  # todo: make configurable at the renderer
     uniform_data["kernel"] = k
     uniform_data["support"] = support
 
@@ -203,7 +208,9 @@ def normalize_kernel(k, support):
 # %% Shaders
 
 
-texture_render_uniform_type = Struct(kernel=vec4, size=vec2, support=i32)
+texture_render_uniform_type = Struct(
+    time=f32, size=vec2, kernel=vec4, support=i32, noise=f32
+)
 
 
 @python2shader
@@ -242,5 +249,12 @@ def fragment_shader(
             texcoord = v_texcoord + vec2(x, y) * step
             w = kernel[abs(x)] * kernel[abs(y)]
             val += t_tex.sample(s_sam, texcoord) * w
+
+    # Add noise - adds a bit of a scenematic effect
+    # todo: use spirv builtin random number gen
+    xy = v_texcoord.xy
+    noise = fract(sin(xy @ vec2(12.9898, 78.233) + u_render.time) * 43758.5453)
+    noise = u_render.noise * noise
+    val += vec4(noise, noise, noise, 1.0)
 
     out_color = val  # noqa - shader output

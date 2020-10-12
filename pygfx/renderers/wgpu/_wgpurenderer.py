@@ -90,7 +90,7 @@ class WgpuRenderer(Renderer):
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
         # The texture to render the scene to, either _canvas_texture or _color_texture
         self._scene_texture = None
-        self._post_processing = False
+        self._post_processing = True
         self._render_sampling = None
         self._aa_ms = 1  # todo: cannot set sample_count of render_pass yet
 
