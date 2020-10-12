@@ -1,3 +1,4 @@
+import numpy as np
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
@@ -45,9 +46,22 @@ def render_full_screen_texture(
 
     uniform_data = array_from_shadertype(texture_render_uniform_type)
     uniform_data["size"] = render_texture_src.size[:2]
-    # todo: Gaussian function for aa kernel
-    uniform_data["kernel"] = 1, 1, 0, 0
-    uniform_data["support"] = 2
+
+    # Determine aa kernel
+    factor_x = render_texture_src.size[0] / render_texture_dst.size[0]
+    factor_y = render_texture_src.size[1] / render_texture_dst.size[1]
+    factor = (factor_x + factor_y) / 2
+    if True:  # factor > 1:
+        support = 3
+        # k = get_lanczos_kernel(2 / factor)
+        k = get_gaussian_kernel(0.5 * factor)
+        k = normalize_kernel(k, support)
+    else:
+        support = 0
+        k = [1, 0, 0, 0]
+
+    uniform_data["kernel"] = k
+    uniform_data["support"] = support
 
     uniforms = device.create_buffer_with_data(
         data=uniform_data,
@@ -138,6 +152,54 @@ def render_full_screen_texture(
     device.default_queue.submit([command_encoder.finish()])
 
 
+def get_gaussian_kernel(sigma):
+    """Get a kernel containing a Gaussian transfer function with the given sigma.
+    The kernel is [k0, k1, k2, k3] which represents a symetric kernel of
+    7 values [k3, k2, k1, k0, k1, k2, k3].
+    """
+    k = [0, 0, 0, 0]
+    for i in range(4):
+        t = i / sigma
+        k[i] = np.exp(-0.5 * t * t)
+    return k
+
+
+def get_lanczos_kernel(b):
+    """Get a kernel containing a Lanczos transfer function with bandwidth b.
+    The kernel is [k0, k1, k2, k3] which represents a symetric kernel of
+    7 values [k3, k2, k1, k0, k1, k2, k3].
+    """
+    # Code copied from visvis:
+    # https://github.com/almarklein/visvis/blob/master/wobjects/textures.py
+
+    # Define sinc function
+    def sinc(x):
+        if x == 0.0:
+            return 1.0
+        else:
+            return float(np.sin(x) / x)
+
+    # Calculate kernel values
+    a = 3.0  # Number of side lobes of sync to take into account.
+    k = [0, 0, 0, 0]
+    for t in range(4):
+        k[t] = 2 * b * sinc(2 * b * t) * sinc(2 * b * t / a)
+
+    return k
+
+
+def normalize_kernel(k, support):
+    # Normalize (take kenel size into account)
+    total = k[0]
+    if support == 1:
+        total += 2 * k[1]
+    elif support == 2:
+        total += 2 * (k[1] + k[2])
+    elif support == 3:
+        total += 2 * (k[1] + k[2] + k[3])
+    return [float(e) / total for e in k]
+
+
 # %% Shaders
 
 
@@ -175,12 +237,10 @@ def fragment_shader(
     support = min(3, u_render.support)
 
     val = vec4(0.0, 0.0, 0.0, 0.0)
-    weight = 0.0
     for y in range(-support, support + 1):
         for x in range(-support, support + 1):
             texcoord = v_texcoord + vec2(x, y) * step
             w = kernel[abs(x)] * kernel[abs(y)]
             val += t_tex.sample(s_sam, texcoord) * w
-            weight += w
 
-    out_color = val / weight  # noqa - shader output
+    out_color = val  # noqa - shader output

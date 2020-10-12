@@ -145,7 +145,7 @@ class WgpuRenderer(Renderer):
                 else:
                     size = tuple(2 * x for x in physical_size)
             elif isinstance(self._render_sampling, (int, float)):
-                size = tuple(int(x * self._render_sampling) for x in logical_size)
+                size = tuple(int(x * self._render_sampling) for x in physical_size)
             elif isinstance(self._render_sampling, tuple):
                 size = self._render_sampling[0], self._render_sampling[1]
             else:
