@@ -158,6 +158,7 @@ class WgpuRenderer(Renderer):
         camera.set_viewport_size(*logical_size)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
+        self._last_camera = camera
 
         # Get the list of objects to render (visible and having a material)
         q = self.get_render_list(scene, camera)
@@ -232,7 +233,7 @@ class WgpuRenderer(Renderer):
             ],
             depth_stencil_attachment={
                 "attachment": self._depth_texture.texture_view,
-                "depth_load_value": 10 ** 38,
+                "depth_load_value": 1.0,  # depth is 0..1
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
                 "stencil_store_op": wgpu.StoreOp.store,
@@ -895,9 +896,17 @@ class WgpuRenderer(Renderer):
     # Picking
 
     def get_info_at(self, pos):
-        """Get the color at the specified point. The given pos is a 2D point
-        in logical pixels, with the origin at the bottom-left. Returns a dict
-        with fields: "rgba", "depth".
+        """Get information about the given window location. The given
+        pos is a 2D point in logical pixels (with the origin at the
+        top-left). Returns a dict with fields:
+
+        * "rgba": The value in the color buffer. All zero's when rendering
+          directly to the screen (bypassing post-processing).
+        * "depth_value": The raw value in the depth buffer (0..1). A
+          depth value of 1.0 means that the background is picked.
+        * "position": The position in world coordinates.
+        * "distance_to_camera": The distance (in world units) from the position
+          to the camera position.
         """
 
         # Make pos 0..1, so we can scale it to the render texture
@@ -914,9 +923,20 @@ class WgpuRenderer(Renderer):
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.read_data()
+        raw_depth = data[0:4].cast("f")[0]
+
+        # Calculate world coordinates using the camera
+        # todo: how does this hold up when a renderer is used with multiple cameras?
+        camera = self._last_camera
+        pos = Vector3(2 * float_pos[0] - 1, 2 * float_pos[1] - 1, raw_depth)
+        pos.apply_matrix4(camera.projection_matrix_inverse)
+        pos.apply_matrix4(camera.matrix_world)
+
         return {
-            "depth": data[0:4].cast("f")[0],
             "rgba": tuple(data[4:8].cast("B")),
+            "depth_value": raw_depth,
+            "position": tuple(pos.to_array()),
+            "distance_to_camera": pos.distance_to(camera.position),
         }
 
     def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):

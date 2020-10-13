@@ -15,9 +15,8 @@ app = QtWidgets.QApplication([])
 
 class PickingWgpuCanvas(WgpuCanvas):
     def mousePressEvent(self, event):  # noqa: N802
-        # Get location in logical pixels (with origin at bottom left)
-        xy = event.x(), self.height() - event.y()
-        # Get a dict with info about that location
+        # Get a dict with info about the clicked location
+        xy = event.x(), event.y()
         info = renderer.get_info_at(xy)
         print(info)
 
@@ -37,6 +36,7 @@ cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 
 
+# camera = gfx.OrthographicCamera(300, 300)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
