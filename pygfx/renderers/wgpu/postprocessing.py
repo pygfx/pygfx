@@ -1,8 +1,7 @@
-import numpy as np
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import i32, vec2, vec4, Struct
+from pyshader import f32, i32, ivec2, vec2, vec4, Struct
 
 from ...utils import array_from_shadertype
 
@@ -61,7 +60,7 @@ class PostProcessingStep:
 
         self._sampler = self._device.create_sampler(
             label="render sampler",
-            mag_filter="linear",
+            mag_filter="nearest",
             min_filter="nearest",
         )
 
@@ -195,79 +194,31 @@ class SSAAPostProcessingStep(PostProcessingStep):
         )
 
     def render(self, src, dst):
-        self._uniform_data["size"] = src.size[:2]
 
-        # Determine aa kernel
+        # Get factor between texture sizes
         factor_x = src.size[0] / dst.size[0]
         factor_y = src.size[1] / dst.size[1]
         factor = (factor_x + factor_y) / 2
 
         if factor > 1:
+            # src has higher res, we can do ssaa
             sigma = 0.5 * factor
+            support = min(5, int(sigma * 3))
         else:
-            sigma = 1  # src has lower res. Smooth those pixels a bit ...
-        support = 3
-        k = get_gaussian_kernel(sigma)
-        k = normalize_kernel(k, support)
-        # todo: can use lower support if tail has small values ...
+            # src has lower res. smooth those pixels a bit
+            sigma = 1
+            support = 2
 
-        self._uniform_data["kernel"] = k
+        self._uniform_data["size"] = src.size[:2]
+        self._uniform_data["sigma"] = sigma
         self._uniform_data["support"] = support
 
         super().render(src, dst)
 
 
-def get_gaussian_kernel(sigma):
-    """Get a kernel containing a Gaussian transfer function with the given sigma.
-    The kernel is [k0, k1, k2, k3] which represents a symetric kernel of
-    7 values [k3, k2, k1, k0, k1, k2, k3].
-    """
-    k = [0, 0, 0, 0]
-    for i in range(4):
-        t = i / sigma
-        k[i] = np.exp(-0.5 * t * t)
-    return k
-
-
-def get_lanczos_kernel(b):
-    """Get a kernel containing a Lanczos transfer function with bandwidth b.
-    The kernel is [k0, k1, k2, k3] which represents a symetric kernel of
-    7 values [k3, k2, k1, k0, k1, k2, k3].
-    """
-    # Code copied from visvis:
-    # https://github.com/almarklein/visvis/blob/master/wobjects/textures.py
-
-    # Define sinc function
-    def sinc(x):
-        if x == 0.0:
-            return 1.0
-        else:
-            return float(np.sin(x) / x)
-
-    # Calculate kernel values
-    a = 3.0  # Number of side lobes of sync to take into account.
-    k = [0, 0, 0, 0]
-    for t in range(4):
-        k[t] = 2 * b * sinc(2 * b * t) * sinc(2 * b * t / a)
-
-    return k
-
-
-def normalize_kernel(k, support):
-    # Normalize (take kenel size into account)
-    total = k[0]
-    if support == 1:
-        total += 2 * k[1]
-    elif support == 2:
-        total += 2 * (k[1] + k[2])
-    elif support == 3:
-        total += 2 * (k[1] + k[2] + k[3])
-    return [float(e) / total for e in k]
-
-
 # %% Shaders
 
-ssaa_uniform_type = Struct(size=vec2, kernel=vec4, support=i32)
+ssaa_uniform_type = Struct(size=vec2, sigma=f32, support=i32)
 
 
 @python2shader
@@ -290,21 +241,29 @@ def ssaa_fragment_shader(
     u_render: (pyshader.RES_UNIFORM, (0, 2), ssaa_uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
 ):
+    # Get info about the smoothing
+    sigma = u_render.sigma
+    support = min(5, u_render.support)
 
+    # Determine distance between pixels in src texture
     step = vec2(1.0 / u_render.size.x, 1.0 / u_render.size.y)
-    kernel = [
-        u_render.kernel.x,
-        u_render.kernel.y,
-        u_render.kernel.z,
-        u_render.kernel.w,
-    ]
-    support = min(3, u_render.support)
+    # Get texcoord, and round it to the center of the source pixels.
+    # Thus, whether the sampler is linear or nearest, we get equal results.
+    ori_coord = v_texcoord.xy
+    ref_coord = vec2(ivec2(ori_coord / step)) * step + 0.5 * step
 
+    # Convolve. Here we apply a Gaussian kernel, the weight is calculated
+    # for each pixel individually based on the distance to the actual texture
+    # coordinate. This means that the textures don't even need to align.
     val = vec4(0.0, 0.0, 0.0, 0.0)
+    weight = 0.0
     for y in range(-support, support + 1):
         for x in range(-support, support + 1):
-            texcoord = v_texcoord + vec2(x, y) * step
-            w = kernel[abs(x)] * kernel[abs(y)]
-            val += t_tex.sample(s_sam, texcoord) * w
+            coord = ref_coord + vec2(x, y) * step
+            distance = length((ori_coord - coord) / step)  # in src pixels
+            t = distance / sigma
+            w = exp(-0.5 * t * t)
+            val += t_tex.sample(s_sam, coord) * w
+            weight += w
 
-    out_color = val  # noqa - shader output
+    out_color = val / weight  # noqa - shader output

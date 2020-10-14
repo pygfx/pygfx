@@ -151,10 +151,6 @@ class WgpuRenderer(Renderer):
         in a smoother final image with less jagged edges. Alternatively,
         this value can be set to e.g. 0.5 to lower* the resolution (e.g.
         for performance during interaction).
-
-        When rendering to a canvas, the used pixel ratio is rounded to
-        obtain an integer factor between the physical render size and
-        canvas size.
         """
         return self._pixel_ratio
 
@@ -200,14 +196,11 @@ class WgpuRenderer(Renderer):
             canvas_size = self._canvas.get_physical_size()
             canvas_ratio = canvas_size[0] / logical_size[0]
             if self._pixel_ratio:
-                extra_ratio = self._pixel_ratio / canvas_ratio
-                if extra_ratio > 1:
-                    extra_ratio = round(extra_ratio)  # match better with canvas
-                pixel_ratio = extra_ratio * canvas_ratio
+                pixel_ratio = self._pixel_ratio
             else:
                 pixel_ratio = canvas_ratio
                 if pixel_ratio <= 1:
-                    pixel_ratio = 2.0
+                    pixel_ratio = 2.0  # use 2 on non-hidpi displays
         else:
             pixel_ratio = self._pixel_ratio if self._pixel_ratio else 2.0
 
