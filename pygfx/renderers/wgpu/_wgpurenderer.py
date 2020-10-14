@@ -246,7 +246,6 @@ class WgpuRenderer(Renderer):
         self._render_recording(command_encoder, q)
         command_buffers = [command_encoder.finish()]
         device.default_queue.submit(command_buffers)
-        # todo: reused command encoder in all steps, or at least submit in one go?
 
         # Render each texture into the next
         for i in range(len(pp_steps)):
