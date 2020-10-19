@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import f32, i32, vec2, vec3, vec4, mat4, Array
+from pyshader import f32, i32, vec2, vec3, vec4, ivec4, mat4, Array
 
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
@@ -275,11 +275,14 @@ def vertex_shader_mesh_instanced(
 
 @python2shader
 def fragment_shader_simple(
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_id: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
     """Just draw the fragment in the mesh's color."""
     out_color = u_mesh.color  # noqa - shader output
+    out_id = ivec4(u_wobject.id, 0, 0, 0)  # noqa - shader output
 
 
 @python2shader
@@ -321,14 +324,17 @@ def fragment_shader_textured_gray_3dtex(
 @python2shader
 def fragment_shader_textured_rgba(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_id: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
     color = vec4(t_tex.sample(s_sam, v_texcoord))
     color = (color - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
     out_color = color  # noqa - shader output
+    out_id = ivec4(u_wobject.id, 0, 0, 0)  # noqa - shader output
 
 
 @python2shader
