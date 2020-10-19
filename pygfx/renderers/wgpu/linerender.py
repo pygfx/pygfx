@@ -422,7 +422,9 @@ def vertex_shader_arrow_vtxclr(
     # What i in the node list (point on the line) is this?
     i = index // 3
     # Sample the current node's color
-    color = vec4(buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3])
+    color = vec4(
+        buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3]
+    )
     # Sample the current node and either of its neighbours
     i3 = i + 1 - (i % 2) * 2  # (i + 1) if i is even else (i - 1)
     pos2 = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])
@@ -527,7 +529,9 @@ def vertex_shader_vtxclr(
     i = index // 5
 
     # Sample the current node's color
-    color = vec4(buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3])
+    color = vec4(
+        buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3]
+    )
 
     # Sample the current node and it's two neighbours, and convert to NDC
     pos1 = vec3(buf_pos[i * 3 - 3], buf_pos[i * 3 - 2], buf_pos[i * 3 - 1])
@@ -625,7 +629,9 @@ def vertex_shader_vtxclr_segment(
     # What i in the node list (point on the line) is this?
     i = index // 5
     # Sample the current node's color
-    color = vec4(buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3])
+    color = vec4(
+        buf_clr[i * 4 + 0], buf_clr[i * 4 + 1], buf_clr[i * 4 + 2], buf_clr[i * 4 + 3]
+    )
     # Sample the current node and either of its neighbours
     i3 = i + 1 - (i % 2) * 2  # (i + 1) if i is even else (i - 1)
     pos2 = vec3(buf_pos[i * 3 + 0], buf_pos[i * 3 + 1], buf_pos[i * 3 + 2])

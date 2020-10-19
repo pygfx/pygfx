@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 import pyshader  # noqa
 from pyshader import Struct, vec2, mat4
 import wgpu.backends.rs
@@ -10,6 +11,8 @@ from ...objects import WorldObject
 from ...cameras import Camera
 from ...resources import Buffer, TextureView
 from ...utils import array_from_shadertype
+
+from .postprocessing import RenderTexture, SSAAPostProcessingStep
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -68,23 +71,103 @@ class RenderInfo:
 class WgpuRenderer(Renderer):
     """A renderer that renders to a surface."""
 
-    def __init__(self, canvas):
+    def __init__(self, canvas=None, size=None, pixel_ratio=None):
+
+        # Check and normalize inputs
+        if not (canvas is None or isinstance(canvas, wgpu.gui.WgpuCanvasBase)):
+            raise TypeError("The given canvas must be None or a wgpu Canvas.")
         self._canvas = canvas
+        if not (size is None or (isinstance(size, (tuple, list)) and len(size) == 2)):
+            raise TypeError("The given size must be None or a 2-tuple.")
+        self._logical_size = (float(size[0]), float(size[1])) if size else None
+        self.pixel_ratio = pixel_ratio
 
-        self._pipelines = []
+        # Do we have enough info?
+        if canvas is None and size is None:
+            raise ValueError("WgpuRenderer needs either a canvas or a size.")
 
+        # Create adapter and device objects
         self._adapter = wgpu.request_adapter(
             canvas=canvas, power_preference="high-performance"
         )
         self._device = self._adapter.request_device(extensions=[], limits={})
 
-        self._swap_chain = self._device.configure_swap_chain(
-            canvas,
-            wgpu.TextureFormat.bgra8unorm_srgb,
+        # Prepare render targets. These are placeholders to set during
+        # each renderpass, intended to keep together the texture-view
+        # object, its size, and its format. The final (canvas) texture
+        # has bgra format, because that's what hardware seems to like,
+        # and srgb for perseptive color mapping.
+        self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
+        self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
+        # We use one or two render textures (for 2+ steps, cycle between the 2)
+        self._render_textures = []
+
+        # Prepare post-processing steps. Users can append/insert more
+        self._ssa_post_processing_step = SSAAPostProcessingStep(self._device)
+        self._postfx = []
+
+        # Prepare other properties
+        self._msaa = 1  # todo: cannot set sample_count of render_pass yet
+
+        # Initialize swapchain
+        self._swap_chain = None
+        if canvas is not None:
+            self._swap_chain = self._device.configure_swap_chain(
+                canvas, self._canvas_texture.format, wgpu.TextureUsage.OUTPUT_ATTACHMENT
+            )
+
+        # Initialize a small buffer to read pixel info into
+        self._pixel_info_buffer = self._device.create_buffer(
+            size=32,
+            usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
+
+    @property
+    def device(self):
+        """A reference to the used wgpu device."""
+        return self._device
+
+    @property
+    def postfx(self):
+        """A list of post processing steps. Users can append
+        PostProcessingStep objects here to do post-processing of the
+        rendered image.
+
+        Warning, this API is provisional.
+        """
+        # todo: is this the way to go?
+        return self._postfx
+
+    @property
+    def pixel_ratio(self):
+        """Configure the size of the render texture relative to the
+        logical size. By default (value is None) the used pixel ratio
+        follows the screens pixel ratio on high-res displays, and is 2
+        otherwise.
+
+        If the used pixel ratio causes the render texture to be larger
+        than the physical size of the canvas, SSAA is applied, resulting
+        in a smoother final image with less jagged edges. Alternatively,
+        this value can be set to e.g. 0.5 to lower* the resolution (e.g.
+        for performance during interaction).
+        """
+        return self._pixel_ratio
+
+    @pixel_ratio.setter
+    def pixel_ratio(self, value):
+        if value is None:
+            self._pixel_ratio = None
+        elif isinstance(value, (int, float)):
+            self._pixel_ratio = None if value <= 0 else float(value)
+        else:
+            raise TypeError(
+                f"Rendered.pixel_ratio expected None or number, not {value}"
+            )
 
     def render(self, scene: WorldObject, camera: Camera):
         """Main render method, called from the canvas."""
+
+        device = self._device
 
         now = time.perf_counter()  # noqa
         # Uncomment to show FPS each second
@@ -100,10 +183,43 @@ class WgpuRenderer(Renderer):
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
 
-        device = self._device
-        physical_size = self._canvas.get_physical_size()  # 2 ints
-        logical_size = self._canvas.get_logical_size()  # 2 floats
-        # pixelratio = self._canvas.get_pixel_ratio()
+        # Get logical size (as two floats). This size is constant throughout
+        # all post-processing render passes.
+        if self._logical_size:
+            logical_size = self._logical_size
+        else:
+            logical_size = self._canvas.get_logical_size()
+
+        # Determine the physical size of the render texture
+        if self._canvas:
+            canvas_size = self._canvas.get_physical_size()
+            canvas_ratio = canvas_size[0] / logical_size[0]
+            if self._pixel_ratio:
+                pixel_ratio = self._pixel_ratio
+            else:
+                pixel_ratio = canvas_ratio
+                if pixel_ratio <= 1:
+                    pixel_ratio = 2.0  # use 2 on non-hidpi displays
+        else:
+            pixel_ratio = self._pixel_ratio if self._pixel_ratio else 2.0
+
+        # Determine the physical size of the first and last render pass
+        scene_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
+        final_size = canvas_size if self._canvas else scene_size  # noqa
+
+        # Create more render textures if needed, drop some if we can
+        pp_steps = self._postfx
+        render_textures = self._render_textures
+        render_texture_count = min(2, len(pp_steps) + 1)
+        while len(render_textures) < render_texture_count:
+            render_textures.append(RenderTexture(wgpu.TextureFormat.rgba8unorm))
+        while len(render_textures) > render_texture_count:
+            render_textures.pop(-1)
+
+        # Set the size of the textures (is a no-op if the size does not change)
+        for t in render_textures:
+            t.ensure_size(device, scene_size + (1,))
+        self._depth_texture.ensure_size(device, scene_size + (1,))
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -115,7 +231,7 @@ class WgpuRenderer(Renderer):
         q = self.get_render_list(scene, camera)
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, physical_size, logical_size)
+        self._update_stdinfo_buffer(camera, scene_size, logical_size)
 
         # Ensure each wobject has pipeline info
         for wobject in q:
@@ -124,34 +240,28 @@ class WgpuRenderer(Renderer):
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_pipeline_objects is not None]
 
-        with self._swap_chain as texture_view_target:
+        # Render the scene graph (to the first texture)
+        command_encoder = device.create_command_encoder()
+        self._render_recording(command_encoder, q)
+        command_buffers = [command_encoder.finish()]
+        device.default_queue.submit(command_buffers)
 
-            # Prepare depth texture
-            if texture_view_target.size != getattr(self, "_swap_chain_size", None):
-                self._swap_chain_size = texture_view_target.size
-                self._depth_texture = device.create_texture(
-                    size=texture_view_target.size,
-                    usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-                    dimension="2d",
-                    format=wgpu.TextureFormat.depth32float,
+        # Render each texture into the next
+        for i in range(len(pp_steps)):
+            step = pp_steps[i]
+            step.render(
+                render_textures[0],
+                render_textures[1],
+            )
+            render_textures.insert(0, render_textures.pop(1))  # cycle
+
+        # If we have a canvas, we render into it, applying SSAA if possible
+        if self._canvas:
+            with self._swap_chain as texture_view_target:
+                self._canvas_texture.set_texture_view(texture_view_target)
+                self._ssa_post_processing_step.render(
+                    render_textures[0], self._canvas_texture
                 )
-                self._depth_texture_view = self._depth_texture.create_view()
-                #
-                # self._render_texture = device.create_texture(
-                #     size=texture_view_target.size,
-                #     usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT,
-                #     dimension="2d",
-                #     format=wgpu.TextureFormat.bgra8unorm_srgb,
-                # )
-                # self._render_texture_view = self._render_texture.create_view()
-
-            self._render_texture_view = texture_view_target
-
-            command_encoder = device.create_command_encoder()
-            self._render_recording(command_encoder, q)
-            self._command_buffers = [command_encoder.finish()]
-
-            device.default_queue.submit(self._command_buffers)
 
     def _render_recording(self, command_encoder, q):
 
@@ -179,18 +289,20 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines rendering to the default target
 
+        assert self._render_textures[0].texture_view
+        assert self._depth_texture.texture_view
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "attachment": self._render_texture_view,  # texture_view_target,
+                    "attachment": self._render_textures[0].texture_view,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
             depth_stencil_attachment={
-                "attachment": self._depth_texture_view,
-                "depth_load_value": 10 ** 38,
+                "attachment": self._depth_texture.texture_view,
+                "depth_load_value": 1.0,  # depth is 0..1
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
                 "stencil_store_op": wgpu.StoreOp.store,
@@ -265,13 +377,13 @@ class WgpuRenderer(Renderer):
         q.sort(key=sort_func)
         return q
 
-    def _ensure_up_to_date(self, wobject):
+    def _ensure_up_to_date(self, wobject, force=False):
         """Update the GPU objects associated with the given wobject. Returns
         quickly if no changes are needed.
         """
 
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
-        if wobject.rev > getattr(wobject, "_wgpu_rev", 0):
+        if force or wobject.rev > getattr(wobject, "_wgpu_rev", 0):
             wobject._wgpu_rev = wobject.rev
             wobject._wgpu_pipeline_infos = self._create_pipeline_infos(wobject)
             wobject._wgpu_pipeline_res = self._collect_pipeline_resources(wobject)
@@ -543,7 +655,7 @@ class WgpuRenderer(Renderer):
             },
             color_states=[
                 {
-                    "format": wgpu.TextureFormat.bgra8unorm_srgb,
+                    "format": self._render_textures[0].format,
                     "alpha_blend": (
                         wgpu.BlendFactor.one,
                         wgpu.BlendFactor.zero,
@@ -558,7 +670,7 @@ class WgpuRenderer(Renderer):
                 }
             ],
             depth_stencil_state={
-                "format": wgpu.TextureFormat.depth32float,
+                "format": self._depth_texture.format,
                 "depth_write_enabled": True,  # optional
                 "depth_compare": wgpu.CompareFunction.less,  # optional
             },
@@ -566,7 +678,7 @@ class WgpuRenderer(Renderer):
                 "index_format": index_format,
                 "vertex_buffers": vertex_buffer_descriptors,
             },
-            sample_count=1,
+            sample_count=self._msaa,
             sample_mask=0xFFFFFFFF,
             alpha_to_coverage_enabled=False,
         )
@@ -784,7 +896,7 @@ class WgpuRenderer(Renderer):
                 dimension=f"{resource.dim}d",
                 format=getattr(wgpu.TextureFormat, format),
                 mip_level_count=1,
-                sample_count=1,
+                sample_count=1,  # msaa?
             )  # todo: let resource specify mip_level_count and sample_count
 
         bytes_per_pixel = resource.nbytes // (
@@ -849,3 +961,109 @@ class WgpuRenderer(Renderer):
             # compare -> only not-None for comparison samplers!
         )
         resource._wgpu_sampler = resource.rev, sampler
+
+    # Picking
+
+    def get_info_at(self, pos):
+        """Get information about the given window location. The given
+        pos is a 2D point in logical pixels (with the origin at the
+        top-left). Returns a dict with fields:
+
+        * "ndc": The position in normalized device coordinates, the 3d element
+            being the depth (0..1). Can be translated to the position
+            in world coordinates using the camera transforms.
+        * "rgba": The value in the color buffer. All zero's when rendering
+          directly to the screen (bypassing post-processing).
+
+        """
+
+        # Make pos 0..1, so we can scale it to the render texture
+        if self._logical_size:
+            logical_size = self._logical_size
+        else:
+            logical_size = self._canvas.get_logical_size()
+        float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
+
+        can_sample_color = self._render_textures[0].texture is not None
+
+        # Sample
+        encoder = self._device.create_command_encoder()
+        self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
+        if can_sample_color:
+            self._copy_pixel(encoder, self._render_textures[0], float_pos, 4)
+        queue = self._device.default_queue
+        queue.submit([encoder.finish()])
+
+        # Collect data from the buffer
+        data = self._pixel_info_buffer.read_data()
+        depth = data[0:4].cast("f")[0]
+
+        # Note: the position in world coordinates is not included because
+        # it depends on the camera, but we don't "own" the camera.
+
+        return {
+            "ndc": (2 * float_pos[0] - 1, 2 * float_pos[1] - 1, depth),
+            "rgba": tuple(data[4:8].cast("B")) if can_sample_color else (0, 0, 0, 0),
+        }
+
+    def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):
+
+        # Map position to the texture index
+        w, h, d = render_texture.size
+        x = max(0, min(w - 1, int(float_pos[0] * w)))
+        y = max(0, min(h - 1, int(float_pos[1] * h)))
+
+        bytes_per_pixel = 4  # todo: let's derive this from the format?
+
+        encoder.copy_texture_to_buffer(
+            {
+                "texture": render_texture.texture,
+                "mip_level": 0,
+                "origin": (x, y, 0),
+            },
+            {
+                "buffer": self._pixel_info_buffer,
+                "offset": buf_offset,
+                "bytes_per_row": bytes_per_pixel,
+                "rows_per_image": 1,
+            },
+            copy_size=(1, 1, 1),
+        )
+
+    def snapshot(self, step_index=-1):
+        """Create a snapshot of the currently rendered image."""
+
+        # Prepare
+        rt = self._render_textures[step_index]
+        size = rt.size
+        bytes_per_pixel = 4
+        nbytes = bytes_per_pixel * size[0] * size[1]
+
+        # Initialize a buffer to hold pixel data
+        pixel_buffer = self._device.create_buffer(
+            size=nbytes,
+            usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
+        )
+
+        # Copy texture to buffer
+        encoder = self._device.create_command_encoder()
+        encoder.copy_texture_to_buffer(
+            {
+                "texture": rt.texture,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
+            },
+            {
+                "buffer": pixel_buffer,
+                "offset": 0,
+                "bytes_per_row": bytes_per_pixel * size[0],
+                "rows_per_image": size[1],
+            },
+            copy_size=size,
+        )
+        queue = self._device.default_queue
+        queue.submit([encoder.finish()])
+
+        # Download data from buffer
+        data = pixel_buffer.read_data()
+        return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)

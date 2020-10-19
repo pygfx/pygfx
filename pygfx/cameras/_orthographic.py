@@ -64,6 +64,6 @@ class OrthographicCamera(Camera):
             left, right, top, bottom, self.near, self.far
         )
         self.projection_matrix.premultiply(
-            Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)
+            Matrix4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1)
         )
         self.projection_matrix_inverse.get_inverse(self.projection_matrix)
