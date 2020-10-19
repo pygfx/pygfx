@@ -99,8 +99,7 @@ class WgpuRenderer(Renderer):
         # and srgb for perseptive color mapping.
         self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
-        # We keep track of multiple render textures, one for each post
-        # processing step, plus one final texture. Will be filled as needed.
+        # We use one or two render textures (for 2+ steps, cycle between the 2)
         self._render_textures = []
 
         # Prepare post-processing steps. Users can append/insert more
@@ -211,9 +210,10 @@ class WgpuRenderer(Renderer):
         # Create more render textures if needed, drop some if we can
         pp_steps = self._post_processing_steps
         render_textures = self._render_textures
-        while len(render_textures) < len(pp_steps) + 1:
+        render_texture_count = min(2, len(pp_steps) + 1)
+        while len(render_textures) < render_texture_count:
             render_textures.append(RenderTexture(wgpu.TextureFormat.rgba8unorm))
-        while len(render_textures) > len(pp_steps) + 1:
+        while len(render_textures) > render_texture_count:
             render_textures.pop(-1)
 
         # Set the size of the textures (is a no-op if the size does not change)
@@ -251,16 +251,17 @@ class WgpuRenderer(Renderer):
         for i in range(len(pp_steps)):
             step = pp_steps[i]
             step.render(
-                render_textures[i],
-                render_textures[i + 1],
+                render_textures[0],
+                render_textures[1],
             )
+            render_textures.insert(0, render_textures.pop(1))  # cycle
 
         # If we have a canvas, we render into it, applying SSAA if possible
         if self._canvas:
             with self._swap_chain as texture_view_target:
                 self._canvas_texture.set_texture_view(texture_view_target)
                 self._ssa_post_processing_step.render(
-                    render_textures[-1], self._canvas_texture
+                    render_textures[0], self._canvas_texture
                 )
 
     def _render_recording(self, command_encoder, q):
@@ -985,13 +986,13 @@ class WgpuRenderer(Renderer):
             logical_size = self._canvas.get_logical_size()
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
-        can_sample_color = self._render_textures[-1].texture is not None
+        can_sample_color = self._render_textures[0].texture is not None
 
         # Sample
         encoder = self._device.create_command_encoder()
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
-            self._copy_pixel(encoder, self._render_textures[-1], float_pos, 4)
+            self._copy_pixel(encoder, self._render_textures[0], float_pos, 4)
         queue = self._device.default_queue
         queue.submit([encoder.finish()])
 
