@@ -226,7 +226,6 @@ class WgpuRenderer(Renderer):
         camera.set_viewport_size(*logical_size)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
-        self._last_camera = camera
 
         # Get the list of objects to render (visible and having a material)
         q = self.get_render_list(scene, camera)
@@ -970,13 +969,12 @@ class WgpuRenderer(Renderer):
         pos is a 2D point in logical pixels (with the origin at the
         top-left). Returns a dict with fields:
 
+        * "ndc": The position in normalized device coordinates, the 3d element
+            being the depth (0..1). Can be translated to the position
+            in world coordinates using the camera transforms.
         * "rgba": The value in the color buffer. All zero's when rendering
           directly to the screen (bypassing post-processing).
-        * "depth_value": The raw value in the depth buffer (0..1). A
-          depth value of 1.0 means that the background is picked.
-        * "position": The position in world coordinates.
-        * "distance_to_camera": The distance (in world units) from the position
-          to the camera position.
+
         """
 
         # Make pos 0..1, so we can scale it to the render texture
@@ -998,20 +996,14 @@ class WgpuRenderer(Renderer):
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.read_data()
-        raw_depth = data[0:4].cast("f")[0]
+        depth = data[0:4].cast("f")[0]
 
-        # Calculate world coordinates using the camera
-        # todo: how does this hold up when a renderer is used with multiple cameras?
-        camera = self._last_camera
-        pos = Vector3(2 * float_pos[0] - 1, 2 * float_pos[1] - 1, raw_depth)
-        pos.apply_matrix4(camera.projection_matrix_inverse)
-        pos.apply_matrix4(camera.matrix_world)
+        # Note: the position in world coordinates is not included because
+        # it depends on the camera, but we don't "own" the camera.
 
         return {
+            "ndc": (2 * float_pos[0] - 1, 2 * float_pos[1] - 1, depth),
             "rgba": tuple(data[4:8].cast("B")) if can_sample_color else (0, 0, 0, 0),
-            "depth_value": raw_depth,
-            "position": tuple(pos.to_array()),
-            "distance_to_camera": pos.distance_to(camera.position),
         }
 
     def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):

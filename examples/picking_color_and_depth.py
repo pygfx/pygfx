@@ -18,7 +18,15 @@ class PickingWgpuCanvas(WgpuCanvas):
         # Get a dict with info about the clicked location
         xy = event.x(), event.y()
         info = renderer.get_info_at(xy)
-        print(info)
+        # Add more info
+        pos = gfx.linalg.Vector3(*info["ndc"])
+        pos.apply_matrix4(camera.projection_matrix_inverse)
+        pos.apply_matrix4(camera.matrix_world)
+        info["position"] = tuple(pos.to_array())
+        info["distance_to_camera"] = pos.distance_to(camera.position)
+        # Show
+        for key, val in info.items():
+            print(key, "=", val)
 
 
 canvas = PickingWgpuCanvas()
