@@ -55,7 +55,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-renderer.post_processing_steps.append(NoisyPostProcessingStep(renderer.device))
+renderer.postfx.append(NoisyPostProcessingStep(renderer.device))
 
 im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2, usage="sampled").get_view(

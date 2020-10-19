@@ -104,7 +104,7 @@ class WgpuRenderer(Renderer):
 
         # Prepare post-processing steps. Users can append/insert more
         self._ssa_post_processing_step = SSAAPostProcessingStep(self._device)
-        self._post_processing_steps = []
+        self._postfx = []
 
         # Prepare other properties
         self._msaa = 1  # todo: cannot set sample_count of render_pass yet
@@ -128,7 +128,7 @@ class WgpuRenderer(Renderer):
         return self._device
 
     @property
-    def post_processing_steps(self):
+    def postfx(self):
         """A list of post processing steps. Users can append
         PostProcessingStep objects here to do post-processing of the
         rendered image.
@@ -136,7 +136,7 @@ class WgpuRenderer(Renderer):
         Warning, this API is provisional.
         """
         # todo: is this the way to go?
-        return self._post_processing_steps
+        return self._postfx
 
     @property
     def pixel_ratio(self):
@@ -208,7 +208,7 @@ class WgpuRenderer(Renderer):
         final_size = canvas_size if self._canvas else scene_size  # noqa
 
         # Create more render textures if needed, drop some if we can
-        pp_steps = self._post_processing_steps
+        pp_steps = self._postfx
         render_textures = self._render_textures
         render_texture_count = min(2, len(pp_steps) + 1)
         while len(render_textures) < render_texture_count:
