@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import f32, i32, vec2, vec3, vec4, ivec4, mat4, Array
+from pyshader import f32, i32, vec2, vec3, vec4, ivec2, ivec4, mat4, Array
 
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
@@ -60,6 +60,18 @@ def mesh_renderer(wobject, render_info):
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
     bindings1 = {}
+
+    # todo: clean this up
+    # Overload - use storage buffers for everything
+    # Note that this assumes an index buffer
+    n = geometry.index.data.size
+    index_buffer = None
+    vertex_buffers = {}
+    bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
+    bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
+    bindings1[4] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
+    if getattr(geometry, "texcoords", None) is not None:
+        bindings1[5] = wgpu.BindingType.readonly_storage_buffer, geometry.texcoords
 
     if material.map is not None:
         if isinstance(material.map, Texture):
@@ -155,38 +167,113 @@ def mesh_renderer(wobject, render_info):
 # %% Shaders
 
 
+# Below is a vertex shader using vertex buffers. This is likely more
+# efficient, but then we don't have the info we need to support picking :(
+# We could consider adding special picking materials that are rendered to
+# the pick texture in a separate render pass, or being able to turn off picking.
+# Anyway, I don't expect the performance loss is significant in most cases ...
+#
+# @python2shader
+# def vertex_shader_mesh(
+#     index: (pyshader.RES_INPUT, "VertexId", "i32"),
+#     in_pos: (pyshader.RES_INPUT, 0, vec3),
+#     in_texcoord: (pyshader.RES_INPUT, 1, vec2),
+#     in_normal: (pyshader.RES_INPUT, 2, vec3),
+#     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
+#     v_texcoord: (pyshader.RES_OUTPUT, 0, vec2),
+#     v_normal: (pyshader.RES_OUTPUT, 1, vec3),
+#     v_view: (pyshader.RES_OUTPUT, 2, vec3),
+#     v_light: (pyshader.RES_OUTPUT, 3, vec3),
+#     v_face_idx: (pyshader.RES_OUTPUT, 4, vec2),
+#     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
+#     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
+# ):
+#     world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
+#     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
+#
+#     ndc_to_world = matrix_inverse(
+#         u_stdinfo.cam_transform * u_stdinfo.projection_transform
+#     )
+#
+#     normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
+#
+#     view_vec4 = ndc_to_world * vec4(0, 0, 1, 1)
+#     view_vec = normalize(view_vec4.xyz / view_vec4.w)
+#
+#     out_pos = ndc_pos  # noqa - shader output
+#     v_texcoord = in_texcoord  # noqa - shader output
+#
+#     # Vectors for lighting, all in world coordinates
+#     v_normal = normal_vec  # noqa
+#     v_view = view_vec  # noqa
+#     v_light = view_vec  # noqa
+#
+#     face_idx = index // 3  # Every 3 subsequent vertices form a face
+#     v_face_idx = vec2(face_idx // 1000000, face_idx % 1000000)
+
+
 @python2shader
 def vertex_shader_mesh(
-    in_pos: (pyshader.RES_INPUT, 0, vec3),
-    in_texcoord: (pyshader.RES_INPUT, 1, vec2),
-    in_normal: (pyshader.RES_INPUT, 2, vec3),
+    index: (pyshader.RES_INPUT, "VertexId", "i32"),
+    buf_indices: (pyshader.RES_BUFFER, (1, 2), Array(i32)),
+    buf_pos: (pyshader.RES_BUFFER, (1, 3), Array(f32)),
+    buf_normal: (pyshader.RES_BUFFER, (1, 4), Array(f32)),
+    buf_texcoord: (pyshader.RES_BUFFER, (1, 5), Array(f32)),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_texcoord: (pyshader.RES_OUTPUT, 0, vec2),
     v_normal: (pyshader.RES_OUTPUT, 1, vec3),
     v_view: (pyshader.RES_OUTPUT, 2, vec3),
     v_light: (pyshader.RES_OUTPUT, 3, vec3),
+    v_face_idx: (pyshader.RES_OUTPUT, 4, vec4),
+    v_weights: (pyshader.RES_OUTPUT, 5, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
 ):
-    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
+
+    # Select what face we're at
+    face_index = index // 3
+    sub_index = index % 3
+    i1 = buf_indices[face_index * 3 + 0]
+    i2 = buf_indices[face_index * 3 + 1]
+    i3 = buf_indices[face_index * 3 + 2]
+    i0 = [i1, i2, i3][sub_index]
+
+    # Vertex positions of this face, in local object coordinates
+    raw_pos = vec3(buf_pos[i0 * 3 + 0], buf_pos[i0 * 3 + 1], buf_pos[i0 * 3 + 2])
+    world_pos = u_wobject.world_transform * vec4(raw_pos, 1.0)
     ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
 
     ndc_to_world = matrix_inverse(
         u_stdinfo.cam_transform * u_stdinfo.projection_transform
     )
 
-    normal_vec = u_wobject.world_transform * vec4(in_normal.xyz, 1.0)
+    normal = vec3(
+        buf_normal[i0 * 3 + 0], buf_normal[i0 * 3 + 1], buf_normal[i0 * 3 + 2]
+    )
+    normal = (u_wobject.world_transform * vec4(normal.xyz, 1.0)).xyz
 
     view_vec4 = ndc_to_world * vec4(0, 0, 1, 1)
     view_vec = normalize(view_vec4.xyz / view_vec4.w)
 
-    out_pos = ndc_pos  # noqa - shader output
-    v_texcoord = in_texcoord  # noqa - shader output
-
     # Vectors for lighting, all in world coordinates
-    v_normal = normal_vec  # noqa
+    v_normal = normal  # noqa
     v_view = view_vec  # noqa
     v_light = view_vec  # noqa
+
+    texcoord = vec2(buf_texcoord[i0 * 2 + 0], buf_texcoord[i0 * 2 + 1])
+    v_texcoord = texcoord  # noqa - shader output
+
+    out_pos = ndc_pos  # noqa - shader output
+
+    # Set varying for picking. We store the face_index, and 3 weights
+    # that indicate how close the fragment is to each vertex. This
+    # allows the selection of the nearest vertex or edge.
+    # Note that integers larger than about 4M loose too much precision
+    # when passed as a varyings (on my machine). We can then use two
+    # values to get more bits ...
+    # face_index_2 = vec2(face_index // 1000000, face_index % 1000000)
+    face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]
+    v_face_idx = vec4(face_index, face_weights)  # noqa
 
 
 # todo: *sigh* it looks like we do need some form of templating
@@ -275,37 +362,53 @@ def vertex_shader_mesh_instanced(
 
 @python2shader
 def fragment_shader_simple(
+    v_face_idx: (pyshader.RES_INPUT, 4, vec4),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
-    out_id: (pyshader.RES_OUTPUT, 1, ivec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec2),
 ):
     """Just draw the fragment in the mesh's color."""
     out_color = u_mesh.color  # noqa - shader output
-    out_id = ivec4(u_wobject.id, 0, 0, 0)  # noqa - shader output
+    weight_8bit = ivec3(v_face_idx.yzw * 255.0 + 0.5)
+    weight_num = weight_8bit.x * 65536 + weight_8bit.y * 256 + weight_8bit.z
+    out_pick = ivec4(u_wobject.id, v_face_idx[0] + 0.5, weight_num, 0)  # noqa
 
 
 @python2shader
 def fragment_shader_normals(
     v_normal: (pyshader.RES_INPUT, 1, vec3),
+    v_face_idx: (pyshader.RES_INPUT, 4, vec4),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec2),
 ):
     """Draws the mesh in a color derived from the normal."""
     v = normalize(v_normal) * 0.5 + 0.5
     out_color = vec4(v, 1.0)  # noqa - shader output
+    weight_8bit = ivec3(v_face_idx.yzw * 255.0 + 0.5)
+    weight_num = weight_8bit.x * 65536 + weight_8bit.y * 256 + weight_8bit.z
+    out_pick = ivec4(u_wobject.id, v_face_idx[0] + 0.5, weight_num, 0)  # noqa
 
 
 @python2shader
 def fragment_shader_textured_gray(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    v_face_idx: (pyshader.RES_INPUT, 4, vec4),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec2),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
     val = (val - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
     out_color = vec4(val, val, val, 1.0)  # noqa - shader output
+
+    weight_8bit = ivec3(v_face_idx.yzw * 255.0 + 0.5)
+    weight_num = weight_8bit.x * 65536 + weight_8bit.y * 256 + weight_8bit.z
+    out_pick = ivec4(u_wobject.id, v_face_idx[0] + 0.5, weight_num, 0)  # noqa
 
 
 @python2shader
@@ -324,26 +427,35 @@ def fragment_shader_textured_gray_3dtex(
 @python2shader
 def fragment_shader_textured_rgba(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    v_face_idx: (pyshader.RES_INPUT, 4, vec4),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
-    out_id: (pyshader.RES_OUTPUT, 1, ivec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
     color = vec4(t_tex.sample(s_sam, v_texcoord))
     color = (color - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
     out_color = color  # noqa - shader output
-    out_id = ivec4(u_wobject.id, 0, 0, 0)  # noqa - shader output
+
+    # The picking output consists of the wobject id, the face_index, and the
+    # face_weights (the weights are encoded into a single int32).
+    weight_8bit = ivec3(v_face_idx.yzw * 255.0 + 0.5)
+    weight_num = weight_8bit.x * 65536 + weight_8bit.y * 256 + weight_8bit.z
+    out_pick = ivec4(u_wobject.id, v_face_idx[0] + 0.5, weight_num, 0)  # noqa
 
 
 @python2shader
 def fragment_shader_phong(
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     v_normal: (pyshader.RES_INPUT, 1, vec3),
     v_view: (pyshader.RES_INPUT, 2, vec3),
     v_light: (pyshader.RES_INPUT, 3, vec3),
+    v_face_idx: (pyshader.RES_INPUT, 4, vec4),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec2),
 ):
     # todo: configure lights, and multiple lights
 
@@ -382,17 +494,26 @@ def fragment_shader_phong(
     final_color = albeido * (ambient_color + diffuse_color) + specular_color
     out_color = vec4(final_color, u_mesh.color.a)  # noqa - shader output
 
+    # The picking output consists of the wobject id, the face_index, and the
+    # face_weights (the weights are encoded into a single int32).
+    weight_8bit = ivec3(v_face_idx.yzw * 255.0 + 0.5)
+    weight_num = weight_8bit.x * 65536 + weight_8bit.y * 256 + weight_8bit.z
+    out_pick = ivec4(u_wobject.id, v_face_idx[0] + 0.5, weight_num, 0)  # noqa
+
 
 @python2shader
 def fragment_shader_textured_rgba_phong(
-    v_texcoord: (pyshader.RES_INPUT, 0, vec2),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 1), "2d i32"),
+    v_texcoord: (pyshader.RES_INPUT, 0, vec2),
     v_normal: (pyshader.RES_INPUT, 1, vec3),
     v_view: (pyshader.RES_INPUT, 2, vec3),
     v_light: (pyshader.RES_INPUT, 3, vec3),
+    v_face_idx: (pyshader.RES_INPUT, 4, vec4),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec2),
 ):
     color = vec4(t_tex.sample(s_sam, v_texcoord))
     color = (color - u_mesh.clim[0]) / (u_mesh.clim[1] - u_mesh.clim[0])
@@ -431,6 +552,10 @@ def fragment_shader_textured_rgba_phong(
     # Put together
     final_color = albeido * (ambient_color + diffuse_color) + specular_color
     out_color = vec4(final_color, color.a)  # noqa - shader output
+
+    weight_8bit = ivec3(v_face_idx.yzw * 255.0 + 0.5)
+    weight_num = weight_8bit.x * 65536 + weight_8bit.y * 256 + weight_8bit.z
+    out_pick = ivec4(u_wobject.id, v_face_idx[0] + 0.5, weight_num, 0)  # noqa
 
 
 # %% Mesh slice

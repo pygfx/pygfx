@@ -36,6 +36,14 @@ class MeshBasicMaterial(Material):
                 raise AttributeError(f"No attribute '{argname}'")
             setattr(self, argname, val)
 
+    def _wgpu_get_pick_info(self, pick_value):
+        # Friend method of renderer. Private for now.
+        face_index = pick_value[1]
+        weights = pick_value[2]
+        weights = (weights & 0xFF0000) / 65536, (weights & 0xFF00) / 256, weights & 0xFF
+        weights = weights[0] / 255, weights[1] / 255, weights[2] / 255
+        return {"face_index": face_index, "face_weights": weights}
+
     @property
     def color(self):
         """The uniform color of the mesh, as an rgba tuple.
@@ -74,6 +82,9 @@ class MeshNormalMaterial(MeshBasicMaterial):
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):
     """A material that shows surface normals as lines sticking out of the mesh."""
+
+    def _wgpu_get_pick_info(self, pick_value):
+        return {}
 
 
 # todo: MeshLambertMaterial(MeshBasicMaterial):

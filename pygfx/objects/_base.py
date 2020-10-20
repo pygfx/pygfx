@@ -7,9 +7,12 @@ from ..linalg import Vector3, Matrix4, Quaternion
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
 
-# Keep track of id's
+# Keep track of id's. About the max:
+# * 2_147_483_647 (2**31 -1) max number for signed i32.
+# *    16_777_216 max integer that can be stored exactly in f32
+# *     4_000_000 max integer that can survive being passed as a varying
 _idmap = weakref.WeakKeyDictionary()
-_idmax = 2 ** 31  # non-inclusive
+_idmax = 4_000_001  # non-inclusive
 
 
 class ResourceContainer:

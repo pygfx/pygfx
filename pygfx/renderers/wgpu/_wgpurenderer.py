@@ -100,7 +100,7 @@ class WgpuRenderer(Renderer):
         # and srgb for perseptive color mapping.
         self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
-        self._id_texture = RenderTexture(wgpu.TextureFormat.rgba32uint)
+        self._pick_texture = RenderTexture(wgpu.TextureFormat.rgba32sint)
         # We use one or two render textures (for 2+ steps, cycle between the 2)
         self._render_textures = []
 
@@ -125,7 +125,7 @@ class WgpuRenderer(Renderer):
         )
 
         # Keep track of object ids
-        self._id_map = weakref.WeakValueDictionary()
+        self._pick_map = weakref.WeakValueDictionary()
 
     @property
     def device(self):
@@ -226,7 +226,7 @@ class WgpuRenderer(Renderer):
             t.ensure_size(device, scene_size + (1,))
         self._depth_texture.ensure_size(device, scene_size + (1,))
         # todo: can I make the pick texture smaller, or 2-element instead of 4?
-        self._id_texture.ensure_size(device, scene_size + (1,))
+        self._pick_texture.ensure_size(device, scene_size + (1,))
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -237,7 +237,7 @@ class WgpuRenderer(Renderer):
         # Get the list of objects to render (visible and having a material)
         q = self.get_render_list(scene, camera)
         for wobject in q:
-            self._id_map[wobject.id] = wobject
+            self._pick_map[wobject.id] = wobject
 
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_size, logical_size)
@@ -300,7 +300,7 @@ class WgpuRenderer(Renderer):
 
         assert self._render_textures[0].texture_view
         assert self._depth_texture.texture_view
-        assert self._id_texture.texture_view
+        assert self._pick_texture.texture_view
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
@@ -310,7 +310,7 @@ class WgpuRenderer(Renderer):
                     "store_op": wgpu.StoreOp.store,
                 },
                 {
-                    "attachment": self._id_texture.texture_view,
+                    "attachment": self._pick_texture.texture_view,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
@@ -685,7 +685,7 @@ class WgpuRenderer(Renderer):
                     "write_mask": wgpu.ColorWrite.ALL,
                 },
                 {
-                    "format": self._id_texture.format,
+                    "format": self._pick_texture.format,
                     "alpha_blend": (
                         wgpu.BlendFactor.one,
                         wgpu.BlendFactor.zero,
@@ -1021,7 +1021,7 @@ class WgpuRenderer(Renderer):
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
             self._copy_pixel(encoder, self._render_textures[0], float_pos, 4)
-        self._copy_pixel(encoder, self._id_texture, float_pos, 8)
+        self._copy_pixel(encoder, self._pick_texture, float_pos, 8)
         queue = self._device.default_queue
         queue.submit([encoder.finish()])
 
@@ -1029,18 +1029,22 @@ class WgpuRenderer(Renderer):
         data = self._pixel_info_buffer.read_data()
         depth = data[0:4].cast("f")[0]
         color = tuple(data[4:8].cast("B"))
-        id = tuple(data[8:24].cast("I"))
-
-        wobject = self._id_map.get(id[0], None)
+        pick_value = tuple(data[8:24].cast("i"))
+        wobject = self._pick_map.get(pick_value[0], None)
 
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
 
-        return {
+        info = {
             "ndc": (2 * float_pos[0] - 1, 2 * float_pos[1] - 1, depth),
             "rgba": color if can_sample_color else (0, 0, 0, 0),
             "world_object": wobject,
         }
+
+        if wobject and hasattr(wobject, "material"):
+            pick_info = wobject.material._wgpu_get_pick_info(pick_value)
+            info.update(pick_info)
+        return info
 
     def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):
 
