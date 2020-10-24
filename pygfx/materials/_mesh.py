@@ -38,11 +38,12 @@ class MeshBasicMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # Friend method of renderer. Private for now.
-        face_index = pick_value[1]
-        weights = pick_value[2]
+        inst = pick_value[1]
+        face = pick_value[2]
+        weights = pick_value[3]
         weights = (weights & 0xFF0000) / 65536, (weights & 0xFF00) / 256, weights & 0xFF
         weights = weights[0] / 255, weights[1] / 255, weights[2] / 255
-        return {"face_index": face_index, "face_weights": weights}
+        return {"instance_index": inst, "face_index": face, "face_weights": weights}
 
     @property
     def color(self):

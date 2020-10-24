@@ -1031,7 +1031,6 @@ class WgpuRenderer(Renderer):
         color = tuple(data[4:8].cast("B"))
         pick_value = tuple(data[8:24].cast("i"))
         wobject = self._pick_map.get(pick_value[0], None)
-
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
 
