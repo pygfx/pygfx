@@ -12,7 +12,7 @@ from ..utils import array_from_shadertype
 # *    16_777_216 max integer that can be stored exactly in f32
 # *     4_000_000 max integer that can survive being passed as a varying
 _idmap = weakref.WeakKeyDictionary()
-_idmax = 4_000_001  # non-inclusive
+_idmax = 16_777_217  # non-inclusive
 
 
 class ResourceContainer:
