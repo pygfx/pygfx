@@ -267,8 +267,8 @@ def vertex_shader_mesh(
     # edge. Note that integers larger than about 4M loose too much
     # precision when passed as a varyings (on my machine). We therefore
     # encode them in two values.
-    v_face_idx = vec4(0.0, 0.0, face_index // 10000, face_index % 10000)
-    v_face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]
+    v_face_idx = vec4(0.0, 0.0, face_index // 10000, face_index % 10000)  # noqa
+    v_face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
 
 
 # todo: *sigh* it looks like we do need some form of templating
@@ -375,13 +375,14 @@ def vertex_shader_mesh_instanced(
     out_pos = ndc_pos  # noqa - shader output
 
     # Set varying for picking. We store the face_index, and 3 weights
-    v_face_idx = vec4(
+    face_idx = vec4(
         instance_id // 10000,
         instance_id % 10000,
         face_index // 10000,
         face_index % 10000,
     )
-    v_face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]
+    v_face_idx = face_idx  # noqa
+    v_face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
 
 
 @python2shader
@@ -603,12 +604,14 @@ def vertex_shader_mesh_slice(
     v_dist2center: (pyshader.RES_OUTPUT, 0, vec2),
     v_segment_length: (pyshader.RES_OUTPUT, 1, f32),
     v_segment_width: (pyshader.RES_OUTPUT, 2, f32),
+    v_face_idx: (pyshader.RES_OUTPUT, 3, vec4),
+    v_face_weights: (pyshader.RES_OUTPUT, 4, vec3),
 ):
     # This vertex shader uses VertexId and storage buffers instead of
     # vertex buffers. It creates 6 vertices for each face in the mesh,
     # drawn with triangle-list. For the faces that cross the plane, we
-    # draw a (thick) line segment with round caps. Other faces become
-    # degenerate triangles.
+    # draw a (thick) line segment with round caps (we need 6 verts for that).
+    # Other faces become degenerate triangles.
 
     # Prepare some numbers
     screen_factor = u_stdinfo.logical_size.xy / 2.0
@@ -647,25 +650,13 @@ def vertex_shader_mesh_slice(
     p, u = pos3.xyz, pos1.xyz - pos3.xyz
     t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / (n @ u)
 
-    # Get the positions where the frame intersects the plane
-    pos12, pos23, pos31 = mix(pos1, pos2, t1), mix(pos2, pos3, t2), mix(pos3, pos1, t3)
-    pos00 = pos1
-
     # Selectors
     b1 = i32(t1 > 0.0) * i32(t1 < 1.0) * 4
     b2 = i32(t2 > 0.0) * i32(t2 < 1.0) * 2
     b3 = i32(t3 > 0.0) * i32(t3 < 1.0) * 1
-
-    # b1+b2+b3     000    001    010    011    100    101    110    111
-    positions_a = [pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12]
-    positions_b = [pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23]
-
-    # Select the two positions that define the line segment
     pos_index = b1 + b2 + b3
-    pos_a = positions_a[pos_index]
-    pos_b = positions_b[pos_index]
 
-    if pos_index == 0:  # or n@u == 0
+    if pos_index < 3:  # or n@u == 0
         # Just return the same vertex, resulting in degenerate triangles
         wpos1 = vec4(pos1, 1.0)
         the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos1
@@ -673,6 +664,28 @@ def vertex_shader_mesh_slice(
         segment_length = 0.0
 
     else:
+        # Get the positions where the frame intersects the plane
+        pos00 = pos1
+        pos12 = mix(pos1, pos2, t1)
+        pos23 = mix(pos2, pos3, t2)
+        pos31 = mix(pos3, pos1, t3)
+        # b1+b2+b3     000    001    010    011    100    101    110    111
+        positions_a = [pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12]
+        positions_b = [pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23]
+        # Select the two positions that define the line segment
+        pos_a = positions_a[pos_index]
+        pos_b = positions_b[pos_index]
+
+        # Same for face weights
+        fw00 = vec3(0.5, 0.5, 0.5)
+        fw12 = mix(vec3(1, 0, 0), vec3(0, 1, 0), t1)
+        fw23 = mix(vec3(0, 1, 0), vec3(0, 0, 1), t2)
+        fw31 = mix(vec3(0, 0, 1), vec3(1, 0, 0), t3)
+        fws_a = [fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw12]
+        fws_b = [fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw23]
+        fw_a = fws_a[pos_index]
+        fw_b = fws_b[pos_index]
+
         # Go from local coordinates to NDC
         wpos_a = vec4(pos_a, 1.0)
         wpos_b = vec4(pos_b, 1.0)
@@ -720,6 +733,10 @@ def vertex_shader_mesh_slice(
         # Define the local coordinate in physical pixels
         the_coord = the_vec * pvec_local
 
+        # Picking info
+        v_face_idx = vec4(0.0, 0.0, face_index // 10000, face_index % 10000)  # noqa
+        v_face_weights = mix(fw_a, fw_b, the_vec.x * 0.5 + 0.5)  # noqa
+
     # Shader output
     out_pos = the_pos  # noqa
     v_dist2center = the_coord * l2p  # noqa
@@ -733,11 +750,14 @@ def fragment_shader_mesh_slice(
     v_dist2center: (pyshader.RES_INPUT, 0, vec2),
     v_segment_length: (pyshader.RES_INPUT, 1, f32),
     v_segment_width: (pyshader.RES_INPUT, 2, f32),
+    v_face_idx: (pyshader.RES_INPUT, 3, vec4),
+    v_face_weights: (pyshader.RES_INPUT, 4, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
     # Discart fragments that are too far from the centerline. This makes round caps.
     # Note that we operate in physical pixels here.
@@ -752,3 +772,8 @@ def fragment_shader_mesh_slice(
     # Set color
     color = u_material.color
     out_color = vec4(color.rgb, min(1.0, color.a) * alpha)  # noqa - shader assign
+
+    # Set pick info
+    face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
+    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
