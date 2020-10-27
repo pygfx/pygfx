@@ -30,9 +30,8 @@ class PointsMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # Friend method of renderer. Private for now.
-        instance = pick_value[
-            1
-        ]  # Simply zero while renderer doesn't support instancing
+        # The instance is zero while renderer doesn't support instancing
+        instance = pick_value[1]
         vertex = pick_value[2]
         return {"instance_index": instance, "vertex_index": vertex}
 

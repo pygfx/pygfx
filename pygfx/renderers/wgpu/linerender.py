@@ -1,6 +1,6 @@
 import wgpu  # only for flags/enums
 import pyshader
-from pyshader import Struct, i32, f32, vec2, vec3, vec4, Array
+from pyshader import Struct, i32, f32, vec2, vec3, vec4, ivec4, Array
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...utils import array_from_shadertype
@@ -118,6 +118,7 @@ def vertex_shader(
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_line_width_p: (pyshader.RES_OUTPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_OUTPUT, 1, vec2),
+    v_vertex_idx: (pyshader.RES_OUTPUT, 2, vec2),
 ):
     # This vertex shader uses VertexId and storage buffers instead of
     # vertex buffers. It creates 5 vertices for each point on the line.
@@ -237,6 +238,7 @@ def vertex_shader(
     out_pos = vec4((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw)  # noqa
     v_line_width_p = half_line_width * 2.0 * l2p  # noqa
     v_vec_from_node_p = the_vec * l2p  # noqa
+    v_vertex_idx = vec2(i // 10000, i % 10000)  # noqa
 
 
 @pyshader.python2shader
@@ -244,8 +246,11 @@ def fragment_shader(
     in_coord: (pyshader.RES_INPUT, "FragCoord", vec4),
     v_line_width_p: (pyshader.RES_INPUT, 0, f32),
     v_vec_from_node_p: (pyshader.RES_INPUT, 1, vec2),
+    v_vertex_idx: (pyshader.RES_INPUT, 2, vec2),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Line.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), LineMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
     out_depth: (pyshader.RES_OUTPUT, "FragDepth", f32),
 ):
     # Discard fragments outside of the radius. This is what makes round
@@ -271,6 +276,10 @@ def fragment_shader(
     # Set color
     color = u_material.color
     out_color = vec4(color.rgb, min(1.0, color.a) * alpha)  # noqa - shader assign
+    # Set picking info. Yes, the vertex_id interpolates correctly in encoded form.
+    vf = f32(v_vertex_idx.x * 10000.0 + v_vertex_idx.y)
+    vi = i32(vf + 0.5)
+    out_pick = ivec4(u_wobject.id, 0, vi, (vf - f32(vi)) * 255.0)  # noqa
 
 
 @pyshader.python2shader

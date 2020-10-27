@@ -33,9 +33,11 @@ scene = gfx.Scene()
 xx = np.linspace(-50, 50, 10)
 yy = np.random.uniform(20, 50, 10)
 geometry = gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)])
-material = gfx.PointsMaterial(color=(0, 1, 1, 1), size=16)
-points = gfx.Points(geometry, material)
-scene.add(points)
+if True:  # Set to False to try this for a line
+    ob = gfx.Points(geometry, gfx.PointsMaterial(color=(0, 1, 1, 1), size=16))
+else:
+    ob = gfx.Line(geometry, gfx.LineMaterial(color=(0, 1, 1, 1), thickness=10))
+scene.add(ob)
 
 camera = gfx.OrthographicCamera(120, 120)
 

@@ -21,6 +21,14 @@ class LineMaterial(Material):
 
         self._vertex_colors = vertex_colors
 
+    def _wgpu_get_pick_info(self, pick_value):
+        # Friend method of renderer. Private for now.
+        # The instance is zero while renderer doesn't support instancing
+        instance = pick_value[1]
+        vertex = pick_value[2]
+        coord = pick_value[3] / 255
+        return {"instance_index": instance, "vertex_index": vertex, "subcoord": coord}
+
     @property
     def color(self):
         return self.uniform_buffer.data["color"]
