@@ -319,7 +319,7 @@ class WgpuRenderer(Renderer):
             ],
             depth_stencil_attachment={
                 "attachment": self._depth_texture.texture_view,
-                "depth_load_value": 1.0,  # depth is 0..1
+                "depth_load_value": 2.0,  # depth is 0..1, make initial value > 1
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
                 "stencil_store_op": wgpu.StoreOp.store,
