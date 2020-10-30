@@ -1,4 +1,5 @@
 import gc
+import random
 import weakref
 
 from pyshader import Struct, mat4, i32
@@ -97,12 +98,13 @@ class WorldObject(ResourceContainer):
         self.render_order = 0
 
         # See if we reached max number of objects. If so, try cleanup and try again.
-        if len(_idmap) >= _idmax:
+        # Actually, stop earlier to prevent that while loop below to become slow.
+        if len(_idmap) >= 0.75 * _idmax:
             gc.collect()
             if len(_idmap) >= _idmax:
                 raise RuntimeError("Max number of object reached")
         # Set id
-        self._id = id(self) % _idmax
+        self._id = random.randint(1, _idmax - 1)
         while self._id in _idmap.values():
             self._id = (self._id + 1) % _idmax
         _idmap[self] = self._id
