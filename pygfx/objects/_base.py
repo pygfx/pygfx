@@ -11,7 +11,7 @@ from ..utils import array_from_shadertype
 # Keep track of id's. About the max:
 # * 2_147_483_647 (2**31 -1) max number for signed i32.
 # *    16_777_216 max integer that can be stored exactly in f32
-# *     4_000_000 max integer that can survive being passed as a varying
+# *     4_000_000 max integer that survives being passed as a varying (in my tests)
 _idmap = weakref.WeakKeyDictionary()
 _idmax = 16_777_217  # non-inclusive
 
@@ -99,10 +99,11 @@ class WorldObject(ResourceContainer):
 
         # See if we reached max number of objects. If so, try cleanup and try again.
         # Actually, stop earlier to prevent that while loop below to become slow.
-        if len(_idmap) >= 0.75 * _idmax:
+        max_items = 0.75 * _idmax
+        if len(_idmap) >= max_items:
             gc.collect()
-            if len(_idmap) >= _idmax:
-                raise RuntimeError("Max number of object reached")
+            if len(_idmap) >= max_items:
+                raise RuntimeError("Max number of objects reached")
         # Set id
         self._id = random.randint(1, _idmax - 1)
         while self._id in _idmap.values():

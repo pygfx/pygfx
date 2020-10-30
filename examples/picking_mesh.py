@@ -1,5 +1,6 @@
 """
-Example showing picking a mesh.
+Example showing picking a mesh. Showing two meshes that can be clicked
+on. Upon clicking, the vertex closest to the pick location is moved.
 """
 
 # todo: if we have per-vertex coloring, we can paint on the mesh instead :D
@@ -10,9 +11,6 @@ import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 
 class PickingWgpuCanvas(WgpuCanvas):
@@ -38,6 +36,7 @@ class PickingWgpuCanvas(WgpuCanvas):
             wobject.geometry.positions.update_range(vertex_index, 1)
 
 
+app = QtWidgets.QApplication([])
 canvas = PickingWgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

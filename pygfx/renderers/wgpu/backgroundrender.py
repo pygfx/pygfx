@@ -62,7 +62,7 @@ def vertex_shader_skybox(
     ]
     # Select the current position, and create another pos just behind it
     ndc_pos1 = positions[index]
-    ndc_pos2 = vec4(ndc_pos1.xy, ndc_pos1.z + 0.1, ndc_pos1.z)
+    ndc_pos2 = vec4(ndc_pos1.xy, ndc_pos1.z + 0.1, ndc_pos1.w)
     # Project both points to world coordinates
     inv_proj = matrix_inverse(
         u_stdinfo.projection_transform

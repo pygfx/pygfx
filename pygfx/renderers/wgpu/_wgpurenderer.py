@@ -100,6 +100,8 @@ class WgpuRenderer(Renderer):
         # and srgb for perseptive color mapping.
         self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
+        # The pick texture has 4 channels, object id, and then 3 more, e.g.
+        # the instance nr, vertex nr and weights.
         self._pick_texture = RenderTexture(wgpu.TextureFormat.rgba32sint)
         # We use one or two render textures (for 2+ steps, cycle between the 2)
         self._render_textures = []
@@ -225,7 +227,6 @@ class WgpuRenderer(Renderer):
         for t in render_textures:
             t.ensure_size(device, scene_size + (1,))
         self._depth_texture.ensure_size(device, scene_size + (1,))
-        # todo: can I make the pick texture smaller, or 2-element instead of 4?
         self._pick_texture.ensure_size(device, scene_size + (1,))
 
         # Ensure that matrices are up-to-date

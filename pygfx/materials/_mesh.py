@@ -37,7 +37,6 @@ class MeshBasicMaterial(Material):
             setattr(self, argname, val)
 
     def _wgpu_get_pick_info(self, pick_value):
-        # Friend method of renderer. Private for now.
         inst = pick_value[1]
         face = pick_value[2]
         weights = pick_value[3]
@@ -85,7 +84,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
     """A material that shows surface normals as lines sticking out of the mesh."""
 
     def _wgpu_get_pick_info(self, pick_value):
-        return {}
+        return {}  # No picking for normal lines
 
 
 # todo: MeshLambertMaterial(MeshBasicMaterial):

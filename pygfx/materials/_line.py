@@ -22,7 +22,6 @@ class LineMaterial(Material):
         self._vertex_colors = vertex_colors
 
     def _wgpu_get_pick_info(self, pick_value):
-        # Friend method of renderer. Private for now.
         # The instance is zero while renderer doesn't support instancing
         instance = pick_value[1]
         vertex = pick_value[2]

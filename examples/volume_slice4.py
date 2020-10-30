@@ -16,7 +16,7 @@ class WgpuCanvasWithScroll(WgpuCanvas):
         scroll(degrees)
 
     def mousePressEvent(self, event):  # noqa: N802
-        # Get a dict with info about the clicked location
+        # Print the voxel coordinate being clicked
         xy = event.x(), event.y()
         info = renderer.get_info_at(xy)
         if "xyz" in info:
@@ -24,7 +24,6 @@ class WgpuCanvasWithScroll(WgpuCanvas):
 
 
 app = QtWidgets.QApplication([])
-
 canvas = WgpuCanvasWithScroll()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

@@ -13,9 +13,6 @@ from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 
-app = QtWidgets.QApplication([])
-
-
 class NoisyPostProcessingStep(gfx.renderers.wgpu.PostProcessingStep):
     def __init__(self, device):
         super().__init__(
@@ -51,6 +48,7 @@ def noise_fragment_shader(
     out_color = val  # noqa - shader output
 
 
+app = QtWidgets.QApplication([])
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

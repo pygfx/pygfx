@@ -1,5 +1,6 @@
 """
-Example showing picking points.
+Example showing picking points. When clicking on a point, it's location
+is changed. With a small change, a line is shown instead.
 """
 
 import numpy as np
@@ -7,9 +8,6 @@ import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 
 class PickingWgpuCanvas(WgpuCanvas):
@@ -26,6 +24,7 @@ class PickingWgpuCanvas(WgpuCanvas):
             canvas.request_draw()
 
 
+app = QtWidgets.QApplication([])
 canvas = PickingWgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

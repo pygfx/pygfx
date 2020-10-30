@@ -28,45 +28,32 @@ def mesh_renderer(wobject, render_info):
     topology = wgpu.PrimitiveTopology.triangle_list
     vertex_shader = vertex_shader_mesh
 
-    # Use index buffer if present on the geometry
-    index_buffer = getattr(geometry, "index", None)
-    index_buffer = index_buffer if isinstance(index_buffer, Buffer) else None
-
-    if index_buffer:
-        n = index_buffer.data.size
-    else:
-        n = len(geometry.positions.data)
-
-    # Collect vertex buffers
-    vertex_buffers = {}
-    vertex_buffers[0] = geometry.positions
-    if getattr(geometry, "texcoords", None) is not None:
-        vertex_buffers[1] = geometry.texcoords
-    else:
-        # meh, we need to specify a buffer if the shader uses it
-        vertex_buffers[1] = geometry.positions
+    # We're assuming the presence of an index buffer for now
+    assert getattr(geometry, "index")
+    n = geometry.index.data.size
 
     # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
     if getattr(geometry, "normals", None) is not None:
         normal_buffer = geometry.normals
     else:
-        normal_data = normals_from_vertices(geometry.positions.data, index_buffer.data)
+        normal_data = normals_from_vertices(
+            geometry.positions.data, geometry.index.data
+        )
         normal_buffer = Buffer(normal_data, usage="vertex|storage")
-    vertex_buffers[2] = normal_buffer
 
+    # Init bindings 0: uniforms
     bindings0 = {
         0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
         1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
         2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
     }
-    bindings1 = {}
 
-    # todo: clean this up
-    # Overload - use storage buffers for everything
-    # Note that this assumes an index buffer
-    n = geometry.index.data.size
-    index_buffer = None
+    # We're using storage buffers for everything; no vertex nor index buffers.
     vertex_buffers = {}
+    index_buffer = None
+
+    # Init bindings 1: storage buffers, textures, and samplers
+    bindings1 = {}
     bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
     bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
     bindings1[4] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
@@ -276,18 +263,32 @@ def vertex_shader_mesh(
 
 @python2shader
 def vertex_shader_mesh_3dtex(  # also, no normals and lights
-    in_pos: (pyshader.RES_INPUT, 0, vec3),
-    in_texcoord: (pyshader.RES_INPUT, 1, vec3),
+    index: (pyshader.RES_INPUT, "VertexId", "i32"),
+    buf_indices: (pyshader.RES_BUFFER, (1, 2), Array(i32)),
+    buf_pos: (pyshader.RES_BUFFER, (1, 3), Array(f32)),
+    buf_texcoord: (pyshader.RES_BUFFER, (1, 5), Array(f32)),
     u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
     u_wobject: ("uniform", (0, 1), Mesh.uniform_type),
     out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
     v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
 ):
-    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
-    ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
+    # Select what face we're at
+    face_index = index // 3
+    sub_index = index % 3
+    i1 = buf_indices[face_index * 3 + 0]
+    i2 = buf_indices[face_index * 3 + 1]
+    i3 = buf_indices[face_index * 3 + 2]
+    i0 = [i1, i2, i3][sub_index]
 
+    raw_pos = vec3(buf_pos[i0 * 3 + 0], buf_pos[i0 * 3 + 1], buf_pos[i0 * 3 + 2])
+    world_pos = u_wobject.world_transform * vec4(raw_pos, 1.0)
+    ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
     out_pos = ndc_pos  # noqa - shader output
-    v_texcoord = in_texcoord  # noqa - shader output
+
+    texcoord = vec3(
+        buf_texcoord[i0 * 3 + 0], buf_texcoord[i0 * 3 + 1], buf_texcoord[i0 * 3 + 2]
+    )
+    v_texcoord = texcoord  # noqa - shader output
 
 
 @python2shader

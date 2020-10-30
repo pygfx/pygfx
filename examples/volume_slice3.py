@@ -18,7 +18,6 @@ class WgpuCanvasWithScroll(WgpuCanvas):
 
 
 app = QtWidgets.QApplication([])
-
 canvas = WgpuCanvasWithScroll()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

@@ -1,5 +1,8 @@
 """
-Example showing picking the color and depth from the scene.
+Example showing picking the color and depth from the scene. This info
+is always available, regardless of the object being clicked. See the
+other examples for using picking info specific to certain
+objects/materials.
 """
 
 import numpy as np
@@ -8,9 +11,6 @@ import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 
 class PickingWgpuCanvas(WgpuCanvas):
@@ -29,6 +29,7 @@ class PickingWgpuCanvas(WgpuCanvas):
             print(key, "=", val)
 
 
+app = QtWidgets.QApplication([])
 canvas = PickingWgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
