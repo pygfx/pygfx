@@ -15,6 +15,13 @@ class WgpuCanvasWithScroll(WgpuCanvas):
         degrees = event.angleDelta().y() / 8
         scroll(degrees)
 
+    def mousePressEvent(self, event):  # noqa: N802
+        # Get a dict with info about the clicked location
+        xy = event.x(), event.y()
+        info = renderer.get_info_at(xy)
+        if "xyz" in info:
+            print(info["xyz"])
+
 
 app = QtWidgets.QApplication([])
 

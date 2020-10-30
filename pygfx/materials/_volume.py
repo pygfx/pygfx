@@ -27,6 +27,11 @@ class VolumeBasicMaterial(Material):
                 raise AttributeError(f"No attribute '{argname}'")
             setattr(self, argname, val)
 
+    def _wgpu_get_pick_info(self, pick_value):
+        size = self.map.size
+        x, y, z = [(v / 1048576) * s - 0.5 for v, s in zip(pick_value[1:], size)]
+        return {"instance_index": 0, "xyz": (x, y, z)}
+
     @property
     def map(self):
         """The 3D texture representing the volume."""

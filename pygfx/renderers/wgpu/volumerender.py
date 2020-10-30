@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 import pyshader
 from pyshader import python2shader
-from pyshader import Array, f32, i32, vec3, vec4
+from pyshader import Array, f32, i32, vec3, vec4, ivec4
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
 from ...objects import Volume
@@ -270,11 +270,14 @@ def vertex_shader_volume_slice(
 @python2shader
 def fragment_shader_textured_gray(
     v_texcoord: (pyshader.RES_INPUT, 0, vec3),
+    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Volume.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), VolumeSliceMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 2), ""),
     t_tex: (pyshader.RES_TEXTURE, (1, 3), "3d i32"),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
+    out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
     val = f32(t_tex.sample(s_sam, v_texcoord).r)
     val = (val - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0])
     out_color = vec4(val, val, val, 1.0)  # noqa - shader output
+    out_pick = ivec4(u_wobject.id, ivec3(v_texcoord * 1048576.0 + 0.5))  # noqa
