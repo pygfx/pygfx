@@ -1,5 +1,5 @@
 """
-Example showing a single geometric cylinder.
+Example showing different types of geometric cylinders.
 """
 
 import numpy as np
