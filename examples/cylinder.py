@@ -2,6 +2,7 @@
 Example showing a single geometric cylinder.
 """
 
+import numpy as np
 import pygfx as gfx
 
 from PyQt5 import QtWidgets, QtCore
@@ -53,9 +54,21 @@ cylinders = [
     (
         (0, 0, -32.5),
         (0, 0.65, 0, 1),
-        gfx.CylinderGeometry(20, 12, radial_segments=16, height=25),
+        gfx.CylinderGeometry(20, 12, radial_segments=16, height=25, open_ended=True),
     ),
     ((0, 0, 25), (1, 1, 1, 1), gfx.CylinderGeometry(10, 10, height=25)),
+    (
+        (30, 0, 25),
+        (1, 0.3, 0.3, 1),
+        gfx.CylinderGeometry(
+            10,
+            10,
+            height=12,
+            theta_start=np.pi * 1.3,
+            theta_length=np.pi * 1.5,
+            open_ended=True,
+        ),
+    ),
     (
         (-50, 0, 0),
         (0.35, 0, 0, 1),
