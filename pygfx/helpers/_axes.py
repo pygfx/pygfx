@@ -4,9 +4,7 @@ from .. import Geometry, Line, LineSegmentMaterial
 
 
 class AxesHelper(Line):
-    def __init__(self, size=1.0, thickness=6.0):
-        self.size = size
-
+    def __init__(self, length=1.0, thickness=6.0):
         positions = np.array(
             [
                 [0, 0, 0],
@@ -18,7 +16,7 @@ class AxesHelper(Line):
             ],
             dtype="f4",
         )
-        positions *= self.size
+        positions *= length
 
         colors = np.array(
             [
