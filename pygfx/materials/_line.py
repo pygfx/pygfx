@@ -25,8 +25,8 @@ class LineMaterial(Material):
         # The instance is zero while renderer doesn't support instancing
         instance = pick_value[1]
         vertex = pick_value[2]
-        coord = pick_value[3] / 255
-        return {"instance_index": instance, "vertex_index": vertex, "subcoord": coord}
+        vertex_sub = pick_value[3] / 1048576
+        return {"instance_index": instance, "vertex_index": vertex + vertex_sub}
 
     @property
     def color(self):

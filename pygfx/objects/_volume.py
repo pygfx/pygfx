@@ -10,6 +10,10 @@ class Volume(WorldObject):
     of the local coordinate frame. Positioning and dealing with
     anisotropy should be dealt with using the scale and position
     properties.
+
+    The picking info of a Volume (the result of
+    ``renderer.get_pick_info()``) will for most materials include
+    ``voxel_index`` (tuple of 3 floats).
     """
 
     def __init__(self, size, material):

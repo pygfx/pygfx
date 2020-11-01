@@ -14,11 +14,11 @@ class PickingWgpuCanvas(WgpuCanvas):
     def mousePressEvent(self, event):  # noqa: N802
         # Get a dict with info about the clicked location
         xy = event.x(), event.y()
-        info = renderer.get_info_at(xy)
+        info = renderer.get_pick_info(xy)
         wobject = info["world_object"]
         # If a point was clicked ..
         if wobject and "vertex_index" in info:
-            i = info["vertex_index"]
+            i = int(round(info["vertex_index"]))
             geometry.positions.data[i, 1] *= -1
             geometry.positions.update_range(i)
             canvas.request_draw()

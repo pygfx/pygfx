@@ -208,7 +208,7 @@ def vertex_shader_mesh(
     v_view: (pyshader.RES_OUTPUT, 2, vec3),
     v_light: (pyshader.RES_OUTPUT, 3, vec3),
     v_face_idx: (pyshader.RES_OUTPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_OUTPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_OUTPUT, 5, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
 ):
@@ -255,7 +255,7 @@ def vertex_shader_mesh(
     # precision when passed as a varyings (on my machine). We therefore
     # encode them in two values.
     v_face_idx = vec4(0.0, 0.0, face_index // 10000, face_index % 10000)  # noqa
-    v_face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
+    v_face_coords = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
 
 
 # todo: *sigh* it looks like we do need some form of templating
@@ -333,7 +333,7 @@ def vertex_shader_mesh_instanced(
     v_view: (pyshader.RES_OUTPUT, 2, vec3),
     v_light: (pyshader.RES_OUTPUT, 3, vec3),
     v_face_idx: (pyshader.RES_OUTPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_OUTPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_OUTPUT, 5, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), InstancedMesh.uniform_type),
 ):
@@ -383,13 +383,13 @@ def vertex_shader_mesh_instanced(
         face_index % 10000,
     )
     v_face_idx = face_idx  # noqa
-    v_face_weights = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
+    v_face_coords = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
 
 
 @python2shader
 def fragment_shader_simple(
     v_face_idx: (pyshader.RES_INPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 5, vec3),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
@@ -399,7 +399,7 @@ def fragment_shader_simple(
     out_color = u_mesh.color  # noqa - shader output
 
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
 
 
@@ -407,7 +407,7 @@ def fragment_shader_simple(
 def fragment_shader_normals(
     v_normal: (pyshader.RES_INPUT, 1, vec3),
     v_face_idx: (pyshader.RES_INPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 5, vec3),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
@@ -417,7 +417,7 @@ def fragment_shader_normals(
     out_color = vec4(v, 1.0)  # noqa - shader output
 
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
 
 
@@ -425,7 +425,7 @@ def fragment_shader_normals(
 def fragment_shader_textured_gray(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
     v_face_idx: (pyshader.RES_INPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 5, vec3),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
@@ -438,7 +438,7 @@ def fragment_shader_textured_gray(
     out_color = vec4(val, val, val, 1.0)  # noqa - shader output
 
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
 
 
@@ -459,7 +459,7 @@ def fragment_shader_textured_gray_3dtex(
 def fragment_shader_textured_rgba(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
     v_face_idx: (pyshader.RES_INPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 5, vec3),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_mesh: (pyshader.RES_UNIFORM, (0, 2), MeshBasicMaterial.uniform_type),
     s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
@@ -472,7 +472,7 @@ def fragment_shader_textured_rgba(
     out_color = color  # noqa - shader output
 
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
 
 
@@ -484,7 +484,7 @@ def fragment_shader_phong(
     v_view: (pyshader.RES_INPUT, 2, vec3),
     v_light: (pyshader.RES_INPUT, 3, vec3),
     v_face_idx: (pyshader.RES_INPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 5, vec3),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
@@ -528,7 +528,7 @@ def fragment_shader_phong(
     # The picking output consists of the wobject id, the face_index, and the
     # face_weights (the weights are encoded into a single int32).
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
 
 
@@ -543,7 +543,7 @@ def fragment_shader_textured_rgba_phong(
     v_view: (pyshader.RES_INPUT, 2, vec3),
     v_light: (pyshader.RES_INPUT, 3, vec3),
     v_face_idx: (pyshader.RES_INPUT, 4, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 5, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 5, vec3),
     out_color: (pyshader.RES_OUTPUT, 0, vec4),
     out_pick: (pyshader.RES_OUTPUT, 1, ivec4),
 ):
@@ -586,7 +586,7 @@ def fragment_shader_textured_rgba_phong(
     out_color = vec4(final_color, color.a)  # noqa - shader output
 
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa
 
 
@@ -606,7 +606,7 @@ def vertex_shader_mesh_slice(
     v_segment_length: (pyshader.RES_OUTPUT, 1, f32),
     v_segment_width: (pyshader.RES_OUTPUT, 2, f32),
     v_face_idx: (pyshader.RES_OUTPUT, 3, vec4),
-    v_face_weights: (pyshader.RES_OUTPUT, 4, vec3),
+    v_face_coords: (pyshader.RES_OUTPUT, 4, vec3),
 ):
     # This vertex shader uses VertexId and storage buffers instead of
     # vertex buffers. It creates 6 vertices for each face in the mesh,
@@ -736,7 +736,7 @@ def vertex_shader_mesh_slice(
 
         # Picking info
         v_face_idx = vec4(0.0, 0.0, face_index // 10000, face_index % 10000)  # noqa
-        v_face_weights = mix(fw_a, fw_b, the_vec.x * 0.5 + 0.5)  # noqa
+        v_face_coords = mix(fw_a, fw_b, the_vec.x * 0.5 + 0.5)  # noqa
 
     # Shader output
     out_pos = the_pos  # noqa
@@ -752,7 +752,7 @@ def fragment_shader_mesh_slice(
     v_segment_length: (pyshader.RES_INPUT, 1, f32),
     v_segment_width: (pyshader.RES_INPUT, 2, f32),
     v_face_idx: (pyshader.RES_INPUT, 3, vec4),
-    v_face_weights: (pyshader.RES_INPUT, 4, vec3),
+    v_face_coords: (pyshader.RES_INPUT, 4, vec3),
     u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
     u_wobject: (pyshader.RES_UNIFORM, (0, 1), Mesh.uniform_type),
     u_material: (pyshader.RES_UNIFORM, (0, 2), MeshSliceMaterial.uniform_type),
@@ -776,5 +776,5 @@ def fragment_shader_mesh_slice(
 
     # Set pick info
     face_id = ivec2(v_face_idx.xz * 10000.0 + v_face_idx.yw + 0.5)  # inst+face
-    w8 = ivec3(v_face_weights.xyz * 255.0 + 0.5)
+    w8 = ivec3(v_face_coords.xyz * 255.0 + 0.5)
     out_pick = ivec4(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z)  # noqa

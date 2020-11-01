@@ -17,17 +17,17 @@ class PickingWgpuCanvas(WgpuCanvas):
     def mousePressEvent(self, event):  # noqa: N802
         # Get a dict with info about the clicked location
         xy = event.x(), event.y()
-        info = renderer.get_info_at(xy)
+        info = renderer.get_pick_info(xy)
         wobject = info["world_object"]
         # If a mesh was clicked ..
         if wobject and "face_index" in info:
             # Get what face was clicked
             face_index = info["face_index"]
-            weights = info["face_weights"]
+            coords = info["face_coords"]
             # Select which of the three vertices was closest
             # Note that you can also select all vertices for this face,
-            # or use the weights to select the closest edge.
-            sub_index = np.argmax(weights)
+            # or use the coords to select the closest edge.
+            sub_index = np.argmax(coords)
             # Look up the vertex index
             vertex_index = int(wobject.geometry.index.data[face_index * 3 + sub_index])
             # Change the position of that vertex

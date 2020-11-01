@@ -995,7 +995,7 @@ class WgpuRenderer(Renderer):
 
     # Picking
 
-    def get_info_at(self, pos):
+    def get_pick_info(self, pos):
         """Get information about the given window location. The given
         pos is a 2D point in logical pixels (with the origin at the
         top-left). Returns a dict with fields:
@@ -1005,7 +1005,10 @@ class WgpuRenderer(Renderer):
             in world coordinates using the camera transforms.
         * "rgba": The value in the color buffer. All zero's when rendering
           directly to the screen (bypassing post-processing).
-
+        * "world_object": the object at that location (provided that
+          the object supports picking).
+        * Additional pick info may be available, depending on the type of
+          object and its material. See the world-object classes for details.
         """
 
         # Make pos 0..1, so we can scale it to the render texture

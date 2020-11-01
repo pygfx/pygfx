@@ -279,7 +279,7 @@ def fragment_shader(
     # Set picking info. Yes, the vertex_id interpolates correctly in encoded form.
     vf = f32(v_vertex_idx.x * 10000.0 + v_vertex_idx.y)
     vi = i32(vf + 0.5)
-    out_pick = ivec4(u_wobject.id, 0, vi, (vf - f32(vi)) * 255.0)  # noqa
+    out_pick = ivec4(u_wobject.id, 0, vi, (vf - f32(vi)) * 1048576.0)  # noqa
 
 
 @pyshader.python2shader
@@ -733,7 +733,7 @@ def fragment_shader_vtxclr(
     # Set picking info.
     vf = f32(v_vertex_idx.x * 10000.0 + v_vertex_idx.y)
     vi = i32(vf + 0.5)
-    out_pick = ivec4(u_wobject.id, 0, vi, (vf - f32(vi)) * 255.0)  # noqa
+    out_pick = ivec4(u_wobject.id, 0, vi, (vf - f32(vi)) * 1048576.0)  # noqa
 
 
 # %% Render functions

@@ -5,6 +5,18 @@ from ..resources import Buffer
 
 
 class Mesh(WorldObject):
+    """An object consisting of triangular faces, represented by vertices
+    (3D positions) and an index that defines the connectivity.
+
+    The picking info of a Mesh (the result of
+    ``renderer.get_pick_info()``) will for most materials include
+    ``instance_index`` (int), ``face_index`` (int), and ``face_coords``
+    (tuple of 3 floats). The latter are the barycentric coordinates for
+    each vertex of the face (with values 0..1).
+
+
+    """
+
     def __init__(self, geometry, material):
         super().__init__()
         self.geometry = geometry

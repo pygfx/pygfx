@@ -30,7 +30,7 @@ class VolumeBasicMaterial(Material):
     def _wgpu_get_pick_info(self, pick_value):
         size = self.map.size
         x, y, z = [(v / 1048576) * s - 0.5 for v, s in zip(pick_value[1:], size)]
-        return {"instance_index": 0, "xyz": (x, y, z)}
+        return {"instance_index": 0, "voxel_index": (x, y, z)}
 
     @property
     def map(self):
