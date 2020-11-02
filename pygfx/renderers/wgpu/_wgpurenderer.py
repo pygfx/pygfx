@@ -1,4 +1,5 @@
 import time
+import weakref
 
 import numpy as np
 import pyshader  # noqa
@@ -99,6 +100,9 @@ class WgpuRenderer(Renderer):
         # and srgb for perseptive color mapping.
         self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
+        # The pick texture has 4 channels, object id, and then 3 more, e.g.
+        # the instance nr, vertex nr and weights.
+        self._pick_texture = RenderTexture(wgpu.TextureFormat.rgba32sint)
         # We use one or two render textures (for 2+ steps, cycle between the 2)
         self._render_textures = []
 
@@ -121,6 +125,9 @@ class WgpuRenderer(Renderer):
             size=32,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
+
+        # Keep track of object ids
+        self._pick_map = weakref.WeakValueDictionary()
 
     @property
     def device(self):
@@ -220,6 +227,7 @@ class WgpuRenderer(Renderer):
         for t in render_textures:
             t.ensure_size(device, scene_size + (1,))
         self._depth_texture.ensure_size(device, scene_size + (1,))
+        self._pick_texture.ensure_size(device, scene_size + (1,))
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -229,6 +237,8 @@ class WgpuRenderer(Renderer):
 
         # Get the list of objects to render (visible and having a material)
         q = self.get_render_list(scene, camera)
+        for wobject in q:
+            self._pick_map[wobject.id] = wobject
 
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_size, logical_size)
@@ -291,6 +301,7 @@ class WgpuRenderer(Renderer):
 
         assert self._render_textures[0].texture_view
         assert self._depth_texture.texture_view
+        assert self._pick_texture.texture_view
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
@@ -298,11 +309,17 @@ class WgpuRenderer(Renderer):
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
-                }
+                },
+                {
+                    "attachment": self._pick_texture.texture_view,
+                    "resolve_target": None,
+                    "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                    "store_op": wgpu.StoreOp.store,
+                },
             ],
             depth_stencil_attachment={
                 "attachment": self._depth_texture.texture_view,
-                "depth_load_value": 1.0,  # depth is 0..1
+                "depth_load_value": 2.0,  # depth is 0..1, make initial value > 1
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
                 "stencil_store_op": wgpu.StoreOp.store,
@@ -667,7 +684,21 @@ class WgpuRenderer(Renderer):
                         wgpu.BlendOperation.add,
                     ),
                     "write_mask": wgpu.ColorWrite.ALL,
-                }
+                },
+                {
+                    "format": self._pick_texture.format,
+                    "alpha_blend": (
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendFactor.zero,
+                        wgpu.BlendOperation.add,
+                    ),
+                    "color_blend": (
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendFactor.zero,
+                        wgpu.BlendOperation.add,
+                    ),
+                    "write_mask": wgpu.ColorWrite.ALL,
+                },
             ],
             depth_stencil_state={
                 "format": self._depth_texture.format,
@@ -964,7 +995,7 @@ class WgpuRenderer(Renderer):
 
     # Picking
 
-    def get_info_at(self, pos):
+    def get_pick_info(self, pos):
         """Get information about the given window location. The given
         pos is a 2D point in logical pixels (with the origin at the
         top-left). Returns a dict with fields:
@@ -974,7 +1005,10 @@ class WgpuRenderer(Renderer):
             in world coordinates using the camera transforms.
         * "rgba": The value in the color buffer. All zero's when rendering
           directly to the screen (bypassing post-processing).
-
+        * "world_object": the object at that location (provided that
+          the object supports picking).
+        * Additional pick info may be available, depending on the type of
+          object and its material. See the world-object classes for details.
         """
 
         # Make pos 0..1, so we can scale it to the render texture
@@ -991,20 +1025,29 @@ class WgpuRenderer(Renderer):
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
             self._copy_pixel(encoder, self._render_textures[0], float_pos, 4)
+        self._copy_pixel(encoder, self._pick_texture, float_pos, 8)
         queue = self._device.default_queue
         queue.submit([encoder.finish()])
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.read_data()
         depth = data[0:4].cast("f")[0]
-
+        color = tuple(data[4:8].cast("B"))
+        pick_value = tuple(data[8:24].cast("i"))
+        wobject = self._pick_map.get(pick_value[0], None)
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
 
-        return {
+        info = {
             "ndc": (2 * float_pos[0] - 1, 2 * float_pos[1] - 1, depth),
-            "rgba": tuple(data[4:8].cast("B")) if can_sample_color else (0, 0, 0, 0),
+            "rgba": color if can_sample_color else (0, 0, 0, 0),
+            "world_object": wobject,
         }
+
+        if wobject and hasattr(wobject, "material"):
+            pick_info = wobject.material._wgpu_get_pick_info(pick_value)
+            info.update(pick_info)
+        return info
 
     def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):
 
@@ -1012,8 +1055,6 @@ class WgpuRenderer(Renderer):
         w, h, d = render_texture.size
         x = max(0, min(w - 1, int(float_pos[0] * w)))
         y = max(0, min(h - 1, int(float_pos[1] * h)))
-
-        bytes_per_pixel = 4  # todo: let's derive this from the format?
 
         encoder.copy_texture_to_buffer(
             {
@@ -1024,7 +1065,7 @@ class WgpuRenderer(Renderer):
             {
                 "buffer": self._pixel_info_buffer,
                 "offset": buf_offset,
-                "bytes_per_row": bytes_per_pixel,
+                "bytes_per_row": render_texture.bytes_per_pixel,
                 "rows_per_image": 1,
             },
             copy_size=(1, 1, 1),

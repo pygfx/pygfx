@@ -11,8 +11,6 @@ import pygfx as gfx
 from PyQt5 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
 
-app = QtWidgets.QApplication([])
-
 
 class WgpuCanvasWithInputEvents(WgpuCanvas):
     _drag_modes = {QtCore.Qt.RightButton: "pan"}
@@ -45,6 +43,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         self.request_draw()
 
 
+app = QtWidgets.QApplication([])
 canvas = WgpuCanvasWithInputEvents()
 renderer = gfx.WgpuRenderer(canvas)
 

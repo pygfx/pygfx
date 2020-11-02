@@ -37,6 +37,29 @@ class RenderTexture:
             )
             self.texture_view = self.texture.create_view()
 
+    @property
+    def bytes_per_pixel(self):
+        """The number of bytes per pixel."""
+        format_map = {
+            "depth24plus_stencil8": 4,
+            "depth24plus": 3,  # ?
+            "depth32": 4,
+            "r8": 1,
+            "r16": 2,
+            "r32": 4,
+            "rg8": 2,
+            "rg16": 4,
+            "rg32": 8,
+            "rgba8": 4,
+            "rgba16": 8,
+            "rgba32": 16,
+        }
+        for key, val in format_map.items():
+            if self.format.startswith(key):
+                return val
+        else:
+            raise ValueError(f"Could not determine bbp of {self.format}")
+
 
 class PostProcessingStep:
     """

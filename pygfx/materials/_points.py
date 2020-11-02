@@ -28,6 +28,12 @@ class PointsMaterial(Material):
                 raise AttributeError(f"No attribute '{argname}'")
             setattr(self, argname, val)
 
+    def _wgpu_get_pick_info(self, pick_value):
+        # The instance is zero while renderer doesn't support instancing
+        instance = pick_value[1]
+        vertex = pick_value[2]
+        return {"instance_index": instance, "vertex_index": vertex}
+
     @property
     def color(self):
         """The color of the points (if map is not set)."""

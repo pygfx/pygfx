@@ -50,7 +50,6 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
 
 
 app = QtWidgets.QApplication([])
-
 canvas = WgpuCanvasWithInputEvents()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()

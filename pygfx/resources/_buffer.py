@@ -161,7 +161,7 @@ class Buffer(Resource):
         elif offset < 0:
             raise ValueError("Update offset must not be negative")
         elif offset + size > self.nitems:
-            raise ValueError("Update size out of range")
+            size = self.nitems - offset
         # Merge with current entry?
         if self._pending_uploads:
             cur_offset, cur_size = self._pending_uploads.pop(-1)
@@ -187,7 +187,7 @@ class Buffer(Resource):
         else:
             arr = np.frombuffer(self.mem, self.mem.format).reshape(self.mem.shape)
         # Slice it
-        sub_arr = arr[offset:size]
+        sub_arr = arr[offset : offset + size]
         return memoryview(np.ascontiguousarray(sub_arr))
 
 

@@ -1,10 +1,19 @@
+import gc
+import random
 import weakref
 
-from pyshader import Struct, mat4
+from pyshader import Struct, mat4, i32
 
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
+
+# Keep track of id's. About the max:
+# * 2_147_483_647 (2**31 -1) max number for signed i32.
+# *    16_777_216 max integer that can be stored exactly in f32
+# *     4_000_000 max integer that survives being passed as a varying (in my tests)
+_idmap = weakref.WeakKeyDictionary()
+_idmax = 16_777_217  # non-inclusive
 
 
 class ResourceContainer:
@@ -56,6 +65,7 @@ class WorldObject(ResourceContainer):
     # every "propery" that a renderer would need to know in order to visualize it.
     # todo: rename uniform to info or something?
     uniform_type = Struct(
+        id=i32,
         world_transform=mat4,
     )
 
@@ -86,6 +96,25 @@ class WorldObject(ResourceContainer):
 
         self.visible = True
         self.render_order = 0
+
+        # See if we reached max number of objects. If so, try cleanup and try again.
+        # Actually, stop earlier to prevent that while loop below to become slow.
+        max_items = 0.75 * _idmax
+        if len(_idmap) >= max_items:
+            gc.collect()
+            if len(_idmap) >= max_items:
+                raise RuntimeError("Max number of objects reached")
+        # Set id
+        self._id = random.randint(1, _idmax - 1)
+        while self._id in _idmap.values():
+            self._id = (self._id + 1) % _idmax
+        _idmap[self] = self._id
+        self.uniform_buffer.data["id"] = self._id
+
+    @property
+    def id(self):
+        """An integer id smaller than 2**31."""
+        return self._id
 
     @property
     def children(self):
