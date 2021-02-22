@@ -14,6 +14,32 @@ We take a lot of inspiration from ThreeJS, e.g.:
 * Decoupled cameras and controls.
 * The code for the render engines is decoupled from the objects, allowing multiple render engines (e.g. wgpu and svg).
 
+Further we aim for a few niceties:
+* Proper support for high-res screens.
+* Builtin anti-aliasing.
+* Custom post-processing steps.
+* (approximate) order-independent transparency (OIT) (not implemented yet).
+
+
+## WGPU is awesome (but also very new)
+
+Working with the WGPU API feels so much nicer than OpenGL. It's well
+defined, no global state, we can use compute shaders, use storage
+buffers (random access), etc.
+
+Fair enough, the WGPU API is very new and is still changing a lot, but
+eventually it will become stable. One of the biggest downsides right
+now is the lack of software rendering. No luck trying to run wgpu on a
+VM or CI.
+
+Because of how Vulkan et. al. work, the WGPU API is aimed at predefining
+objects and pipelines and then executing these. Almost everything is
+"prepared". The main reasoning for this is consistency and stable drivers,
+but it also has a big advantage for us Pythoneers: the amount of code per-draw-per-object
+is very limited. This means we can have *a lot* of objects and still be fast.
+
+As an example, see `collections_line.py`: drawing 1000 line objects with 30k points each at 57 FPS (on my laptop).
+
 
 ## How to build a visialization
 
