@@ -1,6 +1,6 @@
 # pygfx
 
-A render engine, inspired by ThreeJS, but for Python and targeting [WGPU](https://github.com/pygfx/wgpu-py).
+A render engine, inspired by ThreeJS, but for Python and targeting Vulkan/Metal/DX12 (via wgpu).
 
 
 ## Introduction
@@ -19,8 +19,7 @@ We take a lot of inspiration from ThreeJS, e.g.:
 
 See also the examples, they all do something like this:
 
-* Instantiate a canvas to render to.
-* Instantiate a renderer.
+* Instantiate a renderer and a canvas to render to.
 * Create a scene and populate it with world objects.
 * Create a camera (and maybe a control).
 * Define an  animate function that calls: `renderer.render(scene, camera)`
@@ -29,17 +28,20 @@ See also the examples, they all do something like this:
 ## On world objects, materials, and geometry
 
 There are a few different world object classes. The class defines
-(semantically) the kind of object being drawn. World objects have a position
-and orientation in the scene, and can have children (other world objects), creating
-a tree. World objects can also have a geometry and/or a material.
+(semantically) the kind of object being drawn, e.g. `Line`, `Image`,
+`Mesh`, `Volume`. World objects have a position and orientation in the
+scene, and can have children (other world objects), creating a tree.
+World objects can also have a geometry and/or a material.
 
-The geometry of an object defines its base data, usually per-vertex attributes such
-as positions, normals, and texture coordinates. There are several pre-defined geometries,
-most of which simply define certain 3D shapes.
+The geometry of an object defines its base data, usually per-vertex
+attributes such as positions, normals, and texture coordinates. There
+are several pre-defined geometries, most of which simply define certain
+3D shapes.
 
-The material of an object defines how an object is rendered. Usually each WorldObject class
-has one or more materials associated with it. E.g. a line can be drawn solid, segmented or
-with arrows. A volume can be rendered as a slice, MIP, or something else.
+The material of an object defines how an object is rendered. Usually
+each WorldObject class has one or more materials associated with it.
+E.g. a line can be drawn solid, segmented or with arrows. A volume can
+be rendered as a slice, MIP, or something else.
 
 
 ## Installation
