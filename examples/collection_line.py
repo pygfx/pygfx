@@ -45,13 +45,17 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
 
 app = QtWidgets.QApplication([])
 canvas = WgpuCanvasWithInputEvents()
-renderer = gfx.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas, show_fps=True)
+
+canvas._target_fps = 9999  # don't limit fps
 
 scene = gfx.Scene()
 
-nvertices = 1000
-rows = 50
+# Define number of vertices
 cols = 20
+rows = 50
+nvertices = 30000
+use_thin_lines = True
 
 print(nvertices * rows * cols, "vertices in total")
 
@@ -62,9 +66,12 @@ for row in range(rows):
         y = np.sin(x * 25) * 0.45 + np.random.normal(0, 0.02, len(x)).astype(np.float32)
         positions = np.column_stack([x, y, np.zeros_like(x)])
         geometry = gfx.Geometry(positions=positions)
-        material = gfx.LineMaterial(
-            thickness=0.2 + 2 * row / rows, color=(col / cols, row / rows, 0.5, 1.0)
-        )
+        if use_thin_lines:
+            material = gfx.LineThinMaterial(color=(col / cols, row / rows, 0.5, 1.0))
+        else:
+            material = gfx.LineMaterial(
+                thickness=0.2 + 2 * row / rows, color=(col / cols, row / rows, 0.5, 1.0)
+            )
         line = gfx.Line(geometry, material)
         line.position.x = col
         line.position.y = row
@@ -81,6 +88,7 @@ def animate():
     t0 = time.perf_counter()  # noqa
     renderer.render(scene, camera)
     # print(time.perf_counter() - t0)
+    canvas.request_draw()
 
 
 if __name__ == "__main__":
