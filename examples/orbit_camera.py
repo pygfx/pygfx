@@ -49,7 +49,7 @@ canvas = WgpuCanvasWithInputEvents()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-scene.add(gfx.AxesHelper(size=250))
+scene.add(gfx.AxesHelper(length=250))
 
 im = imageio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2, usage="sampled").get_view(filter="linear")

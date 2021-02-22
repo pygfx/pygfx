@@ -57,7 +57,7 @@ scene = gfx.Scene()
 background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
-scene.add(gfx.AxesHelper(size=50))
+scene.add(gfx.AxesHelper(length=50))
 
 vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3, usage="sampled")

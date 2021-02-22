@@ -43,6 +43,7 @@ for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
 
 
 camera = gfx.PerspectiveCamera(70)
+camera.scale.y = -1
 camera.position.z = 0
 
 
