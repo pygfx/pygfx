@@ -18,6 +18,7 @@ Further we aim for a few niceties:
 * Proper support for high-res screens.
 * Builtin anti-aliasing.
 * Custom post-processing steps.
+* Support for picking objects and parts within objects.
 * (approximate) order-independent transparency (OIT) (not implemented yet).
 
 
