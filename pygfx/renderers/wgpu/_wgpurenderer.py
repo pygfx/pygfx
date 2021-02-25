@@ -72,7 +72,7 @@ class RenderInfo:
 class WgpuRenderer(Renderer):
     """A renderer that renders to a surface."""
 
-    def __init__(self, canvas=None, size=None, pixel_ratio=None):
+    def __init__(self, canvas=None, size=None, pixel_ratio=None, show_fps=False):
 
         # Check and normalize inputs
         if not (canvas is None or isinstance(canvas, wgpu.gui.WgpuCanvasBase)):
@@ -82,6 +82,7 @@ class WgpuRenderer(Renderer):
             raise TypeError("The given size must be None or a 2-tuple.")
         self._logical_size = (float(size[0]), float(size[1])) if size else None
         self.pixel_ratio = pixel_ratio
+        self._show_fps = bool(show_fps)
 
         # Do we have enough info?
         if canvas is None and size is None:
@@ -177,14 +178,14 @@ class WgpuRenderer(Renderer):
         device = self._device
 
         now = time.perf_counter()  # noqa
-        # Uncomment to show FPS each second
-        # if not hasattr(self, "_fps"):
-        #     self._fps = now, now, 1
-        # elif now > self._fps[0] + 1:
-        #     print(f"FPS mean: {self._fps[2]/(now - self._fps[0]):0.1f} last: {1/(now-self._fps[1]):0.1f}")
-        #     self._fps = now, now, 1
-        # else:
-        #     self._fps = self._fps[0], now, self._fps[2] + 1
+        if self._show_fps:
+            if not hasattr(self, "_fps"):
+                self._fps = now, now, 1
+            elif now > self._fps[0] + 1:
+                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
+                self._fps = now, now, 1
+            else:
+                self._fps = self._fps[0], now, self._fps[2] + 1
 
         # todo: support for alt render pipelines (object that renders to texture then renders that)
         # todo: also note that the fragment shader is (should be) optional
