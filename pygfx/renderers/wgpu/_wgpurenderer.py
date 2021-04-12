@@ -117,8 +117,9 @@ class WgpuRenderer(Renderer):
         # Initialize swapchain
         self._swap_chain = None
         if canvas is not None:
-            self._swap_chain = self._device.configure_swap_chain(
-                canvas, self._canvas_texture.format, wgpu.TextureUsage.OUTPUT_ATTACHMENT
+            self._swap_chain = canvas.configure_swap_chain(
+                device=self._device, format=self._canvas_texture.format,
+                usage=wgpu.TextureUsage.OUTPUT_ATTACHMENT
             )
 
         # Initialize a small buffer to read pixel info into
