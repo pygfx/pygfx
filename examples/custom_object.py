@@ -3,7 +3,6 @@ Example that implements a custom object and renders it.
 """
 
 from PyQt5 import QtWidgets
-import wgpu
 from wgpu.gui.qt import WgpuCanvas
 from pyshader import python2shader
 from pyshader import vec3
@@ -62,9 +61,7 @@ def triangle_render_function(wobject, render_info):
             "fragment_shader": fragment_shader,
             "primitive_topology": "triangle-list",
             "indices": range(n),
-            "bindings0": {
-                0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform)
-            },
+            "bindings0": {0: ("buffer/uniform", render_info.stdinfo_uniform)},
         },
     ]
 

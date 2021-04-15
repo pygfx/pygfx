@@ -220,33 +220,33 @@ def format_from_memoryview(mem, usage):
         format = STRUCT_FORMAT_ALIASES.get(format, format)
         key = format, shape[-1]
         mapping = {
-            ("f", 1): wgpu.VertexFormat.float,
-            ("f", 2): wgpu.VertexFormat.float2,
-            ("f", 3): wgpu.VertexFormat.float3,
-            ("f", 4): wgpu.VertexFormat.float4,
+            ("f", 1): wgpu.VertexFormat.float32,
+            ("f", 2): wgpu.VertexFormat.float32x2,
+            ("f", 3): wgpu.VertexFormat.float32x3,
+            ("f", 4): wgpu.VertexFormat.float32x4,
             #
-            ("e", 2): wgpu.VertexFormat.half2,
-            ("e", 4): wgpu.VertexFormat.half4,
+            ("e", 2): wgpu.VertexFormat.float16x2,
+            ("e", 4): wgpu.VertexFormat.float16x4,
             #
-            ("b", 2): wgpu.VertexFormat.char2,
-            ("b", 4): wgpu.VertexFormat.char4,
-            ("B", 2): wgpu.VertexFormat.uchar2,
-            ("B", 4): wgpu.VertexFormat.uchar4,
+            ("b", 2): wgpu.VertexFormat.sint8x2,
+            ("b", 4): wgpu.VertexFormat.sint8x4,
+            ("B", 2): wgpu.VertexFormat.uint8x2,
+            ("B", 4): wgpu.VertexFormat.uint8x4,
             #
-            ("h", 2): wgpu.VertexFormat.short2,
-            ("h", 4): wgpu.VertexFormat.short4,
-            ("H", 2): wgpu.VertexFormat.ushort2,
-            ("H", 4): wgpu.VertexFormat.ushort4,
+            ("h", 2): wgpu.VertexFormat.sint16x2,
+            ("h", 4): wgpu.VertexFormat.sint16x4,
+            ("H", 2): wgpu.VertexFormat.uint16x2,
+            ("H", 4): wgpu.VertexFormat.uint16x4,
             #
-            ("i", 1): wgpu.VertexFormat.int,
-            ("i", 2): wgpu.VertexFormat.int2,
-            ("i", 3): wgpu.VertexFormat.int3,
-            ("i", 4): wgpu.VertexFormat.int4,
+            ("i", 1): wgpu.VertexFormat.sint32,
+            ("i", 2): wgpu.VertexFormat.sint32x2,
+            ("i", 3): wgpu.VertexFormat.sint32x3,
+            ("i", 4): wgpu.VertexFormat.sint32x4,
             #
-            ("I", 1): wgpu.VertexFormat.uint,
-            ("I", 2): wgpu.VertexFormat.uint2,
-            ("I", 3): wgpu.VertexFormat.uint3,
-            ("I", 4): wgpu.VertexFormat.uint4,
+            ("I", 1): wgpu.VertexFormat.uint32,
+            ("I", 2): wgpu.VertexFormat.uint32x2,
+            ("I", 3): wgpu.VertexFormat.uint32x3,
+            ("I", 4): wgpu.VertexFormat.uint32x4,
         }
         try:
             return mapping[key]

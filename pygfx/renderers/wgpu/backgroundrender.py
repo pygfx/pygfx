@@ -108,9 +108,9 @@ def background_renderer(wobject, render_info):
     vertex_shader = vertex_shader_simple
     fragment_shader = fragment_shader_tex_rgba
     bindings0 = {
-        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+        0: ("buffer/uniform", render_info.stdinfo_uniform),
+        1: ("buffer/uniform", wobject.uniform_buffer),
+        2: ("buffer/uniform", material.uniform_buffer),
     }
     bindings1 = {}
 
@@ -119,8 +119,8 @@ def background_renderer(wobject, render_info):
             raise TypeError("material.map is a Texture, but must be a TextureView")
         elif not isinstance(material.map, TextureView):
             raise TypeError("material.map must be a TextureView")
-        bindings1[0] = wgpu.BindingType.sampler, material.map
-        bindings1[1] = wgpu.BindingType.sampled_texture, material.map
+        bindings1[0] = "sampler/filtering", material.map
+        bindings1[1] = "texture/float", material.map
         # Select shader
         if material.map.view_dim == "cube":
             vertex_shader = vertex_shader_skybox

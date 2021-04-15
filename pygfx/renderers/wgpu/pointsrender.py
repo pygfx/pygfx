@@ -97,9 +97,9 @@ def points_renderer(wobject, render_info):
 
     # Collect bindings
     bindings0 = {
-        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+        0: ("buffer/uniform", render_info.stdinfo_uniform),
+        1: ("buffer/uniform", wobject.uniform_buffer),
+        2: ("buffer/uniform", material.uniform_buffer),
     }
 
     if isinstance(material, GaussianPointsMaterial):
