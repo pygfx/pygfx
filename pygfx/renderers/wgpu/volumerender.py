@@ -45,7 +45,7 @@ def volume_slice_renderer(wobject, render_info):
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
         bindings1[2] = "sampler/filtering", view
-        bindings1[3] = "texture/float", view
+        bindings1[3] = "texture/auto", view
         # Use a version of the shader for float textures if necessary
         if "float" in view.format:
             if not hasattr(fragment_shader, "float_version"):

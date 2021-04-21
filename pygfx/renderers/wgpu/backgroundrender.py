@@ -120,7 +120,7 @@ def background_renderer(wobject, render_info):
         elif not isinstance(material.map, TextureView):
             raise TypeError("material.map must be a TextureView")
         bindings1[0] = "sampler/filtering", material.map
-        bindings1[1] = "texture/float", material.map
+        bindings1[1] = "texture/auto", material.map
         # Select shader
         if material.map.view_dim == "cube":
             vertex_shader = vertex_shader_skybox

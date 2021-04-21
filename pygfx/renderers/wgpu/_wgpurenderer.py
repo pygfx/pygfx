@@ -656,6 +656,10 @@ class WgpuRenderer(Renderer):
         fs_module = device.create_shader_module(code=fshader)
 
         # Instantiate the pipeline object
+        # todo: is this how strip_index_format is supposed to work?
+        strip_index_format = 0
+        if "strip" in pipeline_info["primitive_topology"]:
+            strip_index_format = index_format
         pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
@@ -665,7 +669,7 @@ class WgpuRenderer(Renderer):
             },
             primitive={
                 "topology": pipeline_info["primitive_topology"],
-                "strip_index_format": index_format,  # todo: fix this soon
+                "strip_index_format": strip_index_format,
                 "front_face": wgpu.FrontFace.ccw,
                 "cull_mode": wgpu.CullMode.none,
             },
@@ -811,16 +815,20 @@ class WgpuRenderer(Renderer):
                     )
                     dim = resource.view_dim
                     dim = getattr(wgpu.TextureViewDimension, dim, dim)
-                    sample_type = getattr(wgpu.TextureSampleType, subtype)
-                    # todo: derive sample type from texture or let renderer specify it?
-                    # I think the latter makes more sense, since it knows how it's used.
-                    if False:
+                    sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
+                    # Derive sample type from texture
+                    if sample_type == "auto":
                         fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
-                        sample_type = wgpu.TextureSampleType.sint
-                        if "uint" in fmt:
-                            sample_type = wgpu.TextureComponentType.uint
                         if "float" in fmt or "norm" in fmt:
-                            sample_type = wgpu.TextureComponentType.float
+                            sample_type = wgpu.TextureSampleType.float
+                        elif "uint" in fmt:
+                            sample_type = wgpu.TextureSampleType.uint
+                        elif "sint" in fmt:
+                            sample_type = wgpu.TextureSampleType.sint
+                        elif "depth" in fmt:
+                            sample_type = wgpu.TextureSampleType.depth
+                        else:
+                            raise ValueError("Could not determine texture sample type.")
                     binding_layouts.append(
                         {
                             "binding": slot,
@@ -889,9 +897,7 @@ class WgpuRenderer(Renderer):
         # Upload any pending data
         for offset, size in pending_uploads:
             subdata = resource._get_subdata(offset, size)
-            # A: map the buffer, writes to it, then unmaps.
-            # Seems nice, but requires BufferUsage.MAP_WRITE. Not recommended.
-            # buffer.write_data(subdata, bytes_per_item * offset)
+            # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
             # B: roll data in new buffer, copy from there to existing buffer
             tmp_buffer = self._device.create_buffer_with_data(
                 data=subdata,
@@ -971,7 +977,7 @@ class WgpuRenderer(Renderer):
             #     {
             #         "buffer": tmp_buffer,
             #         "offset": 0,
-            #         "bytes_per_row": size[0] * bytes_per_pixel,
+            #         "bytes_per_row": size[0] * bytes_per_pixel,  # multiple of 256
             #         "rows_per_image": size[1],
             #     },
             #     {
@@ -981,7 +987,8 @@ class WgpuRenderer(Renderer):
             #     },
             #     copy_size=size,
             # )
-            # C: using the queue, which may be doing B, but may also be optimized
+            # C: using the queue, which may be doing B, but may also be optimized,
+            #    and the bytes_per_row limitation does not apply here
             queue.write_texture(
                 {"texture": texture, "origin": offset, "mip_level": 0},
                 subdata,
@@ -1045,16 +1052,16 @@ class WgpuRenderer(Renderer):
         encoder = self._device.create_command_encoder()
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
-            self._copy_pixel(encoder, self._render_textures[0], float_pos, 4)
-        self._copy_pixel(encoder, self._pick_texture, float_pos, 8)
+            self._copy_pixel(encoder, self._render_textures[0], float_pos, 8)
+        self._copy_pixel(encoder, self._pick_texture, float_pos, 16)
         queue = self._device.queue
         queue.submit([encoder.finish()])
 
         # Collect data from the buffer
-        data = self._pixel_info_buffer.read_data()
+        data = self._pixel_info_buffer.map_read()
         depth = data[0:4].cast("f")[0]
-        color = tuple(data[4:8].cast("B"))
-        pick_value = tuple(data[8:24].cast("i"))
+        color = tuple(data[8:12].cast("B"))
+        pick_value = tuple(data[16:32].cast("i"))
         wobject = self._pick_map.get(pick_value[0], None)
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
@@ -1077,6 +1084,8 @@ class WgpuRenderer(Renderer):
         x = max(0, min(w - 1, int(float_pos[0] * w)))
         y = max(0, min(h - 1, int(float_pos[1] * h)))
 
+        # Note: bytes_per_row must be a multiple of 256. Since we only
+        # copy one pixel, it looks like we can set it to 0.
         encoder.copy_texture_to_buffer(
             {
                 "texture": render_texture.texture,
@@ -1086,7 +1095,7 @@ class WgpuRenderer(Renderer):
             {
                 "buffer": self._pixel_info_buffer,
                 "offset": buf_offset,
-                "bytes_per_row": render_texture.bytes_per_pixel,
+                "bytes_per_row": 0,  # render_texture.bytes_per_pixel,
                 "rows_per_image": 1,
             },
             copy_size=(1, 1, 1),
@@ -1099,33 +1108,20 @@ class WgpuRenderer(Renderer):
         rt = self._render_textures[step_index]
         size = rt.size
         bytes_per_pixel = 4
-        nbytes = bytes_per_pixel * size[0] * size[1]
 
-        # Initialize a buffer to hold pixel data
-        pixel_buffer = self._device.create_buffer(
-            size=nbytes,
-            usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
-        )
-
-        # Copy texture to buffer
-        encoder = self._device.create_command_encoder()
-        encoder.copy_texture_to_buffer(
+        # Note, with queue.read_texture the bytes_per_row limitation does not apply.
+        data = self._device.queue.read_texture(
             {
                 "texture": rt.texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
             },
             {
-                "buffer": pixel_buffer,
                 "offset": 0,
                 "bytes_per_row": bytes_per_pixel * size[0],
                 "rows_per_image": size[1],
             },
-            copy_size=size,
+            size,
         )
-        queue = self._device.queue
-        queue.submit([encoder.finish()])
 
-        # Download data from buffer
-        data = pixel_buffer.read_data()
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)

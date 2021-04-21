@@ -68,7 +68,7 @@ def mesh_renderer(wobject, render_info):
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
         bindings1[0] = "sampler/filtering", material.map
-        bindings1[1] = "texture/float", material.map
+        bindings1[1] = "texture/auto", material.map
         if material.map.view_dim == "2d":
             pass  # ok!
         elif material.map.view_dim == "3d":
