@@ -775,9 +775,9 @@ def thin_line_renderer(wobject, render_info):
             "indices": (positions1.nitems, 1),
             "vertex_buffers": vertex_buffers,
             "bindings0": {
-                0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-                1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-                2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+                0: ("buffer/uniform", render_info.stdinfo_uniform),
+                1: ("buffer/uniform", wobject.uniform_buffer),
+                2: ("buffer/uniform", material.uniform_buffer),
             },
             "target": None,  # default
         },
@@ -813,13 +813,13 @@ def line_renderer(wobject, render_info):
         )
 
     bindings0 = {
-        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+        0: ("buffer/uniform", render_info.stdinfo_uniform),
+        1: ("buffer/uniform", wobject.uniform_buffer),
+        2: ("buffer/uniform", material.uniform_buffer),
     }
 
     bindings1 = {
-        0: (wgpu.BindingType.storage_buffer, positions1),
+        0: ("buffer/read_only_storage", positions1),
     }
 
     if material.vertex_colors:
@@ -828,7 +828,7 @@ def line_renderer(wobject, render_info):
             raise ValueError(
                 "For rendering (thick) lines, the geometry.colors must be Nx4."
             )
-        bindings1[1] = (wgpu.BindingType.storage_buffer, colors1)
+        bindings1[1] = ("buffer/read_only_storage", colors1)
 
     if isinstance(material, LineArrowMaterial):
         vert_shader = vertex_shader_arrow
@@ -849,7 +849,7 @@ def line_renderer(wobject, render_info):
             array_from_shadertype(renderer_uniform_type), usage="UNIFORM"
         )
         uniform_buffer.data["last_i"] = positions1.nitems - 1
-        bindings0[3] = wgpu.BindingType.uniform_buffer, uniform_buffer
+        bindings0[3] = "buffer/uniform", uniform_buffer
 
     frag_shader = fragment_shader
     if material.vertex_colors:

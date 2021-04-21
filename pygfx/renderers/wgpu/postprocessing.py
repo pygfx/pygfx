@@ -29,7 +29,7 @@ class RenderTexture:
         """
         if size != self.size:
             self.size = size
-            usage = wgpu.TextureUsage.OUTPUT_ATTACHMENT | wgpu.TextureUsage.COPY_SRC
+            usage = wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.COPY_SRC
             if self.format.startswith(("rgb", "bgr")):
                 usage |= wgpu.TextureUsage.SAMPLED
             self.texture = device.create_texture(
@@ -117,7 +117,7 @@ class PostProcessingStep:
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "attachment": dst.texture_view,
+                    "view": dst.texture_view,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
@@ -130,7 +130,7 @@ class PostProcessingStep:
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end_pass()
-        device.default_queue.submit([command_encoder.finish()])
+        device.queue.submit([command_encoder.finish()])
 
     def _create_pipeline(
         self, vertex_shader, fragment_shader, src_texture_view, dst_format
@@ -144,20 +144,21 @@ class PostProcessingStep:
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "type": wgpu.BindingType.sampler,
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
             },
             {
                 "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "type": wgpu.BindingType.sampled_texture,
-                "view_dimension": wgpu.TextureViewDimension.d2,
-                "texture_component_type": wgpu.TextureComponentType.float,
-                "multisampled": False,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.float,
+                    "view_dimension": wgpu.TextureViewDimension.d2,
+                    "multisampled": False,
+                },
             },
             {
                 "binding": 2,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "type": wgpu.BindingType.uniform_buffer,
+                "buffer": {"type": wgpu.BufferBindingType.uniform},
             },
         ]
         bindings = [
@@ -183,27 +184,37 @@ class PostProcessingStep:
 
         self._render_pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
-            vertex_stage={"module": vs_module, "entry_point": "main"},
-            fragment_stage={"module": fs_module, "entry_point": "main"},
-            primitive_topology=wgpu.PrimitiveTopology.triangle_strip,
-            color_states=[
-                {
-                    "format": dst_format,
-                    "alpha_blend": (
-                        wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
-                        wgpu.BlendOperation.add,
-                    ),
-                    "color_blend": (
-                        wgpu.BlendFactor.src_alpha,
-                        wgpu.BlendFactor.one_minus_src_alpha,
-                        wgpu.BlendOperation.add,
-                    ),
-                }
-            ],
-            vertex_state={
-                "index_format": wgpu.IndexFormat.uint32,
-                "vertex_buffers": [],
+            vertex={
+                "module": vs_module,
+                "entry_point": "main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_strip,
+                "strip_index_format": wgpu.IndexFormat.uint32,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": fs_module,
+                "entry_point": "main",
+                "targets": [
+                    {
+                        "format": dst_format,
+                        "blend": {
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "color": (
+                                wgpu.BlendFactor.src_alpha,
+                                wgpu.BlendFactor.one_minus_src_alpha,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                    }
+                ],
             },
         )
 

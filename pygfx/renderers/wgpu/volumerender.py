@@ -20,13 +20,13 @@ def volume_slice_renderer(wobject, render_info):
 
     vertex_buffers = {}
     bindings0 = {
-        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+        0: ("buffer/uniform", render_info.stdinfo_uniform),
+        1: ("buffer/uniform", wobject.uniform_buffer),
+        2: ("buffer/uniform", material.uniform_buffer),
     }
     bindings1 = {
-        0: (wgpu.BindingType.storage_buffer, geometry.positions),
-        1: (wgpu.BindingType.storage_buffer, geometry.texcoords),
+        0: ("buffer/read_only_storage", geometry.positions),
+        1: ("buffer/read_only_storage", geometry.texcoords),
     }
 
     topology = wgpu.PrimitiveTopology.triangle_list
@@ -44,8 +44,8 @@ def volume_slice_renderer(wobject, render_info):
             raise TypeError("material.map must a 3D texture (view)")
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[2] = wgpu.BindingType.sampler, view
-        bindings1[3] = wgpu.BindingType.sampled_texture, view
+        bindings1[2] = "sampler/filtering", view
+        bindings1[3] = "texture/auto", view
         # Use a version of the shader for float textures if necessary
         if "float" in view.format:
             if not hasattr(fragment_shader, "float_version"):

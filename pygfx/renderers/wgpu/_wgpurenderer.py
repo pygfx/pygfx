@@ -92,7 +92,9 @@ class WgpuRenderer(Renderer):
         self._adapter = wgpu.request_adapter(
             canvas=canvas, power_preference="high-performance"
         )
-        self._device = self._adapter.request_device(extensions=[], limits={})
+        self._device = self._adapter.request_device(
+            non_guaranteed_features=[], non_guaranteed_limits={}
+        )
 
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
@@ -117,8 +119,10 @@ class WgpuRenderer(Renderer):
         # Initialize swapchain
         self._swap_chain = None
         if canvas is not None:
-            self._swap_chain = self._device.configure_swap_chain(
-                canvas, self._canvas_texture.format, wgpu.TextureUsage.OUTPUT_ATTACHMENT
+            self._swap_chain = canvas.configure_swap_chain(
+                device=self._device,
+                format=self._canvas_texture.format,
+                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
 
         # Initialize a small buffer to read pixel info into
@@ -255,7 +259,7 @@ class WgpuRenderer(Renderer):
         command_encoder = device.create_command_encoder()
         self._render_recording(command_encoder, q)
         command_buffers = [command_encoder.finish()]
-        device.default_queue.submit(command_buffers)
+        device.queue.submit(command_buffers)
 
         # Render each texture into the next
         for i in range(len(pp_steps)):
@@ -306,20 +310,20 @@ class WgpuRenderer(Renderer):
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "attachment": self._render_textures[0].texture_view,
+                    "view": self._render_textures[0].texture_view,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
                 },
                 {
-                    "attachment": self._pick_texture.texture_view,
+                    "view": self._pick_texture.texture_view,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
                 },
             ],
             depth_stencil_attachment={
-                "attachment": self._depth_texture.texture_view,
+                "view": self._depth_texture.texture_view,
                 "depth_load_value": 2.0,  # depth is 0..1, make initial value > 1
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
@@ -476,31 +480,24 @@ class WgpuRenderer(Renderer):
                     if isinstance(resources, dict):
                         resources = resources.values()
                     for binding_type, resource in resources:
-                        if binding_type in (
-                            wgpu.BindingType.uniform_buffer,
-                            wgpu.BindingType.storage_buffer,
-                            wgpu.BindingType.readonly_storage_buffer,
-                        ):
+                        if binding_type.startswith("buffer/"):
                             assert isinstance(resource, Buffer)
                             pipeline_resources.append(("buffer", resource))
-                        elif binding_type in (
-                            wgpu.BindingType.sampled_texture,
-                            wgpu.BindingType.readonly_storage_texture,
-                            wgpu.BindingType.writeonly_storage_texture,
-                        ):
+                        elif binding_type.startswith("sampler/"):
+                            assert isinstance(resource, TextureView)
+                            pipeline_resources.append(("sampler", resource))
+                        elif binding_type.startswith("texture/"):
                             assert isinstance(resource, TextureView)
                             pipeline_resources.append(("texture", resource.texture))
                             pipeline_resources.append(("texture_view", resource))
-                        elif binding_type in (
-                            wgpu.BindingType.sampler,
-                            wgpu.BindingType.comparison_sampler,
-                        ):
+                        elif binding_type.startswith("storage_texture/"):
                             assert isinstance(resource, TextureView)
-                            pipeline_resources.append(("sampler", resource))
+                            pipeline_resources.append(("texture", resource.texture))
+                            pipeline_resources.append(("texture_view", resource))
                         else:
-                            assert (
-                                False
-                            ), f"Unknown resource binding type {binding_type}"
+                            raise RuntimeError(
+                                f"Unknown resource binding type {binding_type}"
+                            )
 
         return pipeline_resources
 
@@ -566,7 +563,7 @@ class WgpuRenderer(Renderer):
         cs_module = device.create_shader_module(code=cshader)
         compute_pipeline = device.create_compute_pipeline(
             layout=pipeline_layout,
-            compute_stage={"module": cs_module, "entry_point": "main"},
+            compute={"module": cs_module, "entry_point": "main"},
         )
 
         return {
@@ -659,60 +656,76 @@ class WgpuRenderer(Renderer):
         fs_module = device.create_shader_module(code=fshader)
 
         # Instantiate the pipeline object
+        # todo: is this how strip_index_format is supposed to work?
+        strip_index_format = 0
+        if "strip" in pipeline_info["primitive_topology"]:
+            strip_index_format = index_format
         pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
-            vertex_stage={"module": vs_module, "entry_point": "main"},
-            fragment_stage={"module": fs_module, "entry_point": "main"},
-            primitive_topology=pipeline_info["primitive_topology"],
-            rasterization_state={
+            vertex={
+                "module": vs_module,
+                "entry_point": "main",
+                "buffers": vertex_buffer_descriptors,
+            },
+            primitive={
+                "topology": pipeline_info["primitive_topology"],
+                "strip_index_format": strip_index_format,
                 "front_face": wgpu.FrontFace.ccw,
                 "cull_mode": wgpu.CullMode.none,
+            },
+            depth_stencil={
+                "format": self._depth_texture.format,
+                "depth_write_enabled": True,  # optional
+                "depth_compare": wgpu.CompareFunction.less,  # optional
+                "front": {},  # use defaults
+                "back": {},  # use defaults
                 "depth_bias": 0,
                 "depth_bias_slope_scale": 0.0,
                 "depth_bias_clamp": 0.0,
             },
-            color_states=[
-                {
-                    "format": self._render_textures[0].format,
-                    "alpha_blend": (
-                        wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
-                        wgpu.BlendOperation.add,
-                    ),
-                    "color_blend": (
-                        wgpu.BlendFactor.src_alpha,
-                        wgpu.BlendFactor.one_minus_src_alpha,
-                        wgpu.BlendOperation.add,
-                    ),
-                    "write_mask": wgpu.ColorWrite.ALL,
-                },
-                {
-                    "format": self._pick_texture.format,
-                    "alpha_blend": (
-                        wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
-                        wgpu.BlendOperation.add,
-                    ),
-                    "color_blend": (
-                        wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
-                        wgpu.BlendOperation.add,
-                    ),
-                    "write_mask": wgpu.ColorWrite.ALL,
-                },
-            ],
-            depth_stencil_state={
-                "format": self._depth_texture.format,
-                "depth_write_enabled": True,  # optional
-                "depth_compare": wgpu.CompareFunction.less,  # optional
+            multisample={
+                "count": self._msaa,
+                "mask": 0xFFFFFFFF,
+                "alpha_to_coverage_enabled": False,
             },
-            vertex_state={
-                "index_format": index_format,
-                "vertex_buffers": vertex_buffer_descriptors,
+            fragment={
+                "module": fs_module,
+                "entry_point": "main",
+                "targets": [
+                    {
+                        "format": self._render_textures[0].format,
+                        "blend": {
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "color": (
+                                wgpu.BlendFactor.src_alpha,
+                                wgpu.BlendFactor.one_minus_src_alpha,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                        "write_mask": wgpu.ColorWrite.ALL,
+                    },
+                    {
+                        "format": self._pick_texture.format,
+                        "blend": {
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "color": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                        "write_mask": wgpu.ColorWrite.ALL,
+                    },
+                ],
             },
-            sample_count=self._msaa,
-            sample_mask=0xFFFFFFFF,
-            alpha_to_coverage_enabled=False,
         )
 
         return {
@@ -756,13 +769,9 @@ class WgpuRenderer(Renderer):
             for slot, type_resource in resources.items():
                 assert isinstance(type_resource, tuple) and len(type_resource) == 2
                 binding_type, resource = type_resource
+                subtype = binding_type.split("/")[-1]
 
-                if binding_type in (
-                    wgpu.BindingType.uniform_buffer,
-                    wgpu.BindingType.storage_buffer,
-                    wgpu.BindingType.readonly_storage_buffer,
-                ):
-                    # A buffer resource
+                if binding_type.startswith("buffer/"):
                     assert isinstance(resource, Buffer)
                     bindings.append(
                         {
@@ -778,48 +787,14 @@ class WgpuRenderer(Renderer):
                         {
                             "binding": slot,
                             "visibility": visibility_all,
-                            "type": binding_type,
-                            "has_dynamic_offset": False,
+                            "buffer": {
+                                "type": getattr(wgpu.BufferBindingType, subtype),
+                                "has_dynamic_offset": False,
+                                "min_binding_size": 0,
+                            },
                         }
                     )
-
-                elif binding_type in (
-                    wgpu.BindingType.sampled_texture,
-                    wgpu.BindingType.readonly_storage_texture,
-                    wgpu.BindingType.writeonly_storage_texture,
-                ):
-                    # A texture view resource
-                    assert isinstance(resource, TextureView)
-                    bindings.append(
-                        {"binding": slot, "resource": resource._wgpu_texture_view[1]}
-                    )
-                    visibility = visibility_all
-                    if binding_type == wgpu.BindingType.sampled_texture:
-                        visibility = wgpu.ShaderStage.FRAGMENT
-                    fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
-                    dim = resource.view_dim
-                    component_type = wgpu.TextureComponentType.sint
-                    if "uint" in fmt:
-                        component_type = wgpu.TextureComponentType.uint
-                    if "float" in fmt or "norm" in fmt:
-                        component_type = wgpu.TextureComponentType.float
-                    binding_layout = {
-                        "binding": slot,
-                        "visibility": visibility,
-                        "type": binding_type,
-                        "view_dimension": getattr(wgpu.TextureViewDimension, dim, dim),
-                        "texture_component_type": component_type,
-                        # "multisampled": False,
-                    }
-                    if "storage" in binding_type:
-                        binding_layout["storage_texture_format"] = fmt
-                    binding_layouts.append(binding_layout)
-
-                elif binding_type in (
-                    wgpu.BindingType.sampler,
-                    wgpu.BindingType.comparison_sampler,
-                ):
-                    # A sampler resource
+                elif binding_type.startswith("sampler/"):
                     assert isinstance(resource, TextureView)
                     bindings.append(
                         {"binding": slot, "resource": resource._wgpu_sampler[1]}
@@ -828,7 +803,60 @@ class WgpuRenderer(Renderer):
                         {
                             "binding": slot,
                             "visibility": wgpu.ShaderStage.FRAGMENT,
-                            "type": binding_type,
+                            "sampler": {
+                                "type": getattr(wgpu.SamplerBindingType, subtype),
+                            },
+                        }
+                    )
+                elif binding_type.startswith("texture/"):
+                    assert isinstance(resource, TextureView)
+                    bindings.append(
+                        {"binding": slot, "resource": resource._wgpu_texture_view[1]}
+                    )
+                    dim = resource.view_dim
+                    dim = getattr(wgpu.TextureViewDimension, dim, dim)
+                    sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
+                    # Derive sample type from texture
+                    if sample_type == "auto":
+                        fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
+                        if "float" in fmt or "norm" in fmt:
+                            sample_type = wgpu.TextureSampleType.float
+                        elif "uint" in fmt:
+                            sample_type = wgpu.TextureSampleType.uint
+                        elif "sint" in fmt:
+                            sample_type = wgpu.TextureSampleType.sint
+                        elif "depth" in fmt:
+                            sample_type = wgpu.TextureSampleType.depth
+                        else:
+                            raise ValueError("Could not determine texture sample type.")
+                    binding_layouts.append(
+                        {
+                            "binding": slot,
+                            "visibility": wgpu.ShaderStage.FRAGMENT,
+                            "texture": {
+                                "sample_type": sample_type,
+                                "view_dimension": dim,
+                                "multisampled": False,
+                            },
+                        }
+                    )
+                elif binding_type.startswith("storage_texture/"):
+                    assert isinstance(resource, TextureView)
+                    bindings.append(
+                        {"binding": slot, "resource": resource._wgpu_texture_view[1]}
+                    )
+                    dim = resource.view_dim
+                    dim = getattr(wgpu.TextureViewDimension, dim, dim)
+                    fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
+                    binding_layouts.append(
+                        {
+                            "binding": slot,
+                            "visibility": visibility_all,
+                            "storage_texture": {
+                                "access": getattr(wgpu.StorageTextureAccess, subtype),
+                                "format": fmt,
+                                "view_dimension": dim,
+                            },
                         }
                     )
 
@@ -863,15 +891,13 @@ class WgpuRenderer(Renderer):
                 usage |= getattr(wgpu.BufferUsage, u)
             buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
 
-        queue = self._device.default_queue
+        queue = self._device.queue
         encoder = self._device.create_command_encoder()
 
         # Upload any pending data
         for offset, size in pending_uploads:
             subdata = resource._get_subdata(offset, size)
-            # A: map the buffer, writes to it, then unmaps.
-            # Seems nice, but requires BufferUsage.MAP_WRITE. Not recommended.
-            # buffer.write_data(subdata, bytes_per_item * offset)
+            # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
             # B: roll data in new buffer, copy from there to existing buffer
             tmp_buffer = self._device.create_buffer_with_data(
                 data=subdata,
@@ -937,7 +963,7 @@ class WgpuRenderer(Renderer):
         if pixel_padding is not None:
             bytes_per_pixel += extra_bytes
 
-        queue = self._device.default_queue
+        queue = self._device.queue
         encoder = self._device.create_command_encoder()
 
         # Upload any pending data
@@ -951,7 +977,7 @@ class WgpuRenderer(Renderer):
             #     {
             #         "buffer": tmp_buffer,
             #         "offset": 0,
-            #         "bytes_per_row": size[0] * bytes_per_pixel,
+            #         "bytes_per_row": size[0] * bytes_per_pixel,  # multiple of 256
             #         "rows_per_image": size[1],
             #     },
             #     {
@@ -961,7 +987,8 @@ class WgpuRenderer(Renderer):
             #     },
             #     copy_size=size,
             # )
-            # C: using the queue, which may be doing B, but may also be optimized
+            # C: using the queue, which may be doing B, but may also be optimized,
+            #    and the bytes_per_row limitation does not apply here
             queue.write_texture(
                 {"texture": texture, "origin": offset, "mip_level": 0},
                 subdata,
@@ -1025,16 +1052,16 @@ class WgpuRenderer(Renderer):
         encoder = self._device.create_command_encoder()
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
-            self._copy_pixel(encoder, self._render_textures[0], float_pos, 4)
-        self._copy_pixel(encoder, self._pick_texture, float_pos, 8)
-        queue = self._device.default_queue
+            self._copy_pixel(encoder, self._render_textures[0], float_pos, 8)
+        self._copy_pixel(encoder, self._pick_texture, float_pos, 16)
+        queue = self._device.queue
         queue.submit([encoder.finish()])
 
         # Collect data from the buffer
-        data = self._pixel_info_buffer.read_data()
+        data = self._pixel_info_buffer.map_read()
         depth = data[0:4].cast("f")[0]
-        color = tuple(data[4:8].cast("B"))
-        pick_value = tuple(data[8:24].cast("i"))
+        color = tuple(data[8:12].cast("B"))
+        pick_value = tuple(data[16:32].cast("i"))
         wobject = self._pick_map.get(pick_value[0], None)
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
@@ -1057,6 +1084,8 @@ class WgpuRenderer(Renderer):
         x = max(0, min(w - 1, int(float_pos[0] * w)))
         y = max(0, min(h - 1, int(float_pos[1] * h)))
 
+        # Note: bytes_per_row must be a multiple of 256. Since we only
+        # copy one pixel, it looks like we can set it to 0.
         encoder.copy_texture_to_buffer(
             {
                 "texture": render_texture.texture,
@@ -1066,7 +1095,7 @@ class WgpuRenderer(Renderer):
             {
                 "buffer": self._pixel_info_buffer,
                 "offset": buf_offset,
-                "bytes_per_row": render_texture.bytes_per_pixel,
+                "bytes_per_row": 0,  # render_texture.bytes_per_pixel,
                 "rows_per_image": 1,
             },
             copy_size=(1, 1, 1),
@@ -1079,33 +1108,20 @@ class WgpuRenderer(Renderer):
         rt = self._render_textures[step_index]
         size = rt.size
         bytes_per_pixel = 4
-        nbytes = bytes_per_pixel * size[0] * size[1]
 
-        # Initialize a buffer to hold pixel data
-        pixel_buffer = self._device.create_buffer(
-            size=nbytes,
-            usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
-        )
-
-        # Copy texture to buffer
-        encoder = self._device.create_command_encoder()
-        encoder.copy_texture_to_buffer(
+        # Note, with queue.read_texture the bytes_per_row limitation does not apply.
+        data = self._device.queue.read_texture(
             {
                 "texture": rt.texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
             },
             {
-                "buffer": pixel_buffer,
                 "offset": 0,
                 "bytes_per_row": bytes_per_pixel * size[0],
                 "rows_per_image": size[1],
             },
-            copy_size=size,
+            size,
         )
-        queue = self._device.default_queue
-        queue.submit([encoder.finish()])
 
-        # Download data from buffer
-        data = pixel_buffer.read_data()
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)

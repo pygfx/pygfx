@@ -43,9 +43,9 @@ def mesh_renderer(wobject, render_info):
 
     # Init bindings 0: uniforms
     bindings0 = {
-        0: (wgpu.BindingType.uniform_buffer, render_info.stdinfo_uniform),
-        1: (wgpu.BindingType.uniform_buffer, wobject.uniform_buffer),
-        2: (wgpu.BindingType.uniform_buffer, material.uniform_buffer),
+        0: ("buffer/uniform", render_info.stdinfo_uniform),
+        1: ("buffer/uniform", wobject.uniform_buffer),
+        2: ("buffer/uniform", material.uniform_buffer),
     }
 
     # We're using storage buffers for everything; no vertex nor index buffers.
@@ -54,11 +54,11 @@ def mesh_renderer(wobject, render_info):
 
     # Init bindings 1: storage buffers, textures, and samplers
     bindings1 = {}
-    bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
-    bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
-    bindings1[4] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
+    bindings1[2] = "buffer/read_only_storage", geometry.index
+    bindings1[3] = "buffer/read_only_storage", geometry.positions
+    bindings1[4] = "buffer/read_only_storage", normal_buffer
     if getattr(geometry, "texcoords", None) is not None:
-        bindings1[5] = wgpu.BindingType.readonly_storage_buffer, geometry.texcoords
+        bindings1[5] = "buffer/read_only_storage", geometry.texcoords
 
     if material.map is not None:
         if isinstance(material.map, Texture):
@@ -67,8 +67,8 @@ def mesh_renderer(wobject, render_info):
             raise TypeError("material.map must be a TextureView")
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[0] = wgpu.BindingType.sampler, material.map
-        bindings1[1] = wgpu.BindingType.sampled_texture, material.map
+        bindings1[0] = "sampler/filtering", material.map
+        bindings1[1] = "texture/auto", material.map
         if material.map.view_dim == "2d":
             pass  # ok!
         elif material.map.view_dim == "3d":
@@ -81,8 +81,8 @@ def mesh_renderer(wobject, render_info):
         topology = wgpu.PrimitiveTopology.line_list
         vertex_shader = vertex_shader_normal_lines
         fragment_shader = fragment_shader_simple
-        bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
-        bindings1[3] = wgpu.BindingType.readonly_storage_buffer, normal_buffer
+        bindings1[2] = "buffer/read_only_storage", geometry.positions
+        bindings1[3] = "buffer/read_only_storage", normal_buffer
         vertex_buffers = {}
         index_buffer = None
         n = geometry.positions.nitems * 2
@@ -90,8 +90,8 @@ def mesh_renderer(wobject, render_info):
         topology = wgpu.PrimitiveTopology.triangle_list
         vertex_shader = vertex_shader_mesh_slice
         fragment_shader = fragment_shader_mesh_slice
-        bindings1[2] = wgpu.BindingType.readonly_storage_buffer, geometry.index
-        bindings1[3] = wgpu.BindingType.readonly_storage_buffer, geometry.positions
+        bindings1[2] = "buffer/read_only_storage", geometry.index
+        bindings1[3] = "buffer/read_only_storage", geometry.positions
         vertex_buffers = {}
         index_buffer = None
         # n = (geometry.index.nitems // 3) * 6  # but what if data was nx3?
@@ -122,7 +122,7 @@ def mesh_renderer(wobject, render_info):
         if vertex_shader is not vertex_shader_mesh:
             raise TypeError(f"Instanced mesh does not work with {material}")
         vertex_shader = vertex_shader_mesh_instanced
-        bindings1[6] = wgpu.BindingType.readonly_storage_buffer, wobject.matrices
+        bindings1[6] = "buffer/read_only_storage", wobject.matrices
         n_instances = wobject.matrices.nitems
 
     # Use a version of the shader for float textures if necessary
