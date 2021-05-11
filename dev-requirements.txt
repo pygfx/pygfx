@@ -1,5 +1,5 @@
 # development
-black==19.10b0
+black
 flake8
 pep8-naming
 pytest
