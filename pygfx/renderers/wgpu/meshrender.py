@@ -24,6 +24,8 @@ def mesh_renderer(wobject, render_info):
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
+    shader = MeshShader(lighting="plain", texture_dim="", texture_format="f32")
+
     # Initialize some pipeline things
     topology = wgpu.PrimitiveTopology.triangle_list
     vertex_shader = vertex_shader_mesh
@@ -70,9 +72,16 @@ def mesh_renderer(wobject, render_info):
         bindings1[0] = "sampler/filtering", material.map
         bindings1[1] = "texture/auto", material.map
         if material.map.view_dim == "2d":
-            pass  # ok!
+            shader["texture_dim"] = "2d"
         elif material.map.view_dim == "3d":
             vertex_shader = vertex_shader_mesh_3dtex
+            shader["texture_dim"] = "3d"
+        if "norm" in material.map.format or "float" in material.map.format:
+            shader["texture_format"] = "f32"
+        elif "uint" in material.map.format:
+            shader["texture_format"] = "u32"
+        else:
+            shader["texture_format"] = "i32"
 
     fs_entry_point = "fs_simple"
 
@@ -99,6 +108,7 @@ def mesh_renderer(wobject, render_info):
         # n = (geometry.index.nitems // 3) * 6  # but what if data was nx3?
         n = (geometry.index.data.size // 3) * 6
     elif isinstance(material, MeshPhongMaterial):
+        shader["lighting"] = "phong"
         fragment_shader = fragment_shader_phong
         if material.map is not None:
             fs_entry_point = "fs_textured_rgba_phong"
@@ -141,13 +151,14 @@ def mesh_renderer(wobject, render_info):
             fragment_shader = fragment_shader.float_version
 
     wgsl = vertex_shader_mesh_wgsl
+    wgsl = shader.to_string()
 
     # Put it together!
     return [
         {
             "shader": wgsl,
             "vs_entry_point": "vs_main",
-            "fs_entry_point": fs_entry_point,
+            "fs_entry_point": "fs_main",
             "vertex_shader": vertex_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": topology,
@@ -430,6 +441,9 @@ fn fs_textured_rgba(in: VertexOutput) -> FragmentOutput {
 }
 
 
+
+
+
 [[stage(fragment)]]
 fn fs_textured_rgba_phong(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
@@ -439,40 +453,8 @@ fn fs_textured_rgba_phong(in: VertexOutput) -> FragmentOutput {
     //let color_sampled = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
     let color = (color_sampled - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
 
-    // Base colors
-    let albeido = color.rgb;
-    let light_color = vec3<f32>(1.0, 1.0, 1.0);
-
-    // Parameters
-    // todo: allow configuring material specularity
-    let ambient_factor = 0.1;
-    let diffuse_factor = 0.7;
-    let specular_factor = 0.3;
-    let shininess = 16.0;
-
-    // Base vectors
-    var normal: vec3<f32> = normalize(in.normal);
-    let view = normalize(in.view);
-    let light = normalize(in.light);
-
-    // Maybe flip the normal - otherwise backfacing faces are not lit
-    normal = select(normal, -normal, dot(view, normal) >= 0.0);
-
-    // Ambient
-    let ambient_color = light_color * ambient_factor;
-
-    // Diffuse (blinn-phong light model)
-    let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
-    let diffuse_color = diffuse_factor * light_color * lambert_term;
-
-    // Specular
-    let halfway = normalize(light + view);  // halfway vector
-    let specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
-    let specular_color = specular_factor * specular_term * light_color;
-
-    // Put together
-    let final_color = albeido * (ambient_color + diffuse_color) + specular_color;
-    out.color = vec4<f32>(final_color, color.a);
+    let lit_color = lighting(in.normal, in.light, in.view, color.rgb);
+    out.color = vec4<f32>(lit_color, color.a);
 
     // Picking
     let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
@@ -482,7 +464,298 @@ fn fs_textured_rgba_phong(in: VertexOutput) -> FragmentOutput {
     return out;
 }
 
+
 """
+
+
+import jinja2
+
+jinja_env = jinja2.Environment(
+    block_start_string="{$",
+    block_end_string="$}",
+    variable_start_string="{{",
+    variable_end_string="}}",
+    line_statement_prefix="$$",
+)
+
+
+class MeshShader:
+    def __init__(self, **kwargs):
+        self.args = kwargs
+
+    def __setitem__(self, key, value):
+        self.args[key] = value
+
+    def _args_check(self, *, texture_dim, texture_format, lighting):
+        pass
+
+    def to_string(self):
+        self._args_check(**self.args)
+        x = (
+            self.preface()
+            + self.bindings()
+            + self.helpers()
+            + self.vertex_shader()
+            + self.fragment_shader()
+        )
+
+        t = jinja_env.from_string(x)
+        return t.render(**self.args)
+
+    def preface(self):
+        return """
+
+        struct VertexInput {
+            [[builtin(vertex_index)]] index : u32;
+        };
+
+        struct VertexOutput {
+            [[location(0)]] texcoord: vec3<f32>;
+            [[location(1)]] normal: vec3<f32>;
+            [[location(2)]] view: vec3<f32>;
+            [[location(3)]] light: vec3<f32>;
+            [[location(4)]] face_idx: vec4<f32>;
+            [[location(5)]] face_coords: vec3<f32>;
+            [[builtin(position)]] pos: vec4<f32>;
+        };
+
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+            [[location(1)]] pick: vec4<i32>;
+        };
+
+        [[block]]
+        struct Stdinfo {
+            cam_transform: mat4x4<f32>;
+            cam_transform_inv: mat4x4<f32>;
+            projection_transform: mat4x4<f32>;
+            projection_transform_inv: mat4x4<f32>;
+            physical_size: vec2<f32>;
+            logical_size: vec2<f32>;
+        };
+
+        [[block]]
+        struct Wobject {
+            world_transform: mat4x4<f32>;
+            id: i32;
+        };
+
+        [[block]]
+        struct Material {
+            color: vec4<f32>;
+            clim: vec2<f32>;
+        };
+
+        [[block]]
+        struct BufferI32 {
+            data: [[stride(4)]] array<i32>;
+        };
+
+        [[block]]
+        struct BufferF32 {
+            data: [[stride(4)]] array<f32>;
+        };
+        """
+
+    def bindings(self):
+        return """
+
+        [[group(0), binding(0)]]
+        var u_stdinfo: Stdinfo;
+
+        [[group(0), binding(1)]]
+        var u_wobject: Wobject;
+
+        [[group(0), binding(2)]]
+        var u_mat: Material;
+
+
+        [[group(1), binding(0)]]
+        var r_sampler: sampler;
+
+        $$ if texture_dim
+        [[group(1), binding(1)]]
+        var r_tex: texture_{{ texture_dim }}<{{ texture_format }}>;
+        $$ endif
+
+        [[group(1), binding(2)]]
+        var<storage> s_indices: [[access(read)]] BufferI32;
+
+        [[group(1), binding(3)]]
+        var<storage> s_pos: [[access(read)]] BufferF32;
+
+        [[group(1), binding(4)]]
+        var<storage> s_normal: [[access(read)]] BufferF32;
+
+        [[group(1), binding(5)]]
+        var<storage> s_texcoord: [[access(read)]] BufferF32;
+        """
+
+    def vertex_shader(self):
+        return """
+        [[stage(vertex)]]
+        fn vs_main(in: VertexInput) -> VertexOutput {
+
+            // Select what face we're at
+            let index = i32(in.index);
+            let face_index = index / 3;
+            let sub_index = index % 3;
+            let i1 = s_indices.data[face_index * 3 + 0];
+            let i2 = s_indices.data[face_index * 3 + 1];
+            let i3 = s_indices.data[face_index * 3 + 2];
+            let i0 = array<i32, 3>(i1, i2, i3)[sub_index];
+
+            // Vertex positions of this face, in local object coordinates
+            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
+            let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+            let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+
+            //let ndc_to_world = matrix_inverse(u_stdinfo.cam_transform * u_stdinfo.projection_transform);
+            let ndc_to_world = u_stdinfo.projection_transform_inv * u_stdinfo.cam_transform_inv;
+
+            // Prepare output
+            var out: VertexOutput;
+
+            // Set position and texcoords
+            out.pos = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
+            $$ if texture_dim == '1d'
+            out.texcoord =vec3<f32>(s_texcoord.data[i0], 0.0, 0.0);
+            $$ elif texture_dim == '2d'
+            out.texcoord = vec3<f32>(s_texcoord.data[i0 * 2 + 0], s_texcoord.data[i0 * 2 + 1], 0.0);
+            $$ elif texture_dim == '3d'
+            out.texcoord = vec3<f32>(s_texcoord.data[i0 * 3 + 0], s_texcoord.data[i0 * 3 + 1], s_texcoord.data[i0 * 3 + 2]);
+            $$ endif
+
+            // Vectors for lighting, all in world coordinates
+
+            let normal_ = vec3<f32>(
+                s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]
+            );
+            out.normal = (u_wobject.world_transform * vec4<f32>(normal_.xyz, 1.0)).xyz;
+
+            let view_vec4 = ndc_to_world * vec4<f32>(0.0, 0.0, 1.0, 1.0);
+            let view_vec = normalize(view_vec4.xyz / view_vec4.w);
+            out.view = view_vec;
+            out.light = view_vec;
+
+            // Set varyings for picking. We store the face_index, and 3 weights
+            // that indicate how close the fragment is to each vertex (barycentric
+            // coordinates). This allows the selection of the nearest vertex or
+            // edge. Note that integers larger than about 4M loose too much
+            // precision when passed as a varyings (on my machine). We therefore
+            // encode them in two values.
+            out.face_idx = vec4<f32>(0.0, 0.0, f32(face_index / 10000), f32(face_index % 10000));
+            out.face_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0))[sub_index];
+
+            return out;
+        }
+        """
+
+    def fragment_shader(self):
+        return """
+
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> FragmentOutput {
+            var out: FragmentOutput;
+
+            $$ if texture_dim == '1d'
+                $$ if texture_format == 'f32'
+                    let color_value = textureSample(r_tex, r_sampler, in.texcoord.x);
+                $$ else
+                    let texcoords_dim = f32(textureDimensions(r_tex);
+                    let texcoords_u = i32(in.texcoord.x * texcoords_dim % texcoords_dim);
+                    let color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
+                $$ endif
+            $$ elif texture_dim == '2d'
+                $$ if texture_format == 'f32'
+                    let color_value = textureSample(r_tex, r_sampler, in.texcoord.xy);
+                $$ else
+                    let texcoords_dim = vec2<f32>(textureDimensions(r_tex));
+                    let texcoords_u = vec2<i32>(in.texcoord.xy * texcoords_dim % texcoords_dim);
+                    let color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
+                $$ endif
+            $$ elif texture_dim == '3d'
+                $$ if texture_format == 'f32'
+                    let color_value = textureSample(r_tex, r_sampler, in.texcoord.xyz);
+                $$ else
+                    let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
+                    let texcoords_u = vec3<i32>(in.texcoord.xyz * texcoords_dim % texcoords_dim);
+                    let color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
+                $$ endif
+            $$ else
+                let color_value = u_mat.color;
+            $$ endif
+
+            // Apply contrast limits
+            let albeido = (color_value.rgb - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
+
+            // Lighting
+            let lit_color = lighting_{{ lighting }}(in.normal, in.light, in.view, albeido);
+            out.color = vec4<f32>(lit_color, color_value.a);
+
+            // Picking
+            let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
+            let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
+            out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+
+            return out;
+        }
+
+        """
+
+    def helpers(self):
+        return """
+
+        fn lighting_plain(
+            normal: vec3<f32>,
+            light: vec3<f32>,
+            view: vec3<f32>,
+            albeido: vec3<f32>,
+        ) -> vec3<f32> {
+            return albeido;
+        }
+
+        fn lighting_phong(
+            normal: vec3<f32>,
+            light: vec3<f32>,
+            view: vec3<f32>,
+            albeido: vec3<f32>,
+        ) -> vec3<f32> {
+            let light_color = vec3<f32>(1.0, 1.0, 1.0);
+
+            // Parameters
+            // todo: allow configuring material specularity
+            let ambient_factor = 0.1;
+            let diffuse_factor = 0.7;
+            let specular_factor = 0.3;
+            let shininess = 16.0;
+
+            // Base vectors
+            var normal: vec3<f32> = normalize(normal);
+            let view = normalize(view);
+            let light = normalize(light);
+
+            // Maybe flip the normal - otherwise backfacing faces are not lit
+            normal = select(normal, -normal, dot(view, normal) >= 0.0);
+
+            // Ambient
+            let ambient_color = light_color * ambient_factor;
+
+            // Diffuse (blinn-phong light model)
+            let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
+            let diffuse_color = diffuse_factor * light_color * lambert_term;
+
+            // Specular
+            let halfway = normalize(light + view);  // halfway vector
+            let specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
+            let specular_color = specular_factor * specular_term * light_color;
+
+            // Put together
+            return albeido * (ambient_color + diffuse_color) + specular_color;
+        }
+
+        """
+
 
 # todo: *sigh* it looks like we do need some form of templating
 
