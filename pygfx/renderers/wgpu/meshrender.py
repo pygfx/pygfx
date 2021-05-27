@@ -74,6 +74,8 @@ def mesh_renderer(wobject, render_info):
         elif material.map.view_dim == "3d":
             vertex_shader = vertex_shader_mesh_3dtex
 
+    fs_entry_point = "fs_simple"
+
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
         fragment_shader = fragment_shader_normals
@@ -99,6 +101,7 @@ def mesh_renderer(wobject, render_info):
     elif isinstance(material, MeshPhongMaterial):
         fragment_shader = fragment_shader_phong
         if material.map is not None:
+            fs_entry_point = "fs_textured_rgba_phong"
             if "rgb" in material.map.format:  # rgb maps to rgba
                 fragment_shader = fragment_shader_textured_rgba_phong
             else:
@@ -108,6 +111,7 @@ def mesh_renderer(wobject, render_info):
     else:
         fragment_shader = fragment_shader_simple
         if material.map is not None:
+            fs_entry_point = "fs_textured_rgba"
             if material.map.view_dim == "2d":
                 if "rgb" in material.map.format:
                     fragment_shader = fragment_shader_textured_rgba
@@ -143,7 +147,7 @@ def mesh_renderer(wobject, render_info):
         {
             "shader": wgsl,
             "vs_entry_point": "vs_main",
-            "fs_entry_point": "fs_textured_rgba_phong",
+            "fs_entry_point": fs_entry_point,
             "vertex_shader": vertex_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": topology,
@@ -431,6 +435,8 @@ fn fs_textured_rgba_phong(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
     let color_sampled = textureSample(r_tex, r_sampler, in.texcoord.xy);
+    //let texcoords_u = vec2<i32>(in.texcoord * vec2<f32>(textureDimensions(r_tex)) % vec2<f32>(textureDimensions(r_tex)));
+    //let color_sampled = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
     let color = (color_sampled - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
 
     // Base colors

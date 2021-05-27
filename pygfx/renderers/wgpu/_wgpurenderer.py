@@ -128,8 +128,9 @@ class WgpuRenderer(Renderer):
             )
 
         # Initialize a small buffer to read pixel info into
+        # Make it 256 bytes just in case (for bytes_per_row)
         self._pixel_info_buffer = self._device.create_buffer(
-            size=32,
+            size=256,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
 
@@ -1101,8 +1102,7 @@ class WgpuRenderer(Renderer):
         x = max(0, min(w - 1, int(float_pos[0] * w)))
         y = max(0, min(h - 1, int(float_pos[1] * h)))
 
-        # Note: bytes_per_row must be a multiple of 256. Since we only
-        # copy one pixel, it looks like we can set it to 0.
+        # Note: bytes_per_row must be a multiple of 256.
         encoder.copy_texture_to_buffer(
             {
                 "texture": render_texture.texture,
@@ -1112,7 +1112,7 @@ class WgpuRenderer(Renderer):
             {
                 "buffer": self._pixel_info_buffer,
                 "offset": buf_offset,
-                "bytes_per_row": 0,  # render_texture.bytes_per_pixel,
+                "bytes_per_row": 256,  # render_texture.bytes_per_pixel,
                 "rows_per_image": 1,
             },
             copy_size=(1, 1, 1),
