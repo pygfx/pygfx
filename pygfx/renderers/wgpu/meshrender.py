@@ -143,7 +143,7 @@ def mesh_renderer(wobject, render_info):
         {
             "shader": wgsl,
             "vs_entry_point": "vs_main",
-            "fs_entry_point": "fs_simple",
+            "fs_entry_point": "fs_textured_rgba_phong",
             "vertex_shader": vertex_shader,
             "fragment_shader": fragment_shader,
             "primitive_topology": topology,
@@ -327,7 +327,13 @@ var u_wobject: Wobject;
 [[group(0), binding(2)]]
 var u_mat: Material;
 
-// ----- Storage buffers
+// ----- Storage buffers/textures
+
+[[group(1), binding(0)]]
+var r_sampler: sampler;
+
+[[group(1), binding(1)]]
+var r_tex: texture_2d<f32>;
 
 [[group(1), binding(2)]]
 var<storage> s_indices: [[access(read)]] BufferI32;
@@ -402,6 +408,71 @@ fn fs_simple(in: VertexOutput) -> FragmentOutput {
     let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
     let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
     out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+    return out;
+}
+
+
+[[stage(fragment)]]
+fn fs_textured_rgba(in: VertexOutput) -> FragmentOutput {
+    var out: FragmentOutput;
+
+    let color = textureSample(r_tex, r_sampler, in.texcoord.xy);
+    out.color = (color - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
+
+    let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
+    let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
+    out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+    return out;
+}
+
+
+[[stage(fragment)]]
+fn fs_textured_rgba_phong(in: VertexOutput) -> FragmentOutput {
+    var out: FragmentOutput;
+
+    let color_sampled = textureSample(r_tex, r_sampler, in.texcoord.xy);
+    let color = (color_sampled - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
+
+    // Base colors
+    let albeido = color.rgb;
+    let light_color = vec3<f32>(1.0, 1.0, 1.0);
+
+    // Parameters
+    // todo: allow configuring material specularity
+    let ambient_factor = 0.1;
+    let diffuse_factor = 0.7;
+    let specular_factor = 0.3;
+    let shininess = 16.0;
+
+    // Base vectors
+    var normal: vec3<f32> = normalize(in.normal);
+    let view = normalize(in.view);
+    let light = normalize(in.light);
+
+    // Maybe flip the normal - otherwise backfacing faces are not lit
+    normal = select(normal, -normal, dot(view, normal) >= 0.0);
+
+    // Ambient
+    let ambient_color = light_color * ambient_factor;
+
+    // Diffuse (blinn-phong light model)
+    let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
+    let diffuse_color = diffuse_factor * light_color * lambert_term;
+
+    // Specular
+    let halfway = normalize(light + view);  // halfway vector
+    let specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
+    let specular_color = specular_factor * specular_term * light_color;
+
+    // Put together
+    let final_color = albeido * (ambient_color + diffuse_color) + specular_color;
+    out.color = vec4<f32>(final_color, color.a);
+
+    // Picking
+    let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
+    let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
+    out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+
     return out;
 }
 

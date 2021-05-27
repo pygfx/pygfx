@@ -366,9 +366,11 @@ class WgpuRenderer(Renderer):
         # Update its data
         stdinfo_data = self._wgpu_stdinfo_buffer.data
         stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-        # stdinfo_data["cam_transform_inv"] = tuple(camera.matrix_world.elements)
+        stdinfo_data["cam_transform_inv"] = tuple(camera.matrix_world.elements)
         stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
-        # stdinfo_data["projection_transform_inv"] = tuple(camera.projection_matrix_inverse.elements)
+        stdinfo_data["projection_transform_inv"] = tuple(
+            camera.projection_matrix_inverse.elements
+        )
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
