@@ -21,7 +21,9 @@ from .postprocessing import RenderTexture, SSAAPostProcessingStep
 # todo: a combined transform would be nice too, for performance
 stdinfo_uniform_type = Struct(
     cam_transform=mat4,
+    cam_transform_inv=mat4,
     projection_transform=mat4,
+    projection_transform_inv=mat4,
     physical_size=vec2,
     logical_size=vec2,
 )
@@ -364,7 +366,9 @@ class WgpuRenderer(Renderer):
         # Update its data
         stdinfo_data = self._wgpu_stdinfo_buffer.data
         stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
+        # stdinfo_data["cam_transform_inv"] = tuple(camera.matrix_world.elements)
         stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
+        # stdinfo_data["projection_transform_inv"] = tuple(camera.projection_matrix_inverse.elements)
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
@@ -650,10 +654,17 @@ class WgpuRenderer(Renderer):
         bind_groups, pipeline_layout = self._get_bind_groups(pipeline_info)
 
         # Compile shaders
-        vshader = pipeline_info["vertex_shader"]
-        fshader = pipeline_info["fragment_shader"]
-        vs_module = device.create_shader_module(code=vshader)
-        fs_module = device.create_shader_module(code=fshader)
+        if "shader" in pipeline_info:
+            shader = pipeline_info["shader"]
+            vs_module = fs_module = device.create_shader_module(code=shader)
+            vs_entry_point = pipeline_info["vs_entry_point"]
+            fs_entry_point = pipeline_info["fs_entry_point"]
+        else:
+            vshader = pipeline_info["vertex_shader"]
+            fshader = pipeline_info["fragment_shader"]
+            vs_module = device.create_shader_module(code=vshader)
+            fs_module = device.create_shader_module(code=fshader)
+            vs_entry_point = fs_entry_point = "main"
 
         # Instantiate the pipeline object
         # todo: is this how strip_index_format is supposed to work?
@@ -664,7 +675,7 @@ class WgpuRenderer(Renderer):
             layout=pipeline_layout,
             vertex={
                 "module": vs_module,
-                "entry_point": "main",
+                "entry_point": vs_entry_point,
                 "buffers": vertex_buffer_descriptors,
             },
             primitive={
@@ -677,8 +688,8 @@ class WgpuRenderer(Renderer):
                 "format": self._depth_texture.format,
                 "depth_write_enabled": True,  # optional
                 "depth_compare": wgpu.CompareFunction.less,  # optional
-                "front": {},  # use defaults
-                "back": {},  # use defaults
+                "stencil_front": {},  # use defaults
+                "stencil_back": {},  # use defaults
                 "depth_bias": 0,
                 "depth_bias_slope_scale": 0.0,
                 "depth_bias_clamp": 0.0,
@@ -690,7 +701,7 @@ class WgpuRenderer(Renderer):
             },
             fragment={
                 "module": fs_module,
-                "entry_point": "main",
+                "entry_point": fs_entry_point,
                 "targets": [
                     {
                         "format": self._render_textures[0].format,
@@ -795,6 +806,7 @@ class WgpuRenderer(Renderer):
                         }
                     )
                 elif binding_type.startswith("sampler/"):
+                    # todo: do we force the subtype to be non_filtering here if needed?
                     assert isinstance(resource, TextureView)
                     bindings.append(
                         {"binding": slot, "resource": resource._wgpu_sampler[1]}
@@ -820,7 +832,10 @@ class WgpuRenderer(Renderer):
                     if sample_type == "auto":
                         fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
                         if "float" in fmt or "norm" in fmt:
-                            sample_type = wgpu.TextureSampleType.float
+                            if "32float" in fmt:
+                                sample_type = wgpu.TextureSampleType.unfilterable_float
+                            else:
+                                sample_type = wgpu.TextureSampleType.float
                         elif "uint" in fmt:
                             sample_type = wgpu.TextureSampleType.uint
                         elif "sint" in fmt:

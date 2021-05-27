@@ -51,6 +51,47 @@ def fragment_shader(
     out_color = vec4(in_color, 0.1)  # noqa
 
 
+vertex_shader = """
+
+[[block]]
+struct Stdinfo {
+    cam_transform: mat4x4<f32>;
+    cam_transform_inv: mat4x4<f32>;
+    projection_transform: mat4x4<f32>;
+    projection_transform_inv: mat4x4<f32>;
+    physical_size: vec2<f32>;
+    logical_size: vec2<f32>;
+};
+
+[[group(0), binding(0)]]
+var u_stdinfo: Stdinfo;
+
+[[stage(vertex)]]
+fn main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32> {
+    let positions1 = array<vec2<f32>, 3>(vec2<f32>(0.0, -0.5), vec2<f32>(0.5, 0.5), vec2<f32>(-0.5, 0.7));
+    let positions2 = array<vec2<f32>, 3>(vec2<f32>(10.0, 10.0), vec2<f32>(90.0, 10.0), vec2<f32>(10.0, 90.0));
+
+    // let p = positions1[index];
+    let p = 2.0 * positions2[index] / u_stdinfo.logical_size - 1.0;
+    return vec4<f32>(p, 0.0, 1.0);
+}
+"""
+
+fragment_shader = """
+struct FragmentOutput {
+    [[location(0)]] color: vec4<f32>;
+    [[location(1)]] pick: vec4<i32>;
+};
+
+[[stage(fragment)]]
+fn main() -> FragmentOutput {
+    var out: FragmentOutput;
+    out.color = vec4<f32>(1.0, 0.7, 0.2, 1.0);
+    return out;
+}
+"""
+
+
 # Tell pygfx to use this render function for a Triangle with TriangleMaterial.
 @gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 def triangle_render_function(wobject, render_info):

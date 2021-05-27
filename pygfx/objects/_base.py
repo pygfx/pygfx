@@ -63,10 +63,12 @@ class WorldObject(ResourceContainer):
 
     # The uniform type describes the structured info for this object, which represents
     # every "propery" that a renderer would need to know in order to visualize it.
+    # Put larger items first for alignment, also note that host-sharable structs
+    # align at power-of-two only, so e.g. vec3 needs padding.
     # todo: rename uniform to info or something?
     uniform_type = Struct(
-        id=i32,
         world_transform=mat4,
+        id=i32,
     )
 
     _v = Vector3()

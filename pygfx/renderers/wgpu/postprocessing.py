@@ -140,17 +140,18 @@ class PostProcessingStep:
         vs_module = device.create_shader_module(code=vertex_shader)
         fs_module = device.create_shader_module(code=fragment_shader)
 
+        # todo: with float32 texture we cannot use a filtering sampler, do we need it, do we downscale?
         binding_layouts = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+                "sampler": {"type": wgpu.SamplerBindingType.non_filtering},
             },
             {
                 "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
-                    "sample_type": wgpu.TextureSampleType.float,
+                    "sample_type": wgpu.TextureSampleType.unfilterable_float,
                     "view_dimension": wgpu.TextureViewDimension.d2,
                     "multisampled": False,
                 },
@@ -267,8 +268,73 @@ def default_vertex_shader(
     out_pos = vec4(pos * 2.0 - 1.0, 0.0, 1.0)  # noqa - shader output
 
 
+default_vertex_shader = """
+
+struct VertexOutput {
+    [[location(0)]] texcoord: vec2<f32>;
+    [[builtin(position)]] pos: vec4<f32>;
+};
+
+[[stage(vertex)]]
+fn main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
+    let positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
+    let pos = positions[index];
+    var out: VertexOutput;
+    out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
+    out.pos = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+    return out;
+}
+
+"""
+
+ssaa_fragment_shader = """
+struct VertexOutput {
+    [[location(0)]] texcoord: vec2<f32>;
+    [[builtin(position)]] pos: vec4<f32>;
+};
+
+[[block]]
+struct Render {
+    size: vec2<f32>;
+    sigma: f32;
+    support: i32;
+};
+
+[[group(0), binding(0)]]
+var r_sampler: sampler;
+[[group(0), binding(1)]]
+var r_tex: texture_2d<f32>;
+[[group(0), binding(2)]]
+var u_render: Render;
+
+[[stage(fragment)]]
+fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+    // Get info about the smoothing
+    let sigma = u_render.sigma;
+    let support = min(5, u_render.support);
+
+    // Determine distance between pixels in src texture
+    let stepp = vec2<f32>(1.0 / u_render.size.x, 1.0 / u_render.size.y);
+    // Get texcoord, and round it to the center of the source pixels.
+    // Thus, whether the sampler is linear or nearest, we get equal results.
+    let ori_coord = in.texcoord.xy;
+    let ref_coord = vec2<f32>(vec2<i32>(ori_coord / stepp)) * stepp + 0.5 * stepp;
+    //let ref_coord = ori_coord / stepp;// * stepp + 0.5 * stepp;
+
+    // Convolve. Here we apply a Gaussian kernel, the weight is calculated
+    // for each pixel individually based on the distance to the actual texture
+    // coordinate. This means that the textures don't even need to align.
+    var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    let weight = 0.0;
+
+    val = val + textureSample(r_tex, r_sampler, in.texcoord);
+    return val;// / weight;
+}
+"""
+
+
 @python2shader
-def ssaa_fragment_shader(
+def ssaa_fragment_shader_xx(
     v_texcoord: (pyshader.RES_INPUT, 0, vec2),
     s_sam: (pyshader.RES_SAMPLER, (0, 0), ""),
     t_tex: (pyshader.RES_TEXTURE, (0, 1), "2d f32"),
