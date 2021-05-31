@@ -327,7 +327,7 @@ class WgpuRenderer(Renderer):
             ],
             depth_stencil_attachment={
                 "view": self._depth_texture.texture_view,
-                "depth_load_value": 2.0,  # depth is 0..1, make initial value > 1
+                "depth_load_value": 1.0,  # depth is 0..1, make initial value as high as we can
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
                 "stencil_store_op": wgpu.StoreOp.store,
@@ -809,7 +809,6 @@ class WgpuRenderer(Renderer):
                         }
                     )
                 elif binding_type.startswith("sampler/"):
-                    # todo: do we force the subtype to be non_filtering here if needed?
                     assert isinstance(resource, TextureView)
                     bindings.append(
                         {"binding": slot, "resource": resource._wgpu_sampler[1]}
@@ -835,10 +834,13 @@ class WgpuRenderer(Renderer):
                     if sample_type == "auto":
                         fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
                         if "float" in fmt or "norm" in fmt:
-                            if "32float" in fmt:
-                                sample_type = wgpu.TextureSampleType.unfilterable_float
-                            else:
-                                sample_type = wgpu.TextureSampleType.float
+                            sample_type = wgpu.TextureSampleType.float
+                            # For float32 wgpu does not allow the sampler to be filterable,
+                            # except when the native-only feature
+                            # TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES is set,
+                            # which wgpu-py does by default.
+                            # if "32float" in fmt:
+                            #     sample_type = wgpu.TextureSampleType.unfilterable_float
                         elif "uint" in fmt:
                             sample_type = wgpu.TextureSampleType.uint
                         elif "sint" in fmt:

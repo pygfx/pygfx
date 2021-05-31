@@ -150,7 +150,6 @@ def mesh_renderer(wobject, render_info):
                 func.__annotations__["t_tex"] = tex_anno
             fragment_shader = fragment_shader.float_version
 
-    wgsl = vertex_shader_mesh_wgsl
     wgsl = shader.to_string()
 
     # Put it together!
@@ -278,196 +277,6 @@ def vertex_shader_mesh(
     v_face_coords = [vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)][sub_index]  # noqa
 
 
-vertex_shader_mesh_wgsl = """
-
-struct VertexInput {
-    [[builtin(vertex_index)]] index : u32;
-};
-
-struct VertexOutput {
-    [[location(0)]] texcoord: vec2<f32>;
-    [[location(1)]] normal: vec3<f32>;
-    [[location(2)]] view: vec3<f32>;
-    [[location(3)]] light: vec3<f32>;
-    [[location(4)]] face_idx: vec4<f32>;
-    [[location(5)]] face_coords: vec3<f32>;
-    [[builtin(position)]] pos: vec4<f32>;
-};
-
-struct FragmentOutput {
-    [[location(0)]] color: vec4<f32>;
-    [[location(1)]] pick: vec4<i32>;
-};
-
-[[block]]
-struct Stdinfo {
-    cam_transform: mat4x4<f32>;
-    cam_transform_inv: mat4x4<f32>;
-    projection_transform: mat4x4<f32>;
-    projection_transform_inv: mat4x4<f32>;
-    physical_size: vec2<f32>;
-    logical_size: vec2<f32>;
-};
-
-[[block]]
-struct Wobject {
-    world_transform: mat4x4<f32>;
-    id: i32;
-};
-
-[[block]]
-struct Material {
-    color: vec4<f32>;
-    clim: vec2<f32>;
-};
-
-[[block]]
-struct BufferI32 {
-    data: [[stride(4)]] array<i32>;
-};
-
-[[block]]
-struct BufferF32 {
-    data: [[stride(4)]] array<f32>;
-};
-
-// ----- Uniforms
-
-[[group(0), binding(0)]]
-var u_stdinfo: Stdinfo;
-
-[[group(0), binding(1)]]
-var u_wobject: Wobject;
-
-[[group(0), binding(2)]]
-var u_mat: Material;
-
-// ----- Storage buffers/textures
-
-[[group(1), binding(0)]]
-var r_sampler: sampler;
-
-[[group(1), binding(1)]]
-var r_tex: texture_2d<f32>;
-
-[[group(1), binding(2)]]
-var<storage> s_indices: [[access(read)]] BufferI32;
-
-[[group(1), binding(3)]]
-var<storage> s_pos: [[access(read)]] BufferF32;
-
-[[group(1), binding(4)]]
-var<storage> s_normal: [[access(read)]] BufferF32;
-
-[[group(1), binding(5)]]
-var<storage> s_texcoord: [[access(read)]] BufferF32;
-
-// ----- Shaders
-
-[[stage(vertex)]]
-fn vs_main(in: VertexInput) -> VertexOutput {
-
-    // Select what face we're at
-    let index = i32(in.index);
-    let face_index = index / 3;
-    let sub_index = index % 3;
-    let i1 = s_indices.data[face_index * 3 + 0];
-    let i2 = s_indices.data[face_index * 3 + 1];
-    let i3 = s_indices.data[face_index * 3 + 2];
-    let i0 = array<i32, 3>(i1, i2, i3)[sub_index];
-
-    // Vertex positions of this face, in local object coordinates
-    let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
-    let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-    let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-
-    //let ndc_to_world = matrix_inverse(u_stdinfo.cam_transform * u_stdinfo.projection_transform);
-    let ndc_to_world = u_stdinfo.projection_transform_inv * u_stdinfo.cam_transform_inv;
-
-    // Prepare output
-    var out: VertexOutput;
-
-    // Set position and texcoords
-    out.pos = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
-    out.texcoord = vec2<f32>(s_texcoord.data[i0 * 2 + 0], s_texcoord.data[i0 * 2 + 1]);
-
-    // Vectors for lighting, all in world coordinates
-
-    let normal_ = vec3<f32>(
-        s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]
-    );
-    out.normal = (u_wobject.world_transform * vec4<f32>(normal_.xyz, 1.0)).xyz;
-
-    let view_vec4 = ndc_to_world * vec4<f32>(0.0, 0.0, 1.0, 1.0);
-    let view_vec = normalize(view_vec4.xyz / view_vec4.w);
-    out.view = view_vec;
-    out.light = view_vec;
-
-    // Set varyings for picking. We store the face_index, and 3 weights
-    // that indicate how close the fragment is to each vertex (barycentric
-    // coordinates). This allows the selection of the nearest vertex or
-    // edge. Note that integers larger than about 4M loose too much
-    // precision when passed as a varyings (on my machine). We therefore
-    // encode them in two values.
-    out.face_idx = vec4<f32>(0.0, 0.0, f32(face_index / 10000), f32(face_index % 10000));
-    out.face_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0))[sub_index];
-
-    return out;
-}
-
-
-[[stage(fragment)]]
-fn fs_simple(in: VertexOutput) -> FragmentOutput {
-    var out: FragmentOutput;
-    out.color = u_mat.color;
-    let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
-    let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
-    out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
-    return out;
-}
-
-
-[[stage(fragment)]]
-fn fs_textured_rgba(in: VertexOutput) -> FragmentOutput {
-    var out: FragmentOutput;
-
-    let color = textureSample(r_tex, r_sampler, in.texcoord.xy);
-    out.color = (color - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
-
-    let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
-    let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
-    out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
-    return out;
-}
-
-
-
-
-
-[[stage(fragment)]]
-fn fs_textured_rgba_phong(in: VertexOutput) -> FragmentOutput {
-    var out: FragmentOutput;
-
-    let color_sampled = textureSample(r_tex, r_sampler, in.texcoord.xy);
-    //let texcoords_u = vec2<i32>(in.texcoord * vec2<f32>(textureDimensions(r_tex)) % vec2<f32>(textureDimensions(r_tex)));
-    //let color_sampled = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-    let color = (color_sampled - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
-
-    let lit_color = lighting(in.normal, in.light, in.view, color.rgb);
-    out.color = vec4<f32>(lit_color, color.a);
-
-    // Picking
-    let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
-    let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
-    out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
-
-    return out;
-}
-
-
-"""
-
-
 import jinja2
 
 jinja_env = jinja2.Environment(
@@ -476,21 +285,18 @@ jinja_env = jinja2.Environment(
     variable_start_string="{{",
     variable_end_string="}}",
     line_statement_prefix="$$",
+    undefined=jinja2.StrictUndefined,
 )
 
 
 class MeshShader:
     def __init__(self, **kwargs):
-        self.args = kwargs
+        self.kwargs = kwargs
 
     def __setitem__(self, key, value):
-        self.args[key] = value
-
-    def _args_check(self, *, texture_dim, texture_format, lighting):
-        pass
+        self.kwargs[key] = value
 
     def to_string(self):
-        self._args_check(**self.args)
         x = (
             self.preface()
             + self.bindings()
@@ -500,7 +306,11 @@ class MeshShader:
         )
 
         t = jinja_env.from_string(x)
-        return t.render(**self.args)
+        try:
+            return t.render(**self.kwargs)
+        except jinja2.UndefinedError as err:
+            msg = f"Canot compose shader: {err.message}"
+        raise ValueError(msg)  # don't raise within handler to avoid recursive tb
 
     def preface(self):
         return """
@@ -508,7 +318,6 @@ class MeshShader:
         struct VertexInput {
             [[builtin(vertex_index)]] index : u32;
         };
-
         struct VertexOutput {
             [[location(0)]] texcoord: vec3<f32>;
             [[location(1)]] normal: vec3<f32>;
@@ -686,8 +495,10 @@ class MeshShader:
                 let color_value = u_mat.color;
             $$ endif
 
-            // Apply contrast limits
-            let albeido = (color_value.rgb - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
+            $$ if texture_dim
+                // Apply contrast limits
+                let albeido = (color_value.rgb - u_mat.clim[0]) / (u_mat.clim[1] - u_mat.clim[0]);
+            $$ endif
 
             // Lighting
             let lit_color = lighting_{{ lighting }}(in.normal, in.light, in.view, albeido);
@@ -736,7 +547,8 @@ class MeshShader:
             let light = normalize(light);
 
             // Maybe flip the normal - otherwise backfacing faces are not lit
-            normal = select(normal, -normal, dot(view, normal) >= 0.0);
+            //normal = select(normal, -normal, dot(view, normal) >= 0.0);
+            normal = faceForward(normal, -normal, view);
 
             // Ambient
             let ambient_color = light_color * ambient_factor;
@@ -755,9 +567,6 @@ class MeshShader:
         }
 
         """
-
-
-# todo: *sigh* it looks like we do need some form of templating
 
 
 @python2shader
