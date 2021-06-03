@@ -4,8 +4,6 @@ Example that implements a custom object and renders it.
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
-from pyshader import python2shader
-from pyshader import vec3
 
 import pygfx as gfx
 
@@ -25,33 +23,7 @@ class TriangleMaterial(gfx.Material):
     pass
 
 
-@python2shader
-def vertex_shader(
-    index: ("input", "VertexId", "i32"),
-    pos: ("output", "Position", "vec4"),
-    color: ("output", 0, "vec3"),
-    stdinfo: ("uniform", (0, 0), gfx.renderers.wgpu.stdinfo_uniform_type),
-):
-    positions1 = [vec2(+0.0, -0.5), vec2(+0.5, +0.5), vec2(-0.5, +0.7)]
-    positions2 = [vec2(10.0, 10.0), vec2(90.0, 10.0), vec2(10.0, 90.0)]
-
-    # Draw in NDC or screen coordinates
-    # p = positions1[index]
-    p = 2.0 * positions2[index] / stdinfo.logical_size - 1.0
-
-    pos = vec4(p, 0.0, 1.0)  # noqa
-    color = vec3(positions1[index], 0.5)  # noqa
-
-
-@python2shader
-def fragment_shader(
-    in_color: ("input", 0, "vec3"),
-    out_color: ("output", 0, "vec4"),
-):
-    out_color = vec4(in_color, 0.1)  # noqa
-
-
-vertex_shader = """
+shader_source = """
 
 [[block]]
 struct Stdinfo {
@@ -67,7 +39,7 @@ struct Stdinfo {
 var u_stdinfo: Stdinfo;
 
 [[stage(vertex)]]
-fn main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32> {
+fn vs_main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32> {
     let positions1 = array<vec2<f32>, 3>(vec2<f32>(0.0, -0.5), vec2<f32>(0.5, 0.5), vec2<f32>(-0.5, 0.7));
     let positions2 = array<vec2<f32>, 3>(vec2<f32>(10.0, 10.0), vec2<f32>(90.0, 10.0), vec2<f32>(10.0, 90.0));
 
@@ -75,16 +47,14 @@ fn main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32>
     let p = 2.0 * positions2[index] / u_stdinfo.logical_size - 1.0;
     return vec4<f32>(p, 0.0, 1.0);
 }
-"""
 
-fragment_shader = """
 struct FragmentOutput {
     [[location(0)]] color: vec4<f32>;
     [[location(1)]] pick: vec4<i32>;
 };
 
 [[stage(fragment)]]
-fn main() -> FragmentOutput {
+fn fs_main() -> FragmentOutput {
     var out: FragmentOutput;
     out.color = vec4<f32>(1.0, 0.7, 0.2, 1.0);
     return out;
@@ -98,8 +68,8 @@ def triangle_render_function(wobject, render_info):
     n = 3
     return [
         {
-            "vertex_shader": vertex_shader,
-            "fragment_shader": fragment_shader,
+            "vertex_shader": (shader_source, "vs_main"),
+            "fragment_shader": (shader_source, "fs_main"),
             "primitive_topology": "triangle-list",
             "indices": range(n),
             "bindings0": {0: ("buffer/uniform", render_info.stdinfo_uniform)},

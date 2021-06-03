@@ -1,8 +1,8 @@
 import wgpu  # only for flags/enums
-import pyshader
-from pyshader import f32, i32, ivec2, vec2, vec4, Struct
 
 from ...utils import array_from_shadertype
+
+from pyshader import Struct, vec2, f32, i32
 
 
 class RenderTexture:

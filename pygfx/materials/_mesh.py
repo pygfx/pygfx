@@ -112,7 +112,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 class MeshSliceMaterial(MeshBasicMaterial):
     """A material that displays a slices of the mesh."""
 
-    uniform_type = Struct(color=vec4, clim=vec2, plane=vec4, thickness=f32)
+    uniform_type = Struct(color=vec4, plane=vec4, clim=vec2, thickness=f32)
 
     def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):
         super().__init__(plane=plane, thickness=thickness, **kwargs)

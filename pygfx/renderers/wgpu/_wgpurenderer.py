@@ -98,6 +98,8 @@ class WgpuRenderer(Renderer):
             non_guaranteed_features=[], non_guaranteed_limits={}
         )
 
+        self._shader_cache = {}
+
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
         # object, its size, and its format. The final (canvas) texture
@@ -657,17 +659,15 @@ class WgpuRenderer(Renderer):
         bind_groups, pipeline_layout = self._get_bind_groups(pipeline_info)
 
         # Compile shaders
-        if "shader" in pipeline_info:
-            shader = pipeline_info["shader"]
-            vs_module = fs_module = device.create_shader_module(code=shader)
-            vs_entry_point = pipeline_info["vs_entry_point"]
-            fs_entry_point = pipeline_info["fs_entry_point"]
-        else:
-            vshader = pipeline_info["vertex_shader"]
-            fshader = pipeline_info["fragment_shader"]
-            vs_module = device.create_shader_module(code=vshader)
-            fs_module = device.create_shader_module(code=fshader)
-            vs_entry_point = fs_entry_point = "main"
+        vs_entry_point = fs_entry_point = "main"
+        vshader = pipeline_info["vertex_shader"]
+        if isinstance(vshader, tuple):
+            vshader, vs_entry_point = vshader
+        fshader = pipeline_info["fragment_shader"]
+        if isinstance(fshader, tuple):
+            fshader, fs_entry_point = fshader
+        vs_module = self._get_shader_module(vshader, vshader)
+        fs_module = self._get_shader_module(fshader, fshader)
 
         # Instantiate the pipeline object
         # todo: is this how strip_index_format is supposed to work?
@@ -1040,6 +1040,14 @@ class WgpuRenderer(Renderer):
             # compare -> only not-None for comparison samplers!
         )
         resource._wgpu_sampler = resource.rev, sampler
+
+    def _get_shader_module(self, key, source):
+        """Compile a shader module object, or re-use it from the cache."""
+        # todo: make this work for objects following the ShaderSourceTemplate interface
+        if key not in self._shader_cache:
+            m = self._device.create_shader_module(code=source)
+            self._shader_cache[key] = m
+        return self._shader_cache[key]
 
     # Picking
 

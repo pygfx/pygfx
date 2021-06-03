@@ -22,7 +22,7 @@ tex = gfx.Texture(im, dim=2, usage="sampled").get_view(
 
 geometry = gfx.TorusKnotGeometry(1, 0.3, 128, 32)
 geometry.texcoords.data[:, 0] *= 10  # stretch the texture
-material = gfx.MeshPhongMaterial(map=tex, clim=(10, 240))
+material = gfx.MeshNormalMaterial(map=tex, clim=(10, 240))
 obj = gfx.Mesh(geometry, material)
 scene.add(obj)
 
