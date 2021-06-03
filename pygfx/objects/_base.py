@@ -2,8 +2,6 @@ import gc
 import random
 import weakref
 
-from pyshader import Struct, mat4, i32
-
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
@@ -66,9 +64,10 @@ class WorldObject(ResourceContainer):
     # Put larger items first for alignment, also note that host-sharable structs
     # align at power-of-two only, so e.g. vec3 needs padding.
     # todo: rename uniform to info or something?
-    uniform_type = Struct(
-        world_transform=mat4,
-        id=i32,
+
+    uniform_type = dict(
+        world_transform=("float32", (4, 4)),
+        id=("int32",),
     )
 
     _v = Vector3()
@@ -179,9 +178,9 @@ class WorldObject(ResourceContainer):
                 self.matrix_world.multiply_matrices(
                     self.parent.matrix_world, self.matrix
                 )
-            self.uniform_buffer.data["world_transform"] = tuple(
-                self.matrix_world.elements
-            )
+            self.uniform_buffer.data[
+                "world_transform"
+            ].flat = self.matrix_world.elements
             self.uniform_buffer.update_range(0, 1)
             self.matrix_world_dirty = False
             for child in self._children:
