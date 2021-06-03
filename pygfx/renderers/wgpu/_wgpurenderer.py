@@ -724,18 +724,7 @@ class WgpuRenderer(Renderer):
                     },
                     {
                         "format": self._pick_texture.format,
-                        "blend": {
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
+                        "blend": None,
                         "write_mask": wgpu.ColorWrite.ALL,
                     },
                 ],
