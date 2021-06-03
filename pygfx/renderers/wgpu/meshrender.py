@@ -1,6 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, stdinfo_uniform_type
+from ._shadercomposer import BaseShader
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -11,8 +12,6 @@ from ...materials import (
 )
 from ...resources import Buffer, Texture, TextureView
 from ...utils import normals_from_vertices
-
-import jinja2
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
@@ -124,7 +123,7 @@ def mesh_renderer(wobject, render_info):
         n_instances = wobject.matrices.nitems
 
     # Put it together!
-    wgsl = shader.to_string()
+    wgsl = shader.get_final_code()
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
@@ -139,41 +138,15 @@ def mesh_renderer(wobject, render_info):
     ]
 
 
-jinja_env = jinja2.Environment(
-    block_start_string="{$",
-    block_end_string="$}",
-    variable_start_string="{{",
-    variable_end_string="}}",
-    line_statement_prefix="$$",
-    undefined=jinja2.StrictUndefined,
-)
-
-
-class MeshShader:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __setitem__(self, key, value):
-        self.kwargs[key] = value
-
-    def __getitem__(self, key):
-        return self.kwargs[key]
-
-    def to_string(self):
-        x = (
+class MeshShader(BaseShader):
+    def get_code(self):
+        return (
             self.preface()
             + self.bindings()
             + self.helpers()
             + self.vertex_shader()
             + self.fragment_shader()
         )
-
-        t = jinja_env.from_string(x)
-        try:
-            return t.render(**self.kwargs)
-        except jinja2.UndefinedError as err:
-            msg = f"Canot compose shader: {err.message}"
-        raise ValueError(msg)  # don't raise within handler to avoid recursive tb
 
     def preface(self):
         return """
@@ -537,7 +510,7 @@ def meshslice_renderer(wobject, render_info):
     bindings1[1] = "buffer/read_only_storage", geometry.positions
 
     # Put it together!
-    wgsl = shader.to_string()
+    wgsl = shader.get_final_code()
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
@@ -552,30 +525,14 @@ def meshslice_renderer(wobject, render_info):
     ]
 
 
-class MeshSliceShader:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __setitem__(self, key, value):
-        self.kwargs[key] = value
-
-    def __getitem__(self, key):
-        return self.kwargs[key]
-
-    def to_string(self):
-        x = (
+class MeshSliceShader(BaseShader):
+    def get_code(self):
+        return (
             self.preface()
             + self.bindings()
             + self.vertex_shader()
             + self.fragment_shader()
         )
-
-        t = jinja_env.from_string(x)
-        try:
-            return t.render(**self.kwargs)
-        except jinja2.UndefinedError as err:
-            msg = f"Canot compose shader: {err.message}"
-        raise ValueError(msg)  # don't raise within handler to avoid recursive tb
 
     def preface(self):
         return """
