@@ -139,18 +139,17 @@ class PostProcessingStep:
         vs_module = device.create_shader_module(code=vertex_shader)
         fs_module = device.create_shader_module(code=fragment_shader)
 
-        # todo: with float32 texture we cannot use a filtering sampler, do we need it, do we downscale?
         binding_layouts = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.non_filtering},
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
             },
             {
                 "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
-                    "sample_type": wgpu.TextureSampleType.unfilterable_float,
+                    "sample_type": wgpu.TextureSampleType.float,
                     "view_dimension": wgpu.TextureViewDimension.d2,
                     "multisampled": False,
                 },
