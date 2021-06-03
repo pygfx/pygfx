@@ -1044,6 +1044,7 @@ class WgpuRenderer(Renderer):
     def _get_shader_module(self, key, source):
         """Compile a shader module object, or re-use it from the cache."""
         # todo: make this work for objects following the ShaderSourceTemplate interface
+        # todo: also release shader modules that are no longer used
         if key not in self._shader_cache:
             m = self._device.create_shader_module(code=source)
             self._shader_cache[key] = m

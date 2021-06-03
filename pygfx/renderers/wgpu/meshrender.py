@@ -538,8 +538,6 @@ def meshslice_renderer(wobject, render_info):
 
     # Put it together!
     wgsl = shader.to_string()
-    with open(r"c:/dev/py/tmp.wgsl", "wb") as f:
-        f.write(wgsl.encode())
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
