@@ -754,6 +754,8 @@ class WgpuRenderer(Renderer):
             if key.startswith("bindings"):
                 i = int(key[len("bindings") :])
                 assert i >= 0
+                if not pipeline_info[key]:
+                    continue
                 while len(resource_groups) <= i:
                     resource_groups.append({})
                 resource_groups[i] = pipeline_info[key]

@@ -1,117 +1,28 @@
 import wgpu  # only for flags/enums
-import pyshader
-from pyshader import python2shader
-from pyshader import vec3, vec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type
+from . import register_wgpu_render_function
+from ._shadercomposer import BaseShader
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
 from ...resources import Texture, TextureView
-
-
-@python2shader
-def vertex_shader_simple(
-    index: (pyshader.RES_INPUT, "VertexId", "i32"),
-    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
-    v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
-):
-    # Define positions at the four corners of the viewport, at the largest depth
-    positions = [
-        vec4(-1.0, -1.0, 1.0, 1.0),
-        vec4(+1.0, -1.0, 1.0, 1.0),
-        vec4(-1.0, +1.0, 1.0, 1.0),
-        vec4(+1.0, +1.0, 1.0, 1.0),
-    ]
-    # Select the current position
-    ndc_pos = positions[index]
-    # Store positions and the view direction in the world
-    out_pos = ndc_pos  # noqa - shader output
-    v_texcoord = vec3(ndc_pos.xy * 0.5 + 0.5, 0.0)  # noqa - shader output
-
-
-@python2shader
-def fragment_shader_gradient(
-    v_texcoord: (pyshader.RES_INPUT, 0, vec3),
-    u_background: (pyshader.RES_UNIFORM, (0, 2), BackgroundMaterial.uniform_type),
-    out_color: (pyshader.RES_OUTPUT, 0, vec4),
-):
-    f = v_texcoord.xy
-    color = (
-        u_background.color_bottom_left * (1.0 - f.x) * (1.0 - f.y)
-        + u_background.color_bottom_right * f.x * (1.0 - f.y)
-        + u_background.color_top_left * (1.0 - f.x) * f.y
-        + u_background.color_top_right * f.x * f.y
-    )
-    out_color = color  # noqa - shader output
-
-
-@python2shader
-def vertex_shader_skybox(
-    index: (pyshader.RES_INPUT, "VertexId", "i32"),
-    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
-    v_texcoord: (pyshader.RES_OUTPUT, 0, vec3),
-    u_stdinfo: (pyshader.RES_UNIFORM, (0, 0), stdinfo_uniform_type),
-    u_wobject: (pyshader.RES_UNIFORM, (0, 1), Background.uniform_type),
-):
-    # Define positions at the four corners of the viewport, at the largest depth
-    positions = [
-        vec4(-1.0, -1.0, 1.0, 1.0),
-        vec4(+1.0, -1.0, 1.0, 1.0),
-        vec4(-1.0, +1.0, 1.0, 1.0),
-        vec4(+1.0, +1.0, 1.0, 1.0),
-    ]
-    # Select the current position, and create another pos just behind it
-    ndc_pos1 = positions[index]
-    ndc_pos2 = vec4(ndc_pos1.xy, ndc_pos1.z + 0.1, ndc_pos1.w)
-    # Project both points to world coordinates
-    inv_proj = matrix_inverse(
-        u_stdinfo.projection_transform
-        * u_stdinfo.cam_transform
-        * u_wobject.world_transform
-    )
-    wpos1 = inv_proj * ndc_pos1
-    wpos2 = inv_proj * ndc_pos2
-    wpos1 = wpos1.xyzw / wpos1.w
-    wpos2 = wpos2.xyzw / wpos2.w
-    # Store positions and the view direction in the world
-    out_pos = ndc_pos1  # noqa - shader output
-    v_texcoord = wpos2.xyz - wpos1.xyz  # noqa - shader output
-
-
-@python2shader
-def fragment_shader_tex_rgba(
-    v_texcoord: (pyshader.RES_INPUT, 0, vec3),
-    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
-    t_tex: (pyshader.RES_TEXTURE, (1, 1), "undecided"),
-    out_color: (pyshader.RES_OUTPUT, 0, vec4),
-):
-    color = vec4(t_tex.sample(s_sam, v_texcoord.xyz))
-    out_color = color / 255.0  # noqa - shader output
-
-
-@python2shader
-def fragment_shader_tex_gray(
-    v_texcoord: (pyshader.RES_INPUT, 0, vec3),
-    s_sam: (pyshader.RES_SAMPLER, (1, 0), ""),
-    t_tex: (pyshader.RES_TEXTURE, (1, 1), "undecided"),
-    out_color: (pyshader.RES_OUTPUT, 0, vec4),
-):
-    color = vec4(t_tex.sample(s_sam, v_texcoord.xyz))
-    out_color = color  # noqa - shader output
 
 
 @register_wgpu_render_function(Background, BackgroundMaterial)
 def background_renderer(wobject, render_info):
 
     material = wobject.material
+    shader = BackgroundShader(texture_dim="")
 
-    vertex_shader = vertex_shader_simple
-    fragment_shader = fragment_shader_tex_rgba
     bindings0 = {
         0: ("buffer/uniform", render_info.stdinfo_uniform),
         1: ("buffer/uniform", wobject.uniform_buffer),
         2: ("buffer/uniform", material.uniform_buffer),
     }
+
+    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
+    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
+    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
+
     bindings1 = {}
 
     if isinstance(material, BackgroundImageMaterial) and material.map is not None:
@@ -123,42 +34,128 @@ def background_renderer(wobject, render_info):
         bindings1[1] = "texture/auto", material.map
         # Select shader
         if material.map.view_dim == "cube":
-            vertex_shader = vertex_shader_skybox
-            tex_info = "cube "
+            shader["texture_dim"] = "cube"
         elif material.map.view_dim == "2d":
-            vertex_shader = vertex_shader_simple
-            tex_info = "2d "
+            shader["texture_dim"] = "2d"
         else:
             raise ValueError(
                 "BackgroundImageMaterial should have map with texture view 2d or cube."
             )
-        if "rgb" in material.map.format:
-            fragment_shader = fragment_shader_tex_rgba
+        # Channels
+        if material.map.format.startswith("rgb"):  # rgb maps to rgba
+            shader["texture_color"] = True
+        elif material.map.format.startswith("r"):
+            shader["texture_color"] = False
         else:
-            fragment_shader = fragment_shader_tex_gray
-        # Use a version of the shader for float textures if necessary
-        if "float" in material.map.format:
-            tex_info += "f32"
-        else:
-            tex_info += "i32"
-        if not hasattr(fragment_shader, "shader_version_" + tex_info):
-            func = fragment_shader.input
-            tex_anno = func.__annotations__["t_tex"]
-            func.__annotations__["t_tex"] = tex_anno[:2] + (tex_info,)
-            setattr(fragment_shader, "shader_version_" + tex_info, python2shader(func))
-            func.__annotations__["t_tex"] = tex_anno
-        fragment_shader = getattr(fragment_shader, "shader_version_" + tex_info)
-    else:
-        vertex_shader = vertex_shader_simple
-        fragment_shader = fragment_shader_gradient
+            raise ValueError("Unexpected texture format")
 
+    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": vertex_shader,
-            "fragment_shader": fragment_shader,
+            "vertex_shader": (wgsl, "vs_main"),
+            "fragment_shader": (wgsl, "fs_main"),
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": 4,
             "bindings0": bindings0,
             "bindings1": bindings1,
         }
     ]
+
+
+class BackgroundShader(BaseShader):
+    def get_code(self):
+        return (
+            self.get_definitions()
+            + self.more_definitions()
+            + self.vertex_shader()
+            + self.fragment_shader()
+        )
+
+    def more_definitions(self):
+        return """
+
+        struct VertexInput {
+            [[builtin(vertex_index)]] index : u32;
+        };
+        struct VertexOutput {
+            [[location(0)]] texcoord: vec3<f32>;
+            [[builtin(position)]] pos: vec4<f32>;
+        };
+
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+            [[location(1)]] pick: vec4<i32>;
+        };
+
+        $$ if texture_dim
+        [[group(1), binding(0)]]
+        var r_sampler: sampler;
+
+        [[group(1), binding(1)]]
+        var r_tex: texture_{{ texture_dim }}<f32>;
+        $$ endif
+    """
+
+    def vertex_shader(self):
+        return """
+        [[stage(vertex)]]
+        fn vs_main(in: VertexInput) -> VertexOutput {
+            var out: VertexOutput;
+            // Define positions at the four corners of the viewport, at the largest depth
+            let positions = array<vec2<f32>, 4>(
+                vec2<f32>(-1.0, -1.0),
+                vec2<f32>( 1.0, -1.0),
+                vec2<f32>(-1.0,  1.0),
+                vec2<f32>( 1.0,  1.0),
+            );
+            // Select the current position
+            let pos = positions[i32(in.index)];
+            $$ if texture_dim == "cube"
+                let ndc_pos1 = vec4<f32>(pos, 0.9999999, 1.0);
+                let ndc_pos2 = vec4<f32>(pos, 1.1000000, 1.0);
+                // project back to world coords
+                let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+                let wpos1_ = ndc_to_world * ndc_pos1;
+                let wpos2_ = ndc_to_world * ndc_pos2;
+                let wpos1 = wpos1_.xyzw / wpos1_.w;
+                let wpos2 = wpos2_.xyzw / wpos2_.w;
+                // Store positions and the view direction in the world
+                out.pos = ndc_pos1;
+                out.texcoord = wpos2.xyz - wpos1.xyz;
+            $$ else
+                // Store positions and the view direction in the world
+                out.pos = vec4<f32>(pos, 0.9999999, 1.0);;
+                out.texcoord = vec3<f32>(pos * 0.5 + 0.5, 0.0);
+            $$ endif
+            return out;
+        }
+        """
+
+    def fragment_shader(self):
+        return """
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> FragmentOutput {
+            var out: FragmentOutput;
+            $$ if texture_dim
+                $$ if texture_dim == '2d'
+                    let color = textureSample(r_tex, r_sampler, in.texcoord.xy);
+                $$ elif texture_dim == 'cube'
+                    let color = textureSample(r_tex, r_sampler, in.texcoord.xyz);
+                $$ endif
+                $$ if texture_color
+                    out.color = color.rgba;
+                $$ else
+                    out.color = color.rrra;
+                $$ endif
+            $$ else
+                let f = in.texcoord.xy;
+                out.color = (
+                    u_material.color_bottom_left * (1.0 - f.x) * (1.0 - f.y)
+                    + u_material.color_bottom_right * f.x * (1.0 - f.y)
+                    + u_material.color_top_left * (1.0 - f.x) * f.y
+                    + u_material.color_top_right * f.x * f.y
+                );
+            $$ endif
+            return out;
+        }
+        """
