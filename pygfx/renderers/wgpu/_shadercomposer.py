@@ -54,12 +54,11 @@ class BaseShader:
         if isinstance(struct, dict):
             dtype_struct = np.dtype([(key,) + val for key, val in struct.items()])
         elif isinstance(struct, np.dtype):
+            if struct.fields is None:
+                raise TypeError(f"define_uniform() needs a structured dtype")
             dtype_struct = struct
         else:
             raise TypeError(f"Unsupported struct type {struct.__class__.__name__}")
-
-        # todo: ensure dtype is structural
-        # todo: validate that wgsl_type exists? Or let wgpu do that?
 
         for fieldname, (dtype, offset) in dtype_struct.fields.items():
             # Resolve primitive type
