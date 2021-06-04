@@ -1,5 +1,3 @@
-from pyshader import Struct, f32, vec4, vec2
-
 from ..utils import array_from_shadertype
 from ..resources import Buffer
 from ._base import Material
@@ -15,10 +13,10 @@ class MeshBasicMaterial(Material):
     wireframe) way. This material is not affected by lights.
     """
 
-    uniform_type = Struct(
-        color=vec4,
-        clim=vec2,
-    )
+    uniform_type = {
+        "color": ("float32", (4,)),
+        "clim": ("float32", (2,)),
+    }
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -112,7 +110,12 @@ class MeshPhongMaterial(MeshBasicMaterial):
 class MeshSliceMaterial(MeshBasicMaterial):
     """A material that displays a slices of the mesh."""
 
-    uniform_type = Struct(color=vec4, plane=vec4, clim=vec2, thickness=f32)
+    uniform_type = dict(
+        color=("float32", 4),
+        plane=("float32", 4),
+        clim=("float32", 2),
+        thickness=("float32",),
+    )
 
     def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):
         super().__init__(plane=plane, thickness=thickness, **kwargs)

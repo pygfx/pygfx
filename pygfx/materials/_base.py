@@ -1,11 +1,9 @@
-from pyshader import Struct
-
 from ..objects._base import ResourceContainer
 
 
 class Material(ResourceContainer):
 
-    uniform_type = Struct()
+    uniform_type = {}
 
     def _wgpu_get_pick_info(self, pick_value):
         """Given a 4 element tuple, sampled from the pick texture,

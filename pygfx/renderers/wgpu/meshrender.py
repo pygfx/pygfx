@@ -1,6 +1,7 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, stdinfo_uniform_type
+from . import register_wgpu_render_function
+from ._shadercomposer import BaseShader
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -11,8 +12,6 @@ from ...materials import (
 )
 from ...resources import Buffer, Texture, TextureView
 from ...utils import normals_from_vertices
-
-import jinja2
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
@@ -49,6 +48,13 @@ def mesh_renderer(wobject, render_info):
         1: ("buffer/uniform", wobject.uniform_buffer),
         2: ("buffer/uniform", material.uniform_buffer),
     }
+
+    # todo: kunnen deze definities tegerlijk met die hierboven gedaan worden? (voor wgpu en shader) zodat ze gegarandeerd sync zijn?
+    # todo: ook zoiets voor storage buffer bindings
+    # todo: and then ... maybe the renderer function and shader class can be combined?
+    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
+    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
+    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
 
     # We're using storage buffers for everything; no vertex nor index buffers.
     vertex_buffers = {}
@@ -124,7 +130,7 @@ def mesh_renderer(wobject, render_info):
         n_instances = wobject.matrices.nitems
 
     # Put it together!
-    wgsl = shader.to_string()
+    wgsl = shader.generate_wgsl()
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
@@ -139,43 +145,17 @@ def mesh_renderer(wobject, render_info):
     ]
 
 
-jinja_env = jinja2.Environment(
-    block_start_string="{$",
-    block_end_string="$}",
-    variable_start_string="{{",
-    variable_end_string="}}",
-    line_statement_prefix="$$",
-    undefined=jinja2.StrictUndefined,
-)
-
-
-class MeshShader:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __setitem__(self, key, value):
-        self.kwargs[key] = value
-
-    def __getitem__(self, key):
-        return self.kwargs[key]
-
-    def to_string(self):
-        x = (
-            self.preface()
-            + self.bindings()
+class MeshShader(BaseShader):
+    def get_code(self):
+        return (
+            self.get_definitions()
+            + self.more_definitions()
             + self.helpers()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-        t = jinja_env.from_string(x)
-        try:
-            return t.render(**self.kwargs)
-        except jinja2.UndefinedError as err:
-            msg = f"Canot compose shader: {err.message}"
-        raise ValueError(msg)  # don't raise within handler to avoid recursive tb
-
-    def preface(self):
+    def more_definitions(self):
         return """
 
         struct VertexInput {
@@ -200,28 +180,6 @@ class MeshShader:
         };
 
         [[block]]
-        struct Stdinfo {
-            cam_transform: mat4x4<f32>;
-            cam_transform_inv: mat4x4<f32>;
-            projection_transform: mat4x4<f32>;
-            projection_transform_inv: mat4x4<f32>;
-            physical_size: vec2<f32>;
-            logical_size: vec2<f32>;
-        };
-
-        [[block]]
-        struct Wobject {
-            world_transform: mat4x4<f32>;
-            id: i32;
-        };
-
-        [[block]]
-        struct Material {
-            color: vec4<f32>;
-            clim: vec2<f32>;
-        };
-
-        [[block]]
         struct BufferI32 {
             data: [[stride(4)]] array<i32>;
         };
@@ -230,19 +188,6 @@ class MeshShader:
         struct BufferF32 {
             data: [[stride(4)]] array<f32>;
         };
-        """
-
-    def bindings(self):
-        return """
-
-        [[group(0), binding(0)]]
-        var u_stdinfo: Stdinfo;
-
-        [[group(0), binding(1)]]
-        var u_wobject: Wobject;
-
-        [[group(0), binding(2)]]
-        var u_material: Material;
 
 
         [[group(1), binding(0)]]
@@ -531,15 +476,17 @@ def meshslice_renderer(wobject, render_info):
         2: ("buffer/uniform", material.uniform_buffer),
     }
 
+    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
+    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
+    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
+
     # Init bindings 1: storage buffers, textures, and samplers
     bindings1 = {}
     bindings1[0] = "buffer/read_only_storage", geometry.index
     bindings1[1] = "buffer/read_only_storage", geometry.positions
 
     # Put it together!
-    wgsl = shader.to_string()
-    with open(r"c:/dev/py/tmp.wgsl", "wb") as f:
-        f.write(wgsl.encode())
+    wgsl = shader.generate_wgsl()
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
@@ -554,32 +501,16 @@ def meshslice_renderer(wobject, render_info):
     ]
 
 
-class MeshSliceShader:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __setitem__(self, key, value):
-        self.kwargs[key] = value
-
-    def __getitem__(self, key):
-        return self.kwargs[key]
-
-    def to_string(self):
-        x = (
-            self.preface()
-            + self.bindings()
+class MeshSliceShader(BaseShader):
+    def get_code(self):
+        return (
+            self.get_definitions()
+            + self.more_definitions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-        t = jinja_env.from_string(x)
-        try:
-            return t.render(**self.kwargs)
-        except jinja2.UndefinedError as err:
-            msg = f"Canot compose shader: {err.message}"
-        raise ValueError(msg)  # don't raise within handler to avoid recursive tb
-
-    def preface(self):
+    def more_definitions(self):
         return """
 
         struct VertexInput {
@@ -601,30 +532,6 @@ class MeshSliceShader:
         };
 
         [[block]]
-        struct Stdinfo {
-            cam_transform: mat4x4<f32>;
-            cam_transform_inv: mat4x4<f32>;
-            projection_transform: mat4x4<f32>;
-            projection_transform_inv: mat4x4<f32>;
-            physical_size: vec2<f32>;
-            logical_size: vec2<f32>;
-        };
-
-        [[block]]
-        struct Wobject {
-            world_transform: mat4x4<f32>;
-            id: i32;
-        };
-
-        [[block]]
-        struct Material {
-            color: vec4<f32>;
-            plane: vec4<f32>;
-            clim: vec2<f32>;
-            thickness: f32;
-        };
-
-        [[block]]
         struct BufferI32 {
             data: [[stride(4)]] array<i32>;
         };
@@ -633,20 +540,6 @@ class MeshSliceShader:
         struct BufferF32 {
             data: [[stride(4)]] array<f32>;
         };
-        """
-
-    def bindings(self):
-        return """
-
-        [[group(0), binding(0)]]
-        var u_stdinfo: Stdinfo;
-
-        [[group(0), binding(1)]]
-        var u_wobject: Wobject;
-
-        [[group(0), binding(2)]]
-        var u_material: Material;
-
 
         [[group(1), binding(0)]]
         var<storage> s_indices: [[access(read)]] BufferI32;
