@@ -24,7 +24,11 @@ def mesh_renderer(wobject, render_info):
     # Initialize
     topology = wgpu.PrimitiveTopology.triangle_list
     shader = MeshShader(
-        lighting="plain", texture_dim="", texture_format="f32", instanced=False
+        lighting="plain",
+        texture_dim="",
+        texture_format="f32",
+        instanced=False,
+        climcorrection=None,
     )
     vs_entry_point = "vs_main"
     fs_entry_point = "fs_main"
@@ -88,9 +92,12 @@ def mesh_renderer(wobject, render_info):
         else:
             raise ValueError("Unexpected texture dimension")
         # Sampling type
-        # todo: for 8 bit textures, use norm to enable sampling
         if "norm" in material.map.format or "float" in material.map.format:
             shader["texture_format"] = "f32"
+            if "unorm" in material.map.format:
+                shader["climcorrection"] = " * 255.0"
+            elif "snorm" in material.map.format:
+                shader["climcorrection"] = " * 255.0 - 128.0"
         elif "uint" in material.map.format:
             shader["texture_format"] = "u32"
         else:
@@ -245,7 +252,7 @@ class MeshShader(BaseShader):
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             //let ndc_to_world = matrix_inverse(u_stdinfo.cam_transform * u_stdinfo.projection_transform);
-            let ndc_to_world = u_stdinfo.projection_transform_inv * u_stdinfo.cam_transform_inv;
+            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
 
             // Prepare output
             var out: VertexOutput;
@@ -357,6 +364,9 @@ class MeshShader(BaseShader):
                     $$ endif
                 $$ endif
 
+                $$ if climcorrection
+                    color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
+                $$ endif
                 $$ if not texture_color
                     color_value = color_value.rrra;
                 $$ endif
