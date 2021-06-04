@@ -2,8 +2,6 @@ import wgpu  # only for flags/enums
 
 from ...utils import array_from_shadertype
 
-from pyshader import Struct, vec2, f32, i32
-
 
 class RenderTexture:
     """Class used internally to store a render texture and meta data."""
@@ -251,7 +249,11 @@ class SSAAPostProcessingStep(PostProcessingStep):
 
 # %% Shaders
 
-ssaa_uniform_type = Struct(size=vec2, sigma=f32, support=i32)
+ssaa_uniform_type = dict(
+    size=("float32", 2),
+    sigma=("float32",),
+    support=("int32",),
+)
 
 
 default_vertex_shader = """

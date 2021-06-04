@@ -2,8 +2,6 @@ import time
 import weakref
 
 import numpy as np
-import pyshader  # noqa
-from pyshader import Struct, vec2, mat4
 import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry
@@ -19,13 +17,13 @@ from .postprocessing import RenderTexture, SSAAPostProcessingStep
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
 # todo: a combined transform would be nice too, for performance
-stdinfo_uniform_type = Struct(
-    cam_transform=mat4,
-    cam_transform_inv=mat4,
-    projection_transform=mat4,
-    projection_transform_inv=mat4,
-    physical_size=vec2,
-    logical_size=vec2,
+stdinfo_uniform_type = dict(
+    cam_transform=("float32", (4, 4)),
+    cam_transform_inv=("float32", (4, 4)),
+    projection_transform=("float32", (4, 4)),
+    projection_transform_inv=("float32", (4, 4)),
+    physical_size=("float32", 2),
+    logical_size=("float32", 2),
 )
 
 
@@ -368,12 +366,12 @@ class WgpuRenderer(Renderer):
             )
         # Update its data
         stdinfo_data = self._wgpu_stdinfo_buffer.data
-        stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-        stdinfo_data["cam_transform_inv"] = tuple(camera.matrix_world.elements)
-        stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
-        stdinfo_data["projection_transform_inv"] = tuple(
-            camera.projection_matrix_inverse.elements
-        )
+        stdinfo_data["cam_transform"].flat = camera.matrix_world_inverse.elements
+        stdinfo_data["cam_transform_inv"].flat = camera.matrix_world.elements
+        stdinfo_data["projection_transform"].flat = camera.projection_matrix.elements
+        stdinfo_data[
+            "projection_transform_inv"
+        ].flat = camera.projection_matrix_inverse.elements
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
@@ -724,18 +722,7 @@ class WgpuRenderer(Renderer):
                     },
                     {
                         "format": self._pick_texture.format,
-                        "blend": {
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
+                        "blend": None,
                         "write_mask": wgpu.ColorWrite.ALL,
                     },
                 ],
