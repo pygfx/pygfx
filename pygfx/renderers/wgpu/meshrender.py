@@ -130,7 +130,7 @@ def mesh_renderer(wobject, render_info):
         n_instances = wobject.matrices.nitems
 
     # Put it together!
-    wgsl = shader.get_final_code()
+    wgsl = shader.generate_wgsl()
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
@@ -148,7 +148,7 @@ def mesh_renderer(wobject, render_info):
 class MeshShader(BaseShader):
     def get_code(self):
         return (
-            self.definitions()
+            self.get_definitions()
             + self.more_definitions()
             + self.helpers()
             + self.vertex_shader()
@@ -486,7 +486,7 @@ def meshslice_renderer(wobject, render_info):
     bindings1[1] = "buffer/read_only_storage", geometry.positions
 
     # Put it together!
-    wgsl = shader.get_final_code()
+    wgsl = shader.generate_wgsl()
     return [
         {
             "vertex_shader": (wgsl, vs_entry_point),
@@ -504,7 +504,7 @@ def meshslice_renderer(wobject, render_info):
 class MeshSliceShader(BaseShader):
     def get_code(self):
         return (
-            self.definitions()
+            self.get_definitions()
             + self.more_definitions()
             + self.vertex_shader()
             + self.fragment_shader()

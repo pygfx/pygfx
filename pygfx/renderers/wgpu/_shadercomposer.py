@@ -24,13 +24,13 @@ class BaseShader:
     def __getitem__(self, key):
         return self.kwargs[key]
 
-    def definitions(self):
+    def get_definitions(self):
         return "\n".join(self._uniform_codes.values())
 
     def get_code(self):
         raise NotImplementedError()
 
-    def get_final_code(self, **kwargs):
+    def generate_wgsl(self, **kwargs):
         code = self.get_code()
         t = jinja_env.from_string(code)
 
@@ -77,7 +77,22 @@ class BaseShader:
                 wgsl_type = f"mat{shape[1]}x{shape[0]}<{primitive_type}>"
             else:
                 raise TypeError("Unsupported type {dtype}")
-            # todo: Check alignment
+            # Check alignment (https://www.w3.org/TR/WGSL/#alignment-and-size)
+            if wgsl_type == primitive_type:
+                alignment = 4
+            elif wgsl_type.startswith("vec"):
+                c = int(wgsl_type.split("<")[0][-1])
+                alignment = 8 if c < 3 else 16
+            elif wgsl_type.startswith("mat"):
+                c = int(wgsl_type.split("<")[0][-1])
+                alignment = 8 if c < 3 else 16
+            else:
+                raise TypeError(f"Unsupported wgsl type: {wgsl_type}")
+            if offset % alignment != 0:
+                raise TypeError(
+                    f"Struct alignment error: {name}.{fieldname} alignment must be {alignment}"
+                )
+
             code += f"\n            {fieldname}: {wgsl_type};"
 
         code += f"""
