@@ -229,6 +229,7 @@ class MeshShader(BaseShader):
 
     def vertex_shader(self):
         return """
+
         [[stage(vertex)]]
         fn vs_main(in: VertexInput) -> VertexOutput {
 
