@@ -1,5 +1,3 @@
-from pyshader import Struct, vec2, vec4
-
 from ..utils import array_from_shadertype
 from ..resources import Buffer
 from ._base import Material
@@ -8,8 +6,8 @@ from ._base import Material
 class VolumeBasicMaterial(Material):
     """Base volume material."""
 
-    uniform_type = Struct(
-        clim=vec2,
+    uniform_type = dict(
+        clim=("float32", 2),
     )
 
     def __init__(self, **kwargs):
@@ -57,7 +55,10 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     This material is not affected by lights.
     """
 
-    uniform_type = Struct(clim=vec2, plane=vec4)
+    uniform_type = dict(
+        plane=("float32", 4),
+        clim=("float32", 2),
+    )
 
     @property
     def plane(self):
