@@ -1,5 +1,3 @@
-from pyshader import Struct, vec4
-
 from ._base import Material
 from ..utils import array_from_shadertype
 from ..resources import Buffer
@@ -14,11 +12,11 @@ class BackgroundMaterial(Material):
     or in a gradient.
     """
 
-    uniform_type = Struct(
-        color_bottom_left=vec4,
-        color_bottom_right=vec4,
-        color_top_left=vec4,
-        color_top_right=vec4,
+    uniform_type = dict(
+        color_bottom_left=("float32", 4),
+        color_bottom_right=("float32", 4),
+        color_top_left=("float32", 4),
+        color_top_right=("float32", 4),
     )
 
     def __init__(self, *colors):

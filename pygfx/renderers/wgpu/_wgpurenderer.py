@@ -2,8 +2,6 @@ import time
 import weakref
 
 import numpy as np
-import pyshader  # noqa
-from pyshader import Struct, vec2, mat4
 import wgpu.backends.rs
 
 from .. import Renderer, RenderFunctionRegistry
@@ -19,11 +17,13 @@ from .postprocessing import RenderTexture, SSAAPostProcessingStep
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
 # todo: a combined transform would be nice too, for performance
-stdinfo_uniform_type = Struct(
-    cam_transform=mat4,
-    projection_transform=mat4,
-    physical_size=vec2,
-    logical_size=vec2,
+stdinfo_uniform_type = dict(
+    cam_transform=("float32", (4, 4)),
+    cam_transform_inv=("float32", (4, 4)),
+    projection_transform=("float32", (4, 4)),
+    projection_transform_inv=("float32", (4, 4)),
+    physical_size=("float32", 2),
+    logical_size=("float32", 2),
 )
 
 
@@ -96,6 +96,8 @@ class WgpuRenderer(Renderer):
             non_guaranteed_features=[], non_guaranteed_limits={}
         )
 
+        self._shader_cache = {}
+
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
         # object, its size, and its format. The final (canvas) texture
@@ -126,8 +128,9 @@ class WgpuRenderer(Renderer):
             )
 
         # Initialize a small buffer to read pixel info into
+        # Make it 256 bytes just in case (for bytes_per_row)
         self._pixel_info_buffer = self._device.create_buffer(
-            size=32,
+            size=256,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
 
@@ -324,7 +327,7 @@ class WgpuRenderer(Renderer):
             ],
             depth_stencil_attachment={
                 "view": self._depth_texture.texture_view,
-                "depth_load_value": 2.0,  # depth is 0..1, make initial value > 1
+                "depth_load_value": 1.0,  # depth is 0..1, make initial value as high as we can
                 "depth_store_op": wgpu.StoreOp.store,
                 "stencil_load_value": wgpu.LoadOp.load,
                 "stencil_store_op": wgpu.StoreOp.store,
@@ -361,10 +364,16 @@ class WgpuRenderer(Renderer):
             self._wgpu_stdinfo_buffer = Buffer(
                 array_from_shadertype(stdinfo_uniform_type), usage="uniform"
             )
+
         # Update its data
         stdinfo_data = self._wgpu_stdinfo_buffer.data
-        stdinfo_data["cam_transform"] = tuple(camera.matrix_world_inverse.elements)
-        stdinfo_data["projection_transform"] = tuple(camera.projection_matrix.elements)
+        stdinfo_data["cam_transform"].flat = camera.matrix_world_inverse.elements
+        stdinfo_data["cam_transform_inv"].flat = camera.matrix_world.elements
+        stdinfo_data["projection_transform"].flat = camera.projection_matrix.elements
+        stdinfo_data[
+            "projection_transform_inv"
+        ].flat = camera.projection_matrix_inverse.elements
+        # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
@@ -650,10 +659,15 @@ class WgpuRenderer(Renderer):
         bind_groups, pipeline_layout = self._get_bind_groups(pipeline_info)
 
         # Compile shaders
+        vs_entry_point = fs_entry_point = "main"
         vshader = pipeline_info["vertex_shader"]
+        if isinstance(vshader, tuple):
+            vshader, vs_entry_point = vshader
         fshader = pipeline_info["fragment_shader"]
-        vs_module = device.create_shader_module(code=vshader)
-        fs_module = device.create_shader_module(code=fshader)
+        if isinstance(fshader, tuple):
+            fshader, fs_entry_point = fshader
+        vs_module = self._get_shader_module(vshader, vshader)
+        fs_module = self._get_shader_module(fshader, fshader)
 
         # Instantiate the pipeline object
         # todo: is this how strip_index_format is supposed to work?
@@ -664,7 +678,7 @@ class WgpuRenderer(Renderer):
             layout=pipeline_layout,
             vertex={
                 "module": vs_module,
-                "entry_point": "main",
+                "entry_point": vs_entry_point,
                 "buffers": vertex_buffer_descriptors,
             },
             primitive={
@@ -677,8 +691,8 @@ class WgpuRenderer(Renderer):
                 "format": self._depth_texture.format,
                 "depth_write_enabled": True,  # optional
                 "depth_compare": wgpu.CompareFunction.less,  # optional
-                "front": {},  # use defaults
-                "back": {},  # use defaults
+                "stencil_front": {},  # use defaults
+                "stencil_back": {},  # use defaults
                 "depth_bias": 0,
                 "depth_bias_slope_scale": 0.0,
                 "depth_bias_clamp": 0.0,
@@ -690,7 +704,7 @@ class WgpuRenderer(Renderer):
             },
             fragment={
                 "module": fs_module,
-                "entry_point": "main",
+                "entry_point": fs_entry_point,
                 "targets": [
                     {
                         "format": self._render_textures[0].format,
@@ -710,18 +724,7 @@ class WgpuRenderer(Renderer):
                     },
                     {
                         "format": self._pick_texture.format,
-                        "blend": {
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
+                        "blend": None,
                         "write_mask": wgpu.ColorWrite.ALL,
                     },
                 ],
@@ -753,6 +756,8 @@ class WgpuRenderer(Renderer):
             if key.startswith("bindings"):
                 i = int(key[len("bindings") :])
                 assert i >= 0
+                if not pipeline_info[key]:
+                    continue
                 while len(resource_groups) <= i:
                     resource_groups.append({})
                 resource_groups[i] = pipeline_info[key]
@@ -821,6 +826,12 @@ class WgpuRenderer(Renderer):
                         fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
                         if "float" in fmt or "norm" in fmt:
                             sample_type = wgpu.TextureSampleType.float
+                            # For float32 wgpu does not allow the sampler to be filterable,
+                            # except when the native-only feature
+                            # TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES is set,
+                            # which wgpu-py does by default.
+                            # if "32float" in fmt:
+                            #     sample_type = wgpu.TextureSampleType.unfilterable_float
                         elif "uint" in fmt:
                             sample_type = wgpu.TextureSampleType.uint
                         elif "sint" in fmt:
@@ -1021,6 +1032,15 @@ class WgpuRenderer(Renderer):
         )
         resource._wgpu_sampler = resource.rev, sampler
 
+    def _get_shader_module(self, key, source):
+        """Compile a shader module object, or re-use it from the cache."""
+        # todo: make this work for objects following the ShaderSourceTemplate interface
+        # todo: also release shader modules that are no longer used
+        if key not in self._shader_cache:
+            m = self._device.create_shader_module(code=source)
+            self._shader_cache[key] = m
+        return self._shader_cache[key]
+
     # Picking
 
     def get_pick_info(self, pos):
@@ -1084,8 +1104,7 @@ class WgpuRenderer(Renderer):
         x = max(0, min(w - 1, int(float_pos[0] * w)))
         y = max(0, min(h - 1, int(float_pos[1] * h)))
 
-        # Note: bytes_per_row must be a multiple of 256. Since we only
-        # copy one pixel, it looks like we can set it to 0.
+        # Note: bytes_per_row must be a multiple of 256.
         encoder.copy_texture_to_buffer(
             {
                 "texture": render_texture.texture,
@@ -1095,7 +1114,7 @@ class WgpuRenderer(Renderer):
             {
                 "buffer": self._pixel_info_buffer,
                 "offset": buf_offset,
-                "bytes_per_row": 0,  # render_texture.bytes_per_pixel,
+                "bytes_per_row": 256,  # render_texture.bytes_per_pixel,
                 "rows_per_image": 1,
             },
             copy_size=(1, 1, 1),

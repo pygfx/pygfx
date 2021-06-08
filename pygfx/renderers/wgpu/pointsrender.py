@@ -1,87 +1,9 @@
 import wgpu  # only for flags/enums
-from pyshader import python2shader
-from pyshader import f32, i32, vec2, vec3, vec4, ivec4
 
-from . import register_wgpu_render_function, stdinfo_uniform_type
+from . import register_wgpu_render_function
+from ._shadercomposer import BaseShader
 from ...objects import Points
 from ...materials import PointsMaterial, GaussianPointsMaterial
-
-
-@python2shader
-def vertex_shader(
-    index: ("input", "VertexId", "i32"),
-    in_pos: ("input", 0, vec3),
-    u_stdinfo: ("uniform", (0, 0), stdinfo_uniform_type),
-    u_wobject: ("uniform", (0, 1), Points.uniform_type),
-    u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
-    out_pos: ("output", "Position", vec4),
-    out_point_size: ("output", "PointSize", f32),
-    v_size: ("output", 0, f32),
-    v_vertex_idx: ("output", 1, vec2),
-):
-    world_pos = u_wobject.world_transform * vec4(in_pos.xyz, 1.0)
-    ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos
-
-    scale_factor = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x
-    size = u_points.size * scale_factor + 1.5  # plus some for aa
-
-    out_pos = ndc_pos  # noqa - shader output
-    out_point_size = size  # noqa - shader output
-    v_size = size  # noqa - shader output
-    v_vertex_idx = vec2(index // 10000, index % 10000)  # noqa
-
-
-@python2shader
-def fragment_shader_points(
-    in_point_coord: ("input", "PointCoord", vec2),
-    v_size: ("input", 0, f32),
-    v_vertex_idx: ("input", 1, vec2),
-    u_wobject: ("uniform", (0, 1), Points.uniform_type),
-    u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
-    out_color: ("output", 0, vec4),
-    out_pick: ("output", 1, ivec4),
-):
-    # See https://github.com/vispy/vispy/blob/master/vispy/visuals/markers.py
-    color = u_points.color
-    pcoord_pixels = in_point_coord * v_size
-    hsize = 0.5 * (v_size - 1.5)
-    aa_width = 1.0
-    d = distance(pcoord_pixels, vec2(hsize, hsize))
-    if d <= hsize - 0.5 * aa_width:
-        out_color = u_points.color.rgba  # noqa - shader output
-    elif d <= hsize + 0.5 * aa_width:
-        alpha = 0.5 + (hsize - d) / aa_width
-        alpha = alpha ** 2  # this works better
-        out_color = vec4(color.rgb, color.a * alpha)  # noqa - shader output
-    else:
-        return  # discard
-    vertex_id = i32(v_vertex_idx.x * 10000.0 + v_vertex_idx.y + 0.5)
-    out_pick = ivec4(u_wobject.id, 0, vertex_id, 0)  # noqa
-
-
-@python2shader
-def fragment_shader_gaussian(
-    in_point_coord: ("input", "PointCoord", vec2),
-    v_size: ("input", 0, f32),
-    v_vertex_idx: ("input", 1, vec2),
-    u_wobject: ("uniform", (0, 1), Points.uniform_type),
-    u_points: ("uniform", (0, 2), PointsMaterial.uniform_type),
-    out_color: ("output", 0, vec4),
-    out_pick: ("output", 1, ivec4),
-):
-    color = u_points.color
-    pcoord_pixels = in_point_coord * v_size
-    hsize = 0.5 * (v_size - 1.5)
-    sigma = hsize / 3.0
-    d = distance(pcoord_pixels, vec2(hsize, hsize))
-    if d <= hsize:
-        t = d / sigma
-        a = exp(-0.5 * t * t)
-        out_color = vec4(color.rgb, color.a * a)  # noqa - shader output
-    else:
-        return  # discard
-    vertex_id = i32(v_vertex_idx.x * 10000.0 + v_vertex_idx.y + 0.5)
-    out_pick = ivec4(u_wobject.id, 0, vertex_id, 0)  # noqa
 
 
 @register_wgpu_render_function(Points, PointsMaterial)
@@ -90,10 +12,12 @@ def points_renderer(wobject, render_info):
 
     geometry = wobject.geometry
     material = wobject.material
+    shader = PointsShader(type="circle")
+    n = geometry.positions.nitems * 6
 
-    # Collect vertex buffers
-    n = geometry.positions.nitems
-    vertex_buffers = {0: geometry.positions}
+    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
+    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
+    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
 
     # Collect bindings
     bindings0 = {
@@ -102,19 +26,146 @@ def points_renderer(wobject, render_info):
         2: ("buffer/uniform", material.uniform_buffer),
     }
 
+    bindings1 = {
+        0: ("buffer/read_only_storage", geometry.positions),
+    }
+
     if isinstance(material, GaussianPointsMaterial):
-        fragment_shader = fragment_shader_gaussian
-    else:
-        fragment_shader = fragment_shader_points
+        shader["type"] = "gaussian"
 
     # Put it together!
+    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": vertex_shader,
-            "fragment_shader": fragment_shader,
-            "primitive_topology": wgpu.PrimitiveTopology.point_list,
+            "vertex_shader": (wgsl, "vs_main"),
+            "fragment_shader": (wgsl, "fs_main"),
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "indices": (range(n), range(1)),
-            "vertex_buffers": vertex_buffers,
+            "vertex_buffers": {},
             "bindings0": bindings0,
+            "bindings1": bindings1,
         }
     ]
+
+
+class PointsShader(BaseShader):
+
+    # Notes:
+    # In WGPU, the pointsize attribute can no longer be larger than 1 because
+    # of restriction in some hardware/backend API's. So we use our storage-buffer
+    # approach (similar for what we use for lines) to sort of fake a geometry shader.
+    # An alternative is to use instancing. Could be worth testing both approaches
+    # for performance ...
+
+    def get_code(self):
+        return (
+            self.get_definitions()
+            + self.more_definitions()
+            + self.vertex_shader()
+            + self.fragment_shader()
+        )
+
+    def more_definitions(self):
+        return """
+
+        struct VertexInput {
+            [[builtin(vertex_index)]] index : u32;
+        };
+        struct VertexOutput {
+            [[location(0)]] pointcoord: vec2<f32>;
+            [[location(1)]] vertex_idx: vec2<f32>;
+            [[builtin(position)]] pos: vec4<f32>;
+        };
+
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+            [[location(1)]] pick: vec4<i32>;
+        };
+
+        [[block]]
+        struct BufferF32 {
+            data: [[stride(4)]] array<f32>;
+        };
+
+        [[group(1), binding(0)]]
+        var<storage> s_pos: [[access(read)]] BufferF32;
+        """
+
+    def vertex_shader(self):
+        return """
+
+        [[stage(vertex)]]
+        fn vs_main(in: VertexInput) -> VertexOutput {
+            var out: VertexOutput;
+
+            let index = i32(in.index);
+            let i0 = index / 6;
+            let sub_index = index % 6;
+
+            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
+            let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+            let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+
+            let deltas = array<vec2<f32>, 6>(
+                vec2<f32>(-1.0, -1.0),
+                vec2<f32>(-1.0,  1.0),
+                vec2<f32>( 1.0, -1.0),
+                vec2<f32>(-1.0,  1.0),
+                vec2<f32>( 1.0, -1.0),
+                vec2<f32>( 1.0,  1.0),
+            );
+
+            let aa_margin = 1.0;
+            let delta_logical = deltas[sub_index] * (u_material.size + aa_margin);
+            let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
+            out.pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
+            out.pointcoord = delta_logical;
+
+            out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
+            return out;
+        }
+        """
+
+    def fragment_shader(self):
+        # Also see See https://github.com/vispy/vispy/blob/master/vispy/visuals/markers.py
+        return """
+
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> FragmentOutput {
+            var out: FragmentOutput;
+
+            let color = u_material.color;
+            let d = length(in.pointcoord);
+            let size = u_material.size;
+            let aa_width = 1.0;
+
+            $$ if type == 'circle'
+                if (d <= size - 0.5 * aa_width) {
+                    out.color = color;
+                } elseif (d <= size + 0.5 * aa_width) {
+                    let alpha1 = 0.5 + (size - d) / aa_width;
+                    let alpha2 = pow(alpha1, 2.0);  // this works better
+                    out.color = vec4<f32>(color.rgb, color.a * alpha2);
+                } else {
+                    discard;
+                }
+            $$ elif type == "gaussian"
+                if (d <= size) {
+                    let sigma = size / 3.0;
+                    let t = d / sigma;
+                    let a = exp(-0.5 * t * t);
+                    out.color = vec4<f32>(color.rgb, color.a * a);
+                } else {
+                    discard;
+                }
+            $$ else
+                invalid_point_type;
+            $$ endif
+
+            // Picking
+            let vertex_id = i32(in.vertex_idx.x * 10000.0 + in.vertex_idx.y + 0.5);
+            out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
+
+            return out;
+        }
+        """

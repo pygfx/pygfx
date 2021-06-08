@@ -1,7 +1,4 @@
 import wgpu  # only for flags/enums
-import pyshader
-from pyshader import python2shader
-from pyshader import f32, i32, ivec2, vec2, vec4, Struct
 
 from ...utils import array_from_shadertype
 
@@ -252,52 +249,80 @@ class SSAAPostProcessingStep(PostProcessingStep):
 
 # %% Shaders
 
-ssaa_uniform_type = Struct(size=vec2, sigma=f32, support=i32)
+ssaa_uniform_type = dict(
+    size=("float32", 2),
+    sigma=("float32",),
+    support=("int32",),
+)
 
 
-@python2shader
-def default_vertex_shader(
-    index: (pyshader.RES_INPUT, "VertexId", "i32"),
-    out_pos: (pyshader.RES_OUTPUT, "Position", vec4),
-    v_texcoord: (pyshader.RES_OUTPUT, 0, vec2),
-):
-    positions = [vec2(0, 1), vec2(0, 0), vec2(1, 1), vec2(1, 0)]
-    pos = positions[index]
-    v_texcoord = vec2(pos.x, 1.0 - pos.y)  # noqa - shader output
-    out_pos = vec4(pos * 2.0 - 1.0, 0.0, 1.0)  # noqa - shader output
+default_vertex_shader = """
 
+struct VertexOutput {
+    [[location(0)]] texcoord: vec2<f32>;
+    [[builtin(position)]] pos: vec4<f32>;
+};
 
-@python2shader
-def ssaa_fragment_shader(
-    v_texcoord: (pyshader.RES_INPUT, 0, vec2),
-    s_sam: (pyshader.RES_SAMPLER, (0, 0), ""),
-    t_tex: (pyshader.RES_TEXTURE, (0, 1), "2d f32"),
-    u_render: (pyshader.RES_UNIFORM, (0, 2), ssaa_uniform_type),
-    out_color: (pyshader.RES_OUTPUT, 0, vec4),
-):
-    # Get info about the smoothing
-    sigma = u_render.sigma
-    support = min(5, u_render.support)
+[[stage(vertex)]]
+fn main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
+    let positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
+    let pos = positions[index];
+    var out: VertexOutput;
+    out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
+    out.pos = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+    return out;
+}
 
-    # Determine distance between pixels in src texture
-    step = vec2(1.0 / u_render.size.x, 1.0 / u_render.size.y)
-    # Get texcoord, and round it to the center of the source pixels.
-    # Thus, whether the sampler is linear or nearest, we get equal results.
-    ori_coord = v_texcoord.xy
-    ref_coord = vec2(ivec2(ori_coord / step)) * step + 0.5 * step
+"""
 
-    # Convolve. Here we apply a Gaussian kernel, the weight is calculated
-    # for each pixel individually based on the distance to the actual texture
-    # coordinate. This means that the textures don't even need to align.
-    val = vec4(0.0, 0.0, 0.0, 0.0)
-    weight = 0.0
-    for y in range(-support, support + 1):
-        for x in range(-support, support + 1):
-            coord = ref_coord + vec2(x, y) * step
-            distance = length((ori_coord - coord) / step)  # in src pixels
-            t = distance / sigma
-            w = exp(-0.5 * t * t)
-            val += t_tex.sample(s_sam, coord) * w
-            weight += w
+ssaa_fragment_shader = """
+struct VertexOutput {
+    [[location(0)]] texcoord: vec2<f32>;
+    [[builtin(position)]] pos: vec4<f32>;
+};
 
-    out_color = val / weight  # noqa - shader output
+[[block]]
+struct Render {
+    size: vec2<f32>;
+    sigma: f32;
+    support: i32;
+};
+
+[[group(0), binding(0)]]
+var r_sampler: sampler;
+[[group(0), binding(1)]]
+var r_tex: texture_2d<f32>;
+[[group(0), binding(2)]]
+var u_render: Render;
+
+[[stage(fragment)]]
+fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+    // Get info about the smoothing
+    let sigma = u_render.sigma;
+    let support = min(5, u_render.support);
+
+    // Determine distance between pixels in src texture
+    let stepp = vec2<f32>(1.0 / u_render.size.x, 1.0 / u_render.size.y);
+    // Get texcoord, and round it to the center of the source pixels.
+    // Thus, whether the sampler is linear or nearest, we get equal results.
+    let ori_coord = in.texcoord.xy;
+    let ref_coord = vec2<f32>(vec2<i32>(ori_coord / stepp)) * stepp + 0.5 * stepp;
+
+    // Convolve. Here we apply a Gaussian kernel, the weight is calculated
+    // for each pixel individually based on the distance to the actual texture
+    // coordinate. This means that the textures don't even need to align.
+    var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    var weight: f32 = 0.0;
+    for (var y:i32 = -support; y <= support; y = y + 1) {
+        for (var x:i32 = -support; x <= support; x = x + 1) {
+            let coord = ref_coord + vec2<f32>(f32(x), f32(y)) * stepp;
+            let dist = length((ori_coord - coord) / stepp);  // in src pixels
+            let t = dist / sigma;
+            let w = exp(-0.5 * t * t);
+            val = val + textureSample(r_tex, r_sampler, coord) * w;
+            weight = weight + w;
+        }
+    }
+    return val / weight;
+}
+"""

@@ -237,10 +237,10 @@ def format_from_memoryview(mem, size):
     # todo: not yet entirely sure about this
     # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
     texformatmap = {
-        # "int8": "8snorm",
-        # "uint8": "8unorm",
-        "b": "8sint",
-        "B": "8uint",
+        "b": "8snorm",
+        "B": "8unorm",
+        # "b": "8sint",
+        # "B": "8uint",
         "h": "16sint",
         "H": "16uint",
         "i": "32sint",

@@ -1,5 +1,3 @@
-from pyshader import Struct, f32, vec4
-
 from ._base import Material
 from ..utils import array_from_shadertype
 from ..resources import Buffer
@@ -10,7 +8,7 @@ class PointsMaterial(Material):
     of the given size and color.
     """
 
-    uniform_type = Struct(color=vec4, size=f32)
+    uniform_type = dict(color=("float32", 4), size=("float32",))
 
     def __init__(self, **kwargs):
         super().__init__()

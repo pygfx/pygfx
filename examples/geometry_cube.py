@@ -23,7 +23,7 @@ tex = gfx.Texture(im, dim=2, usage="sampled").get_view(
 
 geometry = gfx.BoxGeometry(200, 200, 200)
 geometry.texcoords.data[:] *= 2  # smaller bricks
-material = gfx.MeshBasicMaterial(map=tex, clim=(0.2, 0.8))
+material = gfx.MeshPhongMaterial(map=tex, color=(1, 0, 0, 0.2), clim=(0.2, 0.8))
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 

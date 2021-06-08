@@ -3,9 +3,6 @@ Render slices through a volume, by creating a 3D texture, with 2D views.
 Simple and relatively fast, but no subslices.
 """
 
-# todo: not working ATM, a Rust assertion fails in _update_texture(),
-# let's wait til the next release of wgpu-native and try again
-
 import imageio
 import pygfx as gfx
 

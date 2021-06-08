@@ -1,11 +1,18 @@
-from pyshader import shadertype_as_ctype
 import numpy as np
 
 
 def array_from_shadertype(shadertype):
-    """Get a numpy array object from a shadertype (from pyshader)."""
-    ctype = shadertype_as_ctype(shadertype)
-    return np.asarray(ctype())
+    """Get a numpy array object from a dict shadertype."""
+    assert isinstance(shadertype, dict)
+
+    # Unravel the dict
+    dtype_fields = []
+    for name, type_tuple in shadertype.items():
+        dtype_fields.append((name,) + tuple(type_tuple))
+
+    # Create a scalar of this type
+    uniform_data = np.zeros((), dtype=dtype_fields)
+    return uniform_data
 
 
 def normals_from_vertices(rr, tris):

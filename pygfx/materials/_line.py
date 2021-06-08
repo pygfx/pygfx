@@ -1,5 +1,3 @@
-from pyshader import Struct, f32, vec4
-
 from ._base import Material
 from ..utils import array_from_shadertype
 from ..resources import Buffer
@@ -8,7 +6,10 @@ from ..resources import Buffer
 class LineMaterial(Material):
     """The default material to draw lines."""
 
-    uniform_type = Struct(color=vec4, thickness=f32)
+    uniform_type = dict(
+        color=("float32", 4),
+        thickness=("float32",),
+    )
 
     def __init__(self, color=(1, 1, 1, 1), thickness=2.0, vertex_colors=False):
         super().__init__()
