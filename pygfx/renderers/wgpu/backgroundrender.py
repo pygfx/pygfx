@@ -115,6 +115,7 @@ class BackgroundShader(BaseShader):
                 let ndc_pos2 = vec4<f32>(pos, 1.1000000, 1.0);
                 // project back to world coords
                 let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+                //let ndc_to_world = u_stdinfo.ndc_to_world;
                 let wpos1_ = ndc_to_world * ndc_pos1;
                 let wpos2_ = ndc_to_world * ndc_pos2;
                 let wpos1 = wpos1_.xyzw / wpos1_.w;

@@ -73,6 +73,7 @@ class BaseShader:
             elif len(shape) == 1:
                 wgsl_type = f"vec{shape[0]}<{primitive_type}>"
             elif len(shape) == 2:
+                # matNxM is Matrix of N columns and M rows
                 wgsl_type = f"mat{shape[1]}x{shape[0]}<{primitive_type}>"
             else:
                 raise TypeError("Unsupported type {dtype}")

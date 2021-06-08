@@ -66,11 +66,11 @@ def mesh_renderer(wobject, render_info):
 
     # Init bindings 1: storage buffers, textures, and samplers
     bindings1 = {}
-    bindings1[2] = "buffer/read_only_storage", geometry.index
-    bindings1[3] = "buffer/read_only_storage", geometry.positions
-    bindings1[4] = "buffer/read_only_storage", normal_buffer
+    bindings1[0] = "buffer/read_only_storage", geometry.index
+    bindings1[1] = "buffer/read_only_storage", geometry.positions
+    bindings1[2] = "buffer/read_only_storage", normal_buffer
     if getattr(geometry, "texcoords", None) is not None:
-        bindings1[5] = "buffer/read_only_storage", geometry.texcoords
+        bindings1[3] = "buffer/read_only_storage", geometry.texcoords
 
     # If a texture is applied ...
     if material.map is not None:
@@ -80,8 +80,8 @@ def mesh_renderer(wobject, render_info):
             raise TypeError("material.map must be a TextureView")
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[0] = "sampler/filtering", material.map
-        bindings1[1] = "texture/auto", material.map
+        bindings1[4] = "sampler/filtering", material.map
+        bindings1[5] = "texture/auto", material.map
         # Dimensionality
         if material.map.view_dim == "1d":
             shader["texture_dim"] = "1d"
@@ -198,24 +198,23 @@ class MeshShader(BaseShader):
 
 
         [[group(1), binding(0)]]
-        var r_sampler: sampler;
-
-        $$ if texture_dim
-        [[group(1), binding(1)]]
-        var r_tex: texture_{{ texture_dim }}<{{ texture_format }}>;
-        $$ endif
-
-        [[group(1), binding(2)]]
         var<storage> s_indices: [[access(read)]] BufferI32;
 
-        [[group(1), binding(3)]]
+        [[group(1), binding(1)]]
         var<storage> s_pos: [[access(read)]] BufferF32;
 
-        [[group(1), binding(4)]]
+        [[group(1), binding(2)]]
         var<storage> s_normal: [[access(read)]] BufferF32;
 
-        [[group(1), binding(5)]]
+        [[group(1), binding(3)]]
         var<storage> s_texcoord: [[access(read)]] BufferF32;
+
+        $$ if texture_dim
+        [[group(1), binding(4)]]
+        var r_sampler: sampler;
+        [[group(1), binding(5)]]
+        var r_tex: texture_{{ texture_dim }}<{{ texture_format }}>;
+        $$ endif
 
         $$ if instanced
         [[block]]
@@ -244,15 +243,20 @@ class MeshShader(BaseShader):
 
             // Vertex positions of this face, in local object coordinates
             let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
+            let raw_normal = vec3<f32>(s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]);
             $$ if instanced
                 let submatrix: mat4x4<f32> = s_submatrices.data[in.instance_index];
                 let world_pos = u_wobject.world_transform * submatrix * vec4<f32>(raw_pos, 1.0);
+                let world_pos_n = u_wobject.world_transform * submatrix * vec4<f32>(raw_pos + raw_normal, 1.0);
             $$ else
                 let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+                let world_pos_n = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
             $$ endif
+            let world_normal = normalize(world_pos_n - world_pos).xyz;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             //let ndc_to_world = matrix_inverse(u_stdinfo.cam_transform * u_stdinfo.projection_transform);
+            //let ndc_to_world = u_stdinfo.ndc_to_world;
             let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
 
             // Prepare output
@@ -269,16 +273,11 @@ class MeshShader(BaseShader):
             $$ endif
 
             // Vectors for lighting, all in world coordinates
-
-            let normal_ = vec3<f32>(
-                s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]
-            );
-            out.normal = (u_wobject.world_transform * vec4<f32>(normal_.xyz, 1.0)).xyz;
-
             let view_vec4 = ndc_to_world * vec4<f32>(0.0, 0.0, 1.0, 1.0);
             let view_vec = normalize(view_vec4.xyz / view_vec4.w);
             out.view = view_vec;
             out.light = view_vec;
+            out.normal = world_normal;
 
             // Set varyings for picking. We store the face_index, and 3 weights
             // that indicate how close the fragment is to each vertex (barycentric
@@ -310,12 +309,12 @@ class MeshShader(BaseShader):
             let i0 = (index - r) / 2;
 
             let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
-            let normal_ = vec3<f32>(
+            let raw_normal = vec3<f32>(
                 s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]
             );
 
             let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-            let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + normal_, 1.0);
+            let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
 
             // The normal is sized in world coordinates
             let world_normal = normalize(world_pos2 - world_pos1);
@@ -439,6 +438,7 @@ class MeshShader(BaseShader):
             let view = normalize(view);
             let light = normalize(light);
 
+            // view vec is set via ndc_to_world
             // Maybe flip the normal - otherwise backfacing faces are not lit
             //normal = select(normal, -normal, dot(view, normal) >= 0.0);
             normal = faceForward(normal, -normal, view);

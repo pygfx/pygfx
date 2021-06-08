@@ -35,7 +35,6 @@ def points_renderer(wobject, render_info):
 
     # Put it together!
     wgsl = shader.generate_wgsl()
-    print(wgsl)
     return [
         {
             "vertex_shader": (wgsl, "vs_main"),
