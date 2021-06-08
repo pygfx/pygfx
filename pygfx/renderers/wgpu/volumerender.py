@@ -70,8 +70,6 @@ def volume_slice_renderer(wobject, render_info):
 
     # Put it together!
     wgsl = shader.generate_wgsl()
-    with open("c:/dev/py/tmp.wgsl", "wb") as f:
-        f.write(wgsl.encode())
     return [
         {
             "vertex_shader": (wgsl, "vs_main"),
