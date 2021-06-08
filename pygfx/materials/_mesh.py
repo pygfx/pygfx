@@ -2,11 +2,6 @@ from ..utils import array_from_shadertype
 from ..resources import Buffer
 from ._base import Material
 
-# todo: put in an example somewhere how to use storage buffers for vertex data:
-# index: (pyshader.RES_INPUT, "VertexId", "i32")
-# positions: (pyshader.RES_BUFFER, (1, 0), "Array(vec4)")
-# position = positions[index]
-
 
 class MeshBasicMaterial(Material):
     """A material for drawing geometries in a simple shaded (flat or

@@ -2,7 +2,7 @@ import numpy as np
 
 
 def array_from_shadertype(shadertype):
-    """Get a numpy array object from a shadertype (from pyshader)."""
+    """Get a numpy array object from a dict shadertype."""
     assert isinstance(shadertype, dict)
 
     # Unravel the dict

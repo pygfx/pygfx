@@ -6,7 +6,6 @@ import time
 
 import numpy as np
 import imageio
-import pyshader
 import pygfx as gfx
 
 from PyQt5 import QtWidgets
@@ -23,29 +22,39 @@ class NoisyPostProcessingStep(gfx.renderers.wgpu.PostProcessingStep):
 
     def render(self, src, dst):
         self._uniform_data["time"] = time.perf_counter()
-        self._uniform_data["noise"] = 0.03
+        self._uniform_data["noise"] = 0.1
         super().render(src, dst)
 
 
-noise_uniform_type = pyshader.Struct(time=pyshader.f32, noise=pyshader.f32)
+noise_uniform_type = dict(time=("float32",), noise=("float32",))
 
 
-@pyshader.python2shader
-def noise_fragment_shader(
-    v_texcoord: (pyshader.RES_INPUT, 0, "vec2"),
-    s_sam: (pyshader.RES_SAMPLER, (0, 0), ""),
-    t_tex: (pyshader.RES_TEXTURE, (0, 1), "2d f32"),
-    u_render: (pyshader.RES_UNIFORM, (0, 2), noise_uniform_type),
-    out_color: (pyshader.RES_OUTPUT, 0, "vec4"),
-):
-    val = t_tex.sample(s_sam, v_texcoord)
+noise_fragment_shader = """
+struct VertexOutput {
+    [[location(0)]] texcoord: vec2<f32>;
+    [[builtin(position)]] pos: vec4<f32>;
+};
+[[group(0), binding(0)]]
+var r_sampler: sampler;
+[[group(0), binding(1)]]
+var r_tex: texture_2d<f32>;
 
-    # todo: use spirv builtin random number gen
-    xy = v_texcoord.xy
-    noise = fract(sin(xy @ vec2(12.9898, 78.233) + u_render.time) * 43758.5453)
-    noise = u_render.noise * noise
-    val += vec4(noise, noise, noise, 1.0)
-    out_color = val  # noqa - shader output
+[[block]]
+struct Render {
+    time: f32;
+    noise: f32;
+};
+[[group(0), binding(2)]]
+var u_render: Render;
+
+[[stage(fragment)]]
+fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+    let xy = in.texcoord.xy;
+    let random_nr = fract(sin(dot(xy, vec2<f32>(12.9898, 78.233)) + u_render.time) * 43758.5453);
+    let noise = u_render.noise * random_nr;
+    return textureSample(r_tex, r_sampler, xy) + vec4<f32>(noise, noise, noise, 1.0);
+}
+"""
 
 
 app = QtWidgets.QApplication([])
