@@ -1,7 +1,9 @@
 """
 Example (and test) for camera depth clipping planes. This draws four
-rectangles near the near and far clipping planes. Only the two green
-ones should be visible.
+rectangles near the near and far clipping planes.
+
+* Only the two green ones should be visible.
+* The greener square should be in the upper-left.
 """
 
 import pygfx as gfx
@@ -24,24 +26,25 @@ scene = gfx.Scene()
 # positive near-value, and a relatively small value for the far-value
 # as well, otherwise the distant squares become smaller than 1 pixel ;)
 
-# Define near and far plane
-near, far = -40, 300  # example for ortho
-# near, far = 5, 10  # example for perspective
-
-# Select camera
-camera = gfx.OrthographicCamera(2.2, 2.2, near, far)
-# camera = gfx.PerspectiveCamera(50, 1, near, far)
+# Select camera and matchingclipping planes
+if True:
+    near, far = -40, 300
+    camera = gfx.OrthographicCamera(2.2, 2.2, near, far)
+else:
+    near, far = 5, 10
+    camera = gfx.PerspectiveCamera(50, 1, near, far)
 
 
 # %% Create four planes near the z-clipping planes
 
 geometry = gfx.PlaneGeometry(1, 1)
-green_material = gfx.MeshBasicMaterial(color=(0, 1, 0, 1))
+green_material = gfx.MeshBasicMaterial(color=(0, 0.8, 0.2, 1))
+greener_material = gfx.MeshBasicMaterial(color=(0, 1, 0, 1))
 red_material = gfx.MeshBasicMaterial(color=(1, 0, 0, 1))
 
 plane1 = gfx.Mesh(geometry, green_material)
 plane2 = gfx.Mesh(geometry, red_material)
-plane3 = gfx.Mesh(geometry, green_material)
+plane3 = gfx.Mesh(geometry, greener_material)
 plane4 = gfx.Mesh(geometry, red_material)
 
 # Note the negation of near and far in the plane's position. This is
@@ -57,5 +60,6 @@ for plane in (plane1, plane2, plane3, plane4):
 
 
 if __name__ == "__main__":
+    print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
     app.exec_()
