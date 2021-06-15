@@ -74,6 +74,10 @@ be rendered as a slice, MIP, or something else.
 ## Installation
 
 ```bash
+pip install -U pygfx
+```
+Or, to get the latest from GitHub:
+```bash
 pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 ```
 
