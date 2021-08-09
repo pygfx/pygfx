@@ -98,12 +98,22 @@ class WgpuRenderer(Renderer):
 
         self._shader_cache = {}
 
+        # Initialize canvas context
+        self._canvas_context = None
+        canvas_tex_format = wgpu.TextureFormat.rgba8unorm
+        if canvas is not None:
+            self._canvas_context = canvas.get_context()
+            canvas_tex_format = self._canvas_context.get_preferred_format(self._adapter)
+            self._canvas_context.configure(
+                device=self._device,
+                format=canvas_tex_format,
+                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
+            )
+
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
-        # object, its size, and its format. The final (canvas) texture
-        # has bgra format, because that's what hardware seems to like,
-        # and srgb for perseptive color mapping.
-        self._canvas_texture = RenderTexture(wgpu.TextureFormat.bgra8unorm_srgb)
+        # object, its size, and its format.
+        self._canvas_texture = RenderTexture(canvas_tex_format)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
         # The pick texture has 4 channels, object id, and then 3 more, e.g.
         # the instance nr, vertex nr and weights.
@@ -117,16 +127,6 @@ class WgpuRenderer(Renderer):
 
         # Prepare other properties
         self._msaa = 1  # todo: cannot set sample_count of render_pass yet
-
-        # Initialize canvas context
-        self._canvas_context = None
-        if canvas is not None:
-            self._canvas_context = canvas.get_context()
-            self._canvas_context.configure(
-                device=self._device,
-                format=self._canvas_texture.format,
-                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
-            )
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -205,6 +205,8 @@ class WgpuRenderer(Renderer):
             logical_size = self._logical_size
         else:
             logical_size = self._canvas.get_logical_size()
+        if not all(x > 0 for x in logical_size):
+            return
 
         # Determine the physical size of the render texture
         if self._canvas:
