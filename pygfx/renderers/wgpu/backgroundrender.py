@@ -102,7 +102,7 @@ class BackgroundShader(BaseShader):
         fn vs_main(in: VertexInput) -> VertexOutput {
             var out: VertexOutput;
             // Define positions at the four corners of the viewport, at the largest depth
-            let positions = array<vec2<f32>, 4>(
+            var positions = array<vec2<f32>, 4>(
                 vec2<f32>(-1.0, -1.0),
                 vec2<f32>( 1.0, -1.0),
                 vec2<f32>(-1.0,  1.0),

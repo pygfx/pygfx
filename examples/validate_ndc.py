@@ -31,10 +31,10 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
-    let positions = array<vec3<f32>, 4>(
+    var positions = array<vec3<f32>, 4>(
         vec3<f32>(-1.0, -1.0, 0.5), vec3<f32>(-1.0, 1.0, 1.5), vec3<f32>(1.0, -1.0, -0.5), vec3<f32>(1.0, 1.0, 0.5)
     );
-    let colors = array<vec3<f32>, 4>(
+    var colors = array<vec3<f32>, 4>(
         vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.5, 0.5), vec3<f32>(0.0, 0.5, 0.5), vec3<f32>(0.0, 0.0, 1.0)
     );
 

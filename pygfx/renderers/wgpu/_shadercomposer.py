@@ -40,7 +40,7 @@ class BaseShader:
         try:
             return t.render(**variables)
         except jinja2.UndefinedError as err:
-            msg = f"Canot compose shader: {err.message}"
+            msg = f"Canot compose shader: {err.args[0]}"
         raise ValueError(msg)  # don't raise within handler to avoid recursive tb
 
     def define_uniform(self, bindgroup, index, name, struct):

@@ -15,8 +15,8 @@ class Texture(Resource):
             or None, nbytes and nitems must be provided. The data is
             copied if it's float64 or not contiguous.
         dim (int): The dimensionality of the array (1, 2 or 3).
-        usage: The way(s) that the texture will be used. Default "SAMPLED",
-            set/add "STORAGE" if you're using it as a storage texture
+        usage: The way(s) that the texture will be used. Default "TEXTURE_BINDING",
+            set/add "STORAGE_BINDING" if you're using it as a storage texture
             (see wgpu.TextureUsage).
         size (3-tuple): The extent ``(width, height, depth)`` of the array.
             If not given or None, it is derived from dim and the shape of
@@ -27,7 +27,9 @@ class Texture(Resource):
             data is not given or when you want to overload the derived value.
     """
 
-    def __init__(self, data=None, *, dim, usage="SAMPLED", size=None, format=None):
+    def __init__(
+        self, data=None, *, dim, usage="TEXTURE_BINDING", size=None, format=None
+    ):
         self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)

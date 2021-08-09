@@ -26,7 +26,7 @@ nslices = vol.shape[0]
 index = nslices // 2
 
 tex_size = tuple(reversed(vol.shape))
-tex = gfx.Texture(vol, dim=2, size=tex_size, usage="sampled")
+tex = gfx.Texture(vol, dim=2, size=tex_size)
 view = tex.get_view(filter="linear", view_dim="2d", layer_range=range(index, index + 1))
 
 geometry = gfx.PlaneGeometry(200, 200, 12, 12)

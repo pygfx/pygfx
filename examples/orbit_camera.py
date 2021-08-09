@@ -52,7 +52,7 @@ scene = gfx.Scene()
 scene.add(gfx.AxesHelper(length=250))
 
 im = imageio.imread("imageio:chelsea.png")
-tex = gfx.Texture(im, dim=2, usage="sampled").get_view(filter="linear")
+tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
 material = gfx.MeshBasicMaterial(map=tex, clim=(0, 255))
 geometry = gfx.BoxGeometry(100, 100, 100)

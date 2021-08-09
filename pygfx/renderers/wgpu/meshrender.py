@@ -34,7 +34,7 @@ def mesh_renderer(wobject, render_info):
     fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
-    assert getattr(geometry, "index")
+    assert getattr(geometry, "index", None)
     n = geometry.index.data.size
 
     # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
@@ -198,16 +198,16 @@ class MeshShader(BaseShader):
 
 
         [[group(1), binding(0)]]
-        var<storage> s_indices: [[access(read)]] BufferI32;
+        var<storage,read> s_indices: BufferI32;
 
         [[group(1), binding(1)]]
-        var<storage> s_pos: [[access(read)]] BufferF32;
+        var<storage,read> s_pos: BufferF32;
 
         [[group(1), binding(2)]]
-        var<storage> s_normal: [[access(read)]] BufferF32;
+        var<storage,read> s_normal: BufferF32;
 
         [[group(1), binding(3)]]
-        var<storage> s_texcoord: [[access(read)]] BufferF32;
+        var<storage,read> s_texcoord: BufferF32;
 
         $$ if texture_dim
         [[group(1), binding(4)]]
@@ -222,7 +222,7 @@ class MeshShader(BaseShader):
             data: [[stride(64)]] array<mat4x4<f32>>;
         };
         [[group(1), binding(6)]]
-        var<storage> s_submatrices: [[access(read)]] BufferMat4;
+        var<storage,read> s_submatrices: BufferMat4;
         $$ endif
         """
 
@@ -239,7 +239,8 @@ class MeshShader(BaseShader):
             let i1 = s_indices.data[face_index * 3 + 0];
             let i2 = s_indices.data[face_index * 3 + 1];
             let i3 = s_indices.data[face_index * 3 + 2];
-            let i0 = array<i32, 3>(i1, i2, i3)[sub_index];
+            var arr_i0 = array<i32, 3>(i1, i2, i3);
+            let i0 = arr_i0[sub_index];
 
             // Vertex positions of this face, in local object coordinates
             let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
@@ -294,9 +295,10 @@ class MeshShader(BaseShader):
             out.face_idx = vec4<f32>(
                 f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d)
             );
-            out.face_coords = array<vec3<f32>, 3>(
+            var arr_face_coords = array<vec3<f32>, 3>(
                 vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0)
-            )[sub_index];
+            );
+            out.face_coords = arr_face_coords[sub_index];
 
             return out;
         }
@@ -476,7 +478,7 @@ def meshslice_renderer(wobject, render_info):
     fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
-    assert getattr(geometry, "index")
+    assert getattr(geometry, "index", None)
     n = (geometry.index.data.size // 3) * 6
     n_instances = 1
 
@@ -553,10 +555,10 @@ class MeshSliceShader(BaseShader):
         };
 
         [[group(1), binding(0)]]
-        var<storage> s_indices: [[access(read)]] BufferI32;
+        var<storage,read> s_indices: BufferI32;
 
         [[group(1), binding(1)]]
-        var<storage> s_pos: [[access(read)]] BufferF32;
+        var<storage,read> s_pos: BufferF32;
         """
 
     def vertex_shader(self):
@@ -616,9 +618,9 @@ class MeshSliceShader(BaseShader):
 
             // Selectors
 
-            let b1 = select(4, 0, (t1 > 0.0) && (t1 < 1.0));
-            let b2 = select(2, 0, (t2 > 0.0) && (t2 < 1.0));
-            let b3 = select(1, 0, (t3 > 0.0) && (t3 < 1.0));
+            let b1 = select(0, 4, (t1 > 0.0) && (t1 < 1.0));
+            let b2 = select(0, 2, (t2 > 0.0) && (t2 < 1.0));
+            let b3 = select(0, 1, (t3 > 0.0) && (t3 < 1.0));
             let pos_index = b1 + b2 + b3;
 
             // The big triage
@@ -627,7 +629,7 @@ class MeshSliceShader(BaseShader):
             var the_coord: vec2<f32>;
             var segment_length: f32;
 
-            if (pos_index < 3) {  // or dot(n, u) == 0.0
+            if (pos_index < 3) {//   (pos_index < 3) {  // or dot(n, u) == 0.0
                 // Just return the same vertex, resulting in degenerate triangles
                 the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos1, 1.0);
                 the_coord = vec2<f32>(0.0, 0.0);
@@ -640,8 +642,8 @@ class MeshSliceShader(BaseShader):
                 let pos23: vec3<f32> = mix(pos2, pos3, vec3<f32>(t2, t2, t2));
                 let pos31: vec3<f32> = mix(pos3, pos1, vec3<f32>(t3, t3, t3));
                 // b1+b2+b3     000    001    010    011    100    101    110    111
-                let positions_a = array<vec3<f32>, 8>(pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12);
-                let positions_b = array<vec3<f32>, 8>(pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23);
+                var positions_a = array<vec3<f32>, 8>(pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12);
+                var positions_b = array<vec3<f32>, 8>(pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23);
                 // Select the two positions that define the line segment
                 let pos_a = positions_a[pos_index];
                 let pos_b = positions_b[pos_index];
@@ -651,8 +653,8 @@ class MeshSliceShader(BaseShader):
                 let fw12 = mix(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(t1, t1, t1));
                 let fw23 = mix(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(t2, t2, t2));
                 let fw31 = mix(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(t3, t3, t3));
-                let fws_a = array<vec3<f32>, 8>(fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw12);
-                let fws_b = array<vec3<f32>, 8>(fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw23);
+                var fws_a = array<vec3<f32>, 8>(fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw12);
+                var fws_b = array<vec3<f32>, 8>(fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw23);
                 let fw_a = fws_a[pos_index];
                 let fw_b = fws_b[pos_index];
 
@@ -681,7 +683,7 @@ class MeshSliceShader(BaseShader):
                 let pvec_local = 0.5 * vec2<f32>(segment_length + line_width, line_width);
 
                 // Select one of the four corners of the segment rectangle
-                let vecs = array<vec2<f32>, 6>(
+                var vecs = array<vec2<f32>, 6>(
                     vec2<f32>(-1.0, -1.0),
                     vec2<f32>( 1.0,  1.0),
                     vec2<f32>(-1.0,  1.0),

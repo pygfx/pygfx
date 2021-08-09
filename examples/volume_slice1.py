@@ -26,7 +26,7 @@ nslices = vol.shape[0]
 index = nslices // 2
 im = vol[index].copy()
 
-tex = gfx.Texture(im, dim=2, usage="sampled")
+tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.PlaneGeometry(200, 200, 12, 12)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))

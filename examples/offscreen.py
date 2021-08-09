@@ -12,9 +12,7 @@ renderer = gfx.renderers.WgpuRenderer(size=(640, 480), pixel_ratio=2)
 scene = gfx.Scene()
 
 im = imageio.imread("imageio:astronaut.png").astype("float32") / 255
-tex = gfx.Texture(im, dim=2, usage="sampled").get_view(
-    filter="linear", address_mode="repeat"
-)
+tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.BoxGeometry(200, 200, 200)
 material = gfx.MeshBasicMaterial(map=tex)

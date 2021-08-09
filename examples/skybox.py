@@ -25,7 +25,7 @@ scene = gfx.Scene()
 
 # Create cubemap texture
 tex_size = width, height, 6
-tex = gfx.Texture(im, dim=2, size=tex_size, usage="sampled")
+tex = gfx.Texture(im, dim=2, size=tex_size)
 view = tex.get_view(view_dim="cube", layer_range=range(6))
 
 # And the background image with the cube texture
