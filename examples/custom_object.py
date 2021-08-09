@@ -87,7 +87,7 @@ renderer = gfx.WgpuRenderer(canvas)
 scene = gfx.Scene()
 t1 = Triangle(TriangleMaterial())
 scene.add(t1)
-for i in range(2):
+for _ in range(2):
     scene.add(Triangle(TriangleMaterial()))
 
 camera = gfx.NDCCamera()  # This material does not actually use the camera

@@ -34,7 +34,7 @@ def mesh_renderer(wobject, render_info):
     fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
-    assert getattr(geometry, "index")
+    assert getattr(geometry, "index", None)
     n = geometry.index.data.size
 
     # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
@@ -478,7 +478,7 @@ def meshslice_renderer(wobject, render_info):
     fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
-    assert getattr(geometry, "index")
+    assert getattr(geometry, "index", None)
     n = (geometry.index.data.size // 3) * 6
     n_instances = 1
 
