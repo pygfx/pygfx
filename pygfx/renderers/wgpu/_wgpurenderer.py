@@ -93,7 +93,7 @@ class WgpuRenderer(Renderer):
             canvas=canvas, power_preference="high-performance"
         )
         self._device = self._adapter.request_device(
-            non_guaranteed_features=[], non_guaranteed_limits={}
+            required_features=[], required_limits={}
         )
 
         self._shader_cache = {}
@@ -118,10 +118,11 @@ class WgpuRenderer(Renderer):
         # Prepare other properties
         self._msaa = 1  # todo: cannot set sample_count of render_pass yet
 
-        # Initialize swapchain
-        self._swap_chain = None
+        # Initialize canvas context
+        self._canvas_context = None
         if canvas is not None:
-            self._swap_chain = canvas.configure_swap_chain(
+            self._canvas_context = canvas.get_context()
+            self._canvas_context.configure(
                 device=self._device,
                 format=self._canvas_texture.format,
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
@@ -275,11 +276,11 @@ class WgpuRenderer(Renderer):
 
         # If we have a canvas, we render into it, applying SSAA if possible
         if self._canvas:
-            with self._swap_chain as texture_view_target:
-                self._canvas_texture.set_texture_view(texture_view_target)
-                self._ssa_post_processing_step.render(
-                    render_textures[0], self._canvas_texture
-                )
+            texture_view_target = self._canvas_context.get_current_texture()
+            self._canvas_texture.set_texture_view(texture_view_target)
+            self._ssa_post_processing_step.render(
+                render_textures[0], self._canvas_texture
+            )
 
     def _render_recording(self, command_encoder, q):
 
@@ -642,7 +643,7 @@ class WgpuRenderer(Renderer):
             slot = int(slot)
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
-                "step_mode": wgpu.InputStepMode.vertex,  # vertex or instance
+                "step_mode": wgpu.VertexStepMode.vertex,  # vertex or instance
                 "attributes": [
                     {
                         "format": buffer.format,

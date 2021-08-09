@@ -18,7 +18,7 @@ scene = gfx.Scene()
 reader = imageio.get_reader("imageio:cockatoo.mp4")
 im = reader.get_next_data()[:, :, 1]
 
-tex = gfx.Texture(im, dim=2, usage="sampled")
+tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.PlaneGeometry(200, 200, 12, 12)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))

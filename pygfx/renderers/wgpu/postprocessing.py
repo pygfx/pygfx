@@ -28,7 +28,7 @@ class RenderTexture:
             self.size = size
             usage = wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.COPY_SRC
             if self.format.startswith(("rgb", "bgr")):
-                usage |= wgpu.TextureUsage.SAMPLED
+                usage |= wgpu.TextureUsage.TEXTURE_BINDING
             self.texture = device.create_texture(
                 size=size, usage=usage, dimension="2d", format=self.format
             )
@@ -265,7 +265,7 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
-    let positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
+    var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
     let pos = positions[index];
     var out: VertexOutput;
     out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);

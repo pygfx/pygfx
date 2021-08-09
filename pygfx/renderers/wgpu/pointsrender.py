@@ -88,7 +88,7 @@ class PointsShader(BaseShader):
         };
 
         [[group(1), binding(0)]]
-        var<storage> s_pos: [[access(read)]] BufferF32;
+        var<storage,read> s_pos: BufferF32;
         """
 
     def vertex_shader(self):
@@ -106,7 +106,7 @@ class PointsShader(BaseShader):
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-            let deltas = array<vec2<f32>, 6>(
+            var deltas = array<vec2<f32>, 6>(
                 vec2<f32>(-1.0, -1.0),
                 vec2<f32>(-1.0,  1.0),
                 vec2<f32>( 1.0, -1.0),

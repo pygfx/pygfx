@@ -178,14 +178,14 @@ class LineShader(BaseShader):
 
         // Could be useful to be able to pass via an index too :)
         // [[group(1), binding(0)]]
-        // var<storage> s_indices: [[access(read)]] BufferI32;
+        // var<storage,read> s_indices: BufferI32;
 
         [[group(1), binding(0)]]
-        var<storage> s_pos: [[access(read)]] BufferF32;
+        var<storage,read> s_pos: BufferF32;
 
         $$ if per_vertex_color
         [[group(1), binding(1)]]
-        var<storage> s_color: [[access(read)]] BufferF32;
+        var<storage,read> s_color: BufferF32;
         $$ endif
         """
 
@@ -353,7 +353,7 @@ class LineShader(BaseShader):
             }
 
             // Select the correct vector, note that all except ne are unit.
-            let vectors = array<vec2<f32>,5>(na, nb, ne, nc, nd);
+            var vectors = array<vec2<f32>,5>(na, nb, ne, nc, nd);
             let the_vec = vectors[index % 5] * half_line_width;
 
             var out : VertexFuncOutput;
@@ -410,7 +410,7 @@ class LineShader(BaseShader):
 
             // Select the correct vector
             // Note the replicated vertices to create degenerate triangles
-            let vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
+            var vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
             let the_vec = vectors[index % 10] * half_line_width;
 
             var out : VertexFuncOutput;
@@ -461,7 +461,7 @@ class LineShader(BaseShader):
 
             // Select the correct vector
             // Note the replicated vertices to create degenerate triangles
-            let vectors = array<vec2<f32>,6>(na, na, nb, na, nb, nb);
+            var vectors = array<vec2<f32>,6>(na, na, nb, na, nb, nb);
             let the_vec = vectors[index % 6];
 
             var out : VertexFuncOutput;

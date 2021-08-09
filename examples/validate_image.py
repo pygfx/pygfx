@@ -24,7 +24,7 @@ scene = gfx.Scene()
 
 
 im = imageio.imread("imageio:astronaut.png")
-tex = gfx.Texture(im, dim=2, usage="sampled")
+tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.PlaneGeometry(512, 512)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))

@@ -121,10 +121,10 @@ class VolumeSliceShader(BaseShader):
         var r_tex: texture_3d<{{ texture_format }}>;
 
         [[group(1), binding(2)]]
-        var<storage> s_positions: [[access(read)]] BufferF32;
+        var<storage,read> s_positions: BufferF32;
 
         [[group(1), binding(3)]]
-        var<storage> s_texcoords: [[access(read)]] BufferF32;
+        var<storage,read> s_texcoords: BufferF32;
         """
 
     def vertex_shader(self):
@@ -156,26 +156,26 @@ class VolumeSliceShader(BaseShader):
             // indices (each edge touches two planes). Note that these need to
             // match the above figure, and that needs to match with the actual
             // BoxGeometry implementation!
-            let edges = array<vec2<i32>,12>(
+            var edges = array<vec2<i32>,12>(
                 vec2<i32>(0, 2), vec2<i32>(2, 3), vec2<i32>(3, 1), vec2<i32>(1, 0),
                 vec2<i32>(4, 6), vec2<i32>(6, 7), vec2<i32>(7, 5), vec2<i32>(5, 4),
                 vec2<i32>(5, 0), vec2<i32>(1, 4), vec2<i32>(2, 7), vec2<i32>(6, 3),
             );
-            let ed2pl = array<vec2<i32>,12>(
+            var ed2pl = array<vec2<i32>,12>(
                 vec2<i32>(0, 4), vec2<i32>(0, 3), vec2<i32>(0, 5), vec2<i32>(0, 2),
                 vec2<i32>(1, 5), vec2<i32>(1, 3), vec2<i32>(1, 4), vec2<i32>(1, 2),
                 vec2<i32>(2, 4), vec2<i32>(2, 5), vec2<i32>(3, 4), vec2<i32>(3, 5),
             );
 
             // Init intersection info
-            var intersect_flags: array<i32,12> = array<i32,12>(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            var intersect_positions: array<vec3<f32>,12> = array<vec3<f32>,12>(
+            var intersect_flags = array<i32,12>(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            var intersect_positions = array<vec3<f32>,12>(
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
             );
-            var intersect_texcoords: array<vec3<f32>,12> = array<vec3<f32>,12>(
+            var intersect_texcoords = array<vec3<f32>,12>(
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0),
@@ -212,13 +212,13 @@ class VolumeSliceShader(BaseShader):
                 let u = p2 - p1;
                 let t = -(plane.x * p1.x + plane.y * p1.y + plane.z * p1.z + plane.w) / dot(n, u);
                 let intersects:bool = t > 0.0 && t < 1.0;
-                intersect_flags[i] = select(1, 0, intersects);
+                intersect_flags[i] = select(0, 1, intersects);
                 intersect_positions[i] = mix(p1, p2, vec3<f32>(t, t, t));
                 intersect_texcoords[i] = mix(tc1, tc2, vec3<f32>(t, t, t));
             }
 
             // Init six vertices
-            var vertices: array<vec3<f32>,6> = array<vec3<f32>,6>(
+            var vertices = array<vec3<f32>,6>(
                 vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0),
@@ -226,7 +226,7 @@ class VolumeSliceShader(BaseShader):
                 vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0),
             );
-            var texcoords: array<vec3<f32>,6> = array<vec3<f32>,6>(
+            var texcoords = array<vec3<f32>,6>(
                 vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0),
                 vec3<f32>(0.0, 0.0, 0.0),
@@ -284,7 +284,7 @@ class VolumeSliceShader(BaseShader):
             // Now select the current vertex. We mimic a triangle fan with a triangle list.
             // This works whether the number of vertices/intersections is 3, 4, 5, and 6.
             let index = i32(in.index);
-            let indexmap = array<i32,12>(0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5);
+            var indexmap = array<i32,12>(0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5);
             let world_pos = vertices[ indexmap[index] ];
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
             out.pos = ndc_pos;

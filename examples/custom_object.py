@@ -40,8 +40,8 @@ var u_stdinfo: Stdinfo;
 
 [[stage(vertex)]]
 fn vs_main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32> {
-    let positions1 = array<vec2<f32>, 3>(vec2<f32>(0.0, -0.5), vec2<f32>(0.5, 0.5), vec2<f32>(-0.5, 0.7));
-    let positions2 = array<vec2<f32>, 3>(vec2<f32>(10.0, 10.0), vec2<f32>(90.0, 10.0), vec2<f32>(10.0, 90.0));
+    var positions1 = array<vec2<f32>, 3>(vec2<f32>(0.0, -0.5), vec2<f32>(0.5, 0.5), vec2<f32>(-0.5, 0.7));
+    var positions2 = array<vec2<f32>, 3>(vec2<f32>(10.0, 10.0), vec2<f32>(90.0, 10.0), vec2<f32>(10.0, 90.0));
 
     // let p = positions1[index];
     let p = 2.0 * positions2[index] / u_stdinfo.logical_size - 1.0;

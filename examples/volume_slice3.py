@@ -26,7 +26,7 @@ vol = imageio.volread("imageio:stent.npz")
 nslices = vol.shape[0]
 index = nslices // 2
 
-tex = gfx.Texture(vol, dim=3, usage="sampled")
+tex = gfx.Texture(vol, dim=3)
 view = tex.get_view(filter="linear")
 
 geometry = gfx.PlaneGeometry(200, 200, 1, 1)

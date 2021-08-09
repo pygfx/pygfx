@@ -62,7 +62,7 @@ scene.add(background)
 scene.add(gfx.AxesHelper(length=50))
 
 vol = imageio.volread("imageio:stent.npz")
-tex = gfx.Texture(vol, dim=3, usage="sampled")
+tex = gfx.Texture(vol, dim=3)
 
 surface = marching_cubes(vol[0:], 200)
 geo = gfx.Geometry(
