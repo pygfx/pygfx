@@ -13,5 +13,5 @@ from .controls import *
 from .renderers import *
 
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 version_info = tuple(map(int, __version__.split(".")))
