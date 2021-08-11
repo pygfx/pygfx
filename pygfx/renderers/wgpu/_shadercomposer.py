@@ -354,3 +354,78 @@ class WorldObjectShader(BaseShader):
         """
 
         return clipping_plane_code + world_pos_code
+
+
+# %% Snippets
+
+
+def get_fragment_buffer_snippet(group, binding):
+    """Get a WGSL snippet to add support for fragment buffering so we
+    can realize OIT. The group and binding must be set to the location
+    of the storage buffer used for this purpose.
+
+    The storage buffer must be large enough, namely .... TODO
+    """
+
+    return """
+
+        struct Fragment {
+            rgba : vec4<f32>;
+            depth : f32;
+            meh : u32;
+        };  // https://github.com/gfx-rs/naga/blob/9192f7b882ab26b651ec2e010329b81d1d119138/src/valid/type.rs#L165
+
+        struct Pixel {
+            frag : Fragment;
+            lock : atomic<i32>;
+            foo : u32;
+        };
+
+        [[block]]
+        struct FragmentBuffer {
+            lock : atomic<i32>;
+            data: [[stride(48)]] array<Pixel>;
+        };
+
+        [[group(GROUP), binding(BINDING)]]
+        var<storage,read_write> s_fragments: FragmentBuffer;
+
+        fn write_fragment_no_lock(index: i32, frag: Fragment) {
+
+            let current_frag = s_fragments.data[index].frag;
+            if (frag.depth < current_frag.depth) {
+                s_fragments.data[index].frag = frag;
+            }
+
+        }
+
+        fn write_fragment(pos: vec3<f32>, color:vec4<f32>) {
+            // Get index to write to
+            let ipos = vec2<i32>(pos.xy);
+            let w = i32(u_stdinfo.physical_size.x);
+            let index = ipos.x + ipos.y * w;
+
+            // Construct fragment
+            var frag: Fragment;
+            frag.rgba = color;
+            frag.depth = pos.z - 1.1; // offset so zero is beyond the far plane
+
+            // Write fragmemt in a spinlock
+            let active_lock = &s_fragments.data[index].lock;  // per pixel
+            var done = false;
+            loop {
+                if (done) { break; }
+                let old = atomicExchange(active_lock, 1);
+                if (old != 1) {
+                    write_fragment_no_lock(index, frag);
+                    atomicStore(active_lock, 0);
+                    done = true;
+                }
+            }
+        }
+
+    """.replace(
+        "GROUP", str(group)
+    ).replace(
+        "BINDING", str(binding)
+    )

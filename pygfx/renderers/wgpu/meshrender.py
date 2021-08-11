@@ -3,6 +3,7 @@ import wgpu  # only for flags/enums
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
 from ._conv import to_vertex_format, to_texture_format
+from ._shadercomposer import get_fragment_buffer_snippet
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -156,6 +157,10 @@ def mesh_renderer(wobject, render_info):
         )
         n_instances = wobject.matrices.nitems
 
+    bindings2[1] = Binding(
+        "s_fragments", "buffer/storage", render_info.out_buffer, "FRAGMENT"
+    )
+
     # Determine culling
     if material.side == "FRONT":
         cull_mode = wgpu.CullMode.back
@@ -194,6 +199,7 @@ class MeshShader(WorldObjectShader):
             self.get_definitions()
             + self.more_definitions()
             + self.common_functions()
+            + get_fragment_buffer_snippet(2, 1)
             + self.helpers()
             + self.vertex_shader()
             + self.fragment_shader()
@@ -433,14 +439,17 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Final color
-            out.color = vec4<f32>(lit_color, color_value.a);
+            //out.color = vec4<f32>(lit_color, color_value.a);
+
+            let rgba = vec4<f32>(lit_color, color_value.a * u_material.opacity);
+            write_fragment(in.position.xyz, rgba);
 
             // Picking
             let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
             let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
 
-            out.color.a = out.color.a * u_material.opacity;
+            //out.color.a = out.color.a * u_material.opacity;
 
             $$ if wireframe
                 let distance_from_edge = min(in.wireframe_coords.x, min(in.wireframe_coords.y, in.wireframe_coords.z));

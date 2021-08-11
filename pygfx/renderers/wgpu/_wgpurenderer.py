@@ -11,7 +11,7 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import RenderTexture, RenderFlusher
+from ._renderutils import RenderTexture, RenderFlusher, FragmentResolverStep
 from ._conv import to_vertex_format, to_texture_format
 
 
@@ -80,8 +80,9 @@ class RenderInfo:
     will probably also include lights etc.
     """
 
-    def __init__(self, *, stdinfo_uniform):
+    def __init__(self, *, stdinfo_uniform, out_buffer):
         self.stdinfo_uniform = stdinfo_uniform
+        self.out_buffer = out_buffer
 
 
 class SharedData:
@@ -204,6 +205,8 @@ class WgpuRenderer(Renderer):
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
+        # Prepare post-processing steps. Users can append/insert more
+        self._fragment_resolver_step = FragmentResolverStep(self._shared.device)
 
         # Prepare other properties
         self._msaa = 1  # todo: cannot set sample_count of render_pass yet
@@ -326,6 +329,28 @@ class WgpuRenderer(Renderer):
         # Determine the physical size of the first and last render pass
         framebuffer_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
 
+        force_reset = False
+
+        # TODO: This needs work, because resizing the fragment buffer means creating
+        # a new storage buffer, which means we need to rebuild all pipelines in which
+        # it is used ...
+
+        # Resize fragment buffer as needed. This buffer can hold multiple fragments
+        # per pixel, so we can achieve order independent transparency.
+        nfragments = 8
+        fragment_buffer_size = (
+            framebuffer_size[0] * framebuffer_size[1] * nfragments * 8
+        )
+        if (
+            not hasattr(self, "_fragment_buffer")
+            or self._fragment_buffer.nbytes != fragment_buffer_size
+        ):
+            self._fragment_buffer = Buffer(
+                nbytes=fragment_buffer_size,
+                nitems=framebuffer_size[0] * framebuffer_size[1],
+            )
+            force_reset = True
+
         # Set the size of the textures (is a no-op if the size does not change)
         self._render_texture.ensure_size(device, framebuffer_size + (1,))
         self._depth_texture.ensure_size(device, framebuffer_size + (1,))
@@ -360,13 +385,26 @@ class WgpuRenderer(Renderer):
 
         # Ensure each wobject has pipeline info
         for wobject in q:
-            self._ensure_up_to_date(wobject)
+            self._ensure_up_to_date(wobject, force_reset)
 
         # Filter out objects that we cannot render
         q = [wobject for wobject in q if wobject._wgpu_pipeline_objects is not None]
 
-        # Render the scene graph (to the first texture)
         command_encoder = device.create_command_encoder()
+
+        # Clear fragment buffer
+        # todo: this seems like something that can be done more efficiently
+        wgpu_frag_buffer = self._fragment_buffer._wgpu_buffer[1]
+        clear_size = fragment_buffer_size // 8
+        tmp_buffer = device.create_buffer(
+            size=clear_size, usage=wgpu.BufferUsage.COPY_SRC
+        )
+        for i in range(fragment_buffer_size // clear_size):
+            command_encoder.copy_buffer_to_buffer(
+                tmp_buffer, 0, wgpu_frag_buffer, i * clear_size, clear_size
+            )
+
+        # Render the scene graph (to the fragment bufer)
         self._render_recording(
             command_encoder, q, physical_viewport, clear_color, clear_depth
         )
@@ -375,6 +413,10 @@ class WgpuRenderer(Renderer):
 
         # Flush to target
         if flush:
+            # Resolve the per-pixel fragments into a color texture (OIT)
+            self._fragment_resolver_step.render(
+                framebuffer_size, self._fragment_buffer, self._render_texture
+            )
             self.flush()
 
     def flush(self):
@@ -592,6 +634,7 @@ class WgpuRenderer(Renderer):
         # Prepare info for the render function
         render_info = RenderInfo(
             stdinfo_uniform=self._shared.stdinfo_buffer,
+            out_buffer=self._fragment_buffer,
         )
 
         # Call render function
@@ -923,7 +966,6 @@ class WgpuRenderer(Renderer):
             for slot, binding in resources.items():
                 resource = binding.resource
                 subtype = binding.type.partition("/")[2]
-
                 if binding.type.startswith("buffer/"):
                     assert isinstance(resource, Buffer)
                     bindings.append(

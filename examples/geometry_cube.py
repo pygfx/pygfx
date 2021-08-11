@@ -12,7 +12,8 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+canvas._target_fps = 1000
+renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
 im = imageio.imread("imageio:bricks.jpg")

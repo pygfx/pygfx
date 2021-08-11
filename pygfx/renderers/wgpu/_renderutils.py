@@ -2,6 +2,7 @@ import wgpu  # only for flags/enums
 
 from ...utils import array_from_shadertype
 from ._shadercomposer import Binding, BaseShader
+from ._shadercomposer import get_fragment_buffer_snippet
 
 
 class RenderTexture:
@@ -288,3 +289,186 @@ class RenderFlusher:
         )
 
         return bind_group, render_pipeline
+
+
+class FragmentResolverStep:
+    """
+    Resolve the multi-fragment pixels, stored in a buffer, into a single color
+    stored in a texture.
+    """
+
+    shader = (
+        """
+        struct VertexOutput {
+            [[builtin(position)]] position: vec4<f32>;
+        };
+
+        [[block]]
+        struct Struct_stdinfo_light {
+            physical_size: vec2<f32>;
+        };
+
+        [[group(0), binding(0)]]
+        var<uniform> u_stdinfo: Struct_stdinfo_light;
+        """
+        + get_fragment_buffer_snippet(0, 1)
+        + """
+
+        [[stage(vertex)]]
+        fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
+            var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
+            let pos = positions[index];
+            var out: VertexOutput;
+            out.position = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+            return out;
+        }
+
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+            // Get index to read from
+            let ipos = vec2<i32>(in.position.xy);
+            let w = i32(u_stdinfo.physical_size.x);
+            let index = ipos.x + ipos.y * w;
+
+            let frag = s_fragments.data[index].frag;
+            return frag.rgba;
+            //return vec4<f32>(f32(x), f32(y), 0.0, 1.0);
+        }
+    """
+    )
+
+    def __init__(self, device):
+        self._device = device
+        self._hash = None
+
+        self._uniform_type = dict(physical_size="2xf4")
+        self._uniform_data = array_from_shadertype(self._uniform_type)
+        self._uniform_buffer = self._device.create_buffer(
+            size=self._uniform_data.nbytes,
+            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
+        )
+
+    def render(self, size, fragment_buffer, dst):
+        assert isinstance(dst, RenderTexture)
+        device = self._device
+
+        # Recreate pipeline?
+        hash = dst.format
+        if hash != self._hash:
+            self._hash = hash
+            self._create_pipeline(fragment_buffer, dst.format)
+
+        command_encoder = device.create_command_encoder()
+
+        # Set render data
+        self._uniform_data["physical_size"] = size
+
+        # Copy data to tmp buffer
+        tmp_buffer = device.create_buffer_with_data(
+            data=self._uniform_data,
+            usage=wgpu.BufferUsage.COPY_SRC,
+        )
+        command_encoder.copy_buffer_to_buffer(
+            tmp_buffer, 0, self._uniform_buffer, 0, self._uniform_data.nbytes
+        )
+
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=[
+                {
+                    "view": dst.texture_view,
+                    "resolve_target": None,
+                    "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                    "store_op": wgpu.StoreOp.store,
+                }
+            ],
+            depth_stencil_attachment=None,
+            occlusion_query_set=None,
+        )
+        render_pass.set_pipeline(self._render_pipeline)
+        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
+        render_pass.draw(4, 1)
+        render_pass.end_pass()
+        device.queue.submit([command_encoder.finish()])
+
+    def _create_pipeline(self, fragment_buffer, dst_format):
+        device = self._device
+
+        module = device.create_shader_module(code=self.shader)
+
+        binding_layouts = [
+            {
+                "binding": 0,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "buffer": {"type": wgpu.BufferBindingType.uniform},
+            },
+            {
+                "binding": 1,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "buffer": {"type": wgpu.BufferBindingType.storage},
+            },
+        ]
+        bindings = [
+            {
+                "binding": 0,
+                "resource": {
+                    "buffer": self._uniform_buffer,
+                    "offset": 0,
+                    "size": self._uniform_data.nbytes,
+                },
+            },
+            {
+                "binding": 1,
+                "resource": {
+                    "buffer": fragment_buffer._wgpu_buffer[1],
+                    "offset": 0,
+                    "size": fragment_buffer.nbytes,
+                },
+            },
+        ]
+
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
+        pipeline_layout = device.create_pipeline_layout(
+            bind_group_layouts=[bind_group_layout]
+        )
+        self._bind_group = device.create_bind_group(
+            layout=bind_group_layout, entries=bindings
+        )
+
+        self._render_pipeline = device.create_render_pipeline(
+            layout=pipeline_layout,
+            vertex={
+                "module": module,
+                "entry_point": "vs_main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_strip,
+                "strip_index_format": wgpu.IndexFormat.uint32,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": module,
+                "entry_point": "fs_main",
+                "targets": [
+                    {
+                        "format": dst_format,
+                        "blend": {
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "color": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                                # wgpu.BlendFactor.src_alpha,
+                                # wgpu.BlendFactor.one_minus_src_alpha,
+                                # wgpu.BlendOperation.add,
+                            ),
+                        },
+                    }
+                ],
+            },
+        )
