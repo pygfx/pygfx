@@ -7,6 +7,8 @@ DTYPE = "f4"
 
 
 class GridHelper(Line):
+    """ An object indicating the z=0 plane.
+    """
     def __init__(
         self,
         size=10.0,
