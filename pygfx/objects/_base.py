@@ -165,11 +165,15 @@ class WorldObject(ResourceContainer):
 
     def remove(self, *objects):
         """Removes object as child of this object. Any number of objects may be removed.
+        If a given object is not a child, it is ignored.
         """
         for obj in objects:
-            if obj in self._children:
-                obj._parent = None
+
+            try:
                 self._children.remove(obj)
+                obj._parent = None
+            except ValueError:
+                pass
         return self
 
     def traverse(self, callback):
