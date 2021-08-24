@@ -5,8 +5,7 @@ from ._orbit import get_screen_vectors_in_world_cords
 
 
 class PanZoomControls:
-    """ A class implementing two-dimensional pan-zoom camera control.
-    """
+    """A class implementing two-dimensional pan-zoom camera control."""
 
     def __init__(
         self,

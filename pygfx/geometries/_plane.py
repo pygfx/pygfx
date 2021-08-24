@@ -5,8 +5,7 @@ from ._base import Geometry
 
 
 class PlaneGeometry(Geometry):
-    """ A geometry defining a one-dimensional plane.
-    """
+    """A geometry defining a one-dimensional plane."""
 
     def __init__(self, width=1, height=1, width_segments=1, height_segments=1):
         super().__init__()

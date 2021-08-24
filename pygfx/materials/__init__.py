@@ -21,7 +21,11 @@ from ._background import BackgroundMaterial, BackgroundImageMaterial
 
 
 # Define __all__ for e.g. Sphinx
-__all__ = [cls.__name__ for cls in globals().values() if isinstance(cls, type) and issubclass(cls, Material)]
+__all__ = [
+    cls.__name__
+    for cls in globals().values()
+    if isinstance(cls, type) and issubclass(cls, Material)
+]
 __all__.sort()
 __all__.remove("Material")
 __all__.insert(0, "Material")

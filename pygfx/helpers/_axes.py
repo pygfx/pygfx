@@ -4,8 +4,7 @@ from .. import Geometry, Line, LineSegmentMaterial
 
 
 class AxesHelper(Line):
-    """ An object indicating the axes directions.
-    """
+    """An object indicating the axes directions."""
 
     def __init__(self, length=1.0, thickness=6.0):
         positions = np.array(

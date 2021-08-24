@@ -23,7 +23,7 @@ def get_screen_vectors_in_world_cords(
 
 
 class OrbitControls:
-    """ A class implementing orbit controls, where the camera is
+    """A class implementing orbit controls, where the camera is
     rotated around a center position (orbiting around it).
     """
 
