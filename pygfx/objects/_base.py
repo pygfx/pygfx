@@ -53,7 +53,7 @@ class WorldObject(ResourceContainer):
     """The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
-    its apearance. The object itself is only responsible for defining object
+    its appearance. The object itself is only responsible for defining object
     hierarchies (parent / children) and its position and orientation in the world.
 
     This is considered a base class. Use Group to collect multiple world objects
@@ -77,7 +77,12 @@ class WorldObject(ResourceContainer):
 
     def __init__(self):
         super().__init__()
-        self.parent = None
+
+        # Init visibility
+        self._visible = True
+
+        # Init parent and children
+        self._parent = None
         self._children = []
 
         self.position = Vector3()
@@ -96,7 +101,7 @@ class WorldObject(ResourceContainer):
             array_from_shadertype(self.uniform_type), usage="uniform"
         )
 
-        self.visible = True
+        # Render order is undocumented feature for now;l it may be removed if we have OIT.
         self.render_order = 0
 
         # See if we reached max number of objects. If so, try cleanup and try again.
@@ -115,28 +120,57 @@ class WorldObject(ResourceContainer):
 
     @property
     def id(self):
-        """An integer id smaller than 2**31."""
+        """An integer id smaller than 2**31 (read-only)."""
         return self._id
 
     @property
+    def visible(self):
+        """Wheter is object is rendered or not. Default True."""
+        return self._visible
+
+    @visible.setter
+    def visible(self, visible):
+        self._visible = bool(visible)
+
+    @property
+    def parent(self):
+        """Object's parent in the scene graph (read-only).
+        An object can have at most one parent.
+        """
+        return self._parent
+
+    @property
     def children(self):
+        """The child objects of this wold object (read-only tuple).
+        Use ``.add()`` and ``.remove()`` to change this list.
+        """
         return tuple(self._children)
 
-    def add(self, obj):
-        # orphan if needed
-        if obj.parent is not None:
-            obj.parent.remove(obj)
-        # attach to scene graph
-        obj.parent = self
-        self._children.append(obj)
-        # flag world matrix as dirty
-        obj.matrix_world_dirty = True
+    def add(self, *objects):
+        """Adds object as child of this object. Any number of
+        objects may be added. Any current parent on an object passed
+        in here will be removed, since an object can have at most one
+        parent.
+        """
+        for obj in objects:
+            # orphan if needed
+            if obj._parent is not None:
+                obj._parent.remove(obj)
+            # attach to scene graph
+            obj._parent = self
+            self._children.append(obj)
+            # flag world matrix as dirty
+            obj.matrix_world_dirty = True
         return self
 
-    def remove(self, obj):
-        if obj in self._children:
-            obj.parent = None
-            self._children.remove(obj)
+    def remove(self, *objects):
+        """Removes object as child of this object. Any number of objects may be removed.
+        """
+        for obj in objects:
+            if obj in self._children:
+                obj._parent = None
+                self._children.remove(obj)
+        return self
 
     def traverse(self, callback):
         callback(self)
