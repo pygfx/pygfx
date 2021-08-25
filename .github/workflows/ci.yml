@@ -54,7 +54,7 @@ jobs:
     - name: Build docs
       run: |
           cd docs
-          make html SPHINXOPTS="-W" --keep-going
+          make html SPHINXOPTS="-W --keep-going"
 
   test-builds:
     name: ${{ matrix.name }}
