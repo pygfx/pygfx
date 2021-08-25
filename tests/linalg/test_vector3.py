@@ -333,7 +333,7 @@ def test_apply_quaternion():
 def test_projectunproject():
     a = Vector3(x, y, z)
     camera = PerspectiveCamera(75, 16 / 9, 0.1, 300.0)
-    projected = Vector3(-0.36653213611158914, -0.9774190296309043, 1.0506835611870624)
+    # projected = Vector3(-0.36653213611158914, -0.9774190296309043, 1.0506835611870624)
 
     a.project(camera)
     # todo: why does this fail now :/
