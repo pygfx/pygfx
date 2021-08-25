@@ -53,7 +53,7 @@ author = "Almar Klein, Korijn van Golen"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
-    "nbsphinx",
+    # "nbsphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
