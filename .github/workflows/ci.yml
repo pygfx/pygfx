@@ -54,7 +54,7 @@ jobs:
     - name: Build docs
       run: |
           cd docs
-          make html PHINXOPTS="-W" --keep-going
+          make html SPHINXOPTS="-W" --keep-going
 
   test-builds:
     name: ${{ matrix.name }}
@@ -62,9 +62,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: Test lint & docs
-            os: ubuntu-latest
-            pyversion: '3.8'
           - name: Test Linux py36
             os: ubuntu-latest
             pyversion: '3.6'
