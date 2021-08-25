@@ -13,6 +13,9 @@ Resources
 World objects
 -------------
 
+.. autoclass:: pygfx.WorldObjecttt
+    :members:
+    :member-order: bysource
 
 .. autoclass:: pygfx.WorldObject
     :members:
