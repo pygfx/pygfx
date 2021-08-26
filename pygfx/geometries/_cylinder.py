@@ -150,6 +150,8 @@ def merge(groups):
 
 
 class CylinderGeometry(Geometry):
+    """A geometry defining a Cylinder."""
+
     def __init__(
         self,
         radius_bottom=1.0,

@@ -12,18 +12,56 @@ on:
 
 jobs:
 
-  test-build:
+  lint-build:
+    name: Black-and-flake
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dev dependencies
+      run: |
+          python -m pip install --upgrade pip
+          pip install -U black flake8 pep8-naming
+    - name: Black
+      run: |
+          black --check .
+    - name: Flake8
+      run: |
+          flake8 .
+    - name: Build docs
+      if: matrix.DOCS == 1
+      run: |
+          pushd docs
+          make html
+          popd
+
+  docs-build:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dev dependencies
+      run: |
+          python -m pip install --upgrade pip
+          pip install -U -r docs/docs_requirements.txt
+    - name: Build docs
+      run: |
+          cd docs
+          make html SPHINXOPTS="-W --keep-going"
+
+  test-builds:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - name: Test lint & docs
-            os: ubuntu-latest
-            pyversion: '3.8'
-            LINT: 1
-            # DOCS: 1
-            SKIPTEST: 1
           - name: Test Linux py36
             os: ubuntu-latest
             pyversion: '3.6'
@@ -46,15 +84,8 @@ jobs:
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
-          pip install -U -r dev-requirements.txt
-    - name: Lint
-      if: matrix.LINT == 1
+          pip install -U numpy wgpu jinja2
+          pip install -U pytest
+    - name: Unit tests
       run: |
-          black --check .
-          flake8 .
-    - name: Build docs
-      if: matrix.DOCS == 1
-      run: |
-          pushd docs
-          make html
-          popd
+          pytest -v tests

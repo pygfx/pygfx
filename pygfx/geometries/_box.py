@@ -5,6 +5,8 @@ from ._base import Geometry
 
 
 class BoxGeometry(Geometry):
+    """A geometry defining a cuboid."""
+
     def __init__(self, width, height, depth):
         super().__init__()
 

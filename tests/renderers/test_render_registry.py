@@ -4,11 +4,13 @@ from pytest import raises
 
 class Object1(gfx.WorldObject):
     def __init__(self, material):
+        super().__init__()
         self.material = material
 
 
 class Object2(gfx.WorldObject):
     def __init__(self, material):
+        super().__init__()
         self.material = material
 
 
@@ -167,7 +169,7 @@ def test_render_registry_of_svg():
 
     assert None is r.get_render_function(Object1(Material1()))
 
-    assert r.get_render_function(gfx.Mesh(None, gfx.LineStripMaterial()))
+    assert r.get_render_function(gfx.Line(None, gfx.LineMaterial()))
 
 
 if __name__ == "__main__":

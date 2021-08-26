@@ -2,6 +2,9 @@ from ..objects._base import ResourceContainer
 
 
 class Material(ResourceContainer):
+    """The base class for all materials.
+    Materials define how an object is rendered, subject to certain properties.
+    """
 
     uniform_type = {}
 
