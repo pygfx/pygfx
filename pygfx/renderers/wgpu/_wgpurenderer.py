@@ -69,15 +69,52 @@ class RenderInfo:
         self.stdinfo_uniform = stdinfo_uniform
 
 
+class SharedData:
+    """An object to store global data to share between multiple wgpu renderers.
+
+    Since renderers don't render simultaneously, they can share certain
+    resources. This safes memory, but more importantly, resources that
+    get used in wobject pipelines should be shared to avoid having to
+    constantly recompose the pipelines of wobjects that are rendered by
+    multiple renderers.
+    """
+
+    def __init__(self, canvas):
+
+        # Create adapter and device objects - there should be just one per canvas.
+        # Having a global device provides the benefit that we can draw any object
+        # anywhere.
+        # We do provide the canvas to request_adapter(), so we get an adapter that is
+        # at least compatible with the first canvas that a renderer is create for.
+        self.adapter = wgpu.request_adapter(
+            canvas=canvas, power_preference="high-performance"
+        )
+        self.device = self.adapter.request_device(
+            required_features=[], required_limits={}
+        )
+
+        # Create a uniform buffer for std info
+        self.stdinfo_buffer = Buffer(
+            array_from_shadertype(stdinfo_uniform_type), usage="uniform"
+        )
+
+
 class WgpuRenderer(Renderer):
     """A renderer that renders to a surface."""
+
+    _shared = None
 
     def __init__(self, canvas=None, size=None, pixel_ratio=None, show_fps=False):
 
         # Check and normalize inputs
-        if not (canvas is None or isinstance(canvas, wgpu.gui.WgpuCanvasBase)):
-            raise TypeError("The given canvas must be None or a wgpu Canvas.")
+        if not isinstance(canvas, wgpu.gui.WgpuCanvasBase):
+            raise TypeError("The given canvas must be a wgpu Canvas.")
+        if getattr(canvas, "_has_wgpu_renderer", False):
+            raise RuntimeError("A canvas can have at most one associated renderer.")
+        canvas._has_wgpu_renderer = True
         self._canvas = canvas
+
+        # Check other inputs
         if not (size is None or (isinstance(size, (tuple, list)) and len(size) == 2)):
             raise TypeError("The given size must be None or a 2-tuple.")
         self._logical_size = (float(size[0]), float(size[1])) if size else None
@@ -88,14 +125,11 @@ class WgpuRenderer(Renderer):
         if canvas is None and size is None:
             raise ValueError("WgpuRenderer needs either a canvas or a size.")
 
-        # Create adapter and device objects
-        self._adapter = wgpu.request_adapter(
-            canvas=canvas, power_preference="high-performance"
-        )
-        self._device = self._adapter.request_device(
-            required_features=[], required_limits={}
-        )
+        # Make sure we have a shared object (the first renderer create it)
+        if WgpuRenderer._shared is None:
+            WgpuRenderer._shared = SharedData(canvas)
 
+        # Init cache of shaders
         self._shader_cache = {}
 
         # Initialize canvas context
@@ -103,9 +137,11 @@ class WgpuRenderer(Renderer):
         canvas_tex_format = wgpu.TextureFormat.rgba8unorm
         if canvas is not None:
             self._canvas_context = canvas.get_context()
-            canvas_tex_format = self._canvas_context.get_preferred_format(self._adapter)
+            canvas_tex_format = self._canvas_context.get_preferred_format(
+                self._shared.adapter
+            )
             self._canvas_context.configure(
-                device=self._device,
+                device=self._shared.device,
                 format=canvas_tex_format,
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
@@ -122,7 +158,7 @@ class WgpuRenderer(Renderer):
         self._render_textures = []
 
         # Prepare post-processing steps. Users can append/insert more
-        self._ssa_post_processing_step = SSAAPostProcessingStep(self._device)
+        self._ssa_post_processing_step = SSAAPostProcessingStep(self._shared.device)
         self._postfx = []
 
         # Prepare other properties
@@ -130,7 +166,7 @@ class WgpuRenderer(Renderer):
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
-        self._pixel_info_buffer = self._device.create_buffer(
+        self._pixel_info_buffer = self._shared.device.create_buffer(
             size=256,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
@@ -141,7 +177,7 @@ class WgpuRenderer(Renderer):
     @property
     def device(self):
         """A reference to the used wgpu device."""
-        return self._device
+        return self._shared.device
 
     @property
     def postfx(self):
@@ -180,10 +216,10 @@ class WgpuRenderer(Renderer):
                 f"Rendered.pixel_ratio expected None or number, not {value}"
             )
 
-    def render(self, scene: WorldObject, camera: Camera):
-        """Main render method, called from the canvas."""
+    def render(self, scene: WorldObject, camera: Camera, clear=True, region=None):
+        """Main render method."""
 
-        device = self._device
+        device = self.device
 
         now = time.perf_counter()  # noqa
         if self._show_fps:
@@ -222,8 +258,8 @@ class WgpuRenderer(Renderer):
             pixel_ratio = self._pixel_ratio if self._pixel_ratio else 2.0
 
         # Determine the physical size of the first and last render pass
-        scene_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
-        final_size = canvas_size if self._canvas else scene_size  # noqa
+        framebuffer_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
+        final_size = canvas_size if self._canvas else framebuffer_size  # noqa
 
         # Create more render textures if needed, drop some if we can
         pp_steps = self._postfx
@@ -236,13 +272,26 @@ class WgpuRenderer(Renderer):
 
         # Set the size of the textures (is a no-op if the size does not change)
         for t in render_textures:
-            t.ensure_size(device, scene_size + (1,))
-        self._depth_texture.ensure_size(device, scene_size + (1,))
-        self._pick_texture.ensure_size(device, scene_size + (1,))
+            t.ensure_size(device, framebuffer_size + (1,))
+        self._depth_texture.ensure_size(device, framebuffer_size + (1,))
+        self._pick_texture.ensure_size(device, framebuffer_size + (1,))
+
+        # Get viewport from region
+        if not region:
+            scene_logical_size = logical_size
+            scene_physical_size = framebuffer_size
+            viewport = 0, 0, framebuffer_size[0], framebuffer_size[1], 0, 1
+        elif len(region) == 4:
+            scene_logical_size = region[2], region[3]
+            viewport = [int(i * pixel_ratio + 0.4999) for i in region]
+            viewport = tuple(viewport) + (0, 1)
+            scene_physical_size = viewport[2], viewport[3]
+        else:
+            raise ValueError("Region must be None or 4 elements (x, y, w, h).")
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
-        camera.set_viewport_size(*logical_size)
+        camera.set_view_size(*scene_logical_size)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
@@ -252,7 +301,7 @@ class WgpuRenderer(Renderer):
             self._pick_map[wobject.id] = wobject
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_size, logical_size)
+        self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
 
         # Ensure each wobject has pipeline info
         for wobject in q:
@@ -263,7 +312,7 @@ class WgpuRenderer(Renderer):
 
         # Render the scene graph (to the first texture)
         command_encoder = device.create_command_encoder()
-        self._render_recording(command_encoder, q)
+        self._render_recording(command_encoder, q, clear, viewport)
         command_buffers = [command_encoder.finish()]
         device.queue.submit(command_buffers)
 
@@ -284,7 +333,7 @@ class WgpuRenderer(Renderer):
                 render_textures[0], self._canvas_texture
             )
 
-    def _render_recording(self, command_encoder, q):
+    def _render_recording(self, command_encoder, q, clear, viewport):
 
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -310,6 +359,13 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines rendering to the default target
 
+        if clear:
+            color_load_value = 0, 0, 0, 0
+            pick_load_value = 0, 0, 0, 0
+        else:
+            color_load_value = wgpu.LoadOp.load
+            pick_load_value = wgpu.LoadOp.load
+
         assert self._render_textures[0].texture_view
         assert self._depth_texture.texture_view
         assert self._pick_texture.texture_view
@@ -318,13 +374,13 @@ class WgpuRenderer(Renderer):
                 {
                     "view": self._render_textures[0].texture_view,
                     "resolve_target": None,
-                    "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                    "load_value": color_load_value,
                     "store_op": wgpu.StoreOp.store,
                 },
                 {
                     "view": self._pick_texture.texture_view,
                     "resolve_target": None,
-                    "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                    "load_value": pick_load_value,
                     "store_op": wgpu.StoreOp.store,
                 },
             ],
@@ -337,6 +393,7 @@ class WgpuRenderer(Renderer):
             },
             occlusion_query_set=None,
         )
+        render_pass.set_viewport(*viewport)
 
         for wobject in q:
             wgpu_data = wobject._wgpu_pipeline_objects
@@ -362,14 +419,8 @@ class WgpuRenderer(Renderer):
         render_pass.end_pass()
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
-        # Make sure we have a buffer object
-        if not hasattr(self, "_wgpu_stdinfo_buffer"):
-            self._wgpu_stdinfo_buffer = Buffer(
-                array_from_shadertype(stdinfo_uniform_type), usage="uniform"
-            )
-
-        # Update its data
-        stdinfo_data = self._wgpu_stdinfo_buffer.data
+        # Update the stdinfo buffer's data
+        stdinfo_data = self._shared.stdinfo_buffer.data
         stdinfo_data["cam_transform"].flat = camera.matrix_world_inverse.elements
         stdinfo_data["cam_transform_inv"].flat = camera.matrix_world.elements
         stdinfo_data["projection_transform"].flat = camera.projection_matrix.elements
@@ -380,8 +431,8 @@ class WgpuRenderer(Renderer):
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
-        self._wgpu_stdinfo_buffer.update_range(0, 1)
-        self._update_buffer(self._wgpu_stdinfo_buffer)
+        self._shared.stdinfo_buffer.update_range(0, 1)
+        self._update_buffer(self._shared.stdinfo_buffer)
 
     def get_render_list(self, scene: WorldObject, camera: Camera):
         """Given a scene object, get a flat list of objects to render."""
@@ -459,7 +510,7 @@ class WgpuRenderer(Renderer):
 
         # Prepare info for the render function
         render_info = RenderInfo(
-            stdinfo_uniform=self._wgpu_stdinfo_buffer,
+            stdinfo_uniform=self._shared.stdinfo_buffer,
         )
 
         # Call render function
@@ -552,7 +603,7 @@ class WgpuRenderer(Renderer):
 
         # todo: cache the pipeline with the shader (and entrypoint) as a hash
 
-        device = self._device
+        device = self.device
 
         # Convert indices to args for the compute_pass.dispatch() call
         indices = pipeline_info["indices"]
@@ -592,7 +643,7 @@ class WgpuRenderer(Renderer):
         # todo: cache the pipeline with a lot of things as the hash
         # todo: cache vertex descriptors
 
-        device = self._device
+        device = self.device
 
         # If an index buffer is present, update it, and get index_format.
         wgpu_index_buffer = None
@@ -751,7 +802,7 @@ class WgpuRenderer(Renderer):
         # todo: cache pipeline_layout objects
         # todo: can perhaps be more specific about visibility
 
-        device = self._device
+        device = self.device
 
         # Collect resource groups (keys e.g. "bindings1", "bindings132")
         resource_groups = []
@@ -890,6 +941,7 @@ class WgpuRenderer(Renderer):
         return bind_groups, pipeline_layout
 
     def _update_buffer(self, resource):
+        device = self.device
         buffer = getattr(resource, "_wgpu_buffer", (-1, None))[1]
 
         # todo: dispose an old buffer? / reuse an old buffer?
@@ -903,17 +955,17 @@ class WgpuRenderer(Renderer):
             usage = wgpu.BufferUsage.COPY_DST
             for u in resource.usage.split("|"):
                 usage |= getattr(wgpu.BufferUsage, u)
-            buffer = self._device.create_buffer(size=resource.nbytes, usage=usage)
+            buffer = device.create_buffer(size=resource.nbytes, usage=usage)
 
-        queue = self._device.queue
-        encoder = self._device.create_command_encoder()
+        queue = device.queue
+        encoder = device.create_command_encoder()
 
         # Upload any pending data
         for offset, size in pending_uploads:
             subdata = resource._get_subdata(offset, size)
             # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
             # B: roll data in new buffer, copy from there to existing buffer
-            tmp_buffer = self._device.create_buffer_with_data(
+            tmp_buffer = device.create_buffer_with_data(
                 data=subdata,
                 usage=wgpu.BufferUsage.COPY_SRC,
             )
@@ -962,7 +1014,7 @@ class WgpuRenderer(Renderer):
             usage = wgpu.TextureUsage.COPY_DST
             for u in resource.usage.split("|"):
                 usage |= getattr(wgpu.TextureUsage, u)
-            texture = self._device.create_texture(
+            texture = self.device.create_texture(
                 size=resource.size,
                 usage=usage,
                 dimension=f"{resource.dim}d",
@@ -977,14 +1029,14 @@ class WgpuRenderer(Renderer):
         if pixel_padding is not None:
             bytes_per_pixel += extra_bytes
 
-        queue = self._device.queue
-        encoder = self._device.create_command_encoder()
+        queue = self.device.queue
+        encoder = self.device.create_command_encoder()
 
         # Upload any pending data
         for offset, size in pending_uploads:
             subdata = resource._get_subdata(offset, size, pixel_padding)
             # B: using a temp buffer
-            # tmp_buffer = self._device.create_buffer_with_data(data=subdata,
+            # tmp_buffer = self.device.create_buffer_with_data(data=subdata,
             #     usage=wgpu.BufferUsage.COPY_SRC,
             # )
             # encoder.copy_buffer_to_texture(
@@ -1022,7 +1074,7 @@ class WgpuRenderer(Renderer):
         while len(filters) < 3:
             filters.append(filters[-1])
         ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
-        sampler = self._device.create_sampler(
+        sampler = self.device.create_sampler(
             address_mode_u=ammap.get(amodes[0], amodes[0]),
             address_mode_v=ammap.get(amodes[1], amodes[1]),
             address_mode_w=ammap.get(amodes[2], amodes[2]),
@@ -1040,7 +1092,7 @@ class WgpuRenderer(Renderer):
         # todo: make this work for objects following the ShaderSourceTemplate interface
         # todo: also release shader modules that are no longer used
         if key not in self._shader_cache:
-            m = self._device.create_shader_module(code=source)
+            m = self.device.create_shader_module(code=source)
             self._shader_cache[key] = m
         return self._shader_cache[key]
 
@@ -1072,12 +1124,12 @@ class WgpuRenderer(Renderer):
         can_sample_color = self._render_textures[0].texture is not None
 
         # Sample
-        encoder = self._device.create_command_encoder()
+        encoder = self.device.create_command_encoder()
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
             self._copy_pixel(encoder, self._render_textures[0], float_pos, 8)
         self._copy_pixel(encoder, self._pick_texture, float_pos, 16)
-        queue = self._device.queue
+        queue = self.device.queue
         queue.submit([encoder.finish()])
 
         # Collect data from the buffer
@@ -1132,7 +1184,7 @@ class WgpuRenderer(Renderer):
         bytes_per_pixel = 4
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
-        data = self._device.queue.read_texture(
+        data = self.device.queue.read_texture(
             {
                 "texture": rt.texture,
                 "mip_level": 0,

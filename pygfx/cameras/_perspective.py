@@ -32,7 +32,7 @@ class PerspectiveCamera(Camera):
     def __repr__(self) -> str:
         return f"PerspectiveCamera({self.fov}, {self.aspect}, {self.near}, {self.far})"
 
-    def set_viewport_size(self, width, height):
+    def set_view_size(self, width, height):
         self._view_aspect = width / height
 
     def update_projection_matrix(self):

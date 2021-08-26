@@ -22,7 +22,7 @@ class Camera(WorldObject):
         self.projection_matrix = Matrix4()
         self.projection_matrix_inverse = Matrix4()
 
-    def set_viewport_size(self, width, height):
+    def set_view_size(self, width, height):
         # In logical pixels
         pass
 
@@ -58,7 +58,7 @@ class ScreenCoordsCamera(Camera):
         self._width = 1
         self._height = 1
 
-    def set_viewport_size(self, width, height):
+    def set_view_size(self, width, height):
         self._width = width
         self._height = height
 
