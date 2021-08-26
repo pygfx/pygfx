@@ -104,7 +104,7 @@ class WgpuRenderer(Renderer):
 
     _shared = None
 
-    def __init__(self, canvas=None, size=None, pixel_ratio=None, show_fps=False):
+    def __init__(self, canvas=None, pixel_ratio=None, show_fps=False):
 
         # Check and normalize inputs
         if not isinstance(canvas, wgpu.gui.WgpuCanvasBase):
@@ -114,10 +114,7 @@ class WgpuRenderer(Renderer):
         canvas._has_wgpu_renderer = True
         self._canvas = canvas
 
-        # Check other inputs
-        if not (size is None or (isinstance(size, (tuple, list)) and len(size) == 2)):
-            raise TypeError("The given size must be None or a 2-tuple.")
-        self._logical_size = (float(size[0]), float(size[1])) if size else None
+        # Process other inputs
         self.pixel_ratio = pixel_ratio
         self._show_fps = bool(show_fps)
 
@@ -237,10 +234,7 @@ class WgpuRenderer(Renderer):
 
         # Get logical size (as two floats). This size is constant throughout
         # all post-processing render passes.
-        if self._logical_size:
-            logical_size = self._logical_size
-        else:
-            logical_size = self._canvas.get_logical_size()
+        logical_size = self._canvas.get_logical_size()
         if not all(x > 0 for x in logical_size):
             return
 
@@ -1115,10 +1109,7 @@ class WgpuRenderer(Renderer):
         """
 
         # Make pos 0..1, so we can scale it to the render texture
-        if self._logical_size:
-            logical_size = self._logical_size
-        else:
-            logical_size = self._canvas.get_logical_size()
+        logical_size = self._canvas.get_logical_size()
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
         can_sample_color = self._render_textures[0].texture is not None
