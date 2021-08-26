@@ -38,7 +38,7 @@ canvas abstraction provided by wgpu-py. Further we need a renderer, a
 scene to render, and a camera. These three objects, the canvas,
 renderer, and scene must be connected.
 
-.. code-block::
+.. code-block::py
 
     import pygfx as gfx
     from PyQt5 import QtWidgets
@@ -79,3 +79,24 @@ Materials
 
 Renderers
 ---------
+
+
+Using Pygfx in Jupyter
+----------------------
+
+You can use Pygfx in the Jupyter notebook and Jupyter lab. To do so,
+use the Jupyter canvas provided by WGPU, and use that canvas as the cell output.
+
+.. code-block::py
+
+    from wgpu.gui.jupyter import WgpuCanvas
+
+    canvas = WgpuCanvas()
+    renderer = gfx.renderers.WgpuRenderer(canvas)
+
+    ...
+
+    canvas  # cell output
+
+Also see the Pygfx examples `here <https://jupyter-rfb.readthedocs.io/en/latest/examples/>`_.
+
