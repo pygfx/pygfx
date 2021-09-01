@@ -1,0 +1,175 @@
+"""
+Example full-screen post processing.
+
+The idea is to render a scene, then use submit_to_texture() to
+get the result into a texture, and then render that texture using a full-screen
+quad, while adding noise.
+
+In many ways this example is similar to the scene_in_a_scene.py example,
+except we use a custom object here for the noise.
+"""
+
+import time
+
+import numpy as np
+import imageio
+import pygfx as gfx
+
+from PyQt5 import QtWidgets
+from wgpu.gui.qt import WgpuCanvas
+
+
+# %% Create a custom object + material
+
+
+class Fullquad(gfx.WorldObject):
+    def __init__(self, material, texture):
+        super().__init__()
+        self.material = material
+        self.texture = texture
+
+
+class NoiseMaterial(gfx.materials.Material):
+
+    uniform_type = {
+        "time": ("float32",),
+        "noise": ("float32",),
+    }
+
+    def __init__(self, noise=1):
+        super().__init__()
+
+        self.uniform_buffer = gfx.Buffer(
+            gfx.utils.array_from_shadertype(self.uniform_type), usage="UNIFORM"
+        )
+        self.uniform_buffer.data["time"] = 0
+        self.uniform_buffer.data["noise"] = noise
+
+    def tick(self):
+        self.uniform_buffer.data["time"] = time.time() % 1
+        self.uniform_buffer.update_range(0, 1)
+
+
+shader_source = """
+struct VertexOutput {
+    [[location(0)]] texcoord: vec2<f32>;
+    [[builtin(position)]] pos: vec4<f32>;
+};
+
+struct FragmentOutput {
+    [[location(0)]] color: vec4<f32>;
+    [[location(1)]] pick: vec4<i32>;
+};
+
+[[block]]
+struct Render {
+    time: f32;
+    noise: f32;
+};
+[[group(0), binding(0)]]
+var u_render: Render;
+
+[[group(1), binding(0)]]
+var r_sampler: sampler;
+[[group(1), binding(1)]]
+var r_tex: texture_2d<f32>;
+
+[[stage(vertex)]]
+fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
+    var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
+    let pos = positions[index];
+    var out: VertexOutput;
+    out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
+    out.pos = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+    return out;
+}
+
+[[stage(fragment)]]
+fn fs_main(in: VertexOutput) -> FragmentOutput {
+    let u_render_time = 0.0;
+    let u_render_noise = 1.0;
+
+    let xy = in.texcoord.xy;
+    let random_nr = fract(sin(dot(xy, vec2<f32>(12.9898, 78.233)) + u_render.time) * 43758.5453);
+    let noise = u_render.noise * random_nr;
+    var out: FragmentOutput;
+    out.color = textureSample(r_tex, r_sampler, xy) + vec4<f32>(noise, noise, noise, 1.0);
+    return out;
+}
+"""
+
+
+# Tell pygfx to use this render function for a Fullquad with NoiseMaterial.
+@gfx.renderers.wgpu.register_wgpu_render_function(Fullquad, NoiseMaterial)
+def triangle_render_function(wobject, render_info):
+    return [
+        {
+            "vertex_shader": (shader_source, "vs_main"),
+            "fragment_shader": (shader_source, "fs_main"),
+            "primitive_topology": "triangle-strip",
+            "indices": 4,
+            "bindings0": {
+                0: ("buffer/uniform", wobject.material.uniform_buffer),
+            },
+            "bindings1": {
+                0: ("sampler/filtering", wobject.texture.get_view()),
+                1: ("texture/auto", wobject.texture.get_view()),
+            },
+        },
+    ]
+
+
+# %% The applicaiton
+
+app = QtWidgets.QApplication([])
+canvas = WgpuCanvas()
+renderer = gfx.renderers.WgpuRenderer(canvas)
+
+# The regular scene
+
+scene = gfx.Scene()
+
+im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
+tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
+
+geometry = gfx.BoxGeometry(200, 200, 200)
+material = gfx.MeshBasicMaterial(map=tex)
+cube = gfx.Mesh(geometry, material)
+scene.add(cube)
+
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.z = 400
+
+
+# The post processing scene
+
+# todo: resize texture as needed
+
+target_texture = gfx.Texture(
+    dim=2,
+    usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
+    size=(200, 200, 1),
+    format="bgra8unorm_srgb",
+)
+post_processing_scene = gfx.Scene()
+noise_material = NoiseMaterial(0.2)
+post_processing_scene.add(Fullquad(noise_material, target_texture))
+post_processing_camera = gfx.NDCCamera()
+
+
+def animate():
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+    cube.rotation.multiply(rot)
+
+    noise_material.tick()
+
+    renderer.render(scene, camera)
+    renderer.to_texture(target_texture.get_view())
+    renderer.render(post_processing_scene, post_processing_camera)
+
+    canvas.request_draw()
+
+
+if __name__ == "__main__":
+    canvas.request_draw(animate)
+    app.exec_()
