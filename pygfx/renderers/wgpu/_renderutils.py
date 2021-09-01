@@ -58,21 +58,86 @@ class RenderTexture:
             raise ValueError(f"Could not determine bbp of {self.format}")
 
 
-class PostProcessingStep:
+class RendererSubmitter:
     """
-    Utility object to render one texture to another, as a post-processing step.
+    Utility to submit (render) the current state of a renderer into a texture.
     """
 
-    def __init__(self, device, *, vertex_shader=None, fragment_shader, uniform_type):
+    uniform_type = dict(
+        size=("float32", 2),
+        sigma=("float32",),
+        support=("int32",),
+    )
+
+    shader = """
+
+        struct VertexOutput {
+            [[location(0)]] texcoord: vec2<f32>;
+            [[builtin(position)]] pos: vec4<f32>;
+        };
+
+        [[block]]
+        struct Render {
+            size: vec2<f32>;
+            sigma: f32;
+            support: i32;
+        };
+
+        [[group(0), binding(0)]]
+        var r_sampler: sampler;
+        [[group(0), binding(1)]]
+        var r_tex: texture_2d<f32>;
+        [[group(0), binding(2)]]
+        var u_render: Render;
+
+        [[stage(vertex)]]
+        fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
+            var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
+            let pos = positions[index];
+            var out: VertexOutput;
+            out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
+            out.pos = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+            return out;
+        }
+
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+            // Get info about the smoothing
+            let sigma = u_render.sigma;
+            let support = min(5, u_render.support);
+
+            // Determine distance between pixels in src texture
+            let stepp = vec2<f32>(1.0 / u_render.size.x, 1.0 / u_render.size.y);
+            // Get texcoord, and round it to the center of the source pixels.
+            // Thus, whether the sampler is linear or nearest, we get equal results.
+            let ori_coord = in.texcoord.xy;
+            let ref_coord = vec2<f32>(vec2<i32>(ori_coord / stepp)) * stepp + 0.5 * stepp;
+
+            // Convolve. Here we apply a Gaussian kernel, the weight is calculated
+            // for each pixel individually based on the distance to the actual texture
+            // coordinate. This means that the textures don't even need to align.
+            var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            var weight: f32 = 0.0;
+            for (var y:i32 = -support; y <= support; y = y + 1) {
+                for (var x:i32 = -support; x <= support; x = x + 1) {
+                    let coord = ref_coord + vec2<f32>(f32(x), f32(y)) * stepp;
+                    let dist = length((ori_coord - coord) / stepp);  // in src pixels
+                    let t = dist / sigma;
+                    let w = exp(-0.5 * t * t);
+                    val = val + textureSample(r_tex, r_sampler, coord) * w;
+                    weight = weight + w;
+                }
+            }
+            let out = val / weight;
+            return vec4<f32>(out.rgb, 1.0);
+        }
+    """
+
+    def __init__(self, device):
         self._device = device
-        self._vertex_shader = (
-            default_vertex_shader if vertex_shader is None else vertex_shader
-        )
-        self._fragment_shader = fragment_shader
-        self._hash = None
+        self._pipelines = {}
 
-        self._uniform_type = uniform_type
-        self._uniform_data = array_from_shadertype(self._uniform_type)
+        self._uniform_data = array_from_shadertype(self.uniform_type)
         self._uniform_buffer = self._device.create_buffer(
             size=self._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
@@ -84,25 +149,49 @@ class PostProcessingStep:
             min_filter="nearest",
         )
 
-    def render(self, src, dst):
-        """Render one texture to another. If the src.texture_view and the dst.format
-        have not changed, the pipeline is re-used.
-        """
-        assert isinstance(src, RenderTexture)
-        assert isinstance(dst, RenderTexture)
-        device = self._device
+    def submit(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
+        """Render the (internal) result of the renderer into a texture."""
+        assert isinstance(src_color_tex, wgpu.base.GPUTextureView)
+        assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
 
-        # Recreate pipeline?
-        hash = src.size, id(src.texture_view), dst.format
-        if hash != self._hash:
-            self._hash = hash
-            self._create_pipeline(
-                self._vertex_shader, self._fragment_shader, src.texture_view, dst.format
+        # Recreate pipeline? Use ._internal as a true identifier of the texture view
+        hash = src_color_tex.size, src_color_tex._internal
+        stored_hash = self._pipelines.get(dst_format, ["invalidhash"])[0]
+        if hash != stored_hash:
+            bind_group, render_pipeline = self._create_pipeline(
+                src_color_tex, dst_format
             )
+            self._pipelines[dst_format] = hash, bind_group, render_pipeline
+
+        self._update_uniforms(src_color_tex, dst_color_tex)
+        self._render(dst_color_tex, dst_format)
+
+    def _update_uniforms(self, src_color_tex, dst_color_tex):
+        # Get factor between texture sizes
+        factor_x = src_color_tex.size[0] / dst_color_tex.size[0]
+        factor_y = src_color_tex.size[1] / dst_color_tex.size[1]
+        factor = (factor_x + factor_y) / 2
+
+        if factor > 1:
+            # src has higher res, we can do ssaa
+            sigma = 0.5 * factor
+            support = min(5, int(sigma * 3))
+        else:
+            # src has lower res. smooth those pixels a bit
+            # todo: just interpolate?
+            sigma = 1
+            support = 2
+
+        self._uniform_data["size"] = src_color_tex.size[:2]
+        self._uniform_data["sigma"] = sigma
+        self._uniform_data["support"] = support
+
+    def _render(self, dst_color_tex, dst_format):
+        device = self._device
+        _, bind_group, render_pipeline = self._pipelines[dst_format]
 
         command_encoder = device.create_command_encoder()
 
-        # Copy data to tmp buffer
         tmp_buffer = device.create_buffer_with_data(
             data=self._uniform_data,
             usage=wgpu.BufferUsage.COPY_SRC,
@@ -114,7 +203,7 @@ class PostProcessingStep:
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "view": dst.texture_view,
+                    "view": dst_color_tex,
                     "resolve_target": None,
                     "load_value": (0, 0, 0, 0),  # LoadOp.load or color
                     "store_op": wgpu.StoreOp.store,
@@ -123,19 +212,16 @@ class PostProcessingStep:
             depth_stencil_attachment=None,
             occlusion_query_set=None,
         )
-        render_pass.set_pipeline(self._render_pipeline)
-        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
+        render_pass.set_pipeline(render_pipeline)
+        render_pass.set_bind_group(0, bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end_pass()
         device.queue.submit([command_encoder.finish()])
 
-    def _create_pipeline(
-        self, vertex_shader, fragment_shader, src_texture_view, dst_format
-    ):
+    def _create_pipeline(self, src_texture_view, dst_format):
         device = self._device
 
-        vs_module = device.create_shader_module(code=vertex_shader)
-        fs_module = device.create_shader_module(code=fragment_shader)
+        shader_module = device.create_shader_module(code=self.shader)
 
         binding_layouts = [
             {
@@ -175,15 +261,15 @@ class PostProcessingStep:
         pipeline_layout = device.create_pipeline_layout(
             bind_group_layouts=[bind_group_layout]
         )
-        self._bind_group = device.create_bind_group(
+        bind_group = device.create_bind_group(
             layout=bind_group_layout, entries=bindings
         )
 
-        self._render_pipeline = device.create_render_pipeline(
+        render_pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
-                "module": vs_module,
-                "entry_point": "main",
+                "module": shader_module,
+                "entry_point": "vs_main",
                 "buffers": [],
             },
             primitive={
@@ -193,8 +279,8 @@ class PostProcessingStep:
             depth_stencil=None,
             multisample=None,
             fragment={
-                "module": fs_module,
-                "entry_point": "main",
+                "module": shader_module,
+                "entry_point": "fs_main",
                 "targets": [
                     {
                         "format": dst_format,
@@ -215,114 +301,4 @@ class PostProcessingStep:
             },
         )
 
-
-class SSAAPostProcessingStep(PostProcessingStep):
-    """A texture renderer that supports SSAA."""
-
-    def __init__(self, device):
-        super().__init__(
-            device, fragment_shader=ssaa_fragment_shader, uniform_type=ssaa_uniform_type
-        )
-
-    def render(self, src, dst):
-
-        # Get factor between texture sizes
-        factor_x = src.size[0] / dst.size[0]
-        factor_y = src.size[1] / dst.size[1]
-        factor = (factor_x + factor_y) / 2
-
-        if factor > 1:
-            # src has higher res, we can do ssaa
-            sigma = 0.5 * factor
-            support = min(5, int(sigma * 3))
-        else:
-            # src has lower res. smooth those pixels a bit
-            sigma = 1
-            support = 2
-
-        self._uniform_data["size"] = src.size[:2]
-        self._uniform_data["sigma"] = sigma
-        self._uniform_data["support"] = support
-
-        super().render(src, dst)
-
-
-# %% Shaders
-
-ssaa_uniform_type = dict(
-    size=("float32", 2),
-    sigma=("float32",),
-    support=("int32",),
-)
-
-
-default_vertex_shader = """
-
-struct VertexOutput {
-    [[location(0)]] texcoord: vec2<f32>;
-    [[builtin(position)]] pos: vec4<f32>;
-};
-
-[[stage(vertex)]]
-fn main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
-    var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
-    let pos = positions[index];
-    var out: VertexOutput;
-    out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
-    out.pos = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
-    return out;
-}
-
-"""
-
-ssaa_fragment_shader = """
-struct VertexOutput {
-    [[location(0)]] texcoord: vec2<f32>;
-    [[builtin(position)]] pos: vec4<f32>;
-};
-
-[[block]]
-struct Render {
-    size: vec2<f32>;
-    sigma: f32;
-    support: i32;
-};
-
-[[group(0), binding(0)]]
-var r_sampler: sampler;
-[[group(0), binding(1)]]
-var r_tex: texture_2d<f32>;
-[[group(0), binding(2)]]
-var u_render: Render;
-
-[[stage(fragment)]]
-fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    // Get info about the smoothing
-    let sigma = u_render.sigma;
-    let support = min(5, u_render.support);
-
-    // Determine distance between pixels in src texture
-    let stepp = vec2<f32>(1.0 / u_render.size.x, 1.0 / u_render.size.y);
-    // Get texcoord, and round it to the center of the source pixels.
-    // Thus, whether the sampler is linear or nearest, we get equal results.
-    let ori_coord = in.texcoord.xy;
-    let ref_coord = vec2<f32>(vec2<i32>(ori_coord / stepp)) * stepp + 0.5 * stepp;
-
-    // Convolve. Here we apply a Gaussian kernel, the weight is calculated
-    // for each pixel individually based on the distance to the actual texture
-    // coordinate. This means that the textures don't even need to align.
-    var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    var weight: f32 = 0.0;
-    for (var y:i32 = -support; y <= support; y = y + 1) {
-        for (var x:i32 = -support; x <= support; x = x + 1) {
-            let coord = ref_coord + vec2<f32>(f32(x), f32(y)) * stepp;
-            let dist = length((ori_coord - coord) / stepp);  // in src pixels
-            let t = dist / sigma;
-            let w = exp(-0.5 * t * t);
-            val = val + textureSample(r_tex, r_sampler, coord) * w;
-            weight = weight + w;
-        }
-    }
-    return val / weight;
-}
-"""
+        return bind_group, render_pipeline

@@ -149,7 +149,7 @@ target_texture = gfx.Texture(
     dim=2,
     usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
     size=(200, 200, 1),
-    format="bgra8unorm_srgb",
+    format="rgba8unorm",
 )
 post_processing_scene = gfx.Scene()
 noise_material = NoiseMaterial(0.2)
@@ -164,7 +164,7 @@ def animate():
     noise_material.tick()
 
     renderer.render(scene, camera)
-    renderer.to_texture(target_texture.get_view())
+    renderer.to_texture(target_texture.get_view(filter="linear"))
     renderer.render(post_processing_scene, post_processing_camera)
 
     canvas.request_draw()

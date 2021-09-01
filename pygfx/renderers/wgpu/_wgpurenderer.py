@@ -11,7 +11,7 @@ from ...cameras import Camera
 from ...resources import Buffer, TextureView
 from ...utils import array_from_shadertype
 
-from .postprocessing import RenderTexture, SSAAPostProcessingStep
+from ._renderutils import RenderTexture, RendererSubmitter
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -147,7 +147,7 @@ class WgpuRenderer(Renderer):
 
         def alt_present():
             texture_view_target = self._canvas_context.get_current_texture()
-            self.to_texture(texture_view_target)
+            self.to_texture(texture_view_target, canvas_tex_format)
             self._must_clear_depth = True
             self._must_clear_color = True
             return original_present()
@@ -157,17 +157,14 @@ class WgpuRenderer(Renderer):
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
         # object, its size, and its format.
-        self._canvas_texture = RenderTexture(canvas_tex_format)
+        self._render_texture = RenderTexture(wgpu.TextureFormat.rgba8unorm)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
         # The pick texture has 4 channels, object id, and then 3 more, e.g.
         # the instance nr, vertex nr and weights.
         self._pick_texture = RenderTexture(wgpu.TextureFormat.rgba32sint)
-        # We use one or two render textures (for 2+ steps, cycle between the 2)
-        self._render_textures = []
 
-        # Prepare post-processing steps. Users can append/insert more
-        self._ssa_post_processing_step = SSAAPostProcessingStep(self._shared.device)
-        self._postfx = []
+        # Prepare object that performs the final render step into a texture
+        self._submitter = RendererSubmitter(self._shared.device)
 
         # Prepare other properties
         self._msaa = 1  # todo: cannot set sample_count of render_pass yet
@@ -186,17 +183,6 @@ class WgpuRenderer(Renderer):
     def device(self):
         """A reference to the used wgpu device."""
         return self._shared.device
-
-    @property
-    def postfx(self):
-        """A list of post processing steps. Users can append
-        PostProcessingStep objects here to do post-processing of the
-        rendered image.
-
-        Warning, this API is provisional.
-        """
-        # todo: is this the way to go?
-        return self._postfx
 
     @property
     def pixel_ratio(self):
@@ -262,18 +248,8 @@ class WgpuRenderer(Renderer):
         # Determine the physical size of the first and last render pass
         framebuffer_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
 
-        # Create more render textures if needed, drop some if we can
-        pp_steps = self._postfx
-        render_textures = self._render_textures
-        render_texture_count = min(2, len(pp_steps) + 1)
-        while len(render_textures) < render_texture_count:
-            render_textures.append(RenderTexture(wgpu.TextureFormat.rgba8unorm))
-        while len(render_textures) > render_texture_count:
-            render_textures.pop(-1)
-
         # Set the size of the textures (is a no-op if the size does not change)
-        for t in render_textures:
-            t.ensure_size(device, framebuffer_size + (1,))
+        self._render_texture.ensure_size(device, framebuffer_size + (1,))
         self._depth_texture.ensure_size(device, framebuffer_size + (1,))
         self._pick_texture.ensure_size(device, framebuffer_size + (1,))
 
@@ -317,21 +293,12 @@ class WgpuRenderer(Renderer):
         command_buffers = [command_encoder.finish()]
         device.queue.submit(command_buffers)
 
-        # Render each texture into the next
-        for i in range(len(pp_steps)):
-            step = pp_steps[i]
-            step.render(
-                render_textures[0],
-                render_textures[1],
-            )
-            render_textures.insert(0, render_textures.pop(1))  # cycle
-
     def clear(self, *, depth=True, color=True):
         self._must_clear_depth = bool(depth)
         self._must_clear_color = bool(color)
 
-    # todo: rename this to submit_to_texture
-    def to_texture(self, texture_view):
+    # todo: rename this to submit_to_texture (or something else)
+    def to_texture(self, texture_view, texture_format=None):
         """Render the render-result into a target texture view."""
 
         # Todo: ATM this supports either a resources.TextureView or a wgpu.GPUTextureView, which feels sloppy
@@ -340,11 +307,11 @@ class WgpuRenderer(Renderer):
             self._update_texture_view(texture_view)
             texture_view = texture_view._wgpu_texture_view[1]
 
-        # todo: reconsider name of canvas texture to target_texture or someting
-        # todo: also, canvas_texture expects a certai texture format, which may not match
-        self._canvas_texture.set_texture_view(texture_view)
-        self._ssa_post_processing_step.render(
-            self._render_textures[-1], self._canvas_texture
+        if texture_format is None:
+            texture_format = texture_view.texture.format
+
+        self._submitter.submit(
+            self._render_texture.texture_view, None, texture_view, texture_format
         )
 
     def _render_recording(self, command_encoder, q, viewport):
@@ -387,13 +354,13 @@ class WgpuRenderer(Renderer):
         else:
             depth_load_value = wgpu.LoadOp.load
 
-        assert self._render_textures[0].texture_view
+        assert self._render_texture.texture_view
         assert self._depth_texture.texture_view
         assert self._pick_texture.texture_view
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
-                    "view": self._render_textures[0].texture_view,
+                    "view": self._render_texture.texture_view,
                     "resolve_target": None,
                     "load_value": color_load_value,
                     "store_op": wgpu.StoreOp.store,
@@ -782,7 +749,7 @@ class WgpuRenderer(Renderer):
                 "entry_point": fs_entry_point,
                 "targets": [
                     {
-                        "format": self._render_textures[0].format,
+                        "format": self._render_texture.format,
                         "blend": {
                             "alpha": (
                                 wgpu.BlendFactor.one,
@@ -1139,13 +1106,13 @@ class WgpuRenderer(Renderer):
         logical_size = self._canvas.get_logical_size()
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
-        can_sample_color = self._render_textures[0].texture is not None
+        can_sample_color = self._render_texture.texture is not None
 
         # Sample
         encoder = self.device.create_command_encoder()
         self._copy_pixel(encoder, self._depth_texture, float_pos, 0)
         if can_sample_color:
-            self._copy_pixel(encoder, self._render_textures[0], float_pos, 8)
+            self._copy_pixel(encoder, self._render_texture, float_pos, 8)
         self._copy_pixel(encoder, self._pick_texture, float_pos, 16)
         queue = self.device.queue
         queue.submit([encoder.finish()])
@@ -1193,11 +1160,11 @@ class WgpuRenderer(Renderer):
             copy_size=(1, 1, 1),
         )
 
-    def snapshot(self, step_index=-1):
+    def snapshot(self):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        rt = self._render_textures[step_index]
+        rt = self._render_texture
         size = rt.size
         bytes_per_pixel = 4
 
