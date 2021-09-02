@@ -23,10 +23,22 @@ from wgpu.gui.qt import WgpuCanvas
 
 
 class Fullquad(gfx.WorldObject):
-    def __init__(self, material, texture):
+    def __init__(self, material):
         super().__init__()
         self.material = material
-        self.texture = texture
+        self._size = -1, -1
+
+    def set_size(self, width, height):
+        size = width, height
+        if size != self._size:
+            self._size = size
+            self.texture = gfx.Texture(
+                dim=2,
+                usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
+                size=(size[0], size[1], 1),
+                format="rgba8unorm",
+            )
+            self.texture_view = self.texture.get_view(filter="linear")
 
 
 class NoiseMaterial(gfx.materials.Material):
@@ -140,29 +152,20 @@ scene.add(cube)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
-
 # The post processing scene
 
-# todo: resize texture as needed
-
-target_texture = gfx.Texture(
-    dim=2,
-    usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
-    size=(200, 200, 1),
-    format="rgba8unorm",
-)
-noise_material = NoiseMaterial(0.2)
-noise_object = Fullquad(noise_material, target_texture)
+noise_object = Fullquad(NoiseMaterial(0.2))
 
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube.rotation.multiply(rot)
 
-    noise_material.tick()
+    noise_object.material.tick()
+    noise_object.set_size(*canvas.get_physical_size())
 
     renderer.render(scene, camera)
-    renderer.to_texture(target_texture.get_view(filter="linear"))
+    renderer.to_texture(noise_object.texture_view)
     renderer.render(noise_object, gfx.NDCCamera())
 
     canvas.request_draw()
