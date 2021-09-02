@@ -100,7 +100,30 @@ class SharedData:
 
 
 class WgpuRenderer(Renderer):
-    """A renderer that renders to a surface."""
+    """Object used to render scenes.
+
+    Provides a ``.render()`` method that can be called one or more times
+    to render scene. This creates a visual representation that is stored
+    internally. The final result is then rendered into a texture for display.
+                                  __________
+                                 |          |
+        [scenes] -- render() --> | renderer | -- finalize() --> [texture]
+                                 |__________|
+
+    The internal visual representation includes things like a depth
+    buffer and is typically at a higher resolution to reduce aliasing
+    effects. Further, the representation may in the future accomodate
+    for proper blending of semitransparent objects.
+
+    The finalize step renders the internal representation into a texture,
+    applying anti-aliasing. In the future this is also where fog is applied
+    and perhaps any custom post-processing effects.
+
+    Normally, the finalize step is applied automatically at the end of
+    a draw pass to render into the screen-texture of the canvas.
+    However, you can also call ``.submit_to_texture()`` to render to a
+    texture of your choice.
+    """
 
     _shared = None
 
@@ -148,8 +171,7 @@ class WgpuRenderer(Renderer):
         def alt_present():
             texture_view_target = self._canvas_context.get_current_texture()
             self.to_texture(texture_view_target, canvas_tex_format)
-            self._must_clear_depth = True
-            self._must_clear_color = True
+            self.clear()
             return original_present()
 
         self._canvas_context.present = alt_present
@@ -186,10 +208,12 @@ class WgpuRenderer(Renderer):
 
     @property
     def pixel_ratio(self):
-        """Configure the size of the render texture relative to the
-        logical size. By default (value is None) the used pixel ratio
-        follows the screens pixel ratio on high-res displays, and is 2
-        otherwise.
+        """The ratio between the number of internal pixels versus the logical pixels on the canvas.
+
+        This can be used to configure the size of the render texture
+        relative to the canvas' logical size. By default (value is None) the
+        used pixel ratio follows the screens pixel ratio on high-res
+        displays, and is 2 otherwise.
 
         If the used pixel ratio causes the render texture to be larger
         than the physical size of the canvas, SSAA is applied, resulting
@@ -211,7 +235,16 @@ class WgpuRenderer(Renderer):
             )
 
     def render(self, scene: WorldObject, camera: Camera, region=None):
-        """Main render method."""
+        """Render a scene with the specified camera as the viewpoint.
+
+        Parameters:
+            scene (WorldObject): The scene to render, a WorldObject that
+                optionally has child objects.
+            camera (Camera): The camera object to use, which defines the
+                viewpoint and view transform.
+            region (tuple, optional): The rectangular region to draw into,
+                like the viewport, but expressed in logical coordinates.
+        """
 
         device = self.device
 
@@ -294,6 +327,14 @@ class WgpuRenderer(Renderer):
         device.queue.submit(command_buffers)
 
     def clear(self, *, depth=True, color=True):
+        """Tell the renderer to clear the depth and color buffer on the next ``.render()`` call.
+
+        This is called automatically at the start of a draw pass. You
+        can call this in between two calls to ``.render()`` to e.g.
+        only clear the depth buffer. It would also be needed to call
+        this explicitly when you're using the renderer outside of a
+        drawing pass invoked by its canvas.
+        """
         self._must_clear_depth = bool(depth)
         self._must_clear_color = bool(color)
 

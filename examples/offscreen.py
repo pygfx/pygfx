@@ -30,10 +30,13 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
 if __name__ == "__main__":
+
     # Invoke a draw and get what we'd normally see on screen as a numpy array
     im1 = canvas.draw()
-    print(im1.shape)  # (480, 640, 4)
+    print("image from canvas.draw():", im1.shape)  # (480, 640, 4)
+
     # Use the renderer's to get intermediate results (internal render targets)
     im2 = renderer.snapshot()
-    print(im2.shape)  # (960, 1280, 4)
+    print("Image from renderer.snapshot():", im2.shape)  # (960, 1280, 4)
+
     imageio.imsave("offscreen.png", im1)

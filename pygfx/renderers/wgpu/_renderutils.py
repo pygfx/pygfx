@@ -5,21 +5,13 @@ from ._shadercomposer import BaseShader
 
 
 class RenderTexture:
-    """Class used internally to store a render texture and meta data."""
+    """Class used internally to store a texture and meta data."""
 
     def __init__(self, format):
         self.format = format
         self.texture = None
         self.texture_view = None
         self.size = (0, 0, 0)
-
-    def set_texture_view(self, texture_view):
-        """Set from a texture view. Intended when the texture comes
-        from elsewhere. Make sure it matches the format!
-        """
-        self.texture = None
-        self.texture_view = texture_view
-        self.size = self.texture_view.size
 
     def ensure_size(self, device, size):
         """Make sure that the texture has the given size. If necessary,
@@ -34,29 +26,6 @@ class RenderTexture:
                 size=size, usage=usage, dimension="2d", format=self.format
             )
             self.texture_view = self.texture.create_view()
-
-    @property
-    def bytes_per_pixel(self):
-        """The number of bytes per pixel."""
-        format_map = {
-            "depth24plus_stencil8": 4,
-            "depth24plus": 3,  # ?
-            "depth32": 4,
-            "r8": 1,
-            "r16": 2,
-            "r32": 4,
-            "rg8": 2,
-            "rg16": 4,
-            "rg32": 8,
-            "rgba8": 4,
-            "rgba16": 8,
-            "rgba32": 16,
-        }
-        for key, val in format_map.items():
-            if self.format.startswith(key):
-                return val
-        else:
-            raise ValueError(f"Could not determine bbp of {self.format}")
 
 
 class FinalShader(BaseShader):
@@ -134,6 +103,8 @@ class RendererSubmitter:
     Utility to submit (render) the current state of a renderer into a texture.
     """
 
+    # todo: Once we also have the depth here, we can support things like fog
+
     uniform_type = dict(
         size=("float32", 2),
         sigma=("float32",),
@@ -159,6 +130,8 @@ class RendererSubmitter:
 
     def submit(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
         """Render the (internal) result of the renderer into a texture."""
+        # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
+        assert src_depth_tex is None
         assert isinstance(src_color_tex, wgpu.base.GPUTextureView)
         assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
 

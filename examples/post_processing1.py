@@ -151,10 +151,8 @@ target_texture = gfx.Texture(
     size=(200, 200, 1),
     format="rgba8unorm",
 )
-post_processing_scene = gfx.Scene()
 noise_material = NoiseMaterial(0.2)
-post_processing_scene.add(Fullquad(noise_material, target_texture))
-post_processing_camera = gfx.NDCCamera()
+noise_object = Fullquad(noise_material, target_texture)
 
 
 def animate():
@@ -165,7 +163,7 @@ def animate():
 
     renderer.render(scene, camera)
     renderer.to_texture(target_texture.get_view(filter="linear"))
-    renderer.render(post_processing_scene, post_processing_camera)
+    renderer.render(noise_object, gfx.NDCCamera())
 
     canvas.request_draw()
 
