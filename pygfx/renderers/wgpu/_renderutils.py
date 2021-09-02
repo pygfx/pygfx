@@ -1,6 +1,7 @@
 import wgpu  # only for flags/enums
 
 from ...utils import array_from_shadertype
+from ._shadercomposer import BaseShader
 
 
 class RenderTexture:
@@ -58,37 +59,28 @@ class RenderTexture:
             raise ValueError(f"Could not determine bbp of {self.format}")
 
 
-class RendererSubmitter:
-    """
-    Utility to submit (render) the current state of a renderer into a texture.
-    """
+class FinalShader(BaseShader):
+    """The shader for the final render step (the submitting to a texture)."""
 
-    uniform_type = dict(
-        size=("float32", 2),
-        sigma=("float32",),
-        support=("int32",),
-    )
+    def __init__(self):
+        super().__init__()
+        self["tex_coord_map"] = ""
+        self["color_map"] = ""
 
-    shader = """
+    def get_code(self):
+        return (
+            self.get_definitions()
+            + """
 
         struct VertexOutput {
             [[location(0)]] texcoord: vec2<f32>;
             [[builtin(position)]] pos: vec4<f32>;
         };
 
-        [[block]]
-        struct Render {
-            size: vec2<f32>;
-            sigma: f32;
-            support: i32;
-        };
-
-        [[group(0), binding(0)]]
-        var r_sampler: sampler;
         [[group(0), binding(1)]]
-        var r_tex: texture_2d<f32>;
+        var r_sampler: sampler;
         [[group(0), binding(2)]]
-        var u_render: Render;
+        var r_tex: texture_2d<f32>;
 
         [[stage(vertex)]]
         fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
@@ -110,8 +102,9 @@ class RendererSubmitter:
             let stepp = vec2<f32>(1.0 / u_render.size.x, 1.0 / u_render.size.y);
             // Get texcoord, and round it to the center of the source pixels.
             // Thus, whether the sampler is linear or nearest, we get equal results.
-            let ori_coord = in.texcoord.xy;
-            let ref_coord = vec2<f32>(vec2<i32>(ori_coord / stepp)) * stepp + 0.5 * stepp;
+            var tex_coord = in.texcoord.xy;
+            {{ tex_coord_map }}
+            let ref_coord = vec2<f32>(vec2<i32>(tex_coord / stepp)) * stepp + 0.5 * stepp;
 
             // Convolve. Here we apply a Gaussian kernel, the weight is calculated
             // for each pixel individually based on the distance to the actual texture
@@ -121,19 +114,34 @@ class RendererSubmitter:
             for (var y:i32 = -support; y <= support; y = y + 1) {
                 for (var x:i32 = -support; x <= support; x = x + 1) {
                     let coord = ref_coord + vec2<f32>(f32(x), f32(y)) * stepp;
-                    let dist = length((ori_coord - coord) / stepp);  // in src pixels
+                    let dist = length((tex_coord - coord) / stepp);  // in src pixels
                     let t = dist / sigma;
                     let w = exp(-0.5 * t * t);
                     val = val + textureSample(r_tex, r_sampler, coord) * w;
                     weight = weight + w;
                 }
             }
-            let out = val / weight;
-            return vec4<f32>(out.rgb, 1.0);
+            var out = val / weight;
+            {{ color_map }}
+            return out;
         }
     """
+        )
+
+
+class RendererSubmitter:
+    """
+    Utility to submit (render) the current state of a renderer into a texture.
+    """
+
+    uniform_type = dict(
+        size=("float32", 2),
+        sigma=("float32",),
+        support=("int32",),
+    )
 
     def __init__(self, device):
+        self._shader = FinalShader()
         self._device = device
         self._pipelines = {}
 
@@ -219,18 +227,26 @@ class RendererSubmitter:
         device.queue.submit([command_encoder.finish()])
 
     def _create_pipeline(self, src_texture_view, dst_format):
+
         device = self._device
 
-        shader_module = device.create_shader_module(code=self.shader)
+        shader = self._shader
+        shader.define_uniform(0, 0, "u_render", self._uniform_data.dtype)
+        shader_module = device.create_shader_module(code=shader.generate_wgsl())
 
         binding_layouts = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+                "buffer": {"type": wgpu.BufferBindingType.uniform},
             },
             {
                 "binding": 1,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            },
+            {
+                "binding": 2,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
                     "sample_type": wgpu.TextureSampleType.float,
@@ -238,23 +254,18 @@ class RendererSubmitter:
                     "multisampled": False,
                 },
             },
-            {
-                "binding": 2,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "buffer": {"type": wgpu.BufferBindingType.uniform},
-            },
         ]
         bindings = [
-            {"binding": 0, "resource": self._sampler},
-            {"binding": 1, "resource": src_texture_view},
             {
-                "binding": 2,
+                "binding": 0,
                 "resource": {
                     "buffer": self._uniform_buffer,
                     "offset": 0,
                     "size": self._uniform_data.nbytes,
                 },
             },
+            {"binding": 1, "resource": self._sampler},
+            {"binding": 2, "resource": src_texture_view},
         ]
 
         bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
