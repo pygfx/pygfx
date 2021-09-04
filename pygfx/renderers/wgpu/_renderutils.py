@@ -154,12 +154,12 @@ class RendererSubmitter:
         factor = (factor_x + factor_y) / 2
 
         if factor > 1:
-            # src has higher res, we can do ssaa
+            # The src has higher res, we can do ssaa.
             sigma = 0.5 * factor
             support = min(5, int(sigma * 3))
         else:
-            # src has lower res. smooth those pixels a bit
-            # todo: just interpolate?
+            # The src has lower res, interpolate + smooth.
+            # Smoothing a bit more helps reduce the blockiness.
             sigma = 1
             support = 2
 
