@@ -17,35 +17,10 @@ import pygfx as gfx
 
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
-from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 
-
-# todo: the square in the subscene is currently all-white.
-# this is probably because the _canvas_texture RenderTexture wrapper expects
-# the texture format to be bgr8unorm_srgb or somehting, anyway, different from what we acually provide
 
 app = QtWidgets.QApplication([])
 
-
-# First create the subscene, in an offscreen canvas
-
-canvas1 = OffscreenCanvas(200, 200)
-
-renderer1 = gfx.renderers.WgpuRenderer(canvas1)
-scene1 = gfx.Scene()
-
-background1 = gfx.Background(gfx.BackgroundMaterial((0, 0.5, 0, 1)))
-scene1.add(background1)
-
-im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
-tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
-geometry1 = gfx.BoxGeometry(200, 200, 200)
-material1 = gfx.MeshPhongMaterial(map=tex, color=(1, 1, 0, 1.0), clim=(0, 1))
-cube1 = gfx.Mesh(geometry1, material1)
-scene1.add(cube1)
-
-camera1 = gfx.PerspectiveCamera(70, 16 / 9)
-camera1.position.z = 300
 
 # Then create the actual scene, in the visible canvas
 
@@ -72,15 +47,34 @@ camera2 = gfx.PerspectiveCamera(70, 16 / 9)
 camera2.position.z = 400
 
 
+# First create the subscene, in an offscreen canvas
+
+renderer1 = gfx.renderers.WgpuRenderer(texture)
+scene1 = gfx.Scene()
+
+background1 = gfx.Background(gfx.BackgroundMaterial((0, 0.5, 0, 1)))
+scene1.add(background1)
+
+im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
+tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
+geometry1 = gfx.BoxGeometry(200, 200, 200)
+material1 = gfx.MeshPhongMaterial(map=tex, color=(1, 1, 0, 1.0), clim=(0, 1))
+cube1 = gfx.Mesh(geometry1, material1)
+scene1.add(cube1)
+
+camera1 = gfx.PerspectiveCamera(70, 16 / 9)
+camera1.position.z = 300
+
+
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube1.rotation.multiply(rot)
     cube2.rotation.multiply(rot)
 
-    renderer1.clear()
-    renderer1.render(scene1, camera1)
-    renderer1.to_texture(texture_view)
-    renderer2.render(scene2, camera2)
+    with renderer1:
+        renderer1.render(scene1, camera1)
+    with renderer2:
+        renderer2.render(scene2, camera2)
 
     canvas2.request_draw()
 

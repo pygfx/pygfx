@@ -34,7 +34,8 @@ def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube.rotation.multiply(rot)
 
-    renderer.render(scene, camera)
+    with renderer:
+        renderer.render(scene, camera)
     canvas.request_draw()
 
 

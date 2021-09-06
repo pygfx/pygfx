@@ -23,22 +23,10 @@ from wgpu.gui.qt import WgpuCanvas
 
 
 class Fullquad(gfx.WorldObject):
-    def __init__(self, material):
+    def __init__(self, texture, material):
         super().__init__()
+        self.texture = texture
         self.material = material
-        self._size = -1, -1
-
-    def set_size(self, width, height):
-        size = width, height
-        if size != self._size:
-            self._size = size
-            self.texture = gfx.Texture(
-                dim=2,
-                usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
-                size=(size[0], size[1], 1),
-                format="rgba8unorm",
-            )
-            self.texture_view = self.texture.get_view(filter="linear")
 
 
 class NoiseMaterial(gfx.materials.Material):
@@ -131,11 +119,19 @@ def triangle_render_function(wobject, render_info):
     ]
 
 
-# %% The applicaiton
+# %% The application
 
 app = QtWidgets.QApplication([])
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+
+texture1 = gfx.Texture(
+    dim=2,
+    size=(640, 480, 1),
+    format="rgba8unorm",
+    usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
+)
+texture_view = texture1.get_view(filter="linear", address_mode="repeat")
+
+renderer1 = gfx.renderers.WgpuRenderer(texture_view)
 
 # The regular scene
 
@@ -154,7 +150,9 @@ camera.position.z = 400
 
 # The post processing scene
 
-noise_object = Fullquad(NoiseMaterial(0.2))
+canvas2 = WgpuCanvas(size=(640, 480))
+renderer2 = gfx.renderers.WgpuRenderer(canvas2)
+noise_object = Fullquad(texture1, NoiseMaterial(0.2))
 
 
 def animate():
@@ -162,15 +160,15 @@ def animate():
     cube.rotation.multiply(rot)
 
     noise_object.material.tick()
-    noise_object.set_size(*canvas.get_physical_size())
 
-    renderer.render(scene, camera)
-    renderer.to_texture(noise_object.texture_view)
-    renderer.render(noise_object, gfx.NDCCamera())
+    with renderer1:
+        renderer1.render(scene, camera)
+    with renderer2:
+        renderer2.render(noise_object, gfx.NDCCamera())
 
-    canvas.request_draw()
+    canvas2.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas2.request_draw(animate)
     app.exec_()

@@ -8,7 +8,7 @@ from .. import Renderer, RenderFunctionRegistry
 from ...linalg import Matrix4, Vector3
 from ...objects import WorldObject
 from ...cameras import Camera
-from ...resources import Buffer, TextureView
+from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
 from ._renderutils import RenderTexture, RendererSubmitter
@@ -100,48 +100,50 @@ class SharedData:
 
 
 class WgpuRenderer(Renderer):
-    """Object used to render scenes.
+    """Object used to render scenes using wgpu.
 
-    Provides a ``.render()`` method that can be called one or more times
-    to render scene. This creates a visual representation that is stored
-    internally. The final result is then rendered into a texture for display.
-                                  __________
-                                 |          |
-        [scenes] -- render() --> | renderer | -- finalize() --> [texture]
-                                 |__________|
+    The purpose of a renderer is to render (i.e. draw) a scene to a
+    canvas or texture. It also provides picking, defines the
+    anti-aliasing parameters, and any post processing effects.
+
+    This renderer provides a ``.render()`` method that can be called
+    one or more times to render scene. This creates a visual
+    representation that is stored internally, and is finally rendered
+    into its render target (the canvas or texture).
+
+    .. code-block:: py
+
+        with renderer:          # On entering the context, clear() is called.
+            render.render(...)  # Render a scene.
+            ...                 # Maybe more.
+        # When leaving the context, the internal state is rendered into the target.
 
     The internal visual representation includes things like a depth
     buffer and is typically at a higher resolution to reduce aliasing
     effects. Further, the representation may in the future accomodate
     for proper blending of semitransparent objects.
-
-    The finalize step renders the internal representation into a texture,
-    applying anti-aliasing. In the future this is also where fog is applied
-    and perhaps any custom post-processing effects.
-
-    Normally, the finalize step is applied automatically at the end of
-    a draw pass to render into the screen-texture of the canvas.
-    However, you can also call ``.submit_to_texture()`` to render to a
-    texture of your choice.
     """
 
     _shared = None
 
-    def __init__(self, canvas, pixel_ratio=None, show_fps=False):
+    def __init__(self, target, pixel_ratio=None, show_fps=False):
 
         # Check and normalize inputs
-        if not isinstance(canvas, wgpu.gui.WgpuCanvasBase):
-            raise TypeError("The given canvas must be a wgpu Canvas.")
-        if getattr(canvas, "_has_wgpu_renderer", False):
+        if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
+            raise TypeError(
+                f"Render target must be a canvas or texture (view), not a {target.__class__.__name__}"
+            )
+        if getattr(target, "_has_wgpu_renderer", False):
             raise RuntimeError("A canvas can have at most one associated renderer.")
-        canvas._has_wgpu_renderer = True
-        self._canvas = canvas
+        target._has_wgpu_renderer = True
+        self._target = target
 
         # Process other inputs
         self.pixel_ratio = pixel_ratio
         self._show_fps = bool(show_fps)
 
         # Make sure we have a shared object (the first renderer create it)
+        canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
         if WgpuRenderer._shared is None:
             WgpuRenderer._shared = SharedData(canvas)
 
@@ -152,29 +154,21 @@ class WgpuRenderer(Renderer):
         self._must_clear_depth = True
         self._must_clear_color = True
 
-        # Initialize canvas context
-        self._canvas_context = canvas.get_context()
-        canvas_tex_format = self._canvas_context.get_preferred_format(
-            self._shared.adapter
-        )
-        self._canvas_context.configure(
-            device=self._shared.device,
-            format=canvas_tex_format,
-            usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
-        )
-        # Monkey-patch the cancas context so we can hook into the present() call.
-        # The present() method gets called at the very end of a draw pass,
-        # right before it is actually presented.
-        # todo: maybe provide something in wgpu-py to avoid having to monkey-patch
-        original_present = self._canvas_context.present
+        # Get target format (initialize canvas context)
+        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+            self._canvas_context = self._target.get_context()
+            self._target_tex_format = self._canvas_context.get_preferred_format(
+                self._shared.adapter
+            )
+            self._canvas_context.configure(
+                device=self._shared.device,
+                format=self._target_tex_format,
+                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
+            )
+        else:
+            self._target_tex_format = self._target.format
 
-        def alt_present():
-            texture_view_target = self._canvas_context.get_current_texture()
-            self.to_texture(texture_view_target, canvas_tex_format)
-            self.clear()
-            return original_present()
-
-        self._canvas_context.present = alt_present
+        self._context_is_active = False
 
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
@@ -207,6 +201,11 @@ class WgpuRenderer(Renderer):
         return self._shared.device
 
     @property
+    def target(self):
+        """The render target. Can be a canvas, texture or texture view."""
+        return self._target
+
+    @property
     def pixel_ratio(self):
         """The ratio between the number of internal pixels versus the logical pixels on the canvas.
 
@@ -234,6 +233,15 @@ class WgpuRenderer(Renderer):
                 f"Rendered.pixel_ratio expected None or number, not {value}"
             )
 
+    def __enter__(self):
+        self.clear()
+        self._context_is_active = True
+        return self
+
+    def __exit__(self, *args):
+        self._context_is_active = False
+        self._render_to_target()
+
     def render(self, scene: WorldObject, camera: Camera, region=None):
         """Render a scene with the specified camera as the viewpoint.
 
@@ -245,7 +253,10 @@ class WgpuRenderer(Renderer):
             region (tuple, optional): The rectangular region to draw into,
                 like the viewport, but expressed in logical coordinates.
         """
-
+        if not self._context_is_active:
+            raise RuntimeError(
+                "renderer.render() must be called inside a ``with renderer`` block."
+            )
         device = self.device
 
         now = time.perf_counter()  # noqa
@@ -258,23 +269,27 @@ class WgpuRenderer(Renderer):
             else:
                 self._fps = self._fps[0], now, self._fps[2] + 1
 
-        # todo: support for alt render pipelines (object that renders to texture then renders that)
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
 
         # Get logical size (as two floats). This size is constant throughout
         # all post-processing render passes.
-        logical_size = self._canvas.get_logical_size()
+        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+            logical_size = self._target.get_logical_size()
+            target_size = self._target.get_physical_size()
+        elif isinstance(self._target, Texture):
+            logical_size = target_size = self._target.size[:2]
+        elif isinstance(self._target, TextureView):
+            logical_size = target_size = self._target.texture.size[:2]
         if not all(x > 0 for x in logical_size):
             return
 
         # Determine the physical size of the render texture
-        canvas_size = self._canvas.get_physical_size()
-        canvas_ratio = canvas_size[0] / logical_size[0]
+        target_pixel_ratio = target_size[0] / logical_size[0]
         if self._pixel_ratio:
             pixel_ratio = self._pixel_ratio
         else:
-            pixel_ratio = canvas_ratio
+            pixel_ratio = target_pixel_ratio
             if pixel_ratio <= 1:
                 pixel_ratio = 2.0  # use 2 on non-hidpi displays
 
@@ -338,21 +353,25 @@ class WgpuRenderer(Renderer):
         self._must_clear_depth = bool(depth)
         self._must_clear_color = bool(color)
 
-    # todo: rename this to submit_to_texture (or something else)
-    def to_texture(self, texture_view, texture_format=None):
-        """Render the render-result into a target texture view."""
+    def _render_to_target(self):
+        """Render the result into the target texture view."""
 
-        # Todo: ATM this supports either a resources.TextureView or a wgpu.GPUTextureView, which feels sloppy
-        if isinstance(texture_view, TextureView):
+        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+            raw_texture_view = self._canvas_context.get_current_texture()
+        else:
+            if isinstance(self._target, Texture):
+                texture_view = self._target.get_view()
+            elif isinstance(self._target, TextureView):
+                texture_view = self._target
             self._update_texture(texture_view.texture)
             self._update_texture_view(texture_view)
-            texture_view = texture_view._wgpu_texture_view[1]
-
-        if texture_format is None:
-            texture_format = texture_view.texture.format
+            raw_texture_view = texture_view._wgpu_texture_view[1]
 
         self._submitter.submit(
-            self._render_texture.texture_view, None, texture_view, texture_format
+            self._render_texture.texture_view,
+            None,
+            raw_texture_view,
+            self._target_tex_format,
         )
 
     def _render_recording(self, command_encoder, q, viewport):
@@ -1144,7 +1163,12 @@ class WgpuRenderer(Renderer):
         """
 
         # Make pos 0..1, so we can scale it to the render texture
-        logical_size = self._canvas.get_logical_size()
+        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+            logical_size = self._target.get_logical_size()
+        elif isinstance(self._target, Texture):
+            logical_size = self._target.size[:2]
+        elif isinstance(self._target, TextureView):
+            logical_size = self._target.texture.size[:2]
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
         can_sample_color = self._render_texture.texture is not None

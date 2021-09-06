@@ -56,9 +56,12 @@ def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube1.rotation.multiply(rot)
 
-    renderer.render(scene1, camera1)
-    renderer.clear(color=False, depth=True)  # Try commenting this to merge the scenes
-    renderer.render(scene2, camera2)
+    with renderer:
+        renderer.render(scene1, camera1)
+        renderer.clear(
+            color=False, depth=True
+        )  # Try commenting this to merge the scenes
+        renderer.render(scene2, camera2)
 
     canvas.request_draw()
 

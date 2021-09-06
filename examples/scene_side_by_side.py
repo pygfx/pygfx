@@ -49,9 +49,10 @@ def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube1.rotation.multiply(rot)
 
-    size = canvas.get_logical_size()
-    renderer.render(scene1, camera1, region=(0, 0, size[0] / 2, size[1]))
-    renderer.render(scene2, camera2, region=(size[0] / 2, 0, size[0] / 2, size[1]))
+    with renderer:
+        size = canvas.get_logical_size()
+        renderer.render(scene1, camera1, region=(0, 0, size[0] / 2, size[1]))
+        renderer.render(scene2, camera2, region=(size[0] / 2, 0, size[0] / 2, size[1]))
 
     canvas.request_draw()
 
