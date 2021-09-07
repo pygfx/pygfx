@@ -1,5 +1,9 @@
 """
 Example demonstrating off-screen rendering.
+
+This uses wgpu's offscreen canvas to obtain the frames as a numpy array.
+Note that one can also render to a ``pygfx.Texture`` and use that texture to
+decorate an object in another scene.
 """
 
 import imageio
