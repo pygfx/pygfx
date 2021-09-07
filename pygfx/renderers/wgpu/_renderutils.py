@@ -29,7 +29,7 @@ class RenderTexture:
 
 
 class FinalShader(BaseShader):
-    """The shader for the final render step (the submitting to a texture)."""
+    """The shader for the final render step (the flushing to a texture)."""
 
     def __init__(self):
         super().__init__()
@@ -98,9 +98,9 @@ class FinalShader(BaseShader):
         )
 
 
-class RendererSubmitter:
+class RenderFlusher:
     """
-    Utility to submit (render) the current state of a renderer into a texture.
+    Utility to flush (render) the current state of a renderer into a texture.
     """
 
     # todo: Once we also have the depth here, we can support things like fog
@@ -128,7 +128,7 @@ class RendererSubmitter:
             min_filter="nearest",
         )
 
-    def submit(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
+    def render(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
         """Render the (internal) result of the renderer into a texture."""
         # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
         assert src_depth_tex is None

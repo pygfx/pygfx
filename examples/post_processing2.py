@@ -1,11 +1,11 @@
 """
-Example showing post-processing effects by modifying the submitter object.
+Example showing post-processing effects by modifying the flusher object.
 
 This example is a placeholder for how post-processing *could* work if
 we'd provide an API for it.
 
 Note: this example makes heavy use of private variables and makes
-assumptions about how the submitter works that may not hold in the
+assumptions about how the RenderFlusher works that may not hold in the
 future.
 """
 
@@ -36,7 +36,7 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
 
-class MySubmitter(gfx.renderers.wgpu._renderutils.RendererSubmitter):
+class MyRenderFlusher(gfx.renderers.wgpu._renderutils.RenderFlusher):
 
     uniform_type = dict(
         size=("float32", 2),
@@ -56,7 +56,7 @@ class MySubmitter(gfx.renderers.wgpu._renderutils.RendererSubmitter):
         self._uniform_data["amplitude"] = 0.02
 
 
-renderer._submitter = MySubmitter(renderer.device)
+renderer._flusher = MyRenderFlusher(renderer.device)
 
 
 def animate():

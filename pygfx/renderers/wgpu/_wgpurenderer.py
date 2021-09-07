@@ -11,7 +11,7 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import RenderTexture, RendererSubmitter
+from ._renderutils import RenderTexture, RenderFlusher
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -195,7 +195,7 @@ class WgpuRenderer(Renderer):
         self._pick_texture = RenderTexture(wgpu.TextureFormat.rgba32sint)
 
         # Prepare object that performs the final render step into a texture
-        self._submitter = RendererSubmitter(self._shared.device)
+        self._flusher = RenderFlusher(self._shared.device)
 
         # Prepare other properties
         self._msaa = 1  # todo: cannot set sample_count of render_pass yet
@@ -385,7 +385,7 @@ class WgpuRenderer(Renderer):
             self._update_texture_view(texture_view)
             raw_texture_view = texture_view._wgpu_texture_view[1]
 
-        self._submitter.submit(
+        self._flusher.render(
             self._render_texture.texture_view,
             None,
             raw_texture_view,
