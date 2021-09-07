@@ -1,12 +1,13 @@
 """
 Example full-screen post processing.
 
-The idea is to render a scene, then use submit_to_texture() to
-get the result into a texture, and then render that texture using a full-screen
-quad, while adding noise.
+The idea is to render a scene to a texture, and then rendering
+that texture as a full quad to the screen, while adding noise.
 
 In many ways this example is similar to the scene_in_a_scene.py example,
 except we use a custom object here for the noise.
+
+Note that we may get a more streamlined way to implement post-processing effects.
 """
 
 import time
@@ -123,18 +124,20 @@ def triangle_render_function(wobject, render_info):
 
 app = QtWidgets.QApplication([])
 
-texture1 = gfx.Texture(
+# The canvas for eventual display
+canvas = WgpuCanvas(size=(640, 480))
+
+# The texture to render the scene into
+texture = gfx.Texture(
     dim=2,
     size=(640, 480, 1),
     format="rgba8unorm",
     usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
 )
-texture_view = texture1.get_view(filter="linear", address_mode="repeat")
-
-renderer1 = gfx.renderers.WgpuRenderer(texture_view)
 
 # The regular scene
 
+renderer1 = gfx.renderers.WgpuRenderer(texture)
 scene = gfx.Scene()
 
 im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
@@ -150,9 +153,8 @@ camera.position.z = 400
 
 # The post processing scene
 
-canvas2 = WgpuCanvas(size=(640, 480))
-renderer2 = gfx.renderers.WgpuRenderer(canvas2)
-noise_object = Fullquad(texture1, NoiseMaterial(0.2))
+renderer2 = gfx.renderers.WgpuRenderer(canvas)
+noise_object = Fullquad(texture, NoiseMaterial(0.2))
 
 
 def animate():
@@ -164,9 +166,9 @@ def animate():
     renderer1.render(scene, camera)
     renderer2.render(noise_object, gfx.NDCCamera())
 
-    canvas2.request_draw()
+    canvas.request_draw()
 
 
 if __name__ == "__main__":
-    canvas2.request_draw(animate)
+    canvas.request_draw(animate)
     app.exec_()

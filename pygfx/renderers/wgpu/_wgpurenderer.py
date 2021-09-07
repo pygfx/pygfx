@@ -59,6 +59,21 @@ def register_wgpu_render_function(wobject_cls, material_cls):
     return _register_wgpu_renderer
 
 
+def get_size_from_render_target(target):
+    if isinstance(target, wgpu.gui.WgpuCanvasBase):
+        physical_size = target.get_physical_size()
+        logical_size = target.get_logical_size()
+    elif isinstance(target, Texture):
+        physical_size = target.size[:2]
+        logical_size = physical_size
+    elif isinstance(target, TextureView):
+        physical_size = target.texture.size[:2]
+        logical_size = physical_size
+    else:
+        raise TypeError(f"Unexpected render target {target.__class__.__name__}")
+    return physical_size, logical_size
+
+
 class RenderInfo:
     """The type of object passed to each wgpu render function together
     with the world object. Contains stdinfo buffer for now. In time
@@ -84,7 +99,7 @@ class SharedData:
         # Create adapter and device objects - there should be just one per canvas.
         # Having a global device provides the benefit that we can draw any object
         # anywhere.
-        # We do provide the canvas to request_adapter(), so we get an adapter that is
+        # We do pass the canvas to request_adapter(), so we get an adapter that is
         # at least compatible with the first canvas that a renderer is create for.
         self.adapter = wgpu.request_adapter(
             canvas=canvas, power_preference="high-performance"
@@ -120,7 +135,7 @@ class WgpuRenderer(Renderer):
     effects. Further, the representation may in the future accomodate
     for proper blending of semitransparent objects.
 
-    The flush step renders the internal representation into the target
+    The flush-step renders the internal representation into the target
     texture or canvas, applying anti-aliasing. In the future this is
     also where fog is applied, as well as any custom post-processing
     effects.
@@ -258,6 +273,8 @@ class WgpuRenderer(Renderer):
             clear_depth (bool, optional): Whether to clear the depth buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
+            flush (bool, optional): Whether to flush the rendered result into
+                the target (texture or canvas). Default True.
         """
         device = self.device
 
@@ -285,13 +302,7 @@ class WgpuRenderer(Renderer):
 
         # Get logical size (as two floats). This size is constant throughout
         # all post-processing render passes.
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
-            logical_size = self._target.get_logical_size()
-            target_size = self._target.get_physical_size()
-        elif isinstance(self._target, Texture):
-            logical_size = target_size = self._target.size[:2]
-        elif isinstance(self._target, TextureView):
-            logical_size = target_size = self._target.texture.size[:2]
+        target_size, logical_size = get_size_from_render_target(self._target)
         if not all(x > 0 for x in logical_size):
             return
 
@@ -360,6 +371,8 @@ class WgpuRenderer(Renderer):
         """Render the result into the target texture view. This method is
         called automatically unless you use ``.render(..., flush=False)``.
         """
+
+        # Note: we could, in theory, allow specifying a custom target here.
 
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             raw_texture_view = self._canvas_context.get_current_texture()
@@ -1169,12 +1182,7 @@ class WgpuRenderer(Renderer):
         """
 
         # Make pos 0..1, so we can scale it to the render texture
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
-            logical_size = self._target.get_logical_size()
-        elif isinstance(self._target, Texture):
-            logical_size = self._target.size[:2]
-        elif isinstance(self._target, TextureView):
-            logical_size = self._target.texture.size[:2]
+        _, logical_size = get_size_from_render_target(self._target)
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
         can_sample_color = self._render_texture.texture is not None

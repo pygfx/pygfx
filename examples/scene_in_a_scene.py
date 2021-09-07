@@ -5,10 +5,8 @@ Inception style. Since both the outer and inner scenes are lit, this
 may look a bit weird. The faces of the outer cube are like "screens"
 on which the subscene is displayed.
 
-We user the offscreen canvas as a placeholder for the
-renderer. We don't call canvas1.draw() (which would return a numpy array
-and thus involve a memcopy from GPU to CPU), but control the renderer
-directly.
+The sub-scene is rendered to a texture, and that texture is used for the
+surface of the cube in the outer scene.
 """
 
 import numpy as np
@@ -22,34 +20,16 @@ from wgpu.gui.qt import WgpuCanvas
 app = QtWidgets.QApplication([])
 
 
-# Then create the actual scene, in the visible canvas
+# First create the subscene, that reders into a texture
 
-canvas2 = WgpuCanvas()
-
-renderer2 = gfx.renderers.WgpuRenderer(canvas2)
-scene2 = gfx.Scene()
-
-texture = gfx.Texture(
+texture1 = gfx.Texture(
     dim=2,
     size=(200, 200, 1),
     format="rgba8unorm",
     usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
 )
-texture_view = texture.get_view(filter="linear", address_mode="repeat")
 
-geometry2 = gfx.BoxGeometry(200, 200, 200)
-# todo: the clim being 0..255 feels weird here, maybe review that
-material2 = gfx.MeshPhongMaterial(map=texture_view, clim=(0, 255))
-cube2 = gfx.Mesh(geometry2, material2)
-scene2.add(cube2)
-
-camera2 = gfx.PerspectiveCamera(70, 16 / 9)
-camera2.position.z = 400
-
-
-# First create the subscene, in an offscreen canvas
-
-renderer1 = gfx.renderers.WgpuRenderer(texture)
+renderer1 = gfx.renderers.WgpuRenderer(texture1)
 scene1 = gfx.Scene()
 
 background1 = gfx.Background(gfx.BackgroundMaterial((0, 0.5, 0, 1)))
@@ -64,6 +44,23 @@ scene1.add(cube1)
 
 camera1 = gfx.PerspectiveCamera(70, 16 / 9)
 camera1.position.z = 300
+
+
+# Then create the actual scene, in the visible canvas
+
+canvas2 = WgpuCanvas()
+
+renderer2 = gfx.renderers.WgpuRenderer(canvas2)
+scene2 = gfx.Scene()
+
+geometry2 = gfx.BoxGeometry(200, 200, 200)
+# todo: the clim being 0..255 feels weird here, maybe review that
+material2 = gfx.MeshPhongMaterial(map=texture1.get_view(filter="linear"), clim=(0, 255))
+cube2 = gfx.Mesh(geometry2, material2)
+scene2.add(cube2)
+
+camera2 = gfx.PerspectiveCamera(70, 16 / 9)
+camera2.position.z = 400
 
 
 def animate():
