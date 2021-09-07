@@ -147,9 +147,8 @@ class WgpuRenderer(Renderer):
         pixel_ratio (float, optional): How large the physical size of the render
             buffer is in relation to the target's physical size, for antialiasing.
             See the corresponding property for details.
-        show_fps (bool): Whether to display the frames per second. Note that this
-            measure only makes sense if you're rendering as fast as you can and
-            if the canvas does not impose a frame rate limit.
+        show_fps (bool): Whether to display the frames per second. Beware that
+            depending on the GUI toolkit, the canvas may impose a frame rate limit.
     """
 
     _shared = None
