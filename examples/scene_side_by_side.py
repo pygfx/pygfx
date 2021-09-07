@@ -50,8 +50,10 @@ def animate():
     cube1.rotation.multiply(rot)
 
     w, h = canvas.get_logical_size()
-    renderer.render(scene1, camera1, flush=False, region=(0, 0, w / 2, h))
-    renderer.render(scene2, camera2, flush=False, region=(w / 2, 0, w / 2, h))
+    renderer.render(scene1, camera1, flush=False, region=(0, 0, w / 2, h / 2))
+    renderer.render(scene2, camera2, flush=False, region=(w / 2, 0, w / 2, h / 2))
+    renderer.render(scene2, camera2, flush=False, region=(0, h / 2, w / 2, h / 2))
+    renderer.render(scene1, camera1, flush=False, region=(w / 2, h / 2, w / 2, h / 2))
     renderer.flush()
 
     canvas.request_draw()
