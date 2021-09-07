@@ -35,7 +35,7 @@ Defining a scene
 
 Visualizations in pygfx are constructed of world objects, grouped together into
 a scene. These define the kinds of object being visualized, and how it should
-be rendered (but we get to details later).
+be rendered (we get to the details later).
 
 .. code-block::py
 
@@ -76,15 +76,16 @@ to perform a draw.
 Setting up a renderer
 ---------------------
 
-To render your scene to the canvas, you need a renderer. And finally,
-to specify the angle to look at the scene, you need a camera.
+To render your scene to the canvas, you need a renderer. A renderer
+needs a target to render to (which can be a canvas or a texture).
+And finally, you need a camera to define the point of view to render the scene from.
 
 .. code-block::py
 
     # A renderer is associated with a canvas (or a texture) that it renders to
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
-    # A camera defines the viewpoint in the scene to render from
+    # A camera defines the viewpoint and projection
     camera = gfx.PerspectiveCamera(70, 16 / 9)
 
     ...
