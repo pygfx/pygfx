@@ -30,39 +30,107 @@ The `WGPU <https://github.com/pygfx/wgpu-py>`_ library provides the low level AP
 communicate with the hardware. WGPU is itself based on Vulkan, Metal and DX12.
 
 
+Defining a scene
+----------------
+
+Visualizations in pygfx are constructed of world objects, grouped together into
+a scene. These define the kinds of object being visualized, and how it should
+be rendered (but we get to details later).
+
+.. code-block::py
+
+    scene = gfx.Scene()
+
+    geometry = gfx.BoxGeometry(200, 200, 200)
+    material = gfx.MeshPhongMaterial(color=(1, 1, 0, 01))
+    cube = gfx.Mesh(geometry, material)
+
+    scene.add(cube)
+
+
+Opening a window to render to
+-----------------------------
+
+Your visualization must end up on the screen somehow. For this, we use the
+canvas abstraction provided by wgpu-py.
+
+.. code-block::py
+
+    # Create Qt widget that can function as a canvas
+    from wgpu.gui.qt import WgpuCanvas
+    canvas = WgpuCanvas()
+
+
+We can ask the canvas to schedule a draw event, and tell it what to do
+to perform a draw.
+
+.. code-block::py
+
+    def animate():
+       ...  # we'll get to this
+
+
+    canvas.request_draw(animate)
+
+
 Setting up a renderer
 ---------------------
 
-The result must end up on the screen somehow. For this, we use the
-canvas abstraction provided by wgpu-py. Further we need a renderer, a
-scene to render, and a camera. These three objects, the canvas,
-renderer, and scene must be connected.
+To render your scene to the canvas, you need a renderer. And finally,
+to specify the angle to look at the scene, you need a camera.
+
+.. code-block::py
+
+    # A renderer is associated with a canvas (or a texture) that it renders to
+    renderer = gfx.renderers.WgpuRenderer(canvas)
+
+    # A camera defines the viewpoint in the scene to render from
+    camera = gfx.PerspectiveCamera(70, 16 / 9)
+
+    ...
+
+    # The actual rendering
+    renderer.render(scene, camera)
+
+
+Putting it together
+-------------------
+
+If you run this, you should see a rotating yellow cube.
 
 .. code-block::py
 
     import pygfx as gfx
+
     from PyQt5 import QtWidgets
     from wgpu.gui.qt import WgpuCanvas
 
+
     app = QtWidgets.QApplication([])
 
-    # Here we create the four main components required for rendering
+    # Create a canvas and a renderer
     canvas = WgpuCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
+
+    # Populate a scene with a cube
     scene = gfx.Scene()
+    geometry = gfx.BoxGeometry(200, 200, 200)
+    material = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
+    cube = gfx.Mesh(geometry, material)
+    scene.add(cube)
+
     camera = gfx.PerspectiveCamera(70, 16 / 9)
+    camera.position.z = 400
 
-    # We define a function, in which we invoke the renderer, telling
-    # it what scene to render and from what viewpoint (the camera).
     def animate():
+        rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+        cube.rotation.multiply(rot)
+
         renderer.render(scene, camera)
+        canvas.request_draw()
 
-    # Here we ask the canvas to perform a draw soon, and also tell it
-    # what to do in all draws from now on.
     canvas.request_draw(animate)
-
-
-The code above works, but produces a black window. We need objects!
+    app.exec_()
 
 
 World objects
@@ -76,9 +144,6 @@ Geometry
 Materials
 ---------
 
-
-Renderers
----------
 
 
 Using Pygfx in Jupyter
