@@ -106,22 +106,25 @@ class WgpuRenderer(Renderer):
     canvas or texture. It also provides picking, defines the
     anti-aliasing parameters, and any post processing effects.
 
-    This renderer provides a ``.render()`` method that can be called
-    one or more times to render scene. This creates a visual
-    representation that is stored internally, and is finally rendered
-    into its render target (the canvas or texture).
-
-    .. code-block:: py
-
-        with renderer:          # On entering the context, clear() is called.
-            render.render(...)  # Render a scene.
-            ...                 # Maybe more.
-        # When leaving the context, the internal state is rendered into the target.
+    It provides a ``.render()`` method that can be called one or more
+    times to render scene. This creates a visual representation that
+    is stored internally, and is finally rendered into its render target
+    (the canvas or texture).
+                                  __________
+                                 | renderer |
+        [scenes] -- render() --> |  state   | -- flush() --> [target]
+                                 |__________|
 
     The internal visual representation includes things like a depth
     buffer and is typically at a higher resolution to reduce aliasing
     effects. Further, the representation may in the future accomodate
     for proper blending of semitransparent objects.
+
+    The flush step renders the internal representation into the target
+    texture or canvas, applying anti-aliasing. In the future this is
+    also where fog is applied, as well as any custom post-processing
+    effects.
+
     """
 
     _shared = None
@@ -150,9 +153,8 @@ class WgpuRenderer(Renderer):
         # Init cache of shaders
         self._shader_cache = {}
 
-        # Init clear variables
-        self._must_clear_depth = True
-        self._must_clear_color = True
+        # Init counter to auto-clear
+        self._renders_since_last_flush = 0
 
         # Get target format (initialize canvas context)
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
@@ -167,8 +169,6 @@ class WgpuRenderer(Renderer):
             )
         else:
             self._target_tex_format = self._target.format
-
-        self._context_is_active = False
 
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
@@ -233,16 +233,16 @@ class WgpuRenderer(Renderer):
                 f"Rendered.pixel_ratio expected None or number, not {value}"
             )
 
-    def __enter__(self):
-        self.clear()
-        self._context_is_active = True
-        return self
-
-    def __exit__(self, *args):
-        self._context_is_active = False
-        self._render_to_target()
-
-    def render(self, scene: WorldObject, camera: Camera, region=None):
+    def render(
+        self,
+        scene: WorldObject,
+        camera: Camera,
+        *,
+        region=None,
+        clear_color=None,
+        clear_depth=None,
+        flush=True,
+    ):
         """Render a scene with the specified camera as the viewpoint.
 
         Parameters:
@@ -252,11 +252,13 @@ class WgpuRenderer(Renderer):
                 viewpoint and view transform.
             region (tuple, optional): The rectangular region to draw into,
                 like the viewport, but expressed in logical coordinates.
+            clear_color (bool, optional): Whether to clear the color buffer
+                before rendering. By default this is True on the first
+                call to ``render()`` after a flush, and False otherwise.
+            clear_depth (bool, optional): Whether to clear the depth buffer
+                before rendering. By default this is True on the first
+                call to ``render()`` after a flush, and False otherwise.
         """
-        if not self._context_is_active:
-            raise RuntimeError(
-                "renderer.render() must be called inside a ``with renderer`` block."
-            )
         device = self.device
 
         now = time.perf_counter()  # noqa
@@ -268,6 +270,15 @@ class WgpuRenderer(Renderer):
                 self._fps = now, now, 1
             else:
                 self._fps = self._fps[0], now, self._fps[2] + 1
+
+        # Define whether to clear color and/or depth
+        if clear_color is None:
+            clear_color = self._renders_since_last_flush == 0
+        clear_color = bool(clear_color)
+        if clear_depth is None:
+            clear_depth = self._renders_since_last_flush == 0
+        clear_depth = bool(clear_depth)
+        self._renders_since_last_flush += 1
 
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
@@ -337,24 +348,18 @@ class WgpuRenderer(Renderer):
 
         # Render the scene graph (to the first texture)
         command_encoder = device.create_command_encoder()
-        self._render_recording(command_encoder, q, viewport)
+        self._render_recording(command_encoder, q, viewport, clear_color, clear_depth)
         command_buffers = [command_encoder.finish()]
         device.queue.submit(command_buffers)
 
-    def clear(self, *, depth=True, color=True):
-        """Tell the renderer to clear the depth and color buffer on the next ``.render()`` call.
+        # Flush to target
+        if flush:
+            self.flush()
 
-        This is called automatically at the start of a draw pass. You
-        can call this in between two calls to ``.render()`` to e.g.
-        only clear the depth buffer. It would also be needed to call
-        this explicitly when you're using the renderer outside of a
-        drawing pass invoked by its canvas.
+    def flush(self):
+        """Render the result into the target texture view. This method is
+        called automatically unless you use ``.render(..., flush=False)``.
         """
-        self._must_clear_depth = bool(depth)
-        self._must_clear_color = bool(color)
-
-    def _render_to_target(self):
-        """Render the result into the target texture view."""
 
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             raw_texture_view = self._canvas_context.get_current_texture()
@@ -374,7 +379,10 @@ class WgpuRenderer(Renderer):
             self._target_tex_format,
         )
 
-    def _render_recording(self, command_encoder, q, viewport):
+        # Reset counter (so we can auto-clear the first next draw)
+        self._renders_since_last_flush = 0
+
+    def _render_recording(self, command_encoder, q, viewport, clear_color, clear_depth):
 
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -400,15 +408,13 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines rendering to the default target
 
-        if self._must_clear_color:
-            self._must_clear_color = False
+        if clear_color:
             color_load_value = 0, 0, 0, 0
             pick_load_value = 0, 0, 0, 0
         else:
             color_load_value = wgpu.LoadOp.load
             pick_load_value = wgpu.LoadOp.load
-        if self._must_clear_depth:
-            self._must_clear_depth = False
+        if clear_depth:
             # depth is 0..1, make initial value as high as we can
             depth_load_value = 1.0
         else:

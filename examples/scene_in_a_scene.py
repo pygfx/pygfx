@@ -71,10 +71,8 @@ def animate():
     cube1.rotation.multiply(rot)
     cube2.rotation.multiply(rot)
 
-    with renderer1:
-        renderer1.render(scene1, camera1)
-    with renderer2:
-        renderer2.render(scene2, camera2)
+    renderer1.render(scene1, camera1)
+    renderer2.render(scene2, camera2)
 
     canvas2.request_draw()
 

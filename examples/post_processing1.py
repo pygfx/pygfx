@@ -161,10 +161,8 @@ def animate():
 
     noise_object.material.tick()
 
-    with renderer1:
-        renderer1.render(scene, camera)
-    with renderer2:
-        renderer2.render(noise_object, gfx.NDCCamera())
+    renderer1.render(scene, camera)
+    renderer2.render(noise_object, gfx.NDCCamera())
 
     canvas2.request_draw()
 

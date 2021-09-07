@@ -52,10 +52,8 @@ def animate():
     cube1.rotation.multiply(rot)
     cube2.rotation.multiply(rot)
 
-    with renderer:
-        renderer.render(scene1, camera)
-        # renderer.clear(color=False, depth=True)  # uncomment for "overlay-mode"
-        renderer.render(scene2, camera)
+    renderer.render(scene1, camera, flush=False)
+    renderer.render(scene2, camera)
 
     canvas.request_draw()
 
