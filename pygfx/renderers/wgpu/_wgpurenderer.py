@@ -60,6 +60,7 @@ def register_wgpu_render_function(wobject_cls, material_cls):
 
 
 def get_size_from_render_target(target):
+    """Get physical and logical size from a render target."""
     if isinstance(target, wgpu.gui.WgpuCanvasBase):
         physical_size = target.get_physical_size()
         logical_size = target.get_logical_size()
@@ -140,20 +141,26 @@ class WgpuRenderer(Renderer):
     also where fog is applied, as well as any custom post-processing
     effects.
 
+    Parameters:
+        target (WgpuCanvas or Texture): The target to render to, and what
+            determines the size of the render buffer.
+        pixel_ratio (float, optional): How large the physical size of the render
+            buffer is in relation to the target's physical size, for antialiasing.
+            See the corresponding property for details.
+        show_fps (bool): Whether to display the frames per second. Note that this
+            measure only makes sense if you're rendering as fast as you can and
+            if the canvas does not impose a frame rate limit.
     """
 
     _shared = None
 
-    def __init__(self, target, pixel_ratio=None, show_fps=False):
+    def __init__(self, target, *, pixel_ratio=None, show_fps=False):
 
         # Check and normalize inputs
         if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
             raise TypeError(
                 f"Render target must be a canvas or texture (view), not a {target.__class__.__name__}"
             )
-        if getattr(target, "_has_wgpu_renderer", False):
-            raise RuntimeError("A canvas can have at most one associated renderer.")
-        target._has_wgpu_renderer = True
         self._target = target
 
         # Process other inputs
