@@ -259,7 +259,7 @@ class WgpuRenderer(Renderer):
         scene: WorldObject,
         camera: Camera,
         *,
-        region=None,
+        viewport=None,
         clear_color=None,
         clear_depth=None,
         flush=True,
@@ -271,8 +271,8 @@ class WgpuRenderer(Renderer):
                 optionally has child objects.
             camera (Camera): The camera object to use, which defines the
                 viewpoint and view transform.
-            region (tuple, optional): The rectangular region to draw into,
-                like the viewport, but expressed in logical coordinates.
+            viewport (tuple, optional): The rectangular region to draw into,
+                expressed in logical pixels.
             clear_color (bool, optional): Whether to clear the color buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
@@ -329,18 +329,18 @@ class WgpuRenderer(Renderer):
         self._depth_texture.ensure_size(device, framebuffer_size + (1,))
         self._pick_texture.ensure_size(device, framebuffer_size + (1,))
 
-        # Get viewport from region
-        if not region:
+        # Get viewport in physical pixels
+        if not viewport:
             scene_logical_size = logical_size
             scene_physical_size = framebuffer_size
-            viewport = 0, 0, framebuffer_size[0], framebuffer_size[1], 0, 1
-        elif len(region) == 4:
-            scene_logical_size = region[2], region[3]
-            viewport = [int(i * pixel_ratio + 0.4999) for i in region]
-            viewport = tuple(viewport) + (0, 1)
-            scene_physical_size = viewport[2], viewport[3]
+            physical_viewport = 0, 0, framebuffer_size[0], framebuffer_size[1], 0, 1
+        elif len(viewport) == 4:
+            scene_logical_size = viewport[2], viewport[3]
+            physical_viewport = [int(i * pixel_ratio + 0.4999) for i in viewport]
+            physical_viewport = tuple(physical_viewport) + (0, 1)
+            scene_physical_size = physical_viewport[2], physical_viewport[3]
         else:
-            raise ValueError("Region must be None or 4 elements (x, y, w, h).")
+            raise ValueError("The viewport must be None or 4 elements (x, y, w, h).")
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
@@ -365,7 +365,9 @@ class WgpuRenderer(Renderer):
 
         # Render the scene graph (to the first texture)
         command_encoder = device.create_command_encoder()
-        self._render_recording(command_encoder, q, viewport, clear_color, clear_depth)
+        self._render_recording(
+            command_encoder, q, physical_viewport, clear_color, clear_depth
+        )
         command_buffers = [command_encoder.finish()]
         device.queue.submit(command_buffers)
 
@@ -401,7 +403,9 @@ class WgpuRenderer(Renderer):
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
 
-    def _render_recording(self, command_encoder, q, viewport, clear_color, clear_depth):
+    def _render_recording(
+        self, command_encoder, q, physical_viewport, clear_color, clear_depth
+    ):
 
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -466,7 +470,7 @@ class WgpuRenderer(Renderer):
             },
             occlusion_query_set=None,
         )
-        render_pass.set_viewport(*viewport)
+        render_pass.set_viewport(*physical_viewport)
 
         for wobject in q:
             wgpu_data = wobject._wgpu_pipeline_objects
