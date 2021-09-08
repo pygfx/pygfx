@@ -22,7 +22,6 @@ obj2 = gfx.Mesh(geometry, material2)
 scene.add(obj1)
 scene.add(obj2)
 
-
 camera = gfx.PerspectiveCamera(70, 2)
 camera.position.z = 4
 

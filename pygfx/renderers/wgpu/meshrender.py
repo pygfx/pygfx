@@ -387,6 +387,8 @@ class MeshShader(BaseShader):
             let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
             let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+
+            out.color.a = out.color.a * u_material.opacity;
             return out;
         }
 
@@ -541,7 +543,6 @@ class MeshSliceShader(BaseShader):
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
-            [[builtin(frag_depth)]] depth: f32;
         };
 
         [[block]]
@@ -745,6 +746,7 @@ class MeshSliceShader(BaseShader):
             let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
 
+            out.color.a = out.color.a * u_material.opacity;
             return out;
         }
         """

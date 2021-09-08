@@ -510,6 +510,7 @@ class LineShader(BaseShader):
             let vi = i32(vf + 0.5);
             out.pick = vec4<i32>(u_wobject.id, 0, vi, i32((vf - f32(vi)) * 1048576.0));
 
+            out.color.a = out.color.a * u_material.opacity;
             return out;
         }
         """

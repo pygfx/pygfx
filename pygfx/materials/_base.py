@@ -1,4 +1,6 @@
 from ..objects._base import ResourceContainer
+from ..utils import array_from_shadertype
+from ..resources import Buffer
 
 
 class Material(ResourceContainer):
@@ -6,7 +8,18 @@ class Material(ResourceContainer):
     Materials define how an object is rendered, subject to certain properties.
     """
 
-    uniform_type = {}
+    uniform_type = dict(
+        opacity=("float32",),
+    )
+
+    def __init__(self, *, opacity=1):
+        super().__init__()
+
+        self.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), usage="UNIFORM"
+        )
+
+        self.opacity = opacity
 
     def _wgpu_get_pick_info(self, pick_value):
         """Given a 4 element tuple, sampled from the pick texture,
@@ -16,3 +29,16 @@ class Material(ResourceContainer):
         """
         # Note that this is a private friend-method of the renderer.
         return {}
+
+    @property
+    def opacity(self):
+        """The opacity (a.k.a. alpha value) applied to this material, expressed
+        as a value between 0 and 1. If the material contains any
+        non-opaque fragments, these are simply scaled by this value.
+        """
+        return float(self.uniform_buffer.data["opacity"])
+
+    @opacity.setter
+    def opacity(self, value):
+        self.uniform_buffer.data["opacity"] = min(max(float(value), 0), 1)
+        self.uniform_buffer.update_range(0, 1)

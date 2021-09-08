@@ -1,6 +1,4 @@
 from ._base import Material
-from ..utils import array_from_shadertype
-from ..resources import Buffer
 
 # todo: in ThreeJS you can simply set a CubeTexture as the scene.background
 # we could do that, and the scene could use these objects automatically.
@@ -17,15 +15,11 @@ class BackgroundMaterial(Material):
         color_bottom_right=("float32", 4),
         color_top_left=("float32", 4),
         color_top_right=("float32", 4),
+        opacity=("float32",),
     )
 
-    def __init__(self, *colors):
-        super().__init__()
-
-        self.uniform_buffer = Buffer(
-            array_from_shadertype(self.uniform_type), usage="UNIFORM"
-        )
-
+    def __init__(self, *colors, **kwargs):
+        super().__init__(**kwargs)
         self.set_color(*colors)
 
     def set_color(self, *colors):
@@ -105,8 +99,8 @@ class BackgroundImageMaterial(BackgroundMaterial):
     Use the Background object's transform to orient the image.
     """
 
-    def __init__(self, map=None):
-        super().__init__()
+    def __init__(self, map=None, **kwargs):
+        super().__init__(**kwargs)
         self.map = map
 
     @property
