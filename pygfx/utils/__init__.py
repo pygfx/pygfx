@@ -1,4 +1,10 @@
+import logging
+
 import numpy as np
+
+
+logger = logging.getLogger("pygfx")
+logger.setLevel(logging.WARNING)
 
 
 def array_from_shadertype(shadertype):

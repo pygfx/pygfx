@@ -26,7 +26,7 @@ class OrthographicCamera(Camera):
         assert self.near < self.far
         self.zoom = 1
         self.maintain_aspect = True
-        self.set_viewport_size(1, 1)
+        self.set_view_size(1, 1)
         self.update_projection_matrix()
 
     def __repr__(self) -> str:
@@ -34,7 +34,7 @@ class OrthographicCamera(Camera):
             f"OrthographicCamera({self.width}, {self.height}, {self.near}, {self.far})"
         )
 
-    def set_viewport_size(self, width, height):
+    def set_view_size(self, width, height):
         self._view_aspect = width / height
         # The reference view plane is scaled with the zoom factor
         width = self.width / self.zoom

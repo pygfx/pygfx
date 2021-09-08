@@ -3,11 +3,16 @@ from ..objects._base import WorldObject
 
 
 class Camera(WorldObject):
-    """Abstract base camera. The purpose of a camera is to project
-    world coordinates to normalized device coordinates (NDC). This is
-    done by the (inverse of) the camera's own world matrix and the
-    camera's projection transform. The former represent the camera's
-    position, the latter is specific to the type of camera.
+    """Abstract base camera.
+
+    The purpose of a camera is to define the viewpoint for rendering a scene.
+    This viewpoint consists of its position (in the world) and its projection.
+
+    In other words, it covers the projection of world coordinates to
+    normalized device coordinates (NDC), by the (inverse of) the
+    camera's own world matrix and the camera's projection transform.
+    The former represent the camera's position, the latter is specific
+    to the type of camera.
 
     Note that we follow the NDC coordinate system of WGPU, where
     x and y are in the range 0..1, z is in the range 0..1, and (-1, -1, 0)
@@ -22,7 +27,7 @@ class Camera(WorldObject):
         self.projection_matrix = Matrix4()
         self.projection_matrix_inverse = Matrix4()
 
-    def set_viewport_size(self, width, height):
+    def set_view_size(self, width, height):
         # In logical pixels
         pass
 
@@ -58,7 +63,7 @@ class ScreenCoordsCamera(Camera):
         self._width = 1
         self._height = 1
 
-    def set_viewport_size(self, width, height):
+    def set_view_size(self, width, height):
         self._width = width
         self._height = height
 

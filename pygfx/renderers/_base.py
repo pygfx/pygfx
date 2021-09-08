@@ -3,8 +3,8 @@ from ..materials import Material
 
 
 class Renderer:
-    """Base class for other renderers. A renderer takes a figure,
-    collect data that describe how it should be drawn, and then draws it.
+    """Base class for all renderers. The purpose of a renderer is to
+    render (i.e. draw) a scene to a canvas.
     """
 
     pass

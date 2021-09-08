@@ -1,14 +1,19 @@
 """
 Example demonstrating off-screen rendering.
+
+This uses wgpu's offscreen canvas to obtain the frames as a numpy array.
+Note that one can also render to a ``pygfx.Texture`` and use that texture to
+decorate an object in another scene.
 """
 
 import imageio
 import pygfx as gfx
+from wgpu.gui.offscreen import WgpuCanvas
 
-# Instead of a canvas, we provide a size (in logical pixels). Properties
-# like line widths are usually expressed relative to this logical size.
-# We set pixel_ratio to 2 (the default) to double the resolution.
-renderer = gfx.renderers.WgpuRenderer(size=(640, 480), pixel_ratio=2)
+
+# Create offscreen canvas, renderer and scene
+canvas = WgpuCanvas(640, 480, 1)
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 im = imageio.imread("imageio:astronaut.png").astype("float32") / 255
@@ -25,9 +30,17 @@ camera.position.z = 400
 rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.5, 1.0))
 cube.rotation.multiply(rot)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
+
 
 if __name__ == "__main__":
-    renderer.render(scene, camera)
-    im = renderer.snapshot()
-    print(im.shape)  # (960, 1280, 4)
-    imageio.imsave("offscreen.png", im)
+
+    # Invoke a draw and get what we'd normally see on screen as a numpy array
+    im1 = canvas.draw()
+    print("image from canvas.draw():", im1.shape)  # (480, 640, 4)
+
+    # Use the renderer's to get intermediate results (internal render targets)
+    im2 = renderer.snapshot()
+    print("Image from renderer.snapshot():", im2.shape)  # (960, 1280, 4)
+
+    imageio.imsave("offscreen.png", im1)
