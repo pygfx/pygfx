@@ -35,11 +35,15 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
 
-    # Invoke a draw and get what we'd normally see on screen as a numpy array
+    # The offscreen canvas has a draw method that returns a numpy array.
+    # Use this to obtain what you normally see on-screen. You should
+    # only use an offscreen canvas for e.g. testing or generating images.
     im1 = canvas.draw()
     print("image from canvas.draw():", im1.shape)  # (480, 640, 4)
 
-    # Use the renderer's to get intermediate results (internal render targets)
+    # The renderer also has a snapshot utility. With this you get a snapshot
+    # of the internal state (might be at a higher resolution).
+    # The use of the snapshot method may change and be improved.
     im2 = renderer.snapshot()
     print("Image from renderer.snapshot():", im2.shape)  # (960, 1280, 4)
 
