@@ -1,6 +1,4 @@
 from ._base import Material
-from ..utils import array_from_shadertype
-from ..resources import Buffer
 
 
 class LineMaterial(Material):
@@ -9,17 +7,16 @@ class LineMaterial(Material):
     uniform_type = dict(
         color=("float32", 4),
         thickness=("float32",),
+        opacity=("float32",),
     )
 
-    def __init__(self, color=(1, 1, 1, 1), thickness=2.0, vertex_colors=False):
-        super().__init__()
+    def __init__(
+        self, color=(1, 1, 1, 1), thickness=2.0, vertex_colors=False, **kwargs
+    ):
+        super().__init__(**kwargs)
 
-        self.uniform_buffer = Buffer(
-            array_from_shadertype(self.uniform_type), usage="UNIFORM"
-        )
-        self.set_color(color)
-        self.set_thickness(thickness)
-
+        self.color = color
+        self.thickness = thickness
         self._vertex_colors = vertex_colors
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -33,7 +30,8 @@ class LineMaterial(Material):
     def color(self):
         return self.uniform_buffer.data["color"]
 
-    def set_color(self, color):
+    @color.setter
+    def color(self, color):
         self.uniform_buffer.data["color"] = tuple(color)
         self.uniform_buffer.update_range(0, 1)
 
@@ -53,7 +51,8 @@ class LineMaterial(Material):
         """The line thickness expressed in logical pixels."""
         return self.uniform_buffer.data["thickness"]
 
-    def set_thickness(self, thickness):
+    @thickness.setter
+    def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
         self.uniform_buffer.update_range(0, 1)
 

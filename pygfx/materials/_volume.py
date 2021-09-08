@@ -1,5 +1,3 @@
-from ..utils import array_from_shadertype
-from ..resources import Buffer
 from ._base import Material
 
 
@@ -8,22 +6,14 @@ class VolumeBasicMaterial(Material):
 
     uniform_type = dict(
         clim=("float32", 2),
+        opacity=("float32",),
     )
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, clim=(0, 1), map=None, **kwargs):
+        super().__init__(**kwargs)
 
-        self.uniform_buffer = Buffer(
-            array_from_shadertype(self.uniform_type), usage="UNIFORM"
-        )
-
-        self._map = None
-        self.clim = 0, 1
-
-        for argname, val in kwargs.items():
-            if not hasattr(self, argname):
-                raise AttributeError(f"No attribute '{argname}'")
-            setattr(self, argname, val)
+        self.clim = clim
+        self.map = map
 
     def _wgpu_get_pick_info(self, pick_value):
         size = self.map.size
@@ -58,7 +48,12 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     uniform_type = dict(
         plane=("float32", 4),
         clim=("float32", 2),
+        opacity=("float32",),
     )
+
+    def __init__(self, plane=(0, 0, 1, 0), **kwargs):
+        super().__init__(**kwargs)
+        self.plane = plane
 
     @property
     def plane(self):
