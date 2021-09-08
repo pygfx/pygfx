@@ -166,6 +166,7 @@ class PointsShader(BaseShader):
             let vertex_id = i32(in.vertex_idx.x * 10000.0 + in.vertex_idx.y + 0.5);
             out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
 
+            out.color.a = out.color.a * u_material.opacity;
             return out;
         }
         """

@@ -157,6 +157,7 @@ class BackgroundShader(BaseShader):
                     + u_material.color_top_right * f.x * f.y
                 );
             $$ endif
+            out.color.a = out.color.a * u_material.opacity;
             return out;
         }
         """

@@ -320,6 +320,8 @@ class VolumeSliceShader(BaseShader):
 
             out.color = vec4<f32>(albeido, color_value.a);
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(in.texcoord * 1048576.0 + 0.5));
+
+            out.color.a = out.color.a * u_material.opacity;
             return out;
         }
         """

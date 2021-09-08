@@ -43,7 +43,7 @@ class Material(ResourceContainer):
         as a value between 0 and 1. If the material contains any
         non-opaque fragments, these are simply scaled by this value.
         """
-        return self.uniform_buffer.data["opacity"]
+        return float(self.uniform_buffer.data["opacity"])
 
     @opacity.setter
     def opacity(self, value):
