@@ -543,7 +543,6 @@ class MeshSliceShader(BaseShader):
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
-            //[[builtin(frag_depth)]] depth: f32;
         };
 
         [[block]]

@@ -21,13 +21,6 @@ class Material(ResourceContainer):
 
         self.opacity = opacity
 
-    # def _set_property_values(self, **kwargs):
-    #     for key, val in kwargs.items():
-    #         if isinstance(getattr(type(self), key, None) property):
-    #             setattr(self, key, val)
-    #         else:
-    #             raise KeyError(f"{self.__class__.__name__} does not have property '{key}'.")
-
     def _wgpu_get_pick_info(self, pick_value):
         """Given a 4 element tuple, sampled from the pick texture,
         return info about what was picked in the object. The first value
