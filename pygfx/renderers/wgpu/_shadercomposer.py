@@ -102,3 +102,12 @@ class BaseShader:
         var {name}: {structname};
         """
         self._uniform_codes[name] = code
+
+    def common_functions(self):
+        return """
+        fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
+            let plane = u_material.clipping_planes;  // singular for now
+            let clipped = dot( world_pos, plane.xyz ) < plane.w;
+            return clipped;
+        }
+        """

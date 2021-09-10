@@ -10,6 +10,7 @@ class Material(ResourceContainer):
 
     uniform_type = dict(
         opacity=("float32",),
+        clipping_planes=("float32", 4),  # todo: must support array of vec4's
     )
 
     def __init__(self, *, opacity=1):
@@ -42,3 +43,36 @@ class Material(ResourceContainer):
     def opacity(self, value):
         self.uniform_buffer.data["opacity"] = min(max(float(value), 0), 1)
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def clipping_planes(self):
+        """A tuple of planes (abcd tuples) in world space. Points in
+        space whose signed distance to the plane is negative are clipped
+        (not rendered). Applies to the object to which this material is attached.
+        """
+        # todo: assumes singular plane
+        return tuple(self.uniform_buffer.data["clipping_planes"])
+
+    @clipping_planes.setter
+    def clipping_planes(self, planes):
+        if not isinstance(planes, (tuple, list)):
+            raise TypeError("Clipping planes must be a list.")
+        planes2 = []
+        for plane in planes:
+            if isinstance(plane, (tuple, list)) and len(plane) == 4:
+                planes2.append(plane)
+            # todo?: elif isinstance(plane, pga3.Plane):
+            else:
+                raise TypeError(
+                    f"Each clipping plane must be an abcd tuple, not {plane}"
+                )
+
+        # todo: support multiple planes
+        assert len(planes2) <= 1
+        if len(planes2) == 0:
+            self.uniform_buffer.data["clipping_planes"] = 0, 0, 0, 0
+        else:
+            self.uniform_buffer.data["clipping_planes"] = planes2[0]
+        self.uniform_buffer.update_range(0, 1)
+
+    # todo: clip_intersection

@@ -8,6 +8,7 @@ class MeshBasicMaterial(Material):
 
     uniform_type = dict(
         color=("float32", 4),
+        clipping_planes=("float32", 4),
         clim=("float32", 2),
         opacity=("float32",),
     )
