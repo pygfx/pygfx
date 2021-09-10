@@ -99,6 +99,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
     uniform_type = dict(
         color=("float32", 4),
         plane=("float32", 4),
+        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
         clim=("float32", 2),
         thickness=("float32",),
         opacity=("float32",),

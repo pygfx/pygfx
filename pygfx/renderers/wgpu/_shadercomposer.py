@@ -146,7 +146,7 @@ class BaseShader:
                 break
 
         if n_clipping_planes:
-            return """
+            clipping_plane_code = """
             fn apply_clipping_planes(world_pos: vec3<f32>) {
                 var clipped: bool = false;
                 for (var i=0; i<{{n_clipping_planes}}; i=i+1) {
@@ -160,8 +160,18 @@ class BaseShader:
                 "{{n_clipping_planes}}", str(n_clipping_planes)
             )
         else:
-            return """
+            clipping_plane_code = """
             fn apply_clipping_planes(world_pos: vec3<f32>) {
                 // zero planes
             }
             """
+
+        world_pos_code = """
+        fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
+            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+            let world_pos = ndc_to_world * ndc_pos;
+            return world_pos.xyz / world_pos.w;
+        }
+        """
+
+        return clipping_plane_code + world_pos_code

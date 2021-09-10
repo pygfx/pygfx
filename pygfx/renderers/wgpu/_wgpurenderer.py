@@ -17,6 +17,7 @@ from ._renderutils import RenderTexture, RenderFlusher
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
 # todo: a combined transform would be nice too, for performance
+# todo: same for ndc_to_world transform (combined inv transforms)
 stdinfo_uniform_type = dict(
     cam_transform=("float32", (4, 4)),
     cam_transform_inv=("float32", (4, 4)),
