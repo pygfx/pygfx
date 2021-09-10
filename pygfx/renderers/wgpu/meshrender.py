@@ -393,7 +393,7 @@ class MeshShader(BaseShader):
 
             out.color.a = out.color.a * u_material.opacity;
 
-            if (is_within_clipping_planes(in.world_pos)) { discard; }
+            apply_clipping_planes(in.world_pos);
             return out;
 
         }

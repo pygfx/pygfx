@@ -147,21 +147,21 @@ class BaseShader:
 
         if n_clipping_planes:
             return """
-            fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
+            fn apply_clipping_planes(world_pos: vec3<f32>) {
                 var clipped: bool = false;
                 for (var i=0; i<{{n_clipping_planes}}; i=i+1) {
                     let plane = u_material.clipping_planes[i];
                     let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
                     clipped = clipped || plane_clipped;
                 }
-                return clipped;
+                if (clipped) { discard; }
             }
             """.replace(
                 "{{n_clipping_planes}}", str(n_clipping_planes)
             )
         else:
             return """
-            fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
-                return false;
+            fn apply_clipping_planes(world_pos: vec3<f32>) {
+                // zero planes
             }
             """
