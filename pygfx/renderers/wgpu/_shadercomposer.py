@@ -69,25 +69,58 @@ class BaseShader:
             # Resolve actual type (only scalar, vec, mat)
             shape = dtype.shape
             if shape == () or shape == (1,):
-                wgsl_type = primitive_type
+                # A scalar
+                wgsl_type = align_type = primitive_type
             elif len(shape) == 1:
-                wgsl_type = f"vec{shape[0]}<{primitive_type}>"
+                # A vector
+                n = shape[0]
+                if n < 2 or n > 4:
+                    raise TypeError(f"Type {dtype} looks like an unsupported vec{n}.")
+                wgsl_type = align_type = f"vec{n}<{primitive_type}>"
             elif len(shape) == 2:
-                # matNxM is Matrix of N columns and M rows
-                wgsl_type = f"mat{shape[1]}x{shape[0]}<{primitive_type}>"
+                # A matNxM is Matrix of N columns and M rows
+                n, m = shape[1], shape[0]
+                if n < 2 or n > 4 or m < 2 or m > 4:
+                    raise TypeError(
+                        f"Type {dtype} looks like an unsupported mat{n}x{m}."
+                    )
+                align_type = f"vec{m}<primitive_type>"
+                wgsl_type = f"mat{n}x{m}<{primitive_type}>"
+            elif len(shape) == 3:
+                # An array
+                length, n, m = shape[0], shape[2], shape[1]
+                if length == 0:
+                    # zero-length; dont use
+                    wgsl_type = align_type = None
+                elif n == 1 and m == 1:
+                    # Array of scalars
+                    align_type = primitive_type
+                    wgsl_type = f"array<{align_type},{length}>"
+                elif n == 1 or m == 1:
+                    # Array of vectors
+                    n = max(n, m)
+                    if n < 2 or n > 4:
+                        raise TypeError(f"Unsupported vec{n} in array {dtype}.")
+                    align_type = f"vec{n}<{primitive_type}>"
+                    wgsl_type = f"array<{align_type},{length}>"
+                else:
+                    # Array of matrices
+                    if n < 2 or n > 4 or m < 2 or m > 4:
+                        raise TypeError(f"Unsupported mat{n}x{m} in array {dtype}.")
+                    align_type = f"vec{m}<primitive_type>"
+                    wgsl_type = f"array<mat{n}x{m}<{primitive_type}>,{length}>"
             else:
-                raise TypeError("Unsupported type {dtype}")
+                raise TypeError(f"Unsupported type {dtype}")
             # Check alignment (https://www.w3.org/TR/WGSL/#alignment-and-size)
-            if wgsl_type == primitive_type:
+            if not wgsl_type:
+                continue
+            elif align_type == primitive_type:
                 alignment = 4
-            elif wgsl_type.startswith("vec"):
-                c = int(wgsl_type.split("<")[0][-1])
-                alignment = 8 if c < 3 else 16
-            elif wgsl_type.startswith("mat"):
-                c = int(wgsl_type.split("<")[0][-1])
+            elif align_type.startswith("vec"):
+                c = int(align_type.split("<")[0][-1])
                 alignment = 8 if c < 3 else 16
             else:
-                raise TypeError(f"Unsupported wgsl type: {wgsl_type}")
+                raise TypeError(f"Cannot establish alignment of wgsl type: {wgsl_type}")
             if offset % alignment != 0:
                 raise TypeError(
                     f"Struct alignment error: {name}.{fieldname} alignment must be {alignment}"
@@ -106,8 +139,13 @@ class BaseShader:
     def common_functions(self):
         return """
         fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
-            let plane = u_material.clipping_planes;  // singular for now
-            let clipped = dot( world_pos, plane.xyz ) < plane.w;
+            let nplanes = 3;//arrayLength(u_material.clipping_planes);
+            var clipped: bool = false;
+            for (var i=0; i<nplanes; i=i+1) {
+                let plane = u_material.clipping_planes[i];
+                let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
+                clipped = clipped || plane_clipped;
+            }
             return clipped;
         }
         """

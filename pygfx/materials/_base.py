@@ -10,7 +10,7 @@ class Material(ResourceContainer):
 
     uniform_type = dict(
         opacity=("float32",),
-        clipping_planes=("float32", 4),  # todo: must support array of vec4's
+        clipping_planes=("float32", 3, 1, 4),  # array<vec4<f32>,3>
     )
 
     def __init__(self, *, opacity=1):
@@ -50,8 +50,10 @@ class Material(ResourceContainer):
         space whose signed distance to the plane is negative are clipped
         (not rendered). Applies to the object to which this material is attached.
         """
-        # todo: assumes singular plane
-        return tuple(self.uniform_buffer.data["clipping_planes"])
+        return [
+            tuple(float(f) for f in plane.flat)
+            for plane in self.uniform_buffer.data["clipping_planes"]
+        ]
 
     @clipping_planes.setter
     def clipping_planes(self, planes):
@@ -67,12 +69,14 @@ class Material(ResourceContainer):
                     f"Each clipping plane must be an abcd tuple, not {plane}"
                 )
 
-        # todo: support multiple planes
-        assert len(planes2) <= 1
-        if len(planes2) == 0:
-            self.uniform_buffer.data["clipping_planes"] = 0, 0, 0, 0
-        else:
-            self.uniform_buffer.data["clipping_planes"] = planes2[0]
+        # todo: support variable amount of planes
+        nplanes = self.uniform_buffer.data["clipping_planes"].shape[0]
+        assert len(planes2) <= nplanes
+        for i in range(nplanes):
+            if i < len(planes2):
+                self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
+            else:
+                self.uniform_buffer.data["clipping_planes"][i] = 0, 0, 0, 0
         self.uniform_buffer.update_range(0, 1)
 
     # todo: clip_intersection
