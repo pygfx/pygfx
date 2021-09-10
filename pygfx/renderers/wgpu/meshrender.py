@@ -17,7 +17,6 @@ from ...utils import normals_from_vertices
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 def mesh_renderer(wobject, render_info):
     """Render function capable of rendering meshes."""
-
     geometry = wobject.geometry
     material = wobject.material  # noqa
 

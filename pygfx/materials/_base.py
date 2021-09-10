@@ -10,7 +10,7 @@ class Material(ResourceContainer):
 
     uniform_type = dict(
         opacity=("float32",),
-        clipping_planes=("float32", 3, 1, 4),  # array<vec4<f32>,3>
+        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
     )
 
     def __init__(self, *, opacity=1):
@@ -21,6 +21,35 @@ class Material(ResourceContainer):
         )
 
         self.opacity = opacity
+
+    def _resize_uniform_array(self, key, new_length):
+        """Resize the given array field in the uniform struct if the
+        current length does not match the given length. This adjusts
+        the uniform type, creates a new buffer from that, and copies
+        all data except that of the given field.
+
+        Resetting the uniform buffer will bump the rev and thus trigger
+        a pipeline rebuild for all objects that this material is
+        attached to.
+        """
+        dtype = self.uniform_type[key]
+        shape = dtype[1]
+        assert len(dtype) == 2
+        assert len(shape) == 3, f"uniform field {key} does not look like an array"
+        current_length = shape[0]
+        if new_length != current_length:
+            # Adjust type definition (note that this is originally a class attr)
+            self.uniform_type = self.uniform_type.copy()
+            self.uniform_type[key] = dtype[0], (new_length, shape[1], shape[2])
+            # Recreate buffer
+            data = self.uniform_buffer.data
+            self.uniform_buffer = Buffer(
+                array_from_shadertype(self.uniform_type), usage="UNIFORM"
+            )
+            # Copy data
+            for k in data.dtype.names:
+                if k != key:
+                    self.uniform_buffer.data[k] = data[k]
 
     def _wgpu_get_pick_info(self, pick_value):
         """Given a 4 element tuple, sampled from the pick texture,
@@ -69,14 +98,15 @@ class Material(ResourceContainer):
                     f"Each clipping plane must be an abcd tuple, not {plane}"
                 )
 
-        # todo: support variable amount of planes
-        nplanes = self.uniform_buffer.data["clipping_planes"].shape[0]
-        assert len(planes2) <= nplanes
-        for i in range(nplanes):
-            if i < len(planes2):
-                self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
-            else:
-                self.uniform_buffer.data["clipping_planes"][i] = 0, 0, 0, 0
+        # Resize?
+        n_planes_now = self.uniform_buffer.data["clipping_planes"].shape[0]
+        if len(planes2) != n_planes_now:
+            self._resize_uniform_array("clipping_planes", len(planes2))
+
+        # Apply
+        # Note that we can create a null-plane using (0, 0, 0, 0)
+        for i in range(len(planes2)):
+            self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
         self.uniform_buffer.update_range(0, 1)
 
     # todo: clip_intersection
