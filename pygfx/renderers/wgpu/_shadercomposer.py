@@ -137,15 +137,31 @@ class BaseShader:
         self._uniform_codes[name] = code
 
     def common_functions(self):
-        return """
-        fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
-            let nplanes = 3;//arrayLength(u_material.clipping_planes);
-            var clipped: bool = false;
-            for (var i=0; i<nplanes; i=i+1) {
-                let plane = u_material.clipping_planes[i];
-                let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
-                clipped = clipped || plane_clipped;
+
+        # Determine clipping planes from the generated uniform code
+        n_clipping_planes = 0
+        for line in self._uniform_codes.get("u_material", "").splitlines():
+            if line.strip().startswith("clipping_planes: array<"):
+                n_clipping_planes = int(line.split(",")[-1].split(">")[0])
+                break
+
+        if n_clipping_planes:
+            return """
+            fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
+                var clipped: bool = false;
+                for (var i=0; i<{{n_clipping_planes}}; i=i+1) {
+                    let plane = u_material.clipping_planes[i];
+                    let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
+                    clipped = clipped || plane_clipped;
+                }
+                return clipped;
             }
-            return clipped;
-        }
-        """
+            """.replace(
+                "{{n_clipping_planes}}", str(n_clipping_planes)
+            )
+        else:
+            return """
+            fn is_within_clipping_planes(world_pos: vec3<f32>) -> bool {
+                return false;
+            }
+            """
