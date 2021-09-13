@@ -22,7 +22,7 @@ class Material(ResourceContainer):
 
         self.opacity = opacity
 
-    def _resize_uniform_array(self, key, new_length):
+    def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
         current length does not match the given length. This adjusts
         the uniform type, creates a new buffer from that, and copies
@@ -32,24 +32,29 @@ class Material(ResourceContainer):
         a pipeline rebuild for all objects that this material is
         attached to.
         """
+        current_length = self.uniform_buffer.data[key].shape[0]
+        if new_length == current_length:
+            return  # early exit
+
         dtype = self.uniform_type[key]
         shape = dtype[1]
         assert len(dtype) == 2
         assert len(shape) == 3, f"uniform field {key} does not look like an array"
-        current_length = shape[0]
-        if new_length != current_length:
-            # Adjust type definition (note that this is originally a class attr)
-            self.uniform_type = self.uniform_type.copy()
-            self.uniform_type[key] = dtype[0], (new_length, shape[1], shape[2])
-            # Recreate buffer
-            data = self.uniform_buffer.data
-            self.uniform_buffer = Buffer(
-                array_from_shadertype(self.uniform_type), usage="UNIFORM"
-            )
-            # Copy data
-            for k in data.dtype.names:
-                if k != key:
-                    self.uniform_buffer.data[k] = data[k]
+        # This is true unless someone fooled with the data: current_length == shape[0]
+        # And it will certainly be true when we're done.
+
+        # Adjust type definition (note that this is originally a class attr)
+        self.uniform_type = self.uniform_type.copy()
+        self.uniform_type[key] = dtype[0], (new_length, shape[1], shape[2])
+        # Recreate buffer
+        data = self.uniform_buffer.data
+        self.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), usage="UNIFORM"
+        )
+        # Copy data
+        for k in data.dtype.names:
+            if k != key:
+                self.uniform_buffer.data[k] = data[k]
 
     def _wgpu_get_pick_info(self, pick_value):
         """Given a 4 element tuple, sampled from the pick texture,
@@ -94,17 +99,19 @@ class Material(ResourceContainer):
                 planes2.append(plane)
             # todo?: elif isinstance(plane, pga3.Plane):
             else:
-                raise TypeError(
-                    f"Each clipping plane must be an abcd tuple, not {plane}"
-                )
-
-        # Resize?
-        n_planes_now = self.uniform_buffer.data["clipping_planes"].shape[0]
-        if len(planes2) != n_planes_now:
-            self._resize_uniform_array("clipping_planes", len(planes2))
+                # Error
+                if isinstance(plane, (int, float)) and len(planes) == 4:
+                    raise TypeError(
+                        f"Looks like you passed one clipping plane instead of a list."
+                    )
+                else:
+                    raise TypeError(
+                        f"Each clipping plane must be an abcd tuple, not {plane}"
+                    )
 
         # Apply
         # Note that we can create a null-plane using (0, 0, 0, 0)
+        self._set_size_of_uniform_array("clipping_planes", len(planes2))
         for i in range(len(planes2)):
             self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
         self.uniform_buffer.update_range(0, 1)
