@@ -88,6 +88,7 @@ class VolumeSliceShader(BaseShader):
         return (
             self.get_definitions()
             + self.more_definitions()
+            + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -100,7 +101,8 @@ class VolumeSliceShader(BaseShader):
         };
         struct VertexOutput {
             [[location(0)]] texcoord: vec3<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[location(1)]] world_pos: vec3<f32>;
+            [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -287,7 +289,8 @@ class VolumeSliceShader(BaseShader):
             var indexmap = array<i32,12>(0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5);
             let world_pos = vertices[ indexmap[index] ];
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
-            out.pos = ndc_pos;
+            out.world_pos = world_pos;
+            out.ndc_pos = ndc_pos;
             out.texcoord = texcoords[ indexmap[index] ];
 
             return out;
@@ -322,6 +325,7 @@ class VolumeSliceShader(BaseShader):
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(in.texcoord * 1048576.0 + 0.5));
 
             out.color.a = out.color.a * u_material.opacity;
+            apply_clipping_planes(in.world_pos);
             return out;
         }
         """
