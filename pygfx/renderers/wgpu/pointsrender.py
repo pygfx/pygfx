@@ -61,6 +61,7 @@ class PointsShader(BaseShader):
         return (
             self.get_definitions()
             + self.more_definitions()
+            + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -74,7 +75,8 @@ class PointsShader(BaseShader):
         struct VertexOutput {
             [[location(0)]] pointcoord: vec2<f32>;
             [[location(1)]] vertex_idx: vec2<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[location(2)]] world_pos: vec3<f32>;
+            [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -118,7 +120,8 @@ class PointsShader(BaseShader):
             let aa_margin = 1.0;
             let delta_logical = deltas[sub_index] * (u_material.size + aa_margin);
             let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
-            out.pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
+            out.world_pos = world_pos.xyz / world_pos.w;
+            out.ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
             out.pointcoord = delta_logical;
 
             out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
@@ -167,6 +170,7 @@ class PointsShader(BaseShader):
             out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
 
             out.color.a = out.color.a * u_material.opacity;
+            apply_clipping_planes(in.world_pos);
             return out;
         }
         """
