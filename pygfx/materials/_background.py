@@ -11,6 +11,7 @@ class BackgroundMaterial(Material):
     """
 
     uniform_type = dict(
+        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
         color_bottom_left=("float32", 4),
         color_bottom_right=("float32", 4),
         color_top_left=("float32", 4),
