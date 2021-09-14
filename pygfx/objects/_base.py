@@ -176,18 +176,19 @@ class WorldObject(ResourceContainer):
                 pass
         return self
 
-    def traverse(self, callback, include_non_visible=False):
+    def traverse(self, callback, skip_invisible=False):
         """Executes the callback on this object and all descendants.
 
-        Excludes invisible objects (whos ``visible`` property is False),
-        except when ``include_non_visible`` is True. Note that modifying
-        the scene graph inside the callback is discouraged.
+        If ``skip_invisible`` is given and True, objects whose
+        ``visible`` property is False - and their children - are
+        skipped. Note that modifying the scene graph inside the callback
+        is discouraged.
         """
-
-        if include_non_visible or self.visible:
-            callback(self)
-            for child in self.children:
-                child.traverse(callback)
+        if skip_invisible and not self.visible:
+            return
+        callback(self)
+        for child in self.children:
+            child.traverse(callback, skip_invisible)
 
     def update_matrix(self):
         p, r, s = self.position, self.rotation, self.scale

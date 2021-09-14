@@ -521,7 +521,7 @@ class WgpuRenderer(Renderer):
                 q.append(wobject)
 
         q = []
-        scene.traverse(visit)
+        scene.traverse(visit, True)
 
         # Next, sort them from back-to-front
         def sort_func(wobject: WorldObject):
