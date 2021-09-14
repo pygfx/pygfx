@@ -35,7 +35,7 @@ class ResourceContainer:
     # in performance is worth the added complexity.
 
     def _bump_rev(self):
-        """Bump the rev (and that of any "parents")"""
+        """Bump the rev (and that of any "resource parents"), to trigger a pipeline rebuild."""
         self._rev += 1
         for x in self._resource_parents:
             x._rev += 1

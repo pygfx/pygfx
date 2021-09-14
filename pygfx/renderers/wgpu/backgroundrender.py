@@ -67,6 +67,7 @@ class BackgroundShader(BaseShader):
         return (
             self.get_definitions()
             + self.more_definitions()
+            + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -79,7 +80,8 @@ class BackgroundShader(BaseShader):
         };
         struct VertexOutput {
             [[location(0)]] texcoord: vec3<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[location(1)]] world_pos: vec3<f32>;
+            [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -113,19 +115,16 @@ class BackgroundShader(BaseShader):
             $$ if texture_dim == "cube"
                 let ndc_pos1 = vec4<f32>(pos, 0.9999999, 1.0);
                 let ndc_pos2 = vec4<f32>(pos, 1.1000000, 1.0);
-                // project back to world coords
-                let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
-                //let ndc_to_world = u_stdinfo.ndc_to_world;
-                let wpos1_ = ndc_to_world * ndc_pos1;
-                let wpos2_ = ndc_to_world * ndc_pos2;
-                let wpos1 = wpos1_.xyzw / wpos1_.w;
-                let wpos2 = wpos2_.xyzw / wpos2_.w;
+                let wpos1 = ndc_to_world_pos(ndc_pos1);
+                let wpos2 = ndc_to_world_pos(ndc_pos2);
                 // Store positions and the view direction in the world
-                out.pos = ndc_pos1;
+                out.ndc_pos = ndc_pos1;
+                out.world_pos = wpos1;
                 out.texcoord = wpos2.xyz - wpos1.xyz;
             $$ else
                 // Store positions and the view direction in the world
-                out.pos = vec4<f32>(pos, 0.9999999, 1.0);;
+                out.ndc_pos = vec4<f32>(pos, 0.9999999, 1.0);
+                out.world_pos = ndc_to_world_pos(out.ndc_pos);
                 out.texcoord = vec3<f32>(pos * 0.5 + 0.5, 0.0);
             $$ endif
             return out;
@@ -158,6 +157,7 @@ class BackgroundShader(BaseShader):
                 );
             $$ endif
             out.color.a = out.color.a * u_material.opacity;
+            apply_clipping_planes(in.world_pos);
             return out;
         }
         """

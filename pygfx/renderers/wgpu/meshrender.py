@@ -17,7 +17,6 @@ from ...utils import normals_from_vertices
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 def mesh_renderer(wobject, render_info):
     """Render function capable of rendering meshes."""
-
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
@@ -157,6 +156,7 @@ class MeshShader(BaseShader):
         return (
             self.get_definitions()
             + self.more_definitions()
+            + self.common_functions()
             + self.helpers()
             + self.vertex_shader()
             + self.fragment_shader()
@@ -178,7 +178,8 @@ class MeshShader(BaseShader):
             [[location(3)]] light: vec3<f32>;
             [[location(4)]] face_idx: vec4<f32>;
             [[location(5)]] face_coords: vec3<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[location(6)]] world_pos: vec3<f32>;
+            [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -264,7 +265,8 @@ class MeshShader(BaseShader):
             var out: VertexOutput;
 
             // Set position and texcoords
-            out.pos = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
+            out.world_pos =world_pos.xyz / world_pos.w;
+            out.ndc_pos = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
             $$ if texture_dim == '1d'
             out.texcoord =vec3<f32>(s_texcoord.data[i0], 0.0, 0.0);
             $$ elif texture_dim == '2d'
@@ -326,7 +328,8 @@ class MeshShader(BaseShader):
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             var out: VertexOutput;
-            out.pos = ndc_pos;
+            out.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+            out.ndc_pos = ndc_pos;
             return out;
         }
         """
@@ -389,7 +392,10 @@ class MeshShader(BaseShader):
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
 
             out.color.a = out.color.a * u_material.opacity;
+
+            apply_clipping_planes(in.world_pos);
             return out;
+
         }
 
 
@@ -406,6 +412,7 @@ class MeshShader(BaseShader):
             let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
 
+            apply_clipping_planes(in.world_pos);
             return out;
         }
         """
@@ -521,6 +528,7 @@ class MeshSliceShader(BaseShader):
         return (
             self.get_definitions()
             + self.more_definitions()
+            + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -537,7 +545,8 @@ class MeshSliceShader(BaseShader):
             [[location(2)]] segment_width: f32;
             [[location(3)]] face_idx: vec4<f32>;
             [[location(4)]] face_coords: vec3<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[location(5)]] world_pos: vec3<f32>;
+            [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -711,7 +720,8 @@ class MeshSliceShader(BaseShader):
             }
 
             // Shader output
-            out.pos = the_pos;
+            out.world_pos = ndc_to_world_pos(the_pos);
+            out.ndc_pos = the_pos;
             out.dist2center = the_coord * l2p;
             out.segment_length = segment_length * l2p;
             out.segment_width = line_width * l2p;
@@ -747,6 +757,7 @@ class MeshSliceShader(BaseShader):
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
 
             out.color.a = out.color.a * u_material.opacity;
+            apply_clipping_planes(in.world_pos);
             return out;
         }
         """

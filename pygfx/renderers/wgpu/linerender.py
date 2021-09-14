@@ -132,6 +132,7 @@ class LineShader(BaseShader):
         return (
             self.get_definitions()
             + self.more_definitions()
+            + self.common_functions()
             + self.helpers()
             + self.vertex_shader()
             + self.fragment_shader()
@@ -150,7 +151,8 @@ class LineShader(BaseShader):
             [[location(1)]] vec_from_node_p: vec2<f32>;
             [[location(2)]] color: vec4<f32>;
             [[location(3)]] vertex_idx: vec2<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[location(4)]] world_pos: vec3<f32>;
+            [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
         struct VertexFuncOutput {
@@ -225,7 +227,8 @@ class LineShader(BaseShader):
             let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_line_width, l2p);
 
             var out: VertexOutput;
-            out.pos = result.pos;
+            out.world_pos = ndc_to_world_pos(result.pos);
+            out.ndc_pos = result.pos;
             out.line_width_p = result.line_width_p;
             out.vec_from_node_p = result.vec_from_node_p;
             out.vertex_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
@@ -499,7 +502,7 @@ class LineShader(BaseShader):
             alpha = pow(min(1.0, alpha), 2.0);
 
             // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
-            out.depth = in.pos.z + 0.0001 * (0.8 - min(0.8, alpha));
+            out.depth = in.ndc_pos.z + 0.0001 * (0.8 - min(0.8, alpha));
 
             // Set color
             let color = in.color;
@@ -511,6 +514,7 @@ class LineShader(BaseShader):
             out.pick = vec4<i32>(u_wobject.id, 0, vi, i32((vf - f32(vi)) * 1048576.0));
 
             out.color.a = out.color.a * u_material.opacity;
+            apply_clipping_planes(in.world_pos);
             return out;
         }
         """
