@@ -135,6 +135,14 @@ def mesh_renderer(wobject, render_info):
         bindings1[6] = "buffer/read_only_storage", wobject.matrices
         n_instances = wobject.matrices.nitems
 
+    # Determine culling
+    if material.side == "FRONT":
+        cull_mode = wgpu.CullMode.back
+    elif material.side == "BACK":
+        cull_mode = wgpu.CullMode.front
+    else:  # material.side == "BOTH"
+        cull_mode = wgpu.CullMode.none
+
     # Put it together!
     wgsl = shader.generate_wgsl()
     return [
@@ -142,6 +150,8 @@ def mesh_renderer(wobject, render_info):
             "vertex_shader": (wgsl, vs_entry_point),
             "fragment_shader": (wgsl, fs_entry_point),
             "primitive_topology": topology,
+            "front_face": getattr(wgpu.FrontFace, material.winding.lower()),
+            "cull_mode": cull_mode,
             "indices": (range(n), range(n_instances)),
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,

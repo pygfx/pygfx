@@ -816,8 +816,8 @@ class WgpuRenderer(Renderer):
             primitive={
                 "topology": pipeline_info["primitive_topology"],
                 "strip_index_format": strip_index_format,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": wgpu.CullMode.none,
+                "front_face": pipeline_info.get("front_face", wgpu.FrontFace.ccw),
+                "cull_mode": pipeline_info.get("cull_mode", wgpu.CullMode.none),
             },
             depth_stencil={
                 "format": self._depth_texture.format,

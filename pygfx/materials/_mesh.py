@@ -13,12 +13,22 @@ class MeshBasicMaterial(Material):
         opacity=("float32",),
     )
 
-    def __init__(self, color=(1, 1, 1, 1), clim=(0, 1), map=None, **kwargs):
+    def __init__(
+        self,
+        color=(1, 1, 1, 1),
+        clim=(0, 1),
+        map=None,
+        side="BOTH",
+        winding="CCW",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
         self.color = color
         self.clim = clim
         self.map = map
+        self.side = side
+        self.winding = winding
 
     def _wgpu_get_pick_info(self, pick_value):
         inst = pick_value[1]
@@ -58,6 +68,41 @@ class MeshBasicMaterial(Material):
     def clim(self, clim):
         self.uniform_buffer.data["clim"] = clim
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def winding(self):
+        """The winding determines what is the front-facing side of a
+        triangle. Possible values are "CW" and "CCW", meaning clock-wise
+        and counter-clock-wise, respectively. By default this is CCW
+        like in e.g. ThreeJS.
+        """
+        return self._winding
+
+    @winding.setter
+    def winding(self, value):
+        winding = str(value).upper()
+        if winding in ("CW", "CCW"):
+            self._winding = winding
+        else:
+            raise ValueError(f"Unexpected winding: '{value}'")
+        self._bump_rev()
+
+    @property
+    def side(self):
+        """Defines which side of faces will be rendered - front, back
+        or both. By default this is both. Setting to front or back will
+        not render faces from that side, a feature also known as culling.
+        """
+        return self._side
+
+    @side.setter
+    def side(self, value):
+        side = str(value).upper()
+        if side in ("FRONT", "BACK", "BOTH"):
+            self._side = side
+        else:
+            raise ValueError(f"Unexpected side: '{value}'")
+        self._bump_rev()
 
 
 class MeshNormalMaterial(MeshBasicMaterial):
