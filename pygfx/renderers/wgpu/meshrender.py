@@ -5,9 +5,10 @@ from ._shadercomposer import BaseShader
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
+    MeshPhongMaterial,
+    MeshFlatMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
-    MeshPhongMaterial,
     MeshSliceMaterial,
 )
 from ...resources import Buffer, Texture, TextureView
@@ -121,6 +122,8 @@ def mesh_renderer(wobject, render_info):
         shader["texture_dim"] = ""  # disable texture if there happens to be one
         index_buffer = None
         n = geometry.positions.nitems * 2
+    elif isinstance(material, MeshFlatMaterial):
+        shader["lighting"] = "flat"
     elif isinstance(material, MeshPhongMaterial):
         shader["lighting"] = "phong"
     else:
@@ -475,7 +478,7 @@ class MeshShader(BaseShader):
             // Ambient
             let ambient_color = light_color * ambient_factor;
 
-            // Diffuse (blinn-phong light model)
+            // Diffuse (blinn-phong reflection model)
             let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
             let diffuse_color = diffuse_factor * light_color * lambert_term;
 
@@ -486,6 +489,29 @@ class MeshShader(BaseShader):
 
             // Put together
             return albeido * (ambient_color + diffuse_color) + specular_color;
+        }
+
+        fn lighting_flat(
+            is_front: bool,
+            world_pos: vec3<f32>,
+            normal: vec3<f32>,
+            light: vec3<f32>,
+            view: vec3<f32>,
+            albeido: vec3<f32>,
+        ) -> vec3<f32> {
+
+            let u = dpdx(world_pos);
+            let v = dpdy(world_pos);
+            var normal = normalize(cross(u, v));
+
+            // The normal calculated above may not be oriented correctly.
+            // We have two flags: is_front and u_stdinfo.flipped_winding.
+            // Note that lighting_phong() also applies the is_front flag.
+            // Below code means: flip the normal if the XOR of these two flags is true.
+            normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
+
+            // The rest is the same as phong
+            return lighting_phong(is_front, world_pos, normal, light, view, albeido);
         }
 
         """
