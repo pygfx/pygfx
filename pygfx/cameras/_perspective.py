@@ -32,6 +32,11 @@ class PerspectiveCamera(Camera):
     def __repr__(self) -> str:
         return f"PerspectiveCamera({self.fov}, {self.aspect}, {self.near}, {self.far})"
 
+    @property
+    def flips_winding(self):
+        flips = int(self.scale.x < 0) + int(self.scale.y < 0) + int(self.scale.z < 0)
+        return bool(flips % 2)
+
     def set_view_size(self, width, height):
         self._view_aspect = width / height
 

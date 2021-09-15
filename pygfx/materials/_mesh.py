@@ -13,12 +13,20 @@ class MeshBasicMaterial(Material):
         opacity=("float32",),
     )
 
-    def __init__(self, color=(1, 1, 1, 1), clim=(0, 1), map=None, **kwargs):
+    def __init__(
+        self,
+        color=(1, 1, 1, 1),
+        clim=(0, 1),
+        map=None,
+        side="BOTH",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
         self.color = color
         self.clim = clim
         self.map = map
+        self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
         inst = pick_value[1]
@@ -59,6 +67,27 @@ class MeshBasicMaterial(Material):
         self.uniform_buffer.data["clim"] = clim
         self.uniform_buffer.update_range(0, 1)
 
+    @property
+    def side(self):
+        """Defines which side of faces will be rendered - front, back
+        or both. By default this is "both". Setting to "front" or "back" will
+        not render faces from that side, a feature also known as culling.
+
+        Which side of the mesh is the front is determined by the winding of the faces.
+        Counter-clockwise (CCW) winding is assumed. If this is not the case,
+        adjust your geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
+        """
+        return self._side
+
+    @side.setter
+    def side(self, value):
+        side = str(value).upper()
+        if side in ("FRONT", "BACK", "BOTH"):
+            self._side = side
+        else:
+            raise ValueError(f"Unexpected side: '{value}'")
+        self._bump_rev()
+
 
 class MeshNormalMaterial(MeshBasicMaterial):
     """A material that maps the normal vectors to RGB colors."""
@@ -73,6 +102,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
 # todo: MeshLambertMaterial(MeshBasicMaterial):
 # A material for non-shiny surfaces, without specular highlights.
+# Other than for completeness or something, I don't see a need for this, TBH.
 
 
 class MeshPhongMaterial(MeshBasicMaterial):

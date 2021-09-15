@@ -135,6 +135,14 @@ def mesh_renderer(wobject, render_info):
         bindings1[6] = "buffer/read_only_storage", wobject.matrices
         n_instances = wobject.matrices.nitems
 
+    # Determine culling
+    if material.side == "FRONT":
+        cull_mode = wgpu.CullMode.back
+    elif material.side == "BACK":
+        cull_mode = wgpu.CullMode.front
+    else:  # material.side == "BOTH"
+        cull_mode = wgpu.CullMode.none
+
     # Put it together!
     wgsl = shader.generate_wgsl()
     return [
@@ -142,6 +150,7 @@ def mesh_renderer(wobject, render_info):
             "vertex_shader": (wgsl, vs_entry_point),
             "fragment_shader": (wgsl, fs_entry_point),
             "primitive_topology": topology,
+            "cull_mode": cull_mode,
             "indices": (range(n), range(n_instances)),
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
@@ -236,7 +245,13 @@ class MeshShader(BaseShader):
             // Select what face we're at
             let index = i32(in.index);
             let face_index = index / 3;
-            let sub_index = index % 3;
+            var sub_index = index % 3;
+
+            // If the camera flips a dimension, it flips the face winding.
+            // We can correct for this by adjusting the order (sub_index) here.
+            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
+
+            // Sample
             let i1 = s_indices.data[face_index * 3 + 0];
             let i2 = s_indices.data[face_index * 3 + 1];
             let i3 = s_indices.data[face_index * 3 + 2];
@@ -338,7 +353,7 @@ class MeshShader(BaseShader):
         return """
 
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
+        fn fs_main(in: VertexOutput, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
             var out: FragmentOutput;
             var color_value: vec4<f32>;
 
@@ -383,7 +398,7 @@ class MeshShader(BaseShader):
             $$ endif
 
             // Lighting
-            let lit_color = lighting_{{ lighting }}(in.normal, in.light, in.view, albeido);
+            let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
             out.color = vec4<f32>(lit_color, color_value.a);
 
             // Picking
@@ -421,6 +436,8 @@ class MeshShader(BaseShader):
         return """
 
         fn lighting_plain(
+            is_front: bool,
+            world_pos: vec3<f32>,
             normal: vec3<f32>,
             light: vec3<f32>,
             view: vec3<f32>,
@@ -430,6 +447,8 @@ class MeshShader(BaseShader):
         }
 
         fn lighting_phong(
+            is_front: bool,
+            world_pos: vec3<f32>,
             normal: vec3<f32>,
             light: vec3<f32>,
             view: vec3<f32>,
@@ -449,10 +468,9 @@ class MeshShader(BaseShader):
             let view = normalize(view);
             let light = normalize(light);
 
-            // view vec is set via ndc_to_world
             // Maybe flip the normal - otherwise backfacing faces are not lit
-            //normal = select(normal, -normal, dot(view, normal) >= 0.0);
-            normal = faceForward(normal, -normal, view);
+            // See pygfx/issues/#105 for details
+            normal = select(normal, -normal, is_front);
 
             // Ambient
             let ambient_color = light_color * ambient_factor;
