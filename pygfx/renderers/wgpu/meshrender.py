@@ -246,7 +246,13 @@ class MeshShader(BaseShader):
             // Select what face we're at
             let index = i32(in.index);
             let face_index = index / 3;
-            let sub_index = index % 3;
+            var sub_index = index % 3;
+
+            // If the camera flips a dimension, it reverses the face winding.
+            // We can correct for this by changing the winding (sub_index) here.
+            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flip_winding > 0);
+
+            // Sample
             let i1 = s_indices.data[face_index * 3 + 0];
             let i2 = s_indices.data[face_index * 3 + 1];
             let i3 = s_indices.data[face_index * 3 + 2];

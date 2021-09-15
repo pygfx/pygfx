@@ -34,6 +34,12 @@ class OrthographicCamera(Camera):
             f"OrthographicCamera({self.width}, {self.height}, {self.near}, {self.far})"
         )
 
+    @property
+    def flips_winding(self):
+        # This assumes not flips in the projection part (no negative with or height)
+        flips = int(self.scale.x < 0) + int(self.scale.y < 0) + int(self.scale.z < 0)
+        return bool(flips % 2)
+
     def set_view_size(self, width, height):
         self._view_aspect = width / height
         # The reference view plane is scaled with the zoom factor

@@ -57,7 +57,7 @@ for obj in obj1, obj2, obj3, obj4:
     scene.add(obj)
 
 camera = gfx.OrthographicCamera(6, 8)
-
+camera.scale.z *= -1
 
 if __name__ == "__main__":
     print(__doc__)
