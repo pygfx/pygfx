@@ -42,6 +42,7 @@ scene.add(obj1, obj2)
 
 camera = gfx.OrthographicCamera(6, 4)
 
+
 def animate():
     # Render top row
     camera.scale.z = 1
@@ -52,6 +53,7 @@ def animate():
     # take this effect into account in the mesh shader.
     camera.scale.z = -1
     renderer.render(scene, camera, viewport=(0, 300, 600, 300))
+
 
 if __name__ == "__main__":
     print(__doc__)
