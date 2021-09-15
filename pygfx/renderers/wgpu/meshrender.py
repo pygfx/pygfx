@@ -459,12 +459,12 @@ class MeshShader(BaseShader):
         ) -> vec3<f32> {
             let light_color = vec3<f32>(1.0, 1.0, 1.0);
 
-            // Parameters
+            // Light parameters
             // todo: allow configuring material specularity
             let ambient_factor = 0.1;
             let diffuse_factor = 0.7;
             let specular_factor = 0.3;
-            let shininess = 16.0;
+            let shininess = u_material.shininess;
 
             // Base vectors
             var normal: vec3<f32> = normalize(normal);
@@ -484,7 +484,8 @@ class MeshShader(BaseShader):
 
             // Specular
             let halfway = normalize(light + view);  // halfway vector
-            let specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
+            var specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
+            specular_term = select(0.0, specular_term, shininess > 0.0);
             let specular_color = specular_factor * specular_term * light_color;
 
             // Put together

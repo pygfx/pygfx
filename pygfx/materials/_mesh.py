@@ -60,7 +60,8 @@ class MeshBasicMaterial(Material):
     @property
     def clim(self):
         """The contrast limits to apply to the map. Default (0, 1)"""
-        return self.uniform_buffer.data["clim"]
+        v1, v2 = self.uniform_buffer.data["clim"]
+        return float(v1), float(v2)
 
     @clim.setter
     def clim(self, clim):
@@ -87,6 +88,9 @@ class MeshBasicMaterial(Material):
         else:
             raise ValueError(f"Unexpected side: '{value}'")
         self._bump_rev()
+
+
+# todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
@@ -123,6 +127,30 @@ class MeshPhongMaterial(MeshBasicMaterial):
     # This is what you get if the geometry has indices that do not share
     # vertices. But we can also obtain it by calculating the face normal
     # using derivatives of the world pos.
+
+    uniform_type = dict(
+        color=("float32", 4),
+        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
+        clim=("float32", 2),
+        opacity=("float32",),
+        shininess=("float32",),
+    )
+
+    def __init__(self, shininess=30, **kwargs):
+        super().__init__(**kwargs)
+        self.shininess = shininess
+
+    @property
+    def shininess(self):
+        """How shiny the specular highlight is; a higher value gives a sharper highlight.
+        Default is 30.
+        """
+        return float(self.uniform_buffer.data["shininess"])
+
+    @shininess.setter
+    def shininess(self, value):
+        self.uniform_buffer.data["shininess"] = value
+        self.uniform_buffer.update_range(0, 1)
 
 
 class MeshFlatMaterial(MeshPhongMaterial):
