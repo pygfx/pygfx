@@ -118,6 +118,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
 # todo: MeshLambertMaterial(MeshBasicMaterial):
 # A material for non-shiny surfaces, without specular highlights.
+# Other than for completeness or something, I don't see a need for this, TBH.
 
 
 class MeshPhongMaterial(MeshBasicMaterial):

@@ -348,7 +348,7 @@ class MeshShader(BaseShader):
         return """
 
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
+        fn fs_main(in: VertexOutput, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
             var out: FragmentOutput;
             var color_value: vec4<f32>;
 
@@ -393,7 +393,7 @@ class MeshShader(BaseShader):
             $$ endif
 
             // Lighting
-            let lit_color = lighting_{{ lighting }}(in.normal, in.light, in.view, albeido);
+            let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
             out.color = vec4<f32>(lit_color, color_value.a);
 
             // Picking
@@ -431,6 +431,8 @@ class MeshShader(BaseShader):
         return """
 
         fn lighting_plain(
+            is_front: bool,
+            world_pos: vec3<f32>,
             normal: vec3<f32>,
             light: vec3<f32>,
             view: vec3<f32>,
@@ -440,6 +442,8 @@ class MeshShader(BaseShader):
         }
 
         fn lighting_phong(
+            is_front: bool,
+            world_pos: vec3<f32>,
             normal: vec3<f32>,
             light: vec3<f32>,
             view: vec3<f32>,
@@ -459,10 +463,9 @@ class MeshShader(BaseShader):
             let view = normalize(view);
             let light = normalize(light);
 
-            // view vec is set via ndc_to_world
             // Maybe flip the normal - otherwise backfacing faces are not lit
-            //normal = select(normal, -normal, dot(view, normal) >= 0.0);
-            normal = faceForward(normal, -normal, view);
+            // See pygfx/issues/#105 for details
+            normal = select(normal, -normal, is_front);
 
             // Ambient
             let ambient_color = light_color * ambient_factor;
