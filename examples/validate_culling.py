@@ -1,66 +1,59 @@
 """
 Example test to validate winding and culling.
 
-* The red knot should look normal and well lit.
-* The green know should show the backfaces, well lit.
-* The purple and cyan knots are not lit.
+* The top red knot should look normal and well lit.
+* The top green know should show the backfaces, well lit.
+* The bottom row shows the same, but the camera looks backwards.
 
 """
 
+import numpy as np
 import pygfx as gfx
-
 from PyQt5 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 
 app = QtWidgets.QApplication([])
 
-canvas = WgpuCanvas()
+canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 # geometry = gfx.BoxGeometry(1, 1, 1)
 geometry = gfx.TorusKnotGeometry(1, 0.3, 64, 10)
 
-# Top left
+# Create red know shown normally
 material1 = gfx.MeshPhongMaterial(color=(1, 0, 0, 1))
 obj1 = gfx.Mesh(geometry, material1)
-obj1.position.set(-2, +2, 0)
-obj1.material.winding = "CCW"
+obj1.position.set(-2, 0, 0)
 obj1.material.side = "FRONT"
 
-# Top right
+# Create a green knot for which we show the back
 material2 = gfx.MeshPhongMaterial(color=(0, 1, 0, 1))
 obj2 = gfx.Mesh(geometry, material2)
-obj2.position.set(+2, +2, 0)
-obj2.material.winding = "CCW"
+obj2.position.set(+2, 0, 0)
 obj2.material.side = "BACK"
-
-# Bottom left
-material3 = gfx.MeshPhongMaterial(color=(1, 0, 1, 1))
-obj3 = gfx.Mesh(geometry, material3)
-obj3.position.set(-2, -2, 0)
-obj3.material.winding = "CW"
-obj3.material.side = "FRONT"
-
-# Bottom right
-material4 = gfx.MeshPhongMaterial(color=(0, 1, 1, 1))
-obj4 = gfx.Mesh(geometry, material4)
-obj4.position.set(+2, -2, 0)
-obj4.material.winding = "CW"
-obj4.material.side = "BACK"
 
 # Rotate all of them and add to scene
 rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 1))
-for obj in obj1, obj2, obj3, obj4:
-    obj.rotation.multiply(rot)
-    scene.add(obj)
+obj1.rotation.multiply(rot)
+obj2.rotation.multiply(rot)
+scene.add(obj1, obj2)
 
-camera = gfx.OrthographicCamera(6, 8)
-camera.scale.z *= -1
+camera = gfx.OrthographicCamera(6, 4)
+
+def animate():
+    # Render top row
+    camera.scale.z = 1
+    renderer.render(scene, camera, viewport=(0, 0, 600, 300), flush=False)
+    # Render same scene in bottom row. The camera's z scale is negative.
+    # This means it looks backwards, but more importantly, it means that the
+    # winding is affected. The result should still look correct because we
+    # take this effect into account in the mesh shader.
+    camera.scale.z = -1
+    renderer.render(scene, camera, viewport=(0, 300, 600, 300))
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
-    # canvas.request_draw(animate)
+    canvas.request_draw(animate)
     app.exec_()

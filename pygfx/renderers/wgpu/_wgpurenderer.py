@@ -25,7 +25,7 @@ stdinfo_uniform_type = dict(
     projection_transform_inv=("float32", (4, 4)),
     physical_size=("float32", 2),
     logical_size=("float32", 2),
-    flip_winding=("int32", 1),
+    flipped_winding=("int32", 1),  # A bool, really
 )
 
 
@@ -509,7 +509,7 @@ class WgpuRenderer(Renderer):
         # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
-        stdinfo_data["flip_winding"] = camera.flips_winding
+        stdinfo_data["flipped_winding"] = camera.flips_winding
         # Upload to GPU
         self._shared.stdinfo_buffer.update_range(0, 1)
         self._update_buffer(self._shared.stdinfo_buffer)
@@ -818,7 +818,7 @@ class WgpuRenderer(Renderer):
             primitive={
                 "topology": pipeline_info["primitive_topology"],
                 "strip_index_format": strip_index_format,
-                "front_face": pipeline_info.get("front_face", wgpu.FrontFace.ccw),
+                "front_face": wgpu.FrontFace.ccw,
                 "cull_mode": pipeline_info.get("cull_mode", wgpu.CullMode.none),
             },
             depth_stencil={

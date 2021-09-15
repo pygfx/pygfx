@@ -150,7 +150,6 @@ def mesh_renderer(wobject, render_info):
             "vertex_shader": (wgsl, vs_entry_point),
             "fragment_shader": (wgsl, fs_entry_point),
             "primitive_topology": topology,
-            "front_face": getattr(wgpu.FrontFace, material.winding.lower()),
             "cull_mode": cull_mode,
             "indices": (range(n), range(n_instances)),
             "index_buffer": index_buffer,
@@ -248,9 +247,9 @@ class MeshShader(BaseShader):
             let face_index = index / 3;
             var sub_index = index % 3;
 
-            // If the camera flips a dimension, it reverses the face winding.
-            // We can correct for this by changing the winding (sub_index) here.
-            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flip_winding > 0);
+            // If the camera flips a dimension, it flips the face winding.
+            // We can correct for this by adjusting the order (sub_index) here.
+            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
 
             // Sample
             let i1 = s_indices.data[face_index * 3 + 0];
