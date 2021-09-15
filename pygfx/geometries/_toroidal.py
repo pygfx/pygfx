@@ -170,7 +170,7 @@ class TorusKnotGeometry(Geometry):
         # Create indices
         # Two triangles onto the "top-left" rectangle (six vertices)
         indices = np.array(
-            [0, radial_verts, radial_verts + 1, radial_verts + 1, 1, 0],
+            [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1],
             np.int32,
         )
         # Replicate to all rectangles, add offsets
@@ -183,7 +183,8 @@ class TorusKnotGeometry(Geometry):
         if stitch:
             indices[-1, :, 1:4] -= radial_verts * tubular_verts
             indices[:, -1, 2:5] -= radial_verts
-        indices = indices.reshape(-1)
+        indices = indices.reshape(-1, 3)
+        # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
 
         # Create buffers for this geometry
         self.positions = Buffer(positions, usage="vertex|storage")
