@@ -25,7 +25,7 @@ stdinfo_uniform_type = dict(
     projection_transform_inv=("float32", (4, 4)),
     physical_size=("float32", 2),
     logical_size=("float32", 2),
-    flipped_winding=("int32", 1),  # A bool, really
+    flipped_winding=("int32",),  # A bool, really
 )
 
 

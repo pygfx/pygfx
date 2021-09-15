@@ -3,9 +3,10 @@
 from ._base import Material
 from ._mesh import (
     MeshBasicMaterial,
+    MeshPhongMaterial,
+    MeshFlatMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
-    MeshPhongMaterial,
     MeshSliceMaterial,
 )
 from ._points import PointsMaterial, GaussianPointsMaterial

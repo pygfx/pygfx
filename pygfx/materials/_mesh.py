@@ -89,29 +89,47 @@ class MeshBasicMaterial(Material):
         self._bump_rev()
 
 
-class MeshNormalMaterial(MeshBasicMaterial):
-    """A material that maps the normal vectors to RGB colors."""
-
-
-class MeshNormalLinesMaterial(MeshBasicMaterial):
-    """A material that shows surface normals as lines sticking out of the mesh."""
-
-    def _wgpu_get_pick_info(self, pick_value):
-        return {}  # No picking for normal lines
-
-
-# todo: MeshLambertMaterial(MeshBasicMaterial):
-# A material for non-shiny surfaces, without specular highlights.
-# Other than for completeness or something, I don't see a need for this, TBH.
-
-
 class MeshPhongMaterial(MeshBasicMaterial):
-    """A material for shiny surfaces with specular highlights.
+    """A material affected by light, diffuse and with specular
+    highlights. This material uses the Blinn-Phong reflectance model.
+    If the specular color is turned off, Lambertian shading is obtained.
+    """
 
-    The material uses a non-physically based Blinn-Phong model for
-    calculating reflectance. Unlike the Lambertian model used in the
-    MeshLambertMaterial this can simulate shiny surfaces with specular
-    highlights (such as varnished wood).
+    # For reference:
+    #
+    # Lambertion shading, or Lambertian reflection, is a model to
+    # calculate the diffuse component of a lit surface. Using this by
+    # itself produces a matte look. All the below use a Lambertion term.
+    #
+    # Gouraud shading means doing the light-math in the vertex shader
+    # and interpolating the final color over the face, often resulting
+    # in a somewhat "interpolated" look. Back in the day this mattered
+    # for performance, but it's silly now.
+    #
+    # Phong shading means interpolating the normals and doing the
+    # light-math for each fragment.
+    #
+    # The Phong reflection model refers to the combination of ambient,
+    # diffuse and specular lights, and the way that these are
+    # calculated.
+    #
+    # The Blinn-Phong reflection model, also called the modified Phong
+    # reflection model, is a tweak to how the reflection is calculated,
+    # using a halfway factor, that was intended mostly as a performance
+    # optimization, but apparently is a more accurate approximation of
+    # how light behaves, or so they say.
+    #
+    # Flat shading refers to using the same color for the whole face.
+    # This is what you get if the geometry has indices that do not share
+    # vertices. But we can also obtain it by calculating the face normal
+    # using derivatives of the world pos.
+
+
+class MeshFlatMaterial(MeshPhongMaterial):
+    """A material that applies lighting per-face (non-interpolated).
+    This gives a "pixelated" look, but can also be usefull if one wants
+    to show the (size of) the triangle faces. The shading and
+    reflectance model is the same as for ``MeshPhongMaterial``.
     """
 
 
@@ -121,6 +139,17 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
 # todo: MeshToonMaterial(MeshBasicMaterial):
 # A cartoon-style mesh material.
+
+
+class MeshNormalMaterial(MeshBasicMaterial):
+    """A material that maps the normal vectors to RGB colors."""
+
+
+class MeshNormalLinesMaterial(MeshBasicMaterial):
+    """A material that shows surface normals as lines sticking out of the mesh."""
+
+    def _wgpu_get_pick_info(self, pick_value):
+        return {}  # No picking for normal lines
 
 
 class MeshSliceMaterial(MeshBasicMaterial):
