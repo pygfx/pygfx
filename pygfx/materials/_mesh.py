@@ -137,7 +137,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         shininess=("float32",),
     )
 
-    def __init__(self, shininess=30, emissive=(0,0,0,0), **kwargs):
+    def __init__(self, shininess=30, emissive=(0, 0, 0, 0), **kwargs):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.shininess = shininess
