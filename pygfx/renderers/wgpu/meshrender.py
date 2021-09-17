@@ -24,7 +24,8 @@ def mesh_renderer(wobject, render_info):
     # Initialize
     topology = wgpu.PrimitiveTopology.triangle_list
     shader = MeshShader(
-        lighting="plain",
+        lighting="",
+        need_normals=False,
         texture_dim="",
         texture_format="f32",
         instanced=False,
@@ -116,6 +117,7 @@ def mesh_renderer(wobject, render_info):
         # Special simple fragment shader
         fs_entry_point = "fs_normal_color"
         shader["texture_dim"] = ""  # disable texture if there happens to be one
+        shader["need_normals"] = True
     elif isinstance(material, MeshNormalLinesMaterial):
         # Special simple vertex shader with plain fragment shader
         topology = wgpu.PrimitiveTopology.line_list
@@ -123,10 +125,13 @@ def mesh_renderer(wobject, render_info):
         shader["texture_dim"] = ""  # disable texture if there happens to be one
         index_buffer = None
         n = geometry.positions.nitems * 2
+        shader["need_normals"] = True
     elif isinstance(material, MeshFlatMaterial):
         shader["lighting"] = "flat"
+        shader["need_normals"] = True
     elif isinstance(material, MeshPhongMaterial):
         shader["lighting"] = "phong"
+        shader["need_normals"] = True
     else:
         pass  # simple lighting
 
@@ -289,11 +294,6 @@ class MeshShader(BaseShader):
                 ndc_pos.z = ndc_pos.z + depth_offset;
             $$ endif
 
-            // Get normal
-            let raw_normal = vec3<f32>(s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]);
-            let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
-            let world_normal = normalize(world_pos_n - world_pos).xyz;
-
             // Prepare output
             var out: VertexOutput;
 
@@ -310,11 +310,20 @@ class MeshShader(BaseShader):
             out.texcoord = vec3<f32>(s_texcoord.data[i0 * 3 + 0], s_texcoord.data[i0 * 3 + 1], s_texcoord.data[i0 * 3 + 2]);
             $$ endif
 
+            // Set the normal
+            $$ if need_normals
+                let raw_normal = vec3<f32>(s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]);
+                let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
+                let world_normal = normalize(world_pos_n - world_pos).xyz;
+                out.normal = world_normal;
+            $$ endif
+
             // Vectors for lighting, all in world coordinates
-            let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
-            out.view = view_vec;
-            out.light = view_vec;
-            out.normal = world_normal;
+            $$ if lighting
+                let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
+                out.view = view_vec;
+                out.light = view_vec;
+            $$ endif
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
@@ -431,7 +440,13 @@ class MeshShader(BaseShader):
             $$ endif
 
             // Lighting
-            let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
+            $$ if lighting
+                let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
+            $$ else
+                let lit_color = albeido;
+            $$ endif
+
+            // Final color
             out.color = vec4<f32>(lit_color, color_value.a);
 
             // Picking
@@ -474,18 +489,7 @@ class MeshShader(BaseShader):
     def helpers(self):
         return """
 
-        fn lighting_plain(
-            is_front: bool,
-            world_pos: vec3<f32>,
-            normal: vec3<f32>,
-            light: vec3<f32>,
-            view: vec3<f32>,
-            albeido: vec3<f32>,
-        ) -> vec3<f32> {
-            return albeido;
-        }
-
-        $$ if lighting != "plain"
+        $$ if lighting
         fn lighting_phong(
             is_front: bool,
             world_pos: vec3<f32>,
