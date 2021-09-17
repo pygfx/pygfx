@@ -11,6 +11,7 @@ class MeshBasicMaterial(Material):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
         clim=("float32", 2),
         opacity=("float32",),
+        wireframe=("float32",),
     )
 
     def __init__(
@@ -18,6 +19,7 @@ class MeshBasicMaterial(Material):
         color=(1, 1, 1, 1),
         clim=(0, 1),
         map=None,
+        wireframe=0,
         side="BOTH",
         **kwargs,
     ):
@@ -26,6 +28,7 @@ class MeshBasicMaterial(Material):
         self.color = color
         self.clim = clim
         self.map = map
+        self.wireframe = wireframe
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -89,6 +92,25 @@ class MeshBasicMaterial(Material):
             raise ValueError(f"Unexpected side: '{value}'")
         self._bump_rev()
 
+    @property
+    def wireframe(self):
+        """Render geometry as a wireframe with the given thickness.
+        Default is 0 (i.e. render as polygons).
+        """
+        return float(self.uniform_buffer.data["wireframe"])
+
+    @wireframe.setter
+    def wireframe(self, value):
+        value = float(value)
+        was_non_zero = self.uniform_buffer.data["wireframe"] > 0
+        is_non_zero = value > 0
+        # Set uniform
+        self.uniform_buffer.data["wireframe"] = value
+        self.uniform_buffer.update_range(0, 1)
+        # Trigger a pipleine rebuild if the mode changes
+        if was_non_zero != is_non_zero:
+            self._bump_rev()
+
 
 # todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.
 
@@ -134,6 +156,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
         clim=("float32", 2),
         opacity=("float32",),
+        wireframe=("float32",),
         shininess=("float32",),
     )
 
@@ -205,6 +228,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
         clim=("float32", 2),
         thickness=("float32",),
         opacity=("float32",),
+        wireframe=("float32",),  # Not used, but must be defined
     )
 
     def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):

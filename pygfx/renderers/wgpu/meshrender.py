@@ -29,6 +29,7 @@ def mesh_renderer(wobject, render_info):
         texture_format="f32",
         instanced=False,
         climcorrection=None,
+        wireframe=material.wireframe,
     )
     vs_entry_point = "vs_main"
     fs_entry_point = "fs_main"
@@ -191,6 +192,9 @@ class MeshShader(BaseShader):
             [[location(4)]] face_idx: vec4<f32>;
             [[location(5)]] face_coords: vec3<f32>;
             [[location(6)]] world_pos: vec3<f32>;
+            $$ if wireframe
+            [[location(7)]] wireframe_coords: vec3<f32>;
+            $$ endif
             [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
@@ -261,30 +265,43 @@ class MeshShader(BaseShader):
             var arr_i0 = array<i32, 3>(i1, i2, i3);
             let i0 = arr_i0[sub_index];
 
-            // Vertex positions of this face, in local object coordinates
-            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
-            let raw_normal = vec3<f32>(s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]);
+            // Get world transform
             $$ if instanced
                 let submatrix: mat4x4<f32> = s_submatrices.data[in.instance_index];
-                let world_pos = u_wobject.world_transform * submatrix * vec4<f32>(raw_pos, 1.0);
-                let world_pos_n = u_wobject.world_transform * submatrix * vec4<f32>(raw_pos + raw_normal, 1.0);
+                let world_transform = u_wobject.world_transform * submatrix;
             $$ else
-                let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-                let world_pos_n = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
+                let world_transform = u_wobject.world_transform;
             $$ endif
-            let world_normal = normalize(world_pos_n - world_pos).xyz;
-            let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-            //let ndc_to_world = matrix_inverse(u_stdinfo.cam_transform * u_stdinfo.projection_transform);
-            //let ndc_to_world = u_stdinfo.ndc_to_world;
-            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+            // Get vertex position
+            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
+            let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
+            var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+
+            // For the wireframe we also need the ndc_pos of the other vertices of this face
+            $$ if wireframe
+                $$ for i in (1, 2, 3)
+                    let raw_pos{{ i }} = vec3<f32>(s_pos.data[i{{ i }} * 3 + 0], s_pos.data[i{{ i }} * 3 + 1], s_pos.data[i{{ i }} * 3 + 2]);
+                    let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
+                    let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
+                $$ endfor
+                let depth_offset = -0.0001;  // to put the mesh slice atop a mesh
+                ndc_pos.z = ndc_pos.z + depth_offset;
+            $$ endif
+
+            // Get normal
+            let raw_normal = vec3<f32>(s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]);
+            let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
+            let world_normal = normalize(world_pos_n - world_pos).xyz;
 
             // Prepare output
             var out: VertexOutput;
 
-            // Set position and texcoords
+            // Set position
             out.world_pos =world_pos.xyz / world_pos.w;
             out.ndc_pos = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
+
+            // Set texture coords
             $$ if texture_dim == '1d'
             out.texcoord =vec3<f32>(s_texcoord.data[i0], 0.0, 0.0);
             $$ elif texture_dim == '2d'
@@ -294,11 +311,24 @@ class MeshShader(BaseShader):
             $$ endif
 
             // Vectors for lighting, all in world coordinates
-            let view_vec4 = ndc_to_world * vec4<f32>(0.0, 0.0, 1.0, 1.0);
-            let view_vec = normalize(view_vec4.xyz / view_vec4.w);
+            let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
             out.view = view_vec;
             out.light = view_vec;
             out.normal = world_normal;
+
+            // Set wireframe barycentric-like coordinates
+            $$ if wireframe
+                $$ for i in (1, 2, 3)
+                    let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
+                $$ endfor
+                let dist1 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
+                let dist2 = abs((p3.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p3.y - p1.y)) / distance(p1, p3);
+                let dist3 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
+                var arr_wireframe_coords = array<vec3<f32>, 3>(
+                    vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
+                );
+                out.wireframe_coords = arr_wireframe_coords[sub_index];  // in logical pixels
+            $$ endif
 
             // Set varyings for picking. We store the face_index, and 3 weights
             // that indicate how close the fragment is to each vertex (barycentric
@@ -402,8 +432,7 @@ class MeshShader(BaseShader):
 
             // Lighting
             let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
-            let emissive_color = u_material.emissive_color.rgb;
-            out.color = vec4<f32>(lit_color + emissive_color, color_value.a);
+            out.color = vec4<f32>(lit_color, color_value.a);
 
             // Picking
             let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
@@ -412,9 +441,15 @@ class MeshShader(BaseShader):
 
             out.color.a = out.color.a * u_material.opacity;
 
+            $$ if wireframe
+                let distance_from_edge = min(in.wireframe_coords.x, min(in.wireframe_coords.y, in.wireframe_coords.z));
+                if (distance_from_edge > 0.5 * u_material.wireframe) {
+                    discard;
+                }
+            $$ endif
+
             apply_clipping_planes(in.world_pos);
             return out;
-
         }
 
 
@@ -450,6 +485,7 @@ class MeshShader(BaseShader):
             return albeido;
         }
 
+        $$ if lighting != "plain"
         fn lighting_phong(
             is_front: bool,
             world_pos: vec3<f32>,
@@ -489,8 +525,11 @@ class MeshShader(BaseShader):
             specular_term = select(0.0, specular_term, shininess > 0.0);
             let specular_color = specular_factor * specular_term * light_color;
 
+            // Emissive color is additive and unaffected by lights
+            let emissive_color = u_material.emissive_color.rgb;
+
             // Put together
-            return albeido * (ambient_color + diffuse_color) + specular_color;
+            return albeido * (ambient_color + diffuse_color) + specular_color + emissive_color;
         }
 
         fn lighting_flat(
@@ -515,6 +554,7 @@ class MeshShader(BaseShader):
             // The rest is the same as phong
             return lighting_phong(is_front, world_pos, normal, light, view, albeido);
         }
+        $$ endif
 
         """
 
