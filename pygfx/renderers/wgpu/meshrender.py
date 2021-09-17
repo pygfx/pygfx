@@ -402,7 +402,8 @@ class MeshShader(BaseShader):
 
             // Lighting
             let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
-            out.color = vec4<f32>(lit_color, color_value.a);
+            let emissive_color = u_material.emissive_color.rgb;
+            out.color = vec4<f32>(lit_color + emissive_color, color_value.a);
 
             // Picking
             let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face

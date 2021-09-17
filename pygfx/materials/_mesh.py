@@ -130,15 +130,30 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     uniform_type = dict(
         color=("float32", 4),
+        emissive_color=("float32", 4),
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
         clim=("float32", 2),
         opacity=("float32",),
         shininess=("float32",),
     )
 
-    def __init__(self, shininess=30, **kwargs):
+    def __init__(self, shininess=30, emissive=(0,0,0,0), **kwargs):
         super().__init__(**kwargs)
+        self.emissive = emissive
         self.shininess = shininess
+
+    @property
+    def emissive(self):
+        """The emissive (light) color of the mesh, as an rgba tuple.
+        This color is added to the final color and is unaffected by lighting.
+        The alpha channel of this color is ignored.
+        """
+        return self.uniform_buffer.data["emissive_color"]
+
+    @emissive.setter
+    def emissive(self, color):
+        self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
 
     @property
     def shininess(self):
