@@ -37,7 +37,7 @@ Visualizations in pygfx are constructed of world objects, grouped together into
 a scene. These define the kinds of object being visualized, and how it should
 be rendered (we get to the details later).
 
-.. code-block:: py
+.. code-block:: python
 
     scene = gfx.Scene()
 
@@ -54,7 +54,7 @@ Opening a window to render to
 Your visualization must end up on the screen somehow. For this, we use the
 canvas abstraction provided by wgpu-py.
 
-.. code-block:: py
+.. code-block:: python
 
     # Create Qt widget that can function as a canvas
     from wgpu.gui.qt import WgpuCanvas
@@ -64,7 +64,7 @@ canvas abstraction provided by wgpu-py.
 We can ask the canvas to schedule a draw event, and tell it what to do
 to perform a draw.
 
-.. code-block:: py
+.. code-block:: python
 
     def animate():
        ...  # we'll get to this
@@ -80,7 +80,7 @@ To render your scene to the canvas, you need a renderer. A renderer
 needs a target to render to (which can be a canvas or a texture).
 And finally, you need a camera to define the point of view to render the scene from.
 
-.. code-block:: py
+.. code-block:: python
 
     # A renderer is associated with a canvas (or a texture) that it renders to
     renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -99,7 +99,7 @@ Putting it together
 
 If you run this, you should see a rotating yellow cube.
 
-.. code-block:: py
+.. code-block:: python
 
     import pygfx as gfx
 
@@ -153,7 +153,7 @@ Using Pygfx in Jupyter
 You can use Pygfx in the Jupyter notebook and Jupyter lab. To do so,
 use the Jupyter canvas provided by WGPU, and use that canvas as the cell output.
 
-.. code-block:: py
+.. code-block:: python
 
     from wgpu.gui.jupyter import WgpuCanvas
 
