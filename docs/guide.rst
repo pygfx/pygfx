@@ -97,7 +97,7 @@ And finally, you need a camera to define the point of view to render the scene f
 Putting it together
 -------------------
 
-If you run this, you should see a rotating yellow cube.
+If you run this, you should see a rotating yellow cube:
 
 .. code-block:: python
 
