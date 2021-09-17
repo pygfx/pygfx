@@ -749,10 +749,11 @@ class MeshSliceShader(BaseShader):
 
                 // Construct the position, also make sure zw scales correctly
                 let pvec = the_vec.x * pvec_local.x * v1 + the_vec.y * pvec_local.y * v2;
-                let zw_range = (npos_b.zw - npos_a.zw) * segment_factor;
+                let z_range = (npos_b.z - npos_a.z) * segment_factor;
                 let the_pos_p = 0.5 * (ppos_a + ppos_b) + pvec;
-                let the_pos_zw = 0.5 * (npos_a.zw + npos_b.zw) + the_vec.x * zw_range * 0.5;
-                the_pos = vec4<f32>(the_pos_p / screen_factor, the_pos_zw);
+                let the_pos_z = 0.5 * (npos_a.z + npos_b.z) + the_vec.x * z_range * 0.5;
+                let depth_offset = -0.0001;  // to put the mesh slice atop a mesh
+                the_pos = vec4<f32>(the_pos_p / screen_factor, the_pos_z + depth_offset, 1.0);
 
                 // Define the local coordinate in physical pixels
                 the_coord = the_vec * pvec_local;
