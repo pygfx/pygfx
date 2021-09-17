@@ -1,4 +1,5 @@
 sphinx
+pygments
 numpy
 wgpu
 jinja2
