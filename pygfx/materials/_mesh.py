@@ -11,6 +11,7 @@ class MeshBasicMaterial(Material):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
         clim=("float32", 2),
         opacity=("float32",),
+        wireframe=("float32",),
     )
 
     def __init__(
@@ -18,6 +19,8 @@ class MeshBasicMaterial(Material):
         color=(1, 1, 1, 1),
         clim=(0, 1),
         map=None,
+        wireframe=False,
+        wireframe_thickness=1,
         side="BOTH",
         **kwargs,
     ):
@@ -26,6 +29,8 @@ class MeshBasicMaterial(Material):
         self.color = color
         self.clim = clim
         self.map = map
+        self.wireframe = wireframe
+        self.wireframe_thickness = wireframe_thickness
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -89,6 +94,42 @@ class MeshBasicMaterial(Material):
             raise ValueError(f"Unexpected side: '{value}'")
         self._bump_rev()
 
+    @property
+    def wireframe(self):
+        """Render geometry as a wireframe. Default is False (i.e. render as polygons)."""
+        return self.uniform_buffer.data["wireframe"] > 0
+
+    @wireframe.setter
+    def wireframe(self, value):
+        is_wiremode = bool(value)
+        was_wiremode = self.uniform_buffer.data["wireframe"] > 0
+        if was_wiremode == is_wiremode:
+            return
+        # Set uniform
+        # We use a trick to make negative values indicate no-wireframe mode
+        thickness = self.wireframe_thickness
+        if is_wiremode:
+            self.uniform_buffer.data["wireframe"] = thickness
+        else:
+            self.uniform_buffer.data["wireframe"] = -thickness
+        # Trigger a pipleine rebuild if the mode changes
+        self.uniform_buffer.update_range(0, 1)
+        self._bump_rev()
+
+    @property
+    def wireframe_thickness(self):
+        """The thickness of the lines when rendering as a wireframe."""
+        return abs(float(self.uniform_buffer.data["wireframe"])) or 1
+
+    @wireframe_thickness.setter
+    def wireframe_thickness(self, value):
+        value = max(0.01, float(value))
+        if self.uniform_buffer.data["wireframe"] > 0:
+            self.uniform_buffer.data["wireframe"] = value
+        else:
+            self.uniform_buffer.data["wireframe"] = -value
+        self.uniform_buffer.update_range(0, 1)
+
 
 # todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.
 
@@ -134,6 +175,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
         clim=("float32", 2),
         opacity=("float32",),
+        wireframe=("float32",),
         shininess=("float32",),
     )
 
@@ -205,6 +247,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
         clim=("float32", 2),
         thickness=("float32",),
         opacity=("float32",),
+        wireframe=("float32",),  # Not used, but must be defined
     )
 
     def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):
