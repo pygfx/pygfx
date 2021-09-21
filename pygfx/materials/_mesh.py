@@ -19,7 +19,8 @@ class MeshBasicMaterial(Material):
         color=(1, 1, 1, 1),
         clim=(0, 1),
         map=None,
-        wireframe=0,
+        wireframe=False,
+        wireframe_thickness=1,
         side="BOTH",
         **kwargs,
     ):
@@ -29,6 +30,7 @@ class MeshBasicMaterial(Material):
         self.clim = clim
         self.map = map
         self.wireframe = wireframe
+        self.wireframe_thickness = wireframe_thickness
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -94,22 +96,39 @@ class MeshBasicMaterial(Material):
 
     @property
     def wireframe(self):
-        """Render geometry as a wireframe with the given thickness.
-        Default is 0 (i.e. render as polygons).
-        """
-        return float(self.uniform_buffer.data["wireframe"])
+        """Render geometry as a wireframe. Default is False (i.e. render as polygons)."""
+        return self.uniform_buffer.data["wireframe"] > 0
 
     @wireframe.setter
     def wireframe(self, value):
-        value = float(value)
-        was_non_zero = self.uniform_buffer.data["wireframe"] > 0
-        is_non_zero = value > 0
+        is_wiremode = bool(value)
+        was_wiremode = self.uniform_buffer.data["wireframe"] > 0
+        if was_wiremode == is_wiremode:
+            return
         # Set uniform
-        self.uniform_buffer.data["wireframe"] = value
-        self.uniform_buffer.update_range(0, 1)
+        # We use a trick to make negative values indicate no-wireframe mode
+        thickness = self.wireframe_thickness
+        if is_wiremode:
+            self.uniform_buffer.data["wireframe"] = thickness
+        else:
+            self.uniform_buffer.data["wireframe"] = -thickness
         # Trigger a pipleine rebuild if the mode changes
-        if was_non_zero != is_non_zero:
-            self._bump_rev()
+        self.uniform_buffer.update_range(0, 1)
+        self._bump_rev()
+
+    @property
+    def wireframe_thickness(self):
+        """The thickness of the lines when rendering as a wireframe."""
+        return abs(float(self.uniform_buffer.data["wireframe"])) or 1
+
+    @wireframe_thickness.setter
+    def wireframe_thickness(self, value):
+        value = max(0.01, float(value))
+        if self.uniform_buffer.data["wireframe"] > 0:
+            self.uniform_buffer.data["wireframe"] = value
+        else:
+            self.uniform_buffer.data["wireframe"] = -value
+        self.uniform_buffer.update_range(0, 1)
 
 
 # todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.

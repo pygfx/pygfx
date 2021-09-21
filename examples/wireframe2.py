@@ -18,11 +18,15 @@ scene = gfx.Scene()
 
 geometry = gfx.TorusKnotGeometry(1, 0.3, 64, 8)
 
-material1 = gfx.MeshBasicMaterial(color=(0.2, 0.2, 0.2, 1.0), wireframe=3, side="back")
+material1 = gfx.MeshBasicMaterial(
+    color=(0.2, 0.2, 0.2, 1.0), wireframe=True, wireframe_thickness=3, side="back"
+)
 obj1 = gfx.Mesh(geometry, material1)
 scene.add(obj1)
 
-material2 = gfx.MeshPhongMaterial(color=(0, 0.8, 0.8, 1), wireframe=3, side="front")
+material2 = gfx.MeshPhongMaterial(
+    color=(0, 0.8, 0.8, 1), wireframe=True, wireframe_thickness=3, side="front"
+)
 obj2 = gfx.Mesh(geometry, material2)
 scene.add(obj2)
 

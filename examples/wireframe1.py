@@ -1,8 +1,11 @@
 """
 Example showing a Torus knot, with a wireframe overlay.
+
+In this case the wireframe is lit while the solid mesh is not,
+producing a look of a metalic frame around a soft tube.
+
 """
 
-import imageio
 import pygfx as gfx
 
 from PyQt5 import QtWidgets
@@ -15,18 +18,15 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:bricks.jpg")
-tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
-
 geometry = gfx.TorusKnotGeometry(1, 0.3, 64, 16)
-geometry.texcoords.data[:, 0] *= 10  # stretch the texture
 
-material1 = gfx.MeshPhongMaterial(map=tex, clim=(10, 240))
+material1 = gfx.MeshBasicMaterial(color=(0.7, 0, 0, 1))
 obj1 = gfx.Mesh(geometry, material1)
 scene.add(obj1)
 
-
-material2 = gfx.MeshBasicMaterial(color=(0, 0.5, 0, 1), wireframe=1.5)
+material2 = gfx.MeshPhongMaterial(
+    color=(0.7, 0.7, 0.8, 1), wireframe=True, wireframe_thickness=1.5
+)
 obj2 = gfx.Mesh(geometry, material2)
 scene.add(obj2)
 
