@@ -184,7 +184,7 @@ class MeshShader(BaseShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] index : u32;
+            [[builtin(vertex_index)]] vertex_index : u32;
             $$ if instanced
             [[builtin(instance_index)]] instance_index : u32;
             $$ endif
@@ -255,7 +255,7 @@ class MeshShader(BaseShader):
         fn vs_main(in: VertexInput) -> VertexOutput {
 
             // Select what face we're at
-            let index = i32(in.index);
+            let index = i32(in.vertex_index);
             let face_index = index / 3;
             var sub_index = index % 3;
 
@@ -365,7 +365,7 @@ class MeshShader(BaseShader):
 
         [[stage(vertex)]]
         fn vs_normal_lines(in: VertexInput) -> VertexOutput {
-            let index = i32(in.index);
+            let index = i32(in.vertex_index);
             let r = index % 2;
             let i0 = (index - r) / 2;
 
@@ -627,7 +627,7 @@ class MeshSliceShader(BaseShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] index : u32;
+            [[builtin(vertex_index)]] vertex_index : u32;
         };
         struct VertexOutput {
             [[location(0)]] dist2center: vec2<f32>;
@@ -679,7 +679,7 @@ class MeshSliceShader(BaseShader):
             let line_width = u_material.thickness;  // in logical pixels
 
             // Get the face index, and sample the vertex indices
-            let index = i32(in.index);
+            let index = i32(in.vertex_index);
             let segment_index = index % 6;
             let face_index = (index - segment_index) / 6;
             let i1 = s_indices.data[face_index * 3 + 0];
