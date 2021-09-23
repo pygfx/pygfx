@@ -70,7 +70,7 @@ class PointsShader(BaseShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] index : u32;
+            [[builtin(vertex_index)]] vertex_index : u32;
         };
         struct VertexOutput {
             [[location(0)]] pointcoord: vec2<f32>;
@@ -100,7 +100,7 @@ class PointsShader(BaseShader):
         fn vs_main(in: VertexInput) -> VertexOutput {
             var out: VertexOutput;
 
-            let index = i32(in.index);
+            let index = i32(in.vertex_index);
             let i0 = index / 6;
             let sub_index = index % 6;
 

@@ -97,7 +97,7 @@ class VolumeSliceShader(BaseShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] index : u32;
+            [[builtin(vertex_index)]] vertex_index : u32;
         };
         struct VertexOutput {
             [[location(0)]] texcoord: vec3<f32>;
@@ -197,10 +197,10 @@ class VolumeSliceShader(BaseShader):
                     s_positions.data[edge[1] * 3 + 1],
                     s_positions.data[edge[1] * 3 + 2],
                 );
-                let p1_ = u_wobject.world_transform * vec4<f32>(p1_raw, 1.0);
-                let p2_ = u_wobject.world_transform * vec4<f32>(p2_raw, 1.0);
-                let p1 = p1_.xyz / p1_.w;
-                let p2 = p2_.xyz / p2_.w;
+                let p1_p = u_wobject.world_transform * vec4<f32>(p1_raw, 1.0);
+                let p2_p = u_wobject.world_transform * vec4<f32>(p2_raw, 1.0);
+                let p1 = p1_p.xyz / p1_p.w;
+                let p2 = p2_p.xyz / p2_p.w;
                 let tc1 = vec3<f32>(
                     s_texcoords.data[edge[0] * 3],
                     s_texcoords.data[edge[0] * 3 + 1],
@@ -285,7 +285,7 @@ class VolumeSliceShader(BaseShader):
 
             // Now select the current vertex. We mimic a triangle fan with a triangle list.
             // This works whether the number of vertices/intersections is 3, 4, 5, and 6.
-            let index = i32(in.index);
+            let index = i32(in.vertex_index);
             var indexmap = array<i32,12>(0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5);
             let world_pos = vertices[ indexmap[index] ];
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
