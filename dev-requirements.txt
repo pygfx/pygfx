@@ -11,3 +11,4 @@ twine
 PyQt5
 imageio
 imageio-ffmpeg
+scikit-image
