@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import BaseShader
+from ._shadercomposer import WorldObjectShader
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -24,6 +24,8 @@ def mesh_renderer(wobject, render_info):
     # Initialize
     topology = wgpu.PrimitiveTopology.triangle_list
     shader = MeshShader(
+        wobject,
+        clip_intersection=material.clip_intersection,
         lighting="",
         need_normals=False,
         texture_dim="",
@@ -169,7 +171,7 @@ def mesh_renderer(wobject, render_info):
     ]
 
 
-class MeshShader(BaseShader):
+class MeshShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
@@ -572,7 +574,7 @@ def meshslice_renderer(wobject, render_info):
 
     # Initialize
     topology = wgpu.PrimitiveTopology.triangle_list
-    shader = MeshSliceShader()
+    shader = MeshSliceShader(wobject)
     vs_entry_point = "vs_main"
     fs_entry_point = "fs_main"
 
@@ -613,7 +615,7 @@ def meshslice_renderer(wobject, render_info):
     ]
 
 
-class MeshSliceShader(BaseShader):
+class MeshSliceShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()

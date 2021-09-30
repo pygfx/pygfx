@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import BaseShader
+from ._shadercomposer import WorldObjectShader
 from ...objects import Points
 from ...materials import PointsMaterial, GaussianPointsMaterial
 
@@ -12,7 +12,7 @@ def points_renderer(wobject, render_info):
 
     geometry = wobject.geometry
     material = wobject.material
-    shader = PointsShader(type="circle")
+    shader = PointsShader(wobject, type="circle")
     n = geometry.positions.nitems * 6
 
     shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
@@ -48,7 +48,7 @@ def points_renderer(wobject, render_info):
     ]
 
 
-class PointsShader(BaseShader):
+class PointsShader(WorldObjectShader):
 
     # Notes:
     # In WGPU, the pointsize attribute can no longer be larger than 1 because

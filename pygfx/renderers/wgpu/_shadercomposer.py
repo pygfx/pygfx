@@ -136,33 +136,32 @@ class BaseShader:
         """
         self._uniform_codes[name] = code
 
+
+class WorldObjectShader(BaseShader):
+    """A base shader for world objects."""
+
+    def __init__(self, wobject, **kwargs):
+        super().__init__(**kwargs)
+
+        self.kwargs["n_clipping_planes"] = len(wobject.material.clipping_planes)
+        self.kwargs["clip_intersection"] = wobject.material.clip_intersection
+
     def common_functions(self):
 
-        # Determine clipping planes from the generated uniform code
-        n_clipping_planes = 0
-        for line in self._uniform_codes.get("u_material", "").splitlines():
-            if line.strip().startswith("clipping_planes: array<"):
-                n_clipping_planes = int(line.split(",")[-1].split(">")[0])
-                break
-
-        if n_clipping_planes:
+        if not self.kwargs["n_clipping_planes"]:
             clipping_plane_code = """
-            fn apply_clipping_planes(world_pos: vec3<f32>) {
-                var clipped: bool = false;
-                for (var i=0; i<{{n_clipping_planes}}; i=i+1) {
-                    let plane = u_material.clipping_planes[i];
-                    let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
-                    clipped = clipped || plane_clipped;
-                }
-                if (clipped) { discard; }
-            }
-            """.replace(
-                "{{n_clipping_planes}}", str(n_clipping_planes)
-            )
+            fn apply_clipping_planes(world_pos: vec3<f32>) { }  // zero planes
+            """
         else:
             clipping_plane_code = """
             fn apply_clipping_planes(world_pos: vec3<f32>) {
-                // zero planes
+                var clipped: bool = {{ 'true' if clip_intersection else 'false' }};
+                for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
+                    let plane = u_material.clipping_planes[i];
+                    let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
+                    clipped = clipped {{ '&&' if clip_intersection else '||' }} plane_clipped;
+                }
+                if (clipped) { discard; }
             }
             """
 

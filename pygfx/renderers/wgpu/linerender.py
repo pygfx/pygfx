@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import BaseShader
+from ._shadercomposer import WorldObjectShader
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line
@@ -47,7 +47,7 @@ def line_renderer(wobject, render_info):
 
     material = wobject.material
     geometry = wobject.geometry
-    shader = LineShader()
+    shader = LineShader(wobject)
 
     assert isinstance(material, LineMaterial)
 
@@ -127,7 +127,7 @@ def line_renderer(wobject, render_info):
     ]
 
 
-class LineShader(BaseShader):
+class LineShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
@@ -527,7 +527,7 @@ def thin_line_renderer(wobject, render_info):
 
     material = wobject.material
     geometry = wobject.geometry
-    shader = ThinLineShader()
+    shader = ThinLineShader(wobject)
 
     positions1 = geometry.positions
 
@@ -570,7 +570,7 @@ def thin_line_renderer(wobject, render_info):
     ]
 
 
-class ThinLineShader(BaseShader):
+class ThinLineShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()

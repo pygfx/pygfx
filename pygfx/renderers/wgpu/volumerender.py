@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import BaseShader
+from ._shadercomposer import WorldObjectShader
 from ...objects import Volume
 from ...materials import VolumeSliceMaterial
 from ...resources import Texture, TextureView
@@ -13,7 +13,7 @@ def volume_slice_renderer(wobject, render_info):
 
     geometry = wobject.geometry
     material = wobject.material  # noqa
-    shader = VolumeSliceShader(climcorrection=False)
+    shader = VolumeSliceShader(wobject, climcorrection=False)
 
     shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
     shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
@@ -83,7 +83,7 @@ def volume_slice_renderer(wobject, render_info):
     ]
 
 
-class VolumeSliceShader(BaseShader):
+class VolumeSliceShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()

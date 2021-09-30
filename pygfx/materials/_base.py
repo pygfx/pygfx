@@ -13,7 +13,7 @@ class Material(ResourceContainer):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
     )
 
-    def __init__(self, *, opacity=1):
+    def __init__(self, *, opacity=1, clipping_planes=None, clip_intersection=False):
         super().__init__()
 
         self.uniform_buffer = Buffer(
@@ -21,6 +21,8 @@ class Material(ResourceContainer):
         )
 
         self.opacity = opacity
+        self.clipping_planes = clipping_planes or []
+        self.clip_intersection = clip_intersection
 
     def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
@@ -116,4 +118,17 @@ class Material(ResourceContainer):
             self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
         self.uniform_buffer.update_range(0, 1)
 
-    # todo: clip_intersection
+    @property
+    def clip_intersection(self):
+        """Changes the behavior of clipping planes so that only their
+        intersection is clipped, rather than their union. Default is false.
+        In other words: by default a fragment is visible if it satisfies all
+        clipping planes. With this set to True, it is visible if it satisfies any
+        of the clipping planes.
+        """
+        return self._clip_intersection
+
+    @clip_intersection.setter
+    def clip_intersection(self, value):
+        self._clip_intersection = bool(value)
+        self._bump_rev()
