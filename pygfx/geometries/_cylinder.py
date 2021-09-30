@@ -62,7 +62,7 @@ def generate_torso(
 
     # the face INDEX
     # the amount of vertices
-    indices = np.arange(n_rings * n_vertices).reshape((n_rings, n_vertices))
+    indices = np.arange(n_rings * n_vertices, dtype="u4").reshape((n_rings, n_vertices))
     # for every panel (height_segments, radial_segments) there is a quad (2, 3)
     index = np.empty((height_segments, radial_segments, 2, 3), dtype="u4")
     # create a grid of initial indices for the panels
