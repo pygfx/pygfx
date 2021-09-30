@@ -4,7 +4,7 @@ from ..resources import Buffer
 from ._base import Geometry
 
 
-def generate_sphere_vec(
+def generate_sphere(
     radius,
     width_segments,
     height_segments,
@@ -81,7 +81,7 @@ class SphereGeometry(Geometry):
     ):
         super().__init__()
 
-        vertices, normals, texcoords, indices = generate_sphere_vec(
+        vertices, normals, texcoords, indices = generate_sphere(
             radius=radius,
             width_segments=width_segments,
             height_segments=height_segments,
