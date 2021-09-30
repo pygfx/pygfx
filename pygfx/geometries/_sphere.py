@@ -52,11 +52,11 @@ def generate_sphere(
         np.arange(height_segments)[:, None], np.arange(width_segments)[None, :]
     ]
     # the remainder of the indices for every panel are relative
-    index[:, :, 0, 1] = index[:, :, 0, 0] + 1
-    index[:, :, 0, 2] = index[:, :, 0, 0] + nx
+    index[:, :, 0, 1] = index[:, :, 0, 0] + nx
+    index[:, :, 0, 2] = index[:, :, 0, 0] + 1
     index[:, :, 1, 0] = index[:, :, 0, 0] + nx + 1
-    index[:, :, 1, 1] = index[:, :, 1, 0] - 1
-    index[:, :, 1, 2] = index[:, :, 1, 0] - nx
+    index[:, :, 1, 1] = index[:, :, 1, 0] - nx
+    index[:, :, 1, 2] = index[:, :, 1, 0] - 1
 
     return (
         positions.reshape((-1, 3)),
