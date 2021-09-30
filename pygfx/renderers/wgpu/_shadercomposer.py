@@ -132,7 +132,7 @@ class BaseShader:
         }};
 
         [[group({bindgroup}), binding({index})]]
-        var {name}: {structname};
+        var<uniform> {name}: {structname};
         """
         self._uniform_codes[name] = code
 

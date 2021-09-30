@@ -65,7 +65,7 @@ def test_uniform_definitions():
         };
 
         [[group(0), binding(0)]]
-        var zz: Struct_zz;
+        var<uniform> zz: Struct_zz;
     """.strip()
     )
 
@@ -82,7 +82,7 @@ def test_uniform_definitions():
         };
 
         [[group(0), binding(0)]]
-        var zz: Struct_zz;
+        var<uniform> zz: Struct_zz;
     """.strip()
     )
 
@@ -99,7 +99,7 @@ def test_uniform_definitions():
         };
 
         [[group(0), binding(0)]]
-        var zz: Struct_zz;
+        var<uniform> zz: Struct_zz;
     """.strip()
     )
 
