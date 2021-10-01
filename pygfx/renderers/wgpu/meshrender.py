@@ -25,7 +25,6 @@ def mesh_renderer(wobject, render_info):
     topology = wgpu.PrimitiveTopology.triangle_list
     shader = MeshShader(
         wobject,
-        clip_intersection=material.clip_intersection,
         lighting="",
         need_normals=False,
         texture_dim="",

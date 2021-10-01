@@ -13,7 +13,7 @@ class Material(ResourceContainer):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
     )
 
-    def __init__(self, *, opacity=1, clipping_planes=None, clip_intersection=False):
+    def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
         super().__init__()
 
         self.uniform_buffer = Buffer(
@@ -22,7 +22,7 @@ class Material(ResourceContainer):
 
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
-        self.clip_intersection = clip_intersection
+        self.clipping_mode = clipping_mode
 
     def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
@@ -119,16 +119,19 @@ class Material(ResourceContainer):
         self.uniform_buffer.update_range(0, 1)
 
     @property
-    def clip_intersection(self):
-        """Changes the behavior of clipping planes so that only their
-        intersection is clipped, rather than their union. Default is false.
-        In other words: by default a fragment is visible if it satisfies all
-        clipping planes. With this set to True, it is visible if it satisfies any
-        of the clipping planes.
+    def clipping_mode(self):
+        """Set the behavior for multiple clipping planes. If this is
+        "ANY" (the default) a fragment is discarded if it is clipped
+        by any clipping plane. If this is "ALL", a fragment is discarded
+        only if it is clipped by *all* of the clipping planes.
         """
-        return self._clip_intersection
+        return self._clipping_mode
 
-    @clip_intersection.setter
-    def clip_intersection(self, value):
-        self._clip_intersection = bool(value)
+    @clipping_mode.setter
+    def clipping_mode(self, value):
+        mode = value.upper()
+        if mode in ("ANY", "ALL"):
+            self._clipping_mode = mode
+        else:
+            raise ValueError(f"Unexpected clipping_mode: {value}")
         self._bump_rev()

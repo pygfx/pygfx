@@ -52,7 +52,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 # Compose two of the same scenes
 
 
-def create_scene(clipping_planes, intersect):
+def create_scene(clipping_planes, clipping_mode):
 
     maxsize = 221
     scene = gfx.Scene()
@@ -60,7 +60,7 @@ def create_scene(clipping_planes, intersect):
         material = gfx.MeshPhongMaterial(
             color=(n / maxsize, 1, 0, 1),
             clipping_planes=clipping_planes,
-            clip_intersection=intersect,
+            clipping_mode=clipping_mode,
         )
         geometry = gfx.BoxGeometry(n, n, n)
         cube = gfx.Mesh(geometry, material)
@@ -70,8 +70,8 @@ def create_scene(clipping_planes, intersect):
 
 
 clipping_planes = [(-1, 0, 0, 0), (0, 0, -1, 0)]
-scene1 = create_scene(clipping_planes, False)
-scene2 = create_scene(clipping_planes, True)
+scene1 = create_scene(clipping_planes, "any")
+scene2 = create_scene(clipping_planes, "all")
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 250

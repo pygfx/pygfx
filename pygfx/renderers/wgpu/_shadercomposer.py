@@ -144,7 +144,7 @@ class WorldObjectShader(BaseShader):
         super().__init__(**kwargs)
 
         self.kwargs["n_clipping_planes"] = len(wobject.material.clipping_planes)
-        self.kwargs["clip_intersection"] = wobject.material.clip_intersection
+        self.kwargs["clipping_mode"] = wobject.material.clipping_mode
 
     def common_functions(self):
 
@@ -155,11 +155,11 @@ class WorldObjectShader(BaseShader):
         else:
             clipping_plane_code = """
             fn apply_clipping_planes(world_pos: vec3<f32>) {
-                var clipped: bool = {{ 'true' if clip_intersection else 'false' }};
+                var clipped: bool = {{ 'false' if clipping_mode == 'ANY' else 'true' }};
                 for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
                     let plane = u_material.clipping_planes[i];
                     let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
-                    clipped = clipped {{ '&&' if clip_intersection else '||' }} plane_clipped;
+                    clipped = clipped {{ '||' if clipping_mode == 'ANY' else '&&' }} plane_clipped;
                 }
                 if (clipped) { discard; }
             }
