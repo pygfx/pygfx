@@ -13,7 +13,7 @@ class Material(ResourceContainer):
         clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
     )
 
-    def __init__(self, *, opacity=1):
+    def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
         super().__init__()
 
         self.uniform_buffer = Buffer(
@@ -21,6 +21,8 @@ class Material(ResourceContainer):
         )
 
         self.opacity = opacity
+        self.clipping_planes = clipping_planes or []
+        self.clipping_mode = clipping_mode
 
     def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
@@ -116,4 +118,20 @@ class Material(ResourceContainer):
             self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
         self.uniform_buffer.update_range(0, 1)
 
-    # todo: clip_intersection
+    @property
+    def clipping_mode(self):
+        """Set the behavior for multiple clipping planes. If this is
+        "ANY" (the default) a fragment is discarded if it is clipped
+        by any clipping plane. If this is "ALL", a fragment is discarded
+        only if it is clipped by *all* of the clipping planes.
+        """
+        return self._clipping_mode
+
+    @clipping_mode.setter
+    def clipping_mode(self, value):
+        mode = value.upper()
+        if mode in ("ANY", "ALL"):
+            self._clipping_mode = mode
+        else:
+            raise ValueError(f"Unexpected clipping_mode: {value}")
+        self._bump_rev()

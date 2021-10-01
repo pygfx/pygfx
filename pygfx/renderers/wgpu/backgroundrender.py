@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import BaseShader
+from ._shadercomposer import WorldObjectShader
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
 from ...resources import Texture, TextureView
@@ -11,7 +11,7 @@ from ...resources import Texture, TextureView
 def background_renderer(wobject, render_info):
 
     material = wobject.material
-    shader = BackgroundShader(texture_dim="")
+    shader = BackgroundShader(wobject, texture_dim="")
 
     bindings0 = {
         0: ("buffer/uniform", render_info.stdinfo_uniform),
@@ -62,7 +62,7 @@ def background_renderer(wobject, render_info):
     ]
 
 
-class BackgroundShader(BaseShader):
+class BackgroundShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
