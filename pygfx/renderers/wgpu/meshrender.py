@@ -86,14 +86,22 @@ def mesh_renderer(wobject, render_info):
         bindings1[4] = "sampler/filtering", material.map
         bindings1[5] = "texture/auto", material.map
         # Dimensionality
-        if material.map.view_dim == "1d":
+        view_dim = material.map.view_dim
+        if view_dim == "1d":
             shader["texture_dim"] = "1d"
-        elif material.map.view_dim == "2d":
+        elif view_dim == "2d":
             shader["texture_dim"] = "2d"
-        elif material.map.view_dim == "3d":
+        elif view_dim == "3d":
             shader["texture_dim"] = "3d"
         else:
             raise ValueError("Unexpected texture dimension")
+        # Texture dim matches texcoords
+        if view_dim == "1d" and "x" not in geometry.texcoords.format:
+            pass
+        elif not geometry.texcoords.format.endswith("x" + view_dim[0]):
+            raise ValueError(
+                f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
+            )
         # Sampling type
         if "norm" in material.map.format or "float" in material.map.format:
             shader["texture_format"] = "f32"
