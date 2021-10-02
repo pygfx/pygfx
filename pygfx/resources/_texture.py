@@ -133,6 +133,12 @@ class Texture(Resource):
         else:
             raise ValueError("Texture has no data nor format.")
 
+    @property
+    def nchannels(self):
+        """The number of (color) channels (1, 2, 3 or 4)."""
+        format = self.format
+        return len(format) - len(format.lstrip("rgba"))
+
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
         The offset and (sub) size should be (width, height, depth)

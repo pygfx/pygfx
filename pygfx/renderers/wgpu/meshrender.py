@@ -114,12 +114,7 @@ def mesh_renderer(wobject, render_info):
         else:
             shader["texture_format"] = "i32"
         # Channels
-        if material.map.format.startswith("rgb"):  # rgb maps to rgba
-            shader["texture_color"] = True
-        elif material.map.format.startswith("r"):
-            shader["texture_color"] = False
-        else:
-            raise ValueError("Unexpected texture format")
+        shader["texture_nchannels"] = material.map.texture.nchannels
 
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
@@ -438,8 +433,10 @@ class MeshShader(WorldObjectShader):
                 $$ if climcorrection
                     color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
                 $$ endif
-                $$ if not texture_color
-                    color_value = color_value.rrra;
+                $$ if texture_nchannels == 1
+                    color_value = vec4<f32>(color_value.rrr, 1.0);
+                $$ elif texture_nchannels == 2
+                    color_value = vec4<f32>(color_value.rrr, color_value.g);
                 $$ endif
                 let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
             $$ else
