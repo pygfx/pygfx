@@ -161,6 +161,7 @@ class TorusKnotGeometry(Geometry):
         normals = positions - pos
         positions.shape = -1, 3
         normals.shape = -1, 3
+        normals *= 1 / np.linalg.norm(normals, axis=1).reshape(-1, 1)
 
         # Create texcords
         # ty, tx = np.meshgrid(u / u[-1], v / v[-1])
