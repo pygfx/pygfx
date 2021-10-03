@@ -16,13 +16,13 @@ canvas = WgpuCanvas(size=(900, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-geometry = gfx.TorusKnotGeometry(1, 0.3, 128, 32)
 
-camera = gfx.OrthographicCamera(16, 3)
+def get_geometry():
+    return gfx.CylinderGeometry(height=2, radial_segments=32, open_ended=True)
 
 
 def create_object(texcoords, tex, xpos):
-    geometry = gfx.TorusKnotGeometry(1, 0.3, 128, 32)
+    geometry = get_geometry()
     geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
     material = gfx.MeshPhongMaterial(map=tex, clim=(-0.05, 1))
     obj = gfx.Mesh(geometry, material)
@@ -30,27 +30,30 @@ def create_object(texcoords, tex, xpos):
     scene.add(obj)
 
 
+geometry = get_geometry()
+
+camera = gfx.OrthographicCamera(16, 3)
+
+
 # === 1D colormap
 #
-# For the 1D texcoords we use the first dimension of the default
-# texcoords, which runs along the tube. The 1D colormap runs from yellow
-# to green to red and back to yellow.
+# For the 1D texcoords we use the second dimension of the default
+# texcoords, which runs from the top to the bottom of the cylinder. The
+# 1D colormap runs from yellow to cyan.
 
-texcoords1 = geometry.texcoords.data[:, 0].copy()
+texcoords1 = geometry.texcoords.data[:, 1].copy()
 
-cmap1 = np.array([(1, 1, 0, 1), (0, 1, 0, 1), (1, 0, 0, 1), (1, 1, 0, 1)], np.float32)
+cmap1 = np.array([(1, 1, 0), (0, 1, 1)], np.float32)
 tex1 = gfx.Texture(cmap1, dim=1).get_view(filter="linear")
 
 create_object(texcoords1, tex1, -6)
 
 # === 2D colormap
 #
-# For the 2D texcoords we use the default texcoords, but multiply the
-# first dimension so that the texture that we apply is repeated. For
-# the 2D colormap we use an image texture.
+# For the 2D texcoords we use the default texcoords. For the 2D colormap
+# we use an image texture.
 
 texcoords2 = geometry.texcoords.data.copy()
-texcoords2[:, 0] *= 10
 
 cmap2 = imageio.imread("imageio:chelsea.png").astype(np.float32) / 255
 tex2 = gfx.Texture(cmap2, dim=2).get_view(address_mode="repeat")
@@ -66,9 +69,9 @@ create_object(texcoords2, tex2, -2)
 # position. This can be seen as a specific (maybe somewhat odd) type
 # of volume rendering.
 
-texcoords3 = geometry.positions.data * 0.5 + 0.5
+texcoords3 = geometry.positions.data * 0.4 + 0.5
 
-cmap3 = imageio.volread("imageio:stent.npz")
+cmap3 = imageio.volread("imageio:stent.npz").astype(np.float32) / 2000
 tex3 = gfx.Texture(cmap3, dim=3).get_view()
 
 create_object(texcoords3, tex3, +2)
@@ -85,12 +88,12 @@ texcoords4 = geometry.normals.data * 0.4 + 0.5
 cmap4 = np.array(
     [
         [
-            [(0, 0, 0, 1), (1, 0, 0, 1)],
-            [(0, 1, 0, 1), (1, 1, 0, 1)],
+            [(0, 0, 0), (1, 0, 0)],
+            [(0, 1, 0), (1, 1, 0)],
         ],
         [
-            [(0, 0, 1, 1), (1, 0, 1, 1)],
-            [(0, 1, 1, 1), (1, 1, 1, 1)],
+            [(0, 0, 1), (1, 0, 1)],
+            [(0, 1, 1), (1, 1, 1)],
         ],
     ],
     np.float32,
