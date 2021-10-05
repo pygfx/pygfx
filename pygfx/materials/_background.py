@@ -7,7 +7,7 @@ from ._base import Material
 
 class BackgroundMaterial(Material):
     """A background material that draws the background is a uniform color
-    or in a gradient.
+    or in a gradient. The positional arguments are passed to ``set_colors()``.
     """
 
     uniform_type = dict(
@@ -21,10 +21,10 @@ class BackgroundMaterial(Material):
 
     def __init__(self, *colors, **kwargs):
         super().__init__(**kwargs)
-        self.set_color(*colors)
+        self.set_colors(*colors)
 
-    def set_color(self, *colors):
-        """Set the background color. If one color is given, it will be used
+    def set_colors(self, *colors):
+        """Set the background colors. If one color is given, it will be used
         as a uniform color. If two colors are given, it will be used for
         the botton and top. If four colors are given, it will be used for the
         four corners.
