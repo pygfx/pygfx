@@ -1,3 +1,4 @@
+import enum
 import numpy as np
 
 import wgpu
@@ -30,6 +31,15 @@ class Buffer(Resource):
             derived from the data. Set when data is not given or when
             you want to overload the derived value.
     """
+
+    class usage(enum.IntFlag):
+        COPY_DST = wgpu.BufferUsage.COPY_DST
+        COPY_SRC = wgpu.BufferUsage.COPY_SRC
+        INDEX = wgpu.BufferUsage.INDEX
+        INDIRECT = wgpu.BufferUsage.INDIRECT
+        STORAGE = wgpu.BufferUsage.STORAGE
+        UNIFORM = wgpu.BufferUsage.UNIFORM
+        VERTEX = wgpu.BufferUsage.VERTEX
 
     def __init__(
         self,
@@ -198,10 +208,10 @@ def format_from_memoryview(mem, usage):
         format = str(mem.format)
         format = STRUCT_FORMAT_ALIASES.get(format, format)
         mapping = {
-            "h": wgpu.IndexFormat.uint16,
-            "H": wgpu.IndexFormat.uint16,
-            "i": wgpu.IndexFormat.uint32,
-            "I": wgpu.IndexFormat.uint32,
+            "h": "uint16",
+            "H": "uint16",
+            "i": "uint32",
+            "I": "uint32",
         }
         try:
             return mapping[format]
@@ -219,6 +229,8 @@ def format_from_memoryview(mem, usage):
         format = str(mem.format)
         format = STRUCT_FORMAT_ALIASES.get(format, format)
         key = format, shape[-1]
+        # The fact we're using wgpy enums here is a bit of an abstracion leak,
+        # but we have to use *something* and this makes sense ...
         mapping = {
             ("f", 1): wgpu.VertexFormat.float32,
             ("f", 2): wgpu.VertexFormat.float32x2,

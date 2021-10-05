@@ -2,8 +2,6 @@ import numpy as np
 
 from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
-# todo: what to do about these enums from wgpu. Copy them over?
-
 
 class Texture(Resource):
     """A base texture wrapper that can be implemented for numpy, ctypes arrays,
@@ -16,8 +14,10 @@ class Texture(Resource):
             copied if it's float64 or not contiguous.
         dim (int): The dimensionality of the array (1, 2 or 3).
         usage: The way(s) that the texture will be used. Default "TEXTURE_BINDING",
-            set/add "STORAGE_BINDING" if you're using it as a storage texture
-            (see wgpu.TextureUsage).
+            set/add "STORAGE_BINDING" if you're using it as a storage texture,
+            "TEXTURE_BINDING" if you simply sample from it, and "RENDER_ATTACHMENT"
+            if you render to it. (see wgpu.TextureUsage). Multiple values van be
+            separatedby commas.
         size (3-tuple): The extent ``(width, height, depth)`` of the array.
             If not given or None, it is derived from dim and the shape of
             the data. By creating a 2D array with ``depth > 1``, a view can
@@ -241,9 +241,9 @@ def format_from_memoryview(mem, size):
     # if tex_format == "rgb":
     #     -> no raise: WGPU does not support rgb, but we handle it in the renderer
     # Process dtype. We select the tex_format that matches the dtype.
-    # This means that uint8 values become 0..255 in the shader.
-    # todo: not yet entirely sure about this
-    # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
+    # We use WGPU enum names. This can be seen as an abstraction leak.
+    # On the other hand we need to pick *something*, and then this makes the most sense.
+    # See how we use normalized formats where possible, because these can be interpolated!
     texformatmap = {
         "b": "8snorm",
         "B": "8unorm",
