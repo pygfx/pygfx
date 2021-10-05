@@ -682,7 +682,7 @@ class MeshSliceShader(WorldObjectShader):
 
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-            let line_width = u_material.thickness;  // in logical pixels
+            let thickness = u_material.thickness;  // in logical pixels
 
             // Get the face index, and sample the vertex indices
             let index = i32(in.vertex_index);
@@ -768,7 +768,7 @@ class MeshSliceShader(WorldObjectShader):
                 var npos_a: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos_a, 1.0);
                 var npos_b: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos_b, 1.0);
                 // Don't forget to "normalize"!
-                // todo: omitting this step diminish the line width with distance, but it that the way?
+                // todo: omitting this step diminish the thickness with distance, but it that the way?
                 npos_a = npos_a / npos_a.w;
                 npos_b = npos_b / npos_b.w;
 
@@ -776,17 +776,17 @@ class MeshSliceShader(WorldObjectShader):
                 let ppos_a = npos_a.xy * screen_factor;
                 let ppos_b = npos_b.xy * screen_factor;
 
-                // Get the segment vector, its length, and how much it scales because of line width
+                // Get the segment vector, its length, and how much it scales because of thickness
                 let v0 = ppos_b - ppos_a;
                 segment_length = length(v0);  // in logical pixels;
-                let segment_factor = (segment_length + line_width) / segment_length;
+                let segment_factor = (segment_length + thickness) / segment_length;
 
                 // Get the (orthogonal) unit vectors that span the segment
                 let v1 = normalize(v0);
                 let v2 = vec2<f32>(v1.y, -v1.x);
 
                 // Get the vector, in local logical pixels for the segment's square
-                let pvec_local = 0.5 * vec2<f32>(segment_length + line_width, line_width);
+                let pvec_local = 0.5 * vec2<f32>(segment_length + thickness, thickness);
 
                 // Select one of the four corners of the segment rectangle
                 var vecs = array<vec2<f32>, 6>(
@@ -821,7 +821,7 @@ class MeshSliceShader(WorldObjectShader):
             out.ndc_pos = the_pos;
             out.dist2center = the_coord * l2p;
             out.segment_length = segment_length * l2p;
-            out.segment_width = line_width * l2p;
+            out.segment_width = thickness * l2p;
             return out;
         }
         """
