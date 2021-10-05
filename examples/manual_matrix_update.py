@@ -23,7 +23,7 @@ geometry = gfx.BoxGeometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
     cube.matrix_auto_update = False
-    cube.set_matrix(gfx.linalg.Matrix4().set_position_xyz(350 - i * 100, 0, 0))
+    cube.matrix = gfx.linalg.Matrix4().set_position_xyz(350 - i * 100, 0, 0)
     scene.add(cube)
 
 background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
@@ -31,7 +31,7 @@ scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.matrix_auto_update = False
-camera.set_matrix(gfx.linalg.Matrix4().set_position_xyz(0, 0, 500))
+camera.matrix = gfx.linalg.Matrix4().set_position_xyz(0, 0, 500)
 
 
 def animate():
@@ -44,7 +44,7 @@ def animate():
             )
         )
         rot.premultiply(pos)
-        cube.set_matrix(rot)
+        cube.matrix = rot
 
     renderer.render(scene, camera)
     canvas.request_draw()
