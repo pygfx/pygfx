@@ -147,7 +147,7 @@ class LineShader(WorldObjectShader):
             [[builtin(vertex_index)]] index : u32;
         };
         struct VertexOutput {
-            [[location(0)]] line_width_p: f32;
+            [[location(0)]] thickness_p: f32;
             [[location(1)]] vec_from_node_p: vec2<f32>;
             [[location(2)]] color: vec4<f32>;
             [[location(3)]] vertex_idx: vec2<f32>;
@@ -158,7 +158,7 @@ class LineShader(WorldObjectShader):
         struct VertexFuncOutput {
             i: i32;
             pos: vec4<f32>;
-            line_width_p: f32;
+            thickness_p: f32;
             vec_from_node_p: vec2<f32>;
         };
 
@@ -221,15 +221,15 @@ class LineShader(WorldObjectShader):
 
             let index = i32(in.index);
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
-            let half_line_width:f32 = u_material.thickness * 0.5;  // in logical pixels
+            let half_thickness:f32 = u_material.thickness * 0.5;  // in logical pixels
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_line_width, l2p);
+            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
 
             var out: VertexOutput;
             out.world_pos = ndc_to_world_pos(result.pos);
             out.ndc_pos = result.pos;
-            out.line_width_p = result.line_width_p;
+            out.thickness_p = result.thickness_p;
             out.vec_from_node_p = result.vec_from_node_p;
             out.vertex_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
 
@@ -250,7 +250,7 @@ class LineShader(WorldObjectShader):
     def vertex_shader_line(self):
         return """
         fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_line_width:f32, l2p:f32
+            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
         ) -> VertexFuncOutput {
             // This vertex shader uses VertexId and storage buffers instead of
             // vertex buffers. It creates 5 vertices for each point on the line.
@@ -357,12 +357,12 @@ class LineShader(WorldObjectShader):
 
             // Select the correct vector, note that all except ne are unit.
             var vectors = array<vec2<f32>,5>(na, nb, ne, nc, nd);
-            let the_vec = vectors[index % 5] * half_line_width;
+            let the_vec = vectors[index % 5] * half_thickness;
 
             var out : VertexFuncOutput;
             out.i = i;
             out.pos = vec4<f32>((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw);
-            out.line_width_p = half_line_width * 2.0 * l2p;
+            out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
             return out;
         }
@@ -371,7 +371,7 @@ class LineShader(WorldObjectShader):
     def vertex_shader_segment(self):
         return """
         fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_line_width:f32, l2p:f32
+            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
         ) -> VertexFuncOutput {
             // Similar to the regular line shader, except we only draw segments,
             // using 5 vertices per node. Four for the segments, and 1 to create
@@ -414,12 +414,12 @@ class LineShader(WorldObjectShader):
             // Select the correct vector
             // Note the replicated vertices to create degenerate triangles
             var vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
-            let the_vec = vectors[index % 10] * half_line_width;
+            let the_vec = vectors[index % 10] * half_thickness;
 
             var out : VertexFuncOutput;
             out.i = i;
             out.pos = vec4<f32>((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw);
-            out.line_width_p = half_line_width * 2.0 * l2p;
+            out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
             return out;
         }
@@ -428,7 +428,7 @@ class LineShader(WorldObjectShader):
     def vertex_shader_arrow(self):
         return """
         fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_line_width:f32, l2p:f32
+            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
         ) -> VertexFuncOutput {
             // Similar to the normal vertex shader, except we only draw segments,
             // using 3 vertices per node: 6 per segment. 4 for the arrow, and 2
@@ -453,13 +453,13 @@ class LineShader(WorldObjectShader):
             if ((i % 2) == 0) {
                 // A left-cap
                 let v = ppos3.xy - ppos2.xy;
-                na = normalize(vec2<f32>(v.y, -v.x)) * half_line_width;
+                na = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
                 nb = v;
             } else {
                 // A right cap
                 let v = ppos2.xy - ppos3.xy;
                 na = -0.75 * v;
-                nb = normalize(vec2<f32>(-v.y, v.x)) * half_line_width - v;
+                nb = normalize(vec2<f32>(-v.y, v.x)) * half_thickness - v;
             }
 
             // Select the correct vector
@@ -470,7 +470,7 @@ class LineShader(WorldObjectShader):
             var out : VertexFuncOutput;
             out.i = i;
             out.pos = vec4<f32>((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw);
-            out.line_width_p = half_line_width * 2.0 * l2p;
+            out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = vec2<f32>(0.0, 0.0);
             return out;
         }
@@ -485,7 +485,7 @@ class LineShader(WorldObjectShader):
             // joins and caps. If we ever want bevel or miter joins, we should
             // change the vertex positions a bit, and drop these lines below.
             let dist_to_node_p = length(in.vec_from_node_p);
-            if (dist_to_node_p > in.line_width_p * 0.5) {
+            if (dist_to_node_p > in.thickness_p * 0.5) {
                 discard;
             }
 
@@ -498,7 +498,7 @@ class LineShader(WorldObjectShader):
             // todo: because of this, our line gets a wee bit thinner, so we have to
             // output ticker lines in the vertex shader!
             let aa_width = 1.2;
-            alpha = ((0.5 * in.line_width_p) - abs(dist_to_node_p)) / aa_width;
+            alpha = ((0.5 * in.thickness_p) - abs(dist_to_node_p)) / aa_width;
             alpha = pow(min(1.0, alpha), 2.0);
 
             // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.

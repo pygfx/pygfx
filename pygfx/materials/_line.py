@@ -46,7 +46,6 @@ class LineMaterial(Material):
             self._vertex_colors = value
             self._bump_rev()
 
-    # todo: thickness? maybe rename to width?
     @property
     def thickness(self):
         """The line thickness expressed in logical pixels."""
@@ -59,14 +58,14 @@ class LineMaterial(Material):
 
 
 class LineThinMaterial(LineMaterial):
-    """A simple line, drawn with line_strip primitives that has a width
-    of one physical pixel. The thickness is ignored.
+    """A simple line, drawn with line_strip primitives that has a thickness
+    of one physical pixel (the thickness property is ignored).
     """
 
 
 class LineThinSegmentMaterial(LineMaterial):
-    """Simple line segments, drawn with line primitives that has a width
-    of one physical pixel. The thickness is ignored.
+    """Simple line segments, drawn with line primitives that has a thickness
+    of one physical pixel (the thickness property is ignored).
     """
 
 
