@@ -311,10 +311,7 @@ class TextureView(Resource):
 
     @property
     def view_dim(self):
-        """The dimensionality of this view, as a string.
-        See wgpu.TextureViewDimension.
-        """
-        # todo: make this an integer?
+        """The dimensionality of this view: "1d", "2d" or "3d"."""
         return self._view_dim or f"{self.texture.dim}d"
 
     @property
