@@ -174,9 +174,9 @@ class RenderFlusher:
     # todo: Once we also have the depth here, we can support things like fog
 
     uniform_type = dict(
-        size=("float32", 2),
-        sigma=("float32",),
-        support=("int32",),
+        size="2xf4",
+        sigma="f4",
+        support="s4",
     )
 
     def __init__(self, device):

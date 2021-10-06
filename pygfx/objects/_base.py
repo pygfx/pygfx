@@ -67,8 +67,8 @@ class WorldObject(ResourceContainer):
     # todo: rename uniform to info or something?
 
     uniform_type = dict(
-        world_transform=("float32", (4, 4)),
-        id=("int32",),
+        world_transform="4x4xf4",
+        id="s4",
     )
 
     _v = Vector3()

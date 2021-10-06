@@ -24,13 +24,13 @@ from ._renderutils import (
 # todo: a combined transform would be nice too, for performance
 # todo: same for ndc_to_world transform (combined inv transforms)
 stdinfo_uniform_type = dict(
-    cam_transform=("float32", (4, 4)),
-    cam_transform_inv=("float32", (4, 4)),
-    projection_transform=("float32", (4, 4)),
-    projection_transform_inv=("float32", (4, 4)),
-    physical_size=("float32", 2),
-    logical_size=("float32", 2),
-    flipped_winding=("int32",),  # A bool, really
+    cam_transform="4x4xf4",
+    cam_transform_inv="4x4xf4",
+    projection_transform="4x4xf4",
+    projection_transform_inv="4x4xf4",
+    physical_size="2xf4",
+    logical_size="2xf4",
+    flipped_winding="s4",  # A bool, really
 )
 
 

@@ -38,7 +38,7 @@ from ...materials import (
 # todo: we can learn about dashing, unfolding and more at http://jcgt.org/published/0002/02/08/paper.pdf
 
 
-renderer_uniform_type = dict(last_i=("int32",))
+renderer_uniform_type = dict(last_i="s4")
 
 
 @register_wgpu_render_function(Line, LineMaterial)

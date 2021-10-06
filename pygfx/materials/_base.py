@@ -9,8 +9,8 @@ class Material(ResourceContainer):
     """
 
     uniform_type = dict(
-        opacity=("float32",),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
+        opacity="f4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
     def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
@@ -39,15 +39,15 @@ class Material(ResourceContainer):
             return  # early exit
 
         dtype = self.uniform_type[key]
-        shape = dtype[1]
-        assert len(dtype) == 2
-        assert len(shape) == 3, f"uniform field {key} does not look like an array"
-        # This is true unless someone fooled with the data: current_length == shape[0]
-        # And it will certainly be true when we're done.
+        assert (
+            "*" in dtype
+        ), f"uniform field {key} '{dtype}' does not look like an array"
+        n, _, subtype = dtype.partition("*")
+        assert int(n) >= 0
 
         # Adjust type definition (note that this is originally a class attr)
         self.uniform_type = self.uniform_type.copy()
-        self.uniform_type[key] = dtype[0], (new_length, shape[1], shape[2])
+        self.uniform_type[key] = f"{new_length}*" + subtype
         # Recreate buffer
         data = self.uniform_buffer.data
         self.uniform_buffer = Buffer(
