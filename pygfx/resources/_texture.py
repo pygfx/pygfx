@@ -221,6 +221,18 @@ class Texture(Resource):
 
 
 def format_from_memoryview(mem, size):
+
+    formatmap = {
+        "b": "s1",
+        "B": "u1",
+        "h": "s2",
+        "H": "u2",
+        "i": "s4",
+        "U": "u4",
+        "e": "f2",
+        "f": "f4",
+    }
+
     format = str(mem.format)
     format = STRUCT_FORMAT_ALIASES.get(format, format)
     # Process channels
@@ -232,23 +244,13 @@ def format_from_memoryview(mem, size):
         assert len(shape) == len(collapsed_size)
         nchannels = 1
     assert 1 <= nchannels <= 4
-    texformatmap = {
-        "b": "s1",
-        "B": "u1",
-        "h": "s2",
-        "H": "u2",
-        "i": "s4",
-        "U": "u4",
-        "e": "f2",
-        "f": "f4",
-    }
     if format in ("d", "float64"):
         raise TypeError("GPU's don't support float64 texture formats.")
-    elif format not in texformatmap:
+    elif format not in formatmap:
         raise TypeError(
             f"Cannot convert {format!r} to texture format. Maybe specify format?"
         )
-    format =str(nchannels) + texformatmap[format]
+    format = str(nchannels) + formatmap[format]
     return format.lstrip("1")
 
 

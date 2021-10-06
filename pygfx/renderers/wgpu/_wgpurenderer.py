@@ -11,7 +11,12 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import RenderTexture, RenderFlusher, to_texture_format
+from ._renderutils import (
+    RenderTexture,
+    RenderFlusher,
+    to_vertex_format,
+    to_texture_format,
+)
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -731,7 +736,7 @@ class WgpuRenderer(Renderer):
         index_buffer = pipeline_info.get("index_buffer", None)
         if index_buffer is not None:
             wgpu_index_buffer = index_buffer._wgpu_buffer[1]
-            index_format = index_buffer.format
+            index_format = to_vertex_format(index_buffer.format)
 
         # Convert and check high-level indices. Indices represent a range
         # of index id's, or define what indices in the index buffer are used.
@@ -779,7 +784,7 @@ class WgpuRenderer(Renderer):
                 "step_mode": wgpu.VertexStepMode.vertex,  # vertex or instance
                 "attributes": [
                     {
-                        "format": buffer.format,
+                        "format": to_vertex_format(buffer.format),
                         "offset": 0,
                         "shader_location": slot,
                     }

@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import WorldObjectShader
-from ._renderutils import to_texture_format
+from ._renderutils import to_vertex_format, to_texture_format
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -97,9 +97,10 @@ def mesh_renderer(wobject, render_info):
         else:
             raise ValueError("Unexpected texture dimension")
         # Texture dim matches texcoords
-        if view_dim == "1d" and "x" not in geometry.texcoords.format:
+        vert_fmt = to_vertex_format(geometry.texcoords.format)
+        if view_dim == "1d" and "x" not in vert_fmt:
             pass
-        elif not geometry.texcoords.format.endswith("x" + view_dim[0]):
+        elif not vert_fmt.endswith("x" + view_dim[0]):
             raise ValueError(
                 f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
             )

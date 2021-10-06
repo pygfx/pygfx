@@ -4,6 +4,38 @@ from ...utils import array_from_shadertype
 from ._shadercomposer import BaseShader
 
 
+def to_vertex_format(format):
+    """Convert pygfx' own format to the wgpu format."""
+    if format in wgpu.VertexFormat:
+        return format
+    elif format in wgpu.IndexFormat:
+        return format
+
+    # Get primitive type
+    primitives = {
+        "s1": "sint8",
+        "u1": "uint8",
+        "s2": "sint16",
+        "u2": "uint16",
+        "s4": "sint32",
+        "u4": "uint32",
+        "f2": "float16",
+        "f4": "float32",
+    }
+    primitive = primitives[format[-2:]]
+
+    if len(format) == 2:
+        return primitive
+    elif len(format) == 3:
+        if format[0] == "1":
+            return primitive
+        elif format[0] in "234":
+            return primitive + "x" + str(format[0])
+        raise ValueError(f"Unexpected tuple size in index/vertex format '{format}'")
+    else:
+        raise ValueError(f"Unexpected length of index/vertex format '{format}'")
+
+
 def to_texture_format(format):
     """Convert pygfx' own format to the wgpu format."""
     if format in wgpu.TextureFormat:
@@ -21,7 +53,6 @@ def to_texture_format(format):
         "f2": "16float",
         "f4": "32float",
     }
-
     primitive = primitives[format[-2:]]
 
     if len(format) == 2:

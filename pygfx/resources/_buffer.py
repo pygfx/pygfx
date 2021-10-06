@@ -27,9 +27,10 @@ class Buffer(Resource):
         nbytes (int): The number of bytes. If data is given, it is derived.
         nitems (int): The number of items. If data is given, it is derived.
         format (str): The format to use when used as a vertex buffer.
-            Must be a value from wgpu.VertexFormat. By default it is
-            derived from the data. Set when data is not given or when
-            you want to overload the derived value.
+            By default this is automatically set from the data. This
+            must be a pygfx dtype specifier, e.g. "3f4", but can also
+            be a format specific to the render backend if necessary
+            (e.g. from ``wgpu.VertexFormat``).
     """
 
     class usage(enum.IntFlag):
@@ -136,7 +137,9 @@ class Buffer(Resource):
 
     @property
     def format(self):
-        """The vertex or index format (depending on the value of usage)."""
+        """The vertex or index format (depending on the value of usage). Usually
+        a pygfx dtype specifier (e.g. u2 for scalar uint32, or 3f4 for 3xfloat32).
+        """
         if self._format is not None:
             return self._format
         elif self.data is not None:
@@ -205,16 +208,12 @@ def format_from_memoryview(mem, usage):
 
     if "INDEX" in usage:
 
+        formatmap = {"h": "u2", "H": "u2", "i": "u4", "I": "u4"}
+
         format = str(mem.format)
         format = STRUCT_FORMAT_ALIASES.get(format, format)
-        mapping = {
-            "h": "uint16",
-            "H": "uint16",
-            "i": "uint32",
-            "I": "uint32",
-        }
         try:
-            return mapping[format]
+            return formatmap[format]
         except KeyError:
             raise TypeError(
                 f"Need 16bit or 32bit signed/unsigned int (hHiI) for index data, not '{format}'."
@@ -222,49 +221,28 @@ def format_from_memoryview(mem, usage):
 
     else:  # if "VERTEX" in self.usage:
 
+        formatmap = {
+            "b": "s1",
+            "B": "u1",
+            "h": "s2",
+            "H": "u2",
+            "i": "s4",
+            "U": "u4",
+            "e": "f2",
+            "f": "f4",
+        }
+
         shape = mem.shape
         if len(shape) == 1:
             shape = shape + (1,)
         assert len(shape) == 2
         format = str(mem.format)
         format = STRUCT_FORMAT_ALIASES.get(format, format)
-        key = format, shape[-1]
-        # The fact we're using wgpy enums here is a bit of an abstracion leak,
-        # but we have to use *something* and this makes sense ...
-        mapping = {
-            ("f", 1): wgpu.VertexFormat.float32,
-            ("f", 2): wgpu.VertexFormat.float32x2,
-            ("f", 3): wgpu.VertexFormat.float32x3,
-            ("f", 4): wgpu.VertexFormat.float32x4,
-            #
-            ("e", 2): wgpu.VertexFormat.float16x2,
-            ("e", 4): wgpu.VertexFormat.float16x4,
-            #
-            ("b", 2): wgpu.VertexFormat.sint8x2,
-            ("b", 4): wgpu.VertexFormat.sint8x4,
-            ("B", 2): wgpu.VertexFormat.uint8x2,
-            ("B", 4): wgpu.VertexFormat.uint8x4,
-            #
-            ("h", 2): wgpu.VertexFormat.sint16x2,
-            ("h", 4): wgpu.VertexFormat.sint16x4,
-            ("H", 2): wgpu.VertexFormat.uint16x2,
-            ("H", 4): wgpu.VertexFormat.uint16x4,
-            #
-            ("i", 1): wgpu.VertexFormat.sint32,
-            ("i", 2): wgpu.VertexFormat.sint32x2,
-            ("i", 3): wgpu.VertexFormat.sint32x3,
-            ("i", 4): wgpu.VertexFormat.sint32x4,
-            #
-            ("I", 1): wgpu.VertexFormat.uint32,
-            ("I", 2): wgpu.VertexFormat.uint32x2,
-            ("I", 3): wgpu.VertexFormat.uint32x3,
-            ("I", 4): wgpu.VertexFormat.uint32x4,
-        }
-        try:
-            return mapping[key]
-        except KeyError:
-            if format in ("d", "float64"):
-                raise ValueError(
-                    "64-bit float is not supported, use 32-bit float instead"
-                )
-            raise ValueError(f"Invalid format/shape for vertex data: {key}")
+        if format in ("d", "float64"):
+            raise ValueError("64-bit float is not supported, use 32-bit float instead")
+        elif format not in formatmap:
+            raise TypeError(
+                f"Cannot convert {format!r} to vertex format. Maybe specify format?"
+            )
+        format = str(shape[-1]) + formatmap[format]
+        return format.lstrip("1")
