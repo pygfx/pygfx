@@ -181,8 +181,6 @@ class Buffer(Resource):
 
 def format_from_memoryview(mem):
 
-    # todo: somewhere convert any 2xu2 to u2 for index buffers
-
     formatmap = {
         "b": "s1",
         "B": "u1",

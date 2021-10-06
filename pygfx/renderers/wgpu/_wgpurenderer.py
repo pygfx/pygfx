@@ -753,6 +753,7 @@ class WgpuRenderer(Renderer):
         if index_buffer is not None:
             wgpu_index_buffer = index_buffer._wgpu_buffer[1]
             index_format = to_vertex_format(index_buffer.format)
+            index_format= index_format.split("x")[0].replace("s", "u")
 
         # Convert and check high-level indices. Indices represent a range
         # of index id's, or define what indices in the index buffer are used.
