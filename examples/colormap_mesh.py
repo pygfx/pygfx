@@ -98,7 +98,7 @@ cmap4 = np.array(
     ],
     np.float32,
 )
-tex4 = gfx.Texture(cmap4, dim=3).get_view()
+tex4 = gfx.Texture(cmap4, dim=3).get_view(filter="linear")
 
 create_object(texcoords4, tex4, +6)
 

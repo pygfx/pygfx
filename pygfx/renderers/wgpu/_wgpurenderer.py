@@ -184,12 +184,13 @@ class WgpuRenderer(Renderer):
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
 
-        # Get target format (initialize canvas context)
+        # Get target format
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             self._canvas_context = self._target.get_context()
             self._target_tex_format = self._canvas_context.get_preferred_format(
                 self._shared.adapter
             )
+            # Also configure the canvas
             self._canvas_context.configure(
                 device=self._shared.device,
                 format=self._target_tex_format,
@@ -197,6 +198,9 @@ class WgpuRenderer(Renderer):
             )
         else:
             self._target_tex_format = self._target.format
+            # Also enable the texture for render and display usage
+            self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
+            self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
@@ -517,6 +521,7 @@ class WgpuRenderer(Renderer):
         stdinfo_data["flipped_winding"] = camera.flips_winding
         # Upload to GPU
         self._shared.stdinfo_buffer.update_range(0, 1)
+        self._shared.stdinfo_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
         self._update_buffer(self._shared.stdinfo_buffer)
 
     def get_render_list(self, scene: WorldObject, camera: Camera):
@@ -613,14 +618,17 @@ class WgpuRenderer(Renderer):
 
         pipeline_resources = []  # List, because order matters
 
-        # Collect list of resources. That we can we can easily iterate over
-        # dependent resource on each render call.
+        # Collect list of resources. This way we can easily iterate
+        # over dependent resource on each render call. We also set the
+        # usage flag of buffers and textures specified in the pipeline.
         for pipeline_info in pipeline_infos:
             assert isinstance(pipeline_info, dict)
             buffer = pipeline_info.get("index_buffer", None)
             if buffer is not None:
+                buffer._wgpu_usage |= wgpu.BufferUsage.INDEX
                 pipeline_resources.append(("buffer", buffer))
             for buffer in pipeline_info.get("vertex_buffers", {}).values():
+                buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX
                 pipeline_resources.append(("buffer", buffer))
             for key in pipeline_info.keys():
                 if key.startswith("bindings"):
@@ -631,15 +639,25 @@ class WgpuRenderer(Renderer):
                         if binding_type.startswith("buffer/"):
                             assert isinstance(resource, Buffer)
                             pipeline_resources.append(("buffer", resource))
+                            if "uniform" in binding_type:
+                                resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+                            elif "storage" in binding_type:
+                                resource._wgpu_usage |= wgpu.BufferUsage.STORAGE
                         elif binding_type.startswith("sampler/"):
                             assert isinstance(resource, TextureView)
                             pipeline_resources.append(("sampler", resource))
                         elif binding_type.startswith("texture/"):
                             assert isinstance(resource, TextureView)
+                            resource.texture._wgpu_usage |= (
+                                wgpu.TextureUsage.TEXTURE_BINDING
+                            )
                             pipeline_resources.append(("texture", resource.texture))
                             pipeline_resources.append(("texture_view", resource))
                         elif binding_type.startswith("storage_texture/"):
                             assert isinstance(resource, TextureView)
+                            resource.texture._wgpu_usage |= (
+                                wgpu.TextureUsage.STORAGE_BINDING
+                            )
                             pipeline_resources.append(("texture", resource.texture))
                             pipeline_resources.append(("texture_view", resource))
                         else:
@@ -1039,10 +1057,10 @@ class WgpuRenderer(Renderer):
 
         # Create buffer if needed
         if buffer is None or buffer.size != resource.nbytes:
-            usage = wgpu.BufferUsage.COPY_DST
-            for u in resource.usage.split("|"):
-                usage |= getattr(wgpu.BufferUsage, u)
-            buffer = device.create_buffer(size=resource.nbytes, usage=usage)
+            resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
+            buffer = device.create_buffer(
+                size=resource.nbytes, usage=resource._wgpu_usage
+            )
 
         queue = device.queue
         encoder = device.create_command_encoder()
@@ -1100,12 +1118,10 @@ class WgpuRenderer(Renderer):
 
         # Create texture if needed
         if texture is None:  # todo: or needs to be replaced (e.g. resized)
-            usage = wgpu.TextureUsage.COPY_DST
-            for u in resource.usage.split("|"):
-                usage |= getattr(wgpu.TextureUsage, u)
+            resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
             texture = self.device.create_texture(
                 size=resource.size,
-                usage=usage,
+                usage=resource._wgpu_usage,
                 dimension=f"{resource.dim}d",
                 format=getattr(wgpu.TextureFormat, fmt),
                 mip_level_count=1,

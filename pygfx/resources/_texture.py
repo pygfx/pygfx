@@ -13,24 +13,17 @@ class Texture(Resource):
             or None, nbytes and nitems must be provided. The data is
             copied if it's float64 or not contiguous.
         dim (int): The dimensionality of the array (1, 2 or 3).
-        usage: The way(s) that the texture will be used. Default "TEXTURE_BINDING",
-            set/add "STORAGE_BINDING" if you're using it as a storage texture,
-            "TEXTURE_BINDING" if you simply sample from it, and "RENDER_ATTACHMENT"
-            if you render to it. (see wgpu.TextureUsage). Multiple values van be
-            separatedby commas.
         size (3-tuple): The extent ``(width, height, depth)`` of the array.
             If not given or None, it is derived from dim and the shape of
             the data. By creating a 2D array with ``depth > 1``, a view can
             be created with format 'd2_array' or 'cube'.
         format (str): the format of texture. By default this is automatically
-            set from the data. This must be a pygfx dtype specifier, e.g. "3xf4",
+            set from the data. This must be a pygfx format specifier, e.g. "3xf4",
             but can also be a format specific to the render backend if necessary
             (e.g. from ``wgpu.TextureFormat``).
     """
 
-    def __init__(
-        self, data=None, *, dim, usage="TEXTURE_BINDING", size=None, format=None
-    ):
+    def __init__(self, data=None, *, dim, size=None, format=None):
         self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
@@ -42,6 +35,9 @@ class Texture(Resource):
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
+
+        # Backends-specific attributes for internal use
+        self._wgpu_usage = 0
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -61,14 +57,6 @@ class Texture(Resource):
                 "Texture must be instantiated with either data or size and format."
             )
 
-        # Determine usage
-        if isinstance(usage, str):
-            usages = usage.upper().replace(",", " ").replace("|", " ").split()
-            assert usages
-            self._usage = "|".join(usages)
-        else:
-            raise TypeError("Texture usage must be str.")
-
     @property
     def rev(self):
         """An integer that is increased when update_range() is called."""
@@ -82,13 +70,6 @@ class Texture(Resource):
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
         return self._dim
-
-    @property
-    def usage(self):
-        """The texture usage flags as a string (compatible with the
-        wgpu.TextureUsage enum).
-        """
-        return self._usage
 
     @property
     def data(self):
@@ -121,14 +102,12 @@ class Texture(Resource):
 
     @property
     def format(self):
-        """The texture format as a string. Usually a pygfx dtype specifier
+        """The texture format as a string. Usually a pygfx format specifier
         (e.g. u2 for scalar uint32, or 3xf4 for RGB float32),
         but can also be a overriden to a backend-specific format.
         """
         if self._format is not None:
             return self._format
-        elif self.usage == "UNIFORM":
-            return None
         elif self.data is not None:
             self._format = format_from_memoryview(self.mem, self.size)
             return self._format

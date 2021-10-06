@@ -33,8 +33,10 @@ class Fullquad(gfx.WorldObject):
 class NoiseMaterial(gfx.materials.Material):
 
     uniform_type = {
-        "time": ("float32",),
-        "noise": ("float32",),
+        "clipping_planes": "0*4xf4",
+        "time": "f4",
+        "noise": "f4",
+        "opacity": "f4",
     }
 
     def __init__(self, noise=1):
@@ -68,7 +70,7 @@ struct Render {
     noise: f32;
 };
 [[group(0), binding(0)]]
-var u_render: Render;
+var<uniform> u_render: Render;
 
 [[group(1), binding(0)]]
 var r_sampler: sampler;

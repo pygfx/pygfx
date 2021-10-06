@@ -29,7 +29,7 @@ class PickingWgpuCanvas(WgpuCanvas):
             # or use the coords to select the closest edge.
             sub_index = np.argmax(coords)
             # Look up the vertex index
-            vertex_index = int(wobject.geometry.index.data[face_index * 3 + sub_index])
+            vertex_index = int(wobject.geometry.index.data[face_index, sub_index])
             # Change the position of that vertex
             pos = wobject.geometry.positions.data[vertex_index]
             pos[:] *= 1.1
