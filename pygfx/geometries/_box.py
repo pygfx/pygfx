@@ -116,7 +116,7 @@ class BoxGeometry(Geometry):
             dtype=np.uint32,
         ).flatten()
 
-        self.positions = Buffer(positions, usage="vertex|storage")
-        self.texcoords = Buffer(texcoords, usage="vertex|storage")
-        self.index = Buffer(indices, usage="index|storage")
+        self.positions = Buffer(positions)
+        self.texcoords = Buffer(texcoords)
+        self.index = Buffer(indices)
         # todo: rename to indices?

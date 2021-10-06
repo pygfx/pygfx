@@ -29,22 +29,16 @@ class Geometry(ResourceContainer):
                     "64-bit float is not supported, use 32-bit floats instead"
                 )
             if name == "index":
-                usage = "index|storage"
-                # No assumptions about shape; they're considered flat anyway
+                pass  # No assumptions about shape; they're considered flat anyway
             elif name == "positions":
-                usage = "vertex|storage"
                 if not (val.ndim == 2 and val.shape[-1] == 3):
                     raise ValueError("Expected Nx3 data for positions")
             elif name == "normals":
-                usage = "vertex|storage"
                 if not (val.ndim == 2 and val.shape[-1] == 3):
                     raise ValueError("Expected Nx3 data for normals")
             elif name == "texcoords":
-                usage = "vertex|storage"
                 if val.ndim == 1:
                     pass
                 elif not (val.ndim == 2 and val.shape[-1] in (1, 2, 3)):
                     raise ValueError("Expected Nx1, Nx2 or Nx3 data for texcoords")
-            else:
-                usage = "vertex|storage"
-            setattr(self, name, Buffer(val, usage=usage))
+            setattr(self, name, Buffer(val))

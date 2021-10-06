@@ -97,9 +97,7 @@ class WorldObject(ResourceContainer):
         self._matrix_world = Matrix4()
         self._matrix_world_dirty = True
 
-        self.uniform_buffer = Buffer(
-            array_from_shadertype(self.uniform_type), usage="uniform"
-        )
+        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         # Render order is undocumented feature for now;l it may be removed if we have OIT.
         self.render_order = 0

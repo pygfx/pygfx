@@ -117,9 +117,8 @@ class SharedData:
         )
 
         # Create a uniform buffer for std info
-        self.stdinfo_buffer = Buffer(
-            array_from_shadertype(stdinfo_uniform_type), usage="uniform"
-        )
+        self.stdinfo_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        self.stdinfo_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
 
 class WgpuRenderer(Renderer):
@@ -521,7 +520,6 @@ class WgpuRenderer(Renderer):
         stdinfo_data["flipped_winding"] = camera.flips_winding
         # Upload to GPU
         self._shared.stdinfo_buffer.update_range(0, 1)
-        self._shared.stdinfo_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
         self._update_buffer(self._shared.stdinfo_buffer)
 
     def get_render_list(self, scene: WorldObject, camera: Camera):

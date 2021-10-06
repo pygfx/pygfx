@@ -48,7 +48,7 @@ def mesh_renderer(wobject, render_info):
         normal_data = normals_from_vertices(
             geometry.positions.data, geometry.index.data
         )
-        normal_buffer = Buffer(normal_data, usage="vertex|storage")
+        normal_buffer = Buffer(normal_data)
 
     # Init bindings 0: uniforms
     bindings0 = {

@@ -31,7 +31,7 @@ view = tex.get_view(filter="linear")
 
 geometry = gfx.PlaneGeometry(200, 200, 1, 1)
 texcoords = np.hstack([geometry.texcoords.data, np.ones((4, 1), np.float32) * 0.5])
-geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
+geometry.texcoords = gfx.Buffer(texcoords)
 
 material = gfx.MeshBasicMaterial(map=view, clim=(0, 255))
 plane = gfx.Mesh(geometry, material)

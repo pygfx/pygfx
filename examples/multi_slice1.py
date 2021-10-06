@@ -79,9 +79,7 @@ sizes = {
 }
 for axis in [0, 1, 2]:
     geometry = gfx.PlaneGeometry(*sizes[axis], 1, 1)
-    geometry.texcoords = gfx.Buffer(
-        np.array(texcoords[axis], dtype="f4"), usage="vertex|storage"
-    )
+    geometry.texcoords = gfx.Buffer(np.array(texcoords[axis], dtype="f4"))
     plane = gfx.Mesh(geometry, material)
     planes.append(plane)
     scene.add(plane)

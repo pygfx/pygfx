@@ -44,9 +44,7 @@ class Volume(WorldObject):
         geometry = BoxGeometry(1, 1, 1)
         geometry.positions.data[:, :3] += 0.5
         # This is our 3D texture coords
-        geometry.texcoords = Buffer(
-            geometry.positions.data[:, :3].copy(), usage="vertex|storage"
-        )
+        geometry.texcoords = Buffer(geometry.positions.data[:, :3].copy())
         # Map to volume size
         for i in range(3):
             column = geometry.positions.data[:, i]

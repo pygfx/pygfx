@@ -31,6 +31,6 @@ class PlaneGeometry(Geometry):
 
         indices = indices.ravel()
 
-        self.positions = Buffer(positions, usage="vertex|storage")
-        self.texcoords = Buffer(texcoords, usage="vertex|storage")
-        self.index = Buffer(indices, usage="index|storage")
+        self.positions = Buffer(positions)
+        self.texcoords = Buffer(texcoords)
+        self.index = Buffer(indices)

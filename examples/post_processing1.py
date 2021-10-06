@@ -43,7 +43,7 @@ class NoiseMaterial(gfx.materials.Material):
         super().__init__()
 
         self.uniform_buffer = gfx.Buffer(
-            gfx.utils.array_from_shadertype(self.uniform_type), usage="UNIFORM"
+            gfx.utils.array_from_shadertype(self.uniform_type)
         )
         self.uniform_buffer.data["time"] = 0
         self.uniform_buffer.data["noise"] = noise
@@ -130,12 +130,7 @@ app = QtWidgets.QApplication([])
 canvas = WgpuCanvas(size=(640, 480))
 
 # The texture to render the scene into
-texture = gfx.Texture(
-    dim=2,
-    size=(640, 480, 1),
-    format="rgba8unorm",
-    usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
-)
+texture = gfx.Texture(dim=2, size=(640, 480, 1), format="rgba8unorm")
 
 # The regular scene
 

@@ -23,7 +23,7 @@ def get_geometry():
 
 def create_object(texcoords, tex, xpos):
     geometry = get_geometry()
-    geometry.texcoords = gfx.Buffer(texcoords, usage="vertex|storage")
+    geometry.texcoords = gfx.Buffer(texcoords)
     material = gfx.MeshPhongMaterial(map=tex, clim=(-0.05, 1))
     obj = gfx.Mesh(geometry, material)
     obj.position.x = xpos
