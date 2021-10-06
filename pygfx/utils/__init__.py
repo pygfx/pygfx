@@ -22,7 +22,6 @@ def array_from_shadertype(shadertype):
         "f4": "float32",
     }
 
-
     # Unravel the dict
     array_names = []
     dtype_fields = []

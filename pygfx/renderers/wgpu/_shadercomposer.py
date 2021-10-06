@@ -1,6 +1,8 @@
 import jinja2
 import numpy as np
 
+from ...utils import array_from_shadertype
+
 jinja_env = jinja2.Environment(
     block_start_string="{$",
     block_end_string="$}",
@@ -51,7 +53,9 @@ class BaseShader:
         struct {structname} {{
         """.rstrip()
 
-        if isinstance(struct, np.dtype):
+        if isinstance(struct, dict):
+            dtype_struct = array_from_shadertype(struct).dtype
+        elif isinstance(struct, np.dtype):
             if struct.fields is None:
                 raise TypeError(f"define_uniform() needs a structured dtype")
             dtype_struct = struct
