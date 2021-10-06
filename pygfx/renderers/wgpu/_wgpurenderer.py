@@ -11,7 +11,7 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import RenderTexture, RenderFlusher
+from ._renderutils import RenderTexture, RenderFlusher, to_texture_format
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -957,7 +957,8 @@ class WgpuRenderer(Renderer):
                     sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
                     # Derive sample type from texture
                     if sample_type == "auto":
-                        fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
+                        fmt = to_texture_format(resource.format)
+                        fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
                         if "float" in fmt or "norm" in fmt:
                             sample_type = wgpu.TextureSampleType.float
                             # For float32 wgpu does not allow the sampler to be filterable,
@@ -992,7 +993,8 @@ class WgpuRenderer(Renderer):
                     )
                     dim = resource.view_dim
                     dim = getattr(wgpu.TextureViewDimension, dim, dim)
-                    fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
+                    fmt = to_texture_format(resource.format)
+                    fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
                     binding_layouts.append(
                         {
                             "binding": slot,
@@ -1067,8 +1069,10 @@ class WgpuRenderer(Renderer):
             dim = resource._view_dim
             assert resource._mip_range.step == 1
             assert resource._layer_range.step == 1
+            fmt = to_texture_format(resource.format)
+            fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
             texture_view = resource.texture._wgpu_texture[1].create_view(
-                format=ALTTEXFORMAT.get(resource.format, [resource.format])[0],
+                format=fmt,
                 dimension=f"{dim}d" if isinstance(dim, int) else dim,
                 aspect=resource._aspect,
                 base_mip_level=resource._mip_range.start,
@@ -1084,10 +1088,10 @@ class WgpuRenderer(Renderer):
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 
-        format = resource.format
+        fmt = to_texture_format(resource.format)
         pixel_padding = None
-        if format in ALTTEXFORMAT:
-            format, pixel_padding, extra_bytes = ALTTEXFORMAT[format]
+        if fmt in ALTTEXFORMAT:
+            fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
 
         # Create texture if needed
         if texture is None:  # todo: or needs to be replaced (e.g. resized)
@@ -1098,7 +1102,7 @@ class WgpuRenderer(Renderer):
                 size=resource.size,
                 usage=usage,
                 dimension=f"{resource.dim}d",
-                format=getattr(wgpu.TextureFormat, format),
+                format=getattr(wgpu.TextureFormat, fmt),
                 mip_level_count=1,
                 sample_count=1,  # msaa?
             )  # todo: let resource specify mip_level_count and sample_count

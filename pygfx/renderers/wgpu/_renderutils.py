@@ -4,6 +4,43 @@ from ...utils import array_from_shadertype
 from ._shadercomposer import BaseShader
 
 
+def to_texture_format(format):
+    """Convert pygfx' own format to the wgpu format."""
+    if format in wgpu.TextureFormat:
+        return format
+
+    # Note how we use normalized types (float in the shader) where we can,
+    # because these types can work with an interpolating sampler.
+    primitives = {
+        "s1": "8snorm",
+        "u1": "8unorm",
+        "s2": "16sint",
+        "u2": "16uint",
+        "s4": "32sint",
+        "u4": "32uint",
+        "f2": "16float",
+        "f4": "32float",
+    }
+
+    primitive = primitives[format[-2:]]
+
+    if len(format) == 2:
+        return "r" + primitive
+    elif len(format) == 3:
+        if format[0] == "1":
+            return "r" + primitive
+        elif format[0] == "2":
+            return "rg" + primitive
+        elif format[0] == "3":
+            return "rgb" + primitive
+        elif format[0] == "4":
+            return "rgba" + primitive
+        else:
+            raise ValueError(f"Unexpected tuple size in texture format '{format}'")
+    else:
+        raise ValueError(f"Unexpected length of texture format '{format}'")
+
+
 class RenderTexture:
     """Class used internally to store a texture and meta data."""
 

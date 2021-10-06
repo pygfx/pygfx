@@ -2,6 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import WorldObjectShader
+from ._renderutils import to_texture_format
 from ...objects import Volume
 from ...materials import VolumeSliceMaterial
 from ...resources import Texture, TextureView
@@ -43,23 +44,19 @@ def volume_slice_renderer(wobject, render_info):
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("With VolumeSliceMaterial, geometry needs texcoords")
         # Sampling type
-        if "norm" in material.map.format or "float" in material.map.format:
+        fmt = to_texture_format(material.map.format)
+        if "norm" in fmt or "float" in fmt:
             shader["texture_format"] = "f32"
-            if "unorm" in material.map.format:
+            if "unorm" in fmt:
                 shader["climcorrection"] = " * 255.0"
-            elif "snorm" in material.map.format:
+            elif "snorm" in fmt:
                 shader["climcorrection"] = " * 255.0 - 128.0"
-        elif "uint" in material.map.format:
+        elif "uint" in fmt:
             shader["texture_format"] = "u32"
         else:
             shader["texture_format"] = "i32"
         # Channels
-        if material.map.format.startswith("rgb"):  # rgb maps to rgba
-            shader["texture_color"] = True
-        elif material.map.format.startswith("r"):
-            shader["texture_color"] = False
-        else:
-            raise ValueError("Unexpected texture format")
+        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
     bindings1 = {
         0: ("sampler/filtering", view),
@@ -316,8 +313,10 @@ class VolumeSliceShader(WorldObjectShader):
             $$ if climcorrection
                 color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
             $$ endif
-            $$ if not texture_color
-                color_value = color_value.rrra;
+            $$ if texture_nchannels == 1
+                color_value = vec4<f32>(color_value.rrr, 1.0);
+            $$ elif texture_nchannels == 2
+                color_value = vec4<f32>(color_value.rrr, color_value.g);
             $$ endif
             let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
 

@@ -22,9 +22,10 @@ class Texture(Resource):
             If not given or None, it is derived from dim and the shape of
             the data. By creating a 2D array with ``depth > 1``, a view can
             be created with format 'd2_array' or 'cube'.
-        format (enum str): the GPU format of texture. Must be a value from
-            wgpu.TextureFormat. By default it is derived from the data. Set when
-            data is not given or when you want to overload the derived value.
+        format (str): the format of texture. By default this is automatically
+            set from the data. This must be a pygfx dtype specifier, e.g. "3f4",
+            but can also be a format specific to the render backend if necessary
+            (e.g. from ``wgpu.TextureFormat``).
     """
 
     def __init__(
@@ -120,8 +121,8 @@ class Texture(Resource):
 
     @property
     def format(self):
-        """The texture format as a string (compatible with the
-        wgpu.TextureFormat enum).
+        """The texture format as a string. Usually a pygfx dtype specifier
+        (e.g. u2 for scalar uint32, or 3f4 for RGB float32).
         """
         if self._format is not None:
             return self._format
@@ -132,12 +133,6 @@ class Texture(Resource):
             return self._format
         else:
             raise ValueError("Texture has no data nor format.")
-
-    @property
-    def nchannels(self):
-        """The number of (color) channels (1, 2, 3 or 4)."""
-        format = self.format
-        return len(format) - len(format.lstrip("rgba"))
 
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
@@ -237,24 +232,15 @@ def format_from_memoryview(mem, size):
         assert len(shape) == len(collapsed_size)
         nchannels = 1
     assert 1 <= nchannels <= 4
-    tex_format = [None, "r", "rg", "rgb", "rgba"][nchannels]
-    # if tex_format == "rgb":
-    #     -> no raise: WGPU does not support rgb, but we handle it in the renderer
-    # Process dtype. We select the tex_format that matches the dtype.
-    # We use WGPU enum names. This can be seen as an abstraction leak.
-    # On the other hand we need to pick *something*, and then this makes the most sense.
-    # See how we use normalized formats where possible, because these can be interpolated!
     texformatmap = {
-        "b": "8snorm",
-        "B": "8unorm",
-        # "b": "8sint",
-        # "B": "8uint",
-        "h": "16sint",
-        "H": "16uint",
-        "i": "32sint",
-        "U": "32uint",
-        "e": "16float",
-        "f": "32float",
+        "b": "s1",
+        "B": "u1",
+        "h": "s2",
+        "H": "u2",
+        "i": "s4",
+        "U": "u4",
+        "e": "f2",
+        "f": "f4",
     }
     if format in ("d", "float64"):
         raise TypeError("GPU's don't support float64 texture formats.")
@@ -262,8 +248,8 @@ def format_from_memoryview(mem, size):
         raise TypeError(
             f"Cannot convert {format!r} to texture format. Maybe specify format?"
         )
-    tex_format += texformatmap[format]
-    return tex_format
+    format =str(nchannels) + texformatmap[format]
+    return format.lstrip("1")
 
 
 # mipmaps: every texture can have a certain number of mipmap levels. Each
@@ -346,6 +332,7 @@ class TextureView(Resource):
         """The dimensionality of this view, as a string.
         See wgpu.TextureViewDimension.
         """
+        # todo: make this an integer?
         return self._view_dim or f"{self.texture.dim}d"
 
     @property

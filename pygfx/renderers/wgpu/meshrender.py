@@ -2,6 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import WorldObjectShader
+from ._renderutils import to_texture_format
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -103,18 +104,19 @@ def mesh_renderer(wobject, render_info):
                 f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
             )
         # Sampling type
-        if "norm" in material.map.format or "float" in material.map.format:
+        fmt = to_texture_format(material.map.format)
+        if "norm" in fmt or "float" in fmt:
             shader["texture_format"] = "f32"
-            if "unorm" in material.map.format:
+            if "unorm" in fmt:
                 shader["climcorrection"] = " * 255.0"
-            elif "snorm" in material.map.format:
+            elif "snorm" in fmt:
                 shader["climcorrection"] = " * 255.0 - 128.0"
-        elif "uint" in material.map.format:
+        elif "uint" in fmt:
             shader["texture_format"] = "u32"
         else:
             shader["texture_format"] = "i32"
         # Channels
-        shader["texture_nchannels"] = material.map.texture.nchannels
+        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
