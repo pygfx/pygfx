@@ -28,7 +28,7 @@ class Buffer(Resource):
         nitems (int): The number of items. If data is given, it is derived.
         format (str): The format to use when used as a vertex buffer.
             By default this is automatically set from the data. This
-            must be a pygfx dtype specifier, e.g. "3f4", but can also
+            must be a pygfx dtype specifier, e.g. "3xf4", but can also
             be a format specific to the render backend if necessary
             (e.g. from ``wgpu.VertexFormat``).
     """
@@ -138,7 +138,8 @@ class Buffer(Resource):
     @property
     def format(self):
         """The vertex or index format (depending on the value of usage). Usually
-        a pygfx dtype specifier (e.g. u2 for scalar uint32, or 3f4 for 3xfloat32).
+        a pygfx dtype specifier (e.g. u2 for scalar uint32, or 3xf4 for 3xfloat32),
+        but can also be a overriden to a backend-specific format.
         """
         if self._format is not None:
             return self._format
@@ -244,5 +245,5 @@ def format_from_memoryview(mem, usage):
             raise TypeError(
                 f"Cannot convert {format!r} to vertex format. Maybe specify format?"
             )
-        format = str(shape[-1]) + formatmap[format]
-        return format.lstrip("1")
+        format = f"{shape[-1]}x" + formatmap[format]
+        return format.lstrip("1x")

@@ -26,7 +26,7 @@ def to_vertex_format(format):
 
     if len(format) == 2:
         return primitive
-    elif len(format) == 3:
+    elif len(format) == 4 and format[1] == "x":  # e.g. 3xf4
         if format[0] == "1":
             return primitive
         elif format[0] in "234":
@@ -57,7 +57,7 @@ def to_texture_format(format):
 
     if len(format) == 2:
         return "r" + primitive
-    elif len(format) == 3:
+    elif len(format) == 4 and format[1] == "x":  # e.g. 3xf4
         if format[0] == "1":
             return "r" + primitive
         elif format[0] == "2":

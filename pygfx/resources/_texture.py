@@ -23,7 +23,7 @@ class Texture(Resource):
             the data. By creating a 2D array with ``depth > 1``, a view can
             be created with format 'd2_array' or 'cube'.
         format (str): the format of texture. By default this is automatically
-            set from the data. This must be a pygfx dtype specifier, e.g. "3f4",
+            set from the data. This must be a pygfx dtype specifier, e.g. "3xf4",
             but can also be a format specific to the render backend if necessary
             (e.g. from ``wgpu.TextureFormat``).
     """
@@ -122,7 +122,8 @@ class Texture(Resource):
     @property
     def format(self):
         """The texture format as a string. Usually a pygfx dtype specifier
-        (e.g. u2 for scalar uint32, or 3f4 for RGB float32).
+        (e.g. u2 for scalar uint32, or 3xf4 for RGB float32),
+        but can also be a overriden to a backend-specific format.
         """
         if self._format is not None:
             return self._format
@@ -250,8 +251,8 @@ def format_from_memoryview(mem, size):
         raise TypeError(
             f"Cannot convert {format!r} to texture format. Maybe specify format?"
         )
-    format = str(nchannels) + formatmap[format]
-    return format.lstrip("1")
+    format = f"{nchannels}x" + formatmap[format]
+    return format.lstrip("1x")
 
 
 # mipmaps: every texture can have a certain number of mipmap levels. Each
