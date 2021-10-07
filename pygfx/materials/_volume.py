@@ -1,4 +1,5 @@
 from ._base import Material
+from ._mesh import clim_from_format
 
 
 class VolumeBasicMaterial(Material):
@@ -10,11 +11,11 @@ class VolumeBasicMaterial(Material):
         opacity="f4",
     )
 
-    def __init__(self, clim=(0, 1), map=None, **kwargs):
+    def __init__(self, clim=None, map=None, **kwargs):
         super().__init__(**kwargs)
-
-        self.clim = clim
+        self._given_clim = None
         self.map = map
+        self.clim = clim
 
     def _wgpu_get_pick_info(self, pick_value):
         size = self.map.size
@@ -29,14 +30,25 @@ class VolumeBasicMaterial(Material):
     @map.setter
     def map(self, map):
         self._map = map
+        # If the clim is on "auto", update the clim when attaching a new map
+        if self._given_clim is None:
+            self.clim = None
 
     @property
     def clim(self):
-        """The contrast limits to apply to the map. Default (0, 1)"""
+        """The contrast limits to apply to the map. By default (and if
+        `None` is given) the clim is based on the map's format."""
         return self.uniform_buffer.data["clim"]
 
     @clim.setter
     def clim(self, clim):
+        # Check and store given clim
+        if clim is not None:
+            clim = float(clim[0]), float(clim[1])
+        self._given_clim = clim
+        # If a clim was not set, try to derive it from the map
+        clim = clim or clim_from_format(self.map)
+        # Update uniform data
         self.uniform_buffer.data["clim"] = clim
         self.uniform_buffer.update_range(0, 1)
 

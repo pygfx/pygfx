@@ -1,4 +1,38 @@
 from ._base import Material
+from ..resources import TextureView
+
+
+def clim_from_format(texture):
+    """Derive clim from texture format."""
+    format2clim = {
+        "u1": (0, 255),
+        "i1": (-128, 127),
+        "u2": (0, 65535),
+        "i2": (-32768, 32767),
+        "u4": (0, 4294967295),
+        "i4": (-2147483648, 2147483647),
+    }
+    clim = 0, 1
+    if texture is not None:
+        format = texture.format
+        if format[-2:] in format2clim:
+            # Our own little format
+            clim = format2clim[format[-2:]]
+        else:
+            # A backend-specific format
+            if "8u" in format:
+                clim = 0, 255
+            elif "8s" in format:
+                clim = -128, 127
+            elif "16u" in format:
+                clim = 0, 65535
+            elif "16s" in format:
+                clim = -32768, 32767
+            elif "32u" in format:
+                clim = 0, 4294967295
+            elif "32s" in format:
+                clim = -2147483648, 2147483647
+    return clim
 
 
 class MeshBasicMaterial(Material):
@@ -17,7 +51,7 @@ class MeshBasicMaterial(Material):
     def __init__(
         self,
         color=(1, 1, 1, 1),
-        clim=(0, 1),
+        clim=None,
         map=None,
         wireframe=False,
         wireframe_thickness=1,
@@ -26,9 +60,10 @@ class MeshBasicMaterial(Material):
     ):
         super().__init__(**kwargs)
 
-        self.color = color
-        self.clim = clim
+        self._given_clim = None
         self.map = map
+        self.clim = clim
+        self.color = color
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
         self.side = side
@@ -60,16 +95,28 @@ class MeshBasicMaterial(Material):
 
     @map.setter
     def map(self, map):
+        assert map is None or isinstance(map, TextureView)
         self._map = map
+        # If the clim is on "auto", update the clim when attaching a new map
+        if self._given_clim is None:
+            self.clim = None
 
     @property
     def clim(self):
-        """The contrast limits to apply to the map. Default (0, 1)"""
+        """The contrast limits to apply to the map. By default (and if
+        `None` is given) the clim is based on the map's format."""
         v1, v2 = self.uniform_buffer.data["clim"]
         return float(v1), float(v2)
 
     @clim.setter
     def clim(self, clim):
+        # Check and store given clim
+        if clim is not None:
+            clim = float(clim[0]), float(clim[1])
+        self._given_clim = clim
+        # If a clim was not set, try to derive it from the map
+        clim = clim or clim_from_format(self.map)
+        # Update uniform data
         self.uniform_buffer.data["clim"] = clim
         self.uniform_buffer.update_range(0, 1)
 
