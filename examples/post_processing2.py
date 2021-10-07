@@ -41,7 +41,7 @@ class MyRenderFlusher(gfx.renderers.wgpu._renderutils.RenderFlusher):
     uniform_type = dict(
         size="2xf4",
         sigma="f4",
-        support="s4",
+        support="i4",
         amplitude="f4",
     )
 

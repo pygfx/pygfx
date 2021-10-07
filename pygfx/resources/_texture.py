@@ -103,7 +103,7 @@ class Texture(Resource):
     @property
     def format(self):
         """The texture format as a string. Usually a pygfx format specifier
-        (e.g. u2 for scalar uint32, or 3xf4 for RGB float32),
+        (e.g. u2 for scalar uint16, or 3xf4 for RGB float32),
         but can also be a overriden to a backend-specific format.
         """
         if self._format is not None:
@@ -203,11 +203,11 @@ class Texture(Resource):
 def format_from_memoryview(mem, size):
 
     formatmap = {
-        "b": "s1",
+        "b": "i1",
         "B": "u1",
-        "h": "s2",
+        "h": "i2",
         "H": "u2",
-        "i": "s4",
+        "i": "i4",
         "U": "u4",
         "e": "f2",
         "f": "f4",

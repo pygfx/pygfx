@@ -13,11 +13,11 @@ def to_vertex_format(format):
 
     # Get primitive type
     primitives = {
-        "s1": "sint8",
+        "i1": "sint8",
         "u1": "uint8",
-        "s2": "sint16",
+        "i2": "sint16",
         "u2": "uint16",
-        "s4": "sint32",
+        "i4": "sint32",
         "u4": "uint32",
         "f2": "float16",
         "f4": "float32",
@@ -44,11 +44,11 @@ def to_texture_format(format):
     # Note how we use normalized types (float in the shader) where we can,
     # because these types can work with an interpolating sampler.
     primitives = {
-        "s1": "8snorm",
+        "i1": "8snorm",
         "u1": "8unorm",
-        "s2": "16sint",
+        "i2": "16sint",
         "u2": "16uint",
-        "s4": "32sint",
+        "i4": "32sint",
         "u4": "32uint",
         "f2": "16float",
         "f4": "32float",
@@ -176,7 +176,7 @@ class RenderFlusher:
     uniform_type = dict(
         size="2xf4",
         sigma="f4",
-        support="s4",
+        support="i4",
     )
 
     def __init__(self, device):
