@@ -6,7 +6,7 @@ import random
 
 import pygfx as gfx
 
-from PyQt5 import QtWidgets
+from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 app = QtWidgets.QApplication([])

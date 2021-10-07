@@ -8,7 +8,7 @@ the overlay, so that it's always on top.
 import numpy as np
 import pygfx as gfx
 
-from PyQt5 import QtWidgets
+from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 

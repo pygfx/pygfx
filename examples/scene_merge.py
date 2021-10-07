@@ -15,7 +15,7 @@ complicated with the depth buffer values being between 0 and 1.
 
 import pygfx as gfx
 
-from PyQt5 import QtWidgets
+from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 
