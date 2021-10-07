@@ -75,8 +75,8 @@ class MeshBasicMaterial(Material):
 
     @property
     def side(self):
-        """Defines which side of faces will be rendered - front, back
-        or both. By default this is "both". Setting to "front" or "back" will
+        """Defines which side of faces will be rendered: "FRONT", "BACK", or "BOTH".
+        By default this is "BOTH". Setting to "FRONT" or "BACK" will
         not render faces from that side, a feature also known as culling.
 
         Which side of the mesh is the front is determined by the winding of the faces.
