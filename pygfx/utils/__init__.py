@@ -12,11 +12,11 @@ def array_from_shadertype(shadertype):
     assert isinstance(shadertype, dict)
 
     primitives = {
-        "s1": "int8",
+        "i1": "int8",
         "u1": "uint8",
-        "s2": "int16",
+        "i2": "int16",
         "u2": "uint16",
-        "s4": "int32",
+        "i4": "int32",
         "u4": "uint32",
         "f2": "float16",
         "f4": "float32",

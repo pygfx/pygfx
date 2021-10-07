@@ -68,7 +68,7 @@ class WorldObject(ResourceContainer):
 
     uniform_type = dict(
         world_transform="4x4xf4",
-        id="s4",
+        id="i4",
     )
 
     _v = Vector3()
