@@ -78,7 +78,7 @@ for dim in [0, 1, 2]:  # xyz
     abcd = [0, 0, 0, 0]
     abcd[dim] = -1
     abcd[-1] = vol.shape[2 - dim] / 2
-    material = gfx.VolumeSliceMaterial(map=tex, clim=(0, 255), plane=abcd)
+    material = gfx.VolumeSliceMaterial(map=tex, clim=(0, 2000), plane=abcd)
     plane = gfx.Volume(tex.size, material)
     planes.append(plane)
     scene.add(plane)

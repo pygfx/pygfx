@@ -33,7 +33,7 @@ geometry = gfx.PlaneGeometry(200, 200, 1, 1)
 texcoords = np.hstack([geometry.texcoords.data, np.ones((4, 1), np.float32) * 0.5])
 geometry.texcoords = gfx.Buffer(texcoords)
 
-material = gfx.MeshBasicMaterial(map=view, clim=(0, 255))
+material = gfx.MeshBasicMaterial(map=view, clim=(0, 2000))
 plane = gfx.Mesh(geometry, material)
 plane.scale.y = -1
 scene.add(plane)

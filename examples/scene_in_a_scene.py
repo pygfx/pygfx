@@ -33,7 +33,7 @@ scene1.add(background1)
 im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 geometry1 = gfx.BoxGeometry(200, 200, 200)
-material1 = gfx.MeshPhongMaterial(map=tex, color=(1, 1, 0, 1.0), clim=(0, 1))
+material1 = gfx.MeshPhongMaterial(map=tex, color=(1, 1, 0, 1.0))
 cube1 = gfx.Mesh(geometry1, material1)
 scene1.add(cube1)
 
@@ -49,8 +49,7 @@ renderer2 = gfx.renderers.WgpuRenderer(canvas2)
 scene2 = gfx.Scene()
 
 geometry2 = gfx.BoxGeometry(200, 200, 200)
-# todo: the clim being 0..255 feels weird here, maybe review that
-material2 = gfx.MeshPhongMaterial(map=texture1.get_view(filter="linear"), clim=(0, 255))
+material2 = gfx.MeshPhongMaterial(map=texture1.get_view(filter="linear"))
 cube2 = gfx.Mesh(geometry2, material2)
 scene2.add(cube2)
 

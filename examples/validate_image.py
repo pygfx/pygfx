@@ -27,7 +27,7 @@ im = imageio.imread("imageio:astronaut.png")
 tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.PlaneGeometry(512, 512)
-material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 255))
+material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 
 plane = gfx.Mesh(geometry, material)
 plane.position = gfx.linalg.Vector3(256, 256, 0)  # put corner at 0, 0
