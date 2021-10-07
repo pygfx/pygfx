@@ -62,7 +62,7 @@ scene.add(gfx.AxesHelper(length=50))
 vol = imageio.volread("imageio:stent.npz")
 tex = gfx.Texture(vol, dim=3)
 view = tex.get_view(filter="linear")
-material = gfx.MeshBasicMaterial(map=view, clim=(0, 255))
+material = gfx.MeshBasicMaterial(map=view, clim=(0, 2000))
 
 # TODO: also add a mesh slice for each plane
 

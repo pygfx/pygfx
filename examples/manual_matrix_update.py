@@ -18,7 +18,7 @@ scene = gfx.Scene()
 im = imageio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
-material = gfx.MeshBasicMaterial(map=tex, clim=(0, 250))
+material = gfx.MeshBasicMaterial(map=tex)
 geometry = gfx.BoxGeometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):

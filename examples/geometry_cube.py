@@ -2,7 +2,6 @@
 Example showing a single geometric cube.
 """
 
-import numpy as np
 import imageio
 import pygfx as gfx
 
@@ -16,12 +15,12 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
+im = imageio.imread("imageio:bricks.jpg")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.BoxGeometry(200, 200, 200)
 geometry.texcoords.data[:] *= 2  # smaller bricks
-material = gfx.MeshPhongMaterial(map=tex, color=(1, 0, 0, 0.2), clim=(0.2, 0.8))
+material = gfx.MeshPhongMaterial(map=tex, color=(1, 0, 0, 0.2))
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 
