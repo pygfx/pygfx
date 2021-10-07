@@ -114,10 +114,11 @@ class Material(ResourceContainer):
 
     @property
     def clipping_mode(self):
-        """Set the behavior for multiple clipping planes. If this is
-        "ANY" (the default) a fragment is discarded if it is clipped
-        by any clipping plane. If this is "ALL", a fragment is discarded
-        only if it is clipped by *all* of the clipping planes.
+        """Set the behavior for multiple clipping planes: "ANY" or "ALL".
+        If this is "ANY" (the default) a fragment is discarded
+        if it is clipped by any clipping plane. If this is "ALL", a
+        fragment is discarded only if it is clipped by *all* of the
+        clipping planes.
         """
         return self._clipping_mode
 
