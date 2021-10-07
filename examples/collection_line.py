@@ -8,7 +8,7 @@ import numpy as np
 
 import pygfx as gfx
 
-from PyQt5 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
 
 

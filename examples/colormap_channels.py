@@ -5,7 +5,7 @@ Example demonstrating colormaps in 4 modes: grayscale, gray+alpha, RGB, RGBA.
 import pygfx as gfx
 import numpy as np
 
-from PyQt5 import QtWidgets
+from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 

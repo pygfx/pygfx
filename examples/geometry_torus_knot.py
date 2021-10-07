@@ -5,7 +5,7 @@ Example showing a Torus knot, with a texture and lighting.
 import imageio
 import pygfx as gfx
 
-from PyQt5 import QtWidgets
+from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 
