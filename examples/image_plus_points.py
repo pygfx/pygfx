@@ -44,7 +44,7 @@ scene.add(points)
 near, far = -400, 700
 camera = gfx.OrthographicCamera(512, 512)
 camera.position.set(256, 256, 0)
-
+camera.scale.y = -1
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))

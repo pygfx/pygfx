@@ -33,15 +33,17 @@ class Fullquad(gfx.WorldObject):
 class NoiseMaterial(gfx.materials.Material):
 
     uniform_type = {
-        "time": ("float32",),
-        "noise": ("float32",),
+        "clipping_planes": "0*4xf4",
+        "time": "f4",
+        "noise": "f4",
+        "opacity": "f4",
     }
 
     def __init__(self, noise=1):
         super().__init__()
 
         self.uniform_buffer = gfx.Buffer(
-            gfx.utils.array_from_shadertype(self.uniform_type), usage="UNIFORM"
+            gfx.utils.array_from_shadertype(self.uniform_type)
         )
         self.uniform_buffer.data["time"] = 0
         self.uniform_buffer.data["noise"] = noise
@@ -68,7 +70,7 @@ struct Render {
     noise: f32;
 };
 [[group(0), binding(0)]]
-var u_render: Render;
+var<uniform> u_render: Render;
 
 [[group(1), binding(0)]]
 var r_sampler: sampler;
@@ -128,12 +130,7 @@ app = QtWidgets.QApplication([])
 canvas = WgpuCanvas(size=(640, 480))
 
 # The texture to render the scene into
-texture = gfx.Texture(
-    dim=2,
-    size=(640, 480, 1),
-    format="rgba8unorm",
-    usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
-)
+texture = gfx.Texture(dim=2, size=(640, 480, 1), format="rgba8unorm")
 
 # The regular scene
 

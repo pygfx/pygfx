@@ -1,7 +1,5 @@
 import numpy as np
 
-import wgpu
-
 STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
 
@@ -20,22 +18,19 @@ class Buffer(Resource):
             buffer-protocol, (e.g. a bytes or numpy array). If not given
             or None, nbytes and nitems must be provided. The data is
             copied if it's float64 or not contiguous.
-        usage (str): The way(s) that the texture will be used. E.g. "INDEX"
-            "VERTEX", "UNIFORM". Multiple values can be given separated
-            with "|". See wgpu.BufferUsage.
         nbytes (int): The number of bytes. If data is given, it is derived.
         nitems (int): The number of items. If data is given, it is derived.
         format (str): The format to use when used as a vertex buffer.
-            Must be a value from wgpu.VertexFormat. By default it is
-            derived from the data. Set when data is not given or when
-            you want to overload the derived value.
+            By default this is automatically set from the data. This
+            must be a pygfx format specifier, e.g. "3xf4", but can also
+            be a format specific to the render backend if necessary
+            (e.g. from ``wgpu.VertexFormat``).
     """
 
     def __init__(
         self,
         data=None,
         *,
-        usage,
         nbytes=None,
         nitems=None,
         format=None,
@@ -48,6 +43,9 @@ class Buffer(Resource):
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
+
+        # Backends-specific attributes for internal use
+        self._wgpu_usage = 0
 
         # Get nbytes
         if data is not None:
@@ -76,14 +74,6 @@ class Buffer(Resource):
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
-        # Determine usage
-        if isinstance(usage, str):
-            usages = usage.upper().replace(",", " ").replace("|", " ").split()
-            assert usages
-            self._usage = "|".join(usages)
-        else:
-            raise TypeError("Buffer usage must be str.")
-
         # We can use a subset when used as a vertex buffer
         self._vertex_byte_range = (0, self._nbytes)
 
@@ -91,11 +81,6 @@ class Buffer(Resource):
     def rev(self):
         """An integer that is increased when update_range() is called."""
         return self._rev
-
-    @property
-    def usage(self):
-        """The buffer usage flags (as a string with "|" as a separator)."""
-        return self._usage
 
     @property
     def data(self):
@@ -126,11 +111,14 @@ class Buffer(Resource):
 
     @property
     def format(self):
-        """The vertex or index format (depending on the value of usage)."""
+        """The vertex format. Usually a pygfx format specifier (e.g. u2
+        for scalar uint32, or 3xf4 for 3xfloat32), but can also be a
+        overriden to a backend-specific format.
+        """
         if self._format is not None:
             return self._format
         elif self.data is not None:
-            self._format = format_from_memoryview(self.mem, self.usage)
+            self._format = format_from_memoryview(self.mem)
             return self._format
         else:
             raise ValueError("Buffer has no data nor format.")
@@ -191,68 +179,30 @@ class Buffer(Resource):
         return memoryview(np.ascontiguousarray(sub_arr))
 
 
-def format_from_memoryview(mem, usage):
+def format_from_memoryview(mem):
 
-    if "INDEX" in usage:
+    formatmap = {
+        "b": "s1",
+        "B": "u1",
+        "h": "s2",
+        "H": "u2",
+        "i": "s4",
+        "U": "u4",
+        "e": "f2",
+        "f": "f4",
+    }
 
-        format = str(mem.format)
-        format = STRUCT_FORMAT_ALIASES.get(format, format)
-        mapping = {
-            "h": wgpu.IndexFormat.uint16,
-            "H": wgpu.IndexFormat.uint16,
-            "i": wgpu.IndexFormat.uint32,
-            "I": wgpu.IndexFormat.uint32,
-        }
-        try:
-            return mapping[format]
-        except KeyError:
-            raise TypeError(
-                f"Need 16bit or 32bit signed/unsigned int (hHiI) for index data, not '{format}'."
-            )
-
-    else:  # if "VERTEX" in self.usage:
-
-        shape = mem.shape
-        if len(shape) == 1:
-            shape = shape + (1,)
-        assert len(shape) == 2
-        format = str(mem.format)
-        format = STRUCT_FORMAT_ALIASES.get(format, format)
-        key = format, shape[-1]
-        mapping = {
-            ("f", 1): wgpu.VertexFormat.float32,
-            ("f", 2): wgpu.VertexFormat.float32x2,
-            ("f", 3): wgpu.VertexFormat.float32x3,
-            ("f", 4): wgpu.VertexFormat.float32x4,
-            #
-            ("e", 2): wgpu.VertexFormat.float16x2,
-            ("e", 4): wgpu.VertexFormat.float16x4,
-            #
-            ("b", 2): wgpu.VertexFormat.sint8x2,
-            ("b", 4): wgpu.VertexFormat.sint8x4,
-            ("B", 2): wgpu.VertexFormat.uint8x2,
-            ("B", 4): wgpu.VertexFormat.uint8x4,
-            #
-            ("h", 2): wgpu.VertexFormat.sint16x2,
-            ("h", 4): wgpu.VertexFormat.sint16x4,
-            ("H", 2): wgpu.VertexFormat.uint16x2,
-            ("H", 4): wgpu.VertexFormat.uint16x4,
-            #
-            ("i", 1): wgpu.VertexFormat.sint32,
-            ("i", 2): wgpu.VertexFormat.sint32x2,
-            ("i", 3): wgpu.VertexFormat.sint32x3,
-            ("i", 4): wgpu.VertexFormat.sint32x4,
-            #
-            ("I", 1): wgpu.VertexFormat.uint32,
-            ("I", 2): wgpu.VertexFormat.uint32x2,
-            ("I", 3): wgpu.VertexFormat.uint32x3,
-            ("I", 4): wgpu.VertexFormat.uint32x4,
-        }
-        try:
-            return mapping[key]
-        except KeyError:
-            if format in ("d", "float64"):
-                raise ValueError(
-                    "64-bit float is not supported, use 32-bit float instead"
-                )
-            raise ValueError(f"Invalid format/shape for vertex data: {key}")
+    shape = mem.shape
+    if len(shape) == 1:
+        shape = shape + (1,)
+    assert len(shape) == 2
+    format = str(mem.format)
+    format = STRUCT_FORMAT_ALIASES.get(format, format)
+    if format in ("d", "float64"):
+        raise ValueError("64-bit float is not supported, use 32-bit float instead")
+    elif format not in formatmap:
+        raise TypeError(
+            f"Cannot convert {format!r} to vertex format. Maybe specify format?"
+        )
+    format = f"{shape[-1]}x" + formatmap[format]
+    return format.lstrip("1x")

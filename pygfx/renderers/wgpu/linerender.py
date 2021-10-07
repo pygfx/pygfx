@@ -38,7 +38,7 @@ from ...materials import (
 # todo: we can learn about dashing, unfolding and more at http://jcgt.org/published/0002/02/08/paper.pdf
 
 
-renderer_uniform_type = dict(last_i=("int32",))
+renderer_uniform_type = dict(last_i="s4")
 
 
 @register_wgpu_render_function(Line, LineMaterial)
@@ -70,9 +70,7 @@ def line_renderer(wobject, render_info):
             "For rendering (thick) lines, the geometry.positions must be Nx3."
         )
 
-    uniform_buffer = Buffer(
-        array_from_shadertype(renderer_uniform_type), usage="UNIFORM"
-    )
+    uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
     uniform_buffer.data["last_i"] = positions1.nitems - 1
 
     shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)

@@ -204,7 +204,7 @@ class CylinderGeometry(Geometry):
             mesh = merge(groups)
 
         positions, normals, texcoords, index = mesh
-        self.positions = Buffer(positions, usage="vertex|storage")
-        self.normals = Buffer(normals, usage="vertex|storage")
-        self.texcoords = Buffer(texcoords, usage="vertex|storage")
-        self.index = Buffer(index, usage="index|storage")
+        self.positions = Buffer(positions)
+        self.normals = Buffer(normals)
+        self.texcoords = Buffer(texcoords)
+        self.index = Buffer(index)

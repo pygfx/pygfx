@@ -11,10 +11,34 @@ def array_from_shadertype(shadertype):
     """Get a numpy array object from a dict shadertype."""
     assert isinstance(shadertype, dict)
 
+    primitives = {
+        "s1": "int8",
+        "u1": "uint8",
+        "s2": "int16",
+        "u2": "uint16",
+        "s4": "int32",
+        "u4": "uint32",
+        "f2": "float16",
+        "f4": "float32",
+    }
+
     # Unravel the dict
+    array_names = []
     dtype_fields = []
-    for name, type_tuple in shadertype.items():
-        dtype_fields.append((name,) + tuple(type_tuple))
+    for name, format in shadertype.items():
+        primitive = primitives[format[-2:]]
+        shapestr = format[:-2].replace("*", "x")
+        shape = tuple(int(i) for i in shapestr.split("x") if i)
+        dtype_fields.append((name, primitive, shape))
+        if "*" in format:
+            array_names.append(name)
+
+    # Add meta field (zero bytes)
+    # This isn't particularly pretty, but this way our metadata is attached
+    # to the dtype without affecting its size.
+    array_names.insert(0, "")
+    array_names.append("")
+    dtype_fields.append(("__".join(array_names), "uint8", (0,)))
 
     # Create a scalar of this type
     uniform_data = np.zeros((), dtype=dtype_fields)

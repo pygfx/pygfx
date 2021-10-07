@@ -5,9 +5,9 @@ class VolumeBasicMaterial(Material):
     """Base volume material."""
 
     uniform_type = dict(
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
-        clim=("float32", 2),
-        opacity=("float32",),
+        clipping_planes="0*4xf4",  # array<vec4<f32>,3>
+        clim="2xf4",
+        opacity="f4",
     )
 
     def __init__(self, clim=(0, 1), map=None, **kwargs):
@@ -47,10 +47,10 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     """
 
     uniform_type = dict(
-        plane=("float32", 4),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
-        clim=("float32", 2),
-        opacity=("float32",),
+        plane="4xf4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,3>
+        clim="2xf4",
+        opacity="f4",
     )
 
     def __init__(self, plane=(0, 0, 1, 0), **kwargs):

@@ -28,7 +28,6 @@ scene.add(plane)
 
 camera = gfx.PerspectiveCamera(70)
 camera.position.z = 200
-camera.scale.y = -1
 
 
 def animate():

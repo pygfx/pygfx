@@ -64,9 +64,9 @@ class KleinBottleGeometry(Geometry):
         indices = indices.reshape(-1)
 
         # Create buffers for this geometry
-        self.positions = Buffer(positions, usage="vertex|storage")
-        self.index = Buffer(indices, usage="index|storage")
-        self.texcoords = Buffer(texcoords, usage="vertex|storage")
+        self.positions = Buffer(positions)
+        self.index = Buffer(indices)
+        self.texcoords = Buffer(texcoords)
 
 
 def klein_bottle_surface(u, v):
@@ -188,10 +188,10 @@ class TorusKnotGeometry(Geometry):
         # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
 
         # Create buffers for this geometry
-        self.positions = Buffer(positions, usage="vertex|storage")
-        self.normals = Buffer(normals, usage="vertex|storage")
-        self.index = Buffer(indices, usage="index|storage")
-        self.texcoords = Buffer(texcoords, usage="vertex|storage")
+        self.positions = Buffer(positions)
+        self.normals = Buffer(normals)
+        self.index = Buffer(indices)
+        self.texcoords = Buffer(texcoords)
 
 
 def torus_knot_surface(u, p, q, radius):

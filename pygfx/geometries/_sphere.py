@@ -91,7 +91,7 @@ class SphereGeometry(Geometry):
             theta_length=theta_length,
         )
 
-        self.positions = Buffer(vertices, usage="vertex|storage")
-        self.normals = Buffer(normals, usage="vertex|storage")
-        self.texcoords = Buffer(texcoords, usage="vertex|storage")
-        self.index = Buffer(indices, usage="index|storage")
+        self.positions = Buffer(vertices)
+        self.normals = Buffer(normals)
+        self.texcoords = Buffer(texcoords)
+        self.index = Buffer(indices)

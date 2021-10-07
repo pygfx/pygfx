@@ -22,12 +22,7 @@ app = QtWidgets.QApplication([])
 
 # First create the subscene, that reders into a texture
 
-texture1 = gfx.Texture(
-    dim=2,
-    size=(200, 200, 1),
-    format="rgba8unorm",
-    usage="TEXTURE_BINDING|RENDER_ATTACHMENT",
-)
+texture1 = gfx.Texture(dim=2, size=(200, 200, 1), format="rgba8unorm")
 
 renderer1 = gfx.renderers.WgpuRenderer(texture1)
 scene1 = gfx.Scene()

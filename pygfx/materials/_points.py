@@ -7,10 +7,10 @@ class PointsMaterial(Material):
     """
 
     uniform_type = dict(
-        color=("float32", 4),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
-        size=("float32",),
-        opacity=("float32",),
+        color="4xf4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
+        size="f4",
+        opacity="f4",
     )
 
     def __init__(self, color=(1, 1, 1, 1), size=1, **kwargs):

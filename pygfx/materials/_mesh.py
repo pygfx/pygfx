@@ -7,11 +7,11 @@ class MeshBasicMaterial(Material):
     """
 
     uniform_type = dict(
-        color=("float32", 4),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
-        clim=("float32", 2),
-        opacity=("float32",),
-        wireframe=("float32",),
+        color="4xf4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
+        clim="2xf4",
+        opacity="f4",
+        wireframe="f4",
     )
 
     def __init__(
@@ -170,13 +170,13 @@ class MeshPhongMaterial(MeshBasicMaterial):
     # using derivatives of the world pos.
 
     uniform_type = dict(
-        color=("float32", 4),
-        emissive_color=("float32", 4),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
-        clim=("float32", 2),
-        opacity=("float32",),
-        wireframe=("float32",),
-        shininess=("float32",),
+        color="4xf4",
+        emissive_color="4xf4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
+        clim="2xf4",
+        opacity="f4",
+        wireframe="f4",
+        shininess="f4",
     )
 
     def __init__(self, shininess=30, emissive=(0, 0, 0, 0), **kwargs):
@@ -241,13 +241,13 @@ class MeshSliceMaterial(MeshBasicMaterial):
     """A material that displays a slices of the mesh."""
 
     uniform_type = dict(
-        color=("float32", 4),
-        plane=("float32", 4),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
-        clim=("float32", 2),
-        thickness=("float32",),
-        opacity=("float32",),
-        wireframe=("float32",),  # Not used, but must be defined
+        color="4xf4",
+        plane="4xf4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
+        clim="2xf4",
+        thickness="f4",
+        opacity="f4",
+        wireframe="f4",  # Not used, but must be defined
     )
 
     def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):

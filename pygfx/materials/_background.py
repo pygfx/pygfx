@@ -11,12 +11,12 @@ class BackgroundMaterial(Material):
     """
 
     uniform_type = dict(
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,3>
-        color_bottom_left=("float32", 4),
-        color_bottom_right=("float32", 4),
-        color_top_left=("float32", 4),
-        color_top_right=("float32", 4),
-        opacity=("float32",),
+        clipping_planes="0*4xf4",  # array<vec4<f32>,3>
+        color_bottom_left="4xf4",
+        color_bottom_right="4xf4",
+        color_top_left="4xf4",
+        color_top_right="4xf4",
+        opacity="f4",
     )
 
     def __init__(self, *colors, **kwargs):

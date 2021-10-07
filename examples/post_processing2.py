@@ -39,10 +39,10 @@ camera.position.z = 400
 class MyRenderFlusher(gfx.renderers.wgpu._renderutils.RenderFlusher):
 
     uniform_type = dict(
-        size=("float32", 2),
-        sigma=("float32",),
-        support=("int32",),
-        amplitude=("float32",),
+        size="2xf4",
+        sigma="f4",
+        support="s4",
+        amplitude="f4",
     )
 
     def __init__(self, device):

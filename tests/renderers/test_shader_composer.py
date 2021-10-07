@@ -53,7 +53,7 @@ def test_uniform_definitions():
         shader.define_uniform(0, 0, "zz", np.array([1]).dtype)
 
     # Test simple scalars
-    struct = dict(foo=("f4",), bar=("float32", (1,)))
+    struct = dict(foo="f4", bar="s2")
     shader.define_uniform(0, 0, "zz", struct)
     assert (
         shader.get_definitions().strip()
@@ -61,7 +61,7 @@ def test_uniform_definitions():
         [[block]]
         struct Struct_zz {
             foo: f32;
-            bar: f32;
+            bar: i16;
         };
 
         [[group(0), binding(0)]]
@@ -70,7 +70,7 @@ def test_uniform_definitions():
     )
 
     # Test vec
-    struct = dict(foo=("f4", 4), bar=("int32", (2,)))
+    struct = dict(foo="4xf4", bar="2xs4")
     shader.define_uniform(0, 0, "zz", struct)
     assert (
         shader.get_definitions().strip()
@@ -87,7 +87,7 @@ def test_uniform_definitions():
     )
 
     # Test mat
-    struct = dict(foo=("f4", (4, 4)), bar=("int32", (2, 3)))
+    struct = dict(foo="4x4xf4", bar="2x3xs4")
     shader.define_uniform(0, 0, "zz", struct)
     assert (
         shader.get_definitions().strip()
@@ -104,10 +104,10 @@ def test_uniform_definitions():
     )
 
     # Test alignment
-    struct = dict(foo=("f4", 3), bar=("int32", 4))
+    struct = dict(foo="3xf4", bar="4xs4")
     with raises(TypeError):
         shader.define_uniform(0, 0, "zz", struct)
-    struct = dict(foo=("f4", 3), _padding=("f4",), bar=("int32", 4))
+    struct = dict(foo="3xf4", _padding="f4", bar="4xs4")
     shader.define_uniform(0, 0, "zz", struct)
 
 

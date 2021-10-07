@@ -36,7 +36,7 @@ struct Stdinfo {
 };
 
 [[group(0), binding(0)]]
-var u_stdinfo: Stdinfo;
+var<uniform> u_stdinfo: Stdinfo;
 
 [[stage(vertex)]]
 fn vs_main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32> {

@@ -2,8 +2,6 @@ import numpy as np
 
 from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
-# todo: what to do about these enums from wgpu. Copy them over?
-
 
 class Texture(Resource):
     """A base texture wrapper that can be implemented for numpy, ctypes arrays,
@@ -15,21 +13,17 @@ class Texture(Resource):
             or None, nbytes and nitems must be provided. The data is
             copied if it's float64 or not contiguous.
         dim (int): The dimensionality of the array (1, 2 or 3).
-        usage: The way(s) that the texture will be used. Default "TEXTURE_BINDING",
-            set/add "STORAGE_BINDING" if you're using it as a storage texture
-            (see wgpu.TextureUsage).
         size (3-tuple): The extent ``(width, height, depth)`` of the array.
             If not given or None, it is derived from dim and the shape of
             the data. By creating a 2D array with ``depth > 1``, a view can
             be created with format 'd2_array' or 'cube'.
-        format (enum str): the GPU format of texture. Must be a value from
-            wgpu.TextureFormat. By default it is derived from the data. Set when
-            data is not given or when you want to overload the derived value.
+        format (str): the format of texture. By default this is automatically
+            set from the data. This must be a pygfx format specifier, e.g. "3xf4",
+            but can also be a format specific to the render backend if necessary
+            (e.g. from ``wgpu.TextureFormat``).
     """
 
-    def __init__(
-        self, data=None, *, dim, usage="TEXTURE_BINDING", size=None, format=None
-    ):
+    def __init__(self, data=None, *, dim, size=None, format=None):
         self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
@@ -41,6 +35,9 @@ class Texture(Resource):
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
+
+        # Backends-specific attributes for internal use
+        self._wgpu_usage = 0
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -60,14 +57,6 @@ class Texture(Resource):
                 "Texture must be instantiated with either data or size and format."
             )
 
-        # Determine usage
-        if isinstance(usage, str):
-            usages = usage.upper().replace(",", " ").replace("|", " ").split()
-            assert usages
-            self._usage = "|".join(usages)
-        else:
-            raise TypeError("Texture usage must be str.")
-
     @property
     def rev(self):
         """An integer that is increased when update_range() is called."""
@@ -81,13 +70,6 @@ class Texture(Resource):
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
         return self._dim
-
-    @property
-    def usage(self):
-        """The texture usage flags as a string (compatible with the
-        wgpu.TextureUsage enum).
-        """
-        return self._usage
 
     @property
     def data(self):
@@ -120,24 +102,17 @@ class Texture(Resource):
 
     @property
     def format(self):
-        """The texture format as a string (compatible with the
-        wgpu.TextureFormat enum).
+        """The texture format as a string. Usually a pygfx format specifier
+        (e.g. u2 for scalar uint32, or 3xf4 for RGB float32),
+        but can also be a overriden to a backend-specific format.
         """
         if self._format is not None:
             return self._format
-        elif self.usage == "UNIFORM":
-            return None
         elif self.data is not None:
             self._format = format_from_memoryview(self.mem, self.size)
             return self._format
         else:
             raise ValueError("Texture has no data nor format.")
-
-    @property
-    def nchannels(self):
-        """The number of (color) channels (1, 2, 3 or 4)."""
-        format = self.format
-        return len(format) - len(format.lstrip("rgba"))
 
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
@@ -226,6 +201,18 @@ class Texture(Resource):
 
 
 def format_from_memoryview(mem, size):
+
+    formatmap = {
+        "b": "s1",
+        "B": "u1",
+        "h": "s2",
+        "H": "u2",
+        "i": "s4",
+        "U": "u4",
+        "e": "f2",
+        "f": "f4",
+    }
+
     format = str(mem.format)
     format = STRUCT_FORMAT_ALIASES.get(format, format)
     # Process channels
@@ -237,33 +224,14 @@ def format_from_memoryview(mem, size):
         assert len(shape) == len(collapsed_size)
         nchannels = 1
     assert 1 <= nchannels <= 4
-    tex_format = [None, "r", "rg", "rgb", "rgba"][nchannels]
-    # if tex_format == "rgb":
-    #     -> no raise: WGPU does not support rgb, but we handle it in the renderer
-    # Process dtype. We select the tex_format that matches the dtype.
-    # This means that uint8 values become 0..255 in the shader.
-    # todo: not yet entirely sure about this
-    # todo: there is no reference to wgpu here, but these are wgpu enums. Is that ok?
-    texformatmap = {
-        "b": "8snorm",
-        "B": "8unorm",
-        # "b": "8sint",
-        # "B": "8uint",
-        "h": "16sint",
-        "H": "16uint",
-        "i": "32sint",
-        "U": "32uint",
-        "e": "16float",
-        "f": "32float",
-    }
     if format in ("d", "float64"):
         raise TypeError("GPU's don't support float64 texture formats.")
-    elif format not in texformatmap:
+    elif format not in formatmap:
         raise TypeError(
             f"Cannot convert {format!r} to texture format. Maybe specify format?"
         )
-    tex_format += texformatmap[format]
-    return tex_format
+    format = f"{nchannels}x" + formatmap[format]
+    return format.lstrip("1x")
 
 
 # mipmaps: every texture can have a certain number of mipmap levels. Each
@@ -343,9 +311,7 @@ class TextureView(Resource):
 
     @property
     def view_dim(self):
-        """The dimensionality of this view, as a string.
-        See wgpu.TextureViewDimension.
-        """
+        """The dimensionality of this view: "1d", "2d" or "3d"."""
         return self._view_dim or f"{self.texture.dim}d"
 
     @property

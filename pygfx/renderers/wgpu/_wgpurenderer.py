@@ -11,7 +11,12 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import RenderTexture, RenderFlusher
+from ._renderutils import (
+    RenderTexture,
+    RenderFlusher,
+    to_vertex_format,
+    to_texture_format,
+)
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -19,13 +24,13 @@ from ._renderutils import RenderTexture, RenderFlusher
 # todo: a combined transform would be nice too, for performance
 # todo: same for ndc_to_world transform (combined inv transforms)
 stdinfo_uniform_type = dict(
-    cam_transform=("float32", (4, 4)),
-    cam_transform_inv=("float32", (4, 4)),
-    projection_transform=("float32", (4, 4)),
-    projection_transform_inv=("float32", (4, 4)),
-    physical_size=("float32", 2),
-    logical_size=("float32", 2),
-    flipped_winding=("int32",),  # A bool, really
+    cam_transform="4x4xf4",
+    cam_transform_inv="4x4xf4",
+    projection_transform="4x4xf4",
+    projection_transform_inv="4x4xf4",
+    physical_size="2xf4",
+    logical_size="2xf4",
+    flipped_winding="s4",  # A bool, really
 )
 
 
@@ -112,9 +117,8 @@ class SharedData:
         )
 
         # Create a uniform buffer for std info
-        self.stdinfo_buffer = Buffer(
-            array_from_shadertype(stdinfo_uniform_type), usage="uniform"
-        )
+        self.stdinfo_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        self.stdinfo_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
 
 class WgpuRenderer(Renderer):
@@ -179,12 +183,13 @@ class WgpuRenderer(Renderer):
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
 
-        # Get target format (initialize canvas context)
+        # Get target format
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             self._canvas_context = self._target.get_context()
             self._target_tex_format = self._canvas_context.get_preferred_format(
                 self._shared.adapter
             )
+            # Also configure the canvas
             self._canvas_context.configure(
                 device=self._shared.device,
                 format=self._target_tex_format,
@@ -192,6 +197,9 @@ class WgpuRenderer(Renderer):
             )
         else:
             self._target_tex_format = self._target.format
+            # Also enable the texture for render and display usage
+            self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
+            self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
@@ -608,14 +616,17 @@ class WgpuRenderer(Renderer):
 
         pipeline_resources = []  # List, because order matters
 
-        # Collect list of resources. That we can we can easily iterate over
-        # dependent resource on each render call.
+        # Collect list of resources. This way we can easily iterate
+        # over dependent resource on each render call. We also set the
+        # usage flag of buffers and textures specified in the pipeline.
         for pipeline_info in pipeline_infos:
             assert isinstance(pipeline_info, dict)
             buffer = pipeline_info.get("index_buffer", None)
             if buffer is not None:
+                buffer._wgpu_usage |= wgpu.BufferUsage.INDEX
                 pipeline_resources.append(("buffer", buffer))
             for buffer in pipeline_info.get("vertex_buffers", {}).values():
+                buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX
                 pipeline_resources.append(("buffer", buffer))
             for key in pipeline_info.keys():
                 if key.startswith("bindings"):
@@ -626,15 +637,25 @@ class WgpuRenderer(Renderer):
                         if binding_type.startswith("buffer/"):
                             assert isinstance(resource, Buffer)
                             pipeline_resources.append(("buffer", resource))
+                            if "uniform" in binding_type:
+                                resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+                            elif "storage" in binding_type:
+                                resource._wgpu_usage |= wgpu.BufferUsage.STORAGE
                         elif binding_type.startswith("sampler/"):
                             assert isinstance(resource, TextureView)
                             pipeline_resources.append(("sampler", resource))
                         elif binding_type.startswith("texture/"):
                             assert isinstance(resource, TextureView)
+                            resource.texture._wgpu_usage |= (
+                                wgpu.TextureUsage.TEXTURE_BINDING
+                            )
                             pipeline_resources.append(("texture", resource.texture))
                             pipeline_resources.append(("texture_view", resource))
                         elif binding_type.startswith("storage_texture/"):
                             assert isinstance(resource, TextureView)
+                            resource.texture._wgpu_usage |= (
+                                wgpu.TextureUsage.STORAGE_BINDING
+                            )
                             pipeline_resources.append(("texture", resource.texture))
                             pipeline_resources.append(("texture_view", resource))
                         else:
@@ -731,7 +752,8 @@ class WgpuRenderer(Renderer):
         index_buffer = pipeline_info.get("index_buffer", None)
         if index_buffer is not None:
             wgpu_index_buffer = index_buffer._wgpu_buffer[1]
-            index_format = index_buffer.format
+            index_format = to_vertex_format(index_buffer.format)
+            index_format = index_format.split("x")[0].replace("s", "u")
 
         # Convert and check high-level indices. Indices represent a range
         # of index id's, or define what indices in the index buffer are used.
@@ -779,7 +801,7 @@ class WgpuRenderer(Renderer):
                 "step_mode": wgpu.VertexStepMode.vertex,  # vertex or instance
                 "attributes": [
                     {
-                        "format": buffer.format,
+                        "format": to_vertex_format(buffer.format),
                         "offset": 0,
                         "shader_location": slot,
                     }
@@ -957,7 +979,8 @@ class WgpuRenderer(Renderer):
                     sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
                     # Derive sample type from texture
                     if sample_type == "auto":
-                        fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
+                        fmt = to_texture_format(resource.format)
+                        fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
                         if "float" in fmt or "norm" in fmt:
                             sample_type = wgpu.TextureSampleType.float
                             # For float32 wgpu does not allow the sampler to be filterable,
@@ -992,7 +1015,8 @@ class WgpuRenderer(Renderer):
                     )
                     dim = resource.view_dim
                     dim = getattr(wgpu.TextureViewDimension, dim, dim)
-                    fmt = ALTTEXFORMAT.get(resource.format, [resource.format])[0]
+                    fmt = to_texture_format(resource.format)
+                    fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
                     binding_layouts.append(
                         {
                             "binding": slot,
@@ -1032,10 +1056,10 @@ class WgpuRenderer(Renderer):
 
         # Create buffer if needed
         if buffer is None or buffer.size != resource.nbytes:
-            usage = wgpu.BufferUsage.COPY_DST
-            for u in resource.usage.split("|"):
-                usage |= getattr(wgpu.BufferUsage, u)
-            buffer = device.create_buffer(size=resource.nbytes, usage=usage)
+            resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
+            buffer = device.create_buffer(
+                size=resource.nbytes, usage=resource._wgpu_usage
+            )
 
         queue = device.queue
         encoder = device.create_command_encoder()
@@ -1067,8 +1091,10 @@ class WgpuRenderer(Renderer):
             dim = resource._view_dim
             assert resource._mip_range.step == 1
             assert resource._layer_range.step == 1
+            fmt = to_texture_format(resource.format)
+            fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
             texture_view = resource.texture._wgpu_texture[1].create_view(
-                format=ALTTEXFORMAT.get(resource.format, [resource.format])[0],
+                format=fmt,
                 dimension=f"{dim}d" if isinstance(dim, int) else dim,
                 aspect=resource._aspect,
                 base_mip_level=resource._mip_range.start,
@@ -1084,21 +1110,19 @@ class WgpuRenderer(Renderer):
         pending_uploads = resource._pending_uploads
         resource._pending_uploads = []
 
-        format = resource.format
+        fmt = to_texture_format(resource.format)
         pixel_padding = None
-        if format in ALTTEXFORMAT:
-            format, pixel_padding, extra_bytes = ALTTEXFORMAT[format]
+        if fmt in ALTTEXFORMAT:
+            fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
 
         # Create texture if needed
         if texture is None:  # todo: or needs to be replaced (e.g. resized)
-            usage = wgpu.TextureUsage.COPY_DST
-            for u in resource.usage.split("|"):
-                usage |= getattr(wgpu.TextureUsage, u)
+            resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
             texture = self.device.create_texture(
                 size=resource.size,
-                usage=usage,
+                usage=resource._wgpu_usage,
                 dimension=f"{resource.dim}d",
-                format=getattr(wgpu.TextureFormat, format),
+                format=getattr(wgpu.TextureFormat, fmt),
                 mip_level_count=1,
                 sample_count=1,  # msaa?
             )  # todo: let resource specify mip_level_count and sample_count

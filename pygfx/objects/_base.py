@@ -67,8 +67,8 @@ class WorldObject(ResourceContainer):
     # todo: rename uniform to info or something?
 
     uniform_type = dict(
-        world_transform=("float32", (4, 4)),
-        id=("int32",),
+        world_transform="4x4xf4",
+        id="s4",
     )
 
     _v = Vector3()
@@ -97,9 +97,7 @@ class WorldObject(ResourceContainer):
         self._matrix_world = Matrix4()
         self._matrix_world_dirty = True
 
-        self.uniform_buffer = Buffer(
-            array_from_shadertype(self.uniform_type), usage="uniform"
-        )
+        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         # Render order is undocumented feature for now;l it may be removed if we have OIT.
         self.render_order = 0

@@ -5,10 +5,10 @@ class LineMaterial(Material):
     """The default material to draw lines."""
 
     uniform_type = dict(
-        color=("float32", 4),
-        clipping_planes=("float32", (0, 1, 4)),  # array<vec4<f32>,N>
-        thickness=("float32",),
-        opacity=("float32",),
+        color="4xf4",
+        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
+        thickness="f4",
+        opacity="f4",
     )
 
     def __init__(

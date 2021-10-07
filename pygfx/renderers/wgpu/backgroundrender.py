@@ -2,6 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import WorldObjectShader
+from ._renderutils import to_texture_format
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
 from ...resources import Texture, TextureView
@@ -42,12 +43,8 @@ def background_renderer(wobject, render_info):
                 "BackgroundImageMaterial should have map with texture view 2d or cube."
             )
         # Channels
-        if material.map.format.startswith("rgb"):  # rgb maps to rgba
-            shader["texture_color"] = True
-        elif material.map.format.startswith("r"):
-            shader["texture_color"] = False
-        else:
-            raise ValueError("Unexpected texture format")
+        fmt = to_texture_format(material.map.format)
+        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
     wgsl = shader.generate_wgsl()
     return [
@@ -142,10 +139,12 @@ class BackgroundShader(WorldObjectShader):
                 $$ elif texture_dim == 'cube'
                     let color = textureSample(r_tex, r_sampler, in.texcoord.xyz);
                 $$ endif
-                $$ if texture_color
-                    out.color = color.rgba;
+                $$ if texture_nchannels == 1
+                    out.color = vec4<f32>(color.rrr, 1.0);
+                $$ elif texture_nchannels == 2
+                    out.color = vec4<f32>(color.rrr, color.g);
                 $$ else
-                    out.color = color.rrra;
+                    out.color = color;
                 $$ endif
             $$ else
                 let f = in.texcoord.xy;

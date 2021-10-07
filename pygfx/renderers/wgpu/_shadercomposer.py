@@ -1,6 +1,8 @@
 import jinja2
 import numpy as np
 
+from ...utils import array_from_shadertype
+
 jinja_env = jinja2.Environment(
     block_start_string="{$",
     block_end_string="$}",
@@ -52,7 +54,7 @@ class BaseShader:
         """.rstrip()
 
         if isinstance(struct, dict):
-            dtype_struct = np.dtype([(key,) + val for key, val in struct.items()])
+            dtype_struct = array_from_shadertype(struct).dtype
         elif isinstance(struct, np.dtype):
             if struct.fields is None:
                 raise TypeError(f"define_uniform() needs a structured dtype")
@@ -60,7 +62,17 @@ class BaseShader:
         else:
             raise TypeError(f"Unsupported struct type {struct.__class__.__name__}")
 
+        # Obtain names of fields that are arrays. This is encoded as an empty field with a
+        # name that has the array-fields-names separated with double underscores.
+        array_names = []
+        for fieldname in dtype_struct.fields.keys():
+            if fieldname.startswith("__") and fieldname.endswith("__"):
+                array_names.extend(fieldname.replace("__", " ").split())
+
+        # Process fields
         for fieldname, (dtype, offset) in dtype_struct.fields.items():
+            if fieldname.startswith("__"):
+                continue
             # Resolve primitive type
             primitive_type = dtype.base.name
             primitive_type = primitive_type.replace("float", "f")
@@ -68,6 +80,12 @@ class BaseShader:
             primitive_type = primitive_type.replace("int", "i")
             # Resolve actual type (only scalar, vec, mat)
             shape = dtype.shape
+            # Detect array
+            length = -1
+            if fieldname in array_names:
+                length = shape[0]
+                shape = shape[1:]
+            # Obtain base type
             if shape == () or shape == (1,):
                 # A scalar
                 wgsl_type = align_type = primitive_type
@@ -86,31 +104,16 @@ class BaseShader:
                     )
                 align_type = f"vec{m}<primitive_type>"
                 wgsl_type = f"mat{n}x{m}<{primitive_type}>"
-            elif len(shape) == 3:
-                # An array
-                length, n, m = shape[0], shape[2], shape[1]
-                if length == 0:
-                    # zero-length; dont use
-                    wgsl_type = align_type = None
-                elif n == 1 and m == 1:
-                    # Array of scalars
-                    align_type = primitive_type
-                    wgsl_type = f"array<{align_type},{length}>"
-                elif n == 1 or m == 1:
-                    # Array of vectors
-                    n = max(n, m)
-                    if n < 2 or n > 4:
-                        raise TypeError(f"Unsupported vec{n} in array {dtype}.")
-                    align_type = f"vec{n}<{primitive_type}>"
-                    wgsl_type = f"array<{align_type},{length}>"
-                else:
-                    # Array of matrices
-                    if n < 2 or n > 4 or m < 2 or m > 4:
-                        raise TypeError(f"Unsupported mat{n}x{m} in array {dtype}.")
-                    align_type = f"vec{m}<primitive_type>"
-                    wgsl_type = f"array<mat{n}x{m}<{primitive_type}>,{length}>"
             else:
                 raise TypeError(f"Unsupported type {dtype}")
+            # If an array, wrap it
+            if length == 0:
+                wgsl_type = align_type = None  # zero-length; dont use
+            elif length > 0:
+                wgsl_type = f"array<{wgsl_type},{length}>"
+            else:
+                pass  # not an array
+
             # Check alignment (https://www.w3.org/TR/WGSL/#alignment-and-size)
             if not wgsl_type:
                 continue
