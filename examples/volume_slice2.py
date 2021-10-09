@@ -32,7 +32,6 @@ view = tex.get_view(filter="linear", view_dim="2d", layer_range=range(index, ind
 geometry = gfx.PlaneGeometry(200, 200, 12, 12)
 material = gfx.MeshBasicMaterial(map=view, clim=(0, 2000))
 plane = gfx.Mesh(geometry, material)
-plane.scale.y = -1
 scene.add(plane)
 
 camera = gfx.OrthographicCamera(200, 200)

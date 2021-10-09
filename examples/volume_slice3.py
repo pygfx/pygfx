@@ -35,7 +35,6 @@ geometry.texcoords = gfx.Buffer(texcoords)
 
 material = gfx.MeshBasicMaterial(map=view, clim=(0, 2000))
 plane = gfx.Mesh(geometry, material)
-plane.scale.y = -1
 scene.add(plane)
 
 camera = gfx.OrthographicCamera(200, 200)

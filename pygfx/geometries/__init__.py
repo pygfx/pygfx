@@ -2,6 +2,7 @@
 
 from ._base import Geometry
 from ._box import BoxGeometry
+from ._cone import ConeGeometry
 from ._cylinder import CylinderGeometry
 from ._sphere import SphereGeometry
 from ._plane import PlaneGeometry
