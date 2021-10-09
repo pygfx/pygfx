@@ -17,20 +17,24 @@ class PlaneGeometry(Geometry):
         xx, yy = xx.flatten(), yy.flatten()
         positions = np.column_stack([xx, yy, np.zeros_like(xx)])
 
-        x = np.linspace(0, 1, nx, dtype=np.float32)
-        y = np.linspace(0, 1, ny, dtype=np.float32)
-        xx, yy = np.meshgrid(x, y)
-        texcoords = np.column_stack([xx.flat, yy.flat])
+        dim = np.array([width, height], dtype=np.float32)
+        texcoords = (positions[..., :2] + dim / 2) / dim
 
-        indices = np.zeros((height_segments, width_segments, 6), np.uint32)
-
-        for y in range(height_segments):
-            for x in range(width_segments):
-                i = x + y * nx
-                indices[y, x, :] = i, i + 1, i + nx, i + nx, i + 1, i + nx + 1
-
-        indices = indices.ravel()
+        # the amount of vertices
+        indices = np.arange(ny * nx, dtype=np.uint32).reshape((ny, nx))
+        # for every panel (height_segments, width_segments) there is a quad (2, 3)
+        index = np.empty((height_segments, width_segments, 2, 3), dtype=np.uint32)
+        # create a grid of initial indices for the panels
+        index[:, :, 0, 0] = indices[
+            np.arange(height_segments)[:, None], np.arange(width_segments)[None, :]
+        ]
+        # the remainder of the indices for every panel are relative
+        index[:, :, 0, 1] = index[:, :, 0, 0] + nx
+        index[:, :, 0, 2] = index[:, :, 0, 0] + 1
+        index[:, :, 1, 0] = index[:, :, 0, 0] + nx + 1
+        index[:, :, 1, 1] = index[:, :, 1, 0] - nx
+        index[:, :, 1, 2] = index[:, :, 1, 0] - 1
 
         self.positions = Buffer(positions)
         self.texcoords = Buffer(texcoords)
-        self.index = Buffer(indices)
+        self.index = Buffer(index.reshape((-1, 3)))

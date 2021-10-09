@@ -16,11 +16,11 @@ def generate_sphere(
     # create grid of spherical coordinates
     nx = width_segments + 1
     phi_end = phi_start + phi_length
-    phi = np.linspace(phi_start, phi_end, num=nx, dtype="f4")
+    phi = np.linspace(phi_start, phi_end, num=nx, dtype=np.float32)
 
     ny = height_segments + 1
     theta_end = theta_start + theta_length
-    theta = np.linspace(theta_start, theta_end, num=ny, dtype="f4")
+    theta = np.linspace(theta_start, theta_end, num=ny, dtype=np.float32)
 
     # grid has shape (ny, nx)
     phi_grid, theta_grid = np.meshgrid(phi, theta)
@@ -44,9 +44,9 @@ def generate_sphere(
 
     # the face indices
     # assign an index to every vertex on the grid
-    indices = np.arange(nx * ny, dtype="u4").reshape((ny, nx))
+    indices = np.arange(nx * ny, dtype=np.uint32).reshape((ny, nx))
     # for every panel (height_segments, width_segments) there is a quad (2, 3)
-    index = np.empty((height_segments, width_segments, 2, 3), dtype="u4")
+    index = np.empty((height_segments, width_segments, 2, 3), dtype=np.uint32)
     # create a grid of initial indices for the panels
     index[:, :, 0, 0] = indices[
         np.arange(height_segments)[:, None], np.arange(width_segments)[None, :]
@@ -62,7 +62,7 @@ def generate_sphere(
         positions.reshape((-1, 3)),
         normals.reshape((-1, 3)),
         texcoords.reshape((-1, 2)),
-        index.flatten(),
+        index.reshape((-1, 3)),
     )
 
 

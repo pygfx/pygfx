@@ -62,7 +62,7 @@ class BoxGeometry(Geometry):
                 [1, -1, -1],
                 [-1, -1, -1],
             ],
-            dtype="f4",
+            dtype=np.float32,
         )
         positions[:, 0] *= width / 2
         positions[:, 1] *= height / 2
@@ -101,7 +101,7 @@ class BoxGeometry(Geometry):
                 [0, 0],
                 [1, 0],
             ],
-            dtype="f4",
+            dtype=np.float32,
         )
 
         indices = np.array(
@@ -114,7 +114,7 @@ class BoxGeometry(Geometry):
                 [20, 22, 21, 22, 23, 21],
             ],
             dtype=np.uint32,
-        ).flatten()
+        ).reshape((-1, 3))
 
         self.positions = Buffer(positions)
         self.texcoords = Buffer(texcoords)

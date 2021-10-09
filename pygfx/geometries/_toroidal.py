@@ -51,7 +51,7 @@ class KleinBottleGeometry(Geometry):
 
         # Map indices
         # Two triangles onto the "top-left" rectangle (six vertices)
-        indices = np.array([0, 1, n + 1, n + 1, n, 0], np.int32)
+        indices = np.array([0, 1, n + 1, n + 1, n, 0], np.uint32)
         # Replicate to all rectangles, add offsets
         indices = np.tile(indices, (n, n - 1, 1))
         gx, gy = np.meshgrid(
@@ -61,7 +61,7 @@ class KleinBottleGeometry(Geometry):
         # Stitch the ends together over one axis. We can't stitch the other ends
         # together, since that's where the normals flip from "inside" to "outside".
         indices[-1, :, 2:5] -= n * n
-        indices = indices.reshape(-1)
+        indices = indices.flatten()
 
         # Create buffers for this geometry
         self.positions = Buffer(positions)
@@ -172,19 +172,20 @@ class TorusKnotGeometry(Geometry):
         # Two triangles onto the "top-left" rectangle (six vertices)
         indices = np.array(
             [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1],
-            np.int32,
+            np.uint32,
         )
         # Replicate to all rectangles, add offsets
         indices = np.tile(indices, (tubular_segments, radial_segments, 1))
         gx, gy = np.meshgrid(
-            np.arange(indices.shape[1]), radial_verts * np.arange(indices.shape[0])
+            np.arange(indices.shape[1], dtype=np.uint32),
+            radial_verts * np.arange(indices.shape[0], dtype=np.uint32),
         )
         indices += (gx + gy).reshape(indices.shape[:2] + (1,))
         # Stitch the ends together over both axii.
         if stitch:
             indices[-1, :, 1:4] -= radial_verts * tubular_verts
             indices[:, -1, 2:5] -= radial_verts
-        indices = indices.reshape(-1, 3)
+        indices = indices.reshape((-1, 3))
         # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
 
         # Create buffers for this geometry
