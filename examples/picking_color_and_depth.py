@@ -16,7 +16,7 @@ from wgpu.gui.qt import WgpuCanvas
 class PickingWgpuCanvas(WgpuCanvas):
     def mousePressEvent(self, event):  # noqa: N802
         # Get a dict with info about the clicked location
-        xy = event.x(), event.y()
+        xy = event.position().x(), event.position().y()
         info = renderer.get_pick_info(xy)
         # Add more info
         pos = gfx.linalg.Vector3(*info["ndc"])
@@ -58,4 +58,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec_()
+    app.exec()

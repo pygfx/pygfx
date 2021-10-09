@@ -57,4 +57,4 @@ def animate_b():
 if __name__ == "__main__":
     canvas_a.request_draw(animate_a)
     canvas_b.request_draw(animate_b)
-    app.exec_()
+    app.exec()

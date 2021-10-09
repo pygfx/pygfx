@@ -17,7 +17,7 @@ class WgpuCanvasWithScroll(WgpuCanvas):
 
     def mousePressEvent(self, event):  # noqa: N802
         # Print the voxel coordinate being clicked
-        xy = event.x(), event.y()
+        xy = event.position().x(), event.position().y()
         info = renderer.get_pick_info(xy)
         if "voxel_index" in info:
             print(info["voxel_index"])
@@ -53,4 +53,4 @@ def scroll(degrees):
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec_()
+    app.exec()
