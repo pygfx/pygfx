@@ -55,13 +55,13 @@ class KleinBottleGeometry(Geometry):
         # Replicate to all rectangles, add offsets
         indices = np.tile(indices, (n, n - 1, 1))
         gx, gy = np.meshgrid(
-            np.arange(indices.shape[1]), n * np.arange(indices.shape[0])
+            np.arange(indices.shape[1], dtype=np.uint32), n * np.arange(indices.shape[0], dtype=np.uint32)
         )
         indices += (gx + gy).reshape(indices.shape[:2] + (1,))
         # Stitch the ends together over one axis. We can't stitch the other ends
         # together, since that's where the normals flip from "inside" to "outside".
         indices[-1, :, 2:5] -= n * n
-        indices = indices.flatten()
+        indices = indices.reshape((-1, 3))
 
         # Create buffers for this geometry
         self.positions = Buffer(positions)
