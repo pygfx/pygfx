@@ -19,7 +19,10 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
     def wheelEvent(self, event):  # noqa: N802
         zoom_multiplier = 2 ** (event.angleDelta().y() * 0.0015)
         controls.zoom_to_point(
-            zoom_multiplier, (event.x(), event.y()), self.get_logical_size(), camera
+            zoom_multiplier,
+            (event.position().x(), event.position().y()),
+            self.get_logical_size(),
+            camera,
         )
         self.request_draw()
 
@@ -28,7 +31,11 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         if self._mode or not mode:
             return
         self._mode = mode
-        controls.pan_start((event.x(), event.y()), self.get_logical_size(), camera)
+        controls.pan_start(
+            (event.position().x(), event.position().y()),
+            self.get_logical_size(),
+            camera,
+        )
         app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
@@ -39,7 +46,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
 
     def mouseMoveEvent(self, event):  # noqa: N802
         if self._mode is not None:
-            controls.pan_move((event.x(), event.y()))
+            controls.pan_move((event.position().x(), event.position().y()))
         self.request_draw()
 
 
@@ -93,4 +100,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec_()
+    app.exec()

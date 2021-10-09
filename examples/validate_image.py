@@ -41,4 +41,4 @@ camera.position.set(256, 256, 0)
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec_()
+    app.exec()

@@ -43,4 +43,4 @@ camera.position.set(300, 250, 0)
 if __name__ == "__main__":
     renderer_svg.render(scene, camera)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec_()
+    app.exec()

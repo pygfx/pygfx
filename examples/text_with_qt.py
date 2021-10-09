@@ -182,4 +182,4 @@ def aninmate():
 
 if __name__ == "__main__":
     canvas.request_draw(aninmate)
-    app.exec_()
+    app.exec()

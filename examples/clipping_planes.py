@@ -23,7 +23,11 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         drag_start = (
             controls.pan_start if self._mode == "pan" else controls.rotate_start
         )
-        drag_start((event.x(), event.y()), self.get_logical_size(), camera)
+        drag_start(
+            (event.position().x(), event.position().y()),
+            self.get_logical_size(),
+            camera,
+        )
         app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
 
     def mouseReleaseEvent(self, event):  # noqa: N802
@@ -40,7 +44,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             drag_move = (
                 controls.pan_move if self._mode == "pan" else controls.rotate_move
             )
-            drag_move((event.x(), event.y()))
+            drag_move((event.position().x(), event.position().y()))
 
 
 # Create a canvas and a renderer
@@ -93,4 +97,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec_()
+    app.exec()

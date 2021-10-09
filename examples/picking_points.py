@@ -13,7 +13,7 @@ from wgpu.gui.qt import WgpuCanvas
 class PickingWgpuCanvas(WgpuCanvas):
     def mousePressEvent(self, event):  # noqa: N802
         # Get a dict with info about the clicked location
-        xy = event.x(), event.y()
+        xy = event.position().x(), event.position().y()
         info = renderer.get_pick_info(xy)
         wobject = info["world_object"]
         # If a point was clicked ..
@@ -43,4 +43,4 @@ camera = gfx.OrthographicCamera(120, 120)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec_()
+    app.exec()

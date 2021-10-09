@@ -87,5 +87,5 @@ camera = gfx.NDCCamera()  # This example does not even use the camera
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec_()
+    app.exec()
     canvas.closeEvent = lambda *args: app.quit()

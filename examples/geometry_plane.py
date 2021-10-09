@@ -45,4 +45,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.draw_frame = animate
-    app.exec_()
+    app.exec()

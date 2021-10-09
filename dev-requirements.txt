@@ -1,6 +1,7 @@
 # development
 black
 flake8
+flake8-black
 pep8-naming
 pytest
 setuptools

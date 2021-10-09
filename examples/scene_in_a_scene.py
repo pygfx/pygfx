@@ -70,4 +70,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas2.request_draw(animate)
-    app.exec_()
+    app.exec()
