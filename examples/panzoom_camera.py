@@ -64,7 +64,6 @@ tex = gfx.Texture(im, dim=2)
 geometry = gfx.PlaneGeometry(512, 512)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 plane = gfx.Mesh(geometry, material)
-plane.scale.y = -1
 scene.add(plane)
 
 camera = gfx.OrthographicCamera(512, 512)

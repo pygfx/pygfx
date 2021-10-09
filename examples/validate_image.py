@@ -31,7 +31,6 @@ material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 
 plane = gfx.Mesh(geometry, material)
 plane.position = gfx.linalg.Vector3(256, 256, 0)  # put corner at 0, 0
-plane.scale.y = -1  # Flip the image so up is up
 scene.add(plane)
 
 camera = gfx.OrthographicCamera(512, 512)

@@ -15,6 +15,7 @@ def generate_plane(width, height, width_segments, height_segments):
 
     dim = np.array([width, height], dtype=np.float32)
     texcoords = (positions[..., :2] + dim / 2) / dim
+    texcoords[..., 1] = 1 - texcoords[..., 1]
 
     # the amount of vertices
     indices = np.arange(ny * nx, dtype=np.uint32).reshape((ny, nx))
@@ -33,7 +34,7 @@ def generate_plane(width, height, width_segments, height_segments):
 
     normals = np.tile(np.array([0, 0, 1], dtype=np.float32), (ny * nx, 1))
 
-    return positions, texcoords, normals, index.reshape((-1, 3))
+    return positions, normals, texcoords, index.reshape((-1, 3))
 
 
 class PlaneGeometry(Geometry):
@@ -42,11 +43,11 @@ class PlaneGeometry(Geometry):
     def __init__(self, width=1, height=1, width_segments=1, height_segments=1):
         super().__init__()
 
-        positions, texcoords, normals, index = generate_plane(
+        positions, normals, texcoords, index = generate_plane(
             width, height, width_segments, height_segments
         )
 
         self.positions = Buffer(positions)
-        self.texcoords = Buffer(texcoords)
         self.normals = Buffer(normals)
+        self.texcoords = Buffer(texcoords)
         self.index = Buffer(index.reshape((-1, 3)))
