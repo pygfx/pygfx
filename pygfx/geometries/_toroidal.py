@@ -55,7 +55,8 @@ class KleinBottleGeometry(Geometry):
         # Replicate to all rectangles, add offsets
         indices = np.tile(indices, (n, n - 1, 1))
         gx, gy = np.meshgrid(
-            np.arange(indices.shape[1], dtype=np.uint32), n * np.arange(indices.shape[0], dtype=np.uint32)
+            np.arange(indices.shape[1], dtype=np.uint32),
+            n * np.arange(indices.shape[0], dtype=np.uint32),
         )
         indices += (gx + gy).reshape(indices.shape[:2] + (1,))
         # Stitch the ends together over one axis. We can't stitch the other ends
