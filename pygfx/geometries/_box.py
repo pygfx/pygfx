@@ -45,7 +45,7 @@ class BoxGeometry(Geometry):
                 *cube_normal_up[4],
                 np.cross(*cube_normal_up[4]),
             ]
-        )
+        ).T
 
         planes = []
         for normal, up in cube_normal_up:
@@ -57,16 +57,25 @@ class BoxGeometry(Geometry):
                 plane_index,
             ) = generate_plane(*cube_dim[plane_idx], *cube_seg[plane_idx])
 
-            sign_idx = np.flatnonzero(normal != 0)
-            matrix = np.identity(4, dtype=np.float32)
-            matrix[:-1, -1] = (cube_dim[sign_idx] / 2) * normal
-            matrix[:-1, :-1] = np.array(
-                [
-                    normal,
-                    up,
-                    np.cross(normal, up),
-                ]
-            ).dot(plane_csys.T)
+            sign_idx = np.flatnonzero(normal != 0)[0]
+
+            matrix_translate = np.identity(4, dtype=np.float32)
+            matrix_translate[:-1, -1] = (cube_dim[sign_idx] / 2) * normal
+
+            matrix_rotate = np.identity(4, dtype=np.float32)
+            matrix_rotate[:-1, :-1] = np.dot(
+                np.array(
+                    [
+                        normal,
+                        up,
+                        np.cross(normal, up),
+                    ]
+                ).T,
+                plane_csys.T,
+            )
+
+            matrix = matrix_translate @ matrix_rotate
+
             plane_positions = transform(plane_positions, matrix)
             plane_normals = transform(plane_normals, matrix, directions=True)
 
