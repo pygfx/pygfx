@@ -11,12 +11,8 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import (
-    RenderTexture,
-    RenderFlusher,
-    to_vertex_format,
-    to_texture_format,
-)
+from ._renderutils import RenderTexture, RenderFlusher
+from ._conv import to_vertex_format, to_texture_format
 
 
 # Definition uniform struct with standard info related to transforms,

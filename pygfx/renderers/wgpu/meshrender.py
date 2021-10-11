@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
-from ._renderutils import to_vertex_format, to_texture_format
+from ._conv import to_vertex_format, to_texture_format
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -145,7 +145,7 @@ def mesh_renderer(wobject, render_info):
     else:
         pass  # simple lighting
 
-    # Instanced meshes have their own vertex shader
+    # Instanced meshes have an extra storage buffer that we add manually
     n_instances = 1
     if isinstance(wobject, InstancedMesh):
         if vs_entry_point != "vs_main":
@@ -164,11 +164,11 @@ def mesh_renderer(wobject, render_info):
     else:  # material.side == "BOTH"
         cull_mode = wgpu.CullMode.none
 
+    # Let the shader generate code for our bindings
     for i, binding in bindings0.items():
         shader.define_binding(0, i, binding)
     for i, binding in bindings1.items():
-        if binding.type.startswith("buffer"):
-            shader.define_binding(1, i, binding)
+        shader.define_binding(1, i, binding)
 
     # Put it together!
     wgsl = shader.generate_wgsl()
@@ -226,13 +226,6 @@ class MeshShader(WorldObjectShader):
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
         };
-
-        $$ if texture_dim
-        [[group(1), binding(4)]]
-        var r_sampler: sampler;
-        [[group(1), binding(5)]]
-        var r_tex: texture_{{ texture_dim }}<{{ texture_format }}>;
-        $$ endif
 
         $$ if instanced
         [[block]]
@@ -499,7 +492,6 @@ class MeshShader(WorldObjectShader):
             let light_color = vec3<f32>(1.0, 1.0, 1.0);
 
             // Light parameters
-            // todo: allow configuring material specularity
             let ambient_factor = 0.1;
             let diffuse_factor = 0.7;
             let specular_factor = 0.3;

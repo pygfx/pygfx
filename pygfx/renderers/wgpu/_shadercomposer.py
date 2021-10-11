@@ -4,6 +4,8 @@ import wgpu
 
 from ...utils import array_from_shadertype
 from ...resources import Buffer
+from ._conv import to_texture_format
+
 
 jinja_env = jinja2.Environment(
     block_start_string="{$",
@@ -86,9 +88,13 @@ class BaseShader:
             self.define_uniform(bindgroup, index, binding)
         elif binding.type.startswith("buffer"):
             self.define_buffer(bindgroup, index, binding)
+        elif binding.type.startswith("sampler"):
+            self.define_sampler(bindgroup, index, binding)
+        elif binding.type.startswith("texture"):
+            self.define_texture(bindgroup, index, binding)
         else:
             raise RuntimeError(
-                "Unknown binding {binding.name} with type {binding.type}"
+                f"Unknown binding {binding.name} with type {binding.type}"
             )
 
     def define_uniform(self, bindgroup, index, binding):
@@ -185,12 +191,11 @@ class BaseShader:
         code += "\n        };"
         self._typedefs[structname] = code
 
-        self._binding_codes[
-            binding.name
-        ] = f"""
+        code = f"""
         [[group({bindgroup}), binding({index})]]
         var<uniform> {binding.name}: {structname};
         """.rstrip()
+        self._binding_codes[binding.name] = code
 
     def define_buffer(self, bindgroup, index, binding):
 
@@ -213,21 +218,41 @@ class BaseShader:
         typename = "Buffer_" + primitive_type
         type_modifier = "read" if "read_only" in binding.type else "read_write"
 
-        self._typedefs[
-            typename
-        ] = f"""
+        code = f"""
         [[block]]
         struct {typename} {{
             data: [[stride({stride})]] array<{primitive_type}>;
         }};
         """.rstrip()
+        self._typedefs[typename] = code
 
-        self._binding_codes[
-            binding.name
-        ] = f"""
+        code = f"""
         [[group({bindgroup}), binding({index})]]
         var<storage, {type_modifier}> {binding.name}: {typename};
         """.rstrip()
+        self._binding_codes[binding.name] = code
+
+    def define_sampler(self, bindgroup, index, binding):
+        code = f"""
+        [[group({bindgroup}), binding({index})]]
+        var {binding.name}: sampler;
+        """.rstrip()
+        self._binding_codes[binding.name] = code
+
+    def define_texture(self, bindgroup, index, binding):
+        texture = binding.resource  # or view
+        format = to_texture_format(texture.format)
+        if "norm" in format or "float" in format:
+            format = "f32"
+        elif "uint" in format:
+            format = "u32"
+        else:
+            format = "i32"
+        code = f"""
+        [[group({bindgroup}), binding({index})]]
+        var {binding.name}: texture_{texture.view_dim}<{format}>;
+        """.rstrip()
+        self._binding_codes[binding.name] = code
 
 
 class WorldObjectShader(BaseShader):
