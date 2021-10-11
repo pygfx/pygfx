@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*.*.*"
   pull_request:
     branches:
       - main
@@ -26,10 +26,7 @@ jobs:
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
-          pip install -U black flake8 pep8-naming
-    - name: Black
-      run: |
-          black --check .
+          pip install -U black flake8 flake8-black pep8-naming
     - name: Flake8
       run: |
           flake8 .
@@ -73,7 +70,6 @@ jobs:
           - name: Test Linux py39
             os: ubuntu-latest
             pyversion: '3.9'
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.pyversion }}
@@ -95,3 +91,70 @@ jobs:
     - name: Unit tests
       run: |
           pytest -v tests
+
+  release-build:
+    name: Build release on ubuntu-latest
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install dev dependencies
+        run: |
+            python -m pip install --upgrade pip wheel setuptools twine
+      - name: Create source distribution
+        run: |
+          python setup.py sdist
+      - name: Build wheels
+        run: |
+            pip wheel --no-deps -w dist .
+      - name: Test sdist
+        shell: bash
+        run: |
+            rm -rf ./pygfx
+            pushd $HOME
+            pip install $GITHUB_WORKSPACE/dist/*.tar.gz
+            popd
+            # don't run tests, we just want to know if the sdist can be installed
+            pip uninstall -y pygfx
+            git reset --hard HEAD
+      - name: Twine check
+        run: |
+            twine check dist/*
+      - name: Upload distributions
+        uses: actions/upload-artifact@v2
+        with:
+          path: dist
+          name: dist
+
+  publish:
+    name: Publish release to Github and Pypi
+    runs-on: ubuntu-latest
+    needs: [test-builds, release-build]
+    if: success() && startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+    - name: Download assets
+      uses: actions/download-artifact@v1.0.0
+      with:
+        name: dist
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        files: |
+          dist/*.tar.gz
+          dist/*.whl
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_PASSWORD }}
