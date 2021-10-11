@@ -24,7 +24,8 @@ visibility_all = (
 
 
 class Binding:
-    """
+    """Simple object to hold together some information about a binding, for internal use.
+
     * name: the name in wgsl
     * type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
       The subtype: depends on the type:

@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import WorldObjectShader
+from ._shadercomposer import Binding, WorldObjectShader
 from ._conv import to_texture_format
 from ...objects import Volume
 from ...materials import VolumeSliceMaterial
@@ -16,15 +16,11 @@ def volume_slice_renderer(wobject, render_info):
     material = wobject.material  # noqa
     shader = VolumeSliceShader(wobject, climcorrection=False)
 
-    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
-    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
+    bindings = {}
 
-    bindings0 = {
-        0: ("buffer/uniform", render_info.stdinfo_uniform),
-        1: ("buffer/uniform", wobject.uniform_buffer),
-        2: ("buffer/uniform", material.uniform_buffer),
-    }
+    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
     topology = wgpu.PrimitiveTopology.triangle_list
     n = 12
@@ -58,12 +54,18 @@ def volume_slice_renderer(wobject, render_info):
         # Channels
         shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-    bindings1 = {
-        0: ("sampler/filtering", view),
-        1: ("texture/auto", view),
-        2: ("buffer/read_only_storage", geometry.positions),
-        3: ("buffer/read_only_storage", geometry.texcoords),
-    }
+    bindings[3] = Binding(
+        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+    )
+    bindings[4] = Binding(
+        "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
+    )
+    bindings[5] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
+    bindings[6] = Binding("r_tex", "texture/auto", view, "FRAGMENT")
+
+    # Let the shader generate code for our bindings
+    for i, binding in bindings.items():
+        shader.define_binding(0, i, binding)
 
     # Put it together!
     wgsl = shader.generate_wgsl()
@@ -74,8 +76,7 @@ def volume_slice_renderer(wobject, render_info):
             "primitive_topology": topology,
             "indices": (range(n), range(1)),
             "vertex_buffers": {},
-            "bindings0": bindings0,
-            "bindings1": bindings1,
+            "bindings0": bindings,
         }
     ]
 
@@ -106,24 +107,6 @@ class VolumeSliceShader(WorldObjectShader):
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
         };
-
-        [[block]]
-        struct BufferF32 {
-            data: [[stride(4)]] array<f32>;
-        };
-
-
-        [[group(1), binding(0)]]
-        var r_sampler: sampler;
-
-        [[group(1), binding(1)]]
-        var r_tex: texture_3d<{{ texture_format }}>;
-
-        [[group(1), binding(2)]]
-        var<storage,read> s_positions: BufferF32;
-
-        [[group(1), binding(3)]]
-        var<storage,read> s_texcoords: BufferF32;
         """
 
     def vertex_shader(self):

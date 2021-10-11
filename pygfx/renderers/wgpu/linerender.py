@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import WorldObjectShader
+from ._shadercomposer import Binding, WorldObjectShader
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line
@@ -73,21 +73,14 @@ def line_renderer(wobject, render_info):
     uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
     uniform_buffer.data["last_i"] = positions1.nitems - 1
 
-    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
-    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 3, "u_renderer", uniform_buffer.data.dtype)
+    bindings = {}
 
-    bindings0 = {
-        0: ("buffer/uniform", render_info.stdinfo_uniform),
-        1: ("buffer/uniform", wobject.uniform_buffer),
-        2: ("buffer/uniform", material.uniform_buffer),
-        3: ("buffer/uniform", uniform_buffer),
-    }
+    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
+    bindings[3] = Binding("u_renderer", "buffer/uniform", uniform_buffer)
 
-    bindings1 = {
-        0: ("buffer/read_only_storage", positions1),
-    }
+    bindings[4] = Binding("s_pos", "buffer/read_only_storage", positions1, "VERTEX")
 
     # Global color or per-vertex?
     shader["per_vertex_color"] = False
@@ -97,7 +90,7 @@ def line_renderer(wobject, render_info):
             raise ValueError(
                 "For rendering (thick) lines, the geometry.colors must be Nx4."
             )
-        bindings1[1] = ("buffer/read_only_storage", colors1)
+        bindings[5] = Binding("s_color", "buffer/read_only_storage", colors1, "VERTEX")
         shader["per_vertex_color"] = True
 
     if isinstance(material, LineArrowMaterial):
@@ -110,6 +103,10 @@ def line_renderer(wobject, render_info):
         shader["line_type"] = "line"
         n = positions1.nitems * 5
 
+    # Let the shader generate code for our bindings
+    for i, binding in bindings.items():
+        shader.define_binding(0, i, binding)
+
     # Done
     wgsl = shader.generate_wgsl()
     return [
@@ -118,8 +115,7 @@ def line_renderer(wobject, render_info):
             "fragment_shader": (wgsl, "fs_main"),
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": (n, 1),
-            "bindings0": bindings0,
-            "bindings1": bindings1,
+            "bindings0": bindings,
             "target": None,  # default
         },
     ]
@@ -165,28 +161,6 @@ class LineShader(WorldObjectShader):
             [[location(1)]] pick: vec4<i32>;
             [[builtin(frag_depth)]] depth : f32;
         };
-
-        [[block]]
-        struct BufferI32 {
-            data: [[stride(4)]] array<i32>;
-        };
-
-        [[block]]
-        struct BufferF32 {
-            data: [[stride(4)]] array<f32>;
-        };
-
-        // Could be useful to be able to pass via an index too :)
-        // [[group(1), binding(0)]]
-        // var<storage,read> s_indices: BufferI32;
-
-        [[group(1), binding(0)]]
-        var<storage,read> s_pos: BufferF32;
-
-        $$ if per_vertex_color
-        [[group(1), binding(1)]]
-        var<storage,read> s_color: BufferF32;
-        $$ endif
         """
 
     def helpers(self):
@@ -533,15 +507,11 @@ def thin_line_renderer(wobject, render_info):
     if isinstance(material, LineThinSegmentMaterial):
         primitive = wgpu.PrimitiveTopology.line_list
 
-    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
-    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
+    bindings = {}
 
-    bindings0 = {
-        0: ("buffer/uniform", render_info.stdinfo_uniform),
-        1: ("buffer/uniform", wobject.uniform_buffer),
-        2: ("buffer/uniform", material.uniform_buffer),
-    }
+    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
     vertex_buffers = {0: positions1}
 
@@ -555,6 +525,10 @@ def thin_line_renderer(wobject, render_info):
             )
         vertex_buffers[1] = colors1
 
+    # Let the shader generate code for our bindings
+    for i, binding in bindings.items():
+        shader.define_binding(0, i, binding)
+
     wgsl = shader.generate_wgsl()
     return [
         {
@@ -563,7 +537,7 @@ def thin_line_renderer(wobject, render_info):
             "primitive_topology": primitive,
             "indices": (positions1.nitems, 1),
             "vertex_buffers": vertex_buffers,
-            "bindings0": bindings0,
+            "bindings0": bindings,
         },
     ]
 

@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import WorldObjectShader
+from ._shadercomposer import Binding, WorldObjectShader
 from ._conv import to_texture_format
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
@@ -14,25 +14,22 @@ def background_renderer(wobject, render_info):
     material = wobject.material
     shader = BackgroundShader(wobject, texture_dim="")
 
-    bindings0 = {
-        0: ("buffer/uniform", render_info.stdinfo_uniform),
-        1: ("buffer/uniform", wobject.uniform_buffer),
-        2: ("buffer/uniform", material.uniform_buffer),
-    }
+    bindings = {}
 
-    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
-    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
-
-    bindings1 = {}
+    # Uniforms
+    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
     if isinstance(material, BackgroundImageMaterial) and material.map is not None:
         if isinstance(material.map, Texture):
             raise TypeError("material.map is a Texture, but must be a TextureView")
         elif not isinstance(material.map, TextureView):
             raise TypeError("material.map must be a TextureView")
-        bindings1[0] = "sampler/filtering", material.map
-        bindings1[1] = "texture/auto", material.map
+        bindings[3] = Binding(
+            "r_sampler", "sampler/filtering", material.map, "FRAGMENT"
+        )
+        bindings[4] = Binding("r_tex", "texture/auto", material.map, "FRAGMENT")
         # Select shader
         if material.map.view_dim == "cube":
             shader["texture_dim"] = "cube"
@@ -46,6 +43,10 @@ def background_renderer(wobject, render_info):
         fmt = to_texture_format(material.map.format)
         shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
+    # Let the shader generate code for our bindings
+    for i, binding in bindings.items():
+        shader.define_binding(0, i, binding)
+
     wgsl = shader.generate_wgsl()
     return [
         {
@@ -53,8 +54,7 @@ def background_renderer(wobject, render_info):
             "fragment_shader": (wgsl, "fs_main"),
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": 4,
-            "bindings0": bindings0,
-            "bindings1": bindings1,
+            "bindings0": bindings,
         }
     ]
 
@@ -85,14 +85,6 @@ class BackgroundShader(WorldObjectShader):
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
         };
-
-        $$ if texture_dim
-        [[group(1), binding(0)]]
-        var r_sampler: sampler;
-
-        [[group(1), binding(1)]]
-        var r_tex: texture_{{ texture_dim }}<f32>;
-        $$ endif
     """
 
     def vertex_shader(self):

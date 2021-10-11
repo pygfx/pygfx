@@ -571,21 +571,24 @@ def meshslice_renderer(wobject, render_info):
     n = (geometry.index.data.size // 3) * 6
     n_instances = 1
 
-    # Init bindings 0: uniforms
-    bindings0 = {
-        0: ("buffer/uniform", render_info.stdinfo_uniform),
-        1: ("buffer/uniform", wobject.uniform_buffer),
-        2: ("buffer/uniform", material.uniform_buffer),
-    }
+    bindings = {}
 
-    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
-    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
+    # Init uniform bindings
+    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
-    # Init bindings 1: storage buffers, textures, and samplers
-    bindings1 = {}
-    bindings1[0] = "buffer/read_only_storage", geometry.index
-    bindings1[1] = "buffer/read_only_storage", geometry.positions
+    # Init storage buffer bindings
+    bindings[3] = Binding(
+        "s_indices", "buffer/read_only_storage", geometry.index, "VERTEX"
+    )
+    bindings[4] = Binding(
+        "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
+    )
+
+    # Let the shader generate code for our bindings
+    for i, binding in bindings.items():
+        shader.define_binding(0, i, binding)
 
     # Put it together!
     wgsl = shader.generate_wgsl()
@@ -597,8 +600,7 @@ def meshslice_renderer(wobject, render_info):
             "indices": (range(n), range(n_instances)),
             "index_buffer": None,
             "vertex_buffers": {},
-            "bindings0": bindings0,
-            "bindings1": bindings1,
+            "bindings0": bindings,
         }
     ]
 
@@ -633,22 +635,6 @@ class MeshSliceShader(WorldObjectShader):
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
         };
-
-        [[block]]
-        struct BufferI32 {
-            data: [[stride(4)]] array<i32>;
-        };
-
-        [[block]]
-        struct BufferF32 {
-            data: [[stride(4)]] array<f32>;
-        };
-
-        [[group(1), binding(0)]]
-        var<storage,read> s_indices: BufferI32;
-
-        [[group(1), binding(1)]]
-        var<storage,read> s_pos: BufferF32;
         """
 
     def vertex_shader(self):
@@ -672,9 +658,9 @@ class MeshSliceShader(WorldObjectShader):
             let index = i32(in.vertex_index);
             let segment_index = index % 6;
             let face_index = (index - segment_index) / 6;
-            let i1 = s_indices.data[face_index * 3 + 0];
-            let i2 = s_indices.data[face_index * 3 + 1];
-            let i3 = s_indices.data[face_index * 3 + 2];
+            let i1 = i32(s_indices.data[face_index * 3 + 0]);
+            let i2 = i32(s_indices.data[face_index * 3 + 1]);
+            let i3 = i32(s_indices.data[face_index * 3 + 2]);
 
             // Vertex positions of this face, in local object coordinates
             let pos1a = vec3<f32>(s_pos.data[i1 * 3 + 0], s_pos.data[i1 * 3 + 1], s_pos.data[i1 * 3 + 2]);
