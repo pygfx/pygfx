@@ -4,7 +4,7 @@ import wgpu
 
 from ...utils import array_from_shadertype
 from ...resources import Buffer
-from ._conv import to_texture_format
+from ._conv import to_vertex_format, to_texture_format
 
 
 jinja_env = jinja2.Environment(
@@ -200,21 +200,18 @@ class BaseShader:
 
     def define_buffer(self, bindgroup, index, binding):
 
-        primitives = {
-            "i4": ("i32", 4),
-            "u4": ("u32", 4),
-            "f4": ("f32", 4),
-        }
-
-        # We make all buffers 1D, because Nx3 does not work for storage buffers.
+        # We make all buffers 1D, because for storage buffers a vec3 has an alignment of 16.
         # Note: since the stride must be a multiple of 4 for storage buffers,
         # the supported types is limited until we support structured numpy arrays.
-        try:
-            primitive_type, stride = primitives[binding.resource.format[-2:]]
-        except KeyError:
+        fmt = to_vertex_format(binding.resource.format).split("x")[0]
+        primitive_type = (
+            fmt.replace("float", "f").replace("uint", "u").replace("sint", "i")
+        )
+        if not primitive_type.endswith("32"):
             raise ValueError(
-                "Buffer format not supported, format must be i4, u4 of f4."
+                f"Buffer format {format} not supported, format must have a stride of 4 bytes: i4, u4 of f4."
             )
+        stride = 4
 
         typename = "Buffer_" + primitive_type
         type_modifier = "read" if "read_only" in binding.type else "read_write"
