@@ -26,10 +26,7 @@ jobs:
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
-          pip install -U black flake8 pep8-naming
-    - name: Black
-      run: |
-          black --check .
+          pip install -U black flake8 flake8-black pep8-naming
     - name: Flake8
       run: |
           flake8 .
