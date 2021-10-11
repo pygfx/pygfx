@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from ...utils import array_from_shadertype
-from ._shadercomposer import BaseShader
+from ._shadercomposer import Binding, BaseShader
 
 
 def to_vertex_format(format):
@@ -272,7 +272,9 @@ class RenderFlusher:
         device = self._device
 
         shader = self._shader
-        shader.define_uniform(0, 0, "u_render", self._uniform_data.dtype)
+        shader.define_uniform(
+            0, 0, Binding("u_render", "buffer/uniform", self._uniform_data.dtype)
+        )
         shader_module = device.create_shader_module(code=shader.generate_wgsl())
 
         binding_layouts = [

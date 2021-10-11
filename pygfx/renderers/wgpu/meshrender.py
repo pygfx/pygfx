@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import WorldObjectShader
+from ._shadercomposer import Binding, WorldObjectShader
 from ._renderutils import to_vertex_format, to_texture_format
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
@@ -50,31 +50,32 @@ def mesh_renderer(wobject, render_info):
         )
         normal_buffer = Buffer(normal_data)
 
-    # Init bindings 0: uniforms
-    bindings0 = {
-        0: ("buffer/uniform", render_info.stdinfo_uniform),
-        1: ("buffer/uniform", wobject.uniform_buffer),
-        2: ("buffer/uniform", material.uniform_buffer),
-    }
-
-    # todo: kunnen deze definities tegerlijk met die hierboven gedaan worden? (voor wgpu en shader) zodat ze gegarandeerd sync zijn?
-    # todo: ook zoiets voor storage buffer bindings
-    # todo: and then ... maybe the renderer function and shader class can be combined?
-    shader.define_uniform(0, 0, "u_stdinfo", render_info.stdinfo_uniform.data.dtype)
-    shader.define_uniform(0, 1, "u_wobject", wobject.uniform_buffer.data.dtype)
-    shader.define_uniform(0, 2, "u_material", material.uniform_buffer.data.dtype)
-
     # We're using storage buffers for everything; no vertex nor index buffers.
     vertex_buffers = {}
     index_buffer = None
+    bindings0 = {}
+    bindings1 = {}
+    bindings2 = {}
+
+    # Init bindings 0: uniforms
+    bindings0[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    bindings0[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+    bindings0[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
     # Init bindings 1: storage buffers, textures, and samplers
-    bindings1 = {}
-    bindings1[0] = "buffer/read_only_storage", geometry.index
-    bindings1[1] = "buffer/read_only_storage", geometry.positions
-    bindings1[2] = "buffer/read_only_storage", normal_buffer
+    bindings1[0] = Binding(
+        "s_indices", "buffer/read_only_storage", geometry.index, "VERTEX"
+    )
+    bindings1[1] = Binding(
+        "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
+    )
+    bindings1[2] = Binding(
+        "s_normal", "buffer/read_only_storage", normal_buffer, "VERTEX"
+    )
     if getattr(geometry, "texcoords", None) is not None:
-        bindings1[3] = "buffer/read_only_storage", geometry.texcoords
+        bindings1[3] = Binding(
+            "s_texcoord", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
+        )
 
     # If a texture is applied ...
     if material.map is not None:
@@ -84,8 +85,10 @@ def mesh_renderer(wobject, render_info):
             raise TypeError("material.map must be a TextureView")
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[4] = "sampler/filtering", material.map
-        bindings1[5] = "texture/auto", material.map
+        bindings1[4] = Binding(
+            "r_sampler", "sampler/filtering", material.map, "FRAGMENT"
+        )
+        bindings1[5] = Binding("r_tex", "texture/auto", material.map, "FRAGMENT")
         # Dimensionality
         view_dim = material.map.view_dim
         if view_dim == "1d":
@@ -148,7 +151,9 @@ def mesh_renderer(wobject, render_info):
         if vs_entry_point != "vs_main":
             raise TypeError(f"Instanced mesh does not work with {material}")
         shader["instanced"] = True
-        bindings1[6] = "buffer/read_only_storage", wobject.matrices
+        bindings2[0] = Binding(
+            "s_submatrices", "buffer/read_only_storage", wobject.matrices, "VERTEX"
+        )
         n_instances = wobject.matrices.nitems
 
     # Determine culling
@@ -158,6 +163,12 @@ def mesh_renderer(wobject, render_info):
         cull_mode = wgpu.CullMode.front
     else:  # material.side == "BOTH"
         cull_mode = wgpu.CullMode.none
+
+    for i, binding in bindings0.items():
+        shader.define_binding(0, i, binding)
+    for i, binding in bindings1.items():
+        if binding.type.startswith("buffer"):
+            shader.define_binding(1, i, binding)
 
     # Put it together!
     wgsl = shader.generate_wgsl()
@@ -172,6 +183,7 @@ def mesh_renderer(wobject, render_info):
             "vertex_buffers": vertex_buffers,
             "bindings0": bindings0,
             "bindings1": bindings1,
+            "bindings2": bindings2,
         }
     ]
 
@@ -215,29 +227,6 @@ class MeshShader(WorldObjectShader):
             [[location(1)]] pick: vec4<i32>;
         };
 
-        [[block]]
-        struct BufferI32 {
-            data: [[stride(4)]] array<i32>;
-        };
-
-        [[block]]
-        struct BufferF32 {
-            data: [[stride(4)]] array<f32>;
-        };
-
-
-        [[group(1), binding(0)]]
-        var<storage,read> s_indices: BufferI32;
-
-        [[group(1), binding(1)]]
-        var<storage,read> s_pos: BufferF32;
-
-        [[group(1), binding(2)]]
-        var<storage,read> s_normal: BufferF32;
-
-        [[group(1), binding(3)]]
-        var<storage,read> s_texcoord: BufferF32;
-
         $$ if texture_dim
         [[group(1), binding(4)]]
         var r_sampler: sampler;
@@ -250,7 +239,7 @@ class MeshShader(WorldObjectShader):
         struct BufferMat4 {
             data: [[stride(64)]] array<mat4x4<f32>>;
         };
-        [[group(1), binding(6)]]
+        [[group(2), binding(0)]]
         var<storage,read> s_submatrices: BufferMat4;
         $$ endif
         """
@@ -271,9 +260,9 @@ class MeshShader(WorldObjectShader):
             sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
 
             // Sample
-            let i1 = s_indices.data[face_index * 3 + 0];
-            let i2 = s_indices.data[face_index * 3 + 1];
-            let i3 = s_indices.data[face_index * 3 + 2];
+            let i1 = i32(s_indices.data[face_index * 3 + 0]);
+            let i2 = i32(s_indices.data[face_index * 3 + 1]);
+            let i3 = i32(s_indices.data[face_index * 3 + 2]);
             var arr_i0 = array<i32, 3>(i1, i2, i3);
             let i0 = arr_i0[sub_index];
 
