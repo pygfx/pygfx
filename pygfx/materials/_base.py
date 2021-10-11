@@ -16,6 +16,12 @@ class Material(ResourceContainer):
     def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
         super().__init__()
 
+        # Compose complete uniform type
+        self.uniform_type = {}
+        for cls in reversed(self.__class__.mro()):
+            self.uniform_type.update(getattr(cls, "uniform_type", {}))
+
+        # Create matching uniform buffer
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         self.opacity = opacity
@@ -36,13 +42,12 @@ class Material(ResourceContainer):
         if new_length == current_length:
             return  # early exit
 
-        dtype = self.uniform_type[key]
-        assert "*" in dtype, f"uniform field {key} '{dtype}' is not an array"
-        n, _, subtype = dtype.partition("*")
+        format = self.uniform_type[key]
+        assert "*" in format, f"uniform field {key} '{format}' is not an array"
+        n, _, subtype = format.partition("*")
         assert int(n) >= 0
 
         # Adjust type definition (note that this is originally a class attr)
-        self.uniform_type = self.uniform_type.copy()
         self.uniform_type[key] = f"{new_length}*{subtype}"
         # Recreate buffer
         data = self.uniform_buffer.data

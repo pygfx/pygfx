@@ -183,6 +183,7 @@ class BaseShader:
             else:
                 raise TypeError(f"Cannot establish alignment of wgsl type: {wgsl_type}")
             if offset % alignment != 0:
+                # If this happens, our array_from_shadertype() has failed.
                 raise TypeError(
                     f"Struct alignment error: {binding.name}.{fieldname} alignment must be {alignment}"
                 )

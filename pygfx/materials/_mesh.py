@@ -42,9 +42,7 @@ class MeshBasicMaterial(Material):
 
     uniform_type = dict(
         color="4xf4",
-        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
         clim="2xf4",
-        opacity="f4",
         wireframe="f4",
     )
 
@@ -217,12 +215,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     # using derivatives of the world pos.
 
     uniform_type = dict(
-        color="4xf4",
         emissive_color="4xf4",
-        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
-        clim="2xf4",
-        opacity="f4",
-        wireframe="f4",
         shininess="f4",
     )
 
@@ -288,13 +281,8 @@ class MeshSliceMaterial(MeshBasicMaterial):
     """A material that displays a slices of the mesh."""
 
     uniform_type = dict(
-        color="4xf4",
         plane="4xf4",
-        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
-        clim="2xf4",
         thickness="f4",
-        opacity="f4",
-        wireframe="f4",  # Not used, but must be defined
     )
 
     def __init__(self, plane=(0, 0, 1, 0), thickness=2.0, **kwargs):

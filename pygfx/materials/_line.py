@@ -6,9 +6,7 @@ class LineMaterial(Material):
 
     uniform_type = dict(
         color="4xf4",
-        clipping_planes="0*4xf4",  # array<vec4<f32>,N>
         thickness="f4",
-        opacity="f4",
     )
 
     def __init__(
