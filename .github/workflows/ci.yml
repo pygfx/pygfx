@@ -173,16 +173,7 @@ jobs:
     - name: Get version from git ref
       id: get_version
       run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-    - name: Create GH release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.get_version.outputs.VERSION }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
-        draft: false
-        prerelease: false
-    - name: Upload release assets
+    - name: Release
       uses: softprops/action-gh-release@v1
       with:
         name: ${{ steps.get_version.outputs.VERSION }}
