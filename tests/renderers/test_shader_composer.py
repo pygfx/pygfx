@@ -56,7 +56,7 @@ def test_uniform_definitions():
         shader.define_uniform(0, 0, Binding("zz", "", np.array([1]).dtype))
 
     # Test simple scalars
-    struct = dict(foo="f4", bar="i2")
+    struct = dict(foo="f4", bar="i4")
     shader.define_uniform(0, 0, Binding("zz", "", struct))
     assert (
         shader.get_definitions().strip()
@@ -64,7 +64,7 @@ def test_uniform_definitions():
         [[block]]
         struct Struct_zz {
             foo: f32;
-            bar: i16;
+            bar: i32;
         };
 
         [[group(0), binding(0)]]
@@ -90,7 +90,7 @@ def test_uniform_definitions():
     )
 
     # Test mat
-    struct = dict(foo="4x4xf4", bar="2x3xi4")
+    struct = dict(foo="4x4xf4", bar="3x2xi4")
     shader.define_uniform(0, 0, Binding("zz", "", struct))
     assert (
         shader.get_definitions().strip()
@@ -106,12 +106,17 @@ def test_uniform_definitions():
     """.strip()
     )
 
-    # Test alignment
+    # Test that it forbids types that align badly.
+    # There are two cases where the alignment is checked.
+    # In array_from_shadertype() the fields are ordered to prevent
+    # alignment mismatches, and it will prevent the use of some types.
+    # Later we might implement introducing stub fields to fix alignment.
+    # In define_uniform() the uniform's wgsl struct definition is created,
+    # and there it also checks the alignment. Basically a failsafe for
+    # when array_from_shadertype() does not do it's job right.
     struct = dict(foo="3xf4", bar="4xi4")
-    with raises(TypeError):
+    with raises(ValueError):
         shader.define_uniform(0, 0, Binding("zz", "", struct))
-    struct = dict(foo="3xf4", _padding="f4", bar="4xi4")
-    shader.define_uniform(0, 0, Binding("zz", "", struct))
 
 
 if __name__ == "__main__":
