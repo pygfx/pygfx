@@ -196,7 +196,8 @@ class WgpuRenderer(Renderer):
         # Prepare render targets. These are placeholders to set during
         # each renderpass, intended to keep together the texture-view
         # object, its size, and its format.
-        self._render_texture = RenderTexture(wgpu.TextureFormat.rgba8unorm)
+        self._render_texture = RenderTexture(wgpu.TextureFormat.rgba16float, True)
+        self._revealage_texture = RenderTexture(wgpu.TextureFormat.r16float, True)
         self._depth_texture = RenderTexture(wgpu.TextureFormat.depth32float)
         # The pick texture has 4 channels, object id, and then 3 more, e.g.
         # the instance nr, vertex nr and weights.
@@ -328,6 +329,7 @@ class WgpuRenderer(Renderer):
 
         # Set the size of the textures (is a no-op if the size does not change)
         self._render_texture.ensure_size(device, framebuffer_size + (1,))
+        self._revealage_texture.ensure_size(device, framebuffer_size + (1,))
         self._depth_texture.ensure_size(device, framebuffer_size + (1,))
         self._pick_texture.ensure_size(device, framebuffer_size + (1,))
 
@@ -397,7 +399,8 @@ class WgpuRenderer(Renderer):
 
         self._flusher.render(
             self._render_texture.texture_view,
-            None,
+            self._revealage_texture.texture_view,
+            None,  # todo: also depth
             raw_texture_view,
             self._target_tex_format,
         )
@@ -435,9 +438,11 @@ class WgpuRenderer(Renderer):
 
         if clear_color:
             color_load_value = 0, 0, 0, 0
+            revealage_load_value = 1, 0, 0, 0
             pick_load_value = 0, 0, 0, 0
         else:
             color_load_value = wgpu.LoadOp.load
+            revealage_load_value = wgpu.LoadOp.load
             pick_load_value = wgpu.LoadOp.load
         if clear_depth:
             # depth is 0..1, make initial value as high as we can
@@ -446,6 +451,7 @@ class WgpuRenderer(Renderer):
             depth_load_value = wgpu.LoadOp.load
 
         assert self._render_texture.texture_view
+        assert self._revealage_texture.texture_view
         assert self._depth_texture.texture_view
         assert self._pick_texture.texture_view
         render_pass = command_encoder.begin_render_pass(
@@ -454,6 +460,12 @@ class WgpuRenderer(Renderer):
                     "view": self._render_texture.texture_view,
                     "resolve_target": None,
                     "load_value": color_load_value,
+                    "store_op": wgpu.StoreOp.store,
+                },
+                {
+                    "view": self._revealage_texture.texture_view,
+                    "resolve_target": None,
+                    "load_value": revealage_load_value,
                     "store_op": wgpu.StoreOp.store,
                 },
                 {
@@ -839,7 +851,7 @@ class WgpuRenderer(Renderer):
             },
             depth_stencil={
                 "format": self._depth_texture.format,
-                "depth_write_enabled": True,  # optional
+                "depth_write_enabled": False,  # optional, also see depth_store_op
                 "depth_compare": wgpu.CompareFunction.less,  # optional
                 "stencil_front": {},  # use defaults
                 "stencil_back": {},  # use defaults
@@ -861,12 +873,28 @@ class WgpuRenderer(Renderer):
                         "blend": {
                             "alpha": (
                                 wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
+                                wgpu.BlendFactor.one,
                                 wgpu.BlendOperation.add,
                             ),
                             "color": (
-                                wgpu.BlendFactor.src_alpha,
-                                wgpu.BlendFactor.one_minus_src_alpha,
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                        "write_mask": wgpu.ColorWrite.ALL,
+                    },
+                    {
+                        "format": self._revealage_texture.format,
+                        "blend": {
+                            "alpha": (
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendFactor.one_minus_src,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "color": (
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendFactor.one_minus_src,
                                 wgpu.BlendOperation.add,
                             ),
                         },
@@ -1215,6 +1243,7 @@ class WgpuRenderer(Renderer):
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
         can_sample_color = self._render_texture.texture is not None
+        # todo: this is now wrong!
 
         # Sample
         encoder = self.device.create_command_encoder()
@@ -1273,6 +1302,7 @@ class WgpuRenderer(Renderer):
 
         # Prepare
         rt = self._render_texture
+        # todo: this is now wong
         size = rt.size
         bytes_per_pixel = 4
 

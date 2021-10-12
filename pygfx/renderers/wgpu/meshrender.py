@@ -224,7 +224,9 @@ class MeshShader(WorldObjectShader):
 
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
+            [[location(1)]] revealage: f32;
+            [[location(2)]] pick: vec4<i32>;
+            [[builtin(frag_depth)]] depth : f32;
         };
 
         $$ if instanced
@@ -437,15 +439,24 @@ class MeshShader(WorldObjectShader):
                 let lit_color = albeido;
             $$ endif
 
+
+
             // Final color
-            out.color = vec4<f32>(lit_color, color_value.a);
+            // out.color = vec4<f32>(lit_color, color_value.a);
+
+            let alpha = color_value.a * u_material.opacity;
+            let color = lit_color;
+            let weight = max(1e-2, 3e3 * pow(1.0 - in.ndc_pos.z, 3.0)) * alpha;
+            out.color = vec4<f32>(color * alpha * weight, alpha * weight);
+            out.revealage = alpha;
+            out.depth = 0.9;//in.ndc_pos.z;
 
             // Picking
             let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
             let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
 
-            out.color.a = out.color.a * u_material.opacity;
+            //out.color.a = out.color.a * u_material.opacity;
 
             $$ if wireframe
                 let distance_from_edge = min(in.wireframe_coords.x, min(in.wireframe_coords.y, in.wireframe_coords.z));

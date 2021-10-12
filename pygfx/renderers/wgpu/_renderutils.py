@@ -7,11 +7,12 @@ from ._shadercomposer import Binding, BaseShader
 class RenderTexture:
     """Class used internally to store a texture and meta data."""
 
-    def __init__(self, format):
+    def __init__(self, format, texture_binding=False):
         self.format = format
         self.texture = None
         self.texture_view = None
         self.size = (0, 0, 0)
+        self.texture_binding = bool(texture_binding)
 
     def ensure_size(self, device, size):
         """Make sure that the texture has the given size. If necessary,
@@ -20,7 +21,7 @@ class RenderTexture:
         if size != self.size:
             self.size = size
             usage = wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.COPY_SRC
-            if self.format.startswith(("rgb", "bgr")):
+            if self.texture_binding:  # self.format.startswith(("rgb", "bgr")):
                 usage |= wgpu.TextureUsage.TEXTURE_BINDING
             self.texture = device.create_texture(
                 size=size, usage=usage, dimension="2d", format=self.format
@@ -50,6 +51,8 @@ class FinalShader(BaseShader):
         var r_sampler: sampler;
         [[group(0), binding(2)]]
         var r_tex: texture_2d<f32>;
+        [[group(0), binding(3)]]
+        var r_revealage: texture_2d<f32>;
 
         [[stage(vertex)]]
         fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
@@ -86,7 +89,15 @@ class FinalShader(BaseShader):
                     let dist = length((tex_coord - coord) / stepp);  // in src pixels
                     let t = dist / sigma;
                     let w = exp(-0.5 * t * t);
-                    val = val + textureSample(r_tex, r_sampler, coord) * w;
+
+                    let accum = textureSample(r_tex, r_sampler, coord);
+                    let revealage = textureSample(r_revealage, r_sampler, coord).r;
+                    let color = vec4<f32>(accum.rgb / max(accum.a, 0.00001), 1.0 - revealage);
+                    val = val + color * w;
+
+                    //val = val + textureSample(r_tex, r_sampler, coord) * w;
+                    //let r = textureSample(r_revealage, r_sampler, coord).r;
+                    //val = val + vec4<f32>(r, r, r, 1.0) * w;
                     weight = weight + w;
                 }
             }
@@ -128,11 +139,14 @@ class RenderFlusher:
             min_filter="nearest",
         )
 
-    def render(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
+    def render(
+        self, src_color_tex, src_revealage_tex, src_depth_tex, dst_color_tex, dst_format
+    ):
         """Render the (internal) result of the renderer into a texture."""
         # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
         assert src_depth_tex is None
         assert isinstance(src_color_tex, wgpu.base.GPUTextureView)
+        assert isinstance(src_revealage_tex, wgpu.base.GPUTextureView)
         assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
 
         # Recreate pipeline? Use ._internal as a true identifier of the texture view
@@ -140,7 +154,7 @@ class RenderFlusher:
         stored_hash = self._pipelines.get(dst_format, ["invalidhash"])[0]
         if hash != stored_hash:
             bind_group, render_pipeline = self._create_pipeline(
-                src_color_tex, dst_format
+                src_color_tex, src_revealage_tex, dst_format
             )
             self._pipelines[dst_format] = hash, bind_group, render_pipeline
 
@@ -199,7 +213,7 @@ class RenderFlusher:
         render_pass.end_pass()
         device.queue.submit([command_encoder.finish()])
 
-    def _create_pipeline(self, src_texture_view, dst_format):
+    def _create_pipeline(self, src_texture_view, src_revealage_tex, dst_format):
 
         device = self._device
 
@@ -229,6 +243,15 @@ class RenderFlusher:
                     "multisampled": False,
                 },
             },
+            {
+                "binding": 3,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.float,
+                    "view_dimension": wgpu.TextureViewDimension.d2,
+                    "multisampled": False,
+                },
+            },
         ]
         bindings = [
             {
@@ -241,6 +264,7 @@ class RenderFlusher:
             },
             {"binding": 1, "resource": self._sampler},
             {"binding": 2, "resource": src_texture_view},
+            {"binding": 3, "resource": src_revealage_tex},
         ]
 
         bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
