@@ -11,12 +11,8 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
-from ._renderutils import (
-    RenderTexture,
-    RenderFlusher,
-    to_vertex_format,
-    to_texture_format,
-)
+from ._renderutils import RenderTexture, RenderFlusher
+from ._conv import to_vertex_format, to_texture_format
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -35,10 +31,6 @@ stdinfo_uniform_type = dict(
 
 
 registry = RenderFunctionRegistry()
-
-visibility_all = (
-    wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
-)
 
 # Alternative texture formats that we support by padding channels as needed.
 # Maps virtual_format -> (wgpu_format, pad_value, nbytes)
@@ -558,9 +550,10 @@ class WgpuRenderer(Renderer):
         # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
         if force or wobject.rev > getattr(wobject, "_wgpu_rev", 0):
             wobject._wgpu_rev = wobject.rev
+            wobject._wgpu_pipeline_infos = None
+            wobject._wgpu_pipeline_objects = None  # Invalidate
             wobject._wgpu_pipeline_infos = self._create_pipeline_infos(wobject)
             wobject._wgpu_pipeline_res = self._collect_pipeline_resources(wobject)
-            wobject._wgpu_pipeline_objects = None  # Invalidate
 
         # Early exit?
         if not wobject._wgpu_pipeline_infos:
@@ -633,25 +626,26 @@ class WgpuRenderer(Renderer):
                     resources = pipeline_info[key]
                     if isinstance(resources, dict):
                         resources = resources.values()
-                    for binding_type, resource in resources:
-                        if binding_type.startswith("buffer/"):
+                    for binding in resources:
+                        resource = binding.resource
+                        if binding.type.startswith("buffer/"):
                             assert isinstance(resource, Buffer)
                             pipeline_resources.append(("buffer", resource))
-                            if "uniform" in binding_type:
+                            if "uniform" in binding.type:
                                 resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-                            elif "storage" in binding_type:
+                            elif "storage" in binding.type:
                                 resource._wgpu_usage |= wgpu.BufferUsage.STORAGE
-                        elif binding_type.startswith("sampler/"):
+                        elif binding.type.startswith("sampler/"):
                             assert isinstance(resource, TextureView)
                             pipeline_resources.append(("sampler", resource))
-                        elif binding_type.startswith("texture/"):
+                        elif binding.type.startswith("texture/"):
                             assert isinstance(resource, TextureView)
                             resource.texture._wgpu_usage |= (
                                 wgpu.TextureUsage.TEXTURE_BINDING
                             )
                             pipeline_resources.append(("texture", resource.texture))
                             pipeline_resources.append(("texture_view", resource))
-                        elif binding_type.startswith("storage_texture/"):
+                        elif binding.type.startswith("storage_texture/"):
                             assert isinstance(resource, TextureView)
                             resource.texture._wgpu_usage |= (
                                 wgpu.TextureUsage.STORAGE_BINDING
@@ -660,7 +654,7 @@ class WgpuRenderer(Renderer):
                             pipeline_resources.append(("texture_view", resource))
                         else:
                             raise RuntimeError(
-                                f"Unknown resource binding type {binding_type}"
+                                f"Unknown resource binding {binding.name} of type {binding.type}"
                             )
 
         return pipeline_resources
@@ -902,7 +896,6 @@ class WgpuRenderer(Renderer):
         """
         # todo: cache bind_group_layout objects
         # todo: cache pipeline_layout objects
-        # todo: can perhaps be more specific about visibility
 
         device = self.device
 
@@ -927,12 +920,11 @@ class WgpuRenderer(Renderer):
             # Collect list of dicts
             bindings = []
             binding_layouts = []
-            for slot, type_resource in resources.items():
-                assert isinstance(type_resource, tuple) and len(type_resource) == 2
-                binding_type, resource = type_resource
-                subtype = binding_type.split("/")[-1]
+            for slot, binding in resources.items():
+                resource = binding.resource
+                subtype = binding.type.partition("/")[2]
 
-                if binding_type.startswith("buffer/"):
+                if binding.type.startswith("buffer/"):
                     assert isinstance(resource, Buffer)
                     bindings.append(
                         {
@@ -947,7 +939,7 @@ class WgpuRenderer(Renderer):
                     binding_layouts.append(
                         {
                             "binding": slot,
-                            "visibility": visibility_all,
+                            "visibility": binding.visibility,
                             "buffer": {
                                 "type": getattr(wgpu.BufferBindingType, subtype),
                                 "has_dynamic_offset": False,
@@ -955,7 +947,7 @@ class WgpuRenderer(Renderer):
                             },
                         }
                     )
-                elif binding_type.startswith("sampler/"):
+                elif binding.type.startswith("sampler/"):
                     assert isinstance(resource, TextureView)
                     bindings.append(
                         {"binding": slot, "resource": resource._wgpu_sampler[1]}
@@ -963,13 +955,13 @@ class WgpuRenderer(Renderer):
                     binding_layouts.append(
                         {
                             "binding": slot,
-                            "visibility": wgpu.ShaderStage.FRAGMENT,
+                            "visibility": binding.visibility,
                             "sampler": {
                                 "type": getattr(wgpu.SamplerBindingType, subtype),
                             },
                         }
                     )
-                elif binding_type.startswith("texture/"):
+                elif binding.type.startswith("texture/"):
                     assert isinstance(resource, TextureView)
                     bindings.append(
                         {"binding": slot, "resource": resource._wgpu_texture_view[1]}
@@ -1000,7 +992,7 @@ class WgpuRenderer(Renderer):
                     binding_layouts.append(
                         {
                             "binding": slot,
-                            "visibility": wgpu.ShaderStage.FRAGMENT,
+                            "visibility": binding.visibility,
                             "texture": {
                                 "sample_type": sample_type,
                                 "view_dimension": dim,
@@ -1008,7 +1000,7 @@ class WgpuRenderer(Renderer):
                             },
                         }
                     )
-                elif binding_type.startswith("storage_texture/"):
+                elif binding.type.startswith("storage_texture/"):
                     assert isinstance(resource, TextureView)
                     bindings.append(
                         {"binding": slot, "resource": resource._wgpu_texture_view[1]}
@@ -1020,7 +1012,7 @@ class WgpuRenderer(Renderer):
                     binding_layouts.append(
                         {
                             "binding": slot,
-                            "visibility": visibility_all,
+                            "visibility": binding.visibility,
                             "storage_texture": {
                                 "access": getattr(wgpu.StorageTextureAccess, subtype),
                                 "format": fmt,

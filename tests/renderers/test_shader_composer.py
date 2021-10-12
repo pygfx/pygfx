@@ -3,6 +3,9 @@ from pytest import raises
 import numpy as np
 
 
+Binding = shadercomposer.Binding
+
+
 def test_templating():
     class MyShader(shadercomposer.BaseShader):
         def get_code(self):
@@ -48,13 +51,13 @@ def test_uniform_definitions():
 
     # Fails
     with raises(TypeError):  # Not a valid struct type
-        shader.define_uniform(0, 0, "zz", "not a struct")
+        shader.define_uniform(0, 0, Binding("zz", "", "not a struct"))
     with raises(TypeError):  # Not a valid struct type
-        shader.define_uniform(0, 0, "zz", np.array([1]).dtype)
+        shader.define_uniform(0, 0, Binding("zz", "", np.array([1]).dtype))
 
     # Test simple scalars
     struct = dict(foo="f4", bar="i2")
-    shader.define_uniform(0, 0, "zz", struct)
+    shader.define_uniform(0, 0, Binding("zz", "", struct))
     assert (
         shader.get_definitions().strip()
         == """
@@ -71,7 +74,7 @@ def test_uniform_definitions():
 
     # Test vec
     struct = dict(foo="4xf4", bar="2xi4")
-    shader.define_uniform(0, 0, "zz", struct)
+    shader.define_uniform(0, 0, Binding("zz", "", struct))
     assert (
         shader.get_definitions().strip()
         == """
@@ -88,7 +91,7 @@ def test_uniform_definitions():
 
     # Test mat
     struct = dict(foo="4x4xf4", bar="2x3xi4")
-    shader.define_uniform(0, 0, "zz", struct)
+    shader.define_uniform(0, 0, Binding("zz", "", struct))
     assert (
         shader.get_definitions().strip()
         == """
@@ -106,9 +109,9 @@ def test_uniform_definitions():
     # Test alignment
     struct = dict(foo="3xf4", bar="4xi4")
     with raises(TypeError):
-        shader.define_uniform(0, 0, "zz", struct)
+        shader.define_uniform(0, 0, Binding("zz", "", struct))
     struct = dict(foo="3xf4", _padding="f4", bar="4xi4")
-    shader.define_uniform(0, 0, "zz", struct)
+    shader.define_uniform(0, 0, Binding("zz", "", struct))
 
 
 if __name__ == "__main__":
