@@ -12,26 +12,42 @@ def array_from_shadertype(shadertype):
     assert isinstance(shadertype, dict)
 
     primitives = {
-        "i1": "int8",
-        "u1": "uint8",
-        "i2": "int16",
-        "u2": "uint16",
         "i4": "int32",
         "u4": "uint32",
-        "f2": "float16",
         "f4": "float32",
     }
 
-    # Unravel the dict
+    # Unravel the dict, turning it into a numpy array.
+    # We also sort the fields so that the uniforms are properly aligned.
+    # See https://www.w3.org/TR/WGSL/#structure-layout-rules
+    # Note that 3x4xf4 matches a mat3x4<f32>
     array_names = []
     dtype_fields = []
     for name, format in shadertype.items():
+        if format[-2:] not in primitives:
+            raise RuntimeError(
+                f"Values in a uniform must have a 32bit primitive type, not {format}"
+            )
         primitive = primitives[format[-2:]]
-        shapestr = format[:-2].replace("*", "x")
-        shape = tuple(int(i) for i in shapestr.split("x") if i)
-        dtype_fields.append((name, primitive, shape))
+        # Get shape, excluding array part
+        shapestr = format[:-2].split("*")[-1]
+        shape = [int(i) for i in shapestr.split("x") if i]
+        align_size = shape[-1] if shape else 1  # in mat2x4 we need the 4
+        if align_size == 3:  # vec3 and matnx3 are forbidden for now
+            raise ValueError(
+                f"Uniform format {format} forbidden for now due to alignment."
+            )
+        shape.reverse()  # reverse because numpy is row-major
+        # Include array size
         if "*" in format:
             array_names.append(name)
+            shape.insert(0, int(format.split("*")[0]))
+        # Create field, include align_size for sorting
+        dtype_fields.append((name, primitive, tuple(shape), align_size))
+
+    # Sort by alignment, then strip the align_size (helper element) from the tuple
+    dtype_fields.sort(key=lambda field: -field[-1])
+    dtype_fields = [field[:-1] for field in dtype_fields]
 
     # Add meta field (zero bytes)
     # This isn't particularly pretty, but this way our metadata is attached

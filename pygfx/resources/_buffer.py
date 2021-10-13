@@ -187,7 +187,7 @@ def format_from_memoryview(mem):
         "h": "i2",
         "H": "u2",
         "i": "i4",
-        "U": "u4",
+        "I": "u4",
         "e": "f2",
         "f": "f4",
     }

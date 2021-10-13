@@ -12,7 +12,8 @@ for name in dir(pygfx.materials):
 def test_uniform_types_uniform_type():
     """Check that the uniform_type always includes that of the super."""
     for cls in material_classes:
-        assert isinstance(cls.uniform_type, dict)
+        ob = cls()
+        assert isinstance(ob.uniform_type, dict)
         for super_cls in cls.mro():
             if super_cls is cls:
                 continue
@@ -20,9 +21,9 @@ def test_uniform_types_uniform_type():
                 break
             else:
                 for key, val in super_cls.uniform_type.items():
-                    assert key in cls.uniform_type, f"{cls.__name__}:{key} missing"
+                    assert key in ob.uniform_type, f"{cls.__name__}:{key} missing"
                     assert (
-                        val == cls.uniform_type[key]
+                        val == ob.uniform_type[key]
                     ), f"{cls.__name__}:{key} different"
 
 
