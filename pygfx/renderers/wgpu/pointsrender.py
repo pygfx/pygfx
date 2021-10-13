@@ -25,6 +25,7 @@ def points_renderer(wobject, render_info):
         "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
     bindings[4] = Binding("s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX")
+    bindings[5] = Binding("s_color", "buffer/read_only_storage", geometry.colors, "VERTEX")
 
     if isinstance(material, GaussianPointsMaterial):
         shader["type"] = "gaussian"
