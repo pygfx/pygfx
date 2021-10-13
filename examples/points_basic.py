@@ -14,7 +14,7 @@ scene = gfx.Scene()
 positions = np.random.normal(0, 0.5, (100, 3)).astype(np.float32)
 sizes = np.random.rand(100).astype(np.float32) * 50
 colors = np.random.normal(0.5, 0.5, (100, 4)).astype(np.float32)
-geometry = gfx.PointsGeometry(positions=positions, sizes=sizes, colors=colors)
+geometry = gfx.Geometry(positions=positions, sizes=sizes, colors=colors)
 
 material = gfx.PointsMaterial()
 points = gfx.Points(geometry, material)

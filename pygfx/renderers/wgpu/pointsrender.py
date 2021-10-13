@@ -12,7 +12,7 @@ def points_renderer(wobject, render_info):
 
     geometry = wobject.geometry
     material = wobject.material
-    shader = PointsShader(wobject, type="circle")
+    shader = PointsShader(wobject, type="circle", sizes=False, colors=False)
     n = geometry.positions.nitems * 6
 
     bindings = {}
@@ -24,14 +24,15 @@ def points_renderer(wobject, render_info):
     bindings[3] = Binding(
         "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
-    bindings[4] = Binding("s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX")
-    bindings[5] = Binding("s_color", "buffer/read_only_storage", geometry.colors, "VERTEX")
+    if hasattr(geometry, 'sizes'):
+        bindings[4] = Binding("s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX")
+        shader["sizes"] = True
+    if hasattr(geometry, 'colors'):
+        bindings[5] = Binding("s_color", "buffer/read_only_storage", geometry.colors, "VERTEX")
+        shader["colors"] = True
 
     if isinstance(material, GaussianPointsMaterial):
         shader["type"] = "gaussian"
-
-    shader["sizes"] = wobject.geometry.sizes is not None
-    shader["colors"] = wobject.geometry.colors is not None
 
     # Let the shader generate code for our bindings
     for i, binding in bindings.items():
@@ -79,7 +80,12 @@ class PointsShader(WorldObjectShader):
             [[location(0)]] pointcoord: vec2<f32>;
             [[location(1)]] vertex_idx: vec2<f32>;
             [[location(2)]] world_pos: vec3<f32>;
-            [[location(3)]] color: vec4<f32>;
+            $$ if sizes
+            [[location(3)]] size: f32;
+            $$ endif
+            $$ if colors
+            [[location(4)]] color: vec4<f32>;
+            $$ endif
             [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
@@ -114,16 +120,23 @@ class PointsShader(WorldObjectShader):
             );
 
             $$ if sizes
-                let size = s_size.data[in.vertex_index];
+                let size = s_size.data[i0];
+                out.size = size;
             $$ else
                 let size = u_material.size;
             $$ endif
+
             let aa_margin = 1.0;
             let delta_logical = deltas[sub_index] * (size + aa_margin);
             let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
             out.world_pos = world_pos.xyz / world_pos.w;
             out.ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
             out.pointcoord = delta_logical;
+
+            $$ if colors
+                let color = vec4<f32>(s_color.data[i0]);
+                out.color = color;
+            $$ endif
 
             out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
             return out;
@@ -138,10 +151,20 @@ class PointsShader(WorldObjectShader):
         fn fs_main(in: VertexOutput) -> FragmentOutput {
             var out: FragmentOutput;
 
-            let color = u_material.color;
             let d = length(in.pointcoord);
-            let size = u_material.size;
             let aa_width = 1.0;
+
+            $$ if sizes
+                let size = in.size;
+            $$ else
+                let size = u_material.size;
+            $$ endif
+
+            $$ if colors
+                let color = in.color;
+            $$ else
+                let color = u_material.color;
+            $$ endif
 
             $$ if type == 'circle'
                 if (d <= size - 0.5 * aa_width) {

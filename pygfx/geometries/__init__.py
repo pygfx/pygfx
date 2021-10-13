@@ -1,7 +1,6 @@
 # flake8: noqa
 
 from ._base import Geometry
-from ._points import PointsGeometry
 from ._box import BoxGeometry
 from ._cone import ConeGeometry
 from ._cylinder import CylinderGeometry
