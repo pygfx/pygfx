@@ -24,11 +24,15 @@ def points_renderer(wobject, render_info):
     bindings[3] = Binding(
         "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
-    if hasattr(geometry, 'sizes'):
-        bindings[4] = Binding("s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX")
+    if hasattr(geometry, "sizes"):
+        bindings[4] = Binding(
+            "s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX"
+        )
         shader["sizes"] = True
-    if hasattr(geometry, 'colors'):
-        bindings[5] = Binding("s_color", "buffer/read_only_storage", geometry.colors, "VERTEX")
+    if hasattr(geometry, "colors"):
+        bindings[5] = Binding(
+            "s_color", "buffer/read_only_storage", geometry.colors, "VERTEX"
+        )
         shader["colors"] = True
 
     if isinstance(material, GaussianPointsMaterial):
