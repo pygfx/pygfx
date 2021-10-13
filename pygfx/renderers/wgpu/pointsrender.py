@@ -8,7 +8,7 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 
 @register_wgpu_render_function(Points, PointsMaterial)
 def points_renderer(wobject, render_info):
-    """Render function capable of rendering meshes displaying a volume slice."""
+    """Render function capable of rendering Points."""
 
     geometry = wobject.geometry
     material = wobject.material
@@ -32,6 +32,9 @@ def points_renderer(wobject, render_info):
 
     if isinstance(material, GaussianPointsMaterial):
         shader["type"] = "gaussian"
+
+    shader["sizes"] = wobject.geometry.sizes is not None
+    shader["colors"] = wobject.geometry.colors is not None
 
     # Put it together!
     wgsl = shader.generate_wgsl()
@@ -76,6 +79,7 @@ class PointsShader(WorldObjectShader):
             [[location(0)]] pointcoord: vec2<f32>;
             [[location(1)]] vertex_idx: vec2<f32>;
             [[location(2)]] world_pos: vec3<f32>;
+            [[location(3)]] color: vec4<f32>;
             [[builtin(position)]] ndc_pos: vec4<f32>;
         };
 
@@ -91,6 +95,14 @@ class PointsShader(WorldObjectShader):
 
         [[group(1), binding(0)]]
         var<storage,read> s_pos: BufferF32;
+
+        $$ if sizes
+        [[group(1), binding(1)]]
+        var<storage,read> s_size: BufferF32;
+        $$ endif
+
+        [[group(1), binding(2)]]
+        var<storage,read> s_color: BufferF32;
         """
 
     def vertex_shader(self):
@@ -117,8 +129,13 @@ class PointsShader(WorldObjectShader):
                 vec2<f32>( 1.0,  1.0),
             );
 
+            $$ if sizes
+                let size = s_size.data[in.vertex_index];
+            $$ else
+                let size = u_material.size;
+            $$ endif
             let aa_margin = 1.0;
-            let delta_logical = deltas[sub_index] * (u_material.size + aa_margin);
+            let delta_logical = deltas[sub_index] * (size + aa_margin);
             let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
             out.world_pos = world_pos.xyz / world_pos.w;
             out.ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
