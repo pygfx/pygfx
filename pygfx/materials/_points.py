@@ -26,7 +26,7 @@ class PointsMaterial(Material):
 
     @property
     def color(self):
-        """The color of the points (if map is not set)."""
+        """The color of the points (if map is not set). If the geometry provides colors, this is ignored."""
         return self.uniform_buffer.data["color"]
 
     @color.setter
@@ -46,7 +46,7 @@ class PointsMaterial(Material):
 
     @property
     def size(self):
-        """The size (diameter) of the points, in logical pixels."""
+        """The size (diameter) of the points, in logical pixels. If the geometry provides sizes, this is ignored."""
         return self.uniform_buffer.data["size"]
 
     @size.setter
