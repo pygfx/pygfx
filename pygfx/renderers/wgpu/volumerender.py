@@ -26,21 +26,21 @@ def volume_slice_renderer(wobject, render_info):
     n = 12
 
     # Collect texture and sampler
-    if material.map is None:
-        raise ValueError("VolumeSliceMaterial must have a texture map.")
+    if geometry.grid is None:
+        raise ValueError("Volume.geometry must have a grid (texture).")
     else:
-        if isinstance(material.map, TextureView):
-            view = material.map
-        elif isinstance(material.map, Texture):
-            view = material.map.get_view(filter="linear")
+        if isinstance(geometry.grid, TextureView):
+            view = geometry.grid
+        elif isinstance(geometry.grid, Texture):
+            view = geometry.grid.get_view(filter="linear")
         else:
-            raise TypeError("material.map must be a TextureView")
+            raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
         if view.view_dim.lower() != "3d":
-            raise TypeError("material.map must a 3D texture (view)")
+            raise TypeError("Volume.geometry.grid must a 3D texture (view)")
         elif getattr(geometry, "texcoords", None) is None:
-            raise ValueError("With VolumeSliceMaterial, geometry needs texcoords")
+            raise ValueError("Volume.geometry needs texcoords")
         # Sampling type
-        fmt = to_texture_format(material.map.format)
+        fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
             shader["texture_format"] = "f32"
             if "unorm" in fmt:

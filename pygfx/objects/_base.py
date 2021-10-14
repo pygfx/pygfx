@@ -269,3 +269,7 @@ class WorldObject(ResourceContainer):
             self._m.extract_rotation(self.parent._matrix_world)
             self._q.set_from_rotation_matrix(self._m)
             self.rotation.premultiply(self._q.inverse())
+
+    def _wgpu_get_pick_info(self, pick_value):
+        # In most cases the material handles this.
+        return self.material._wgpu_get_pick_info(pick_value)
