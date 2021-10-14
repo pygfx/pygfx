@@ -24,12 +24,12 @@ def points_renderer(wobject, render_info):
     bindings[3] = Binding(
         "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
-    if hasattr(geometry, "sizes"):
+    if getattr(geometry, "sizes", None) is not None:
         bindings[4] = Binding(
             "s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX"
         )
         shader["sizes"] = True
-    if hasattr(geometry, "colors"):
+    if hasattr(geometry, "colors", None) is not None:
         bindings[5] = Binding(
             "s_color", "buffer/read_only_storage", geometry.colors, "VERTEX"
         )
