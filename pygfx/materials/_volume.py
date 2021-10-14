@@ -47,7 +47,6 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
 
     uniform_type = dict(
         plane="4xf4",
-        clim="2xf4",
     )
 
     def __init__(self, plane=(0, 0, 1, 0), **kwargs):
@@ -66,3 +65,17 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     def plane(self, plane):
         self.uniform_buffer.data["plane"] = plane
         self.uniform_buffer.update_range(0, 1)
+
+
+class VolumeRayMaterial(VolumeBasicMaterial):
+    """A material for rendering volumes using raycasting."""
+
+    # todo: define render modes as material subclasses or using a `mode` or `style` property?
+
+
+class VolumeMipMaterial(VolumeRayMaterial):
+    """A material rendering a volume using MIP rendering."""
+
+
+class VolumeIsoMaterial(VolumeRayMaterial):
+    """A material rendering a volume using isosurface rendering."""
