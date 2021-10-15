@@ -11,12 +11,21 @@ class PointsMaterial(Material):
         size="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), size=1, **kwargs):
+    def __init__(
+        self,
+        color=(1, 1, 1, 1),
+        size=1,
+        vertex_colors=False,
+        vertex_sizes=False,
+        **kwargs
+    ):
         super().__init__(**kwargs)
 
         self._map = None
         self.color = color
         self.size = size
+        self._vertex_colors = vertex_colors
+        self._vertex_sizes = vertex_sizes
 
     def _wgpu_get_pick_info(self, pick_value):
         # The instance is zero while renderer doesn't support instancing
@@ -34,15 +43,16 @@ class PointsMaterial(Material):
         self.uniform_buffer.data["color"] = tuple(color)
         self.uniform_buffer.update_range(0, 1)
 
-    # @property
-    # def map(self):
-    #     """ The 1D texture map specifying the color for each point.
-    #     """
-    #     return self._map
-    #
-    # @map.setter
-    # def map(self, map):
-    #     self._map = map
+    @property
+    def vertex_colors(self):
+        """Whether to use the vertex colors provided in the geometry."""
+        return self._vertex_colors
+
+    @vertex_colors.setter
+    def vertex_colors(self, value):
+        if value != self._vertex_colors:
+            self._vertex_colors = value
+            self._bump_rev()
 
     @property
     def size(self):
@@ -54,6 +64,26 @@ class PointsMaterial(Material):
         self.uniform_buffer.data["size"] = size
         self.uniform_buffer.update_range(0, 1)
 
+    @property
+    def vertex_sizes(self):
+        """Whether to use the vertex sizes provided in the geometry."""
+        return self._vertex_sizes
+
+    @vertex_sizes.setter
+    def vertex_sizes(self, value):
+        if value != self._vertex_sizes:
+            self._vertex_sizes = value
+            self._bump_rev()
+
+    # @property
+    # def map(self):
+    #     """ The 1D texture map specifying the color for each point.
+    #     """
+    #     return self._map
+    #
+    # @map.setter
+    # def map(self, map):
+    #     self._map = map
     # todo: sizeAttenuation
 
 
