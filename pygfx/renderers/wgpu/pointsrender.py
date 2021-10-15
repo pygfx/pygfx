@@ -142,8 +142,7 @@ class PointsShader(WorldObjectShader):
             out.pointcoord = delta_logical;
 
             $$ if per_vertex_colors
-                let color = vec4<f32>(s_color.data[i0]);
-                out.color = color;
+                out.color = vec4<f32>(s_color.data[i0*4], s_color.data[i0*4+1], s_color.data[i0*4+2], s_color.data[i0*4+3]);
             $$ endif
 
             out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
