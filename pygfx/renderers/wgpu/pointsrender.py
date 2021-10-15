@@ -12,7 +12,9 @@ def points_renderer(wobject, render_info):
 
     geometry = wobject.geometry
     material = wobject.material
-    shader = PointsShader(wobject, type="circle", sizes=False, colors=False)
+    shader = PointsShader(
+        wobject, type="circle", per_vertex_sizes=False, per_vertex_colors=False
+    )
     n = geometry.positions.nitems * 6
 
     bindings = {}
@@ -24,16 +26,18 @@ def points_renderer(wobject, render_info):
     bindings[3] = Binding(
         "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
-    if getattr(geometry, "sizes", None) is not None:
-        bindings[4] = Binding(
-            "s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX"
-        )
-        shader["sizes"] = True
-    if hasattr(geometry, "colors", None) is not None:
+
+    if material.vertex_colors:
         bindings[5] = Binding(
             "s_color", "buffer/read_only_storage", geometry.colors, "VERTEX"
         )
-        shader["colors"] = True
+        shader["per_vertex_colors"] = True
+
+    if material.vertex_sizes:
+        bindings[4] = Binding(
+            "s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX"
+        )
+        shader["per_vertex_sizes"] = True
 
     if isinstance(material, GaussianPointsMaterial):
         shader["type"] = "gaussian"
@@ -84,10 +88,10 @@ class PointsShader(WorldObjectShader):
             [[location(0)]] pointcoord: vec2<f32>;
             [[location(1)]] vertex_idx: vec2<f32>;
             [[location(2)]] world_pos: vec3<f32>;
-            $$ if sizes
+            $$ if per_vertex_sizes
             [[location(3)]] size: f32;
             $$ endif
-            $$ if colors
+            $$ if per_vertex_colors
             [[location(4)]] color: vec4<f32>;
             $$ endif
             [[builtin(position)]] ndc_pos: vec4<f32>;
@@ -123,7 +127,7 @@ class PointsShader(WorldObjectShader):
                 vec2<f32>( 1.0,  1.0),
             );
 
-            $$ if sizes
+            $$ if per_vertex_sizes
                 let size = s_size.data[i0];
                 out.size = size;
             $$ else
@@ -137,7 +141,7 @@ class PointsShader(WorldObjectShader):
             out.ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
             out.pointcoord = delta_logical;
 
-            $$ if colors
+            $$ if per_vertex_colors
                 let color = vec4<f32>(s_color.data[i0]);
                 out.color = color;
             $$ endif
@@ -158,13 +162,13 @@ class PointsShader(WorldObjectShader):
             let d = length(in.pointcoord);
             let aa_width = 1.0;
 
-            $$ if sizes
+            $$ if per_vertex_sizes
                 let size = in.size;
             $$ else
                 let size = u_material.size;
             $$ endif
 
-            $$ if colors
+            $$ if per_vertex_colors
                 let color = in.color;
             $$ else
                 let color = u_material.color;

@@ -36,6 +36,7 @@ class LineMaterial(Material):
 
     @property
     def vertex_colors(self):
+        """Whether to use the vertex colors provided in the geometry."""
         return self._vertex_colors
 
     @vertex_colors.setter
