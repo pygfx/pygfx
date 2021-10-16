@@ -88,4 +88,4 @@ pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 
 ## Current status
 
-Under development, many things can change. We don't even do releases yet ...
+Under development, many things can change.
