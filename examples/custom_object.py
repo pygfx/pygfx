@@ -6,6 +6,7 @@ from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
 
 import pygfx as gfx
+from pygfx.renderers.wgpu._shadercomposer import Binding
 
 
 # %% Custom object, material, and matching render function
@@ -72,7 +73,9 @@ def triangle_render_function(wobject, render_info):
             "fragment_shader": (shader_source, "fs_main"),
             "primitive_topology": "triangle-list",
             "indices": range(n),
-            "bindings0": {0: ("buffer/uniform", render_info.stdinfo_uniform)},
+            "bindings0": {
+                0: Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+            },
         },
     ]
 
