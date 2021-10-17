@@ -18,6 +18,7 @@ import pygfx as gfx
 
 from PySide6 import QtWidgets
 from wgpu.gui.qt import WgpuCanvas
+from pygfx.renderers.wgpu._shadercomposer import Binding
 
 
 # %% Create a custom object + material
@@ -112,11 +113,15 @@ def triangle_render_function(wobject, render_info):
             "primitive_topology": "triangle-strip",
             "indices": 4,
             "bindings0": {
-                0: ("buffer/uniform", wobject.material.uniform_buffer),
+                0: Binding(
+                    "u_render", "buffer/uniform", wobject.material.uniform_buffer
+                ),
             },
             "bindings1": {
-                0: ("sampler/filtering", wobject.texture.get_view()),
-                1: ("texture/auto", wobject.texture.get_view()),
+                0: Binding(
+                    "r_sampler", "sampler/filtering", wobject.texture.get_view()
+                ),
+                1: Binding("r_tex", "texture/auto", wobject.texture.get_view()),
             },
         },
     ]
