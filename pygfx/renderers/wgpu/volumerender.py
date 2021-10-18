@@ -373,6 +373,7 @@ def volume_ray_renderer(wobject, render_info):
             "vertex_shader": (wgsl, "vs_main"),
             "fragment_shader": (wgsl, "fs_main"),
             "primitive_topology": topology,
+             "cull_mode": wgpu.CullMode.front,  # the back planes are the ref
             "indices": (range(n), range(1)),
             "vertex_buffers": {},
             "bindings0": bindings,
@@ -527,9 +528,11 @@ class VolumeRayShader(WorldObjectShader):
             // Now we have the starting position on the front surface
             let front = pos + view_ray * distance;
 
-            // Decide how many steps to take
+            // Decide how many steps to take. If we'd not cul the front faces,
+            // that would still happen here because nsteps would be negative.
             let nsteps = i32(-distance / relative_step_size + 0.5);
             if( nsteps < 1 ) { discard; }
+
             // Get starting location and step vector in texture coordinates
             let step = ((pos - front) / sizef) / f32(nsteps);
             let start_loc = front / sizef;
