@@ -60,7 +60,8 @@ scene.add(vol)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 500
-controls = gfx.OrbitControls(camera.position.clone())
+controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
+controls.rotate(-0.5, -0.5)
 
 
 def animate():
