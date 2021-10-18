@@ -68,6 +68,7 @@ class WorldObject(ResourceContainer):
 
     uniform_type = dict(
         world_transform="4x4xf4",
+        world_transform_inv="4x4xf4",
         id="i4",
     )
 
@@ -97,6 +98,10 @@ class WorldObject(ResourceContainer):
         self._matrix_world = Matrix4()
         self._matrix_world_dirty = True
 
+        # Compose complete uniform type
+        self.uniform_type = {}
+        for cls in reversed(self.__class__.mro()):
+            self.uniform_type.update(getattr(cls, "uniform_type", {}))
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         # Render order is undocumented feature for now;l it may be removed if we have OIT.
@@ -252,6 +257,8 @@ class WorldObject(ResourceContainer):
             self.uniform_buffer.data[
                 "world_transform"
             ].flat = self._matrix_world.elements
+            tmp_inv_matrix = Matrix4().get_inverse(self._matrix_world)
+            self.uniform_buffer.data["world_transform_inv"].flat = tmp_inv_matrix.elements
             self.uniform_buffer.update_range(0, 1)
             self._matrix_world_dirty = False
             for child in self._children:

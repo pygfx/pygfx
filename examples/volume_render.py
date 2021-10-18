@@ -58,7 +58,9 @@ voldata = imageio.volread("imageio:stent.npz")
 vol = gfx.Volume(voldata, gfx.VolumeRayMaterial(clim=(0, 2000)))
 scene.add(vol)
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
+vol.position.set(-64, -64, -128)
+
+camera = gfx.PerspectiveCamera(120, 16 / 9)
 camera.position.z = 500
 controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
 controls.rotate(-0.5, -0.5)

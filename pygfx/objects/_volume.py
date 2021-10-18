@@ -24,12 +24,6 @@ class Volume(WorldObject):
       material: The `Material` used to render the volume.
     """
 
-    uniform_type = dict(
-        world_transform="4x4xf4",
-        size="4xi4",
-        id="i4",
-    )
-
     def __init__(self, data, material):
         super().__init__()
         if isinstance(data, np.ndarray):
@@ -62,7 +56,6 @@ class Volume(WorldObject):
 
     def _make_geometry(self, size, texture):
         size = int(size[0]), int(size[1]), int(size[2])
-        self.uniform_buffer.data["size"] = size + (0,)
         # Create box geometry, and map to 0..1
         geometry = BoxGeometry(1, 1, 1)
         geometry.positions.data[:, :3] += 0.5

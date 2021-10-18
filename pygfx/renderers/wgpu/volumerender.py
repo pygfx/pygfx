@@ -327,10 +327,6 @@ def volume_ray_renderer(wobject, render_info):
     bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
     bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
-    assert getattr(geometry, "index", None)
-    bindings[3] = Binding(
-        "s_indices", "buffer/read_only_storage", geometry.index, "VERTEX"
-    )
     topology = wgpu.PrimitiveTopology.triangle_list
     n = geometry.index.data.size
 
@@ -363,14 +359,8 @@ def volume_ray_renderer(wobject, render_info):
         # Channels
         shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-    bindings[4] = Binding(
-        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-    )
-    bindings[5] = Binding(
-        "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
-    )
-    bindings[6] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
-    bindings[7] = Binding("r_tex", "texture/auto", view, "FRAGMENT")
+    bindings[3] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
+    bindings[4] = Binding("r_tex", "texture/auto", view,  wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT)
 
     # Let the shader generate code for our bindings
     for i, binding in bindings.items():
@@ -407,8 +397,8 @@ class VolumeRayShader(WorldObjectShader):
             [[builtin(vertex_index)]] vertex_index : u32;
         };
         struct VertexOutput {
-            [[location(0)]] texcoord: vec3<f32>;
-            [[location(1)]] world_pos: vec4<f32>;
+            [[location(0)]] world_pos: vec4<f32>;
+            [[location(1)]] data_pos: vec4<f32>;
             [[location(2)]] near_pos: vec4<f32>;
             [[location(3)]] far_pos: vec4<f32>;
             [[builtin(position)]] position: vec4<f32>;
@@ -427,37 +417,62 @@ class VolumeRayShader(WorldObjectShader):
         fn vs_main(in: VertexInput) -> VertexOutput {
             var out: VertexOutput;
 
+            // Our geometry is implicitly defined by the volume dimensions.
+
+            let pos1 = vec3<f32>(-0.5);
+            let pos2 = vec3<f32>(textureDimensions(r_tex)) + pos1;
+
+            var positions = array<vec4<f32>, 8>(
+                vec4<f32>(pos2.x, pos1.y, pos2.z, 1.0),
+                vec4<f32>(pos2.x, pos1.y, pos1.z, 1.0),
+                vec4<f32>(pos2.x, pos2.y, pos2.z, 1.0),
+                vec4<f32>(pos2.x, pos2.y, pos1.z, 1.0),
+                vec4<f32>(pos1.x, pos1.y, pos1.z, 1.0),
+                vec4<f32>(pos1.x, pos1.y, pos2.z, 1.0),
+                vec4<f32>(pos1.x, pos2.y, pos1.z, 1.0),
+                vec4<f32>(pos1.x, pos2.y, pos2.z, 1.0),
+            );
+            var indices = array<i32, 36>(
+                0, 1, 2,
+                3, 2, 1,
+                4, 5, 6,
+                7, 6, 5,
+                6, 7, 3,
+                2, 3, 7,
+                1, 0, 4,
+                5, 4, 0,
+                5, 0, 7,
+                2, 7, 0,
+                1, 4, 3,
+                6, 3, 4
+            );
+
             // Select what face we're at
             let index = i32(in.vertex_index);
-            let face_index = index / 3;
-            var sub_index = index % 3;
+            let i0 = indices[index];
 
-            // Sample index
-            let i1 = i32(s_indices.data[face_index * 3 + 0]);
-            let i2 = i32(s_indices.data[face_index * 3 + 1]);
-            let i3 = i32(s_indices.data[face_index * 3 + 2]);
-            var arr_i0 = array<i32, 3>(i1, i2, i3);
-            let i0 = arr_i0[sub_index];
-
-            // Get world pos
-            let raw_pos = vec3<f32>(s_positions.data[i0 * 3 + 0], s_positions.data[i0 * 3 + 1], s_positions.data[i0 * 3 + 2]);
-            let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-
-            // Turn to NDC
+            // Sample position, and convert to world pos, and then to ndc
+            let data_pos = positions[i0];
+            let world_pos = u_wobject.world_transform * data_pos;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
+            // Store values for fragment shader
+            out.world_pos = world_pos;
+            out.position = ndc_pos;
+
+            // Prepare inverse matrix
+            let ndc_to_data = u_wobject.world_transform_inv * u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+
+            // We also interpolate the data pos. This is the position on the back face,
+            // expressed in data coordinates.
+            out.data_pos = data_pos;
+
+            // Further, we need the ray direction.
             // Step forward and backward, then map back
             let ndc_pos1 = vec4<f32>(ndc_pos.xy, -ndc_pos.w, ndc_pos.w);
             let ndc_pos2 = vec4<f32>(ndc_pos.xy, ndc_pos.w, ndc_pos.w);
-
-            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
-
-            out.world_pos = world_pos;
-            out.position = ndc_pos;
-            out.texcoord = vec3<f32>(s_texcoords.data[i0 * 3 + 0], s_texcoords.data[i0 * 3 + 1], s_texcoords.data[i0 * 3 + 2]);
-
-            out.near_pos = ndc_to_world * ndc_pos1;
-            out.far_pos = ndc_to_world * ndc_pos2;
+            out.near_pos = ndc_to_data * ndc_pos1;
+            out.far_pos = ndc_to_data * ndc_pos2;
             //out.near_pos = out.near_pos / out.near_pos.w;
             //out.far_pos = out.far_pos / out.far_pos.w;
 
@@ -493,6 +508,7 @@ class VolumeRayShader(WorldObjectShader):
         [[stage(fragment)]]
         fn fs_main(in: VertexOutput) -> FragmentOutput {
 
+            // Builtin parameters
             let relative_step_size = 1.0;
 
             let farpos = in.far_pos.xyz / in.far_pos.w;
@@ -502,8 +518,8 @@ class VolumeRayShader(WorldObjectShader):
             let view_ray = normalize(farpos.xyz - nearpos.xyz);
 
             // ==== Raycasting setup
-            let pos = in.world_pos.xyz / in.world_pos.w;
-            let sizef = vec3<f32>(u_wobject.size.xyz);
+            let pos = in.data_pos.xyz / in.data_pos.w;
+            let sizef = vec3<f32>(textureDimensions(r_tex));
             var distance = dot(nearpos - pos, view_ray);
             distance = max(distance, min((-0.5 - pos.x) / view_ray.x, (sizef.x - 0.5 - pos.x) / view_ray.x));
             distance = max(distance, min((-0.5 - pos.y) / view_ray.y, (sizef.y - 0.5 - pos.y) / view_ray.y));
