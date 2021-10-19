@@ -543,7 +543,7 @@ class VolumeRayShader(WorldObjectShader):
             var loc = start_loc;
 
             // ==== In loop
-            for (var iter=0; iter<nsteps; iter=iter+1) {
+            for (var iter=0; iter<=nsteps; iter=iter+1) {
                 let color = sample(loc);
                 let val = color.r;
                 if (val > max_val) {
