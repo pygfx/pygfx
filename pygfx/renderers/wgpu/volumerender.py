@@ -8,6 +8,55 @@ from ...materials import VolumeSliceMaterial, VolumeRayMaterial, VolumeMipMateri
 from ...resources import Texture, TextureView
 
 
+vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
+
+
+class BaseVolumeShader(WorldObjectShader):
+    def volume_helpers(self):
+        return """
+        struct VolGeometry {
+            indices: array<i32,36>;
+            positions: array<vec4<f32>,8>;
+            texcoords: array<vec3<f32>,8>;
+        };
+
+        fn get_vol_geometry(size: vec3<i32>) -> VolGeometry {
+            var geo: VolGeometry;
+
+            geo.indices = array<i32,36>(
+                0, 1, 2,   3, 2, 1,   4, 5, 6,   7, 6, 5,   6, 7, 3,   2, 3, 7,
+                1, 0, 4,   5, 4, 0,   5, 0, 7,   2, 7, 0,   1, 4, 3,   6, 3, 4,
+            );
+
+            let pos1 = vec3<f32>(-0.5);
+            let pos2 = vec3<f32>(size) + pos1;
+            geo.positions = array<vec4<f32>,8>(
+                vec4<f32>(pos2.x, pos1.y, pos2.z, 1.0),
+                vec4<f32>(pos2.x, pos1.y, pos1.z, 1.0),
+                vec4<f32>(pos2.x, pos2.y, pos2.z, 1.0),
+                vec4<f32>(pos2.x, pos2.y, pos1.z, 1.0),
+                vec4<f32>(pos1.x, pos1.y, pos1.z, 1.0),
+                vec4<f32>(pos1.x, pos1.y, pos2.z, 1.0),
+                vec4<f32>(pos1.x, pos2.y, pos1.z, 1.0),
+                vec4<f32>(pos1.x, pos2.y, pos2.z, 1.0),
+            );
+
+            geo.texcoords = array<vec3<f32>,8>(
+                vec3<f32>(1.0, 0.0, 1.0),
+                vec3<f32>(1.0, 0.0, 0.0),
+                vec3<f32>(1.0, 1.0, 1.0),
+                vec3<f32>(1.0, 1.0, 0.0),
+                vec3<f32>(0.0, 0.0, 0.0),
+                vec3<f32>(0.0, 0.0, 1.0),
+                vec3<f32>(0.0, 1.0, 0.0),
+                vec3<f32>(0.0, 1.0, 1.0),
+            );
+
+            return geo;
+        }
+    """
+
+
 @register_wgpu_render_function(Volume, VolumeSliceMaterial)
 def volume_slice_renderer(wobject, render_info):
     """Render function capable of rendering volumes."""
@@ -37,8 +86,6 @@ def volume_slice_renderer(wobject, render_info):
             raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
         if view.view_dim.lower() != "3d":
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
-        elif getattr(geometry, "texcoords", None) is None:
-            raise ValueError("Volume.geometry needs texcoords")
         # Sampling type
         fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
@@ -54,14 +101,8 @@ def volume_slice_renderer(wobject, render_info):
         # Channels
         shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-    bindings[3] = Binding(
-        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-    )
-    bindings[4] = Binding(
-        "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
-    )
-    bindings[5] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
-    bindings[6] = Binding("r_tex", "texture/auto", view, "FRAGMENT")
+    bindings[3] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
+    bindings[4] = Binding("r_tex", "texture/auto", view, vertex_and_fragment)
 
     # Let the shader generate code for our bindings
     for i, binding in bindings.items():
@@ -81,12 +122,13 @@ def volume_slice_renderer(wobject, render_info):
     ]
 
 
-class VolumeSliceShader(WorldObjectShader):
+class VolumeSliceShader(BaseVolumeShader):
     def get_code(self):
         return (
             self.get_definitions()
             + self.more_definitions()
             + self.common_functions()
+            + self.volume_helpers()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -116,9 +158,10 @@ class VolumeSliceShader(WorldObjectShader):
         fn vs_main(in: VertexInput) -> VertexOutput {
             var out: VertexOutput;
 
-            // We're assuming a box geometry, using the same layout as a simple
-            // ThreeJS BoxBufferGeometry. And we're only using the first eight
-            // vertices. These are laid out like this:
+            // Our geometry is implicitly defined by the volume dimensions.
+            var geo = get_vol_geometry(textureDimensions(r_tex));
+
+            // This layout is like this:
             //
             //   Vertices       Planes (right, left, back, front, top, bottom)
             //                            0      1    2      3     4     5
@@ -129,7 +172,6 @@ class VolumeSliceShader(WorldObjectShader):
             //  | 4--|-1        3: 2763     1| +--|-+
             //  |/   |/         4: 0572      |/35 |/
             //  6----3          5: 3641      +----+
-
 
             let plane = u_material.plane.xyzw;  // ax + by + cz + d
             let n = plane.xyz;
@@ -167,30 +209,14 @@ class VolumeSliceShader(WorldObjectShader):
             // Intersect the 12 edges
             for (var i:i32=0; i<12; i=i+1) {
                 let edge = edges[i];
-                let p1_raw = vec3<f32>(
-                    s_positions.data[edge[0] * 3],
-                    s_positions.data[edge[0] * 3 + 1],
-                    s_positions.data[edge[0] * 3 + 2],
-                );
-                let p2_raw = vec3<f32>(
-                    s_positions.data[edge[1] * 3],
-                    s_positions.data[edge[1] * 3 + 1],
-                    s_positions.data[edge[1] * 3 + 2],
-                );
+                let p1_raw = geo.positions[ edge[0] ].xyz;
+                let p2_raw = geo.positions[ edge[1] ].xyz;
                 let p1_p = u_wobject.world_transform * vec4<f32>(p1_raw, 1.0);
                 let p2_p = u_wobject.world_transform * vec4<f32>(p2_raw, 1.0);
                 let p1 = p1_p.xyz / p1_p.w;
                 let p2 = p2_p.xyz / p2_p.w;
-                let tc1 = vec3<f32>(
-                    s_texcoords.data[edge[0] * 3],
-                    s_texcoords.data[edge[0] * 3 + 1],
-                    s_texcoords.data[edge[0] * 3 + 2],
-                );
-                let tc2 = vec3<f32>(
-                    s_texcoords.data[edge[1] * 3],
-                    s_texcoords.data[edge[1] * 3 + 1],
-                    s_texcoords.data[edge[1] * 3 + 2],
-                );
+                let tc1 = geo.texcoords[ edge[0] ];
+                let tc2 = geo.texcoords[ edge[1] ];
                 let u = p2 - p1;
                 let t = -(plane.x * p1.x + plane.y * p1.y + plane.z * p1.z + plane.w) / dot(n, u);
                 let intersects:bool = t > 0.0 && t < 1.0;
@@ -327,9 +353,6 @@ def volume_ray_renderer(wobject, render_info):
     bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
     bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
-    topology = wgpu.PrimitiveTopology.triangle_list
-    n = geometry.index.data.size
-
     # Collect texture and sampler
     if geometry.grid is None:
         raise ValueError("Volume.geometry must have a grid (texture).")
@@ -342,8 +365,6 @@ def volume_ray_renderer(wobject, render_info):
             raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
         if view.view_dim.lower() != "3d":
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
-        elif getattr(geometry, "texcoords", None) is None:
-            raise ValueError("Volume.geometry needs texcoords")
         # Sampling type
         fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
@@ -360,7 +381,7 @@ def volume_ray_renderer(wobject, render_info):
         shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
     bindings[3] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
-    bindings[4] = Binding("r_tex", "texture/auto", view,  wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT)
+    bindings[4] = Binding("r_tex", "texture/auto", view, vertex_and_fragment)
 
     # Let the shader generate code for our bindings
     for i, binding in bindings.items():
@@ -372,21 +393,22 @@ def volume_ray_renderer(wobject, render_info):
         {
             "vertex_shader": (wgsl, "vs_main"),
             "fragment_shader": (wgsl, "fs_main"),
-            "primitive_topology": topology,
-             "cull_mode": wgpu.CullMode.front,  # the back planes are the ref
-            "indices": (range(n), range(1)),
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.front,  # the back planes are the ref
+            "indices": (range(36), range(1)),
             "vertex_buffers": {},
             "bindings0": bindings,
         }
     ]
 
 
-class VolumeRayShader(WorldObjectShader):
+class VolumeRayShader(BaseVolumeShader):
     def get_code(self):
         return (
             self.get_definitions()
             + self.more_definitions()
             + self.common_functions()
+            + self.volume_helpers()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -419,41 +441,14 @@ class VolumeRayShader(WorldObjectShader):
             var out: VertexOutput;
 
             // Our geometry is implicitly defined by the volume dimensions.
-
-            let pos1 = vec3<f32>(-0.5);
-            let pos2 = vec3<f32>(textureDimensions(r_tex)) + pos1;
-
-            var positions = array<vec4<f32>, 8>(
-                vec4<f32>(pos2.x, pos1.y, pos2.z, 1.0),
-                vec4<f32>(pos2.x, pos1.y, pos1.z, 1.0),
-                vec4<f32>(pos2.x, pos2.y, pos2.z, 1.0),
-                vec4<f32>(pos2.x, pos2.y, pos1.z, 1.0),
-                vec4<f32>(pos1.x, pos1.y, pos1.z, 1.0),
-                vec4<f32>(pos1.x, pos1.y, pos2.z, 1.0),
-                vec4<f32>(pos1.x, pos2.y, pos1.z, 1.0),
-                vec4<f32>(pos1.x, pos2.y, pos2.z, 1.0),
-            );
-            var indices = array<i32, 36>(
-                0, 1, 2,
-                3, 2, 1,
-                4, 5, 6,
-                7, 6, 5,
-                6, 7, 3,
-                2, 3, 7,
-                1, 0, 4,
-                5, 4, 0,
-                5, 0, 7,
-                2, 7, 0,
-                1, 4, 3,
-                6, 3, 4
-            );
+            var geo = get_vol_geometry(textureDimensions(r_tex));
 
             // Select what face we're at
             let index = i32(in.vertex_index);
-            let i0 = indices[index];
+            let i0 = geo.indices[index];
 
             // Sample position, and convert to world pos, and then to ndc
-            let data_pos = positions[i0];
+            let data_pos = geo.positions[i0];
             let world_pos = u_wobject.world_transform * data_pos;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
@@ -466,7 +461,7 @@ class VolumeRayShader(WorldObjectShader):
 
             // We also interpolate the data pos. This is the position on the back face,
             // expressed in data coordinates.
-            out.data_pos = data_pos;
+            out.data_pos = vec4<f32>(geo.texcoords[i0], 1.0); //data_pos;
 
             // Further, we need the ray direction.
             // Step forward and backward, then map back
@@ -519,8 +514,8 @@ class VolumeRayShader(WorldObjectShader):
             let view_ray = normalize(farpos.xyz - nearpos.xyz);
 
             // ==== Raycasting setup
-            let pos = in.data_pos.xyz / in.data_pos.w;
             let sizef = vec3<f32>(textureDimensions(r_tex));
+            let pos = (in.data_pos.xyz / in.data_pos.w) * sizef ;
             var distance = dot(nearpos - pos, view_ray);
             distance = max(distance, min((-0.5 - pos.x) / view_ray.x, (sizef.x - 0.5 - pos.x) / view_ray.x));
             distance = max(distance, min((-0.5 - pos.y) / view_ray.y, (sizef.y - 0.5 - pos.y) / view_ray.y));

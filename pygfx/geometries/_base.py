@@ -1,7 +1,7 @@
 import numpy as np
 
 from ..objects._base import ResourceContainer
-from ..resources import Buffer
+from ..resources import Buffer, Texture
 
 
 class Geometry(ResourceContainer):
@@ -22,6 +22,10 @@ class Geometry(ResourceContainer):
     def __init__(self, **data):
         super().__init__()
         for name, val in data.items():
+            if isinstance(val, (Buffer, Texture)):
+                setattr(self, name, val)
+                continue
+
             if not isinstance(val, np.ndarray):
                 val = np.asanyarray(val, dtype=np.float32)
             elif val.dtype == np.float64:

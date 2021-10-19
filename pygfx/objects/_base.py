@@ -258,7 +258,9 @@ class WorldObject(ResourceContainer):
                 "world_transform"
             ].flat = self._matrix_world.elements
             tmp_inv_matrix = Matrix4().get_inverse(self._matrix_world)
-            self.uniform_buffer.data["world_transform_inv"].flat = tmp_inv_matrix.elements
+            self.uniform_buffer.data[
+                "world_transform_inv"
+            ].flat = tmp_inv_matrix.elements
             self.uniform_buffer.update_range(0, 1)
             self._matrix_world_dirty = False
             for child in self._children:

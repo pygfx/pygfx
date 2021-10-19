@@ -1,8 +1,8 @@
 import numpy as np
 
 from ._base import WorldObject
-from ..geometries import BoxGeometry
-from ..resources import Buffer, Texture
+from ..geometries import Geometry
+from ..resources import Texture
 
 
 class Volume(WorldObject):
@@ -33,17 +33,13 @@ class Volume(WorldObject):
         else:
             raise TypeError("Volume data must be numpy np.ndarray or gfx.Texture.")
 
-        self.geometry = self._make_geometry(texture.size, texture)
+        self._geometry = Geometry(grid=texture)
         self.material = material
 
     @property
     def geometry(self):
         """The geometry of the volume."""
         return self._geometry
-
-    @geometry.setter
-    def geometry(self, geometry):
-        self._geometry = geometry
 
     @property
     def material(self):
@@ -53,23 +49,6 @@ class Volume(WorldObject):
     @material.setter
     def material(self, material):
         self._material = material
-
-    def _make_geometry(self, size, texture):
-        size = int(size[0]), int(size[1]), int(size[2])
-        # Create box geometry, and map to 0..1
-        geometry = BoxGeometry(1, 1, 1)
-        geometry.positions.data[:, :3] += 0.5
-        # This is our 3D texture coords
-        geometry.texcoords = Buffer(geometry.positions.data[:, :3].copy())
-        # Map to volume size
-        for i in range(3):
-            column = geometry.positions.data[:, i]
-            column *= size[i]
-            column -= 0.5  # Pixel centers are in origin and size
-
-        # Apply
-        geometry.grid = texture
-        return geometry
 
     def _wgpu_get_pick_info(self, pick_value):
         size = self.geometry.grid.size
