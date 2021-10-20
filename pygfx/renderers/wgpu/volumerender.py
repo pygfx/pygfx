@@ -62,8 +62,8 @@ class BaseVolumeShader(WorldObjectShader):
             $$ if texture_format == 'f32'
                 color_value = textureSample(r_tex, r_sampler, texcoord.xyz);
             $$ else
-                let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
-                let texcoords_u = vec3<i32>(texcoord.xyz * texcoords_dim % texcoords_dim);
+                let sizef = vec3<f32>(textureDimensions(r_tex));
+                let texcoords_u = vec3<i32>(texcoord.xyz * sizef);
                 color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
             $$ endif
 
@@ -528,8 +528,8 @@ class VolumeRayShader(BaseVolumeShader):
             if( nsteps < 1 ) { discard; }
 
             // Get starting positon and step vector in texture coordinates.
-            let start_coord = front_pos / sizef;
-            let step = ((back_pos - front_pos) / sizef) / f32(nsteps);
+            let step = ((back_pos - front_pos) / sizef) / f32(nsteps + 1);
+            let start_coord = front_pos / sizef + 0.5 * step;
 
             return render_func(start_coord, step, nsteps);
         }
