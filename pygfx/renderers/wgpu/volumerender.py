@@ -4,7 +4,7 @@ from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
 from ._conv import to_texture_format
 from ...objects import Volume
-from ...materials import VolumeSliceMaterial, VolumeRayMaterial, VolumeMipMaterial
+from ...materials import VolumeSliceMaterial, VolumeRayMaterial
 from ...resources import Texture, TextureView
 
 
@@ -16,11 +16,12 @@ class BaseVolumeShader(WorldObjectShader):
         return """
         struct VolGeometry {
             indices: array<i32,36>;
-            positions: array<vec4<f32>,8>;
+            positions: array<vec3<f32>,8>;
             texcoords: array<vec3<f32>,8>;
         };
 
-        fn get_vol_geometry(size: vec3<i32>) -> VolGeometry {
+        fn get_vol_geometry() -> VolGeometry {
+            let size = textureDimensions(r_tex);
             var geo: VolGeometry;
 
             geo.indices = array<i32,36>(
@@ -30,15 +31,15 @@ class BaseVolumeShader(WorldObjectShader):
 
             let pos1 = vec3<f32>(-0.5);
             let pos2 = vec3<f32>(size) + pos1;
-            geo.positions = array<vec4<f32>,8>(
-                vec4<f32>(pos2.x, pos1.y, pos2.z, 1.0),
-                vec4<f32>(pos2.x, pos1.y, pos1.z, 1.0),
-                vec4<f32>(pos2.x, pos2.y, pos2.z, 1.0),
-                vec4<f32>(pos2.x, pos2.y, pos1.z, 1.0),
-                vec4<f32>(pos1.x, pos1.y, pos1.z, 1.0),
-                vec4<f32>(pos1.x, pos1.y, pos2.z, 1.0),
-                vec4<f32>(pos1.x, pos2.y, pos1.z, 1.0),
-                vec4<f32>(pos1.x, pos2.y, pos2.z, 1.0),
+            geo.positions = array<vec3<f32>,8>(
+                vec3<f32>(pos2.x, pos1.y, pos2.z),
+                vec3<f32>(pos2.x, pos1.y, pos1.z),
+                vec3<f32>(pos2.x, pos2.y, pos2.z),
+                vec3<f32>(pos2.x, pos2.y, pos1.z),
+                vec3<f32>(pos1.x, pos1.y, pos1.z),
+                vec3<f32>(pos1.x, pos1.y, pos2.z),
+                vec3<f32>(pos1.x, pos2.y, pos1.z),
+                vec3<f32>(pos1.x, pos2.y, pos2.z),
             );
 
             geo.texcoords = array<vec3<f32>,8>(
@@ -53,6 +54,28 @@ class BaseVolumeShader(WorldObjectShader):
             );
 
             return geo;
+        }
+
+        fn sample(texcoord: vec3<f32>) -> vec4<f32> {
+            var color_value: vec4<f32>;
+
+            $$ if texture_format == 'f32'
+                color_value = textureSample(r_tex, r_sampler, texcoord.xyz);
+            $$ else
+                let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
+                let texcoords_u = vec3<i32>(texcoord.xyz * texcoords_dim % texcoords_dim);
+                color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
+            $$ endif
+
+            $$ if climcorrection
+                color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
+            $$ endif
+            $$ if texture_nchannels == 1
+                color_value = vec4<f32>(color_value.rrr, 1.0);
+            $$ elif texture_nchannels == 2
+                color_value = vec4<f32>(color_value.rrr, color_value.g);
+            $$ endif
+            return color_value;
         }
     """
 
@@ -159,7 +182,7 @@ class VolumeSliceShader(BaseVolumeShader):
             var out: VertexOutput;
 
             // Our geometry is implicitly defined by the volume dimensions.
-            var geo = get_vol_geometry(textureDimensions(r_tex));
+            var geo = get_vol_geometry();
 
             // This layout is like this:
             //
@@ -209,8 +232,8 @@ class VolumeSliceShader(BaseVolumeShader):
             // Intersect the 12 edges
             for (var i:i32=0; i<12; i=i+1) {
                 let edge = edges[i];
-                let p1_raw = geo.positions[ edge[0] ].xyz;
-                let p2_raw = geo.positions[ edge[1] ].xyz;
+                let p1_raw = geo.positions[ edge[0] ];
+                let p2_raw = geo.positions[ edge[1] ];
                 let p1_p = u_wobject.world_transform * vec4<f32>(p1_raw, 1.0);
                 let p2_p = u_wobject.world_transform * vec4<f32>(p2_raw, 1.0);
                 let p1 = p1_p.xyz / p1_p.w;
@@ -309,24 +332,8 @@ class VolumeSliceShader(BaseVolumeShader):
         [[stage(fragment)]]
         fn fs_main(in: VertexOutput) -> FragmentOutput {
             var out: FragmentOutput;
-            var color_value: vec4<f32>;
 
-            $$ if texture_format == 'f32'
-                color_value = textureSample(r_tex, r_sampler, in.texcoord.xyz);
-            $$ else
-                let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
-                let texcoords_u = vec3<i32>(in.texcoord.xyz * texcoords_dim % texcoords_dim);
-                color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-            $$ endif
-
-            $$ if climcorrection
-                color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
-            $$ endif
-            $$ if texture_nchannels == 1
-                color_value = vec4<f32>(color_value.rrr, 1.0);
-            $$ elif texture_nchannels == 2
-                color_value = vec4<f32>(color_value.rrr, color_value.g);
-            $$ endif
+            let color_value = sample(in.texcoord.xyz);
             let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
 
             out.color = vec4<f32>(albeido, color_value.a);
@@ -336,6 +343,7 @@ class VolumeSliceShader(BaseVolumeShader):
             apply_clipping_planes(in.world_pos);
             return out;
         }
+
         """
 
 
@@ -345,7 +353,7 @@ def volume_ray_renderer(wobject, render_info):
 
     geometry = wobject.geometry
     material = wobject.material  # noqa
-    shader = VolumeRayShader(wobject, climcorrection=False)
+    shader = VolumeRayShader(wobject, mode=material.render_mode, climcorrection=False)
 
     bindings = {}
 
@@ -409,6 +417,7 @@ class VolumeRayShader(BaseVolumeShader):
             + self.more_definitions()
             + self.common_functions()
             + self.volume_helpers()
+            + self.render_function()
             + self.vertex_shader()
             + self.fragment_shader()
         )
@@ -421,9 +430,9 @@ class VolumeRayShader(BaseVolumeShader):
         };
         struct VertexOutput {
             [[location(0)]] world_pos: vec4<f32>;
-            [[location(1)]] data_pos: vec4<f32>;
-            [[location(2)]] near_pos: vec4<f32>;
-            [[location(3)]] far_pos: vec4<f32>;
+            [[location(1)]] data_back_pos: vec4<f32>;
+            [[location(2)]] data_near_pos: vec4<f32>;
+            [[location(3)]] data_far_pos: vec4<f32>;
             [[builtin(position)]] position: vec4<f32>;
         };
 
@@ -441,14 +450,14 @@ class VolumeRayShader(BaseVolumeShader):
             var out: VertexOutput;
 
             // Our geometry is implicitly defined by the volume dimensions.
-            var geo = get_vol_geometry(textureDimensions(r_tex));
+            var geo = get_vol_geometry();
 
             // Select what face we're at
             let index = i32(in.vertex_index);
             let i0 = geo.indices[index];
 
             // Sample position, and convert to world pos, and then to ndc
-            let data_pos = geo.positions[i0];
+            let data_pos = vec4<f32>(geo.positions[i0], 1.0);
             let world_pos = u_wobject.world_transform * data_pos;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
@@ -459,18 +468,24 @@ class VolumeRayShader(BaseVolumeShader):
             // Prepare inverse matrix
             let ndc_to_data = u_wobject.world_transform_inv * u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
 
-            // We also interpolate the data pos. This is the position on the back face,
-            // expressed in data coordinates.
-            out.data_pos = vec4<f32>(geo.texcoords[i0], 1.0); //data_pos;
+            // The position on the face of the cube. We can say that it's the back face,
+            // because we cull the front faces.
+            // These positions are in data positions (voxels) rather than texcoords (0..1),
+            // because distances make more sense in this space. In the fragment shader we
+            // can consider it an isotropic volume, because any position, rotation,
+            // and scaling of the volume is part of the world transform.
+            out.data_back_pos = data_pos;
 
-            // Further, we need the ray direction.
-            // Step forward and backward, then map back
+            // We calculate the NDC positions for the near and front clipping planes,
+            // and transform these back to data coordinates. From these positions
+            // we can construct the view vector in the fragment shader, which is then
+            // resistant to perspective transforms. It also makes that if the camera
+            // is inside the volume, only the part in front in rendered.
+            // Note that the w component for these positions should be left intact.
             let ndc_pos1 = vec4<f32>(ndc_pos.xy, -ndc_pos.w, ndc_pos.w);
             let ndc_pos2 = vec4<f32>(ndc_pos.xy, ndc_pos.w, ndc_pos.w);
-            out.near_pos = ndc_to_data * ndc_pos1;
-            out.far_pos = ndc_to_data * ndc_pos2;
-            //out.near_pos = out.near_pos / out.near_pos.w;
-            //out.far_pos = out.far_pos / out.far_pos.w;
+            out.data_near_pos = ndc_to_data * ndc_pos1;
+            out.data_far_pos = ndc_to_data * ndc_pos2;
 
             return out;
         }
@@ -479,100 +494,96 @@ class VolumeRayShader(BaseVolumeShader):
     def fragment_shader(self):
         return """
 
-        fn sample(texcoord: vec3<f32>) -> vec4<f32> {
-            var color_value: vec4<f32>;
-
-            $$ if texture_format == 'f32'
-                color_value = textureSample(r_tex, r_sampler, texcoord.xyz);
-            $$ else
-                let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
-                let texcoords_u = vec3<i32>(texcoord.xyz * texcoords_dim % texcoords_dim);
-                color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-            $$ endif
-
-            $$ if climcorrection
-                color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
-            $$ endif
-            $$ if texture_nchannels == 1
-                color_value = vec4<f32>(color_value.rrr, 1.0);
-            $$ elif texture_nchannels == 2
-                color_value = vec4<f32>(color_value.rrr, color_value.g);
-            $$ endif
-            return color_value;
-        }
-
         [[stage(fragment)]]
         fn fs_main(in: VertexOutput) -> FragmentOutput {
 
             // Builtin parameters
-            let relative_step_size = 1.0;
+            let relative_step_size = 0.8;
 
-            let farpos = in.far_pos.xyz / in.far_pos.w;
-            let nearpos = in.near_pos.xyz / in.near_pos.w;
+            // Get size of the volume
+            let sizef = vec3<f32>(textureDimensions(r_tex));
+
+            // Positions in data coordinates
+            let back_pos = in.data_back_pos.xyz / in.data_back_pos.w;
+            let far_pos = in.data_far_pos.xyz / in.data_far_pos.w;
+            let near_pos = in.data_near_pos.xyz / in.data_near_pos.w;
 
             // Calculate unit vector pointing in the view direction through this fragment.
-            let view_ray = normalize(farpos.xyz - nearpos.xyz);
+            let view_ray = normalize(far_pos - near_pos);
 
-            // ==== Raycasting setup
-            let sizef = vec3<f32>(textureDimensions(r_tex));
-            let pos = (in.data_pos.xyz / in.data_pos.w) * sizef ;
-            var distance = dot(nearpos - pos, view_ray);
-            distance = max(distance, min((-0.5 - pos.x) / view_ray.x, (sizef.x - 0.5 - pos.x) / view_ray.x));
-            distance = max(distance, min((-0.5 - pos.y) / view_ray.y, (sizef.y - 0.5 - pos.y) / view_ray.y));
-            distance = max(distance, min((-0.5 - pos.z) / view_ray.z, (sizef.z - 0.5 - pos.z) / view_ray.z));
-            // Now we have the starting position on the front surface
-            let front = pos + view_ray * distance;
+            // Calculate the (signed) distance, from back_pos to the first voxel
+            // that must be sampled, expressed in data coords (voxels).
+            var dist = dot(near_pos - back_pos, view_ray);
+            dist = max(dist, min((-0.5 - back_pos.x) / view_ray.x, (sizef.x - 0.5 - back_pos.x) / view_ray.x));
+            dist = max(dist, min((-0.5 - back_pos.y) / view_ray.y, (sizef.y - 0.5 - back_pos.y) / view_ray.y));
+            dist = max(dist, min((-0.5 - back_pos.z) / view_ray.z, (sizef.z - 0.5 - back_pos.z) / view_ray.z));
+
+            // Now we have the starting position. This is typically on a front face,
+            // but it can also be incide the volume (on the near plane).
+            let front_pos = back_pos + view_ray * dist;
 
             // Decide how many steps to take. If we'd not cul the front faces,
             // that would still happen here because nsteps would be negative.
-            let nsteps = i32(-distance / relative_step_size + 0.5);
+            let nsteps = i32(-dist / relative_step_size + 0.5);
             if( nsteps < 1 ) { discard; }
 
-            // Get starting location and step vector in texture coordinates
-            let step = ((pos - front) / sizef) / f32(nsteps);
-            let start_loc = front / sizef;
+            // Get starting positon and step vector in texture coordinates.
+            let start_coord = front_pos / sizef;
+            let step = ((back_pos - front_pos) / sizef) / f32(nsteps);
 
-            // ==== Before loop
+            return render_func(start_coord, step, nsteps);
+        }
+        """
+
+    def render_function(self):
+        # Triage over different render modes. Only one mode so far :)
+        f = getattr(self, "render_mode_" + self.kwargs["mode"].lower(), "mip")
+        return f()
+
+    def render_mode_mip(self):
+        return """
+        fn render_func(start_coord : vec3<f32>, step: vec3<f32>, nsteps: i32) -> FragmentOutput {
+
+            // Prepare to find the iteration where the maxium value is
             var max_val = -999999.0;
             var max_iter = -1;
-            var loc = start_loc;
+            var coord = start_coord;
 
-            // ==== In loop
+            // Primary loop
             for (var iter=0; iter<nsteps; iter=iter+1) {
-                let color = sample(loc);
+                let color = sample(coord);
                 let val = color.r;
                 if (val > max_val) {
                     max_val = val;
                     max_iter = iter;
                 }
-                // Next!
-                loc = loc + step;
+                coord = coord + step;  // Next!
             }
 
-            // ==== Refine
+            // Find final color and more precise coordinate by doing 10 steps around the found position.
             var the_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-            var the_loc = start_loc;
-            if ( max_iter > -1 ) {
-                loc = start_loc + step * (f32(max_iter) - 0.5);
-                max_val = max_val - 1.0;
-                for (var i=0; i<10; i=i+1) {
-                    let color = sample(loc);
-                    let val = color.r;
-                    if (val > max_val) {
-                        max_val = val;
-                        the_loc = loc;
-                        the_color = color;
-                    }
-                    loc = loc + step * 0.1;
+            var the_coord = start_coord;
+            coord = start_coord + step * (f32(max_iter) - 0.5);
+            max_val = max_val - 1.0;
+            for (var i=0; i<10; i=i+1) {
+                let color = sample(coord);
+                let val = color.r;
+                if (val > max_val) {
+                    max_val = val;
+                    the_coord = coord;
+                    the_color = color;
                 }
+                coord = coord + step * 0.1;
             }
 
-            // ==== Colormapping etc.
+            // Colormapping etc.
             let albeido = (the_color.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
+            let color = vec4<f32>(albeido, the_color.a * u_material.opacity);
+
+            // Produce final sample
             var out: FragmentOutput;
-            out.color = vec4<f32>(albeido, the_color.a * u_material.opacity);
-            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(the_loc * 1048576.0 + 0.5));
-            //out.color = vec4<f32>(start_loc, 1.0);
+            out.color = color;
+            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(the_coord * 1048576.0 + 0.5));
             return out;
         }
         """

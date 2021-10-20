@@ -3,6 +3,7 @@ Render a volume.
 """
 
 import imageio
+import numpy as np
 import pygfx as gfx
 
 from PyQt5 import QtWidgets, QtCore
@@ -53,8 +54,7 @@ canvas = WgpuCanvasWithInputEvents()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-voldata = imageio.volread("imageio:stent.npz")
-
+voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
 vol = gfx.Volume(voldata, gfx.VolumeRayMaterial(clim=(0, 2000)))
 scene.add(vol)
 

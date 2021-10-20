@@ -71,6 +71,7 @@ class VolumeRayMaterial(VolumeBasicMaterial):
     """A material for rendering volumes using raycasting."""
 
     # todo: define render modes as material subclasses or using a `mode` or `style` property?
+    render_mode = "mip"
 
 
 class VolumeMipMaterial(VolumeRayMaterial):
