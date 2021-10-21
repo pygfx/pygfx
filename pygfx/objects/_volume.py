@@ -8,16 +8,10 @@ from ..resources import Texture
 class Volume(WorldObject):
     """A volume represents a 3D image in space.
 
-    The geometry for this object consists of:
-    * `geometry.grid`: a texture with the 3D data.
-    * `geometry.positions`: placing the volume in the scene, with the center of
-      voxel (0,0,0) at the origin of the local coordinate frame. Positioning and dealing
-      with anisotropy should be dealt with using the scale and position properties.
-    * `geometry.texcoords`: the 3D texture coordinates used to sample the volume.
+    The geometry for this object consists only of `geometry.grid`: a texture with the 3D data.
 
-    The picking info of a Volume (the result of
-    ``renderer.get_pick_info()``) will for most materials include
-    ``voxel_index`` (tuple of 3 floats).
+    The picking info of a Volume (the result of ``renderer.get_pick_info()``)
+    will for most materials include ``voxel_index`` (tuple of 3 floats).
 
     Parameters:
       data (ndarray, Texture): The 3D data of the volume, as gfx.Texture or a numpy array.
@@ -33,6 +27,8 @@ class Volume(WorldObject):
         else:
             raise TypeError("Volume data must be numpy np.ndarray or gfx.Texture.")
 
+        # The texture provides a regular grid of data that represents this object's geometry.
+        # The vertex positions for the corners are calculated in the shader.
         self._geometry = Geometry(grid=texture)
         self.material = material
 

@@ -56,22 +56,6 @@ class BaseVolumeShader(WorldObjectShader):
             return geo;
         }
 
-        fn sample_nearest(texcoord: vec3<i32>) -> vec4<f32> {
-            var color_value: vec4<f32>;
-
-            color_value = vec4<f32>(textureLoad(r_tex, texcoord.xyz, 0));
-
-            $$ if climcorrection
-                color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
-            $$ endif
-            $$ if texture_nchannels == 1
-                color_value = vec4<f32>(color_value.rrr, 1.0);
-            $$ elif texture_nchannels == 2
-                color_value = vec4<f32>(color_value.rrr, color_value.g);
-            $$ endif
-            return color_value;
-        }
-
         fn sample(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
             var color_value: vec4<f32>;
 
@@ -585,6 +569,15 @@ class VolumeRayShader(BaseVolumeShader):
         return f()
 
     def render_mode_mip(self):
+
+        # Ideas for improvement:
+        # * We could textureLoad() the 27 voxels surrounding the initial location
+        #   and sample from that in the refinement step. Less texture loads and we
+        #   could do linear interpolation also for formats like i16.
+        # * Create helper textures at a lower resolution (e.g. min, max) so we can
+        #   skip along the ray much faster. By taking smaller steps where needed,
+        #   it will be both faster and more accurate.
+
         return """
         fn render_func(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
 

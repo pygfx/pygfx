@@ -1,8 +1,8 @@
 """
 Render a volume and volume slices. You should see:
 * On the left: a raycasted volume fit snugly inside a red box.
-* On the right: three orthogonal slices right insidea - and through the middle - of the green box.
-* The volume has its corners darker and very center brighter.
+* On the right: three orthogonal slices inside - and through the middle of - a green box.
+* The volume has its corners darker and its very center is brighter.
 """
 
 import numpy as np
