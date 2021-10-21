@@ -56,13 +56,28 @@ class BaseVolumeShader(WorldObjectShader):
             return geo;
         }
 
-        fn sample(texcoord: vec3<f32>) -> vec4<f32> {
+        fn sample_nearest(texcoord: vec3<i32>) -> vec4<f32> {
+            var color_value: vec4<f32>;
+
+            color_value = vec4<f32>(textureLoad(r_tex, texcoord.xyz, 0));
+
+            $$ if climcorrection
+                color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
+            $$ endif
+            $$ if texture_nchannels == 1
+                color_value = vec4<f32>(color_value.rrr, 1.0);
+            $$ elif texture_nchannels == 2
+                color_value = vec4<f32>(color_value.rrr, color_value.g);
+            $$ endif
+            return color_value;
+        }
+
+        fn sample(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
             var color_value: vec4<f32>;
 
             $$ if texture_format == 'f32'
                 color_value = textureSample(r_tex, r_sampler, texcoord.xyz);
             $$ else
-                let sizef = vec3<f32>(textureDimensions(r_tex));
                 let texcoords_u = vec3<i32>(texcoord.xyz * sizef);
                 color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
             $$ endif
@@ -77,6 +92,7 @@ class BaseVolumeShader(WorldObjectShader):
             $$ endif
             return color_value;
         }
+
     """
 
 
@@ -333,13 +349,13 @@ class VolumeSliceShader(BaseVolumeShader):
         fn fs_main(in: VertexOutput) -> FragmentOutput {
             var out: FragmentOutput;
 
-            let color_value = sample(in.texcoord.xyz);
+            let sizef = vec3<f32>(textureDimensions(r_tex));
+            let color_value = sample(in.texcoord.xyz, sizef);
             let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
 
-            out.color = vec4<f32>(albeido, color_value.a);
+            out.color = vec4<f32>(albeido, color_value.a * u_material.opacity);
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(in.texcoord * 1048576.0 + 0.5));
 
-            out.color.a = out.color.a * u_material.opacity;
             apply_clipping_planes(in.world_pos);
             return out;
         }
@@ -436,9 +452,15 @@ class VolumeRayShader(BaseVolumeShader):
             [[builtin(position)]] position: vec4<f32>;
         };
 
+        struct RenderOutput {
+            color: vec4<f32>;
+            coord: vec3<f32>;
+        };
+
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<i32>;
+            [[builtin(frag_depth)]] depth : f32;
         };
         """
 
@@ -497,11 +519,17 @@ class VolumeRayShader(BaseVolumeShader):
         [[stage(fragment)]]
         fn fs_main(in: VertexOutput) -> FragmentOutput {
 
-            // Builtin parameters
-            let relative_step_size = 0.8;
-
             // Get size of the volume
             let sizef = vec3<f32>(textureDimensions(r_tex));
+
+            // Determine the stepsize as a float in pixels.
+            // This value should be between ~ 0.1 and 1. Smaller values yield better
+            // results at the cost of performance. With larger values you may miss
+            // small structures (and corners of larger structures) because the step
+            // may skip over them.
+            // We could make this a user-facing property. But for now we scale between
+            // 0.1 and 0.8 based on the (sqrt of the) volume size.
+            let relative_step_size = clamp(sqrt(max(sizef.x, max(sizef.y, sizef.z))) / 20.0, 0.1, 0.8);
 
             // Positions in data coordinates
             let back_pos = in.data_back_pos.xyz / in.data_back_pos.w;
@@ -528,10 +556,22 @@ class VolumeRayShader(BaseVolumeShader):
             if( nsteps < 1 ) { discard; }
 
             // Get starting positon and step vector in texture coordinates.
-            let step = ((back_pos - front_pos) / sizef) / f32(nsteps + 1);
-            let start_coord = front_pos / sizef + 0.5 * step;
+            let start_coord = (front_pos + vec3<f32>(0.5, 0.5, 0.5)) / sizef;
+            let step_coord = ((back_pos - front_pos) / sizef) / f32(nsteps);
 
-            return render_func(start_coord, step, nsteps);
+            // Render
+            let render_out = render_func(sizef, nsteps, start_coord, step_coord);
+
+            // Calculate depth
+            let final_pos = render_out.coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
+            let final_pos_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform * vec4<f32>(final_pos, 1.0);
+
+            // Pack up!
+            var out : FragmentOutput;
+            out.color = render_out.color;
+            out.depth = final_pos_ndc.z / final_pos_ndc.w;
+            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(render_out.coord * 1048576.0 + 0.5));
+            return out;
         }
         """
 
@@ -542,48 +582,56 @@ class VolumeRayShader(BaseVolumeShader):
 
     def render_mode_mip(self):
         return """
-        fn render_func(start_coord : vec3<f32>, step: vec3<f32>, nsteps: i32) -> FragmentOutput {
+        fn render_func(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
 
-            // Prepare to find the iteration where the maxium value is
-            var max_val = -999999.0;
-            var max_iter = -1;
-            var coord = start_coord;
+            let nstepsf = f32(nsteps);
 
-            // Primary loop
-            for (var iter=0; iter<nsteps; iter=iter+1) {
-                let color = sample(coord);
-                let val = color.r;
-                if (val > max_val) {
-                    max_val = val;
-                    max_iter = iter;
-                }
-                coord = coord + step;  // Next!
-            }
-
-            // Find final color and more precise coordinate by doing 10 steps around the found position.
-            var the_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            // Primary loop. The purpose is to find the approximate location where
+            // the maximum is.
+            var the_val = -999999.0;
             var the_coord = start_coord;
-            coord = start_coord + step * (f32(max_iter) - 0.5);
-            max_val = max_val - 1.0;
-            for (var i=0; i<10; i=i+1) {
-                let color = sample(coord);
+            var the_color : vec4<f32>;
+            for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
+                let coord = start_coord + iter * step_coord;
+                let color = sample(coord, sizef);
                 let val = color.r;
-                if (val > max_val) {
-                    max_val = val;
+                if (val > the_val) {
+                    the_val = val;
                     the_coord = coord;
                     the_color = color;
                 }
-                coord = coord + step * 0.1;
             }
 
-            // Colormapping etc.
+            // Secondary loop to close in on a more accurate position using
+            // a divide-by-two approach.
+            var substep_coord = step_coord;
+            for (var iter2=0; iter2<4; iter2=iter2+1) {
+                substep_coord = substep_coord * 0.5;
+                let coord1 = the_coord - substep_coord;
+                let coord2 = the_coord + substep_coord;
+                let color1 = sample(coord1, sizef);
+                let color2 = sample(coord2, sizef);
+                let val1 = color1.r;
+                let val2 = color2.r;
+                if (val1 >= the_val) {  // deliberate larger-equal
+                    the_val = val1;
+                    the_coord = coord1;
+                    the_color = color1;
+                } elseif (val2 > the_val) {
+                    the_val = val2;
+                    the_coord = coord2;
+                    the_color = color2;
+                }
+            }
+
+            // Colormapping
             let albeido = (the_color.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
             let color = vec4<f32>(albeido, the_color.a * u_material.opacity);
 
-            // Produce final sample
-            var out: FragmentOutput;
+            // Produce result
+            var out: RenderOutput;
             out.color = color;
-            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(the_coord * 1048576.0 + 0.5));
+            out.coord = the_coord;
             return out;
         }
         """

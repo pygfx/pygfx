@@ -55,10 +55,15 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
-vol = gfx.Volume(voldata, gfx.VolumeRayMaterial(clim=(0, 2000)))
-scene.add(vol)
 
-vol.position.set(-64, -64, -128)
+
+tex = gfx.Texture(voldata, dim=3)
+vol = gfx.Volume(tex, gfx.VolumeRayMaterial(clim=(0, 2000)))
+slice = gfx.Volume(tex, gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, 1, 0)))
+scene.add(vol, slice)
+
+for ob in (slice, vol):
+    ob.position.set(*(-0.5 * i for i in voldata.shape[::-1]))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 500
