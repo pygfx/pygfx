@@ -562,14 +562,18 @@ class VolumeRayShader(BaseVolumeShader):
             // Render
             let render_out = render_func(sizef, nsteps, start_coord, step_coord);
 
-            // Calculate depth
-            let final_pos = render_out.coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
-            let final_pos_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform * vec4<f32>(final_pos, 1.0);
+            // Get world and ndc pos from the calculatex texture coordinate
+            let data_pos = render_out.coord * sizef - vec3<f32>(0.5, 0.5, 0.5);
+            let world_pos = u_wobject.world_transform * vec4<f32>(data_pos, 1.0);
+            let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+
+            // Maybe we did the work for nothing
+            apply_clipping_planes(world_pos.xyz);
 
             // Pack up!
             var out : FragmentOutput;
             out.color = render_out.color;
-            out.depth = final_pos_ndc.z / final_pos_ndc.w;
+            out.depth = ndc_pos.z / ndc_pos.w;
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(render_out.coord * 1048576.0 + 0.5));
             return out;
         }
