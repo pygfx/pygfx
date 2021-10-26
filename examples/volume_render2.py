@@ -1,16 +1,10 @@
 """
-Slice a volume and a mesh through the three primary planes (XY, XZ, YZ).
-This example uses Volume object with a VolumeSliceMaterial, which
-produces an implicit geometry defined by the volume data.
-See multi_slice1.py for a more generic approach.
+Render three volumes using different world transforms.
 """
-
-from time import time
 
 import imageio
 import numpy as np
 import pygfx as gfx
-from skimage.measure import marching_cubes
 
 from PySide6 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
@@ -60,56 +54,35 @@ canvas = WgpuCanvasWithInputEvents()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
-scene.add(background)
+voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
 
-scene.add(gfx.AxesHelper(length=50))
+tex = gfx.Texture(voldata, dim=3)
+material = gfx.VolumeRayMaterial(clim=(0, 2000))
 
-vol = imageio.volread("imageio:stent.npz")
-tex = gfx.Texture(vol, dim=3)
+vol1 = gfx.Volume(tex, material)
+vol2 = gfx.Volume(tex, material)
+vol3 = gfx.Volume(tex, material)
+scene.add(vol1, vol2, vol3)
 
-surface = marching_cubes(vol[0:], 200)
-geo = gfx.Geometry(
-    positions=np.fliplr(surface[0]), index=surface[1], normals=surface[2]
-)
-mesh = gfx.Mesh(
-    geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1))
-)
-scene.add(mesh)
+vol2.position.x = -150
+vol2.scale.z = 0.5
 
-planes = []
-for dim in [0, 1, 2]:  # xyz
-    abcd = [0, 0, 0, 0]
-    abcd[dim] = -1
-    abcd[-1] = vol.shape[2 - dim] / 2
-    material = gfx.VolumeSliceMaterial(clim=(0, 2000), plane=abcd)
-    plane = gfx.Volume(tex, material)
-    planes.append(plane)
-    scene.add(plane)
+vol3.position.x = 150
 
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.y = 500
+controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
+controls.rotate(-0.5, -0.5)
 
-# camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera = gfx.OrthographicCamera(200, 200)
-camera.position.set(170, 170, 170)
-controls = gfx.OrbitControls(
-    camera.position.clone(),
-    gfx.linalg.Vector3(64, 64, 128),
-    up=gfx.linalg.Vector3(0, 0, 1),
-    zoom_changes_distance=False,
-)
-
-# Add a slight tilt. This is to show that the slices are still orthogonal
-# to the world coordinates.
-for ob in planes + [mesh]:
-    ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 0.1)
+# A clipping plane at z=0 - only the rotating volume will be affected
+material.clipping_planes = [(0, 0, 1, 0)]
 
 
 def animate():
-    t = np.cos(time() / 2) * 0.5 + 0.5  # 0..1
-    planes[2].material.plane = 0, 0, -1, t * vol.shape[0]
-    mesh.material.plane = 0, 0, -1, (1 - t) * vol.shape[0]
-
     controls.update_camera(camera)
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+    vol3.rotation.multiply(rot)
+
     renderer.render(scene, camera)
     canvas.request_draw()
 

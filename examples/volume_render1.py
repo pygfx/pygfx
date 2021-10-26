@@ -1,16 +1,10 @@
 """
-Slice a volume and a mesh through the three primary planes (XY, XZ, YZ).
-This example uses Volume object with a VolumeSliceMaterial, which
-produces an implicit geometry defined by the volume data.
-See multi_slice1.py for a more generic approach.
+Render a volume. Shift-click to draw white blobs inside the volume.
 """
-
-from time import time
 
 import imageio
 import numpy as np
 import pygfx as gfx
-from skimage.measure import marching_cubes
 
 from PySide6 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
@@ -38,6 +32,15 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         )
         app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
 
+        # Picking. Note that this works on both the volume and the slice.
+        if event.modifiers() and QtCore.Qt.Key_Shift:
+            info = renderer.get_pick_info((event.position().x(), event.position().y()))
+            if "voxel_index" in info:
+                x, y, z = (max(1, int(i)) for i in info["voxel_index"])
+                print("Picking", x, y, z)
+                tex.data[z - 1 : z + 1, y - 1 : y + 1, x - 1 : x + 1] = 2000
+                tex.update_range((x - 1, y - 1, z - 1), (3, 3, 3))
+
     def mouseReleaseEvent(self, event):  # noqa: N802
         if self._mode and self._mode == self._drag_modes.get(event.button(), None):
             self._mode = None
@@ -60,56 +63,26 @@ canvas = WgpuCanvasWithInputEvents()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
-scene.add(background)
-
-scene.add(gfx.AxesHelper(length=50))
-
-vol = imageio.volread("imageio:stent.npz")
-tex = gfx.Texture(vol, dim=3)
-
-surface = marching_cubes(vol[0:], 200)
-geo = gfx.Geometry(
-    positions=np.fliplr(surface[0]), index=surface[1], normals=surface[2]
-)
-mesh = gfx.Mesh(
-    geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1))
-)
-scene.add(mesh)
-
-planes = []
-for dim in [0, 1, 2]:  # xyz
-    abcd = [0, 0, 0, 0]
-    abcd[dim] = -1
-    abcd[-1] = vol.shape[2 - dim] / 2
-    material = gfx.VolumeSliceMaterial(clim=(0, 2000), plane=abcd)
-    plane = gfx.Volume(tex, material)
-    planes.append(plane)
-    scene.add(plane)
+voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
 
 
-# camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera = gfx.OrthographicCamera(200, 200)
-camera.position.set(170, 170, 170)
-controls = gfx.OrbitControls(
-    camera.position.clone(),
-    gfx.linalg.Vector3(64, 64, 128),
-    up=gfx.linalg.Vector3(0, 0, 1),
-    zoom_changes_distance=False,
-)
+tex = gfx.Texture(voldata, dim=3)
+vol = gfx.Volume(tex, gfx.VolumeRayMaterial(clim=(0, 2000)))
+slice = gfx.Volume(tex, gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, 1, 0)))
+scene.add(vol, slice)
 
-# Add a slight tilt. This is to show that the slices are still orthogonal
-# to the world coordinates.
-for ob in planes + [mesh]:
-    ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 0.1)
+for ob in (slice, vol):
+    ob.position.set(*(-0.5 * i for i in voldata.shape[::-1]))
+
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.z = 500
+controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
+controls.rotate(-0.5, -0.5)
 
 
 def animate():
-    t = np.cos(time() / 2) * 0.5 + 0.5  # 0..1
-    planes[2].material.plane = 0, 0, -1, t * vol.shape[0]
-    mesh.material.plane = 0, 0, -1, (1 - t) * vol.shape[0]
-
     controls.update_camera(camera)
+
     renderer.render(scene, camera)
     canvas.request_draw()
 

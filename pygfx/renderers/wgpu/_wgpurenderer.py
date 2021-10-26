@@ -1241,7 +1241,7 @@ class WgpuRenderer(Renderer):
         }
 
         if wobject and hasattr(wobject, "material"):
-            pick_info = wobject.material._wgpu_get_pick_info(pick_value)
+            pick_info = wobject._wgpu_get_pick_info(pick_value)
             info.update(pick_info)
         return info
 

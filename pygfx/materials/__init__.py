@@ -17,7 +17,12 @@ from ._line import (
     LineSegmentMaterial,
     LineArrowMaterial,
 )
-from ._volume import VolumeBasicMaterial, VolumeSliceMaterial
+from ._volume import (
+    VolumeBasicMaterial,
+    VolumeSliceMaterial,
+    VolumeRayMaterial,
+    VolumeMipMaterial,
+)
 from ._background import BackgroundMaterial, BackgroundImageMaterial
 
 

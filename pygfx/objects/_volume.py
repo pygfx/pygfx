@@ -1,25 +1,41 @@
+import numpy as np
+
 from ._base import WorldObject
-from ..geometries import BoxGeometry
-from ..resources import Buffer
+from ..geometries import Geometry
+from ..resources import Texture
 
 
 class Volume(WorldObject):
-    """A volume represents a 3D image in space. It has an implicit
-    geometry based on the shape of the texture (the map of the
-    material), and the center of voxel (0,0,0) will be at the origin
-    of the local coordinate frame. Positioning and dealing with
-    anisotropy should be dealt with using the scale and position
-    properties.
+    """A volume represents a 3D image in space.
 
-    The picking info of a Volume (the result of
-    ``renderer.get_pick_info()``) will for most materials include
-    ``voxel_index`` (tuple of 3 floats).
+    The geometry for this object consists only of `geometry.grid`: a texture with the 3D data.
+
+    The picking info of a Volume (the result of ``renderer.get_pick_info()``)
+    will for most materials include ``voxel_index`` (tuple of 3 floats).
+
+    Parameters:
+      data (ndarray, Texture): The 3D data of the volume, as gfx.Texture or a numpy array.
+      material: The `Material` used to render the volume.
     """
 
-    def __init__(self, size, material):
+    def __init__(self, data, material):
         super().__init__()
-        self.size = size
+        if isinstance(data, np.ndarray):
+            texture = Texture(data, dim=3)
+        elif isinstance(data, Texture):
+            texture = data
+        else:
+            raise TypeError("Volume data must be numpy np.ndarray or gfx.Texture.")
+
+        # The texture provides a regular grid of data that represents this object's geometry.
+        # The vertex positions for the corners are calculated in the shader.
+        self._geometry = Geometry(grid=texture)
         self.material = material
+
+    @property
+    def geometry(self):
+        """The geometry of the volume."""
+        return self._geometry
 
     @property
     def material(self):
@@ -30,26 +46,7 @@ class Volume(WorldObject):
     def material(self, material):
         self._material = material
 
-    @property
-    def size(self):
-        """The size of the volume (xyz)."""
-        return self._size
-
-    @size.setter
-    def size(self, size):
-        # Check and store
-        x, y, z = size
-        self._size = size = int(x), int(y), int(z)
-        # Create box geometry, and map to 0..1
-        geometry = BoxGeometry(1, 1, 1)
-        geometry.positions.data[:, :3] += 0.5
-        # This is our 3D texture coords
-        geometry.texcoords = Buffer(geometry.positions.data[:, :3].copy())
-        # Map to volume size
-        for i in range(3):
-            column = geometry.positions.data[:, i]
-            column *= size[i]
-            column -= 0.5  # Pixel centers are in origin and size
-
-        # Apply
-        self.geometry = geometry
+    def _wgpu_get_pick_info(self, pick_value):
+        size = self.geometry.grid.size
+        x, y, z = [(v / 1048576) * s - 0.5 for v, s in zip(pick_value[1:], size)]
+        return {"instance_index": 0, "voxel_index": (x, y, z)}
