@@ -43,7 +43,7 @@ class FinalShader(BaseShader):
 
         struct VertexOutput {
             [[location(0)]] texcoord: vec2<f32>;
-            [[builtin(position)]] pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         [[group(0), binding(1)]]
@@ -57,7 +57,7 @@ class FinalShader(BaseShader):
             let pos = positions[index];
             var out: VertexOutput;
             out.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
-            out.pos = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+            out.position = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
             return out;
         }
 

@@ -146,7 +146,7 @@ class LineShader(WorldObjectShader):
             [[location(2)]] color: vec4<f32>;
             [[location(3)]] vertex_idx: vec2<f32>;
             [[location(4)]] world_pos: vec3<f32>;
-            [[builtin(position)]] ndc_pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct VertexFuncOutput {
@@ -200,7 +200,7 @@ class LineShader(WorldObjectShader):
 
             var out: VertexOutput;
             out.world_pos = ndc_to_world_pos(result.pos);
-            out.ndc_pos = result.pos;
+            out.position = result.pos;
             out.thickness_p = result.thickness_p;
             out.vec_from_node_p = result.vec_from_node_p;
             out.vertex_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
@@ -474,7 +474,7 @@ class LineShader(WorldObjectShader):
             alpha = pow(min(1.0, alpha), 2.0);
 
             // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
-            out.depth = in.ndc_pos.z + 0.0001 * (0.8 - min(0.8, alpha));
+            out.depth = in.position.z + 0.0001 * (0.8 - min(0.8, alpha));
 
             // Set color
             let color = in.color;
@@ -565,7 +565,7 @@ class ThinLineShader(WorldObjectShader):
             $$ if per_vertex_color
             [[location(0)]] color: vec4<f32>;
             $$ endif
-            [[builtin(position)]] pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -579,11 +579,11 @@ class ThinLineShader(WorldObjectShader):
         [[stage(vertex)]]
         fn vs_main(in: VertexInput) -> VertexOutput {
 
-            let wpos = u_wobject.world_transform * vec4<f32>(in.pos.xyz, 1.0);
+            let wpos = u_wobject.world_transform * vec4<f32>(in.position.xyz, 1.0);
             let npos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos;
 
             var out: VertexOutput;
-            out.pos = npos;
+            out.position = npos;
             $$ if per_vertex_color
             out.color = in.color;
             $$ endif
