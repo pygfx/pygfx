@@ -114,7 +114,7 @@ class PointsShader(WorldObjectShader):
             let i0 = index / 6;
             let sub_index = index % 6;
 
-            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
+            let raw_pos = load_s_pos(i0);
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
@@ -128,7 +128,7 @@ class PointsShader(WorldObjectShader):
             );
 
             $$ if per_vertex_sizes
-                let size = s_size.data[i0];
+                let size = load_s_size(i0);
                 out.size = size;
             $$ else
                 let size = u_material.size;
@@ -142,7 +142,7 @@ class PointsShader(WorldObjectShader):
             out.pointcoord = delta_logical;
 
             $$ if per_vertex_colors
-                out.color = vec4<f32>(s_color.data[i0*4], s_color.data[i0*4+1], s_color.data[i0*4+2], s_color.data[i0*4+3]);
+            out.color = load_s_color(i0);
             $$ endif
 
             out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
