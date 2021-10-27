@@ -204,7 +204,7 @@ class RenderFlusher:
         device = self._device
 
         shader = self._shader
-        shader.define_uniform(
+        shader.define_binding(
             0, 0, Binding("u_render", "buffer/uniform", self._uniform_data.dtype)
         )
         shader_module = device.create_shader_module(code=shader.generate_wgsl())

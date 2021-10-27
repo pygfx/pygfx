@@ -47,7 +47,17 @@ class Binding:
 
 
 class BaseShader:
-    """Base shader object to compose and template shaders using jinja2."""
+    """Base shader object to compose and template shaders using jinja2.
+
+    Templating variables can be provided as kwargs, set (and get) as attributes,
+    or passed as kwargs to ``generate_wgsl()``.
+
+    The idea is that this class is subclassed, and that methods are
+    implemented that return (templated) shader code. The purpose of
+    using methods for this is to easier navigate/structure parts of the
+    shader. Subclasses should also implement ``get_code()`` that simply
+    composes the different parts of the total shader.
+    """
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -55,12 +65,18 @@ class BaseShader:
         self._binding_codes = {}
 
     def __setitem__(self, key, value):
+        if hasattr(self.__class__, key):
+            msg = f"Templating variable {key} causes name clash with class attribute."
+            raise AttributeError(msg)
         self.kwargs[key] = value
 
     def __getitem__(self, key):
         return self.kwargs[key]
 
     def get_definitions(self):
+        """Get the definitions of types and bindings (uniforms, storage
+        buffers, samplers, and textures).
+        """
         code = (
             "\n".join(self._typedefs.values())
             + "\n"
@@ -69,9 +85,15 @@ class BaseShader:
         return code
 
     def get_code(self):
+        """Implement this to compose the total (templated) shader. This method is called
+        by ``generate_wgsl()``.
+        """
         raise NotImplementedError()
 
     def generate_wgsl(self, **kwargs):
+        """Generate the final WGSL with the templating resolved by jinja2.
+        Also accepts templating variables as kwargs.
+        """
         code = self.get_code()
         t = jinja_env.from_string(code)
 
@@ -85,20 +107,24 @@ class BaseShader:
         raise ValueError(msg)  # don't raise within handler to avoid recursive tb
 
     def define_binding(self, bindgroup, index, binding):
+        """Define a uniform, buffer, sampler, or texture. The produced wgsl
+        will be part of the code returned by ``get_definitions()``. The binding
+        must be a Binding object.
+        """
         if binding.type == "buffer/uniform":
-            self.define_uniform(bindgroup, index, binding)
+            self._define_uniform(bindgroup, index, binding)
         elif binding.type.startswith("buffer"):
-            self.define_buffer(bindgroup, index, binding)
+            self._define_buffer(bindgroup, index, binding)
         elif binding.type.startswith("sampler"):
-            self.define_sampler(bindgroup, index, binding)
+            self._define_sampler(bindgroup, index, binding)
         elif binding.type.startswith("texture"):
-            self.define_texture(bindgroup, index, binding)
+            self._define_texture(bindgroup, index, binding)
         else:
             raise RuntimeError(
                 f"Unknown binding {binding.name} with type {binding.type}"
             )
 
-    def define_uniform(self, bindgroup, index, binding):
+    def _define_uniform(self, bindgroup, index, binding):
 
         structname = "Struct_" + binding.name
         code = f"""
@@ -199,46 +225,81 @@ class BaseShader:
         """.rstrip()
         self._binding_codes[binding.name] = code
 
-    def define_buffer(self, bindgroup, index, binding):
+    def _define_buffer(self, bindgroup, index, binding):
 
-        # We make all buffers 1D, because for storage buffers a vec3 has an alignment of 16.
-        # Note: since the stride must be a multiple of 4 for storage buffers,
+        # Get format, and split in the scalar part and the number of channels
+        fmt = to_vertex_format(binding.resource.format)
+        if "x" in fmt:
+            fmt_scalar, _, nchannels = fmt.partition("x")
+            nchannels = int(nchannels)
+        else:
+            fmt_scalar = fmt
+            nchannels = 1
+
+        # Define scalar type: i32, u32 or f32
+        # Since the stride must be a multiple of 4 for storage buffers,
         # the supported types is limited until we support structured numpy arrays.
-        fmt = to_vertex_format(binding.resource.format).split("x")[0]
-        primitive_type = (
-            fmt.replace("float", "f").replace("uint", "u").replace("sint", "i")
+        scalar_type = (
+            fmt_scalar.replace("float", "f").replace("uint", "u").replace("sint", "i")
         )
-        if not primitive_type.endswith("32"):
+        if not scalar_type.endswith("32"):
             raise ValueError(
                 f"Buffer format {format} not supported, format must have a stride of 4 bytes: i4, u4 of f4."
             )
-        stride = 4
 
-        typename = "Buffer_" + primitive_type
+        # Define the element types. The element_type2 is the actual type.
+        # Because for storage buffers a vec3 has an alignment of 16, we have to
+        # be creative for vec3: we bind the buffer as if it was 1D, and convert
+        # in the accessor function.
+        if nchannels == 1:
+            element_type1 = element_type2 = scalar_type
+            stride = 4
+        elif nchannels == 3:
+            element_type1 = scalar_type
+            element_type2 = f"vec{nchannels}<{scalar_type}>"
+            stride = 4
+        else:
+            element_type1 = element_type2 = f"vec{nchannels}<{scalar_type}>"
+            stride = 4 * nchannels
+
+        # Prepare some names
+        typename = "Buffer_" + element_type1.replace("<", "").replace(">", "")
         type_modifier = "read" if "read_only" in binding.type else "read_write"
 
+        # Produce the type definition
         code = f"""
         [[block]]
         struct {typename} {{
-            data: [[stride({stride})]] array<{primitive_type}>;
+            data: [[stride({stride})]] array<{element_type1}>;
         }};
         """.rstrip()
         self._typedefs[typename] = code
 
+        # Produce the binding code and accessor function
         code = f"""
         [[group({bindgroup}), binding({index})]]
         var<storage, {type_modifier}> {binding.name}: {typename};
+        fn load_{binding.name} (i: i32) -> {element_type2} {{
         """.rstrip()
+        if element_type1 == element_type2:
+            code += f" return {binding.name}.data[i];"
+        elif nchannels == 2:
+            code += f" return {element_type2}( {binding.name}.data[i * 2], {binding.name}.data[i * 2 + 1] );"
+        elif nchannels == 3:
+            code += f" return {element_type2}( {binding.name}.data[i * 3], {binding.name}.data[i * 3 + 1], {binding.name}.data[i * 3 + 2] );"
+        else:  # nchannels == 4
+            code += f" return {element_type2}( {binding.name}.data[i * 4], {binding.name}.data[i * 4 + 1], {binding.name}.data[i * 4 + 2], {binding.name}.data[i * 4 + 3] );"
+        code += " }"
         self._binding_codes[binding.name] = code
 
-    def define_sampler(self, bindgroup, index, binding):
+    def _define_sampler(self, bindgroup, index, binding):
         code = f"""
         [[group({bindgroup}), binding({index})]]
         var {binding.name}: sampler;
         """.rstrip()
         self._binding_codes[binding.name] = code
 
-    def define_texture(self, bindgroup, index, binding):
+    def _define_texture(self, bindgroup, index, binding):
         texture = binding.resource  # or view
         format = to_texture_format(texture.format)
         if "norm" in format or "float" in format:
@@ -255,7 +316,9 @@ class BaseShader:
 
 
 class WorldObjectShader(BaseShader):
-    """A base shader for world objects."""
+    """A base shader for world objects. This class implements common functions
+    that can be used in all material-specific renderers.
+    """
 
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)
