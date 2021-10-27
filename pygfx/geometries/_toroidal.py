@@ -66,7 +66,7 @@ class KleinBottleGeometry(Geometry):
 
         # Create buffers for this geometry
         self.positions = Buffer(positions)
-        self.index = Buffer(indices)
+        self.indices = Buffer(indices)
         self.texcoords = Buffer(texcoords)
 
 
@@ -192,7 +192,7 @@ class TorusKnotGeometry(Geometry):
         # Create buffers for this geometry
         self.positions = Buffer(positions)
         self.normals = Buffer(normals)
-        self.index = Buffer(indices)
+        self.indices = Buffer(indices)
         self.texcoords = Buffer(texcoords)
 
 

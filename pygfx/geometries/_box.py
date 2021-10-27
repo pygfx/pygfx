@@ -78,8 +78,8 @@ class BoxGeometry(Geometry):
                 (plane_positions, plane_normals, plane_texcoords, plane_index)
             )
 
-        positions, normals, texcoords, index = merge(planes)
+        positions, normals, texcoords, indices = merge(planes)
         self.positions = Buffer(positions)
         self.normals = Buffer(normals)
         self.texcoords = Buffer(texcoords)
-        self.index = Buffer(index)
+        self.indices = Buffer(indices)

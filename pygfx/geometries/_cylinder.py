@@ -188,8 +188,8 @@ class CylinderGeometry(Geometry):
                 groups.append(top_cap)
             mesh = merge(groups)
 
-        positions, normals, texcoords, index = mesh
+        positions, normals, texcoords, indices = mesh
         self.positions = Buffer(positions)
         self.normals = Buffer(normals)
         self.texcoords = Buffer(texcoords)
-        self.index = Buffer(index.reshape((-1, 3)))
+        self.indices = Buffer(indices.reshape((-1, 3)))

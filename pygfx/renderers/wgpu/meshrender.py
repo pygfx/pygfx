@@ -38,15 +38,15 @@ def mesh_renderer(wobject, render_info):
     fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
-    assert getattr(geometry, "index", None)
-    n = geometry.index.data.size
+    assert getattr(geometry, "indices", None)
+    n = geometry.indices.data.size
 
     # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
     if getattr(geometry, "normals", None) is not None:
         normal_buffer = geometry.normals
     else:
         normal_data = normals_from_vertices(
-            geometry.positions.data, geometry.index.data
+            geometry.positions.data, geometry.indices.data
         )
         normal_buffer = Buffer(normal_data)
 
@@ -64,7 +64,7 @@ def mesh_renderer(wobject, render_info):
 
     # Init bindings 1: storage buffers, textures, and samplers
     bindings1[0] = Binding(
-        "s_indices", "buffer/read_only_storage", geometry.index, "VERTEX"
+        "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
     )
     bindings1[1] = Binding(
         "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"

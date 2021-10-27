@@ -43,11 +43,11 @@ class PlaneGeometry(Geometry):
     def __init__(self, width=1, height=1, width_segments=1, height_segments=1):
         super().__init__()
 
-        positions, normals, texcoords, index = generate_plane(
+        positions, normals, texcoords, indices = generate_plane(
             width, height, width_segments, height_segments
         )
 
         self.positions = Buffer(positions)
         self.normals = Buffer(normals)
         self.texcoords = Buffer(texcoords)
-        self.index = Buffer(index.reshape((-1, 3)))
+        self.indices = Buffer(indices.reshape((-1, 3)))
