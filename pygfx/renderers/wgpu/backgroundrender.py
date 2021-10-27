@@ -78,7 +78,7 @@ class BackgroundShader(WorldObjectShader):
         struct VertexOutput {
             [[location(0)]] texcoord: vec3<f32>;
             [[location(1)]] world_pos: vec3<f32>;
-            [[builtin(position)]] ndc_pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -107,13 +107,13 @@ class BackgroundShader(WorldObjectShader):
                 let wpos1 = ndc_to_world_pos(ndc_pos1);
                 let wpos2 = ndc_to_world_pos(ndc_pos2);
                 // Store positions and the view direction in the world
-                out.ndc_pos = ndc_pos1;
+                out.position = ndc_pos1;
                 out.world_pos = wpos1;
                 out.texcoord = wpos2.xyz - wpos1.xyz;
             $$ else
                 // Store positions and the view direction in the world
-                out.ndc_pos = vec4<f32>(pos, 0.9999999, 1.0);
-                out.world_pos = ndc_to_world_pos(out.ndc_pos);
+                out.position = vec4<f32>(pos, 0.9999999, 1.0);
+                out.world_pos = ndc_to_world_pos(out.position);
                 out.texcoord = vec3<f32>(pos * 0.5 + 0.5, 0.0);
             $$ endif
             return out;

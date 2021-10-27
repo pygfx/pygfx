@@ -94,7 +94,7 @@ class PointsShader(WorldObjectShader):
             $$ if per_vertex_colors
             [[location(4)]] color: vec4<f32>;
             $$ endif
-            [[builtin(position)]] ndc_pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -138,7 +138,7 @@ class PointsShader(WorldObjectShader):
             let delta_logical = deltas[sub_index] * (size + aa_margin);
             let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
             out.world_pos = world_pos.xyz / world_pos.w;
-            out.ndc_pos = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
+            out.position = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
             out.pointcoord = delta_logical;
 
             $$ if per_vertex_colors

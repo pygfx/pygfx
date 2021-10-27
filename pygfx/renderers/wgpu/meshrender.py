@@ -219,7 +219,7 @@ class MeshShader(WorldObjectShader):
             $$ if wireframe
             [[location(7)]] wireframe_coords: vec3<f32>;
             $$ endif
-            [[builtin(position)]] ndc_pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -288,7 +288,7 @@ class MeshShader(WorldObjectShader):
 
             // Set position
             out.world_pos =world_pos.xyz / world_pos.w;
-            out.ndc_pos = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
+            out.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
             // Set texture coords
             $$ if texture_dim == '1d'
@@ -375,7 +375,7 @@ class MeshShader(WorldObjectShader):
 
             var out: VertexOutput;
             out.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
-            out.ndc_pos = ndc_pos;
+            out.position = ndc_pos;
             return out;
         }
         """
@@ -628,7 +628,7 @@ class MeshSliceShader(WorldObjectShader):
             [[location(3)]] face_idx: vec4<f32>;
             [[location(4)]] face_coords: vec3<f32>;
             [[location(5)]] world_pos: vec3<f32>;
-            [[builtin(position)]] ndc_pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -788,7 +788,7 @@ class MeshSliceShader(WorldObjectShader):
 
             // Shader output
             out.world_pos = ndc_to_world_pos(the_pos);
-            out.ndc_pos = the_pos;
+            out.position = the_pos;
             out.dist2center = the_coord * l2p;
             out.segment_length = segment_length * l2p;
             out.segment_width = thickness * l2p;

@@ -165,7 +165,7 @@ class VolumeSliceShader(BaseVolumeShader):
         struct VertexOutput {
             [[location(0)]] texcoord: vec3<f32>;
             [[location(1)]] world_pos: vec3<f32>;
-            [[builtin(position)]] ndc_pos: vec4<f32>;
+            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct FragmentOutput {
@@ -319,7 +319,7 @@ class VolumeSliceShader(BaseVolumeShader):
             let world_pos = vertices[ indexmap[index] ];
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
             out.world_pos = world_pos;
-            out.ndc_pos = ndc_pos;
+            out.position = ndc_pos;
             out.texcoord = texcoords[ indexmap[index] ];
 
             return out;
