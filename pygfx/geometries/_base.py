@@ -5,7 +5,7 @@ from ..resources import Resource, Buffer, Texture
 
 
 class Geometry(ResourceContainer):
-    """A Geomerty object is a container for geometry-data for a WorldObject.
+    """A Geomerty object is a container for geometry data of a WorldObject.
 
     A geometry object contains the data that defines (the shape of) the
     object, such as positions, plus data associated with these positions
@@ -56,8 +56,10 @@ class Geometry(ResourceContainer):
                         "64-bit float is not supported, use 32-bit floats instead"
                     )
                 if name == "grid":
-                    resource = Texture(val).get_view()
-                    1 / 0  # todo: test this bit
+                    dim = val.ndim
+                    if dim > 2 and val.shape[-1] <= 4:
+                        dim -= 1  # last array dim is probably (a subset of) rgba
+                    resource = Texture(val, dim=dim).get_view()
                 else:
                     resource = Buffer(val)
 
