@@ -67,14 +67,14 @@ def mesh_renderer(wobject, render_info):
         "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
     )
     bindings1[1] = Binding(
-        "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
+        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
     bindings1[2] = Binding(
-        "s_normal", "buffer/read_only_storage", normal_buffer, "VERTEX"
+        "s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"
     )
     if getattr(geometry, "texcoords", None) is not None:
         bindings1[3] = Binding(
-            "s_texcoord", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
+            "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
         )
 
     # If a texture is applied ...
@@ -265,14 +265,14 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Get vertex position
-            let raw_pos = load_s_pos(i0);
+            let raw_pos = load_s_positions(i0);
             let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
             var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             // For the wireframe we also need the ndc_pos of the other vertices of this face
             $$ if wireframe
                 $$ for i in (1, 2, 3)
-                    let raw_pos{{ i }} = load_s_pos(i32(ii[{{ i - 1 }}]));
+                    let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
                     let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
                     let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
                 $$ endfor
@@ -289,16 +289,16 @@ class MeshShader(WorldObjectShader):
 
             // Set texture coords
             $$ if texture_dim == '1d'
-            out.texcoord =vec3<f32>(load_s_texcoord(i0), 0.0, 0.0);
+            out.texcoord =vec3<f32>(load_s_texcoords(i0), 0.0, 0.0);
             $$ elif texture_dim == '2d'
-            out.texcoord = vec3<f32>(load_s_texcoord(i0), 0.0);
+            out.texcoord = vec3<f32>(load_s_texcoords(i0), 0.0);
             $$ elif texture_dim == '3d'
-            out.texcoord = load_s_texcoord(i0);
+            out.texcoord = load_s_texcoords(i0);
             $$ endif
 
             // Set the normal
             $$ if need_normals
-                let raw_normal = load_s_normal(i0);
+                let raw_normal = load_s_normals(i0);
                 let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
                 let world_normal = normalize(world_pos_n - world_pos).xyz;
                 out.normal = world_normal;
@@ -355,8 +355,8 @@ class MeshShader(WorldObjectShader):
             let r = index % 2;
             let i0 = (index - r) / 2;
 
-            let raw_pos = load_s_pos(i0);
-            let raw_normal = load_s_normal(i0);
+            let raw_pos = load_s_positions(i0);
+            let raw_normal = load_s_normals(i0);
 
             let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
             let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
@@ -578,7 +578,7 @@ def meshslice_renderer(wobject, render_info):
         "s_indices", "buffer/read_only_storage", geometry.index, "VERTEX"
     )
     bindings[4] = Binding(
-        "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
+        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
 
     # Let the shader generate code for our bindings
@@ -656,9 +656,9 @@ class MeshSliceShader(WorldObjectShader):
             let ii = vec3<i32>(load_s_indices(face_index));
 
             // Vertex positions of this face, in local object coordinates
-            let pos1a = load_s_pos(ii[0]);
-            let pos2a = load_s_pos(ii[1]);
-            let pos3a = load_s_pos(ii[2]);
+            let pos1a = load_s_positions(ii[0]);
+            let pos2a = load_s_positions(ii[1]);
+            let pos3a = load_s_positions(ii[2]);
             let pos1b = u_wobject.world_transform * vec4<f32>(pos1a, 1.0);
             let pos2b = u_wobject.world_transform * vec4<f32>(pos2a, 1.0);
             let pos3b = u_wobject.world_transform * vec4<f32>(pos3a, 1.0);

@@ -24,18 +24,18 @@ def points_renderer(wobject, render_info):
     bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
 
     bindings[3] = Binding(
-        "s_pos", "buffer/read_only_storage", geometry.positions, "VERTEX"
+        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
 
     if material.vertex_colors:
         bindings[5] = Binding(
-            "s_color", "buffer/read_only_storage", geometry.colors, "VERTEX"
+            "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
         )
         shader["per_vertex_colors"] = True
 
     if material.vertex_sizes:
         bindings[4] = Binding(
-            "s_size", "buffer/read_only_storage", geometry.sizes, "VERTEX"
+            "s_sizes", "buffer/read_only_storage", geometry.sizes, "VERTEX"
         )
         shader["per_vertex_sizes"] = True
 
@@ -114,7 +114,7 @@ class PointsShader(WorldObjectShader):
             let i0 = index / 6;
             let sub_index = index % 6;
 
-            let raw_pos = load_s_pos(i0);
+            let raw_pos = load_s_positions(i0);
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
@@ -128,7 +128,7 @@ class PointsShader(WorldObjectShader):
             );
 
             $$ if per_vertex_sizes
-                let size = load_s_size(i0);
+                let size = load_s_sizes(i0);
                 out.size = size;
             $$ else
                 let size = u_material.size;
@@ -142,7 +142,7 @@ class PointsShader(WorldObjectShader):
             out.pointcoord = delta_logical;
 
             $$ if per_vertex_colors
-            out.color = load_s_color(i0);
+            out.color = load_s_colors(i0);
             $$ endif
 
             out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
