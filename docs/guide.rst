@@ -137,14 +137,26 @@ If you run this, you should see a rotating yellow cube.
 World objects
 -------------
 
+A world object represents an object in the world. It has a transform, by which the
+object can be positioned (translated, rotated, and scaled), and has a visibility property.
+These properties apply to the object itself as well as its children (and their children, etc.).
+
 
 Geometry
 --------
+
+Each world object has a geometry. This geometry object contains the
+data that defines (the shape of) the object, such as positions, plus
+data associated with these positions (normals, texcoords, colors, etc.).
+Multiple world objects may share a geometry.
 
 
 Materials
 ---------
 
+Each world object also has a material. This material object defines the
+appearance of the object. Examples can be its color, how it behaves under lighting,
+what render-mode is applied, etc. Multiple world objects may share a material.
 
 
 Using Pygfx in Jupyter
