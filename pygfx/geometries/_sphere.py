@@ -94,4 +94,4 @@ class SphereGeometry(Geometry):
         self.positions = Buffer(vertices)
         self.normals = Buffer(normals)
         self.texcoords = Buffer(texcoords)
-        self.index = Buffer(indices)
+        self.indices = Buffer(indices)

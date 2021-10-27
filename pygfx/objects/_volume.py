@@ -20,16 +20,20 @@ class Volume(WorldObject):
 
     def __init__(self, data, material):
         super().__init__()
-        if isinstance(data, np.ndarray):
-            texture = Texture(data, dim=3)
+
+        if isinstance(data, Geometry):
+            geometry = data
         elif isinstance(data, Texture):
-            texture = data
+            geometry = Geometry(grid=data)
+        elif isinstance(data, np.ndarray):
+            texture = Texture(data, dim=3)
+            geometry = Geometry(grid=texture)
         else:
             raise TypeError("Volume data must be numpy np.ndarray or gfx.Texture.")
 
         # The texture provides a regular grid of data that represents this object's geometry.
         # The vertex positions for the corners are calculated in the shader.
-        self._geometry = Geometry(grid=texture)
+        self._geometry = geometry
         self.material = material
 
     @property

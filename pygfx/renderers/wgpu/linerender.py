@@ -80,7 +80,9 @@ def line_renderer(wobject, render_info):
     bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
     bindings[3] = Binding("u_renderer", "buffer/uniform", uniform_buffer)
 
-    bindings[4] = Binding("s_pos", "buffer/read_only_storage", positions1, "VERTEX")
+    bindings[4] = Binding(
+        "s_positions", "buffer/read_only_storage", positions1, "VERTEX"
+    )
 
     # Global color or per-vertex?
     shader["per_vertex_color"] = False
@@ -90,7 +92,7 @@ def line_renderer(wobject, render_info):
             raise ValueError(
                 "For rendering (thick) lines, the geometry.colors must be Nx4."
             )
-        bindings[5] = Binding("s_color", "buffer/read_only_storage", colors1, "VERTEX")
+        bindings[5] = Binding("s_colors", "buffer/read_only_storage", colors1, "VERTEX")
         shader["per_vertex_color"] = True
 
     if isinstance(material, LineArrowMaterial):
@@ -167,7 +169,7 @@ class LineShader(WorldObjectShader):
         return """
 
         fn get_point_ndc(index:i32) -> vec4<f32> {
-            let raw_pos = load_s_pos(index);
+            let raw_pos = load_s_positions(index);
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
             var ndc_pos: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
             ndc_pos = ndc_pos / ndc_pos.w;
@@ -204,7 +206,7 @@ class LineShader(WorldObjectShader):
             out.vertex_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
 
             $$ if per_vertex_color
-            out.color = load_s_color(result.i);
+            out.color = load_s_colors(result.i);
             $$ else:
             out.color = u_material.color;
             $$ endif
