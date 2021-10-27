@@ -1,12 +1,12 @@
 # flake8: noqa
 
 from ._base import Geometry
-from ._box import BoxGeometry
+from ._box import create_box
 from ._cone import ConeGeometry
 from ._cylinder import CylinderGeometry
 from ._sphere import SphereGeometry
 from ._plane import PlaneGeometry
-from ._toroidal import KleinBottleGeometry, TorusKnotGeometry
+from ._toroidal import KleinBottleGeometry, create_torus_knot
 
 # Define __all__ for e.g. Sphinx
 __all__ = [

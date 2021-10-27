@@ -90,7 +90,9 @@ def klein_bottle_surface(u, v):
     return x, y, z
 
 
-class TorusKnotGeometry(Geometry):
+def create_torus_knot(
+    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
+):
     """Defines a torus knot, the particular shape of which is defined
     by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
@@ -107,93 +109,84 @@ class TorusKnotGeometry(Geometry):
 
     """
 
-    def __init__(
-        self, scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
-    ):
-        super().__init__()
+    # If we stitch, we have no duplicate vertices, but stitch the
+    # ends together with the indices, resulting in a fully closed object.
+    # However, texturing works better without such stitching.
+    stitch = False
 
-        # If we stitch, we have no duplicate vertices, but stitch the
-        # ends together with the indices, resulting in a fully closed object.
-        # However, texturing works better without such stitching.
-        stitch = False
+    if stitch:
+        tubular_verts = tubular_segments
+        radial_verts = radial_segments
+    else:
+        tubular_verts = tubular_segments + 1
+        radial_verts = radial_segments + 1
 
-        if stitch:
-            tubular_verts = tubular_segments
-            radial_verts = radial_segments
-        else:
-            tubular_verts = tubular_segments + 1
-            radial_verts = radial_segments + 1
+    # Define base factors
+    u = np.linspace(
+        0, p * 2 * np.pi, tubular_verts, endpoint=not stitch, dtype=np.float32
+    )
+    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not stitch, dtype=np.float32)
 
-        # Define base factors
-        u = np.linspace(
-            0, p * 2 * np.pi, tubular_verts, endpoint=not stitch, dtype=np.float32
-        )
-        v = np.linspace(
-            0, 2 * np.pi, radial_verts, endpoint=not stitch, dtype=np.float32
-        )
+    # Get positions along the torus' center, and a tiny step further
+    pos1 = torus_knot_surface(u, p, q, scale)
+    pos2 = torus_knot_surface(u + 0.01, p, q, scale)
+    # Two vectors along the torus' centerline
+    vec1 = pos1 - pos2
+    vec2 = pos1 + pos2
+    # Two vectors orthoginal to the torus' centerline
+    vec3 = np.cross(vec1, vec2)
+    vec4 = np.cross(vec3, vec1)
+    # Normalize
+    vec3 /= ((vec3[:, 0] ** 2 + vec3[:, 1] ** 2 + vec3[:, 2] ** 2) ** 0.5).reshape(
+        -1, 1
+    )
+    vec4 /= ((vec4[:, 0] ** 2 + vec4[:, 1] ** 2 + vec4[:, 2] ** 2) ** 0.5).reshape(
+        -1, 1
+    )
+    # Define positions relative to the centerline
+    cx = -tube * np.cos(v)
+    cy = +tube * np.sin(v)
+    # Prepare shapes, so we can do numpy broadcast
+    pos = pos1.reshape(-1, 1, 3)
+    cx.shape = 1, -1, 1
+    cy.shape = 1, -1, 1
+    vec3.shape = -1, 1, 3
+    vec4.shape = -1, 1, 3
+    # Broadcast!
+    positions = pos + cx * vec4 + cy * vec3
+    normals = positions - pos
+    positions.shape = -1, 3
+    normals.shape = -1, 3
+    normals *= 1 / np.linalg.norm(normals, axis=1).reshape(-1, 1)
 
-        # Get positions along the torus' center, and a tiny step further
-        pos1 = torus_knot_surface(u, p, q, scale)
-        pos2 = torus_knot_surface(u + 0.01, p, q, scale)
-        # Two vectors along the torus' centerline
-        vec1 = pos1 - pos2
-        vec2 = pos1 + pos2
-        # Two vectors orthoginal to the torus' centerline
-        vec3 = np.cross(vec1, vec2)
-        vec4 = np.cross(vec3, vec1)
-        # Normalize
-        vec3 /= ((vec3[:, 0] ** 2 + vec3[:, 1] ** 2 + vec3[:, 2] ** 2) ** 0.5).reshape(
-            -1, 1
-        )
-        vec4 /= ((vec4[:, 0] ** 2 + vec4[:, 1] ** 2 + vec4[:, 2] ** 2) ** 0.5).reshape(
-            -1, 1
-        )
-        # Define positions relative to the centerline
-        cx = -tube * np.cos(v)
-        cy = +tube * np.sin(v)
-        # Prepare shapes, so we can do numpy broadcast
-        pos = pos1.reshape(-1, 1, 3)
-        cx.shape = 1, -1, 1
-        cy.shape = 1, -1, 1
-        vec3.shape = -1, 1, 3
-        vec4.shape = -1, 1, 3
-        # Broadcast!
-        positions = pos + cx * vec4 + cy * vec3
-        normals = positions - pos
-        positions.shape = -1, 3
-        normals.shape = -1, 3
-        normals *= 1 / np.linalg.norm(normals, axis=1).reshape(-1, 1)
+    # Create texcords
+    # ty, tx = np.meshgrid(u / u[-1], v / v[-1])
+    ty, tx = np.meshgrid(v / v[-1], u / u[-1])
+    texcoords = np.column_stack((tx.flat, ty.flat))
 
-        # Create texcords
-        # ty, tx = np.meshgrid(u / u[-1], v / v[-1])
-        ty, tx = np.meshgrid(v / v[-1], u / u[-1])
-        texcoords = np.column_stack((tx.flat, ty.flat))
+    # Create indices
+    # Two triangles onto the "top-left" rectangle (six vertices)
+    indices = np.array(
+        [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1],
+        np.uint32,
+    )
+    # Replicate to all rectangles, add offsets
+    indices = np.tile(indices, (tubular_segments, radial_segments, 1))
+    gx, gy = np.meshgrid(
+        np.arange(indices.shape[1], dtype=np.uint32),
+        radial_verts * np.arange(indices.shape[0], dtype=np.uint32),
+    )
+    indices += (gx + gy).reshape(indices.shape[:2] + (1,))
+    # Stitch the ends together over both axii.
+    if stitch:
+        indices[-1, :, 1:4] -= radial_verts * tubular_verts
+        indices[:, -1, 2:5] -= radial_verts
+    indices = indices.reshape((-1, 3))
+    # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
 
-        # Create indices
-        # Two triangles onto the "top-left" rectangle (six vertices)
-        indices = np.array(
-            [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1],
-            np.uint32,
-        )
-        # Replicate to all rectangles, add offsets
-        indices = np.tile(indices, (tubular_segments, radial_segments, 1))
-        gx, gy = np.meshgrid(
-            np.arange(indices.shape[1], dtype=np.uint32),
-            radial_verts * np.arange(indices.shape[0], dtype=np.uint32),
-        )
-        indices += (gx + gy).reshape(indices.shape[:2] + (1,))
-        # Stitch the ends together over both axii.
-        if stitch:
-            indices[-1, :, 1:4] -= radial_verts * tubular_verts
-            indices[:, -1, 2:5] -= radial_verts
-        indices = indices.reshape((-1, 3))
-        # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
-
-        # Create buffers for this geometry
-        self.positions = Buffer(positions)
-        self.normals = Buffer(normals)
-        self.indices = Buffer(indices)
-        self.texcoords = Buffer(texcoords)
+    return Geometry(
+        indices=indices, positions=positions, normals=normals, texcoords=texcoords
+    )
 
 
 def torus_knot_surface(u, p, q, radius):
