@@ -51,13 +51,15 @@ def test_uniform_definitions():
 
     # Fails
     with raises(TypeError):  # Not a valid struct type
-        shader.define_uniform(0, 0, Binding("zz", "", "not a struct"))
+        shader.define_binding(0, 0, Binding("zz", "buffer/uniform", "not a struct"))
     with raises(TypeError):  # Not a valid struct type
-        shader.define_uniform(0, 0, Binding("zz", "", np.array([1]).dtype))
+        shader.define_binding(
+            0, 0, Binding("zz", "buffer/uniform", np.array([1]).dtype)
+        )
 
     # Test simple scalars
     struct = dict(foo="f4", bar="i4")
-    shader.define_uniform(0, 0, Binding("zz", "", struct))
+    shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.get_definitions().strip()
         == """
@@ -74,7 +76,7 @@ def test_uniform_definitions():
 
     # Test vec
     struct = dict(foo="4xf4", bar="2xi4")
-    shader.define_uniform(0, 0, Binding("zz", "", struct))
+    shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.get_definitions().strip()
         == """
@@ -91,7 +93,7 @@ def test_uniform_definitions():
 
     # Test mat
     struct = dict(foo="4x4xf4", bar="3x2xi4")
-    shader.define_uniform(0, 0, Binding("zz", "", struct))
+    shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.get_definitions().strip()
         == """
@@ -111,12 +113,12 @@ def test_uniform_definitions():
     # In array_from_shadertype() the fields are ordered to prevent
     # alignment mismatches, and it will prevent the use of some types.
     # Later we might implement introducing stub fields to fix alignment.
-    # In define_uniform() the uniform's wgsl struct definition is created,
+    # In define_binding() the uniform's wgsl struct definition is created,
     # and there it also checks the alignment. Basically a failsafe for
     # when array_from_shadertype() does not do it's job right.
     struct = dict(foo="3xf4", bar="4xi4")
     with raises(ValueError):
-        shader.define_uniform(0, 0, Binding("zz", "", struct))
+        shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
 
 
 if __name__ == "__main__":
