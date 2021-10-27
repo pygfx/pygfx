@@ -167,9 +167,7 @@ class LineShader(WorldObjectShader):
         return """
 
         fn get_point_ndc(index:i32) -> vec4<f32> {
-            let raw_pos = vec3<f32>(
-                s_pos.data[index], s_pos.data[index + 1], s_pos.data[index + 2]
-            );
+            let raw_pos = load_s_pos(index);
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
             var ndc_pos: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
             ndc_pos = ndc_pos / ndc_pos.w;
@@ -206,12 +204,9 @@ class LineShader(WorldObjectShader):
             out.vertex_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
 
             $$ if per_vertex_color
-            let i = result.i;
-            out.color = vec4<f32>(
-                s_color.data[i * 4], s_color.data[i * 4 + 1], s_color.data[i * 4 + 2], s_color.data[i * 4 + 3]
-            );
+            out.color = load_s_color(result.i);
             $$ else:
-                out.color = u_material.color;
+            out.color = u_material.color;
             $$ endif
 
             return out;
@@ -269,9 +264,9 @@ class LineShader(WorldObjectShader):
             let i = index / 5;
 
             // Sample the current node and it's two neighbours, and convert to NDC
-            let npos1 = get_point_ndc(i * 3 - 3);
-            let npos2 = get_point_ndc(i * 3 + 0);
-            let npos3 = get_point_ndc(i * 3 + 3);
+            let npos1 = get_point_ndc(i - 1);
+            let npos2 = get_point_ndc(i);
+            let npos3 = get_point_ndc(i + 1);
 
             // Convert to logical screen coordinates, because that's were the lines work
             let ppos1 = (npos1.xy + 1.0) * screen_factor;
@@ -354,8 +349,8 @@ class LineShader(WorldObjectShader):
 
             // Sample the current node and either of its neighbours
             let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let npos2 = get_point_ndc(i * 3);
-            let npos3 = get_point_ndc(i3 * 3 );
+            let npos2 = get_point_ndc(i);
+            let npos3 = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
             let ppos2 = (npos2.xy + 1.0) * screen_factor;
             let ppos3 = (npos3.xy + 1.0) * screen_factor;
@@ -411,8 +406,8 @@ class LineShader(WorldObjectShader):
 
             // Sample the current node and either of its neighbours
             let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let npos2 = get_point_ndc(i * 3);
-            let npos3 = get_point_ndc(i3 * 3 );
+            let npos2 = get_point_ndc(i);
+            let npos3 = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
             let ppos2 = (npos2.xy + 1.0) * screen_factor;
             let ppos3 = (npos3.xy + 1.0) * screen_factor;
@@ -579,7 +574,7 @@ class ThinLineShader(WorldObjectShader):
         [[stage(vertex)]]
         fn vs_main(in: VertexInput) -> VertexOutput {
 
-            let wpos = u_wobject.world_transform * vec4<f32>(in.position.xyz, 1.0);
+            let wpos = u_wobject.world_transform * vec4<f32>(in.pos.xyz, 1.0);
             let npos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos;
 
             var out: VertexOutput;

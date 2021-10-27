@@ -253,11 +253,8 @@ class MeshShader(WorldObjectShader):
             sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
 
             // Sample
-            let i1 = i32(s_indices.data[face_index * 3 + 0]);
-            let i2 = i32(s_indices.data[face_index * 3 + 1]);
-            let i3 = i32(s_indices.data[face_index * 3 + 2]);
-            var arr_i0 = array<i32, 3>(i1, i2, i3);
-            let i0 = arr_i0[sub_index];
+            let ii = load_s_indices(face_index);
+            let i0 = i32(ii[sub_index]);
 
             // Get world transform
             $$ if instanced
@@ -268,14 +265,14 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Get vertex position
-            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
+            let raw_pos = load_s_pos(i0);
             let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
             var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             // For the wireframe we also need the ndc_pos of the other vertices of this face
             $$ if wireframe
                 $$ for i in (1, 2, 3)
-                    let raw_pos{{ i }} = vec3<f32>(s_pos.data[i{{ i }} * 3 + 0], s_pos.data[i{{ i }} * 3 + 1], s_pos.data[i{{ i }} * 3 + 2]);
+                    let raw_pos{{ i }} = load_s_pos(i32(ii[{{ i - 1 }}]));
                     let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
                     let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
                 $$ endfor
@@ -292,16 +289,16 @@ class MeshShader(WorldObjectShader):
 
             // Set texture coords
             $$ if texture_dim == '1d'
-            out.texcoord =vec3<f32>(s_texcoord.data[i0], 0.0, 0.0);
+            out.texcoord =vec3<f32>(load_s_texcoord(i0), 0.0, 0.0);
             $$ elif texture_dim == '2d'
-            out.texcoord = vec3<f32>(s_texcoord.data[i0 * 2 + 0], s_texcoord.data[i0 * 2 + 1], 0.0);
+            out.texcoord = vec3<f32>(load_s_texcoord(i0), 0.0);
             $$ elif texture_dim == '3d'
-            out.texcoord = vec3<f32>(s_texcoord.data[i0 * 3 + 0], s_texcoord.data[i0 * 3 + 1], s_texcoord.data[i0 * 3 + 2]);
+            out.texcoord = load_s_texcoord(i0);
             $$ endif
 
             // Set the normal
             $$ if need_normals
-                let raw_normal = vec3<f32>(s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]);
+                let raw_normal = load_s_normal(i0);
                 let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
                 let world_normal = normalize(world_pos_n - world_pos).xyz;
                 out.normal = world_normal;
@@ -358,10 +355,8 @@ class MeshShader(WorldObjectShader):
             let r = index % 2;
             let i0 = (index - r) / 2;
 
-            let raw_pos = vec3<f32>(s_pos.data[i0 * 3 + 0], s_pos.data[i0 * 3 + 1], s_pos.data[i0 * 3 + 2]);
-            let raw_normal = vec3<f32>(
-                s_normal.data[i0 * 3 + 0], s_normal.data[i0 * 3 + 1], s_normal.data[i0 * 3 + 2]
-            );
+            let raw_pos = load_s_pos(i0);
+            let raw_normal = load_s_normal(i0);
 
             let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
             let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
@@ -658,14 +653,12 @@ class MeshSliceShader(WorldObjectShader):
             let index = i32(in.vertex_index);
             let segment_index = index % 6;
             let face_index = (index - segment_index) / 6;
-            let i1 = i32(s_indices.data[face_index * 3 + 0]);
-            let i2 = i32(s_indices.data[face_index * 3 + 1]);
-            let i3 = i32(s_indices.data[face_index * 3 + 2]);
+            let ii = vec3<i32>(load_s_indices(face_index));
 
             // Vertex positions of this face, in local object coordinates
-            let pos1a = vec3<f32>(s_pos.data[i1 * 3 + 0], s_pos.data[i1 * 3 + 1], s_pos.data[i1 * 3 + 2]);
-            let pos2a = vec3<f32>(s_pos.data[i2 * 3 + 0], s_pos.data[i2 * 3 + 1], s_pos.data[i2 * 3 + 2]);
-            let pos3a = vec3<f32>(s_pos.data[i3 * 3 + 0], s_pos.data[i3 * 3 + 1], s_pos.data[i3 * 3 + 2]);
+            let pos1a = load_s_pos(ii[0]);
+            let pos2a = load_s_pos(ii[1]);
+            let pos3a = load_s_pos(ii[2]);
             let pos1b = u_wobject.world_transform * vec4<f32>(pos1a, 1.0);
             let pos2b = u_wobject.world_transform * vec4<f32>(pos2a, 1.0);
             let pos3b = u_wobject.world_transform * vec4<f32>(pos3a, 1.0);
