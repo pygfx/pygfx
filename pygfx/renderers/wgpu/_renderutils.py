@@ -331,7 +331,14 @@ class FragmentResolverStep:
             let index = ipos.x + ipos.y * w;
 
             let frag = s_fragments.data[index].frag;
-            return frag.rgba;
+
+            // Simple
+            //return unpack_vec4(frag.rgba);
+
+            // Weighted blended
+            let color = unpack_vec4(frag.color);
+            return vec4<f32>(frag.accum.rgb / max(frag.accum.a, 0.00001), 1.0);
+
             //return vec4<f32>(f32(x), f32(y), 0.0, 1.0);
         }
     """

@@ -367,37 +367,28 @@ def get_fragment_buffer_snippet(group, binding):
     The storage buffer must be large enough, namely .... TODO
     """
 
-    return """
+    stride, pixel_def, specific_code = _get_transparency_weighted_blended()
 
-        struct Fragment {
-            rgba : vec4<f32>;
-            depth : f32;
-            meh : u32;
-        };  // https://github.com/gfx-rs/naga/blob/9192f7b882ab26b651ec2e010329b81d1d119138/src/valid/type.rs#L165
+    code = """
 
-        struct Pixel {
-            frag : Fragment;
-            lock : atomic<i32>;
-            foo : u32;
-        };
+        fn pack_vec4(c : vec4<f32>) -> u32 {
+            //let c = clamp(color, vec4<f32>(0.0), vec4<f32>(1.0));
+            return u32(c.r * 255.0) * 16777216u + u32(c.g * 255.0) * 65536u + u32(c.b * 255.0) * 256u + u32(c.a * 255.0);
+        }
+        fn unpack_vec4(c : u32) -> vec4<f32> {
+            return vec4<f32>(f32((c >> 24u) & 255u), f32((c >> 16u) & 255u), f32((c >> 8u) & 255u), f32(c & 255u)) / 255.0;
+        }
+
+        PIXEL_DEF
 
         [[block]]
         struct FragmentBuffer {
-            lock : atomic<i32>;
-            data: [[stride(48)]] array<Pixel>;
+            data: [[stride(STRIDE)]] array<Pixel>;
         };
-
         [[group(GROUP), binding(BINDING)]]
         var<storage,read_write> s_fragments: FragmentBuffer;
 
-        fn write_fragment_no_lock(index: i32, frag: Fragment) {
-
-            let current_frag = s_fragments.data[index].frag;
-            if (frag.depth < current_frag.depth) {
-                s_fragments.data[index].frag = frag;
-            }
-
-        }
+        SPECIFIC_CODE
 
         fn write_fragment(pos: vec3<f32>, color:vec4<f32>) {
             // Get index to write to
@@ -405,27 +396,201 @@ def get_fragment_buffer_snippet(group, binding):
             let w = i32(u_stdinfo.physical_size.x);
             let index = ipos.x + ipos.y * w;
 
-            // Construct fragment
-            var frag: Fragment;
-            frag.rgba = color;
-            frag.depth = pos.z - 1.1; // offset so zero is beyond the far plane
+            let color_premultiplied = vec4<f32>(color.a * color.rgb, color.a);
+            let depth = pos.z - 1.1; // offset so zero is beyond the far plane
 
             // Write fragmemt in a spinlock
+            // I found that depending on what we do in write_fragment_prep and write_fragment_finish
+            // this code can still cause the GPU to hang ...
             let active_lock = &s_fragments.data[index].lock;  // per pixel
             var done = false;
             loop {
                 if (done) { break; }
                 let old = atomicExchange(active_lock, 1);
                 if (old != 1) {
-                    write_fragment_no_lock(index, frag);
-                    atomicStore(active_lock, 0);
+                    let result = write_fragment_prep(index, color_premultiplied, depth);
+                    write_fragment_finish(index, result);
+                    // storageBarrier();  // produces ForbiddenStageOperations
+                    let meh = atomicExchange(active_lock, 0);
+                    //atomicStore(active_lock, 0);
                     done = true;
                 }
             }
         }
 
-    """.replace(
-        "GROUP", str(group)
-    ).replace(
-        "BINDING", str(binding)
-    )
+    """
+    code = code.replace("PIXEL_DEF", pixel_def)
+    code = code.replace("SPECIFIC_CODE", specific_code)
+    code = code.replace("STRIDE", str(stride))
+    code = code.replace("GROUP", str(group))
+    code = code.replace("BINDING", str(binding))
+    return code
+
+
+def _get_transparency_none():
+    """Pretend that all fragments are opaque."""
+    stride = 12
+    pixel_def = """
+        struct Fragment {
+            rgba : u32;
+            depth : f32;
+        };
+        // Block that we have for each pixel
+        struct Pixel {
+            frag: Fragment;
+            lock : atomic<i32>;
+        };
+    """
+    specific_code = """
+        fn write_fragment_prep(index: i32, color: vec4<f32>, depth: f32) -> Fragment {
+            var current_frag = s_fragments.data[index].frag;
+            if (depth < current_frag.depth) {
+                current_frag.rgba = pack_vec4(color);
+                current_frag.depth = depth;
+                //s_fragments.data[index].frag = current_frag;
+            } else {
+                current_frag.rgba = 0u;
+            }
+            return current_frag;
+        }
+
+        fn write_fragment_finish(index: i32, frag : Fragment) {
+            if (frag.rgba != 0u) {
+                s_fragments.data[index].frag = frag;
+            }
+        }
+    """
+    return stride, pixel_def, specific_code
+
+
+def _get_transparency_blend1():
+    """Blend using the standard pipeline approach.
+    Except that we don't have a guarantee about the order of the fragments,
+    so we get artifacts.
+    """
+    stride = 12
+    pixel_def = """
+        struct Fragment {
+            rgba : u32;
+            depth : f32;
+        };
+        // Block that we have for each pixel
+        struct Pixel {
+            frag : Fragment;
+            lock : atomic<i32>;
+        };
+    """
+    specific_code = """
+        fn write_fragment_prep(index: i32, color: vec4<f32>, depth: f32) -> Fragment {
+            let current_frag = s_fragments.data[index].frag;
+            var new_frag : Fragment;
+            new_frag.rgba = 0u;
+            if (depth < current_frag.depth) {
+                let dst_color = unpack_vec4(current_frag.rgba);
+                // blend: one_minus_src_alpha
+                let new_color = vec4<f32>(dst_color.rgb * (1.0 - color.a) + color.rgb, color.a + dst_color.a);
+                new_frag.rgba = pack_vec4(new_color);
+                new_frag.depth = depth;
+            }
+            return new_frag;
+        }
+
+        fn write_fragment_finish(index: i32, frag : Fragment) {
+            if (frag.rgba != 0u) {
+                s_fragments.data[index].frag = frag;
+            }
+        }
+    """
+    return stride, pixel_def, specific_code
+
+
+def _get_transparency_blend2():
+    """Standard blending, but differentiate between opaque and transparent
+    fragments. Less artifacts than blend2.
+    """
+    stride = 12
+    pixel_def = """
+        struct Fragment {
+            rgba : u32;
+            depth : f32;
+        };
+        // Block that we have for each pixel
+        struct Pixel {
+            frag : Fragment;
+            lock : atomic<i32>;
+        };
+    """
+    specific_code = """
+        fn write_fragment_prep(index: i32, color: vec4<f32>, depth: f32) -> Fragment {
+            let current_frag = s_fragments.data[index].frag;
+            var new_frag : Fragment;
+            new_frag.rgba = 0u;
+            if (depth < current_frag.depth) {
+                if (color.a >= 1.0) {
+                    // opaque fragment replaces whatever we wrote now
+                    new_frag.rgba = pack_vec4(color);
+                    new_frag.depth = depth;
+                } else {
+                    let dst_color = unpack_vec4(current_frag.rgba);
+                    // blend: one_minus_src_alpha
+                    let rgb = color.rgb + dst_color.rgb * (1.0 - color.a);
+                    //let rgb = color.rgb + dst_color.rgb;
+                    new_frag.rgba = pack_vec4(vec4<f32>(rgb, 1.0));
+                    new_frag.depth = current_frag.depth;
+                }
+            }
+            return new_frag;
+        }
+        fn write_fragment_finish(index: i32, frag : Fragment) {
+            if (frag.rgba != 0u) {
+                s_fragments.data[index].frag = frag;
+            }
+        }
+    """
+    return stride, pixel_def, specific_code
+
+
+def _get_transparency_weighted_blended():
+    """McGuire 2013"""
+    stride = 48
+    pixel_def = """
+        struct Fragment {
+            color : u32;
+            depth : f32;
+            accum : vec4<f32>;
+        };
+        // Block that we have for each pixel
+        struct Pixel {
+            frag : Fragment;
+            lock : atomic<i32>;
+        };
+    """
+    specific_code = """
+        fn write_fragment_prep(index: i32, color: vec4<f32>, depth: f32) -> Fragment {
+            let current_frag = s_fragments.data[index].frag;
+            var new_frag : Fragment;
+            new_frag.depth = 10.0;
+            if (depth < current_frag.depth) {
+                if (color.a >= 0.99) {
+                    // Opaque fragment replaces whatever we wrote now
+                    // OOPS: this is wrong; we could already have processed
+                    // fragments in fron of the opaque fragment. This is most
+                    // likely the reason for the artifacts that we're seeing.
+                    new_frag.color = pack_vec4(color);
+                    new_frag.depth = depth;
+                    new_frag.accum = color;//vec4<f32>(0.0);
+                } else {
+                    new_frag.color = current_frag.color;
+                    new_frag.accum = current_frag.accum + color;
+                    new_frag.depth = current_frag.depth;
+                }
+            }
+            return new_frag;
+        }
+        fn write_fragment_finish(index: i32, frag : Fragment) {
+            if (frag.depth != 10.0) {
+                s_fragments.data[index].frag = frag;
+            }
+        }
+    """
+    return stride, pixel_def, specific_code

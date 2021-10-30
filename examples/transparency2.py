@@ -51,10 +51,11 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
 app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvasWithInputEvents()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+canvas._target_fps = 1000
+renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
-sphere = gfx.Mesh(gfx.SphereGeometry(10), gfx.MeshBasicMaterial())
+sphere = gfx.Mesh(gfx.SphereGeometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.PlaneGeometry(50, 50)
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4)))
@@ -67,7 +68,7 @@ plane3.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), 1.571)
 
 scene.add(sphere, plane1, plane2, plane3)
 
-camera = gfx.PerspectiveCamera(70, 16/9)
+camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 70
 controls = gfx.OrbitControls(camera.position.clone())
 

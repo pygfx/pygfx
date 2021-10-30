@@ -11,6 +11,7 @@ from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
+from ._shadercomposer import Binding
 from ._renderutils import RenderTexture, RenderFlusher, FragmentResolverStep
 from ._conv import to_vertex_format, to_texture_format
 
@@ -337,9 +338,9 @@ class WgpuRenderer(Renderer):
 
         # Resize fragment buffer as needed. This buffer can hold multiple fragments
         # per pixel, so we can achieve order independent transparency.
-        nfragments = 8
+        bytes_per_pixel = 6 * 8
         fragment_buffer_size = (
-            framebuffer_size[0] * framebuffer_size[1] * nfragments * 8
+            framebuffer_size[0] * framebuffer_size[1] * bytes_per_pixel
         )
         if (
             not hasattr(self, "_fragment_buffer")
@@ -350,6 +351,51 @@ class WgpuRenderer(Renderer):
                 nitems=framebuffer_size[0] * framebuffer_size[1],
             )
             force_reset = True
+
+            # Clearcode
+            code = """
+            struct Pixel {
+                data: array<u32, U32PERPIXEL>;
+            };
+            [[block]]
+            struct FragBuffer {
+                data: [[stride(STRIDE2)]] array<Pixel>;
+            };
+
+            [[group(0), binding(0)]]
+            var<storage,read_write> s_frag_buffer: FragBuffer;
+
+            [[stage(compute), workgroup_size(1)]]
+            fn main([[builtin(global_invocation_id)]] index: vec3<u32>) {
+                let i = index.x + index.y * STRIDE1u + index.z;
+                var pixel : Pixel;
+                for (var j=0u; j<U32PERPIXELu; j=j+1u) {
+                    pixel.data[j] = 0u;
+                }
+                s_frag_buffer.data[i] = pixel;
+            }
+            """
+            code = code.replace("STRIDE1", str(framebuffer_size[0]))
+            code = code.replace("STRIDE2", str(bytes_per_pixel))
+            code = code.replace("U32PERPIXEL", str(bytes_per_pixel // 4))
+            code = code.replace("SKIP", str(bytes_per_pixel // 4))
+            pipeline_info = {
+                "indices": (framebuffer_size[0], framebuffer_size[1], 1),
+                "compute_shader": code,
+                "bindings0": {
+                    0: Binding(
+                        "xx",
+                        "buffer/storage",
+                        self._fragment_buffer,
+                        wgpu.ShaderStage.COMPUTE | wgpu.ShaderStage.FRAGMENT,
+                    )
+                },
+            }
+            self._fragment_buffer._wgpu_usage |= wgpu.BufferUsage.STORAGE
+            self._update_buffer(self._fragment_buffer)
+            self._fragment_buffer_clear_pipeline = self._compose_compute_pipeline(
+                None, pipeline_info
+            )
 
         # Set the size of the textures (is a no-op if the size does not change)
         self._render_texture.ensure_size(device, framebuffer_size + (1,))
@@ -394,15 +440,16 @@ class WgpuRenderer(Renderer):
 
         # Clear fragment buffer
         # todo: this seems like something that can be done more efficiently
-        wgpu_frag_buffer = self._fragment_buffer._wgpu_buffer[1]
-        clear_size = fragment_buffer_size // 8
-        tmp_buffer = device.create_buffer(
-            size=clear_size, usage=wgpu.BufferUsage.COPY_SRC
-        )
-        for i in range(fragment_buffer_size // clear_size):
-            command_encoder.copy_buffer_to_buffer(
-                tmp_buffer, 0, wgpu_frag_buffer, i * clear_size, clear_size
-            )
+        # --> yes its better using a compute shader - though still slow on low-power :/
+        # wgpu_frag_buffer = self._fragment_buffer._wgpu_buffer[1]
+        # clear_size = fragment_buffer_size // 8
+        # tmp_buffer = device.create_buffer(
+        #     size=clear_size, usage=wgpu.BufferUsage.COPY_SRC
+        # )
+        # for i in range(fragment_buffer_size // clear_size):
+        #     command_encoder.copy_buffer_to_buffer(
+        #         tmp_buffer, 0, wgpu_frag_buffer, i * clear_size, clear_size
+        #     )
 
         # Render the scene graph (to the fragment bufer)
         self._render_recording(
@@ -461,6 +508,12 @@ class WgpuRenderer(Renderer):
 
         compute_pass = command_encoder.begin_compute_pass()
 
+        pinfo = self._fragment_buffer_clear_pipeline
+        compute_pass.set_pipeline(pinfo["pipeline"])
+        for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+            compute_pass.set_bind_group(bind_group_id, bind_group, [], 0, 999999)
+        compute_pass.dispatch(*pinfo["index_args"])
+
         for wobject in q:
             wgpu_data = wobject._wgpu_pipeline_objects
             for pinfo in wgpu_data["compute_pipelines"]:
@@ -505,13 +558,13 @@ class WgpuRenderer(Renderer):
                     "store_op": wgpu.StoreOp.store,
                 },
             ],
-            depth_stencil_attachment={
-                "view": self._depth_texture.texture_view,
-                "depth_load_value": depth_load_value,
-                "depth_store_op": wgpu.StoreOp.store,
-                "stencil_load_value": wgpu.LoadOp.load,
-                "stencil_store_op": wgpu.StoreOp.store,
-            },
+            # depth_stencil_attachment={
+            #     "view": self._depth_texture.texture_view,
+            #     "depth_load_value": depth_load_value,
+            #     "depth_store_op": wgpu.StoreOp.store,
+            #     "stencil_load_value": wgpu.LoadOp.load,
+            #     "stencil_store_op": wgpu.StoreOp.store,
+            # },
             occlusion_query_set=None,
         )
         render_pass.set_viewport(*physical_viewport)
@@ -880,16 +933,16 @@ class WgpuRenderer(Renderer):
                 "front_face": wgpu.FrontFace.ccw,
                 "cull_mode": pipeline_info.get("cull_mode", wgpu.CullMode.none),
             },
-            depth_stencil={
-                "format": self._depth_texture.format,
-                "depth_write_enabled": True,  # optional
-                "depth_compare": wgpu.CompareFunction.less,  # optional
-                "stencil_front": {},  # use defaults
-                "stencil_back": {},  # use defaults
-                "depth_bias": 0,
-                "depth_bias_slope_scale": 0.0,
-                "depth_bias_clamp": 0.0,
-            },
+            # depth_stencil={
+            #     "format": self._depth_texture.format,
+            #     "depth_write_enabled": True,  # optional
+            #     "depth_compare": wgpu.CompareFunction.never,  # optional
+            #     "stencil_front": {},  # use defaults
+            #     "stencil_back": {},  # use defaults
+            #     "depth_bias": 0,
+            #     "depth_bias_slope_scale": 0.0,
+            #     "depth_bias_clamp": 0.0,
+            # },
             multisample={
                 "count": self._msaa,
                 "mask": 0xFFFFFFFF,
@@ -1229,6 +1282,10 @@ class WgpuRenderer(Renderer):
         """Compile a shader module object, or re-use it from the cache."""
         # todo: make this work for objects following the ShaderSourceTemplate interface
         # todo: also release shader modules that are no longer used
+
+        with open("c:/dev/py/tmp.wgsl", "wb") as f:
+            f.write(source.encode())
+
         if key not in self._shader_cache:
             m = self.device.create_shader_module(code=source)
             self._shader_cache[key] = m
