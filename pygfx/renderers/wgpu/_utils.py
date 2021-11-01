@@ -1,5 +1,20 @@
 import wgpu
 
+from .. import RenderFunctionRegistry
+
+
+registry = RenderFunctionRegistry()
+
+
+def register_wgpu_render_function(wobject_cls, material_cls):
+    """Decorator to register a WGPU render function."""
+
+    def _register_wgpu_renderer(f):
+        registry.register(wobject_cls, material_cls, f)
+        return f
+
+    return _register_wgpu_renderer
+
 
 def to_vertex_format(format):
     """Convert pygfx' own format to the wgpu format."""

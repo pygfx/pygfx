@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
-from ._conv import to_texture_format
+from ._utils import to_texture_format
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
 from ...resources import Texture, TextureView

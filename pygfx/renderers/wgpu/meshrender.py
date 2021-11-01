@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
-from ._conv import to_vertex_format, to_texture_format
+from ._utils import to_vertex_format, to_texture_format
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -26,6 +26,7 @@ def mesh_renderer(wobject, render_info):
     topology = wgpu.PrimitiveTopology.triangle_list
     shader = MeshShader(
         wobject,
+        render_info.blender,
         lighting="",
         need_normals=False,
         texture_dim="",
@@ -34,8 +35,6 @@ def mesh_renderer(wobject, render_info):
         climcorrection=None,
         wireframe=material.wireframe,
     )
-    vs_entry_point = "vs_main"
-    fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
     assert getattr(geometry, "indices", None)
@@ -171,11 +170,9 @@ def mesh_renderer(wobject, render_info):
         shader.define_binding(1, i, binding)
 
     # Put it together!
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, vs_entry_point),
-            "fragment_shader": (wgsl, fs_entry_point),
+            "render_shader": shader,
             "primitive_topology": topology,
             "cull_mode": cull_mode,
             "indices": (range(n), range(n_instances)),
@@ -208,24 +205,6 @@ class MeshShader(WorldObjectShader):
             [[builtin(instance_index)]] instance_index : u32;
             $$ endif
         };
-        struct VertexOutput {
-            [[location(0)]] texcoord: vec3<f32>;
-            [[location(1)]] normal: vec3<f32>;
-            [[location(2)]] view: vec3<f32>;
-            [[location(3)]] light: vec3<f32>;
-            [[location(4)]] face_idx: vec4<f32>;
-            [[location(5)]] face_coords: vec3<f32>;
-            [[location(6)]] world_pos: vec3<f32>;
-            $$ if wireframe
-            [[location(7)]] wireframe_coords: vec3<f32>;
-            $$ endif
-            [[builtin(position)]] position: vec4<f32>;
-        };
-
-        struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-        };
 
         $$ if instanced
         [[block]]
@@ -241,7 +220,7 @@ class MeshShader(WorldObjectShader):
         return """
 
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
+        fn vs_main(in: VertexInput) -> Varyings {
 
             // Select what face we're at
             let index = i32(in.vertex_index);
@@ -281,35 +260,31 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Prepare output
-            var out: VertexOutput;
+            var varyings: Varyings;
 
             // Set position
-            out.world_pos =world_pos.xyz / world_pos.w;
-            out.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
+            varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+            varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
             // Set texture coords
             $$ if texture_dim == '1d'
-            out.texcoord =vec3<f32>(load_s_texcoords(i0), 0.0, 0.0);
+            varyings.texcoord = f32(load_s_texcoords(i0));
             $$ elif texture_dim == '2d'
-            out.texcoord = vec3<f32>(load_s_texcoords(i0), 0.0);
+            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
             $$ elif texture_dim == '3d'
-            out.texcoord = load_s_texcoords(i0);
+            varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
             $$ endif
 
             // Set the normal
-            $$ if need_normals
-                let raw_normal = load_s_normals(i0);
-                let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
-                let world_normal = normalize(world_pos_n - world_pos).xyz;
-                out.normal = world_normal;
-            $$ endif
+            let raw_normal = load_s_normals(i0);
+            let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
+            let world_normal = normalize(world_pos_n - world_pos).xyz;
+            varyings.normal = vec3<f32>(world_normal);
 
             // Vectors for lighting, all in world coordinates
-            $$ if lighting
-                let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
-                out.view = view_vec;
-                out.light = view_vec;
-            $$ endif
+            let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
+            varyings.view = vec3<f32>(view_vec);
+            varyings.light = vec3<f32>(view_vec);
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
@@ -322,7 +297,7 @@ class MeshShader(WorldObjectShader):
                 var arr_wireframe_coords = array<vec3<f32>, 3>(
                     vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
                 );
-                out.wireframe_coords = arr_wireframe_coords[sub_index];  // in logical pixels
+                varyings.wireframe_coords = vec3<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
             $$ endif
 
             // Set varyings for picking. We store the face_index, and 3 weights
@@ -337,20 +312,20 @@ class MeshShader(WorldObjectShader):
             $$ else
                 let inst_index = 0;
             $$ endif
-            out.face_idx = vec4<f32>(
-                f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d)
-            );
-            var arr_face_coords = array<vec3<f32>, 3>(
-                vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0)
-            );
-            out.face_coords = arr_face_coords[sub_index];
 
-            return out;
+            varyings.face_idx = vec4<f32>(f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d));
+            var arr_face_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
+            varyings.face_coords = vec3<f32>(arr_face_coords[sub_index]);
+
+            return varyings;
         }
 
+    """
+
+    xxx = """
 
         [[stage(vertex)]]
-        fn vs_normal_lines(in: VertexInput) -> VertexOutput {
+        fn vs_normal_lines(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
             let r = index % 2;
             let i0 = (index - r) / 2;
@@ -368,7 +343,7 @@ class MeshShader(WorldObjectShader):
             let world_pos = world_pos1 + f32(r) * world_normal * amplitude;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-            var out: VertexOutput;
+            var out: Varyings;
             out.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             out.position = ndc_pos;
             return out;
@@ -379,33 +354,32 @@ class MeshShader(WorldObjectShader):
         return """
 
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
-            var out: FragmentOutput;
+        fn fs_main(varyings: Varyings, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
             var color_value: vec4<f32>;
 
             $$ if texture_dim
                 $$ if texture_dim == '1d'
                     $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, in.texcoord.x);
+                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.x);
                     $$ else
                         let texcoords_dim = f32(textureDimensions(r_tex);
-                        let texcoords_u = i32(in.texcoord.x * texcoords_dim % texcoords_dim);
+                        let texcoords_u = i32(varyings.texcoord.x * texcoords_dim % texcoords_dim);
                         color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
                     $$ endif
                 $$ elif texture_dim == '2d'
                     $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, in.texcoord.xy);
+                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.xy);
                     $$ else
                         let texcoords_dim = vec2<f32>(textureDimensions(r_tex));
-                        let texcoords_u = vec2<i32>(in.texcoord.xy * texcoords_dim % texcoords_dim);
+                        let texcoords_u = vec2<i32>(varyings.texcoord.xy * texcoords_dim % texcoords_dim);
                         color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
                     $$ endif
                 $$ elif texture_dim == '3d'
                     $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, in.texcoord.xyz);
+                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.xyz);
                     $$ else
                         let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
-                        let texcoords_u = vec3<i32>(in.texcoord.xyz * texcoords_dim % texcoords_dim);
+                        let texcoords_u = vec3<i32>(varyings.texcoord.xyz * texcoords_dim % texcoords_dim);
                         color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
                     $$ endif
                 $$ endif
@@ -427,35 +401,40 @@ class MeshShader(WorldObjectShader):
 
             // Lighting
             $$ if lighting
-                let lit_color = lighting_{{ lighting }}(is_front, in.world_pos, in.normal, in.light, in.view, albeido);
+                let world_pos = varyings.world_pos;
+                let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, albeido);
             $$ else
                 let lit_color = albeido;
             $$ endif
 
-            // Final color
-            out.color = vec4<f32>(lit_color, color_value.a);
-
-            // Picking
-            let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
-            let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
-
-            out.color.a = out.color.a * u_material.opacity;
-
             $$ if wireframe
-                let distance_from_edge = min(in.wireframe_coords.x, min(in.wireframe_coords.y, in.wireframe_coords.z));
+                let distance_from_edge = min(varyings.wireframe_coords.x, min(varyings.wireframe_coords.y, varyings.wireframe_coords.z));
                 if (distance_from_edge > 0.5 * u_material.wireframe) {
                     discard;
                 }
             $$ endif
 
-            apply_clipping_planes(in.world_pos);
+            let final_color = vec4<f32>(lit_color, color_value.a * u_material.opacity);
+
+            // Wrap up
+
+            apply_clipping_planes(varyings.world_pos);
+            add_fragment(varyings.position.z, final_color);
+            var out = finalize_fragment();
+
+            $$ if render_pass == 1
+            let face_id = vec2<i32>(varyings.face_idx.xz * 10000.0 + varyings.face_idx.yw + 0.5);  // inst+face
+            let w8 = vec3<i32>(varyings.face_coords.xyz * 255.0 + 0.5);
+            out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+            $$ endif
+
             return out;
         }
+        """
 
-
+        xxxx = """
         [[stage(fragment)]]
-        fn fs_normal_color(in: VertexOutput) -> FragmentOutput {
+        fn fs_normal_color(in: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
 
             // Color

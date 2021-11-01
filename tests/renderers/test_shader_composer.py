@@ -123,4 +123,5 @@ def test_uniform_definitions():
 
 if __name__ == "__main__":
     test_templating()
+    test_varying_elimination()
     test_uniform_definitions()
