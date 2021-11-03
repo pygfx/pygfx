@@ -14,9 +14,7 @@ import pygfx as gfx
 
 
 class Square(gfx.WorldObject):
-    def __init__(self, material):
-        super().__init__()
-        self.material = material
+    pass
 
 
 class SquareMaterial(gfx.Material):
@@ -78,7 +76,7 @@ canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
-t1 = Square(SquareMaterial())
+t1 = Square(None, SquareMaterial())
 scene.add(t1)
 
 camera = gfx.NDCCamera()  # This example does not even use the camera

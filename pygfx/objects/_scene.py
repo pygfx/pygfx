@@ -13,6 +13,8 @@ class Background(WorldObject):
     Can be e.g. a gradient, a static image or a skybox.
     """
 
-    def __init__(self, material):
-        super().__init__()
-        self.material = material
+    def __init__(self, geometry=None, material=None):
+        # Allow one arg, as an exception
+        if material is None and geometry is not None:
+            geometry, material = None, geometry
+        super().__init__(None, material)

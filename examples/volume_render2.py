@@ -56,12 +56,12 @@ scene = gfx.Scene()
 
 voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
 
-tex = gfx.Texture(voldata, dim=3)
+geometry = gfx.Geometry(grid=voldata)
 material = gfx.VolumeRayMaterial(clim=(0, 2000))
 
-vol1 = gfx.Volume(tex, material)
-vol2 = gfx.Volume(tex, material)
-vol3 = gfx.Volume(tex, material)
+vol1 = gfx.Volume(geometry, material)
+vol2 = gfx.Volume(geometry, material)
+vol3 = gfx.Volume(geometry, material)
 scene.add(vol1, vol2, vol3)
 
 vol2.position.x = -150

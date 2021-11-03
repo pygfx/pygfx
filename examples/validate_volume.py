@@ -24,8 +24,8 @@ voldata[:, 1:-1, :] = 600
 voldata[:, :, 1:-1] = 600
 voldata[1, 1, 1] = 800
 
-# Create a texture for it
-tex = gfx.Texture(voldata, dim=3)
+# Create a texture, (wrapped in a geometry) for it
+vol_geo = gfx.Geometry(grid=gfx.Texture(voldata, dim=3))
 
 # Prepare two 3x3x3 boxes to indicate the proper position
 box1 = gfx.Mesh(
@@ -39,15 +39,21 @@ box2 = gfx.Mesh(
 
 # In scene1 we show a raycasted volume
 scene1 = gfx.Scene()
-vol = gfx.Volume(tex, gfx.VolumeRayMaterial(clim=(0, 2000)))
+vol = gfx.Volume(vol_geo, gfx.VolumeRayMaterial(clim=(0, 2000)))
 vol.position.set(-1, -1, -1)
 scene1.add(vol, box1)
 
 # In scene2 we show volume slices
 scene2 = gfx.Scene()
-slice1 = gfx.Volume(tex, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 0, 1, 0)))
-slice2 = gfx.Volume(tex, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 1, 0, 0)))
-slice3 = gfx.Volume(tex, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(1, 0, 0, 0)))
+slice1 = gfx.Volume(
+    vol_geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 0, 1, 0))
+)
+slice2 = gfx.Volume(
+    vol_geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 1, 0, 0))
+)
+slice3 = gfx.Volume(
+    vol_geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(1, 0, 0, 0))
+)
 for slice in (slice1, slice2, slice3):
     slice.position.set(-1, -1, -1)
 scene2.add(slice1, slice2, slice3, box2)

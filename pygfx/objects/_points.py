@@ -9,8 +9,3 @@ class Points(WorldObject):
     ``vertex_index`` (int).
 
     """
-
-    def __init__(self, geometry, material):
-        super().__init__()
-        self.geometry = geometry
-        self.material = material

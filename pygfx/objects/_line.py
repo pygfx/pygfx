@@ -11,8 +11,3 @@ class Line(WorldObject):
     ``vertex_index`` (float). Note that ``vertex_index`` is not integer;
     round the number to obtain the nearest vertex.
     """
-
-    def __init__(self, geometry, material):
-        super().__init__()
-        self.geometry = geometry
-        self.material = material

@@ -67,8 +67,10 @@ voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
 
 
 tex = gfx.Texture(voldata, dim=3)
-vol = gfx.Volume(tex, gfx.VolumeRayMaterial(clim=(0, 2000)))
-slice = gfx.Volume(tex, gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, 1, 0)))
+vol = gfx.Volume(gfx.Geometry(grid=tex), gfx.VolumeRayMaterial(clim=(0, 2000)))
+slice = gfx.Volume(
+    gfx.Geometry(grid=tex), gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, 1, 0))
+)
 scene.add(vol, slice)
 
 for ob in (slice, vol):
