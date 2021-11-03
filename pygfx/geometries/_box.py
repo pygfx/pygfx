@@ -5,7 +5,7 @@ from ._plane import generate_plane
 from .utils import merge, transform
 
 
-def create_box(
+def box_geometry(
     width=1,
     height=1,
     depth=1,
@@ -13,6 +13,20 @@ def create_box(
     height_segments=1,
     depth_segments=1,
 ):
+    """Create geometry respresenting a box.
+
+    The box has its center at the origin. The normals for each side all
+    point in the same direction; the corners are actually square.
+    Texture coordinates for each side run from 0 to 1.
+
+    Parameters:
+        width (int): The size in the x-dimension, default 1.
+        height (int): The size in the y-dimension, default 1.
+        depth (int): The size in the z-dimension, default 1.
+        width_segments (int): The number of segments to use in x.
+        height_segments (int): The number of segments to use in y.
+        depth_segments (int): The number of segments to use in z.
+    """
 
     # y z
     # |/

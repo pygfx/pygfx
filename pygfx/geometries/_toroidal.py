@@ -1,12 +1,11 @@
 import numpy as np
 
-from ..resources import Buffer
 from ._base import Geometry
 
 
-class KleinBottleGeometry(Geometry):
+def klein_bottle_geometry(scale=1.0):
     """The Klein bottle is a surface for which the inside and outside
-    are the same. A bit like a Möbius strip. In fact, a Klein bottle
+    are the same, similar to a Möbius strip. In fact, a Klein bottle
     can be constructed by glueing together two Möbius strips.
 
     More technically: the Klein bottle is an example of a non-orientable
@@ -18,56 +17,51 @@ class KleinBottleGeometry(Geometry):
     # interesting because we can test whether our lighting etc. deals
     # correctly with objects for which the "inside" must also be shown.
 
-    def __init__(self, scale=1.0):
-        super().__init__()
+    # The number of vertices is nxn
+    n = 40
 
-        # The number of vertices is nxn
-        n = 40
+    # Get 2D surface in 3D space
+    u = np.linspace(0, 2 * np.pi, n, endpoint=True, dtype=np.float32)
+    v = np.linspace(0, 2 * np.pi, n, endpoint=False, dtype=np.float32)
+    ux, vx = np.meshgrid(u, v)
+    x, y, z = klein_bottle_surface(ux, vx)
 
-        # Get 2D surface in 3D space
-        u = np.linspace(0, 2 * np.pi, n, endpoint=True, dtype=np.float32)
-        v = np.linspace(0, 2 * np.pi, n, endpoint=False, dtype=np.float32)
-        ux, vx = np.meshgrid(u, v)
-        x, y, z = klein_bottle_surface(ux, vx)
+    # Scaled to a unit cube, then scale to width / height / depth
+    # x = (x + 1.66559) * (0.0437597 * width)
+    # y = (y - 2.04939) * (0.0277017 * height)
+    # z = (z + 0.00000) * (0.0833333 * depth)
+    # Scaled to fit inside a unit cube, but maintain original proportions
+    x = (x + 1.66559) * (0.0833333 * scale)
+    y = (y - 2.04939) * (0.0833333 * scale)
+    z = (z + 0.00000) * (0.0833333 * scale)
 
-        # Scaled to a unit cube, then scale to width / height / depth
-        # x = (x + 1.66559) * (0.0437597 * width)
-        # y = (y - 2.04939) * (0.0277017 * height)
-        # z = (z + 0.00000) * (0.0833333 * depth)
-        # Scaled to fit inside a unit cube, but maintain original proportions
-        x = (x + 1.66559) * (0.0833333 * scale)
-        y = (y - 2.04939) * (0.0833333 * scale)
-        z = (z + 0.00000) * (0.0833333 * scale)
+    # Put into an Nx4 array
+    positions = np.empty((x.size, 3), np.float32)
+    positions[:, 0] = x.flat
+    positions[:, 1] = y.flat
+    positions[:, 2] = z.flat
 
-        # Put into an Nx4 array
-        positions = np.empty((x.size, 3), np.float32)
-        positions[:, 0] = x.flat
-        positions[:, 1] = y.flat
-        positions[:, 2] = z.flat
+    # Texcoords are easy
+    texcoords = np.column_stack([ux.flat, vx.flat]).astype(np.float32, copy=False)
+    texcoords *= 1 / (2 * np.pi)
 
-        # Texcoords are easy
-        texcoords = np.column_stack([ux.flat, vx.flat]).astype(np.float32, copy=False)
-        texcoords *= 1 / (2 * np.pi)
+    # Map indices
+    # Two triangles onto the "top-left" rectangle (six vertices)
+    indices = np.array([0, 1, n + 1, n + 1, n, 0], np.uint32)
+    # Replicate to all rectangles, add offsets
+    indices = np.tile(indices, (n, n - 1, 1))
+    gx, gy = np.meshgrid(
+        np.arange(indices.shape[1], dtype=np.uint32),
+        n * np.arange(indices.shape[0], dtype=np.uint32),
+    )
+    indices += (gx + gy).reshape(indices.shape[:2] + (1,))
+    # Stitch the ends together over one axis. We can't stitch the other ends
+    # together, since that's where the normals flip from "inside" to "outside".
+    indices[-1, :, 2:5] -= n * n
+    indices = indices.reshape((-1, 3))
 
-        # Map indices
-        # Two triangles onto the "top-left" rectangle (six vertices)
-        indices = np.array([0, 1, n + 1, n + 1, n, 0], np.uint32)
-        # Replicate to all rectangles, add offsets
-        indices = np.tile(indices, (n, n - 1, 1))
-        gx, gy = np.meshgrid(
-            np.arange(indices.shape[1], dtype=np.uint32),
-            n * np.arange(indices.shape[0], dtype=np.uint32),
-        )
-        indices += (gx + gy).reshape(indices.shape[:2] + (1,))
-        # Stitch the ends together over one axis. We can't stitch the other ends
-        # together, since that's where the normals flip from "inside" to "outside".
-        indices[-1, :, 2:5] -= n * n
-        indices = indices.reshape((-1, 3))
-
-        # Create buffers for this geometry
-        self.positions = Buffer(positions)
-        self.indices = Buffer(indices)
-        self.texcoords = Buffer(texcoords)
+    # Create buffers for this geometry
+    return Geometry(indices=indices, positions=positions, texcoords=texcoords)
 
 
 def klein_bottle_surface(u, v):
@@ -90,11 +84,11 @@ def klein_bottle_surface(u, v):
     return x, y, z
 
 
-def create_torus_knot(
+def torus_knot_geometry(
     scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
 ):
-    """Defines a torus knot, the particular shape of which is defined
-    by a pair of coprime integers, p and q. If p and q are not coprime,
+    """Create geometry representing a torus knot, the particular shape of which
+    is defined by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
 
     Arguments:
