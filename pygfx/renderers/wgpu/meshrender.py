@@ -562,8 +562,8 @@ def meshslice_renderer(wobject, render_info):
     fs_entry_point = "fs_main"
 
     # We're assuming the presence of an index buffer for now
-    assert getattr(geometry, "index", None)
-    n = (geometry.index.data.size // 3) * 6
+    assert getattr(geometry, "indices", None)
+    n = (geometry.indices.data.size // 3) * 6
     n_instances = 1
 
     bindings = {}
@@ -575,7 +575,7 @@ def meshslice_renderer(wobject, render_info):
 
     # Init storage buffer bindings
     bindings[3] = Binding(
-        "s_indices", "buffer/read_only_storage", geometry.index, "VERTEX"
+        "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
     )
     bindings[4] = Binding(
         "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
