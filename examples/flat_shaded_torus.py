@@ -15,7 +15,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 
-geometry = gfx.TorusKnotGeometry(1, 0.3, 64, 10)
+geometry = gfx.torus_knot_geometry(1, 0.3, 64, 10)
 geometry.texcoords.data[:, 0] *= 10  # stretch the texture
 material = gfx.MeshFlatMaterial(color=(1, 0, 1, 1))
 obj = gfx.Mesh(geometry, material)

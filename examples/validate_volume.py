@@ -29,11 +29,11 @@ tex = gfx.Texture(voldata, dim=3)
 
 # Prepare two 3x3x3 boxes to indicate the proper position
 box1 = gfx.Mesh(
-    gfx.BoxGeometry(3.1, 3.1, 3.1),
+    gfx.box_geometry(3.1, 3.1, 3.1),
     gfx.MeshBasicMaterial(color=(1, 0, 0, 1), wireframe=True, wireframe_thickness=2),
 )
 box2 = gfx.Mesh(
-    gfx.BoxGeometry(3.1, 3.1, 3.1),
+    gfx.box_geometry(3.1, 3.1, 3.1),
     gfx.MeshBasicMaterial(color=(0, 1, 0, 1), wireframe=True, wireframe_thickness=2),
 )
 

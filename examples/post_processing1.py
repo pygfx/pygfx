@@ -33,11 +33,10 @@ class Fullquad(gfx.WorldObject):
 
 class NoiseMaterial(gfx.materials.Material):
 
+    # Note that this inherits fields from the base Material
     uniform_type = {
-        "clipping_planes": "0*4xf4",
         "time": "f4",
         "noise": "f4",
-        "opacity": "f4",
     }
 
     def __init__(self, noise=1):
@@ -67,6 +66,7 @@ struct FragmentOutput {
 
 [[block]]
 struct Render {
+    opacity: f32;
     time: f32;
     noise: f32;
 };
@@ -145,7 +145,7 @@ scene = gfx.Scene()
 im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
-geometry = gfx.BoxGeometry(200, 200, 200)
+geometry = gfx.box_geometry(200, 200, 200)
 material = gfx.MeshBasicMaterial(map=tex)
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)

@@ -61,7 +61,7 @@ scene.add(background)
 
 im = imageio.imread("imageio:astronaut.png")
 tex = gfx.Texture(im, dim=2)
-geometry = gfx.PlaneGeometry(512, 512)
+geometry = gfx.plane_geometry(512, 512)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)

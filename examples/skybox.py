@@ -36,7 +36,7 @@ scene.add(background)
 cubes = []
 for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
     clr = (0.5, 0.6, 0.0, 1.0)
-    cube = gfx.Mesh(gfx.BoxGeometry(200, 200, 200), gfx.MeshPhongMaterial(color=clr))
+    cube = gfx.Mesh(gfx.box_geometry(200, 200, 200), gfx.MeshPhongMaterial(color=clr))
     cube.position.from_array(pos)
     cubes.append(cube)
     scene.add(cube)

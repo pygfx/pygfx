@@ -31,9 +31,10 @@ positions += [
 for i in range(len(positions)):
     positions[i][2] = i
 
-geometry = gfx.Geometry(positions=positions)
-material = gfx.LineMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0))
-line = gfx.Line(geometry, material)
+line = gfx.Line(
+    gfx.Geometry(positions=positions),
+    gfx.LineMaterial(thickness=12.0, color=(0.8, 0.7, 0.0, 1.0)),
+)
 scene.add(line)
 
 camera = gfx.OrthographicCamera(600, 500)

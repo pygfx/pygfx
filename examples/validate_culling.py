@@ -19,7 +19,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 # geometry = gfx.BoxGeometry(1, 1, 1)
-geometry = gfx.TorusKnotGeometry(1, 0.3, 64, 10)
+geometry = gfx.torus_knot_geometry(1, 0.3, 64, 10)
 
 # Create red know shown normally
 material1 = gfx.MeshPhongMaterial(color=(1, 0, 0, 1))

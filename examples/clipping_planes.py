@@ -66,7 +66,7 @@ def create_scene(clipping_planes, clipping_mode):
             clipping_planes=clipping_planes,
             clipping_mode=clipping_mode,
         )
-        geometry = gfx.BoxGeometry(n, n, n)
+        geometry = gfx.box_geometry(n, n, n)
         cube = gfx.Mesh(geometry, material)
         scene.add(cube)
 

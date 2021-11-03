@@ -70,7 +70,7 @@ tex = gfx.Texture(vol, dim=3)
 
 surface = marching_cubes(vol[0:], 200)
 geo = gfx.Geometry(
-    positions=np.fliplr(surface[0]), index=surface[1], normals=surface[2]
+    positions=np.fliplr(surface[0]), indices=surface[1], normals=surface[2]
 )
 mesh = gfx.Mesh(
     geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1))

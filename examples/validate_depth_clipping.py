@@ -37,7 +37,7 @@ else:
 
 # %% Create four planes near the z-clipping planes
 
-geometry = gfx.PlaneGeometry(1, 1)
+geometry = gfx.plane_geometry(1, 1)
 green_material = gfx.MeshBasicMaterial(color=(0, 0.8, 0.2, 1))
 greener_material = gfx.MeshBasicMaterial(color=(0, 1, 0, 1))
 red_material = gfx.MeshBasicMaterial(color=(1, 0, 0, 1))

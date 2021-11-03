@@ -28,7 +28,7 @@ im = vol[index].copy()
 
 tex = gfx.Texture(im, dim=2)
 
-geometry = gfx.PlaneGeometry(200, 200, 12, 12)
+geometry = gfx.plane_geometry(200, 200, 12, 12)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 2000))
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)

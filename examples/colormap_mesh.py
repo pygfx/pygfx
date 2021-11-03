@@ -18,7 +18,7 @@ scene = gfx.Scene()
 
 
 def get_geometry():
-    return gfx.CylinderGeometry(height=2, radial_segments=32, open_ended=True)
+    return gfx.cylinder_geometry(height=2, radial_segments=32, open_ended=True)
 
 
 def create_object(texcoords, tex, xpos):

@@ -55,16 +55,11 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 cylinders = [
-    (
-        (0, 0, -32.5),
-        (0, 0.65, 0, 1),
-        gfx.CylinderGeometry(20, 12, radial_segments=16, height=25, open_ended=True),
-    ),
-    ((0, 0, 25), (1, 1, 1, 1), gfx.CylinderGeometry(10, 10, height=25)),
+    ((0, 0, -32.5), (0, 0.65, 0, 1), gfx.cylinder_geometry(10, 10, height=25)),
     (
         (30, 0, 25),
         (1, 0.3, 0.3, 1),
-        gfx.CylinderGeometry(
+        gfx.cylinder_geometry(
             10,
             10,
             height=12,
@@ -76,12 +71,12 @@ cylinders = [
     (
         (-50, 0, 0),
         (0.35, 0, 0, 1),
-        gfx.CylinderGeometry(
+        gfx.cylinder_geometry(
             20, 12, radial_segments=3, height_segments=4, height=10, open_ended=True
         ),
     ),
-    ((50, 0, -10), (1, 1, 0.75, 1), gfx.CylinderGeometry(1.5, 1.5, height=20)),
-    ((50, 0, 5), (1, 1, 0.75, 1), gfx.CylinderGeometry(4, 0.0, height=10)),
+    ((50, 0, -10), (1, 1, 0.75, 1), gfx.cylinder_geometry(1.5, 1.5, height=20)),
+    ((50, 0, 5), (1, 1, 0.75, 1), gfx.cylinder_geometry(4, 0.0, height=10)),
 ]
 for pos, color, geometry in cylinders:
     material = gfx.MeshPhongMaterial(color=color)
