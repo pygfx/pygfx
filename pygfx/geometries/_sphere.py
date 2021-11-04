@@ -1,18 +1,19 @@
 import numpy as np
 
-from ..resources import Buffer
 from ._base import Geometry
 
 
-def generate_sphere(
-    radius,
-    width_segments,
-    height_segments,
-    phi_start,
-    phi_length,
-    theta_start,
-    theta_length,
+def sphere_geometry(
+    radius=1,
+    width_segments=32,
+    height_segments=16,
+    phi_start=0,
+    phi_length=np.pi * 2,
+    theta_start=0,
+    theta_length=np.pi,
 ):
+    """Create geometry representing a sphere."""
+
     # create grid of spherical coordinates
     nx = width_segments + 1
     phi_end = phi_start + phi_length
@@ -44,54 +45,23 @@ def generate_sphere(
 
     # the face indices
     # assign an index to every vertex on the grid
-    indices = np.arange(nx * ny, dtype=np.uint32).reshape((ny, nx))
+    idx = np.arange(nx * ny, dtype=np.uint32).reshape((ny, nx))
     # for every panel (height_segments, width_segments) there is a quad (2, 3)
-    index = np.empty((height_segments, width_segments, 2, 3), dtype=np.uint32)
-    # create a grid of initial indices for the panels
-    index[:, :, 0, 0] = indices[
+    indices = np.empty((height_segments, width_segments, 2, 3), dtype=np.uint32)
+    # create a grid of initial idx for the panels
+    indices[:, :, 0, 0] = idx[
         np.arange(height_segments)[:, None], np.arange(width_segments)[None, :]
     ]
     # the remainder of the indices for every panel are relative
-    index[:, :, 0, 1] = index[:, :, 0, 0] + nx
-    index[:, :, 0, 2] = index[:, :, 0, 0] + 1
-    index[:, :, 1, 0] = index[:, :, 0, 0] + nx + 1
-    index[:, :, 1, 1] = index[:, :, 1, 0] - nx
-    index[:, :, 1, 2] = index[:, :, 1, 0] - 1
+    indices[:, :, 0, 1] = indices[:, :, 0, 0] + nx
+    indices[:, :, 0, 2] = indices[:, :, 0, 0] + 1
+    indices[:, :, 1, 0] = indices[:, :, 0, 0] + nx + 1
+    indices[:, :, 1, 1] = indices[:, :, 1, 0] - nx
+    indices[:, :, 1, 2] = indices[:, :, 1, 0] - 1
 
-    return (
-        positions.reshape((-1, 3)),
-        normals.reshape((-1, 3)),
-        texcoords.reshape((-1, 2)),
-        index.reshape((-1, 3)),
+    return Geometry(
+        indices=indices.reshape((-1, 3)),
+        positions=positions.reshape((-1, 3)),
+        normals=normals.reshape((-1, 3)),
+        texcoords=texcoords.reshape((-1, 2)),
     )
-
-
-class SphereGeometry(Geometry):
-    """A geometry defining a Sphere."""
-
-    def __init__(
-        self,
-        radius=1,
-        width_segments=32,
-        height_segments=16,
-        phi_start=0,
-        phi_length=np.pi * 2,
-        theta_start=0,
-        theta_length=np.pi,
-    ):
-        super().__init__()
-
-        vertices, normals, texcoords, indices = generate_sphere(
-            radius=radius,
-            width_segments=width_segments,
-            height_segments=height_segments,
-            phi_start=phi_start,
-            phi_length=phi_length,
-            theta_start=theta_start,
-            theta_length=theta_length,
-        )
-
-        self.positions = Buffer(vertices)
-        self.normals = Buffer(normals)
-        self.texcoords = Buffer(texcoords)
-        self.indices = Buffer(indices)

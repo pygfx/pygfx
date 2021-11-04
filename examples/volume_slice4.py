@@ -33,7 +33,8 @@ nslices = voldata.shape[0]
 index = nslices // 2
 
 vol = gfx.Volume(
-    voldata, gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, -1, index))
+    gfx.Geometry(grid=voldata),
+    gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, -1, index)),
 )
 scene.add(vol)
 

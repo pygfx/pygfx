@@ -82,7 +82,7 @@ sizes = {
     2: (vol.shape[2], vol.shape[1]),  # XY plane (default)
 }
 for axis in [0, 1, 2]:
-    geometry = gfx.PlaneGeometry(*sizes[axis], 1, 1)
+    geometry = gfx.plane_geometry(*sizes[axis], 1, 1)
     geometry.texcoords = gfx.Buffer(np.array(texcoords[axis], dtype="f4"))
     plane = gfx.Mesh(geometry, material)
     planes.append(plane)

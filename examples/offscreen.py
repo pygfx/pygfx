@@ -19,7 +19,7 @@ scene = gfx.Scene()
 im = imageio.imread("imageio:astronaut.png").astype("float32") / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
-geometry = gfx.BoxGeometry(200, 200, 200)
+geometry = gfx.box_geometry(200, 200, 200)
 material = gfx.MeshBasicMaterial(map=tex)
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)

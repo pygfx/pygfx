@@ -29,7 +29,7 @@ class PickingWgpuCanvas(WgpuCanvas):
             # or use the coords to select the closest edge.
             sub_index = np.argmax(coords)
             # Look up the vertex index
-            vertex_index = int(wobject.geometry.index.data[face_index, sub_index])
+            vertex_index = int(wobject.geometry.indices.data[face_index, sub_index])
             # Change the position of that vertex
             pos = wobject.geometry.positions.data[vertex_index]
             pos[:] *= 1.1
@@ -44,13 +44,13 @@ scene = gfx.Scene()
 im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
-geometry = gfx.BoxGeometry(200, 200, 200)
+geometry = gfx.box_geometry(200, 200, 200)
 material = gfx.MeshBasicMaterial(map=tex)
 cube = gfx.Mesh(geometry, material)
 cube.position.x += 150
 scene.add(cube)
 
-torus = gfx.Mesh(gfx.TorusKnotGeometry(100, 20, 128, 32), gfx.MeshPhongMaterial())
+torus = gfx.Mesh(gfx.torus_knot_geometry(100, 20, 128, 32), gfx.MeshPhongMaterial())
 torus.position.x -= 150
 scene.add(torus)
 

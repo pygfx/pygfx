@@ -76,8 +76,11 @@ class WorldObject(ResourceContainer):
     _m = Matrix4()
     _q = Quaternion()
 
-    def __init__(self):
+    def __init__(self, geometry=None, material=None):
         super().__init__()
+
+        self.geometry = geometry
+        self.material = material
 
         # Init visibility
         self._visible = True
@@ -134,6 +137,24 @@ class WorldObject(ResourceContainer):
     @visible.setter
     def visible(self, visible):
         self._visible = bool(visible)
+
+    @property
+    def geometry(self):
+        """The object's geometry, the data that defines (the shape of) this object."""
+        return self._geometry
+
+    @geometry.setter
+    def geometry(self, geometry):
+        self._geometry = geometry
+
+    @property
+    def material(self):
+        """Wheter is object is rendered or not. Default True."""
+        return self._material
+
+    @material.setter
+    def material(self, material):
+        self._material = material
 
     @property
     def parent(self):

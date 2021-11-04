@@ -22,7 +22,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 
 scene1 = gfx.Scene()
 
-geometry1 = gfx.BoxGeometry(200, 200, 200)
+geometry1 = gfx.box_geometry(200, 200, 200)
 material1 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1.0))
 cube1 = gfx.Mesh(geometry1, material1)
 scene1.add(cube1)

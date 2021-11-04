@@ -20,7 +20,7 @@ im = reader.get_next_data()[:, :, 1]
 
 tex = gfx.Texture(im, dim=2)
 
-geometry = gfx.PlaneGeometry(200, 200, 12, 12)
+geometry = gfx.plane_geometry(200, 200, 12, 12)
 material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)

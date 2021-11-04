@@ -70,7 +70,7 @@ tex = gfx.Texture(vol, dim=3)
 
 surface = marching_cubes(vol[0:], 200)
 geo = gfx.Geometry(
-    positions=np.fliplr(surface[0]), index=surface[1], normals=surface[2]
+    positions=np.fliplr(surface[0]), indices=surface[1], normals=surface[2]
 )
 mesh = gfx.Mesh(
     geo, gfx.MeshSliceMaterial(plane=(0, 0, -1, vol.shape[0] / 2), color=(1, 1, 0, 1))
@@ -83,7 +83,7 @@ for dim in [0, 1, 2]:  # xyz
     abcd[dim] = -1
     abcd[-1] = vol.shape[2 - dim] / 2
     material = gfx.VolumeSliceMaterial(clim=(0, 2000), plane=abcd)
-    plane = gfx.Volume(tex, material)
+    plane = gfx.Volume(gfx.Geometry(grid=tex), material)
     planes.append(plane)
     scene.add(plane)
 

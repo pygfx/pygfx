@@ -1,7 +1,9 @@
 import numpy as np
 
-from ..resources import Buffer
 from ._base import Geometry
+
+
+# Note that we keep this function separate, because its used by other geometry-generating functions.
 
 
 def generate_plane(width, height, width_segments, height_segments):
@@ -37,17 +39,16 @@ def generate_plane(width, height, width_segments, height_segments):
     return positions, normals, texcoords, index.reshape((-1, 3))
 
 
-class PlaneGeometry(Geometry):
-    """A geometry defining a one-dimensional plane."""
+def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
+    """Create a geometry that represents a 2D plane in a 3D world."""
 
-    def __init__(self, width=1, height=1, width_segments=1, height_segments=1):
-        super().__init__()
+    positions, normals, texcoords, indices = generate_plane(
+        width, height, width_segments, height_segments
+    )
 
-        positions, normals, texcoords, indices = generate_plane(
-            width, height, width_segments, height_segments
-        )
-
-        self.positions = Buffer(positions)
-        self.normals = Buffer(normals)
-        self.texcoords = Buffer(texcoords)
-        self.indices = Buffer(indices.reshape((-1, 3)))
+    return Geometry(
+        indices=indices.reshape((-1, 3)),
+        positions=positions,
+        normals=normals,
+        texcoords=texcoords,
+    )

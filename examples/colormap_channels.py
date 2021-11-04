@@ -15,7 +15,7 @@ canvas = WgpuCanvas(size=(900, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-geometry = gfx.TorusKnotGeometry(1, 0.3, 128, 32)
+geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)
 geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0])
 
 camera = gfx.OrthographicCamera(16, 3)

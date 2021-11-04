@@ -58,21 +58,21 @@ spheres = [
     (
         (0, 0, -7.5),
         (0, 0.65, 0, 1),
-        gfx.SphereGeometry(4.5, phi_length=np.pi * 1.5),
+        gfx.sphere_geometry(4.5, phi_length=np.pi * 1.5),
     ),
-    ((0, 0, 7.5), (1, 1, 1, 1), gfx.SphereGeometry(4)),
+    ((0, 0, 7.5), (1, 1, 1, 1), gfx.sphere_geometry(4)),
     (
         (15, 0, -7.5),
         (1, 0.3, 0.3, 1),
-        gfx.SphereGeometry(4, theta_start=np.pi * 0.25, theta_length=np.pi * 0.50),
+        gfx.sphere_geometry(4, theta_start=np.pi * 0.25, theta_length=np.pi * 0.50),
     ),
     (
         (15, 0, 7.5),
         (0.35, 0, 0, 1),
-        gfx.SphereGeometry(5, width_segments=6),
+        gfx.sphere_geometry(5, width_segments=6),
     ),
-    ((-15, 0, -7.5), (1, 1, 0.75, 1), gfx.SphereGeometry(7)),
-    ((-15, 0, 7.5), (1, 1, 0.75, 1), gfx.SphereGeometry(5, height_segments=8)),
+    ((-15, 0, -7.5), (1, 1, 0.75, 1), gfx.sphere_geometry(7)),
+    ((-15, 0, 7.5), (1, 1, 0.75, 1), gfx.sphere_geometry(5, height_segments=8)),
 ]
 for pos, color, geometry in spheres:
     material = gfx.MeshFlatMaterial(color=color)

@@ -1,6 +1,5 @@
 import numpy as np
 
-from ..resources import Buffer
 from ._base import Geometry
 from .utils import merge
 
@@ -134,62 +133,82 @@ def generate_cap(radius, height, radial_segments, theta_start, theta_length, up=
     )
 
 
-class CylinderGeometry(Geometry):
-    """A geometry defining a Cylinder."""
+def cylinder_geometry(
+    radius_bottom=1.0,
+    radius_top=1.0,
+    height=1.0,
+    radial_segments=8,
+    height_segments=1,
+    theta_start=0.0,
+    theta_length=np.pi * 2,
+    open_ended=False,
+):
+    """Create geometry representing a cylinder."""
 
-    def __init__(
-        self,
-        radius_bottom=1.0,
-        radius_top=1.0,
-        height=1.0,
-        radial_segments=8,
-        height_segments=1,
-        theta_start=0.0,
-        theta_length=np.pi * 2,
-        open_ended=False,
-    ):
-        super().__init__()
+    assert radial_segments > 0
+    assert height_segments > 0
+    assert theta_length != 0.0
 
-        assert radial_segments > 0
-        assert height_segments > 0
-        assert theta_length != 0.0
+    mesh = generate_torso(
+        radius_bottom,
+        radius_top,
+        height,
+        radial_segments,
+        height_segments,
+        theta_start,
+        theta_length,
+    )
 
-        mesh = generate_torso(
-            radius_bottom,
-            radius_top,
-            height,
-            radial_segments,
-            height_segments,
-            theta_start,
-            theta_length,
-        )
+    if not open_ended:
+        groups = [mesh]
+        if radius_bottom > 0:
+            bottom_cap = generate_cap(
+                radius_bottom,
+                -height / 2,
+                radial_segments,
+                theta_start,
+                theta_length,
+                up=False,
+            )
+            groups.append(bottom_cap)
+        if radius_top > 0:
+            top_cap = generate_cap(
+                radius_top,
+                height / 2,
+                radial_segments,
+                theta_start,
+                theta_length,
+                up=True,
+            )
+            groups.append(top_cap)
+        mesh = merge(groups)
 
-        if not open_ended:
-            groups = [mesh]
-            if radius_bottom > 0:
-                bottom_cap = generate_cap(
-                    radius_bottom,
-                    -height / 2,
-                    radial_segments,
-                    theta_start,
-                    theta_length,
-                    up=False,
-                )
-                groups.append(bottom_cap)
-            if radius_top > 0:
-                top_cap = generate_cap(
-                    radius_top,
-                    height / 2,
-                    radial_segments,
-                    theta_start,
-                    theta_length,
-                    up=True,
-                )
-                groups.append(top_cap)
-            mesh = merge(groups)
+    positions, normals, texcoords, indices = mesh
+    return Geometry(
+        indices=indices.reshape((-1, 3)),
+        positions=positions,
+        normals=normals,
+        texcoords=texcoords,
+    )
 
-        positions, normals, texcoords, indices = mesh
-        self.positions = Buffer(positions)
-        self.normals = Buffer(normals)
-        self.texcoords = Buffer(texcoords)
-        self.indices = Buffer(indices.reshape((-1, 3)))
+
+def cone_geometry(
+    radius=1.0,
+    height=1.0,
+    radial_segments=8,
+    height_segments=1,
+    theta_start=0.0,
+    theta_length=np.pi * 2,
+    open_ended=False,
+):
+    """Create geometry representing a cone."""
+    return cylinder_geometry(
+        radius_bottom=radius,
+        radius_top=0.0,
+        height=height,
+        radial_segments=radial_segments,
+        height_segments=height_segments,
+        theta_start=theta_start,
+        theta_length=theta_length,
+        open_ended=open_ended,
+    )

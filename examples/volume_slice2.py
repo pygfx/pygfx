@@ -29,7 +29,7 @@ tex_size = tuple(reversed(vol.shape))
 tex = gfx.Texture(vol, dim=2, size=tex_size)
 view = tex.get_view(filter="linear", view_dim="2d", layer_range=range(index, index + 1))
 
-geometry = gfx.PlaneGeometry(200, 200, 12, 12)
+geometry = gfx.plane_geometry(200, 200, 12, 12)
 material = gfx.MeshBasicMaterial(map=view, clim=(0, 2000))
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)

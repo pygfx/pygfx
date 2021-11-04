@@ -29,7 +29,7 @@ index = nslices // 2
 tex = gfx.Texture(vol, dim=3)
 view = tex.get_view(filter="linear")
 
-geometry = gfx.PlaneGeometry(200, 200, 1, 1)
+geometry = gfx.plane_geometry(200, 200, 1, 1)
 texcoords = np.hstack([geometry.texcoords.data, np.ones((4, 1), np.float32) * 0.5])
 geometry.texcoords = gfx.Buffer(texcoords)
 

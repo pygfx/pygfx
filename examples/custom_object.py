@@ -14,9 +14,7 @@ from pygfx.renderers.wgpu._shadercomposer import Binding
 
 # This class has mostly a semantic purpose here
 class Triangle(gfx.WorldObject):
-    def __init__(self, material):
-        super().__init__()
-        self.material = material
+    pass
 
 
 # Create a triangle material. We could e.g. define it's color here.
@@ -88,10 +86,10 @@ canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
-t1 = Triangle(TriangleMaterial())
+t1 = Triangle(None, TriangleMaterial())
 scene.add(t1)
 for _ in range(2):
-    scene.add(Triangle(TriangleMaterial()))
+    scene.add(Triangle(None, TriangleMaterial()))
 
 camera = gfx.NDCCamera()  # This material does not actually use the camera
 

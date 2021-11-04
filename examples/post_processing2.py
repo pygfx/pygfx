@@ -26,7 +26,7 @@ scene = gfx.Scene()
 im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
-geometry = gfx.BoxGeometry(200, 200, 200)
+geometry = gfx.box_geometry(200, 200, 200)
 geometry.texcoords.data[:] *= 2  # smaller bricks
 material = gfx.MeshPhongMaterial(map=tex, color=(1, 0, 0, 0.2))
 cube = gfx.Mesh(geometry, material)
