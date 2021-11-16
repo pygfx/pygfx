@@ -6,7 +6,6 @@ import wgpu
 from ...resources import Buffer, TextureView
 
 from ._utils import to_vertex_format, to_texture_format
-from ._shadercomposer import BaseShader
 from ._update import update_resource, ALTTEXFORMAT
 from . import registry
 

@@ -500,7 +500,7 @@ class WgpuRenderer(Renderer):
         # Collect items
         def visit(wobject):
             nonlocal q
-            if hasattr(wobject, "material"):
+            if wobject.material is not None:
                 q.append(wobject)
 
         q = []
@@ -570,7 +570,7 @@ class WgpuRenderer(Renderer):
             "world_object": wobject,
         }
 
-        if wobject and hasattr(wobject, "material"):
+        if wobject and wobject.material is not None:
             pick_info = wobject._wgpu_get_pick_info(pick_value)
             info.update(pick_info)
         return info

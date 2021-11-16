@@ -5,7 +5,7 @@ Example showing transparency using three orthogonal planes.
 import wgpu
 import pygfx as gfx
 
-from PyQt5 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore
 from wgpu.gui.qt import WgpuCanvas
 
 
@@ -25,7 +25,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             controls.pan_start if self._mode == "pan" else controls.rotate_start
         )
         drag_start(
-            (event.x(), event.y()),
+            (event.position().x(), event.position().y()),
             self.get_logical_size(),
             camera,
         )
@@ -57,7 +57,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             drag_move = (
                 controls.pan_move if self._mode == "pan" else controls.rotate_move
             )
-            drag_move((event.x(), event.y()))
+            drag_move((event.position().x(), event.position().y()))
 
 
 app = QtWidgets.QApplication([])

@@ -28,12 +28,12 @@ def mesh_renderer(wobject, render_info):
         wobject,
         render_info.blender,
         lighting="",
-        need_normals=False,
         texture_dim="",
         texture_format="f32",
         instanced=False,
         climcorrection=None,
         wireframe=material.wireframe,
+        normal_color=False,
     )
 
     # We're assuming the presence of an index buffer for now
@@ -124,31 +124,27 @@ def mesh_renderer(wobject, render_info):
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
         # Special simple fragment shader
-        fs_entry_point = "fs_normal_color"
         shader["texture_dim"] = ""  # disable texture if there happens to be one
-        shader["need_normals"] = True
+        shader["normal_color"] = True
     elif isinstance(material, MeshNormalLinesMaterial):
         # Special simple vertex shader with plain fragment shader
         topology = wgpu.PrimitiveTopology.line_list
-        vs_entry_point = "vs_normal_lines"
-        shader["texture_dim"] = ""  # disable texture if there happens to be one
+        shader.vertex_shader = shader.vertex_shader_normal_lines
         index_buffer = None
         n = geometry.positions.nitems * 2
-        shader["need_normals"] = True
+        shader["texture_dim"] = ""  # disable texture if there happens to be one
+        shader["lighting"] = ""
+        shader["wireframe"] = False
     elif isinstance(material, MeshFlatMaterial):
         shader["lighting"] = "flat"
-        shader["need_normals"] = True
     elif isinstance(material, MeshPhongMaterial):
         shader["lighting"] = "phong"
-        shader["need_normals"] = True
     else:
         pass  # simple lighting
 
     # Instanced meshes have an extra storage buffer that we add manually
     n_instances = 1
     if isinstance(wobject, InstancedMesh):
-        if vs_entry_point != "vs_main":
-            raise TypeError(f"Instanced mesh does not work with {material}")
         shader["instanced"] = True
         bindings2[0] = Binding(
             "s_submatrices", "buffer/read_only_storage", wobject.matrices, "VERTEX"
@@ -322,10 +318,10 @@ class MeshShader(WorldObjectShader):
 
     """
 
-    xxx = """
-
+    def vertex_shader_normal_lines(self):
+        return """
         [[stage(vertex)]]
-        fn vs_normal_lines(in: VertexInput) -> Varyings {
+        fn vs_main(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
             let r = index % 2;
             let i0 = (index - r) / 2;
@@ -343,10 +339,15 @@ class MeshShader(WorldObjectShader):
             let world_pos = world_pos1 + f32(r) * world_normal * amplitude;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-            var out: Varyings;
-            out.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
-            out.position = ndc_pos;
-            return out;
+            var varyings: Varyings;
+            varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+            varyings.position = vec4<f32>(ndc_pos);
+
+            // Stub varyings, because the mesh varyings are based on face index
+            varyings.face_idx = vec4<f32>(0.0);
+            varyings.face_coords = vec3<f32>(0.0);
+
+            return varyings;
         }
         """
 
@@ -393,10 +394,13 @@ class MeshShader(WorldObjectShader):
                     color_value = vec4<f32>(color_value.rrr, color_value.g);
                 $$ endif
                 let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
+            $$ elif normal_color
+                let albeido = normalize(varyings.normal.xyz) * 0.5 + 0.5;
+                color_value = vec4<f32>(albeido, 1.0);
             $$ else
                 // Just a simple color
                 color_value = u_material.color;
-                let albeido: vec3<f32> = color_value.rgb;
+                let albeido = color_value.rgb;
             $$ endif
 
             // Lighting
@@ -428,25 +432,6 @@ class MeshShader(WorldObjectShader):
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
             $$ endif
 
-            return out;
-        }
-        """
-
-        xxxx = """
-        [[stage(fragment)]]
-        fn fs_normal_color(in: Varyings) -> FragmentOutput {
-            var out: FragmentOutput;
-
-            // Color
-            let v = normalize(in.normal) * 0.5 + 0.5;
-            out.color = vec4<f32>(v, 1.0);
-
-            // Picking
-            let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
-            let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
-
-            apply_clipping_planes(in.world_pos);
             return out;
         }
         """
