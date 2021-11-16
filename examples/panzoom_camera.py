@@ -56,7 +56,7 @@ scene = gfx.Scene()
 axes = gfx.AxesHelper(length=250)
 scene.add(axes)
 
-background = gfx.Background(gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
+background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
 im = imageio.imread("imageio:astronaut.png")
