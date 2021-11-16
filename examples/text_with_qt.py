@@ -170,7 +170,9 @@ for point in positions:
         )
     )
 
-scene.add(gfx.Background(gfx.BackgroundMaterial((0.04, 0.0, 0, 1), (0, 0.0, 0.04, 1))))
+scene.add(
+    gfx.Background(None, gfx.BackgroundMaterial((0.04, 0.0, 0, 1), (0, 0.0, 0.04, 1)))
+)
 
 camera = gfx.OrthographicCamera(3, 3)
 
