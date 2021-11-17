@@ -17,16 +17,16 @@ from ...utils import normals_from_vertices
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
-def mesh_renderer(wobject, render_info):
+def mesh_renderer(render_info):
     """Render function capable of rendering meshes."""
+    wobject = render_info.wobject
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
     # Initialize
     topology = wgpu.PrimitiveTopology.triangle_list
     shader = MeshShader(
-        wobject,
-        render_info.blender,
+        render_info,
         lighting="",
         texture_dim="",
         texture_format="f32",
@@ -185,14 +185,13 @@ class MeshShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
-            + self.more_definitions()
             + self.common_functions()
             + self.helpers()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-    def more_definitions(self):
+    def vertex_shader(self):
         return """
 
         struct VertexInput {
@@ -210,10 +209,7 @@ class MeshShader(WorldObjectShader):
         [[group(2), binding(0)]]
         var<storage,read> s_submatrices: BufferMat4;
         $$ endif
-        """
 
-    def vertex_shader(self):
-        return """
 
         [[stage(vertex)]]
         fn vs_main(in: VertexInput) -> Varyings {
@@ -309,9 +305,9 @@ class MeshShader(WorldObjectShader):
                 let inst_index = 0;
             $$ endif
 
-            varyings.face_idx = vec4<f32>(f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d));
-            var arr_face_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
-            varyings.face_coords = vec3<f32>(arr_face_coords[sub_index]);
+            varyings.pick_idx = vec4<f32>(f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d));
+            var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
+            varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
 
             return varyings;
         }
@@ -320,6 +316,12 @@ class MeshShader(WorldObjectShader):
 
     def vertex_shader_normal_lines(self):
         return """
+
+        struct VertexInput {
+            [[builtin(vertex_index)]] vertex_index : u32;
+        };
+
+
         [[stage(vertex)]]
         fn vs_main(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
@@ -344,8 +346,8 @@ class MeshShader(WorldObjectShader):
             varyings.position = vec4<f32>(ndc_pos);
 
             // Stub varyings, because the mesh varyings are based on face index
-            varyings.face_idx = vec4<f32>(0.0);
-            varyings.face_coords = vec3<f32>(0.0);
+            varyings.pick_idx = vec4<f32>(0.0);
+            varyings.pick_coords = vec3<f32>(0.0);
 
             return varyings;
         }
@@ -427,8 +429,8 @@ class MeshShader(WorldObjectShader):
             var out = finalize_fragment();
 
             $$ if render_pass == 1
-            let face_id = vec2<i32>(varyings.face_idx.xz * 10000.0 + varyings.face_idx.yw + 0.5);  // inst+face
-            let w8 = vec3<i32>(varyings.face_coords.xyz * 255.0 + 0.5);
+            let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);  // inst+face
+            let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
             $$ endif
 
@@ -513,17 +515,16 @@ class MeshShader(WorldObjectShader):
 
 
 @register_wgpu_render_function(Mesh, MeshSliceMaterial)
-def meshslice_renderer(wobject, render_info):
+def meshslice_renderer(render_info):
     """Render function capable of rendering mesh slices."""
 
+    wobject = render_info.wobject
     geometry = wobject.geometry
     material = wobject.material  # noqa
 
     # Initialize
     topology = wgpu.PrimitiveTopology.triangle_list
-    shader = MeshSliceShader(wobject)
-    vs_entry_point = "vs_main"
-    fs_entry_point = "fs_main"
+    shader = MeshSliceShader(render_info)
 
     # We're assuming the presence of an index buffer for now
     assert getattr(geometry, "indices", None)
@@ -550,11 +551,9 @@ def meshslice_renderer(wobject, render_info):
         shader.define_binding(0, i, binding)
 
     # Put it together!
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, vs_entry_point),
-            "fragment_shader": (wgsl, fs_entry_point),
+            "render_shader": shader,
             "primitive_topology": topology,
             "indices": (range(n), range(n_instances)),
             "index_buffer": None,
@@ -568,46 +567,27 @@ class MeshSliceShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
-            + self.more_definitions()
             + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-    def more_definitions(self):
+    def vertex_shader(self):
         return """
 
         struct VertexInput {
             [[builtin(vertex_index)]] vertex_index : u32;
         };
-        struct VertexOutput {
-            [[location(0)]] dist2center: vec2<f32>;
-            [[location(1)]] segment_length: f32;
-            [[location(2)]] segment_width: f32;
-            [[location(3)]] face_idx: vec4<f32>;
-            [[location(4)]] face_coords: vec3<f32>;
-            [[location(5)]] world_pos: vec3<f32>;
-            [[builtin(position)]] position: vec4<f32>;
-        };
 
-        struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-        };
-        """
 
-    def vertex_shader(self):
-        return """
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
+        fn vs_main(in: VertexInput) -> Varyings {
 
             // This vertex shader uses VertexId and storage buffers instead of
             // vertex buffers. It creates 6 vertices for each face in the mesh,
             // drawn with triangle-list. For the faces that cross the plane, we
             // draw a (thick) line segment with round caps (we need 6 verts for that).
             // Other faces become degenerate triangles.
-
-            var out: VertexOutput;
 
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
@@ -657,10 +637,11 @@ class MeshSliceShader(WorldObjectShader):
             let pos_index = b1 + b2 + b3;
 
             // The big triage
-
             var the_pos: vec4<f32>;
             var the_coord: vec2<f32>;
             var segment_length: f32;
+            var pick_idx: vec4<f32>;
+            var pick_coords: vec4<f32>;
 
             if (pos_index < 3) {//   (pos_index < 3) {  // or dot(n, u) == 0.0
                 // Just return the same vertex, resulting in degenerate triangles
@@ -738,18 +719,21 @@ class MeshSliceShader(WorldObjectShader):
                 the_coord = the_vec * pvec_local;
 
                 // Picking info
-                out.face_idx = vec4<f32>(0.0, 0.0, f32(face_index / 10000), f32(face_index % 10000));
+                pick_idx = vec4<f32>(0.0, 0.0, f32(face_index / 10000), f32(face_index % 10000));
                 let mixval = the_vec.x * 0.5 + 0.5;
-                out.face_coords = mix(fw_a, fw_b, vec3<f32>(mixval, mixval, mixval));
+                pick_coords = vec4<f32>(mix(fw_a, fw_b, vec3<f32>(mixval, mixval, mixval)), 0.0);
             }
 
             // Shader output
-            out.world_pos = ndc_to_world_pos(the_pos);
-            out.position = the_pos;
-            out.dist2center = the_coord * l2p;
-            out.segment_length = segment_length * l2p;
-            out.segment_width = thickness * l2p;
-            return out;
+            var varyings: Varyings;
+            varyings.position = vec4<f32>(the_pos);
+            varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos));
+            varyings.dist2center = vec2<f32>(the_coord * l2p);
+            varyings.segment_length = f32(segment_length * l2p);
+            varyings.segment_width = f32(thickness * l2p);
+            varyings.pick_idx = vec4<f32>(pick_idx);
+            varyings.pick_coords = vec4<f32>(pick_coords);
+            return varyings;
         }
         """
 
@@ -757,14 +741,14 @@ class MeshSliceShader(WorldObjectShader):
         return """
 
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
 
             // Discart fragments that are too far from the centerline. This makes round caps.
             // Note that we operate in physical pixels here.
-            let distx = max(0.0, abs(in.dist2center.x) - 0.5 * in.segment_length);
-            let dist = length(vec2<f32>(distx, in.dist2center.y));
-            if (dist > in.segment_width * 0.5) {
+            let distx = max(0.0, abs(varyings.dist2center.x) - 0.5 * varyings.segment_length);
+            let dist = length(vec2<f32>(distx, varyings.dist2center.y));
+            if (dist > varyings.segment_width * 0.5) {
                 discard;
             }
 
@@ -773,15 +757,20 @@ class MeshSliceShader(WorldObjectShader):
 
             // Set color
             let color = u_material.color;
-            out.color = vec4<f32>(color.rgb, min(1.0, color.a) * alpha);
+            let final_color = vec4<f32>(color.rgb, min(1.0, color.a) * alpha);
 
-            // Picking
-            let face_id = vec2<i32>(in.face_idx.xz * 10000.0 + in.face_idx.yw + 0.5);  // inst+face
-            let w8 = vec3<i32>(in.face_coords.xyz * 255.0 + 0.5);
+            // Wrap up
+
+            apply_clipping_planes(varyings.world_pos);
+            add_fragment(varyings.position.z, final_color);
+            var out = finalize_fragment();
+
+            $$ if render_pass == 1
+            let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);
+            let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+            $$ endif
 
-            out.color.a = out.color.a * u_material.opacity;
-            apply_clipping_planes(in.world_pos);
             return out;
         }
         """

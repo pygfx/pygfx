@@ -108,7 +108,7 @@ def resolve_varyings(wgsl):
                 )
             elif name in types and type != types[name]:
                 raise TypeError(
-                    "Varying {name!r} assignment does not match expected type {types[name]}:\n{line}"
+                    f"Varying {name!r} assignment does not match expected type {types[name]}:\n{line}"
                 )
             else:
                 types[name] = type
@@ -473,16 +473,16 @@ class WorldObjectShader(BaseShader):
     that can be used in all material-specific renderers.
     """
 
-    def __init__(self, wobject, blender, **kwargs):
+    def __init__(self, render_info, **kwargs):
         super().__init__(**kwargs)
 
         self["render_pass"] = 1
-        self["n_clipping_planes"] = len(wobject.material.clipping_planes)
-        self["clipping_mode"] = wobject.material.clipping_mode
+        self["n_clipping_planes"] = len(render_info.wobject.material.clipping_planes)
+        self["clipping_mode"] = render_info.wobject.material.clipping_mode
 
         # Get WGSL for blending.
         # Defines FragmentOutput2, add_fragment1, add_fragment2, finalize_fragment1, finalize_fragment2.
-        self["blending_code"] = blender.get_shader_code()
+        self["blending_code"] = render_info.blender.get_shader_code()
 
     def common_functions(self):
 

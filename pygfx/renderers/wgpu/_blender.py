@@ -79,6 +79,7 @@ class BaseFragmentBlender:
         """Get the list of color_attachments for command_encoder.begin_render_pass(),
         for the first render pass.
         """
+        # Unlike most methods, this affects the rendering, but not the wobject's pipeline.
         if clear_color:
             color_load_value = 0, 0, 0, 0
             pick_load_value = 0, 0, 0, 0
@@ -111,6 +112,7 @@ class BaseFragmentBlender:
         """Get the list of color_attachments for command_encoder.begin_render_pass(),
         for the second render pass.
         """
+        # Unlike most methods, this affects the rendering, but not the wobject's pipeline.
         return []  # Returning [] prevents this pass from running
 
     def get_shader_code(self):

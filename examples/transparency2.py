@@ -67,9 +67,9 @@ canvas._target_fps = 1000
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
-sphere = gfx.Mesh(gfx.SphereGeometry(10), gfx.MeshPhongMaterial())
+sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
-geometry = gfx.PlaneGeometry(50, 50)
+geometry = gfx.plane_geometry(50, 50)
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.5)))
 plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
 plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.5)))

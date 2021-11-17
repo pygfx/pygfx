@@ -10,50 +10,73 @@ from ._update import update_resource, ALTTEXFORMAT
 from . import registry
 
 
-def ensure_pipeline(shared, blender, wobject, renderer_ref=0):
+def ensure_pipeline(renderer, wobject):
     """Update the GPU objects associated with the given wobject. Returns
     quickly if no changes are needed. Only this function is used by the
     renderer.
     """
 
+    shared = renderer._shared
+    blender = renderer._blender
+    pipelines = renderer._pipelines
     device = shared.device
 
-    # Do we need to create the pipeline infos (from the renderfunc for this wobject)?
-    combi_ref = (wobject.rev, renderer_ref)
-    if combi_ref != getattr(wobject, "_wgpu_rev", ()):
-        wobject._wgpu_rev = combi_ref
-        wobject._wgpu_pipeline_infos = None
-        wobject._wgpu_pipeline_objects = None  # Invalidate
-        wobject._wgpu_pipeline_infos = create_pipeline_infos(shared, blender, wobject)
-        wobject._wgpu_pipeline_res = collect_pipeline_resources(shared, wobject)
+    # Get pipeline_dict associated with this renderer and wobject
+    pipeline_dict = pipelines.get(wobject, {})
+
+    # The reference key to know if we need an update
+    combi_ref = (wobject.rev, renderer._ref)
+
+    # This becomes not-None if we need to update the pipeline dict
+    new_pipeline_infos = None
+
+    # Do we need to recreate the pipeline_objects?
+    if combi_ref != pipeline_dict.get("ref", ()):
+        # Create fresh pipeline_dict
+        pipeline_dict = {"ref": combi_ref, "renderable": False, "resources": []}
+        pipelines[wobject] = pipeline_dict
+        # Create pipeline_info and collect resources
+        new_pipeline_infos = create_pipeline_infos(shared, blender, wobject)
+        if new_pipeline_infos:
+            pipeline_dict["renderable"] = True
+            pipeline_dict["resources"] = collect_pipeline_resources(
+                shared, wobject, new_pipeline_infos
+            )
 
     # Early exit?
-    if not wobject._wgpu_pipeline_infos:
-        return
+    if not pipeline_dict["renderable"]:
+        return None
 
-    # Check if we need to update any resources. The number of
-    # resources should typically be small. We could implement a
-    # hook in the resource's rev setter so we only have to check
-    # one flag ... but let's not optimize prematurely.
-    for kind, resource in wobject._wgpu_pipeline_res:
+    # Check if we need to update any resources. The number of resources
+    # should typically be small. We could implement a hook in the
+    # resource's rev setter so we only have to check one flag ... or
+    # collect all resources on a rendered .. but let's not optimize
+    # prematurely.
+    for kind, resource in pipeline_dict["resources"]:
         our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
         if resource.rev > our_version:
             update_resource(device, resource, kind)
 
     # Create gpu objects?
-    if wobject._wgpu_pipeline_objects is None:
-        wobject._wgpu_pipeline_objects = create_pipeline_objects(
-            shared, blender, wobject
+    if new_pipeline_infos:
+        new_pipeline_dict = create_pipeline_objects(
+            shared, blender, wobject, new_pipeline_infos
         )
+        pipeline_dict.update(new_pipeline_dict)
+
+    return pipeline_dict
 
 
 class RenderInfo:
-    """The type of object passed to each wgpu render function together
-    with the world object. Contains stdinfo buffer for now. In time
-    will probably also include lights etc.
+    """The type of object passed to each wgpu render function. Contains
+    all the info that it might need:
+    * wobject
+    * stdinfo buffer
+    * blender
     """
 
-    def __init__(self, *, stdinfo_uniform, blender):
+    def __init__(self, *, wobject, stdinfo_uniform, blender):
+        self.wobject = wobject
         self.stdinfo_uniform = stdinfo_uniform
         self.blender = blender
 
@@ -74,10 +97,12 @@ def create_pipeline_infos(shared, blender, wobject):
         )
 
     # Prepare info for the render function
-    render_info = RenderInfo(stdinfo_uniform=shared.stdinfo_buffer, blender=blender)
+    render_info = RenderInfo(
+        wobject=wobject, stdinfo_uniform=shared.stdinfo_buffer, blender=blender
+    )
 
     # Call render function
-    pipeline_infos = renderfunc(wobject, render_info)
+    pipeline_infos = renderfunc(render_info)
     if not pipeline_infos:
         pipeline_infos = None
     else:
@@ -86,9 +111,7 @@ def create_pipeline_infos(shared, blender, wobject):
     return pipeline_infos
 
 
-def collect_pipeline_resources(shared, wobject):
-
-    pipeline_infos = wobject._wgpu_pipeline_infos or []
+def collect_pipeline_resources(shared, wobject, pipeline_infos):
 
     pipeline_resources = []  # List, because order matters
 
@@ -143,7 +166,7 @@ def collect_pipeline_resources(shared, wobject):
     return pipeline_resources
 
 
-def create_pipeline_objects(shared, blender, wobject):
+def create_pipeline_objects(shared, blender, wobject, pipeline_infos):
     """Generate wgpu pipeline objects from the list of pipeline info dicts."""
 
     # Prepare the three kinds of pipelines that we can get
@@ -152,7 +175,7 @@ def create_pipeline_objects(shared, blender, wobject):
     alt_render_pipelines = []
 
     # Process each pipeline info object, converting each to a more concrete dict
-    for pipeline_info in wobject._wgpu_pipeline_infos:
+    for pipeline_info in pipeline_infos:
         if "render_shader" in pipeline_info:
             pipeline = compose_render_pipeline(shared, blender, wobject, pipeline_info)
             if pipeline_info.get("target", None) is None:

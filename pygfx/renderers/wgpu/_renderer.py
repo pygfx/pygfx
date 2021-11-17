@@ -156,8 +156,11 @@ class WgpuRenderer(Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
-        # Prepare render targets.
+        # Prepare pipeline info
         self._ref = 0
+        self._pipelines = weakref.WeakKeyDictionary()
+
+        # Prepare render targets.
         self.blend_mode = "default"
 
         # Prepare object that performs the final render step into a texture
@@ -348,17 +351,17 @@ class WgpuRenderer(Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
 
-        # Ensure each wobject has pipeline info
+        # Ensure each wobject has pipeline info, and filter objects that we cannot render
+        wobject_tuples = []
         for wobject in q:
-            ensure_pipeline(self._shared, self._blender, wobject, self._ref)
-
-        # Filter out objects that we cannot render
-        q = [wobject for wobject in q if wobject._wgpu_pipeline_objects is not None]
+            pipeline_dict = ensure_pipeline(self, wobject)
+            if pipeline_dict:
+                wobject_tuples.append((wobject, pipeline_dict))
 
         # Render the scene graph (to the first texture)
         command_encoder = device.create_command_encoder()
         self._render_recording(
-            command_encoder, q, physical_viewport, clear_color, clear_depth
+            command_encoder, wobject_tuples, physical_viewport, clear_color, clear_depth
         )
         command_buffers = [command_encoder.finish()]
         device.queue.submit(command_buffers)
@@ -396,7 +399,12 @@ class WgpuRenderer(Renderer):
         self._renders_since_last_flush = 0
 
     def _render_recording(
-        self, command_encoder, q, physical_viewport, clear_color, clear_depth
+        self,
+        command_encoder,
+        wobject_tuples,
+        physical_viewport,
+        clear_color,
+        clear_depth,
     ):
 
         # You might think that this is slow for large number of world
@@ -409,9 +417,8 @@ class WgpuRenderer(Renderer):
 
         compute_pass = command_encoder.begin_compute_pass()
 
-        for wobject in q:
-            wgpu_data = wobject._wgpu_pipeline_objects
-            for pinfo in wgpu_data["compute_pipelines"]:
+        for wobject, pipeline_dict in wobject_tuples:
+            for pinfo in pipeline_dict["compute_pipelines"]:
                 compute_pass.set_pipeline(pinfo["pipeline"])
                 for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
                     compute_pass.set_bind_group(
@@ -454,9 +461,8 @@ class WgpuRenderer(Renderer):
             )
             render_pass.set_viewport(*physical_viewport)
 
-            for wobject in q:
-                wgpu_data = wobject._wgpu_pipeline_objects
-                for pinfo in wgpu_data["render_pipelines"]:
+            for wobject, pipeline_dict in wobject_tuples:
+                for pinfo in pipeline_dict["render_pipelines"]:
                     render_pass.set_pipeline(pinfo[f"pipeline{render_pass_iter}"])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
                         render_pass.set_vertex_buffer(
