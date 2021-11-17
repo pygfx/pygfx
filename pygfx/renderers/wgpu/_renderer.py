@@ -218,7 +218,7 @@ class WgpuRenderer(Renderer):
     @property
     def blend_mode(self):
         """The method for handling transparency:
-        * "default": Select the default: currently this is "simple2".
+        * "default" or None: Select the default: currently this is "simple2".
         * "opaque": single-pass approach that consider every fragment opaque.
         * "simple1": single-pass approach that blends fragments (using OVER compositing).
           Can only produce correct results if fragments are drawn from back to front.
@@ -247,7 +247,7 @@ class WgpuRenderer(Renderer):
         }
         if value not in m:
             raise ValueError(
-                f"Unknown blend_mode '{value}', use any of {set(M.keys())}"
+                f"Unknown blend_mode '{value}', use any of {set(m.keys())}"
             )
         # Set blender object
         self._blend_mode = value

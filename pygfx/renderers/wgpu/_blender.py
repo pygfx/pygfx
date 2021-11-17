@@ -135,6 +135,35 @@ class BaseFragmentBlender:
           Like a normal `var`, but sharable across functions.
         """
 
+        # Default is very minimalistic, no blending nor depth check, just a stub.
+        return """
+        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+
+        $$ if render_pass == 1
+
+            struct FragmentOutput {
+                [[location(0)]] color: vec4<f32>;
+                [[location(1)]] pick: vec4<i32>;
+            };
+            fn add_fragment(depth: f32, color: vec4<f32>) {
+                p_fragment_color = color;
+            }
+            fn finalize_fragment() -> FragmentOutput {
+                var out : FragmentOutput;
+                out.color = p_fragment_color;
+                return out;
+            }
+
+        $$ endif
+        """
+
+
+class OpaqueFragmentBlender(BaseFragmentBlender):
+    """A fragment blender that pretends that all surfaces are opaque,
+    even if they're not.
+    """
+
+    def get_shader_code(self):
         return """
         var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         var<private> p_fragment_depth : f32 = 1.1;
@@ -154,31 +183,12 @@ class BaseFragmentBlender:
             fn finalize_fragment() -> FragmentOutput {
                 if (p_fragment_depth > 1.0) { discard; }
                 var out : FragmentOutput;
-                out.color = p_fragment_color;
-                return out;
-            }
-
-        $$ elif render_pass == 2
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {}
-            fn finalize_fragment2() -> FragmentOutput {
-                // This should never be called, but if it does, we emit magenta
-                var out : FragmentOutput;
-                out.color = vec4<f32>(1.0, 0.0, 1.0, 1.0);
+                out.color = vec4<f32>(p_fragment_color.rgb, 1.0);  // opaque
                 return out;
             }
 
         $$ endif
         """
-
-
-class OpaqueFragmentBlender(BaseFragmentBlender):
-    """A fragment blender that pretends that all surfaces are opaque,
-    even if they're not.
-    """
 
 
 class Simple1FragmentBlender(BaseFragmentBlender):
@@ -212,6 +222,33 @@ class Simple1FragmentBlender(BaseFragmentBlender):
             },
         ]
 
+    def get_shader_code(self):
+        return """
+        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        var<private> p_fragment_depth : f32 = 1.1;
+
+        $$ if render_pass == 1
+
+            struct FragmentOutput {
+                [[location(0)]] color: vec4<f32>;
+                [[location(1)]] pick: vec4<i32>;
+            };
+            fn add_fragment(depth: f32, color: vec4<f32>) {
+                if (depth < p_fragment_depth) {
+                    p_fragment_color = color;
+                    p_fragment_depth = depth;
+                }
+            }
+            fn finalize_fragment() -> FragmentOutput {
+                if (p_fragment_depth > 1.0) { discard; }
+                var out : FragmentOutput;
+                out.color = p_fragment_color;
+                return out;
+            }
+
+        $$ endif
+        """
+
 
 class Simple2FragmentBlender(BaseFragmentBlender):
     """A first step towards better blending: separating the opaque
@@ -227,7 +264,7 @@ class Simple2FragmentBlender(BaseFragmentBlender):
                 "blend": {
                     "alpha": (
                         wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
+                        wgpu.BlendFactor.one_minus_src_alpha,
                         wgpu.BlendOperation.add,
                     ),
                     "color": (
@@ -270,7 +307,7 @@ class Simple2FragmentBlender(BaseFragmentBlender):
             fn finalize_fragment() -> FragmentOutput {
                 if (p_fragment_depth > 1.0) { discard; }
                 var out : FragmentOutput;
-                out.color = p_fragment_color;
+                out.color = vec4<f32>(p_fragment_color.rgb, 1.0);
                 return out;
             }
 
@@ -280,7 +317,8 @@ class Simple2FragmentBlender(BaseFragmentBlender):
                 [[location(0)]] color: vec4<f32>;
             };
             fn add_fragment(depth: f32, color: vec4<f32>) {
-                p_fragment_color = vec4<f32>((1.0 - color.a) * p_fragment_color.rgb + color.a * color.rgb, color.a);
+                let a = color.a;
+                p_fragment_color = vec4<f32>((1.0 - a) * p_fragment_color.rgb + a * color.rgb, a);
             }
             fn finalize_fragment() -> FragmentOutput {
                 if (p_fragment_color.a <= 0.0) { discard; }
