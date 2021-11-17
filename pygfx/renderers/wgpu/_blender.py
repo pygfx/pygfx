@@ -7,7 +7,7 @@ from ._shadercomposer import Binding, BaseShader
 class BaseFragmentBlender:
     """Manage how fragments are blended and end up in the final target.
     All aspects of blending are defined on this class. Subclasses implement
-    a specific blend mode.
+    a specific blend mode. Each renderer has one blender object.
     """
 
     def __init__(self):
@@ -26,6 +26,11 @@ class BaseFragmentBlender:
 
     def ensure_target_size(self, device, size):
         """If necessary, resize render buffers/textures to match the target size."""
+
+        # todo: I feel that the logic to contain and resize the render targets may be better off in a separate class.
+        # I'll look at this in step 2 of OIT, when we get render targets specific to a blend mode.
+        # Then, this class almost static ...
+
         assert len(size) == 2
         size = size[0], size[1]
         if size == self.size:

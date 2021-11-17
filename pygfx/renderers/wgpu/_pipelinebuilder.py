@@ -18,33 +18,30 @@ def ensure_pipeline(renderer, wobject):
 
     shared = renderer._shared
     blender = renderer._blender
-    pipelines = renderer._pipelines
+    pipelines = renderer._wobject_pipelines
     device = shared.device
 
-    # Get pipeline_dict associated with this renderer and wobject
-    pipeline_dict = pipelines.get(wobject, {})
-
-    # The reference key to know if we need an update
-    combi_ref = (wobject.rev, renderer._ref)
+    # Get wobject_pipeline dict associated with this renderer and wobject
+    wobject_pipeline = pipelines.get(wobject, {})
 
     # This becomes not-None if we need to update the pipeline dict
     new_pipeline_infos = None
 
     # Do we need to recreate the pipeline_objects?
-    if combi_ref != pipeline_dict.get("ref", ()):
-        # Create fresh pipeline_dict
-        pipeline_dict = {"ref": combi_ref, "renderable": False, "resources": []}
-        pipelines[wobject] = pipeline_dict
+    if wobject.rev != wobject_pipeline.get("ref", ()):
+        # Create fresh wobject_pipeline
+        wobject_pipeline = {"ref": wobject.rev, "renderable": False, "resources": []}
+        pipelines[wobject] = wobject_pipeline
         # Create pipeline_info and collect resources
         new_pipeline_infos = create_pipeline_infos(shared, blender, wobject)
         if new_pipeline_infos:
-            pipeline_dict["renderable"] = True
-            pipeline_dict["resources"] = collect_pipeline_resources(
+            wobject_pipeline["renderable"] = True
+            wobject_pipeline["resources"] = collect_pipeline_resources(
                 shared, wobject, new_pipeline_infos
             )
 
     # Early exit?
-    if not pipeline_dict["renderable"]:
+    if not wobject_pipeline["renderable"]:
         return None
 
     # Check if we need to update any resources. The number of resources
@@ -52,19 +49,19 @@ def ensure_pipeline(renderer, wobject):
     # resource's rev setter so we only have to check one flag ... or
     # collect all resources on a rendered .. but let's not optimize
     # prematurely.
-    for kind, resource in pipeline_dict["resources"]:
+    for kind, resource in wobject_pipeline["resources"]:
         our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
         if resource.rev > our_version:
             update_resource(device, resource, kind)
 
     # Create gpu objects?
     if new_pipeline_infos:
-        new_pipeline_dict = create_pipeline_objects(
+        new_wobject_pipeline = create_pipeline_objects(
             shared, blender, wobject, new_pipeline_infos
         )
-        pipeline_dict.update(new_pipeline_dict)
+        wobject_pipeline.update(new_wobject_pipeline)
 
-    return pipeline_dict
+    return wobject_pipeline
 
 
 class RenderInfo:

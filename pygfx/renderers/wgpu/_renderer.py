@@ -86,6 +86,9 @@ class WgpuRenderer(Renderer):
     canvas or texture. It also provides picking, defines the
     anti-aliasing parameters, and any post processing effects.
 
+    A renderer is directly associated with its target and can only render
+    to that target. Different renderers can render to the same target though.
+
     It provides a ``.render()`` method that can be called one or more
     times to render scene. This creates a visual representation that
     is stored internally, and is finally rendered into its render target
@@ -116,6 +119,8 @@ class WgpuRenderer(Renderer):
     """
 
     _shared = None
+
+    _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(self, target, *, pixel_ratio=None, show_fps=False):
 
@@ -155,10 +160,6 @@ class WgpuRenderer(Renderer):
             # Also enable the texture for render and display usage
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
-
-        # Prepare pipeline info
-        self._ref = 0
-        self._pipelines = weakref.WeakKeyDictionary()
 
         # Prepare render targets.
         self.blend_mode = "default"
@@ -232,11 +233,13 @@ class WgpuRenderer(Renderer):
 
     @blend_mode.setter
     def blend_mode(self, value):
+        # Massage and check the input
         if value is None:
             value = "default"
         value = value.lower()
         if value == "default":
             value = "simple2"
+        # Map string input to a class
         m = {
             "opaque": blender_module.OpaqueFragmentBlender,
             "simple1": blender_module.Simple1FragmentBlender,
@@ -246,10 +249,43 @@ class WgpuRenderer(Renderer):
             raise ValueError(
                 f"Unknown blend_mode '{value}', use any of {set(M.keys())}"
             )
+        # Set blender object
+        self._blend_mode = value
         self._blender = m[value]()
-        self._ref += 1
+        # If the blend mode has changed, we may need a new _wobject_pipelines
+        self._set_wobject_pipelines()
+        # If our target is a canvas, request a new draw
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
-            self._target.update()
+            self._target.request_draw()
+
+    def _set_wobject_pipelines(self):
+        # Each WorldObject has associated with it a wobject_pipeline:
+        # a dict that contains the wgpu pipeline objects. This
+        # wobject_pipeline is also associated with the blend_mode,
+        # because the blend mode affects the pipelines.
+        #
+        # Each renderer has ._wobject_pipelines, a dict that maps
+        # wobject -> wobject_pipeline. This dict is a WeakKeyDictionary -
+        # when the wobject is destroyed, the associated pipeline is
+        # collected as well.
+        #
+        # Renderers with the same blend mode can safely share these
+        # wobject_pipeline dicts. Therefore, we make use of a global
+        # collection. Since this global collection is a
+        # WeakValueDictionary, if all renderes stop using a certain
+        # blend mode, the associated pipelines are removed as well.
+        #
+        # In a diagram:
+        #
+        # _wobject_pipelines_collection -> _wobject_pipelines -> wobject_pipeline
+        #        global                         renderer              wobject
+        #   WeakValueDictionary              WeakKeyDictionary         dict
+
+        # Below we set this renderer's _wobject_pipelines. Note that if the
+        # blending has changed, we automatically invalidate all "our" pipelines.
+        self._wobject_pipelines = WgpuRenderer._wobject_pipelines_collection.setdefault(
+            self.blend_mode, weakref.WeakKeyDictionary()
+        )
 
     def render(
         self,
@@ -354,9 +390,9 @@ class WgpuRenderer(Renderer):
         # Ensure each wobject has pipeline info, and filter objects that we cannot render
         wobject_tuples = []
         for wobject in q:
-            pipeline_dict = ensure_pipeline(self, wobject)
-            if pipeline_dict:
-                wobject_tuples.append((wobject, pipeline_dict))
+            wobject_pipeline = ensure_pipeline(self, wobject)
+            if wobject_pipeline:
+                wobject_tuples.append((wobject, wobject_pipeline))
 
         # Render the scene graph (to the first texture)
         command_encoder = device.create_command_encoder()
@@ -417,8 +453,8 @@ class WgpuRenderer(Renderer):
 
         compute_pass = command_encoder.begin_compute_pass()
 
-        for wobject, pipeline_dict in wobject_tuples:
-            for pinfo in pipeline_dict["compute_pipelines"]:
+        for wobject, wobject_pipeline in wobject_tuples:
+            for pinfo in wobject_pipeline["compute_pipelines"]:
                 compute_pass.set_pipeline(pinfo["pipeline"])
                 for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
                     compute_pass.set_bind_group(
@@ -461,8 +497,8 @@ class WgpuRenderer(Renderer):
             )
             render_pass.set_viewport(*physical_viewport)
 
-            for wobject, pipeline_dict in wobject_tuples:
-                for pinfo in pipeline_dict["render_pipelines"]:
+            for wobject, wobject_pipeline in wobject_tuples:
+                for pinfo in wobject_pipeline["render_pipelines"]:
                     render_pass.set_pipeline(pinfo[f"pipeline{render_pass_iter}"])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
                         render_pass.set_vertex_buffer(
