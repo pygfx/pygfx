@@ -204,7 +204,7 @@ class Simple1FragmentBlender(BaseFragmentBlender):
                 "blend": {
                     "alpha": (
                         wgpu.BlendFactor.one,
-                        wgpu.BlendFactor.zero,
+                        wgpu.BlendFactor.one_minus_src_alpha,
                         wgpu.BlendOperation.add,
                     ),
                     "color": (
@@ -299,7 +299,7 @@ class Simple2FragmentBlender(BaseFragmentBlender):
                 [[location(1)]] pick: vec4<i32>;
             };
             fn add_fragment(depth: f32, color: vec4<f32>) {
-                if (color.a == 1.0 && depth < p_fragment_depth) {
+                if (color.a >= 1.0 && depth < p_fragment_depth) {
                     p_fragment_color = color;
                     p_fragment_depth = depth;
                 }
@@ -317,8 +317,9 @@ class Simple2FragmentBlender(BaseFragmentBlender):
                 [[location(0)]] color: vec4<f32>;
             };
             fn add_fragment(depth: f32, color: vec4<f32>) {
-                let a = color.a;
-                p_fragment_color = vec4<f32>((1.0 - a) * p_fragment_color.rgb + a * color.rgb, a);
+                let rgb = (1.0 - color.a) * p_fragment_color.rgb + color.a * color.rgb;
+                let a = (1.0 - color.a) * p_fragment_color.a + color.a;
+                p_fragment_color = vec4<f32>(rgb, a);
             }
             fn finalize_fragment() -> FragmentOutput {
                 if (p_fragment_color.a <= 0.0) { discard; }
