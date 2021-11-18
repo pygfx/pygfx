@@ -121,7 +121,42 @@ def test_uniform_definitions():
         shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
 
 
+def test_resolve_depth_output():
+    resolve_depth_output = shadercomposer.resolve_depth_output
+
+    code1 = """
+    struct FragmentOutput {
+        [[location(0)]] color: vec4<f32>;
+    }
+    fn fs_main() {
+    }
+    """.strip()
+    code2 = code1
+    assert resolve_depth_output(code1).strip() == code2
+
+    code1 = """
+    struct FragmentOutput {
+        [[location(0)]] color: vec4<f32>;
+    }
+    fn fs_main() {
+        out.depth = 0.0;
+    }
+    """
+
+    code2 = """
+    struct FragmentOutput {
+        [[builtin(frag_depth)]] depth : f32;
+        [[location(0)]] color: vec4<f32>;
+    }
+    fn fs_main() {
+        out.depth = 0.0;
+    }
+    """.strip()
+
+    assert resolve_depth_output(code1).strip() == code2
+
+
 if __name__ == "__main__":
     test_templating()
-    test_varying_elimination()
     test_uniform_definitions()
+    test_resolve_depth_output()

@@ -60,6 +60,12 @@ builtin_varyings = {"position": "vec4<f32>"}
 
 
 def resolve_varyings(wgsl):
+    """Resolve varyings in the given wgsl:
+    * Detect varyings being used.
+    * Check that these are also set.
+    * Remove assignments of varyings that are not used.
+    * Include the Varyings struct.
+    """
     assert isinstance(wgsl, str)
 
     # Split into lines, which is easier to process. Ensure it ends with newline in the end.
@@ -193,6 +199,51 @@ def resolve_varyings(wgsl):
     return "\n".join(lines)
 
 
+re_depth_setter = re.compile(r"\A\s*?out\.depth\s*?\=")
+
+
+def resolve_depth_output(wgsl):
+    """When out.depth is set (in the fragment shader), adjust the FragmentOutput
+    to accept depth.
+    """
+    assert isinstance(wgsl, str)
+
+    # Split into lines, which is easier to process. Ensure it ends with newline in the end.
+    lines = wgsl.splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop(-1)
+    lines.append("")
+
+    # Detect whether the depth is set in the shader. We're going to assume
+    # this is in the fragment shader. We check for "out.depth =".
+    # Background: by default the depth is based on the geometry uis
+    # used (set by vertex shader and interpolated). It is possible for
+    # a fragment shader to write the depth too. If this is done, the GPU
+    # cannot do early depth testing; the fragment shader must be run for
+    # the depth to be known.
+    depth_is_set = False
+    struct_linrnr = -1
+    for linenr, line in enumerate(lines):
+        if line.lstrip().startswith("struct FragmentOutput {"):
+            struct_linrnr = linenr
+        elif re_depth_setter.match(line):
+            depth_is_set = True
+            if struct_linrnr >= 0:
+                break
+
+    if depth_is_set:
+        if struct_linrnr < 0:
+            raise TypeError("FragmentOutput definition not found.")
+        depth_field = "    [[builtin(frag_depth)]] depth : f32;"
+        line = lines[struct_linrnr]
+        indent = line[: len(line) - len(line.lstrip())]
+        lines.insert(struct_linrnr + 1, indent + depth_field)
+
+    return "\n".join(lines)
+
+
 class BaseShader:
     """Base shader object to compose and template shaders using jinja2.
 
@@ -257,7 +308,9 @@ class BaseShader:
             # Don't raise within handler to avoid recursive tb
             raise ValueError(err_msg)
         else:
-            return resolve_varyings(code2)
+            code2 = resolve_varyings(code2)
+            code2 = resolve_depth_output(code2)
+            return code2
 
     def define_binding(self, bindgroup, index, binding):
         """Define a uniform, buffer, sampler, or texture. The produced wgsl

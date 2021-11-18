@@ -2,7 +2,6 @@
 Example showing transparency using three orthogonal planes.
 """
 
-import wgpu
 import pygfx as gfx
 
 from PySide6 import QtWidgets, QtCore
