@@ -561,7 +561,8 @@ class WgpuRenderer(Renderer):
         proj_screen_matrix = Matrix4().multiply_matrices(
             camera.projection_matrix, camera.matrix_world_inverse
         )
-        q.sort(key=sort_func)
+        # todo: either revive or remove (leaning for the latter)
+        # q.sort(key=sort_func)
         return q
 
     # Picking

@@ -539,8 +539,8 @@ def get_shader_module(shared, source):
 
     # AK: this dev snippet is so useful that I leave it as a comment.
     # After a crash you can run naga on the generated file to get better feedback.
-    with open(__import__("os").path.expanduser("~/tmp.wgsl"), "wb") as f:
-        f.write(source.encode())
+    # with open(__import__("os").path.expanduser("~/tmp.wgsl"), "wb") as f:
+    #     f.write(source.encode())
 
     if key not in shared.shader_cache:
         m = shared.device.create_shader_module(code=source)

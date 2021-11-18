@@ -218,11 +218,11 @@ def resolve_depth_output(wgsl):
 
     # Detect whether the depth is set in the shader. We're going to assume
     # this is in the fragment shader. We check for "out.depth =".
-    # Background: by default the depth is based on the geometry uis
-    # used (set by vertex shader and interpolated). It is possible for
-    # a fragment shader to write the depth too. If this is done, the GPU
-    # cannot do early depth testing; the fragment shader must be run for
-    # the depth to be known.
+    # Background: by default the depth is based on the geometry (set
+    # by vertex shader and interpolated). It is possible for a fragment
+    # shader to write the depth instead. If this is done, the GPU cannot
+    # do early depth testing; the fragment shader must be run for the
+    # depth to be known.
     depth_is_set = False
     struct_linrnr = -1
     for linenr, line in enumerate(lines):
@@ -570,47 +570,3 @@ class WorldObjectShader(BaseShader):
         """
 
         return clipping_plane_code + world_pos_code + self["blending_code"]
-
-    # def fragment_shader1(self):
-    #     # todo: also do this for vertex_shader
-    #
-    #     code = self.fragment_shader()
-    #     for s1, s2 in [
-    #         ("fs_main(", "fs_main1("),
-    #         ("FragmentOutput", "FragmentOutput1"),
-    #         ("init_fragment(", "init_fragment1("),
-    #         ("add_fragment(", "add_fragment1("),
-    #         ("finalize_fragment(", "finalize_fragment1("),
-    #     ]:
-    #         code = code.replace(s1, s2)
-    #
-    #     t = jinja_env.from_string(code)
-    #     variables = self.kwargs.copy()
-    #     variables.update(pass1=True, pass2=False)
-    #
-    #     try:
-    #         return t.render(**variables)
-    #     except jinja2.UndefinedError as err:
-    #         msg = f"Canot compose shader: {err.args[0]}"
-    #     raise ValueError(msg)  # don't raise within handler to avoid recursive tb
-    #
-    # def fragment_shader2(self):
-    #     code = self.fragment_shader()
-    #     for s1, s2 in [
-    #         ("fs_main(", "fs_main2("),
-    #         ("FragmentOutput", "FragmentOutput2"),
-    #         ("init_fragment(", "init_fragment2("),
-    #         ("add_fragment(", "add_fragment2("),
-    #         ("finalize_fragment(", "finalize_fragment2("),
-    #     ]:
-    #         code = code.replace(s1, s2)
-    #
-    #     t = jinja_env.from_string(code)
-    #     variables = self.kwargs.copy()
-    #     variables.update(pass1=False, pass2=True)
-    #
-    #     try:
-    #         return t.render(**variables)
-    #     except jinja2.UndefinedError as err:
-    #         msg = f"Canot compose shader: {err.args[0]}"
-    #     raise ValueError(msg)  # don't raise within handler to avoid recursive tb
