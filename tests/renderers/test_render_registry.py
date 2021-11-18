@@ -157,7 +157,7 @@ def test_render_registry_selection():
 
 
 def test_render_registry_of_wgpu():
-    r = gfx.renderers.wgpu._wgpurenderer.registry
+    r = gfx.renderers.wgpu.registry
 
     assert None is r.get_render_function(Object1(Material1()))
 
