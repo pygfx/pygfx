@@ -299,6 +299,36 @@ def test_varyings_remove4():
     assert code3.strip() == code2.strip()
 
 
+def test_varyings_remove5():
+    # Varying assignments can be multi-line
+
+    code1 = """
+    fn vs_main() -> Varyings {
+        var varyings : Varyings;
+        varyings.spam = vec3<f32>(
+            1.0, 2.0, 3.0
+        );
+        return varyings;
+    }
+    """
+
+    code2 = """
+    struct Varyings {
+    };
+
+    fn vs_main() -> Varyings {
+        var varyings : Varyings;
+        // unused: varyings.spam = vec3<f32>(
+        // 1.0, 2.0, 3.0
+        // );
+        return varyings;
+    }
+    """
+
+    code3 = resolve_varyings(code1)
+    assert code3.strip() == code2.strip()
+
+
 def test_varyings_struct1():
     # Usage in other funcs counts, and varyings are sorted alphabetically
 
@@ -534,25 +564,33 @@ def test_varyings_error_need_type_when_set():
     info.match("type")
 
 
-def test_varyings_error_assignments_must_be_one_liners():
+def test_varyings_error_assignments_invalid_multiline1():
     # Assignment needs type annotation
 
     code1 = """
     fn vs_main() -> Varyings {
         var varyings : Varyings;
-        varyings.position = vec4<f32>(
-            ndc_pos
-        );
-        return varyings;
-    }
-
-    fn fs_main(varyings : Varyings) {
-    }
-    """
+        varyings.foo = vec4<f32>(
+    """.strip()
 
     with raises(TypeError) as info:
         resolve_varyings(code1)
-    info.match("single line")
+    info.match("missing a semicolon")
+
+    code = """
+    fn vs_main() -> Varyings {
+        var varyings : Varyings;
+        varyings.foo = vec4<f32>(
+            1.0, 2.0, 3.0, 4.0
+        )
+        XX
+    """
+
+    for xx in ("", "}", "let y = 1;", "var : f32;"):
+        code1 = code.replace("XX", xx)
+        with raises(TypeError) as info:
+            resolve_varyings(code1)
+        info.match("missing a semicolon")
 
 
 def test_varyings_error_need_type_match():

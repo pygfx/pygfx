@@ -102,10 +102,6 @@ def resolve_varyings(wgsl):
             if type not in varying_types:
                 type = ""
             # Triage
-            if not line.rstrip().endswith(";"):
-                raise TypeError(
-                    f"Varying {name!r} assignment must be on a single line:\n{line}"
-                )
             if attr:
                 pass  # Not actually a type but an attribute access
             elif not type:
@@ -168,6 +164,17 @@ def resolve_varyings(wgsl):
                 line = lines[linenr]
                 indent = line[: len(line) - len(line.lstrip())]
                 lines[linenr] = indent + "// unused: " + line[len(indent) :]
+                # Deal with multiple-line assignments
+                line_s = line.strip()
+                while not line_s.endswith(";"):
+                    linenr += 1
+                    line_s = lines[linenr].strip()
+                    unexpected = "fn ", "struct ", "var ", "let ", "}"
+                    if line_s.startswith(unexpected) or linenr == len(lines) - 1:
+                        raise TypeError(
+                            f"Varying {name!r} assignment seems to be missing a semicolon:\n{line}"
+                        )
+                    lines[linenr] = indent + "// " + line_s
 
     # Build and insert the struct
     if struct_insert_pos is not None:
