@@ -1,5 +1,7 @@
 """
 Example showing transparency using three orthogonal planes.
+Press space to toggle the order of the planes.
+Press 1,2,3 to select the blend mode.
 """
 
 import pygfx as gfx
@@ -91,5 +93,6 @@ def animate():
 
 
 if __name__ == "__main__":
+    print(__doc__)
     canvas.request_draw(animate)
     app.exec()
