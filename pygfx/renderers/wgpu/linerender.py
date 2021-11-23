@@ -42,12 +42,13 @@ renderer_uniform_type = dict(last_i="i4")
 
 
 @register_wgpu_render_function(Line, LineMaterial)
-def line_renderer(wobject, render_info):
+def line_renderer(render_info):
     """Render function capable of rendering lines."""
 
+    wobject = render_info.wobject
     material = wobject.material
     geometry = wobject.geometry
-    shader = LineShader(wobject)
+    shader = LineShader(render_info)
 
     assert isinstance(material, LineMaterial)
 
@@ -110,11 +111,9 @@ def line_renderer(wobject, render_info):
         shader.define_binding(0, i, binding)
 
     # Done
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, "vs_main"),
-            "fragment_shader": (wgsl, "fs_main"),
+            "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": (n, 1),
             "bindings0": bindings,
@@ -141,14 +140,6 @@ class LineShader(WorldObjectShader):
 
         struct VertexInput {
             [[builtin(vertex_index)]] index : u32;
-        };
-        struct VertexOutput {
-            [[location(0)]] thickness_p: f32;
-            [[location(1)]] vec_from_node_p: vec2<f32>;
-            [[location(2)]] color: vec4<f32>;
-            [[location(3)]] vertex_idx: vec2<f32>;
-            [[location(4)]] world_pos: vec3<f32>;
-            [[builtin(position)]] position: vec4<f32>;
         };
 
         struct VertexFuncOutput {
@@ -189,7 +180,7 @@ class LineShader(WorldObjectShader):
             core
             + """
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
+        fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.index);
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
@@ -198,20 +189,15 @@ class LineShader(WorldObjectShader):
 
             let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
 
-            var out: VertexOutput;
-            out.world_pos = ndc_to_world_pos(result.pos);
-            out.position = result.pos;
-            out.thickness_p = result.thickness_p;
-            out.vec_from_node_p = result.vec_from_node_p;
-            out.vertex_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
+            var varyings: Varyings;
+            varyings.position = vec4<f32>(result.pos);
+            varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
+            varyings.thickness_p = f32(result.thickness_p);
+            varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
+            varyings.color = vec4<f32>(load_s_colors(result.i));
+            varyings.pick_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
 
-            $$ if per_vertex_color
-            out.color = load_s_colors(result.i);
-            $$ else:
-            out.color = u_material.color;
-            $$ endif
-
-            return out;
+            return varyings;
         }
         """
         )
@@ -448,42 +434,55 @@ class LineShader(WorldObjectShader):
     def fragment_shader(self):
         return """
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Discard fragments outside of the radius. This is what makes round
             // joins and caps. If we ever want bevel or miter joins, we should
             // change the vertex positions a bit, and drop these lines below.
-            let dist_to_node_p = length(in.vec_from_node_p);
-            if (dist_to_node_p > in.thickness_p * 0.5) {
+            let dist_to_node_p = length(varyings.vec_from_node_p);
+            if (dist_to_node_p > varyings.thickness_p * 0.5) {
                 discard;
             }
 
             // Prep
-            var out: FragmentOutput;
             var alpha: f32 = 1.0;
 
-            // Anti-aliasing. Note that because of the discarding above, we cannot
-            // use MSAA for aa. But maybe we use another generic approach to aa. We'll see.
-            // todo: because of this, our line gets a wee bit thinner, so we have to
+            // Anti-aliasing. Note that because of the discarding above, we cannot use MSAA.
+            // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
+            // here this will help the end result. Because this produces semitransparent fragments,
+            // it relies on a good blend method, and the object gets drawn twice.
+            // todo: because of this aa edge, our line gets a wee bit thinner, so we have to
             // output ticker lines in the vertex shader!
-            let aa_width = 1.2;
-            alpha = ((0.5 * in.thickness_p) - abs(dist_to_node_p)) / aa_width;
-            alpha = pow(min(1.0, alpha), 2.0);
-
-            // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
-            out.depth = in.position.z + 0.0001 * (0.8 - min(0.8, alpha));
+            let aa_width = 1.0;
+            alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
+            alpha = clamp(alpha, 0.0, 1.0);
+            alpha = pow(alpha, 2.0);
 
             // Set color
-            let color = in.color;
-            out.color = vec4<f32>(color.rgb, min(1.0, color.a) * alpha);
+            $$ if per_vertex_color
+            let color = varyings.color;
+            $$ else
+            let color = u_material.color;
+            $$ endif
+
+            let final_color = vec4<f32>(color.rgb, min(1.0, color.a) * alpha * u_material.opacity);
+
+            // Wrap up
+            apply_clipping_planes(varyings.world_pos);
+            add_fragment(varyings.position.z, final_color);
+            var out = finalize_fragment();
 
             // Set picking info. Yes, the vertex_id interpolates correctly in encoded form.
-            let vf: f32 = in.vertex_idx.x * 10000.0 + in.vertex_idx.y;
+            $$ if render_pass == 1
+            let vf: f32 = varyings.pick_idx.x * 10000.0 + varyings.pick_idx.y;
             let vi = i32(vf + 0.5);
             out.pick = vec4<i32>(u_wobject.id, 0, vi, i32((vf - f32(vi)) * 1048576.0));
+            $$ endif
 
-            out.color.a = out.color.a * u_material.opacity;
-            apply_clipping_planes(in.world_pos);
+            // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
+            // This is only necessary for blend method "simple1"
+            //out.depth = varyings.position.z + 0.0001 * (0.8 - min(0.8, alpha));
+
             return out;
         }
         """
@@ -491,12 +490,13 @@ class LineShader(WorldObjectShader):
 
 @register_wgpu_render_function(Line, LineThinSegmentMaterial)
 @register_wgpu_render_function(Line, LineThinMaterial)
-def thin_line_renderer(wobject, render_info):
+def thin_line_renderer(render_info):
     """Render function capable of rendering lines."""
 
+    wobject = render_info.wobject
     material = wobject.material
     geometry = wobject.geometry
-    shader = ThinLineShader(wobject)
+    shader = ThinLineShader(render_info)
 
     positions1 = geometry.positions
 
@@ -526,11 +526,9 @@ def thin_line_renderer(wobject, render_info):
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, "vs_main"),
-            "fragment_shader": (wgsl, "fs_main"),
+            "render_shader": shader,
             "primitive_topology": primitive,
             "indices": (positions1.nitems, 1),
             "vertex_buffers": vertex_buffers,
@@ -543,12 +541,12 @@ class ThinLineShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
-            + self.more_definitions()
+            + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-    def more_definitions(self):
+    def vertex_shader(self):
         return """
 
         struct VertexInput {
@@ -558,46 +556,36 @@ class ThinLineShader(WorldObjectShader):
             $$ endif
             [[builtin(vertex_index)]] index : u32;
         };
-        struct VertexOutput {
-            $$ if per_vertex_color
-            [[location(0)]] color: vec4<f32>;
-            $$ endif
-            [[builtin(position)]] position: vec4<f32>;
-        };
 
-        struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-        };
-        """
 
-    def vertex_shader(self):
-        return """
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
+        fn vs_main(in: VertexInput) -> Varyings {
 
             let wpos = u_wobject.world_transform * vec4<f32>(in.pos.xyz, 1.0);
             let npos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * wpos;
 
-            var out: VertexOutput;
-            out.position = npos;
-            $$ if per_vertex_color
-            out.color = in.color;
-            $$ endif
-            return out;
+            var varyings: Varyings;
+            varyings.position = vec4<f32>(npos);
+            varyings.world_pos = vec3<f32>(ndc_to_world_pos(npos));
+            varyings.color = vec4<f32>(in.color);
+            return varyings;
         }
         """
 
     def fragment_shader(self):
         return """
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
-            var out : FragmentOutput;
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
             $$ if per_vertex_color
-            out.color = in.color;
+            let color = varyings.color;
             $$ else
-            out.color = u_material.color;
+            let color = u_material.color;
             $$ endif
-            return out;
+
+            let final_color = vec4<f32>(color.rgb, color.a * u_material.opacity);
+
+            apply_clipping_planes(varyings.world_pos);
+            add_fragment(varyings.position.z, final_color);
+            return finalize_fragment();
         }
         """

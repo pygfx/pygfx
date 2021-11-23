@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
-from ._conv import to_texture_format
+from ._utils import to_texture_format
 from ...objects import Volume
 from ...materials import VolumeSliceMaterial, VolumeRayMaterial
 from ...resources import Texture, TextureView
@@ -81,12 +81,13 @@ class BaseVolumeShader(WorldObjectShader):
 
 
 @register_wgpu_render_function(Volume, VolumeSliceMaterial)
-def volume_slice_renderer(wobject, render_info):
+def volume_slice_renderer(render_info):
     """Render function capable of rendering volumes."""
 
+    wobject = render_info.wobject
     geometry = wobject.geometry
     material = wobject.material  # noqa
-    shader = VolumeSliceShader(wobject, climcorrection=False)
+    shader = VolumeSliceShader(render_info, climcorrection=False)
 
     bindings = {}
 
@@ -132,11 +133,9 @@ def volume_slice_renderer(wobject, render_info):
         shader.define_binding(0, i, binding)
 
     # Put it together!
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, "vs_main"),
-            "fragment_shader": (wgsl, "fs_main"),
+            "render_shader": shader,
             "primitive_topology": topology,
             "indices": (range(n), range(1)),
             "vertex_buffers": {},
@@ -149,37 +148,22 @@ class VolumeSliceShader(BaseVolumeShader):
     def get_code(self):
         return (
             self.get_definitions()
-            + self.more_definitions()
             + self.common_functions()
             + self.volume_helpers()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-    def more_definitions(self):
+    def vertex_shader(self):
         return """
 
         struct VertexInput {
             [[builtin(vertex_index)]] vertex_index : u32;
         };
-        struct VertexOutput {
-            [[location(0)]] texcoord: vec3<f32>;
-            [[location(1)]] world_pos: vec3<f32>;
-            [[builtin(position)]] position: vec4<f32>;
-        };
 
-        struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-        };
-        """
-
-    def vertex_shader(self):
-        return """
 
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
-            var out: VertexOutput;
+        fn vs_main(in: VertexInput) -> Varyings {
 
             // Our geometry is implicitly defined by the volume dimensions.
             var geo = get_vol_geometry();
@@ -318,11 +302,12 @@ class VolumeSliceShader(BaseVolumeShader):
             var indexmap = array<i32,12>(0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5);
             let world_pos = vertices[ indexmap[index] ];
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(world_pos, 1.0);
-            out.world_pos = world_pos;
-            out.position = ndc_pos;
-            out.texcoord = texcoords[ indexmap[index] ];
 
-            return out;
+            var varyings : Varyings;
+            varyings.position = vec4<f32>(ndc_pos);
+            varyings.world_pos = vec3<f32>(world_pos);
+            varyings.texcoord = vec3<f32>(texcoords[ indexmap[index] ]);
+            return varyings;
         }
         """
 
@@ -330,17 +315,21 @@ class VolumeSliceShader(BaseVolumeShader):
         return """
 
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
-            var out: FragmentOutput;
-
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
             let sizef = vec3<f32>(textureDimensions(r_tex));
-            let color_value = sample(in.texcoord.xyz, sizef);
+            let color_value = sample(varyings.texcoord.xyz, sizef);
             let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
 
-            out.color = vec4<f32>(albeido, color_value.a * u_material.opacity);
-            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(in.texcoord * 1048576.0 + 0.5));
+            let final_color = vec4<f32>(albeido, color_value.a * u_material.opacity);
 
-            apply_clipping_planes(in.world_pos);
+            // Wrap up
+            apply_clipping_planes(varyings.world_pos);
+            add_fragment(varyings.position.z, final_color);
+            var out = finalize_fragment();
+
+            $$ if render_pass == 1
+            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(varyings.texcoord * 1048576.0 + 0.5));
+            $$ endif
             return out;
         }
 
@@ -348,12 +337,15 @@ class VolumeSliceShader(BaseVolumeShader):
 
 
 @register_wgpu_render_function(Volume, VolumeRayMaterial)
-def volume_ray_renderer(wobject, render_info):
+def volume_ray_renderer(render_info):
     """Render function capable of rendering volumes."""
 
+    wobject = render_info.wobject
     geometry = wobject.geometry
     material = wobject.material  # noqa
-    shader = VolumeRayShader(wobject, mode=material.render_mode, climcorrection=False)
+    shader = VolumeRayShader(
+        render_info, mode=material.render_mode, climcorrection=False
+    )
 
     bindings = {}
 
@@ -396,11 +388,9 @@ def volume_ray_renderer(wobject, render_info):
         shader.define_binding(0, i, binding)
 
     # Put it together!
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, "vs_main"),
-            "fragment_shader": (wgsl, "fs_main"),
+            "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "cull_mode": wgpu.CullMode.front,  # the back planes are the ref
             "indices": (range(36), range(1)),
@@ -414,7 +404,6 @@ class VolumeRayShader(BaseVolumeShader):
     def get_code(self):
         return (
             self.get_definitions()
-            + self.more_definitions()
             + self.common_functions()
             + self.volume_helpers()
             + self.render_function()
@@ -422,38 +411,15 @@ class VolumeRayShader(BaseVolumeShader):
             + self.fragment_shader()
         )
 
-    def more_definitions(self):
+    def vertex_shader(self):
         return """
 
         struct VertexInput {
             [[builtin(vertex_index)]] vertex_index : u32;
         };
-        struct VertexOutput {
-            [[location(0)]] world_pos: vec4<f32>;
-            [[location(1)]] data_back_pos: vec4<f32>;
-            [[location(2)]] data_near_pos: vec4<f32>;
-            [[location(3)]] data_far_pos: vec4<f32>;
-            [[builtin(position)]] position: vec4<f32>;
-        };
-
-        struct RenderOutput {
-            color: vec4<f32>;
-            coord: vec3<f32>;
-        };
-
-        struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-            [[builtin(frag_depth)]] depth : f32;
-        };
-        """
-
-    def vertex_shader(self):
-        return """
 
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
-            var out: VertexOutput;
+        fn vs_main(in: VertexInput) -> Varyings {
 
             // Our geometry is implicitly defined by the volume dimensions.
             var geo = get_vol_geometry();
@@ -467,12 +433,14 @@ class VolumeRayShader(BaseVolumeShader):
             let world_pos = u_wobject.world_transform * data_pos;
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-            // Store values for fragment shader
-            out.world_pos = world_pos;
-            out.position = ndc_pos;
-
             // Prepare inverse matrix
             let ndc_to_data = u_wobject.world_transform_inv * u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+
+            var varyings: Varyings;
+
+            // Store values for fragment shader
+            varyings.position = vec4<f32>(ndc_pos);
+            varyings.world_pos = vec3<f32>(world_pos);
 
             // The position on the face of the cube. We can say that it's the back face,
             // because we cull the front faces.
@@ -480,7 +448,7 @@ class VolumeRayShader(BaseVolumeShader):
             // because distances make more sense in this space. In the fragment shader we
             // can consider it an isotropic volume, because any position, rotation,
             // and scaling of the volume is part of the world transform.
-            out.data_back_pos = data_pos;
+            varyings.data_back_pos = vec4<f32>(data_pos);
 
             // We calculate the NDC positions for the near and front clipping planes,
             // and transform these back to data coordinates. From these positions
@@ -490,18 +458,17 @@ class VolumeRayShader(BaseVolumeShader):
             // Note that the w component for these positions should be left intact.
             let ndc_pos1 = vec4<f32>(ndc_pos.xy, -ndc_pos.w, ndc_pos.w);
             let ndc_pos2 = vec4<f32>(ndc_pos.xy, ndc_pos.w, ndc_pos.w);
-            out.data_near_pos = ndc_to_data * ndc_pos1;
-            out.data_far_pos = ndc_to_data * ndc_pos2;
+            varyings.data_near_pos = vec4<f32>(ndc_to_data * ndc_pos1);
+            varyings.data_far_pos = vec4<f32>(ndc_to_data * ndc_pos2);
 
-            return out;
+            return varyings;
         }
         """
 
     def fragment_shader(self):
         return """
-
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Get size of the volume
             let sizef = vec3<f32>(textureDimensions(r_tex));
@@ -516,9 +483,9 @@ class VolumeRayShader(BaseVolumeShader):
             let relative_step_size = clamp(sqrt(max(sizef.x, max(sizef.y, sizef.z))) / 20.0, 0.1, 0.8);
 
             // Positions in data coordinates
-            let back_pos = in.data_back_pos.xyz / in.data_back_pos.w;
-            let far_pos = in.data_far_pos.xyz / in.data_far_pos.w;
-            let near_pos = in.data_near_pos.xyz / in.data_near_pos.w;
+            let back_pos = varyings.data_back_pos.xyz / varyings.data_back_pos.w;
+            let far_pos = varyings.data_far_pos.xyz / varyings.data_far_pos.w;
+            let near_pos = varyings.data_near_pos.xyz / varyings.data_near_pos.w;
 
             // Calculate unit vector pointing in the view direction through this fragment.
             let view_ray = normalize(far_pos - near_pos);
@@ -554,11 +521,13 @@ class VolumeRayShader(BaseVolumeShader):
             // Maybe we did the work for nothing
             apply_clipping_planes(world_pos.xyz);
 
-            // Pack up!
-            var out : FragmentOutput;
-            out.color = render_out.color;
+            add_fragment(varyings.position.z, render_out.color);
+            var out = finalize_fragment();
             out.depth = ndc_pos.z / ndc_pos.w;
+
+            $$ if render_pass == 1
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(render_out.coord * 1048576.0 + 0.5));
+            $$ endif
             return out;
         }
         """
@@ -566,7 +535,15 @@ class VolumeRayShader(BaseVolumeShader):
     def render_function(self):
         # Triage over different render modes. Only one mode so far :)
         f = getattr(self, "render_mode_" + self.kwargs["mode"].lower(), "mip")
-        return f()
+
+        preamble = """
+        struct RenderOutput {
+            color: vec4<f32>;
+            coord: vec3<f32>;
+        };
+        """
+
+        return preamble + f()
 
     def render_mode_mip(self):
 

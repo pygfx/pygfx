@@ -7,13 +7,17 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 
 
 @register_wgpu_render_function(Points, PointsMaterial)
-def points_renderer(wobject, render_info):
+def points_renderer(render_info):
     """Render function capable of rendering Points."""
 
+    wobject = render_info.wobject
     geometry = wobject.geometry
     material = wobject.material
     shader = PointsShader(
-        wobject, type="circle", per_vertex_sizes=False, per_vertex_colors=False
+        render_info,
+        type="circle",
+        per_vertex_sizes=False,
+        per_vertex_colors=False,
     )
     n = geometry.positions.nitems * 6
 
@@ -47,11 +51,9 @@ def points_renderer(wobject, render_info):
         shader.define_binding(0, i, binding)
 
     # Put it together!
-    wgsl = shader.generate_wgsl()
     return [
         {
-            "vertex_shader": (wgsl, "vs_main"),
-            "fragment_shader": (wgsl, "fs_main"),
+            "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "indices": (range(n), range(1)),
             "vertex_buffers": {},
@@ -72,43 +74,21 @@ class PointsShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
-            + self.more_definitions()
             + self.common_functions()
             + self.vertex_shader()
             + self.fragment_shader()
         )
 
-    def more_definitions(self):
+    def vertex_shader(self):
         return """
 
         struct VertexInput {
             [[builtin(vertex_index)]] vertex_index : u32;
         };
-        struct VertexOutput {
-            [[location(0)]] pointcoord: vec2<f32>;
-            [[location(1)]] vertex_idx: vec2<f32>;
-            [[location(2)]] world_pos: vec3<f32>;
-            $$ if per_vertex_sizes
-            [[location(3)]] size: f32;
-            $$ endif
-            $$ if per_vertex_colors
-            [[location(4)]] color: vec4<f32>;
-            $$ endif
-            [[builtin(position)]] position: vec4<f32>;
-        };
 
-        struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-        };
-        """
-
-    def vertex_shader(self):
-        return """
 
         [[stage(vertex)]]
-        fn vs_main(in: VertexInput) -> VertexOutput {
-            var out: VertexOutput;
+        fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.vertex_index);
             let i0 = index / 6;
@@ -127,9 +107,9 @@ class PointsShader(WorldObjectShader):
                 vec2<f32>( 1.0,  1.0),
             );
 
+            // Need size here in vertex shader too
             $$ if per_vertex_sizes
                 let size = load_s_sizes(i0);
-                out.size = size;
             $$ else
                 let size = u_material.size;
             $$ endif
@@ -137,16 +117,15 @@ class PointsShader(WorldObjectShader):
             let aa_margin = 1.0;
             let delta_logical = deltas[sub_index] * (size + aa_margin);
             let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
-            out.world_pos = world_pos.xyz / world_pos.w;
-            out.position = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
-            out.pointcoord = delta_logical;
 
-            $$ if per_vertex_colors
-            out.color = load_s_colors(i0);
-            $$ endif
-
-            out.vertex_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
-            return out;
+            var varyings: Varyings;
+            varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
+            varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+            varyings.pointcoord = vec2<f32>(delta_logical);
+            varyings.size = f32(size);
+            varyings.color = vec4<f32>(load_s_colors(i0));
+            varyings.pick_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
+            return varyings;
         }
         """
 
@@ -155,31 +134,31 @@ class PointsShader(WorldObjectShader):
         return """
 
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> FragmentOutput {
-            var out: FragmentOutput;
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
+            var final_color : vec4<f32>;
 
-            let d = length(in.pointcoord);
+            let d = length(varyings.pointcoord);
             let aa_width = 1.0;
 
             $$ if per_vertex_sizes
-                let size = in.size;
+                let size = varyings.size;
             $$ else
                 let size = u_material.size;
             $$ endif
 
             $$ if per_vertex_colors
-                let color = in.color;
+                let color = varyings.color;
             $$ else
                 let color = u_material.color;
             $$ endif
 
             $$ if type == 'circle'
                 if (d <= size - 0.5 * aa_width) {
-                    out.color = color;
+                    final_color = color;
                 } elseif (d <= size + 0.5 * aa_width) {
                     let alpha1 = 0.5 + (size - d) / aa_width;
                     let alpha2 = pow(alpha1, 2.0);  // this works better
-                    out.color = vec4<f32>(color.rgb, color.a * alpha2);
+                    final_color = vec4<f32>(color.rgb, color.a * alpha2);
                 } else {
                     discard;
                 }
@@ -188,7 +167,7 @@ class PointsShader(WorldObjectShader):
                     let sigma = size / 3.0;
                     let t = d / sigma;
                     let a = exp(-0.5 * t * t);
-                    out.color = vec4<f32>(color.rgb, color.a * a);
+                    final_color = vec4<f32>(color.rgb, color.a * a);
                 } else {
                     discard;
                 }
@@ -196,12 +175,18 @@ class PointsShader(WorldObjectShader):
                 invalid_point_type;
             $$ endif
 
-            // Picking
-            let vertex_id = i32(in.vertex_idx.x * 10000.0 + in.vertex_idx.y + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
+            final_color.a = final_color.a * u_material.opacity;
 
-            out.color.a = out.color.a * u_material.opacity;
-            apply_clipping_planes(in.world_pos);
+            // Wrap up
+            apply_clipping_planes(varyings.world_pos);
+            add_fragment(varyings.position.z, final_color);
+            var out = finalize_fragment();
+
+            $$ if render_pass == 1
+            let vertex_id = i32(varyings.pick_idx.x * 10000.0 + varyings.pick_idx.y + 0.5);
+            out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
+            $$ endif
+
             return out;
         }
         """
