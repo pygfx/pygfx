@@ -244,6 +244,7 @@ class WgpuRenderer(Renderer):
             "opaque": blender_module.OpaqueFragmentBlender,
             "simple1": blender_module.Simple1FragmentBlender,
             "simple2": blender_module.Simple2FragmentBlender,
+            "weighted": blender_module.WeightedFragmentBlender,
         }
         if value not in m:
             raise ValueError(
@@ -394,7 +395,7 @@ class WgpuRenderer(Renderer):
             if wobject_pipeline:
                 wobject_tuples.append((wobject, wobject_pipeline))
 
-        # Render the scene graph (to the first texture)
+        # Render the scene graph
         command_encoder = device.create_command_encoder()
         self._render_recording(
             command_encoder, wobject_tuples, physical_viewport, clear_color, clear_depth
@@ -518,6 +519,9 @@ class WgpuRenderer(Renderer):
                         render_pass.draw(*pinfo["index_args"])
 
             render_pass.end_pass()
+
+        # Let blender wrap up
+        self._blender.perform_combine_pass(self._shared.device, command_encoder)
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data

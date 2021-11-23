@@ -16,13 +16,39 @@ class BaseFragmentBlender:
         self.size = (0, 0)
         self.msaa = 1
 
+        # Pipeline objects
+        self._combine_pipeline = None
+
+        self._texture_info = {}
+        usg = wgpu.TextureUsage
+
         # The color texture is rgba8 unorm - not srgb, that's only for the last step.
-        self.color_format = wgpu.TextureFormat.rgba8unorm
+        self._texture_info["color"] = (
+            wgpu.TextureFormat.rgba8unorm,
+            usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
+        )
+
         # The depth buffer is 32 bit - we need that precision.
-        self.depth_format = wgpu.TextureFormat.depth32float
+        self._texture_info["depth"] = (
+            wgpu.TextureFormat.depth32float,
+            usg.RENDER_ATTACHMENT | usg.COPY_SRC,
+        )
+
         # The pick texture has 4 channels: object id, and then 3 more, e.g.
         # the instance nr, vertex nr and weights.
-        self.pick_format = wgpu.TextureFormat.rgba32sint
+        self._texture_info["pick"] = (
+            wgpu.TextureFormat.rgba32sint,
+            usg.RENDER_ATTACHMENT | usg.COPY_SRC,
+        )
+
+    # todo: these attributes are used. Make methods for these?
+    # msaa
+    # depth_format
+    # color_view
+    # color_tex
+    # depth_view
+    # depth_tex
+    # pick_tex
 
     def ensure_target_size(self, device, size):
         """If necessary, resize render buffers/textures to match the target size."""
@@ -36,22 +62,21 @@ class BaseFragmentBlender:
         if size == self.size:
             return
 
+        # Reset
+        self._combine_pipeline = None
+
         self.size = size
         tex_size = size + (1,)
-        usg = wgpu.TextureUsage
 
-        for tex_name, usage in [
-            ("color", usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING),
-            ("depth", usg.RENDER_ATTACHMENT | usg.COPY_SRC),
-            ("pick", usg.RENDER_ATTACHMENT | usg.COPY_SRC),
-        ]:
-            format = getattr(self, tex_name + "_format")
+        for name, (format, usage) in self._texture_info.items():
             texture = device.create_texture(
                 size=tex_size, usage=usage, dimension="2d", format=format
             )
-            setattr(self, tex_name + "_tex", texture)
-            setattr(self, tex_name + "_view", texture.create_view())
+            setattr(self, name + "_format", format)
+            setattr(self, name + "_tex", texture)
+            setattr(self, name + "_view", texture.create_view())
 
+    # todo: make the 1 and 2 an arg?
     def get_pipeline_targets1(self):
         """Get the list of fragment targets for device.create_render_pipeline(),
         for the first render pass.
@@ -157,6 +182,43 @@ class BaseFragmentBlender:
         $$ endif
         """
 
+    def perform_combine_pass(self, device, command_encoder):
+        pass
+
+    def _create_pipeline(self, device, binding_layouts, bindings, targets, shader):
+
+        shader_module = device.create_shader_module(code=shader.generate_wgsl())
+
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
+        pipeline_layout = device.create_pipeline_layout(
+            bind_group_layouts=[bind_group_layout]
+        )
+        bind_group = device.create_bind_group(
+            layout=bind_group_layout, entries=bindings
+        )
+
+        render_pipeline = device.create_render_pipeline(
+            layout=pipeline_layout,
+            vertex={
+                "module": shader_module,
+                "entry_point": "vs_main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_strip,
+                "strip_index_format": wgpu.IndexFormat.uint32,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": shader_module,
+                "entry_point": "fs_main",
+                "targets": targets,
+            },
+        )
+
+        return bind_group, render_pipeline
+
 
 class OpaqueFragmentBlender(BaseFragmentBlender):
     """A fragment blender that pretends that all surfaces are opaque,
@@ -196,6 +258,8 @@ class Simple1FragmentBlender(BaseFragmentBlender):
     use the OVER blend operation, without differentiating between opaque and
     transparent objects. This is a common approach for applications using a single pass.
     """
+
+    # This class only changes the first render pass to enable blending.
 
     def get_pipeline_targets1(self):
         return [
@@ -256,6 +320,8 @@ class Simple2FragmentBlender(BaseFragmentBlender):
     OVER operator. The second step has depth-testing, but no depth-writing.
     Not order-independent.
     """
+
+    # This class implements the second render pass to do the simple blending.
 
     def get_pipeline_targets2(self):
         return [
@@ -330,6 +396,289 @@ class Simple2FragmentBlender(BaseFragmentBlender):
 
         $$ endif
         """
+
+
+class WeightedFragmentBlender(BaseFragmentBlender):
+    """Weighted blended order independent transparency (McGuire 2013)."""
+
+    # This class implements the second render pass to implemented weighted blending.
+    # It uses two additional render textures for this.
+
+    def __init__(self):
+        super().__init__()
+
+        usg = wgpu.TextureUsage
+
+        # The accumulation buffer collects weighted fragments
+        self._texture_info["accum"] = (
+            wgpu.TextureFormat.rgba16float,
+            usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
+        )
+
+        # The reveal buffer collects the weights
+        self._texture_info["reveal"] = (
+            wgpu.TextureFormat.r16float,
+            usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
+        )
+
+    def get_pipeline_targets2(self):
+        return [
+            {
+                "format": self.accum_format,
+                "blend": {
+                    "alpha": (
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendOperation.add,
+                    ),
+                    "color": (
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendOperation.add,
+                    ),
+                },
+                "write_mask": wgpu.ColorWrite.ALL,
+            },
+            {
+                "format": self.reveal_format,
+                "blend": {
+                    "alpha": (
+                        wgpu.BlendFactor.one,
+                        wgpu.BlendFactor.one_minus_src,
+                        wgpu.BlendOperation.add,
+                    ),
+                    "color": (
+                        wgpu.BlendFactor.zero,
+                        wgpu.BlendFactor.one_minus_src,
+                        wgpu.BlendOperation.add,
+                    ),
+                },
+                "write_mask": wgpu.ColorWrite.ALL,
+            },
+        ]
+
+    def get_color_attachments2(self, clear_color):
+        if clear_color:
+            accum_load_value = 0, 0, 0, 0
+            reveal_load_value = 1, 0, 0, 0
+        else:
+            accum_load_value = wgpu.LoadOp.load
+            reveal_load_value = wgpu.LoadOp.load
+
+        # todo: lees ik nou goed dat accum alleen RGB gebruikt, dus dat 1 rgba16f ook werkt?
+        return [
+            {
+                "view": self.accum_view,
+                "resolve_target": None,
+                "load_value": accum_load_value,
+                "store_op": wgpu.StoreOp.store,
+            },
+            {
+                "view": self.reveal_view,
+                "resolve_target": None,
+                "load_value": reveal_load_value,
+                "store_op": wgpu.StoreOp.store,
+            },
+        ]
+
+    # todo: also split this in shader_code 1 and 2, see remark about 1/2 above
+    def get_shader_code(self):
+        return """
+        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        var<private> p_fragment_depth : f32 = 1.1;
+
+        $$ if render_pass == 1
+
+            struct FragmentOutput {
+                [[location(0)]] color: vec4<f32>;
+                [[location(1)]] pick: vec4<i32>;
+            };
+            fn add_fragment(depth: f32, color: vec4<f32>) {
+                if (color.a >= 1.0 && depth < p_fragment_depth) {
+                    p_fragment_color = color;
+                    p_fragment_depth = depth;
+                }
+            }
+            fn finalize_fragment() -> FragmentOutput {
+                if (p_fragment_depth > 1.0) { discard; }
+                var out : FragmentOutput;
+                out.color = vec4<f32>(p_fragment_color.rgb, 1.0);
+                return out;
+            }
+
+        $$ elif render_pass == 2
+
+            var<private> p_fragment_accum : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            var<private> p_fragment_reveal : f32 = 0.0;
+
+            struct FragmentOutput {
+                [[location(0)]] accum: vec4<f32>;
+                [[location(1)]] reveal: f32;
+            };
+            fn add_fragment(depth: f32, color: vec4<f32>) {
+                let weight = 1.0;
+                let premultiplied = color.rgb * color.a;
+                let alpha = color.a;  // could take transmittance into account here
+                p_fragment_accum = vec4<f32>(premultiplied, alpha) * weight;
+                p_fragment_reveal = alpha;
+            }
+            fn finalize_fragment() -> FragmentOutput {
+                if (p_fragment_reveal <= 0.0) { discard; }
+                var out : FragmentOutput;
+                out.accum = p_fragment_accum;
+                out.reveal = p_fragment_reveal;
+                return out;
+            }
+
+        $$ endif
+        """
+
+    def _create_combination_pipeline(self, device):
+
+        binding_layouts = [
+            {
+                "binding": 0,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            },
+            {
+                "binding": 1,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.float,
+                    "view_dimension": wgpu.TextureViewDimension.d2,
+                    "multisampled": False,
+                },
+            },
+            {
+                "binding": 2,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.float,
+                    "view_dimension": wgpu.TextureViewDimension.d2,
+                    "multisampled": False,
+                },
+            },
+        ]
+
+        sampler = device.create_sampler(mag_filter="nearest", min_filter="nearest")
+
+        bindings = [
+            {"binding": 0, "resource": sampler},
+            {"binding": 1, "resource": self.accum_view},
+            {"binding": 2, "resource": self.reveal_view},
+        ]
+
+        targets = [
+            {
+                "format": self.color_format,
+                "blend": {
+                    "alpha": (
+                        wgpu.BlendFactor.src_alpha,
+                        wgpu.BlendFactor.one_minus_src_alpha,
+                        wgpu.BlendOperation.add,
+                    ),
+                    "color": (
+                        wgpu.BlendFactor.src_alpha,
+                        wgpu.BlendFactor.one_minus_src_alpha,
+                        wgpu.BlendOperation.add,
+                    ),
+                },
+            },
+        ]
+
+        bindings_code = """
+        [[group(0), binding(0)]]
+        var r_sampler: sampler;
+        [[group(0), binding(1)]]
+        var r_accum: texture_2d<f32>;
+        [[group(0), binding(2)]]
+        var r_reveal: texture_2d<f32>;
+        """
+
+        fragment_code = """
+        let epsilon = 0.00001;
+        let accum = textureSample(r_accum, r_sampler, texcoord).rgba;
+        let reveal = textureSample(r_reveal, r_sampler, texcoord).r;
+        let avg_color = accum.rgb / max(accum.a, epsilon);
+        out.color = vec4<f32>(avg_color, 1.0 - reveal);
+        """
+
+        shader = FullQuadShader()
+        shader["bindings_code"] = bindings_code
+        shader["fragment_code"] = fragment_code
+
+        return self._create_pipeline(device, binding_layouts, bindings, targets, shader)
+
+    def perform_combine_pass(self, device, command_encoder):
+
+        # Get bindgroup and pipeline
+        if not self._combine_pipeline:
+            self._combine_pipeline = self._create_combination_pipeline(device)
+        bind_group, render_pipeline = self._combine_pipeline
+
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=[
+                {
+                    "view": self.color_view,
+                    "resolve_target": None,
+                    "load_value": wgpu.LoadOp.load,
+                    "store_op": wgpu.StoreOp.store,
+                }
+            ],
+            depth_stencil_attachment=None,
+            occlusion_query_set=None,
+        )
+        render_pass.set_pipeline(render_pipeline)
+        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.draw(4, 1)
+        render_pass.end_pass()
+
+
+class FullQuadShader(BaseShader):
+    def get_code(self):
+
+        code = """
+        struct VertexInput {
+            [[builtin(vertex_index)]] index: u32;
+        };
+        struct Varyings {
+            [[location(0)]] texcoord: vec2<f32>;
+            [[builtin(position)]] position: vec4<f32>;
+        };
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+        };
+
+        BINDINGS_CODE
+
+        [[stage(vertex)]]
+        fn vs_main(in: VertexInput) -> Varyings {
+            var positions = array<vec2<f32>,4>(
+                vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0)
+            );
+            let pos = positions[in.index];
+            var varyings: Varyings;
+            varyings.texcoord = vec2<f32>(pos.x, 1.0 - pos.y);
+            varyings.position = vec4<f32>(pos * 2.0 - 1.0, 0.0, 1.0);
+            return varyings;
+        }
+
+        [[stage(fragment)]]
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
+            var out : FragmentOutput;
+            let texcoord = varyings.texcoord;
+
+            FRAGMENT_CODE
+
+            return out;
+        }
+        """
+
+        code = code.replace("FRAGMENT_CODE", self["fragment_code"])
+        code = code.replace("BINDINGS_CODE", self["bindings_code"])
+
+        return self.get_definitions() + code
 
 
 # TODO: I think that the blender will always write the end-result back into the color texture
