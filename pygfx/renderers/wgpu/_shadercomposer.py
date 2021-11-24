@@ -299,25 +299,32 @@ class BaseShader:
         """Generate the final WGSL with the templating resolved by jinja2.
         Also accepts templating variables as kwargs.
         """
-        code1 = self.get_code()
-        t = jinja_env.from_string(code1)
 
-        variables = self.kwargs.copy()
-        variables.update(kwargs)
+        old_kwargs = self.kwargs
+        self.kwargs = old_kwargs.copy()
+        self.kwargs.update(kwargs)
 
-        err_msg = None
         try:
-            code2 = t.render(**variables)
-        except jinja2.UndefinedError as err:
-            err_msg = f"Canot compose shader: {err.args[0]}"
 
-        if err_msg:
-            # Don't raise within handler to avoid recursive tb
-            raise ValueError(err_msg)
-        else:
-            code2 = resolve_varyings(code2)
-            code2 = resolve_depth_output(code2)
-            return code2
+            code1 = self.get_code()
+            t = jinja_env.from_string(code1)
+
+            err_msg = None
+            try:
+                code2 = t.render(**self.kwargs)
+            except jinja2.UndefinedError as err:
+                err_msg = f"Canot compose shader: {err.args[0]}"
+
+            if err_msg:
+                # Don't raise within handler to avoid recursive tb
+                raise ValueError(err_msg)
+            else:
+                code2 = resolve_varyings(code2)
+                code2 = resolve_depth_output(code2)
+                return code2
+
+        finally:
+            self.kwargs = old_kwargs
 
     def define_binding(self, bindgroup, index, binding):
         """Define a uniform, buffer, sampler, or texture. The produced wgsl
@@ -542,7 +549,8 @@ class WorldObjectShader(BaseShader):
 
         # Get WGSL for blending.
         # Defines FragmentOutput2, add_fragment1, add_fragment2, finalize_fragment1, finalize_fragment2.
-        self["blending_code"] = render_info.blender.get_shader_code()
+        self["blending_code1"] = render_info.blender.get_shader_code1()
+        self["blending_code2"] = render_info.blender.get_shader_code2()
 
     def common_functions(self):
 
@@ -576,4 +584,5 @@ class WorldObjectShader(BaseShader):
         }
         """
 
-        return clipping_plane_code + world_pos_code + self["blending_code"]
+        blending_code = self["blending_code" + str(self["render_pass"])]
+        return clipping_plane_code + world_pos_code + blending_code

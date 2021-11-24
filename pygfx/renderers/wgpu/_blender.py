@@ -144,8 +144,8 @@ class BaseFragmentBlender:
         # Unlike most methods, this affects the rendering, but not the wobject's pipeline.
         return []  # Returning [] prevents this pass from running
 
-    def get_shader_code(self):
-        """Get the shader code to include in the shaders.
+    def get_shader_code1(self):
+        """Get the fragment-write shader code for the 1st pass.
 
         Notes:
 
@@ -159,27 +159,32 @@ class BaseFragmentBlender:
           Like a normal `var`, but sharable across functions.
         """
 
-        # Default is very minimalistic, no blending nor depth check, just a stub.
+        # Default is the opaque-only depth-tested approach used by all multi-pass blend methods
         return """
         var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        var<private> p_fragment_depth : f32 = 1.1;
 
-        $$ if render_pass == 1
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-                [[location(1)]] pick: vec4<i32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+            [[location(1)]] pick: vec4<i32>;
+        };
+        fn add_fragment(depth: f32, color: vec4<f32>) {
+            if (color.a >= 1.0 && depth < p_fragment_depth) {
                 p_fragment_color = color;
+                p_fragment_depth = depth;
             }
-            fn finalize_fragment() -> FragmentOutput {
-                var out : FragmentOutput;
-                out.color = p_fragment_color;
-                return out;
-            }
-
-        $$ endif
+        }
+        fn finalize_fragment() -> FragmentOutput {
+            if (p_fragment_depth > 1.0) { discard; }
+            var out : FragmentOutput;
+            out.color = vec4<f32>(p_fragment_color.rgb, 1.0);
+            return out;
+        }
         """
+
+    def get_shader_code2(self):
+        """Get the fragment-write shader code for the 2nd pass."""
+        return ""
 
     def perform_combine_pass(self, device, command_encoder):
 
@@ -190,6 +195,7 @@ class BaseFragmentBlender:
         if not render_pipeline:
             return
 
+        # Render
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
@@ -216,31 +222,27 @@ class OpaqueFragmentBlender(BaseFragmentBlender):
     even if they're not.
     """
 
-    def get_shader_code(self):
+    def get_shader_code1(self):
         return """
         var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         var<private> p_fragment_depth : f32 = 1.1;
 
-        $$ if render_pass == 1
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-                [[location(1)]] pick: vec4<i32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
-                if (depth < p_fragment_depth) {
-                    p_fragment_color = color;
-                    p_fragment_depth = depth;
-                }
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+            [[location(1)]] pick: vec4<i32>;
+        };
+        fn add_fragment(depth: f32, color: vec4<f32>) {
+            if (depth < p_fragment_depth) {
+                p_fragment_color = color;
+                p_fragment_depth = depth;
             }
-            fn finalize_fragment() -> FragmentOutput {
-                if (p_fragment_depth > 1.0) { discard; }
-                var out : FragmentOutput;
-                out.color = vec4<f32>(p_fragment_color.rgb, 1.0);  // opaque
-                return out;
-            }
-
-        $$ endif
+        }
+        fn finalize_fragment() -> FragmentOutput {
+            if (p_fragment_depth > 1.0) { discard; }
+            var out : FragmentOutput;
+            out.color = vec4<f32>(p_fragment_color.rgb, 1.0);  // opaque
+            return out;
+        }
         """
 
 
@@ -277,31 +279,28 @@ class Simple1FragmentBlender(BaseFragmentBlender):
             },
         ]
 
-    def get_shader_code(self):
+    def get_shader_code1(self):
+        # Take depth into account, but don't treath transparent fragments differently
         return """
         var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         var<private> p_fragment_depth : f32 = 1.1;
 
-        $$ if render_pass == 1
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-                [[location(1)]] pick: vec4<i32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
-                if (depth < p_fragment_depth) {
-                    p_fragment_color = color;
-                    p_fragment_depth = depth;
-                }
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+            [[location(1)]] pick: vec4<i32>;
+        };
+        fn add_fragment(depth: f32, color: vec4<f32>) {
+            if (depth < p_fragment_depth) {
+                p_fragment_color = color;
+                p_fragment_depth = depth;
             }
-            fn finalize_fragment() -> FragmentOutput {
-                if (p_fragment_depth > 1.0) { discard; }
-                var out : FragmentOutput;
-                out.color = p_fragment_color;
-                return out;
-            }
-
-        $$ endif
+        }
+        fn finalize_fragment() -> FragmentOutput {
+            if (p_fragment_depth > 1.0) { discard; }
+            var out : FragmentOutput;
+            out.color = p_fragment_color;
+            return out;
+        }
         """
 
 
@@ -344,48 +343,24 @@ class Simple2FragmentBlender(BaseFragmentBlender):
             },
         ]
 
-    def get_shader_code(self):
+    def get_shader_code2(self):
         return """
         var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_depth : f32 = 1.1;
 
-        $$ if render_pass == 1
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-                [[location(1)]] pick: vec4<i32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
-                if (color.a >= 1.0 && depth < p_fragment_depth) {
-                    p_fragment_color = color;
-                    p_fragment_depth = depth;
-                }
-            }
-            fn finalize_fragment() -> FragmentOutput {
-                if (p_fragment_depth > 1.0) { discard; }
-                var out : FragmentOutput;
-                out.color = vec4<f32>(p_fragment_color.rgb, 1.0);
-                return out;
-            }
-
-        $$ elif render_pass == 2
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
-                let rgb = (1.0 - color.a) * p_fragment_color.rgb + color.a * color.rgb;
-                let a = (1.0 - color.a) * p_fragment_color.a + color.a;
-                p_fragment_color = vec4<f32>(rgb, a);
-            }
-            fn finalize_fragment() -> FragmentOutput {
-                if (p_fragment_color.a <= 0.0) { discard; }
-                var out : FragmentOutput;
-                out.color = p_fragment_color;
-                return out;
-            }
-
-        $$ endif
+        struct FragmentOutput {
+            [[location(0)]] color: vec4<f32>;
+        };
+        fn add_fragment(depth: f32, color: vec4<f32>) {
+            let rgb = (1.0 - color.a) * p_fragment_color.rgb + color.a * color.rgb;
+            let a = (1.0 - color.a) * p_fragment_color.a + color.a;
+            p_fragment_color = vec4<f32>(rgb, a);
+        }
+        fn finalize_fragment() -> FragmentOutput {
+            if (p_fragment_color.a <= 0.0) { discard; }
+            var out : FragmentOutput;
+            out.color = p_fragment_color;
+            return out;
+        }
         """
 
 
@@ -459,7 +434,6 @@ class BlendedFragmentBlender(BaseFragmentBlender):
             accum_load_value = wgpu.LoadOp.load
             reveal_load_value = wgpu.LoadOp.load
 
-        # todo: lees ik nou goed dat accum alleen RGB gebruikt, dus dat 1 rgba16f ook werkt?
         return [
             {
                 "view": self.accum_view,
@@ -475,56 +449,29 @@ class BlendedFragmentBlender(BaseFragmentBlender):
             },
         ]
 
-    # todo: also split this in shader_code 1 and 2, see remark about 1/2 above
-    def get_shader_code(self):
+    def get_shader_code2(self):
         return """
-        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_depth : f32 = 1.1;
+        var<private> p_fragment_accum : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        var<private> p_fragment_reveal : f32 = 0.0;
 
-        $$ if render_pass == 1
-
-            struct FragmentOutput {
-                [[location(0)]] color: vec4<f32>;
-                [[location(1)]] pick: vec4<i32>;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
-                if (color.a >= 1.0 && depth < p_fragment_depth) {
-                    p_fragment_color = color;
-                    p_fragment_depth = depth;
-                }
-            }
-            fn finalize_fragment() -> FragmentOutput {
-                if (p_fragment_depth > 1.0) { discard; }
-                var out : FragmentOutput;
-                out.color = vec4<f32>(p_fragment_color.rgb, 1.0);
-                return out;
-            }
-
-        $$ elif render_pass == 2
-
-            var<private> p_fragment_accum : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-            var<private> p_fragment_reveal : f32 = 0.0;
-
-            struct FragmentOutput {
-                [[location(0)]] accum: vec4<f32>;
-                [[location(1)]] reveal: f32;
-            };
-            fn add_fragment(depth: f32, color: vec4<f32>) {
-                let premultiplied = color.rgb * color.a;
-                let alpha = color.a;  // could take transmittance into account here
-                let weight = 1.0;
-                p_fragment_accum = vec4<f32>(premultiplied, alpha) * weight;
-                p_fragment_reveal = alpha;
-            }
-            fn finalize_fragment() -> FragmentOutput {
-                if (p_fragment_reveal <= 0.0) { discard; }
-                var out : FragmentOutput;
-                out.accum = p_fragment_accum;
-                out.reveal = p_fragment_reveal;
-                return out;
-            }
-
-        $$ endif
+        struct FragmentOutput {
+            [[location(0)]] accum: vec4<f32>;
+            [[location(1)]] reveal: f32;
+        };
+        fn add_fragment(depth: f32, color: vec4<f32>) {
+            let premultiplied = color.rgb * color.a;
+            let alpha = color.a;  // could take transmittance into account here
+            let weight = 1.0;
+            p_fragment_accum = vec4<f32>(premultiplied, alpha) * weight;
+            p_fragment_reveal = alpha;
+        }
+        fn finalize_fragment() -> FragmentOutput {
+            if (p_fragment_reveal <= 0.0) { discard; }
+            var out : FragmentOutput;
+            out.accum = p_fragment_accum;
+            out.reveal = p_fragment_reveal;
+            return out;
+        }
         """
 
     def _create_combination_pipeline(self, device):
@@ -610,8 +557,8 @@ class WeightedFragmentBlender(BlendedFragmentBlender):
     using a general purpose depth weight function.
     """
 
-    def get_shader_code(self):
-        code = super().get_shader_code()
+    def get_shader_code2(self):
+        code = super().get_shader_code2()
 
         # The "generic purpose" depth function proposed by McGuire in
         # http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
