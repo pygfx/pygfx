@@ -12,6 +12,7 @@ from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
 from . import _blender as blender_module
+from ._flusher import RenderFlusher
 from ._pipelinebuilder import ensure_pipeline
 from ._update import update_buffer, update_texture, update_texture_view
 
@@ -165,7 +166,7 @@ class WgpuRenderer(Renderer):
         self.blend_mode = "default"
 
         # Prepare object that performs the final render step into a texture
-        self._flusher = blender_module.RenderFlusher(self._shared.device)
+        self._flusher = RenderFlusher(self._shared.device)
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
