@@ -17,7 +17,7 @@ class BaseFragmentBlender:
         self.msaa = 1
 
         # Pipeline objects
-        self._combine_pipeline = None
+        self._combine_pass_info = None
 
         self._texture_info = {}
         usg = wgpu.TextureUsage
@@ -63,7 +63,7 @@ class BaseFragmentBlender:
             return
 
         # Reset
-        self._combine_pipeline = None
+        self._combine_pass_info = None
 
         self.size = size
         tex_size = size + (1,)
@@ -76,7 +76,6 @@ class BaseFragmentBlender:
             setattr(self, name + "_tex", texture)
             setattr(self, name + "_view", texture.create_view())
 
-    # todo: make the 1 and 2 an arg?
     def get_pipeline_targets1(self):
         """Get the list of fragment targets for device.create_render_pipeline(),
         for the first render pass.
@@ -183,41 +182,33 @@ class BaseFragmentBlender:
         """
 
     def perform_combine_pass(self, device, command_encoder):
-        pass
 
-    def _create_pipeline(self, device, binding_layouts, bindings, targets, shader):
+        # Get bindgroup and pipeline
+        if not self._combine_pass_info:
+            self._combine_pass_info = self._create_combination_pipeline(device)
+        bind_group, render_pipeline = self._combine_pass_info
+        if not render_pipeline:
+            return
 
-        shader_module = device.create_shader_module(code=shader.generate_wgsl())
-
-        bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
-        pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=[bind_group_layout]
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=[
+                {
+                    "view": self.color_view,
+                    "resolve_target": None,
+                    "load_value": wgpu.LoadOp.load,
+                    "store_op": wgpu.StoreOp.store,
+                }
+            ],
+            depth_stencil_attachment=None,
+            occlusion_query_set=None,
         )
-        bind_group = device.create_bind_group(
-            layout=bind_group_layout, entries=bindings
-        )
+        render_pass.set_pipeline(render_pipeline)
+        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.draw(4, 1)
+        render_pass.end_pass()
 
-        render_pipeline = device.create_render_pipeline(
-            layout=pipeline_layout,
-            vertex={
-                "module": shader_module,
-                "entry_point": "vs_main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_strip,
-                "strip_index_format": wgpu.IndexFormat.uint32,
-            },
-            depth_stencil=None,
-            multisample=None,
-            fragment={
-                "module": shader_module,
-                "entry_point": "fs_main",
-                "targets": targets,
-            },
-        )
-
-        return bind_group, render_pipeline
+    def _create_combination_pipeline(self, device):
+        return None, None
 
 
 class OpaqueFragmentBlender(BaseFragmentBlender):
@@ -398,8 +389,11 @@ class Simple2FragmentBlender(BaseFragmentBlender):
         """
 
 
-class WeightedFragmentBlender(BaseFragmentBlender):
-    """Weighted blended order independent transparency (McGuire 2013)."""
+class BlendedFragmentBlender(BaseFragmentBlender):
+    """A blend approach that is order independent. This is the same
+    as the weighted blender (McGuire 2013), but without the depth
+    weights.
+    """
 
     # This class implements the second render pass to implemented weighted blending.
     # It uses two additional render textures for this.
@@ -516,9 +510,9 @@ class WeightedFragmentBlender(BaseFragmentBlender):
                 [[location(1)]] reveal: f32;
             };
             fn add_fragment(depth: f32, color: vec4<f32>) {
-                let weight = 1.0;
                 let premultiplied = color.rgb * color.a;
                 let alpha = color.a;  // could take transmittance into account here
+                let weight = 1.0;
                 p_fragment_accum = vec4<f32>(premultiplied, alpha) * weight;
                 p_fragment_reveal = alpha;
             }
@@ -604,41 +598,35 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         out.color = vec4<f32>(avg_color, 1.0 - reveal);
         """
 
-        shader = FullQuadShader()
-        shader["bindings_code"] = bindings_code
-        shader["fragment_code"] = fragment_code
+        wgsl = FULL_QUAD_SHADER
+        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
+        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
 
-        return self._create_pipeline(device, binding_layouts, bindings, targets, shader)
-
-    def perform_combine_pass(self, device, command_encoder):
-
-        # Get bindgroup and pipeline
-        if not self._combine_pipeline:
-            self._combine_pipeline = self._create_combination_pipeline(device)
-        bind_group, render_pipeline = self._combine_pipeline
-
-        render_pass = command_encoder.begin_render_pass(
-            color_attachments=[
-                {
-                    "view": self.color_view,
-                    "resolve_target": None,
-                    "load_value": wgpu.LoadOp.load,
-                    "store_op": wgpu.StoreOp.store,
-                }
-            ],
-            depth_stencil_attachment=None,
-            occlusion_query_set=None,
-        )
-        render_pass.set_pipeline(render_pipeline)
-        render_pass.set_bind_group(0, bind_group, [], 0, 99)
-        render_pass.draw(4, 1)
-        render_pass.end_pass()
+        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
 
 
-class FullQuadShader(BaseShader):
-    def get_code(self):
+class WeightedFragmentBlender(BlendedFragmentBlender):
+    """Weighted blended order independent transparency (McGuire 2013),
+    using a general purpose depth weight function.
+    """
 
-        code = """
+    def get_shader_code(self):
+        code = super().get_shader_code()
+
+        # The "generic purpose" depth function proposed by McGuire in
+        # http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
+        subcode = """
+            let a = min(1.0, alpha) * 8.0 + 0.01;
+            let b = (1.0 - 0.99999 * depth);
+            let weight = clamp(a * a * a * 1e8 * b * b * b, 1e-2, 3e2);
+        """.strip()
+
+        return code.replace("let weight = 1.0;", subcode)
+
+
+# %% Utils
+
+FULL_QUAD_SHADER = """
         struct VertexInput {
             [[builtin(vertex_index)]] index: u32;
         };
@@ -673,12 +661,40 @@ class FullQuadShader(BaseShader):
 
             return out;
         }
-        """
+"""
 
-        code = code.replace("FRAGMENT_CODE", self["fragment_code"])
-        code = code.replace("BINDINGS_CODE", self["bindings_code"])
 
-        return self.get_definitions() + code
+def _create_pipeline(device, binding_layouts, bindings, targets, wgsl):
+
+    shader_module = device.create_shader_module(code=wgsl)
+
+    bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
+    pipeline_layout = device.create_pipeline_layout(
+        bind_group_layouts=[bind_group_layout]
+    )
+    bind_group = device.create_bind_group(layout=bind_group_layout, entries=bindings)
+
+    render_pipeline = device.create_render_pipeline(
+        layout=pipeline_layout,
+        vertex={
+            "module": shader_module,
+            "entry_point": "vs_main",
+            "buffers": [],
+        },
+        primitive={
+            "topology": wgpu.PrimitiveTopology.triangle_strip,
+            "strip_index_format": wgpu.IndexFormat.uint32,
+        },
+        depth_stencil=None,
+        multisample=None,
+        fragment={
+            "module": shader_module,
+            "entry_point": "fs_main",
+            "targets": targets,
+        },
+    )
+
+    return bind_group, render_pipeline
 
 
 # TODO: I think that the blender will always write the end-result back into the color texture

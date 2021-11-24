@@ -225,8 +225,11 @@ class WgpuRenderer(Renderer):
         * "simple2": two-pass approach that first processes all opaque fragments and
           then blends transparent fragments (using the OVER operator) with depth-write disabled.
           Yields visually ok results, but is not order independent.
-        * "weighted": todo McGuire 2013
-        * "weighted_z": todo McGuire 2016
+        * "blended": two-pass approach that yields order independent transparency.
+          This is like "weighted" but without the depth weights. Performance is the same.
+        * "weighted: two-pass approach that yields order independent
+          transparency, with depth weighting (McGuire 2013). The depth range affects the
+          (quality of the) visual result.
         * "multilayer2": todo 2-layer MLAB + weighted for the rest?
         """
         return self._blend_mode
@@ -244,6 +247,7 @@ class WgpuRenderer(Renderer):
             "opaque": blender_module.OpaqueFragmentBlender,
             "simple1": blender_module.Simple1FragmentBlender,
             "simple2": blender_module.Simple2FragmentBlender,
+            "blended": blender_module.BlendedFragmentBlender,
             "weighted": blender_module.WeightedFragmentBlender,
         }
         if value not in m:
