@@ -30,6 +30,9 @@ def test_templating():
     # Can also specify when generating
     assert shader.generate_wgsl(foo=False).strip() == "x = 43"
 
+    # But these only apply for that call
+    assert shader.generate_wgsl().strip() == "x = 42"
+
     # Inline block notation
     class MyShader(shadercomposer.BaseShader):
         def get_code(self):
@@ -40,6 +43,27 @@ def test_templating():
     shader = MyShader(foo=True)
     assert shader.generate_wgsl().strip() == "1"
     assert shader.generate_wgsl(foo=False).strip() == "2"
+
+
+def test_logic_beyond_templating():
+    class MyShader(shadercomposer.BaseShader):
+        def get_code(self):
+            if self["foo"]:
+                return "x = {{bar + 1}}"
+            else:
+                return "x = {{bar}}"
+
+    shader = MyShader(foo=False, bar=24)
+
+    assert shader.generate_wgsl().strip() == "x = 24"
+    shader["foo"] = True
+    assert shader.generate_wgsl().strip() == "x = 25"
+
+    assert shader.generate_wgsl(foo=False).strip() == "x = 24"
+    assert shader.generate_wgsl().strip() == "x = 25"
+
+    assert shader.generate_wgsl(bar=1).strip() == "x = 2"
+    assert shader.generate_wgsl().strip() == "x = 25"
 
 
 def test_uniform_definitions():
@@ -158,5 +182,6 @@ def test_resolve_depth_output():
 
 if __name__ == "__main__":
     test_templating()
+    test_logic_beyond_templating()
     test_uniform_definitions()
     test_resolve_depth_output()

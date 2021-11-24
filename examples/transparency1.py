@@ -19,7 +19,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             scene.add(scene.children[0])
             canvas.request_draw()
         elif event.text() in "0123456789":
-            m = [None, "opaque", "simple1", "simple2"]
+            m = [None, "opaque", "simple1", "simple2", "blended", "weighted"]
             mode = m[int(event.text())]
             renderer.blend_mode = mode
             print("Selecting blend_mode", mode)

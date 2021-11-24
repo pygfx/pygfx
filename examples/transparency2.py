@@ -39,7 +39,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             print("Rotating scene element order")
             scene.add(scene.children[0])
         elif event.text() in "0123456789":
-            m = [None, "opaque", "simple1", "simple2"]
+            m = [None, "opaque", "simple1", "simple2", "blended", "weighted"]
             mode = m[int(event.text())]
             renderer.blend_mode = mode
             print("Selecting blend_mode", mode)

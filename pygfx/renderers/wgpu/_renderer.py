@@ -12,6 +12,7 @@ from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
 
 from . import _blender as blender_module
+from ._flusher import RenderFlusher
 from ._pipelinebuilder import ensure_pipeline
 from ._update import update_buffer, update_texture, update_texture_view
 
@@ -165,7 +166,7 @@ class WgpuRenderer(Renderer):
         self.blend_mode = "default"
 
         # Prepare object that performs the final render step into a texture
-        self._flusher = blender_module.RenderFlusher(self._shared.device)
+        self._flusher = RenderFlusher(self._shared.device)
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -225,8 +226,11 @@ class WgpuRenderer(Renderer):
         * "simple2": two-pass approach that first processes all opaque fragments and
           then blends transparent fragments (using the OVER operator) with depth-write disabled.
           Yields visually ok results, but is not order independent.
-        * "weighted": todo McGuire 2013
-        * "weighted_z": todo McGuire 2016
+        * "blended": two-pass approach that yields order independent transparency.
+          This is like "weighted" but without the depth weights. Performance is the same.
+        * "weighted: two-pass approach that yields order independent
+          transparency, with depth weighting (McGuire 2013). The depth range affects the
+          (quality of the) visual result.
         * "multilayer2": todo 2-layer MLAB + weighted for the rest?
         """
         return self._blend_mode
@@ -244,6 +248,8 @@ class WgpuRenderer(Renderer):
             "opaque": blender_module.OpaqueFragmentBlender,
             "simple1": blender_module.Simple1FragmentBlender,
             "simple2": blender_module.Simple2FragmentBlender,
+            "blended": blender_module.BlendedFragmentBlender,
+            "weighted": blender_module.WeightedFragmentBlender,
         }
         if value not in m:
             raise ValueError(
@@ -394,7 +400,7 @@ class WgpuRenderer(Renderer):
             if wobject_pipeline:
                 wobject_tuples.append((wobject, wobject_pipeline))
 
-        # Render the scene graph (to the first texture)
+        # Render the scene graph
         command_encoder = device.create_command_encoder()
         self._render_recording(
             command_encoder, wobject_tuples, physical_viewport, clear_color, clear_depth
@@ -470,17 +476,18 @@ class WgpuRenderer(Renderer):
 
             if render_pass_iter == 1:
                 # Render pass 1 renders opaque fragments and picking info
-                color_attachments = self._blender.get_color_attachments1(clear_color)
                 depth_load_value = 1.0 if clear_depth else wgpu.LoadOp.load
                 depth_store_op = wgpu.StoreOp.store
             else:
                 # Render pass 2 renders transparent fragments, as defined by the blender
-                color_attachments = self._blender.get_color_attachments2(clear_color)
                 depth_load_value = wgpu.LoadOp.load
                 # depth_write_enabled is already False for all objects, but we
                 # also disable it on the pipeline for good measure.
                 depth_store_op = wgpu.StoreOp.discard
 
+            color_attachments = self._blender.get_color_attachments(
+                render_pass_iter, clear_color
+            )
             if not color_attachments:
                 continue
 
@@ -518,6 +525,9 @@ class WgpuRenderer(Renderer):
                         render_pass.draw(*pinfo["index_args"])
 
             render_pass.end_pass()
+
+        # Let blender wrap up
+        self._blender.perform_combine_pass(self._shared.device, command_encoder)
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data
