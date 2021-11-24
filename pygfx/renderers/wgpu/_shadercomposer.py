@@ -549,8 +549,8 @@ class WorldObjectShader(BaseShader):
 
         # Get WGSL for blending.
         # Defines FragmentOutput2, add_fragment1, add_fragment2, finalize_fragment1, finalize_fragment2.
-        self["blending_code1"] = render_info.blender.get_shader_code1()
-        self["blending_code2"] = render_info.blender.get_shader_code2()
+        self["blending_code1"] = render_info.blender.get_shader_code(1)
+        self["blending_code2"] = render_info.blender.get_shader_code(2)
 
     def common_functions(self):
 

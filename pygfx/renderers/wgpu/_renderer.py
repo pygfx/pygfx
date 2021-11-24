@@ -475,17 +475,18 @@ class WgpuRenderer(Renderer):
 
             if render_pass_iter == 1:
                 # Render pass 1 renders opaque fragments and picking info
-                color_attachments = self._blender.get_color_attachments1(clear_color)
                 depth_load_value = 1.0 if clear_depth else wgpu.LoadOp.load
                 depth_store_op = wgpu.StoreOp.store
             else:
                 # Render pass 2 renders transparent fragments, as defined by the blender
-                color_attachments = self._blender.get_color_attachments2(clear_color)
                 depth_load_value = wgpu.LoadOp.load
                 # depth_write_enabled is already False for all objects, but we
                 # also disable it on the pipeline for good measure.
                 depth_store_op = wgpu.StoreOp.discard
 
+            color_attachments = self._blender.get_color_attachments(
+                render_pass_iter, clear_color
+            )
             if not color_attachments:
                 continue
 

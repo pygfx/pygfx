@@ -321,12 +321,8 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
 
     pipelines = {}
     for render_pass_iter in [1, 2]:
-        if render_pass_iter == 1:
-            depth_write_enabled = True
-            fragment_targets = blender.get_pipeline_targets1()
-        else:
-            depth_write_enabled = False
-            fragment_targets = blender.get_pipeline_targets2()
+        depth_write_enabled = render_pass_iter == 1
+        fragment_targets = blender.get_pipeline_targets(render_pass_iter)
 
         if not fragment_targets:
             pipelines[render_pass_iter] = None
