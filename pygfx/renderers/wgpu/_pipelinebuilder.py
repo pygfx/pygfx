@@ -320,20 +320,17 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
     # Instantiate the pipeline objects
 
     pipelines = {}
-    for render_pass_iter in [1, 2]:
-        depth_write_enabled = render_pass_iter == 1
-        fragment_targets = blender.get_pipeline_targets(render_pass_iter)
-
+    for pass_index in blender.iter_pass_indices():
+        fragment_targets = blender.get_pipeline_targets(pass_index)
         if not fragment_targets:
-            pipelines[render_pass_iter] = None
             continue
 
         # Compile shader
         shader = pipeline_info["render_shader"]
-        wgsl = shader.generate_wgsl(render_pass=render_pass_iter)
+        wgsl = shader.generate_wgsl(pass_index=pass_index)
         shader_module = get_shader_module(shared, wgsl)
 
-        pipelines[render_pass_iter] = device.create_render_pipeline(
+        pipelines[pass_index] = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
                 "module": shader_module,
@@ -348,7 +345,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
             },
             depth_stencil={
                 "format": blender.depth_format,
-                "depth_write_enabled": depth_write_enabled,
+                "depth_write_enabled": blender.get_depth_write_enabled(pass_index),
                 "depth_compare": wgpu.CompareFunction.less,
                 "stencil_front": {},  # use defaults
                 "stencil_back": {},  # use defaults
@@ -357,7 +354,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
                 "depth_bias_clamp": 0.0,
             },
             multisample={
-                "count": blender.msaa,
+                "count": 1,
                 "mask": 0xFFFFFFFF,
                 "alpha_to_coverage_enabled": False,
             },
@@ -369,8 +366,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
         )
 
     return {
-        "pipeline1": pipelines[1],  # wgpu object
-        "pipeline2": pipelines[2],  # wgpu object
+        "pipelines": pipelines,  # wgpu objects
         "index_args": index_args,  # tuple
         "index_buffer": wgpu_index_buffer,  # Buffer
         "vertex_buffers": vertex_buffers,  # dict of slot -> Buffer

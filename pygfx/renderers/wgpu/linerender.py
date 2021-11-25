@@ -473,7 +473,7 @@ class LineShader(WorldObjectShader):
             var out = finalize_fragment();
 
             // Set picking info. Yes, the vertex_id interpolates correctly in encoded form.
-            $$ if render_pass == 1
+            $$ if pass_index == 0
             let vf: f32 = varyings.pick_idx.x * 10000.0 + varyings.pick_idx.y;
             let vi = i32(vf + 0.5);
             out.pick = vec4<i32>(u_wobject.id, 0, vi, i32((vf - f32(vi)) * 1048576.0));

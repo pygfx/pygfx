@@ -226,12 +226,13 @@ class WgpuRenderer(Renderer):
         * "simple2": two-pass approach that first processes all opaque fragments and
           then blends transparent fragments (using the OVER operator) with depth-write disabled.
           Yields visually ok results, but is not order independent.
-        * "blended": two-pass approach that yields order independent transparency.
-          This is like "weighted" but without the depth weights. Performance is the same.
-        * "weighted: two-pass approach that yields order independent
-          transparency, with depth weighting (McGuire 2013). The depth range affects the
-          (quality of the) visual result.
-        * "multilayer2": todo 2-layer MLAB + weighted for the rest?
+        * "weighted": two-pass approach that yields order independent transparency, using alpha weights.
+        * "weighted_depth": two-pass approach that yields order independent
+          transparency, with weights based on alpha and depth (McGuire 2013). Note that the depth
+          range affects the (quality of the) visual result.
+        * "weighted_plus": three-pass approach that yields order independent transparency,
+          in wich the front-most transparent layer is rendered correctly, while transparent
+          layers behind it are blended using "weighted".
         """
         return self._blend_mode
 
@@ -248,8 +249,9 @@ class WgpuRenderer(Renderer):
             "opaque": blender_module.OpaqueFragmentBlender,
             "simple1": blender_module.Simple1FragmentBlender,
             "simple2": blender_module.Simple2FragmentBlender,
-            "blended": blender_module.BlendedFragmentBlender,
             "weighted": blender_module.WeightedFragmentBlender,
+            "weighted_depth": blender_module.WeightedDepthFragmentBlender,
+            "weighted_plus": blender_module.WeightedPlusFragmentBlender,
         }
         if value not in m:
             raise ValueError(
@@ -472,10 +474,10 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines
 
-        for render_pass_iter in [1, 2]:
+        for pass_index in self._blender.iter_pass_indices():
 
-            if render_pass_iter == 1:
-                # Render pass 1 renders opaque fragments and picking info
+            if self._blender.get_depth_write_enabled(pass_index):
+                # Render pass 0 renders opaque fragments and picking info
                 depth_load_value = 1.0 if clear_depth else wgpu.LoadOp.load
                 depth_store_op = wgpu.StoreOp.store
             else:
@@ -486,7 +488,7 @@ class WgpuRenderer(Renderer):
                 depth_store_op = wgpu.StoreOp.discard
 
             color_attachments = self._blender.get_color_attachments(
-                render_pass_iter, clear_color
+                pass_index, clear_color
             )
             if not color_attachments:
                 continue
@@ -506,7 +508,7 @@ class WgpuRenderer(Renderer):
 
             for wobject, wobject_pipeline in wobject_tuples:
                 for pinfo in wobject_pipeline["render_pipelines"]:
-                    render_pass.set_pipeline(pinfo[f"pipeline{render_pass_iter}"])
+                    render_pass.set_pipeline(pinfo["pipelines"][pass_index])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
                         render_pass.set_vertex_buffer(
                             slot,

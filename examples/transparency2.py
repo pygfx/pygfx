@@ -39,7 +39,15 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             print("Rotating scene element order")
             scene.add(scene.children[0])
         elif event.text() in "0123456789":
-            m = [None, "opaque", "simple1", "simple2", "blended", "weighted"]
+            m = [
+                None,
+                "opaque",
+                "simple1",
+                "simple2",
+                "weighted",
+                "weighted_depth",
+                "weighted_plus",
+            ]
             mode = m[int(event.text())]
             renderer.blend_mode = mode
             print("Selecting blend_mode", mode)
@@ -71,9 +79,9 @@ scene = gfx.Scene()
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.5)))
+plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
 plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.5)))
+plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
 
 plane1.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 1.571)
 plane2.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), 1.571)
