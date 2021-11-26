@@ -7,7 +7,7 @@ from ._flusher import FULL_QUAD_SHADER, _create_pipeline
 # - The user code provides color as-is in rgba.
 # - In the add_fragment logic defined in the shaders here, the color
 #   is pre-multiplied with the alpha.
-# - All fixed-pipeling blending option assume premultiplied alpha.
+# - All fixed-pipeling blending options assume premultiplied alpha.
 
 
 standard_texture_des = {
@@ -603,26 +603,18 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+                "texture": standard_texture_des,
             },
             {
                 "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": standard_texture_des,
             },
-            {
-                "binding": 2,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": standard_texture_des,
-            },
         ]
 
-        sampler = device.create_sampler(mag_filter="nearest", min_filter="nearest")
-
         bindings = [
-            {"binding": 0, "resource": sampler},
-            {"binding": 1, "resource": self.accum_view},
-            {"binding": 2, "resource": self.reveal_view},
+            {"binding": 0, "resource": self.accum_view},
+            {"binding": 1, "resource": self.reveal_view},
         ]
 
         BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
@@ -638,10 +630,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
 
         bindings_code = """
             [[group(0), binding(0)]]
-            var r_sampler: sampler;
-            [[group(0), binding(1)]]
             var r_accum: texture_2d<f32>;
-            [[group(0), binding(2)]]
+            [[group(0), binding(1)]]
             var r_reveal: texture_2d<f32>;
         """
 
@@ -649,8 +639,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             let epsilon = 0.00001;
 
             // Sample
-            let accum = textureSample(r_accum, r_sampler, texcoord).rgba;
-            let reveal = textureSample(r_reveal, r_sampler, texcoord).r;
+            let accum = textureLoad(r_accum, texindex, 0).rgba;
+            let reveal = textureLoad(r_reveal, texindex, 0).r;
 
             // Exit if no transparent fragments was written
             if (reveal >= 1.0) { discard; }  // no transparent fragments here
@@ -721,7 +711,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+                "texture": standard_texture_des,
             },
             {
                 "binding": 1,
@@ -733,20 +723,12 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": standard_texture_des,
             },
-            {
-                "binding": 3,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": standard_texture_des,
-            },
         ]
 
-        sampler = device.create_sampler(mag_filter="nearest", min_filter="nearest")
-
         bindings = [
-            {"binding": 0, "resource": sampler},
-            {"binding": 1, "resource": self.accum_view},
-            {"binding": 2, "resource": self.reveal_view},
-            {"binding": 3, "resource": self.frontcolor_view},
+            {"binding": 0, "resource": self.accum_view},
+            {"binding": 1, "resource": self.reveal_view},
+            {"binding": 2, "resource": self.frontcolor_view},
         ]
 
         BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
@@ -762,12 +744,10 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 
         bindings_code = """
             [[group(0), binding(0)]]
-            var r_sampler: sampler;
-            [[group(0), binding(1)]]
             var r_accum: texture_2d<f32>;
-            [[group(0), binding(2)]]
+            [[group(0), binding(1)]]
             var r_reveal: texture_2d<f32>;
-            [[group(0), binding(3)]]
+            [[group(0), binding(2)]]
             var r_frontcolor: texture_2d<f32>;
         """
 
@@ -775,9 +755,9 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             let epsilon = 0.00001;
 
             // Sample
-            var accum = textureSample(r_accum, r_sampler, texcoord).rgba;
-            var reveal = textureSample(r_reveal, r_sampler, texcoord).r;
-            let front = textureSample(r_frontcolor, r_sampler, texcoord).rgba;
+            var accum = textureLoad(r_accum, texindex, 0).rgba;
+            var reveal = textureLoad(r_reveal, texindex, 0).r;
+            let front = textureLoad(r_frontcolor, texindex, 0).rgba;
 
             // Exit if no transparent fragments was written - there also not be a front.
             if (reveal >= 1.0) { discard; }  // no transparent fragments here
