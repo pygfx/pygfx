@@ -447,6 +447,7 @@ class BaseFragmentBlender:
 
         # The below targets are always present, and the renderer expects their
         # format, texture, and view to be present.
+        # These contribute to 4+4+16 = 24 bytes per pixel
 
         usg = wgpu.TextureUsage
 
@@ -591,6 +592,10 @@ class WeightedFragmentBlender(BaseFragmentBlender):
 
         usg = wgpu.TextureUsage
 
+        # Create two additional render targets.
+        # These contribute 8+2 = 10 bytes per pixel
+        # So the total = 24 + 10 = 34 bytes per pixel
+
         # The accumulation buffer collects weighted fragments
         self._texture_info["accum"] = (
             wgpu.TextureFormat.rgba16float,
@@ -700,7 +705,11 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 
         usg = wgpu.TextureUsage
 
-        # One extra color buffer for the front-most semitransparent layer
+        # Create one additional render target.
+        # This contributes 4 bytes per pixel
+        # So the total = 24 + 10 + 4 = 38 bytes per pixel
+
+        # Color buffer for the front-most semitransparent layer
         self._texture_info["frontcolor"] = (
             wgpu.TextureFormat.rgba8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
