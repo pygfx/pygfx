@@ -32,8 +32,7 @@ FULL_QUAD_SHADER = """
     fn fs_main(varyings: Varyings) -> FragmentOutput {
         var out : FragmentOutput;
         let texcoord = varyings.texcoord;  // for textureSample
-        let position = varyings.position;
-        let texindex = vec2<i32>(position.xy);  // for textureLoad
+        let texindex = vec2<i32>(varyings.position.xy);  // for textureLoad
 
         FRAGMENT_CODE
 
