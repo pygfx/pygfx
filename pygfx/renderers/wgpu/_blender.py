@@ -11,7 +11,7 @@ from ._flusher import FULL_QUAD_SHADER, _create_pipeline
 
 
 standard_texture_des = {
-    "sample_type": wgpu.TextureSampleType.float,
+    "sample_type": wgpu.TextureSampleType.unfilterable_float,
     "view_dimension": wgpu.TextureViewDimension.d2,
     "multisampled": False,
 }
