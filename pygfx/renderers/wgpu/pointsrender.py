@@ -182,7 +182,7 @@ class PointsShader(WorldObjectShader):
             add_fragment(varyings.position.z, final_color);
             var out = finalize_fragment();
 
-            $$ if pass_index == 0
+            $$ if write_pick
             let vertex_id = i32(varyings.pick_idx.x * 10000.0 + varyings.pick_idx.y + 0.5);
             out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
             $$ endif

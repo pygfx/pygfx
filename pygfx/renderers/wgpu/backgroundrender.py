@@ -138,7 +138,7 @@ class BackgroundShader(WorldObjectShader):
             // We can apply clipping planes, but maybe a background should not be clipped?
             // apply_clipping_planes(in.world_pos);
 
-            $$ if pass_index == 0
+            $$ if write_pick
                 // Fake being opaque - backgrounds should be backgrounds
                 add_fragment(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
                 var out = finalize_fragment();

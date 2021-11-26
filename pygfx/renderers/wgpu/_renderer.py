@@ -474,7 +474,7 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines
 
-        for pass_index in self._blender.iter_pass_indices():
+        for pass_index in range(self._blender.get_pass_count()):
 
             if self._blender.get_depth_write_enabled(pass_index):
                 # Render pass 0 renders opaque fragments and picking info

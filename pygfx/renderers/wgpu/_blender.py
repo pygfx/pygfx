@@ -24,6 +24,7 @@ class BasePass:
     """The base pass class, defining and documenting the API that a pass must provide."""
 
     depth_write_enabled = True
+    write_pick = False
 
     def get_pipeline_targets(self, blender):
         """Get the list of fragment targets for device.create_render_pipeline()."""
@@ -61,6 +62,7 @@ class OpaquePass(BasePass):
     """
 
     depth_write_enabled = True
+    write_pick = True
 
     def get_pipeline_targets(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -131,6 +133,7 @@ class FullOpaquePass(OpaquePass):
     """A pass that considers all fragments opaque."""
 
     depth_write_enabled = True
+    write_pick = True
 
     def get_shader_code(self, blender):
         return """
@@ -160,6 +163,7 @@ class SimpleSinglePass(OpaquePass):
     """A pass that blends opaque and transparent fragments in a single pass."""
 
     depth_write_enabled = True
+    write_pick = True
 
     def get_pipeline_targets(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -211,6 +215,7 @@ class SimpleTransparencyPass(BasePass):
     """
 
     depth_write_enabled = False
+    write_pick = False
 
     def get_pipeline_targets(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -263,6 +268,7 @@ class WeightedTransparencyPass(BasePass):
     """
 
     depth_write_enabled = False
+    write_pick = False
 
     def __init__(self, weight_func):
 
@@ -363,6 +369,7 @@ class FrontmostTransparencyPass(BasePass):
     """
 
     depth_write_enabled = True
+    write_pick = False
 
     def get_pipeline_targets(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -494,19 +501,18 @@ class BaseFragmentBlender:
     def get_color_attachments(self, pass_index, clear):
         return self.passes[pass_index].get_color_attachments(self, clear)
 
-    def get_shader_code(self, pass_index):
-        return self.passes[pass_index].get_shader_code(self)
-
     def get_depth_write_enabled(self, pass_index):
         return self.passes[pass_index].depth_write_enabled
 
-    def iter_pass_indices(self):
-        """Get an iterator that yield pass_index in the appropriate order.
-        Note that pass_index 0 (zero) is reserved for the "solid" pass in which
-        the pick info must be written. The index 0 is not necessarily the first
-        index of this iterator.
-        """
-        return range(len(self.passes))
+    def get_shader_kwargs(self, pass_index):
+        return {
+            "blending_code": self.passes[pass_index].get_shader_code(self),
+            "write_pick": self.passes[pass_index].write_pick,
+        }
+
+    def get_pass_count(self):
+        """Get the number of passes for this blender."""
+        return len(self.passes)
 
     def perform_combine_pass(self, device, command_encoder):
         """Perform a render-pass to combine any multi-pass results, if needed."""
@@ -680,15 +686,13 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     single-layer depth peeling.
 
     That 3d pass is actually drawn first, so that the final depth buffer
-    state matches the opaque content of the scene. Since we have a rule
-    that pass_index 0 means the opaque pass, we need to juggle the
-    indices in iter_pass_indices.
+    state matches the opaque content of the scene.
     """
 
     passes = [
+        FrontmostTransparencyPass(),
         OpaquePass(),
         WeightedTransparencyPass("alpha"),
-        FrontmostTransparencyPass(),
     ]
 
     def __init__(self):
@@ -701,9 +705,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             wgpu.TextureFormat.rgba8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
-
-    def iter_pass_indices(self):
-        return (2, 0, 1)
 
     def _create_combination_pipeline(self, device):
 

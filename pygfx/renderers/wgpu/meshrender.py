@@ -428,7 +428,7 @@ class MeshShader(WorldObjectShader):
             add_fragment(varyings.position.z, final_color);
             var out = finalize_fragment();
 
-            $$ if pass_index == 0
+            $$ if write_pick
             let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);  // inst+face
             let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
@@ -765,7 +765,7 @@ class MeshSliceShader(WorldObjectShader):
             add_fragment(varyings.position.z, final_color);
             var out = finalize_fragment();
 
-            $$ if pass_index == 0
+            $$ if write_pick
             let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);
             let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
             out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);

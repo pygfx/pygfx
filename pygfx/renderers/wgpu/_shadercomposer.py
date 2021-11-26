@@ -543,16 +543,12 @@ class WorldObjectShader(BaseShader):
     def __init__(self, render_info, **kwargs):
         super().__init__(**kwargs)
 
-        self["pass_index"] = 0
         self["n_clipping_planes"] = len(render_info.wobject.material.clipping_planes)
         self["clipping_mode"] = render_info.wobject.material.clipping_mode
 
-        # Get WGSL for blending.
-        # Defines FragmentOutput2, add_fragment1, add_fragment2, finalize_fragment1, finalize_fragment2.
-        blender = render_info.blender
-        self._bending_codes = {}
-        for pass_index in blender.iter_pass_indices():
-            self._bending_codes[pass_index] = blender.get_shader_code(pass_index)
+        # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
+        self["write_pick"] = True
+        self["blending_code"] = ""
 
     def common_functions(self):
 
@@ -586,6 +582,8 @@ class WorldObjectShader(BaseShader):
         }
         """
 
-        pass_index = self["pass_index"]
-        blending_code = self._bending_codes[pass_index]
+        blending_code = """
+        {{ blending_code }}
+        """
+
         return clipping_plane_code + world_pos_code + blending_code

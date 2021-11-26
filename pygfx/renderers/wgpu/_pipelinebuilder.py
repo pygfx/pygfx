@@ -320,14 +320,14 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
     # Instantiate the pipeline objects
 
     pipelines = {}
-    for pass_index in blender.iter_pass_indices():
+    for pass_index in range(blender.get_pass_count()):
         fragment_targets = blender.get_pipeline_targets(pass_index)
         if not fragment_targets:
             continue
 
         # Compile shader
         shader = pipeline_info["render_shader"]
-        wgsl = shader.generate_wgsl(pass_index=pass_index)
+        wgsl = shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
         shader_module = get_shader_module(shared, wgsl)
 
         pipelines[pass_index] = device.create_render_pipeline(
