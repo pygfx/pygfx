@@ -63,13 +63,13 @@ class OpaquePass(BasePass):
     depth_write_enabled = True
 
     def get_pipeline_targets(self, blender):
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (BF.one, BF.zero, BO.add),
-                    "color": (BF.one, BF.zero, BO.add),
+                    "alpha": (bf.one, bf.zero, bo.add),
+                    "color": (bf.one, bf.zero, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -162,13 +162,13 @@ class SimpleSinglePass(OpaquePass):
     depth_write_enabled = True
 
     def get_pipeline_targets(self, blender):
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (BF.one, BF.one_minus_src_alpha, BO.add),
-                    "color": (BF.one, BF.one_minus_src_alpha, BO.add),
+                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -213,13 +213,13 @@ class SimpleTransparencyPass(BasePass):
     depth_write_enabled = False
 
     def get_pipeline_targets(self, blender):
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (BF.one, BF.one_minus_src_alpha, BO.add),
-                    "color": (BF.one, BF.one_minus_src_alpha, BO.add),
+                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -286,21 +286,21 @@ class WeightedTransparencyPass(BasePass):
         self._weight_code = weight_code.strip()
 
     def get_pipeline_targets(self, blender):
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
                 "format": blender.accum_format,
                 "blend": {
-                    "alpha": (BF.one, BF.one, BO.add),
-                    "color": (BF.one, BF.one, BO.add),
+                    "alpha": (bf.one, bf.one, bo.add),
+                    "color": (bf.one, bf.one, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
             {
                 "format": blender.reveal_format,
                 "blend": {
-                    "alpha": (BF.zero, BF.one_minus_src_alpha, BO.add),
-                    "color": (BF.zero, BF.one_minus_src, BO.add),
+                    "alpha": (bf.zero, bf.one_minus_src_alpha, bo.add),
+                    "color": (bf.zero, bf.one_minus_src, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -365,13 +365,13 @@ class FrontmostTransparencyPass(BasePass):
     depth_write_enabled = True
 
     def get_pipeline_targets(self, blender):
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
                 "format": blender.frontcolor_format,
                 "blend": {
-                    "alpha": (BF.one, BF.zero, BO.add),
-                    "color": (BF.one, BF.zero, BO.add),
+                    "alpha": (bf.one, bf.zero, bo.add),
+                    "color": (bf.one, bf.zero, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -617,13 +617,13 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             {"binding": 1, "resource": self.reveal_view},
         ]
 
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
             {
                 "format": self.color_format,
                 "blend": {
-                    "alpha": (BF.one, BF.one_minus_src_alpha, BO.add),
-                    "color": (BF.one, BF.one_minus_src_alpha, BO.add),
+                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
                 },
             },
         ]
@@ -731,13 +731,13 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             {"binding": 2, "resource": self.frontcolor_view},
         ]
 
-        BF, BO = wgpu.BlendFactor, wgpu.BlendOperation
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
             {
                 "format": self.color_format,
                 "blend": {
-                    "alpha": (BF.one, BF.one_minus_src_alpha, BO.add),
-                    "color": (BF.one, BF.one_minus_src_alpha, BO.add),
+                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
                 },
             },
         ]
