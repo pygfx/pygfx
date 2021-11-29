@@ -313,7 +313,7 @@ class WeightedTransparencyPass(BasePass):
                 let weight = alpha;
             """
         elif weight_func == "depth":
-            # The "generic purpose" depth function proposed by McGuire in
+            # The "generic purpose" weight function proposed by McGuire in
             # http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
             weight_code = """
                 let a = min(1.0, alpha) * 8.0 + 0.01;
@@ -745,7 +745,7 @@ class WeightedDepthFragmentBlender(WeightedFragmentBlender):
 
 class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     """Three-pass weighted blended order independent transparency (McGuire 2013),
-    using a depth function based on alpha, and in which the top-most
+    using a weight function based on alpha, and in which the top-most
     transparent layer is actually in front.
 
     This uses the same approach as WeightedFragmentBlender, but in a

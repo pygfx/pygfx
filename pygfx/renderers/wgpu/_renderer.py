@@ -221,18 +221,19 @@ class WgpuRenderer(Renderer):
         """The method for handling transparency:
         * "default" or None: Select the default: currently this is "simple2".
         * "opaque": single-pass approach that consider every fragment opaque.
-        * "simple1": single-pass approach that blends fragments (using OVER compositing).
+        * "simple1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
         * "simple2": two-pass approach that first processes all opaque fragments and
-          then blends transparent fragments (using the OVER operator) with depth-write disabled.
-          Yields visually ok results, but is not order independent.
-        * "weighted": two-pass approach that yields order independent transparency, using alpha weights.
-        * "weighted_depth": two-pass approach that yields order independent
-          transparency, with weights based on alpha and depth (McGuire 2013). Note that the depth
+          then blends transparent fragments (using alpha blending) with depth-write disabled.
+          The visual results are usually better than simple1, but depend on the drawing order.
+        * "weighted": two-pass approach that for order independent transparency,
+          using alpha weights.
+        * "weighted_depth": two-pass approach for order independent transparency,
+          with weights based on alpha and depth (McGuire 2013). Note that the depth
           range affects the (quality of the) visual result.
-        * "weighted_plus": three-pass approach that yields order independent transparency,
-          in wich the front-most transparent layer is rendered correctly, while transparent
-          layers behind it are blended using "weighted".
+        * "weighted_plus": three-pass approach for order independent transparency,
+          in wich the front-most transparent layer is rendered correctly, while
+          transparent layers behind it are blended using alpha weights.
         """
         return self._blend_mode
 
@@ -409,7 +410,7 @@ class WgpuRenderer(Renderer):
         )
         command_buffers = [command_encoder.finish()]
 
-        # Let the blender to the combinatory pass
+        # Let the blender do the combinatory pass
         if flush:
             command_encoder = device.create_command_encoder()
             self._blender.perform_combine_pass(self._shared.device, command_encoder)
