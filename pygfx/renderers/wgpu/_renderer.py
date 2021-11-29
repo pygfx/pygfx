@@ -408,6 +408,13 @@ class WgpuRenderer(Renderer):
             command_encoder, wobject_tuples, physical_viewport, clear_color, clear_depth
         )
         command_buffers = [command_encoder.finish()]
+
+        # Let the blender to the combinatory pass
+        if flush:
+            command_encoder = device.create_command_encoder()
+            self._blender.perform_combine_pass(self._shared.device, command_encoder)
+            command_buffers.append(command_encoder.finish())
+
         device.queue.submit(command_buffers)
 
         # Flush to target
@@ -457,6 +464,8 @@ class WgpuRenderer(Renderer):
         # it, really.
         # todo: we may be able to speed this up with render bundles though
 
+        blender = self._blender
+
         # ----- compute pipelines
 
         compute_pass = command_encoder.begin_compute_pass()
@@ -474,31 +483,17 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines
 
-        for pass_index in range(self._blender.get_pass_count()):
+        for pass_index in range(blender.get_pass_count()):
 
-            if self._blender.get_depth_write_enabled(pass_index):
-                # Render pass 0 renders opaque fragments and picking info
-                depth_load_value = 1.0 if clear_depth else wgpu.LoadOp.load
-                depth_store_op = wgpu.StoreOp.store
-            else:
-                # Render pass 2 renders transparent fragments, as defined by the blender
-                depth_load_value = wgpu.LoadOp.load
-                # depth_write_enabled is already False for all objects, but we
-                # also disable it on the pipeline for good measure.
-                depth_store_op = wgpu.StoreOp.discard
-
-            color_attachments = self._blender.get_color_attachments(
-                pass_index, clear_color
-            )
+            color_attachments = blender.get_color_attachments(pass_index, clear_color)
+            depth_attachment = blender.get_depth_attachment(pass_index, clear_depth)
             if not color_attachments:
                 continue
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=color_attachments,
                 depth_stencil_attachment={
-                    "view": self._blender.depth_view,
-                    "depth_load_value": depth_load_value,
-                    "depth_store_op": depth_store_op,
+                    **depth_attachment,
                     "stencil_load_value": wgpu.LoadOp.load,
                     "stencil_store_op": wgpu.StoreOp.store,
                 },
@@ -527,9 +522,6 @@ class WgpuRenderer(Renderer):
                         render_pass.draw(*pinfo["index_args"])
 
             render_pass.end_pass()
-
-        # Let blender wrap up
-        self._blender.perform_combine_pass(self._shared.device, command_encoder)
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data

@@ -321,8 +321,9 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
 
     pipelines = {}
     for pass_index in range(blender.get_pass_count()):
-        fragment_targets = blender.get_pipeline_targets(pass_index)
-        if not fragment_targets:
+        color_descriptors = blender.get_color_descriptors(pass_index)
+        depth_descriptor = blender.get_depth_descriptor(pass_index)
+        if not color_descriptors:
             continue
 
         # Compile shader
@@ -344,14 +345,9 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
                 "cull_mode": pipeline_info.get("cull_mode", wgpu.CullMode.none),
             },
             depth_stencil={
-                "format": blender.depth_format,
-                "depth_write_enabled": blender.get_depth_write_enabled(pass_index),
-                "depth_compare": wgpu.CompareFunction.less,
+                **depth_descriptor,
                 "stencil_front": {},  # use defaults
                 "stencil_back": {},  # use defaults
-                "depth_bias": 0,
-                "depth_bias_slope_scale": 0.0,
-                "depth_bias_clamp": 0.0,
             },
             multisample={
                 "count": 1,
@@ -361,7 +357,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
             fragment={
                 "module": shader_module,
                 "entry_point": "fs_main",
-                "targets": fragment_targets,
+                "targets": color_descriptors,
             },
         )
 
