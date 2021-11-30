@@ -115,7 +115,7 @@ def update_texture(device, resource):
             dimension=f"{resource.dim}d",
             format=getattr(wgpu.TextureFormat, fmt),
             mip_level_count=1,
-            sample_count=1,  # msaa?
+            sample_count=1,
         )  # todo: let resource specify mip_level_count and sample_count
 
     bytes_per_pixel = resource.nbytes // (

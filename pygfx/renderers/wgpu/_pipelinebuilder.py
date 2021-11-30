@@ -350,7 +350,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
                 "stencil_back": {},  # use defaults
             },
             multisample={
-                "count": 1,
+                "count": 4,
                 "mask": 0xFFFFFFFF,
                 "alpha_to_coverage_enabled": False,
             },

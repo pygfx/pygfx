@@ -13,7 +13,7 @@ from ._flusher import FULL_QUAD_SHADER, _create_pipeline
 standard_texture_des = {
     "sample_type": wgpu.TextureSampleType.unfilterable_float,
     "view_dimension": wgpu.TextureViewDimension.d2,
-    "multisampled": False,
+    "multisampled": True,
 }
 
 
@@ -550,8 +550,9 @@ class BaseFragmentBlender:
 
         # Recreate internal textures
         for name, (format, usage) in self._texture_info.items():
+            sample_count = 4 #if name in ("color", ) else 1
             texture = device.create_texture(
-                size=tex_size, usage=usage, dimension="2d", format=format
+                size=tex_size, usage=usage, dimension="2d", format=format, sample_count=sample_count
             )
             setattr(self, name + "_format", format)
             setattr(self, name + "_tex", texture)
@@ -707,9 +708,9 @@ class WeightedFragmentBlender(BaseFragmentBlender):
 
         bindings_code = """
             [[group(0), binding(0)]]
-            var r_accum: texture_2d<f32>;
+            var r_accum: texture_multisampled_2d<f32>;
             [[group(0), binding(1)]]
-            var r_reveal: texture_2d<f32>;
+            var r_reveal: texture_multisampled_2d<f32>;
         """
 
         fragment_code = """
@@ -732,7 +733,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
         wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
 
-        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
+        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl, sample_count=4)
 
 
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
@@ -828,11 +829,11 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 
         bindings_code = """
             [[group(0), binding(0)]]
-            var r_accum: texture_2d<f32>;
+            var r_accum: texture_multisampled_2d<f32>;
             [[group(0), binding(1)]]
-            var r_reveal: texture_2d<f32>;
+            var r_reveal: texture_multisampled_2d<f32>;
             [[group(0), binding(2)]]
-            var r_frontcolor: texture_2d<f32>;
+            var r_frontcolor: texture_multisampled_2d<f32>;
         """
 
         fragment_code = """

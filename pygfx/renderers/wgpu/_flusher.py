@@ -41,7 +41,7 @@ FULL_QUAD_SHADER = """
 """
 
 
-def _create_pipeline(device, binding_layouts, bindings, targets, wgsl):
+def _create_pipeline(device, binding_layouts, bindings, targets, wgsl, sample_count=1):
 
     shader_module = device.create_shader_module(code=wgsl)
 
@@ -63,7 +63,11 @@ def _create_pipeline(device, binding_layouts, bindings, targets, wgsl):
             "strip_index_format": wgpu.IndexFormat.uint32,
         },
         depth_stencil=None,
-        multisample=None,
+        multisample={
+                "count": sample_count,
+                "mask": 0xFFFFFFFF,
+                "alpha_to_coverage_enabled": False,
+            },
         fragment={
             "module": shader_module,
             "entry_point": "fs_main",
@@ -127,7 +131,7 @@ class RenderFlusher:
         else:
             # The src has lower res, interpolate + smooth.
             # Smoothing a bit more helps reduce the blockiness.
-            sigma = 1
+            sigma = 0.5
             support = 2
 
         self._uniform_data["size"] = src_color_tex.size[:2]
@@ -180,13 +184,13 @@ class RenderFlusher:
             [[group(0), binding(0)]]
             var<uniform> u_render: Render;
             [[group(0), binding(1)]]
-            var r_color: texture_2d<f32>;
+            var r_color: texture_multisampled_2d<f32>;
         """
 
         fragment_code = """
             // Get info about the smoothing
             let sigma = u_render.sigma;
-            let support = min(5, u_render.support);
+            let support = 0;//min(5, u_render.support);
 
             // The reference index is the subpixel index in the source texture that
             // represents the location of this fragment.
@@ -197,6 +201,13 @@ class RenderFlusher:
             let min_index = vec2<i32>(0, 0);
             let max_index = vec2<i32>(u_render.size - 1.0);
 
+            var sample_positions4 = array<vec2<f32>,4>(
+                vec2<f32>(-0.125, -0.375),
+                vec2<f32>( 0.375, -0.125),
+                vec2<f32>(-0.375, 0.125),
+                vec2<f32>( 0.125, 0.375),
+            );
+
             // Convolve. Here we apply a Gaussian kernel, the weight is calculated
             // for each pixel individually based on the distance to the ref_index.
             // This means that the textures don't need to align.
@@ -206,11 +217,15 @@ class RenderFlusher:
                 for (var x:i32 = -support; x <= support; x = x + 1) {
                     let step = vec2<i32>(x, y);
                     let index = clamp(base_index + step, min_index, max_index);
-                    let dist = length(ref_index - vec2<f32>(index));
-                    let t = dist / sigma;
-                    let w = exp(-0.5 * t * t);
-                    val = val + textureLoad(r_color, index, 0) * w;
-                    weight = weight + w;
+                    //var n = textureNumSamples(r_color);
+                    for (var i=0; i<4; i=i+1) {
+                        let subindex = sample_positions4[i];
+                        let dist = length(ref_index - vec2<f32>(index) - 0.5 - subindex);
+                        let t = dist / sigma;
+                        let w = exp(-0.5 * t * t);
+                        val = val + textureLoad(r_color, index, i) * w;
+                        weight = weight + w;
+                    }
                 }
             }
             out.color = val / weight;
@@ -234,7 +249,7 @@ class RenderFlusher:
                 "texture": {
                     "sample_type": wgpu.TextureSampleType.unfilterable_float,
                     "view_dimension": wgpu.TextureViewDimension.d2,
-                    "multisampled": False,
+                    "multisampled": True,
                 },
             },
         ]

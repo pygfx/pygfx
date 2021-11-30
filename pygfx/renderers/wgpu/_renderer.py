@@ -133,7 +133,7 @@ class WgpuRenderer(Renderer):
         self._target = target
 
         # Process other inputs
-        self.pixel_ratio = pixel_ratio
+        self.pixel_ratio = 1#pixel_ratio
         self._show_fps = bool(show_fps)
 
         # Make sure we have a shared object (the first renderer create it)

@@ -434,7 +434,7 @@ class LineShader(WorldObjectShader):
     def fragment_shader(self):
         return """
         [[stage(fragment)]]
-        fn fs_main(varyings: Varyings) -> FragmentOutput {
+        fn fs_main(varyings: Varyings, [[builtin(sample_index)]] sample_index: u32) -> FragmentOutput {
 
             // Discard fragments outside of the radius. This is what makes round
             // joins and caps. If we ever want bevel or miter joins, we should
