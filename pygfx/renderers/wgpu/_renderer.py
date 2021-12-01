@@ -6,7 +6,7 @@ import wgpu.backends.rs
 
 from .. import Renderer
 from ...linalg import Matrix4, Vector3
-from ...objects import WorldObject
+from ...objects import WorldObject, id_provider
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
@@ -174,9 +174,6 @@ class WgpuRenderer(Renderer):
             size=256,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
-
-        # Keep track of object ids
-        self._pick_map = weakref.WeakValueDictionary()
 
     @property
     def device(self):
@@ -388,8 +385,6 @@ class WgpuRenderer(Renderer):
 
         # Get the list of objects to render (visible and having a material)
         q = self.get_render_list(scene, camera)
-        for wobject in q:
-            self._pick_map[wobject.id] = wobject
 
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
@@ -605,7 +600,7 @@ class WgpuRenderer(Renderer):
         depth = data[0:4].cast("f")[0]
         color = tuple(data[8:12].cast("B"))
         pick_value = tuple(data[16:32].cast("i"))
-        wobject = self._pick_map.get(pick_value[0], None)
+        wobject = id_provider.get_object_from_id(pick_value[0])
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
 
@@ -615,7 +610,7 @@ class WgpuRenderer(Renderer):
             "world_object": wobject,
         }
 
-        if wobject and wobject.material is not None:
+        if wobject:
             pick_info = wobject._wgpu_get_pick_info(pick_value)
             info.update(pick_info)
         return info

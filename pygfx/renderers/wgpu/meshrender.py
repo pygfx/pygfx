@@ -147,9 +147,12 @@ def mesh_renderer(render_info):
     if isinstance(wobject, InstancedMesh):
         shader["instanced"] = True
         bindings2[0] = Binding(
-            "s_submatrices", "buffer/read_only_storage", wobject.matrices, "VERTEX"
+            "s_instance_infos",
+            "buffer/read_only_storage",
+            wobject.instance_infos,
+            "VERTEX",
         )
-        n_instances = wobject.matrices.nitems
+        n_instances = wobject.instance_infos.nitems
 
     # Determine culling
     if material.side == "FRONT":
@@ -202,12 +205,16 @@ class MeshShader(WorldObjectShader):
         };
 
         $$ if instanced
+        struct InstanceInfo {
+            transform: mat4x4<f32>;
+            id: u32;
+        };
         [[block]]
-        struct BufferMat4 {
-            data: [[stride(64)]] array<mat4x4<f32>>;
+        struct InstanceInfos {
+            data: [[stride(80)]] array<InstanceInfo>;
         };
         [[group(2), binding(0)]]
-        var<storage,read> s_submatrices: BufferMat4;
+        var<storage,read> s_instance_infos: InstanceInfos;
         $$ endif
 
 
@@ -229,8 +236,8 @@ class MeshShader(WorldObjectShader):
 
             // Get world transform
             $$ if instanced
-                let submatrix: mat4x4<f32> = s_submatrices.data[in.instance_index];
-                let world_transform = u_wobject.world_transform * submatrix;
+                let instance_info = s_instance_infos.data[in.instance_index];
+                let world_transform = u_wobject.world_transform * instance_info.transform;
             $$ else
                 let world_transform = u_wobject.world_transform;
             $$ endif
@@ -300,11 +307,14 @@ class MeshShader(WorldObjectShader):
             // encode them in two values.
             let d = 10000;
             $$ if instanced
-                let inst_index = i32(in.instance_index);
+                let id = instance_info.id;
+                let inst_index = 0;  // todo: remove
             $$ else
+                let id = u_wobject.id;
                 let inst_index = 0;
             $$ endif
 
+            varyings.id = u32(id);
             varyings.pick_idx = vec4<f32>(f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d));
             var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
             varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
@@ -431,7 +441,7 @@ class MeshShader(WorldObjectShader):
             $$ if write_pick
             let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);  // inst+face
             let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+            out.pick = vec4<i32>(i32(varyings.id), face_id, w8.x * 65536 + w8.y * 256 + w8.z);
             $$ endif
 
             return out;
