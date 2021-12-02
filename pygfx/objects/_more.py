@@ -1,4 +1,5 @@
 from ._base import WorldObject
+from ..utils import unpack_bitfield
 
 
 class Group(WorldObject):
@@ -72,6 +73,8 @@ class Volume(WorldObject):
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
+        # This should match with the shader
+        _, *texcoords_encoded = unpack_bitfield(pick_value, 20, 14, 14, 14)
         size = tex.size
-        x, y, z = [(v / 1048576) * s - 0.5 for v, s in zip(pick_value[1:], size)]
-        return {"instance_index": 0, "voxel_index": (x, y, z)}
+        x, y, z = [(v / 16384) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
+        return {"instance_index": 0, "voxel_coord": (x, y, z)}

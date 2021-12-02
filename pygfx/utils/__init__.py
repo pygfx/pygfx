@@ -61,6 +61,16 @@ def array_from_shadertype(shadertype):
     return uniform_data
 
 
+def unpack_bitfield(packed, *bit_counts):
+    """Unpack values from an uint64 bitfield."""
+    values = []
+    for bits in bit_counts:
+        mask = 2 ** bits - 1
+        values.append(packed & mask)
+        packed = packed >> bits
+    return values
+
+
 def normals_from_vertices(rr, tris):
     """Efficiently compute vertex normals for a triangulated surface."""
     # This code was taken from Vispy

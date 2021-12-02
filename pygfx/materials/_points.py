@@ -1,4 +1,5 @@
 from ._base import Material
+from ..utils import unpack_bitfield
 
 
 class PointsMaterial(Material):
@@ -28,10 +29,12 @@ class PointsMaterial(Material):
         self._vertex_sizes = vertex_sizes
 
     def _wgpu_get_pick_info(self, pick_value):
-        # The instance is zero while renderer doesn't support instancing
-        instance = pick_value[1]
-        vertex = pick_value[2]
-        return {"instance_index": instance, "vertex_index": vertex}
+        # This should match with the shader
+        values = unpack_bitfield(pick_value, 20, 26, 9, 9)
+        return {
+            "vertex_index": values[1],
+            "point_coord": (values[2] - 256, values[3] - 256),
+        }
 
     @property
     def color(self):

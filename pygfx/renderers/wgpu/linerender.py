@@ -195,7 +195,12 @@ class LineShader(WorldObjectShader):
             varyings.thickness_p = f32(result.thickness_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
             varyings.color = vec4<f32>(load_s_colors(result.i));
-            varyings.pick_idx = vec2<f32>(f32(result.i / 10000), f32(result.i % 10000));
+            // The vertex index is interpolated. Divide over 2 values to get more precision.
+
+            //let idx = result.i + 10000000;
+            //varyings.pick_idx = vec2<f32>(f32(idx / 10000), f32(idx % 10000));
+            varyings.pick_idx = u32(result.i);
+            varyings.pick_coord = f32(select(0.0, 1.0, result.i % 2 == 0));
 
             return varyings;
         }
@@ -472,11 +477,21 @@ class LineShader(WorldObjectShader):
             add_fragment(varyings.position.z, final_color);
             var out = finalize_fragment();
 
-            // Set picking info. Yes, the vertex_id interpolates correctly in encoded form.
+            // Set picking info.
             $$ if write_pick
-            let vf: f32 = varyings.pick_idx.x * 10000.0 + varyings.pick_idx.y;
-            let vi = i32(vf + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, 0, vi, i32((vf - f32(vi)) * 1048576.0));
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            // The pick_idx is int-truncated, so going from a to b, it still has the value of a
+            // even right up to b. The pick_coord alternates between 0 (even indices) and 1 (odd indices).
+            // Here we decode that. The result is that we can support vertex indices of ~32 bits if we want.
+            let is_even = varyings.pick_idx % 2u == 0u;
+            let coord2 = select(varyings.pick_coord, 1.0 - varyings.pick_coord, is_even);
+            let coord3 = select(coord2, coord2 - 1.0, coord2 > 0.5);
+            let idx = varyings.pick_idx + select(0u, 1u, coord3 < 0.0);
+            out.pick = (
+                pick_pack(u32(u_wobject.id), 20) +
+                pick_pack(u32(idx), 26) +
+                pick_pack(u32(coord3 * 100000.0 + 100000.0), 18)
+            );
             $$ endif
 
             // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.

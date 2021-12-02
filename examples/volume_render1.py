@@ -18,6 +18,9 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         controls.zoom(2 ** (event.angleDelta().y() * 0.0015))
 
     def mousePressEvent(self, event):  # noqa: N802
+        xy = event.position().x(), event.position().y()
+        # print(renderer.get_pick_info(xy))
+
         mode = self._drag_modes.get(event.button(), None)
         if self._mode or not mode:
             return
@@ -25,11 +28,7 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
         drag_start = (
             controls.pan_start if self._mode == "pan" else controls.rotate_start
         )
-        drag_start(
-            (event.position().x(), event.position().y()),
-            self.get_logical_size(),
-            camera,
-        )
+        drag_start(xy, self.get_logical_size(), camera)
         app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
 
         # Picking. Note that this works on both the volume and the slice.

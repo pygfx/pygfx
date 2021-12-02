@@ -45,6 +45,6 @@ class InstancedMesh(Mesh):
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
         info = self.material._wgpu_get_pick_info(pick_value)
-        wobject_id = pick_value & 1048575
+        wobject_id = pick_value & 1048575  # 2**20-1
         info["instance_index"] = self._idmap.get(wobject_id)
         return info

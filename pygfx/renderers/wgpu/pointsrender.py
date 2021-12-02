@@ -124,7 +124,7 @@ class PointsShader(WorldObjectShader):
             varyings.pointcoord = vec2<f32>(delta_logical);
             varyings.size = f32(size);
             varyings.color = vec4<f32>(load_s_colors(i0));
-            varyings.pick_idx = vec2<f32>(f32(i0 / 10000), f32(i0 % 10000));
+            varyings.pick_idx = u32(i0);
             return varyings;
         }
         """
@@ -183,8 +183,13 @@ class PointsShader(WorldObjectShader):
             var out = finalize_fragment();
 
             $$ if write_pick
-            let vertex_id = i32(varyings.pick_idx.x * 10000.0 + varyings.pick_idx.y + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, 0, vertex_id, 0);
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            out.pick = (
+                pick_pack(u32(u_wobject.id), 20) +
+                pick_pack(varyings.pick_idx, 26) +
+                pick_pack(u32(varyings.pointcoord.x + 256.0), 9) +
+                pick_pack(u32(varyings.pointcoord.y + 256.0), 9)
+            );
             $$ endif
 
             return out;

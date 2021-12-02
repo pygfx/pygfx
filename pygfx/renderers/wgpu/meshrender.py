@@ -434,6 +434,7 @@ class MeshShader(WorldObjectShader):
             var out = finalize_fragment();
 
             $$ if write_pick
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
             out.pick = (
                 pick_pack(varyings.pick_id, 20) +
                 pick_pack(varyings.pick_idx, 26) +
@@ -650,8 +651,8 @@ class MeshSliceShader(WorldObjectShader):
             var the_pos: vec4<f32>;
             var the_coord: vec2<f32>;
             var segment_length: f32;
-            var pick_idx: vec4<f32>;
-            var pick_coords: vec4<f32>;
+            var pick_idx = u32(0u);
+            var pick_coords = vec3<f32>(0.0);
 
             if (pos_index < 3) {//   (pos_index < 3) {  // or dot(n, u) == 0.0
                 // Just return the same vertex, resulting in degenerate triangles
@@ -729,9 +730,9 @@ class MeshSliceShader(WorldObjectShader):
                 the_coord = the_vec * pvec_local;
 
                 // Picking info
-                pick_idx = vec4<f32>(0.0, 0.0, f32(face_index / 10000), f32(face_index % 10000));
+                pick_idx = u32(face_index);
                 let mixval = the_vec.x * 0.5 + 0.5;
-                pick_coords = vec4<f32>(mix(fw_a, fw_b, vec3<f32>(mixval, mixval, mixval)), 0.0);
+                pick_coords = vec3<f32>(mix(fw_a, fw_b, vec3<f32>(mixval, mixval, mixval)));
             }
 
             // Shader output
@@ -741,8 +742,8 @@ class MeshSliceShader(WorldObjectShader):
             varyings.dist2center = vec2<f32>(the_coord * l2p);
             varyings.segment_length = f32(segment_length * l2p);
             varyings.segment_width = f32(thickness * l2p);
-            varyings.pick_idx = vec4<f32>(pick_idx);
-            varyings.pick_coords = vec4<f32>(pick_coords);
+            varyings.pick_idx = u32(pick_idx);
+            varyings.pick_coords = vec3<f32>(pick_coords);
             return varyings;
         }
         """
@@ -776,9 +777,14 @@ class MeshSliceShader(WorldObjectShader):
             var out = finalize_fragment();
 
             $$ if write_pick
-            let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);
-            let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
-            out.pick = vec4<i32>(u_wobject.id, face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            out.pick = (
+                pick_pack(u32(u_wobject.id), 20) +
+                pick_pack(varyings.pick_idx, 26) +
+                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+            );
             $$ endif
 
             return out;
