@@ -327,7 +327,7 @@ class VolumeSliceShader(BaseVolumeShader):
             add_fragment(varyings.position.z, final_color);
             var out = finalize_fragment();
 
-            $$ if render_pass == 1
+            $$ if write_pick
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(varyings.texcoord * 1048576.0 + 0.5));
             $$ endif
             return out;
@@ -525,7 +525,7 @@ class VolumeRayShader(BaseVolumeShader):
             var out = finalize_fragment();
             out.depth = ndc_pos.z / ndc_pos.w;
 
-            $$ if render_pass == 1
+            $$ if write_pick
             out.pick = vec4<i32>(u_wobject.id, vec3<i32>(render_out.coord * 1048576.0 + 0.5));
             $$ endif
             return out;

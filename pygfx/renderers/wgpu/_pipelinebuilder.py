@@ -320,20 +320,18 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
     # Instantiate the pipeline objects
 
     pipelines = {}
-    for render_pass_iter in [1, 2]:
-        depth_write_enabled = render_pass_iter == 1
-        fragment_targets = blender.get_pipeline_targets(render_pass_iter)
-
-        if not fragment_targets:
-            pipelines[render_pass_iter] = None
+    for pass_index in range(blender.get_pass_count()):
+        color_descriptors = blender.get_color_descriptors(pass_index)
+        depth_descriptor = blender.get_depth_descriptor(pass_index)
+        if not color_descriptors:
             continue
 
         # Compile shader
         shader = pipeline_info["render_shader"]
-        wgsl = shader.generate_wgsl(render_pass=render_pass_iter)
+        wgsl = shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
         shader_module = get_shader_module(shared, wgsl)
 
-        pipelines[render_pass_iter] = device.create_render_pipeline(
+        pipelines[pass_index] = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
                 "module": shader_module,
@@ -347,30 +345,24 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
                 "cull_mode": pipeline_info.get("cull_mode", wgpu.CullMode.none),
             },
             depth_stencil={
-                "format": blender.depth_format,
-                "depth_write_enabled": depth_write_enabled,
-                "depth_compare": wgpu.CompareFunction.less,
+                **depth_descriptor,
                 "stencil_front": {},  # use defaults
                 "stencil_back": {},  # use defaults
-                "depth_bias": 0,
-                "depth_bias_slope_scale": 0.0,
-                "depth_bias_clamp": 0.0,
             },
             multisample={
-                "count": blender.msaa,
+                "count": 1,
                 "mask": 0xFFFFFFFF,
                 "alpha_to_coverage_enabled": False,
             },
             fragment={
                 "module": shader_module,
                 "entry_point": "fs_main",
-                "targets": fragment_targets,
+                "targets": color_descriptors,
             },
         )
 
     return {
-        "pipeline1": pipelines[1],  # wgpu object
-        "pipeline2": pipelines[2],  # wgpu object
+        "pipelines": pipelines,  # wgpu objects
         "index_args": index_args,  # tuple
         "index_buffer": wgpu_index_buffer,  # Buffer
         "vertex_buffers": vertex_buffers,  # dict of slot -> Buffer

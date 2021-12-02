@@ -31,7 +31,8 @@ FULL_QUAD_SHADER = """
     [[stage(fragment)]]
     fn fs_main(varyings: Varyings) -> FragmentOutput {
         var out : FragmentOutput;
-        let texcoord = varyings.texcoord;
+        let texcoord = varyings.texcoord;  // for textureSample
+        let texindex = vec2<i32>(varyings.position.xy);  // for textureLoad
 
         FRAGMENT_CODE
 
@@ -179,8 +180,6 @@ class RenderFlusher:
             [[group(0), binding(0)]]
             var<uniform> u_render: Render;
             [[group(0), binding(1)]]
-            var r_sampler: sampler;
-            [[group(0), binding(2)]]
             var r_color: texture_2d<f32>;
         """
 
@@ -189,24 +188,28 @@ class RenderFlusher:
             let sigma = u_render.sigma;
             let support = min(5, u_render.support);
 
-            // Determine distance between pixels in src texture
-            let stepp = vec2<f32>(1.0 / u_render.size.x, 1.0 / u_render.size.y);
-            // Get texcoord, and round it to the center of the source pixels.
-            // Thus, whether the sampler is linear or nearest, we get equal results.
-            let ref_coord = vec2<f32>(vec2<i32>(texcoord / stepp)) * stepp + 0.5 * stepp;
+            // The reference index is the subpixel index in the source texture that
+            // represents the location of this fragment.
+            let ref_index = texcoord * u_render.size;
+
+            // For the sampling, we work with integer coords. Also use min/max for the edges.
+            let base_index = vec2<i32>(ref_index);
+            let min_index = vec2<i32>(0, 0);
+            let max_index = vec2<i32>(u_render.size - 1.0);
 
             // Convolve. Here we apply a Gaussian kernel, the weight is calculated
-            // for each pixel individually based on the distance to the actual texture
-            // coordinate. This means that the textures don't even need to align.
+            // for each pixel individually based on the distance to the ref_index.
+            // This means that the textures don't need to align.
             var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
             var weight: f32 = 0.0;
             for (var y:i32 = -support; y <= support; y = y + 1) {
                 for (var x:i32 = -support; x <= support; x = x + 1) {
-                    let coord = ref_coord + vec2<f32>(f32(x), f32(y)) * stepp;
-                    let dist = length((texcoord - coord) / stepp);  // in src pixels
+                    let step = vec2<i32>(x, y);
+                    let index = clamp(base_index + step, min_index, max_index);
+                    let dist = length(ref_index - vec2<f32>(index));
                     let t = dist / sigma;
                     let w = exp(-0.5 * t * t);
-                    val = val + textureSample(r_color, r_sampler, coord) * w;
+                    val = val + textureLoad(r_color, index, 0) * w;
                     weight = weight + w;
                 }
             }
@@ -219,10 +222,6 @@ class RenderFlusher:
 
         # shader_module = device.create_shader_module(code=wgsl)
 
-        sampler = self._device.create_sampler(
-            mag_filter="nearest", min_filter="nearest"
-        )
-
         binding_layouts = [
             {
                 "binding": 0,
@@ -232,13 +231,8 @@ class RenderFlusher:
             {
                 "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
-            },
-            {
-                "binding": 2,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
-                    "sample_type": wgpu.TextureSampleType.float,
+                    "sample_type": wgpu.TextureSampleType.unfilterable_float,
                     "view_dimension": wgpu.TextureViewDimension.d2,
                     "multisampled": False,
                 },
@@ -254,8 +248,7 @@ class RenderFlusher:
                     "size": self._uniform_data.nbytes,
                 },
             },
-            {"binding": 1, "resource": sampler},
-            {"binding": 2, "resource": src_texture_view},
+            {"binding": 1, "resource": src_texture_view},
         ]
 
         targets = [

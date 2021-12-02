@@ -221,17 +221,19 @@ class WgpuRenderer(Renderer):
         """The method for handling transparency:
         * "default" or None: Select the default: currently this is "simple2".
         * "opaque": single-pass approach that consider every fragment opaque.
-        * "simple1": single-pass approach that blends fragments (using OVER compositing).
+        * "simple1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
         * "simple2": two-pass approach that first processes all opaque fragments and
-          then blends transparent fragments (using the OVER operator) with depth-write disabled.
-          Yields visually ok results, but is not order independent.
-        * "blended": two-pass approach that yields order independent transparency.
-          This is like "weighted" but without the depth weights. Performance is the same.
-        * "weighted: two-pass approach that yields order independent
-          transparency, with depth weighting (McGuire 2013). The depth range affects the
-          (quality of the) visual result.
-        * "multilayer2": todo 2-layer MLAB + weighted for the rest?
+          then blends transparent fragments (using alpha blending) with depth-write disabled.
+          The visual results are usually better than simple1, but depend on the drawing order.
+        * "weighted": two-pass approach that for order independent transparency,
+          using alpha weights.
+        * "weighted_depth": two-pass approach for order independent transparency,
+          with weights based on alpha and depth (McGuire 2013). Note that the depth
+          range affects the (quality of the) visual result.
+        * "weighted_plus": three-pass approach for order independent transparency,
+          in wich the front-most transparent layer is rendered correctly, while
+          transparent layers behind it are blended using alpha weights.
         """
         return self._blend_mode
 
@@ -248,8 +250,9 @@ class WgpuRenderer(Renderer):
             "opaque": blender_module.OpaqueFragmentBlender,
             "simple1": blender_module.Simple1FragmentBlender,
             "simple2": blender_module.Simple2FragmentBlender,
-            "blended": blender_module.BlendedFragmentBlender,
             "weighted": blender_module.WeightedFragmentBlender,
+            "weighted_depth": blender_module.WeightedDepthFragmentBlender,
+            "weighted_plus": blender_module.WeightedPlusFragmentBlender,
         }
         if value not in m:
             raise ValueError(
@@ -406,6 +409,13 @@ class WgpuRenderer(Renderer):
             command_encoder, wobject_tuples, physical_viewport, clear_color, clear_depth
         )
         command_buffers = [command_encoder.finish()]
+
+        # Let the blender do the combinatory pass
+        if flush:
+            command_encoder = device.create_command_encoder()
+            self._blender.perform_combine_pass(self._shared.device, command_encoder)
+            command_buffers.append(command_encoder.finish())
+
         device.queue.submit(command_buffers)
 
         # Flush to target
@@ -455,6 +465,8 @@ class WgpuRenderer(Renderer):
         # it, really.
         # todo: we may be able to speed this up with render bundles though
 
+        blender = self._blender
+
         # ----- compute pipelines
 
         compute_pass = command_encoder.begin_compute_pass()
@@ -472,31 +484,17 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines
 
-        for render_pass_iter in [1, 2]:
+        for pass_index in range(blender.get_pass_count()):
 
-            if render_pass_iter == 1:
-                # Render pass 1 renders opaque fragments and picking info
-                depth_load_value = 1.0 if clear_depth else wgpu.LoadOp.load
-                depth_store_op = wgpu.StoreOp.store
-            else:
-                # Render pass 2 renders transparent fragments, as defined by the blender
-                depth_load_value = wgpu.LoadOp.load
-                # depth_write_enabled is already False for all objects, but we
-                # also disable it on the pipeline for good measure.
-                depth_store_op = wgpu.StoreOp.discard
-
-            color_attachments = self._blender.get_color_attachments(
-                render_pass_iter, clear_color
-            )
+            color_attachments = blender.get_color_attachments(pass_index, clear_color)
+            depth_attachment = blender.get_depth_attachment(pass_index, clear_depth)
             if not color_attachments:
                 continue
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=color_attachments,
                 depth_stencil_attachment={
-                    "view": self._blender.depth_view,
-                    "depth_load_value": depth_load_value,
-                    "depth_store_op": depth_store_op,
+                    **depth_attachment,
                     "stencil_load_value": wgpu.LoadOp.load,
                     "stencil_store_op": wgpu.StoreOp.store,
                 },
@@ -506,7 +504,7 @@ class WgpuRenderer(Renderer):
 
             for wobject, wobject_pipeline in wobject_tuples:
                 for pinfo in wobject_pipeline["render_pipelines"]:
-                    render_pass.set_pipeline(pinfo[f"pipeline{render_pass_iter}"])
+                    render_pass.set_pipeline(pinfo["pipelines"][pass_index])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
                         render_pass.set_vertex_buffer(
                             slot,
@@ -525,9 +523,6 @@ class WgpuRenderer(Renderer):
                         render_pass.draw(*pinfo["index_args"])
 
             render_pass.end_pass()
-
-        # Let blender wrap up
-        self._blender.perform_combine_pass(self._shared.device, command_encoder)
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data
