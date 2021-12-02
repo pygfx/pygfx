@@ -31,11 +31,11 @@ class IdProvider:
         # by how many bits we use to store the id in the picking render target.
 
         # Max allowed id, inclusive
-        id_max = 16_777_216
+        id_max = 1_048_575  # 2*20 - 1
 
         # The max number of ids. This is a bit less to avoid choking
         # when there are few free id's left.
-        max_items = 0.9 * id_max
+        max_items = 1_000_000
 
         with self._lock:
             if len(self._ids_in_use) >= max_items:

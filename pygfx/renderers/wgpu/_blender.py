@@ -136,7 +136,7 @@ class OpaquePass(BasePass):
 
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
+            [[location(1)]] pick: vec4<u32>;
         };
         fn add_fragment(depth: f32, color: vec4<f32>) {
             if (color.a >= 1.0 && depth < p_fragment_depth) {
@@ -165,7 +165,7 @@ class FullOpaquePass(OpaquePass):
 
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
+            [[location(1)]] pick: vec4<u32>;
         };
         fn add_fragment(depth: f32, color: vec4<f32>) {
             if (depth < p_fragment_depth) {
@@ -213,7 +213,7 @@ class SimpleSinglePass(OpaquePass):
 
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
+            [[location(1)]] pick: vec4<u32>;
         };
         fn add_fragment(depth: f32, color: vec4<f32>) {
             if (depth < p_fragment_depth) {
@@ -463,7 +463,7 @@ class FrontmostTransparencyPass(BasePass):
 
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
+            [[location(1)]] pick: vec4<u32>;
         };
         fn add_fragment(depth: f32, color: vec4<f32>) {
             if (color.a > 0.0 && color.a < 1.0) {
@@ -523,7 +523,7 @@ class BaseFragmentBlender:
         # The pick texture has 4 channels: object id, and then 3 more, e.g.
         # the instance nr, vertex nr and weights.
         self._texture_info["pick"] = (
-            wgpu.TextureFormat.rgba32sint,
+            wgpu.TextureFormat.rgba32uint,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 

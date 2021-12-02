@@ -67,12 +67,19 @@ class MeshBasicMaterial(Material):
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
-        inst = pick_value[1]
-        face = pick_value[2]
-        coords = pick_value[3]
-        coords = (coords & 0xFF0000) / 65536, (coords & 0xFF00) / 256, coords & 0xFF
-        coords = coords[0] / 255, coords[1] / 255, coords[2] / 255
-        return {"instance_index": inst, "face_index": face, "face_coords": coords}
+        values = []
+        for bits in (20, 26, 6, 6, 6):
+            mask = 2 ** bits - 1
+            values.append(pick_value & mask)
+            pick_value = pick_value >> bits
+
+        face = values[1]
+        coords = (
+            values[2] / 64,
+            values[3] / 64,
+            values[4] / 64,
+        )
+        return {"face_index": face, "face_coords": coords}
 
     @property
     def color(self):

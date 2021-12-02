@@ -301,21 +301,15 @@ class MeshShader(WorldObjectShader):
 
             // Set varyings for picking. We store the face_index, and 3 weights
             // that indicate how close the fragment is to each vertex (barycentric
-            // coordinates). This allows the selection of the nearest vertex or
-            // edge. Note that integers larger than about 4M loose too much
-            // precision when passed as a varyings (on my machine). We therefore
-            // encode them in two values.
-            let d = 10000;
+            // coordinates). This allows the selection of the nearest vertex or edge.
             $$ if instanced
-                let id = instance_info.id;
-                let inst_index = 0;  // todo: remove
+                let pick_id = instance_info.id;
             $$ else
-                let id = u_wobject.id;
-                let inst_index = 0;
+                let pick_id = u_wobject.id;
             $$ endif
 
-            varyings.id = u32(id);
-            varyings.pick_idx = vec4<f32>(f32(inst_index / d), f32(inst_index % d), f32(face_index / d), f32(face_index % d));
+            varyings.pick_id = u32(pick_id);
+            varyings.pick_idx = u32(face_index);
             var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
             varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
 
@@ -356,7 +350,8 @@ class MeshShader(WorldObjectShader):
             varyings.position = vec4<f32>(ndc_pos);
 
             // Stub varyings, because the mesh varyings are based on face index
-            varyings.pick_idx = vec4<f32>(0.0);
+            varyings.pick_id = u32(u_wobject.id);
+            varyings.pick_idx = u32(0);
             varyings.pick_coords = vec3<f32>(0.0);
 
             return varyings;
@@ -439,13 +434,18 @@ class MeshShader(WorldObjectShader):
             var out = finalize_fragment();
 
             $$ if write_pick
-            let face_id = vec2<i32>(varyings.pick_idx.xz * 10000.0 + varyings.pick_idx.yw + 0.5);  // inst+face
-            let w8 = vec3<i32>(varyings.pick_coords.xyz * 255.0 + 0.5);
-            out.pick = vec4<i32>(i32(varyings.id), face_id, w8.x * 65536 + w8.y * 256 + w8.z);
+            out.pick = (
+                pick_pack(varyings.pick_id, 20) +
+                pick_pack(varyings.pick_idx, 26) +
+                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+            );
             $$ endif
 
             return out;
         }
+
         """
 
     def helpers(self):
