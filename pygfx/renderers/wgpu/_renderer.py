@@ -599,7 +599,7 @@ class WgpuRenderer(Renderer):
         data = self._pixel_info_buffer.map_read()
         depth = data[0:4].cast("f")[0]
         color = tuple(data[8:12].cast("B"))
-        pick_value = tuple(data[16:32].cast("Q"))[0]
+        pick_value = tuple(data[16:24].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
         # Note: the position in world coordinates is not included because

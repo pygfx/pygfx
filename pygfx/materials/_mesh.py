@@ -74,11 +74,7 @@ class MeshBasicMaterial(Material):
             pick_value = pick_value >> bits
 
         face = values[1]
-        coords = (
-            values[2] / 64,
-            values[3] / 64,
-            values[4] / 64,
-        )
+        coords = values[2] / 64, values[3] / 64, values[4] / 64
         return {"face_index": face, "face_coords": coords}
 
     @property

@@ -588,7 +588,7 @@ class WorldObjectShader(BaseShader):
             let v = min(value, u32(exp2(f32(bits))));
 
             let shift = vec4<i32>(
-                p_pick_bits_used, p_pick_bits_used - 32, p_pick_bits_used - 64, p_pick_bits_used - 96,
+                p_pick_bits_used, p_pick_bits_used - 16, p_pick_bits_used - 32, p_pick_bits_used - 48,
             );
 
             p_pick_bits_used = p_pick_bits_used + bits;
@@ -597,7 +597,7 @@ class WorldObjectShader(BaseShader):
             let selector1 = vec4<bool>(shift[0] < 0, shift[1] < 0, shift[2] < 0, shift[3] < 0);
             let pick_new = select( vv << vec4<u32>(shift) , vv >> vec4<u32>(-shift) , selector1 );
 
-            let mask = vec4<u32>(4294967295u);
+            let mask = vec4<u32>(65535u);
             let selector2 = vec4<bool>( abs(shift[0]) < 32, abs(shift[1]) < 32, abs(shift[2]) < 32, abs(shift[3]) < 32 );
             return select( vec4<u32>(0u) , pick_new & mask , selector2 );
         }

@@ -523,7 +523,7 @@ class BaseFragmentBlender:
         # The pick texture has 4 channels: object id, and then 3 more, e.g.
         # the instance nr, vertex nr and weights.
         self._texture_info["pick"] = (
-            wgpu.TextureFormat.rgba32uint,
+            wgpu.TextureFormat.rgba16uint,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 
