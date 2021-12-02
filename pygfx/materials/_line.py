@@ -24,7 +24,7 @@ class LineMaterial(Material):
         values = unpack_bitfield(pick_value, 20, 26, 18)
         return {
             "vertex_index": values[1],
-            "line_coord": (values[2] - 100000) / 100000.0,
+            "segment_coord": (values[2] - 100000) / 100000.0,
         }
 
     @property

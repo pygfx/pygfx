@@ -33,7 +33,7 @@ class PointsMaterial(Material):
         values = unpack_bitfield(pick_value, 20, 26, 9, 9)
         return {
             "vertex_index": values[1],
-            "point_coord": (values[2] - 256, values[3] - 256),
+            "point_coord": (values[2] - 256.0, values[3] - 256.0),
         }
 
     @property
