@@ -27,13 +27,11 @@ class IdProvider:
         # *    16_777_216 max integer that can be stored exactly in f32
         # *     4_000_000 max integer that survives being passed as a varying (in my tests)
         # *     1_048_575 is ~1M is 2**20 seems like a good max scene objects.
-        # *   134_217_728 is ~100M is 2**27 seems like a good max vertex count.
-        #
-        # Anyway, we can use u32 for varyings, so this number is limited
-        # by how many bits we use to store the id in the picking render target.
+        # *    67_108_864 is ~50M is 2**26 seems like a good max vertex count.
+        #                 which leaves 64-20-26=18 bits for any other picking info.
 
         # Max allowed id, inclusive
-        id_max = 1_048_575  # 2*20 - 1
+        id_max = 1_048_575  # 2*20-1
 
         # The max number of ids. This is a bit less to avoid choking
         # when there are few free id's left.
