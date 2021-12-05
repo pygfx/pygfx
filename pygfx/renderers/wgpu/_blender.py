@@ -444,14 +444,14 @@ class FrontmostTransparencyPass(BasePass):
 
     def get_depth_descriptor(self, blender):
         return {
-            "format": blender.frontdepth_format,
+            "format": blender.depth_format,
             "depth_write_enabled": True,
             "depth_compare": wgpu.CompareFunction.less,
         }
 
     def get_depth_attachment(self, blender):
         return {
-            "view": blender.frontdepth_view,
+            "view": blender.depth_view,
             "depth_load_value": 1.0,
             "depth_store_op": wgpu.StoreOp.store,
         }
@@ -762,25 +762,14 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 
         usg = wgpu.TextureUsage
 
-        # Create two additional render targets.
-        # These contribute 4+2 = 6 bytes per pixel
-        # So the total = 24 + 10 + 6 = 40 bytes per pixel
+        # Create one additional render target.
+        # These contribute 4 bytes per pixel
+        # So the total = 24 + 10 + 4 = 38 bytes per pixel
 
         # Color buffer for the front-most semitransparent layer
         self._texture_info["frontcolor"] = (
             wgpu.TextureFormat.rgba8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
-        )
-
-        # Depth buffer for the front-most pass.
-        # We could re-use the already existing depth buffer. And if we
-        # do the front-most pass first, then the final state of the
-        # depth buffer still matches the opaque fragments. However, to
-        # properly support renderer.render(clear_depth=False), we need
-        # to keep these states separate.
-        self._texture_info["frontdepth"] = (
-            wgpu.TextureFormat.depth32float,
-            usg.RENDER_ATTACHMENT,
         )
 
     def _create_combination_pipeline(self, device):
