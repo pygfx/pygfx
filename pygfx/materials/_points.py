@@ -30,10 +30,10 @@ class PointsMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
-        values = unpack_bitfield(pick_value, 20, 26, 9, 9)
+        values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
         return {
-            "vertex_index": values[1],
-            "point_coord": (values[2] - 256.0, values[3] - 256.0),
+            "vertex_index": values["index"],
+            "point_coord": (values["x"] - 256.0, values["y"] - 256.0),
         }
 
     @property

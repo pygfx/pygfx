@@ -69,10 +69,16 @@ class MeshBasicMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
-        values = unpack_bitfield(pick_value, 20, 26, 6, 6, 6)
+        values = unpack_bitfield(
+            pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
+        )
         return {
-            "face_index": values[1],
-            "face_coord": (values[2] / 64, values[3] / 64, values[4] / 64),
+            "face_index": values["index"],
+            "face_coord": (
+                values["coord1"] / 64,
+                values["coord2"] / 64,
+                values["coord3"] / 64,
+            ),
         }
 
     @property

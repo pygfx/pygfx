@@ -21,10 +21,10 @@ class LineMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
-        values = unpack_bitfield(pick_value, 20, 26, 18)
+        values = unpack_bitfield(pick_value, wobject_id=20, index=26, coord=18)
         return {
-            "vertex_index": values[1],
-            "segment_coord": (values[2] - 100000) / 100000.0,
+            "vertex_index": values["index"],
+            "segment_coord": (values["coord"] - 100000) / 100000.0,
         }
 
     @property

@@ -61,12 +61,12 @@ def array_from_shadertype(shadertype):
     return uniform_data
 
 
-def unpack_bitfield(packed, *bit_counts):
+def unpack_bitfield(packed, **bit_counts):
     """Unpack values from an uint64 bitfield."""
-    values = []
-    for bits in bit_counts:
+    values = {}
+    for key, bits in bit_counts.items():
         mask = 2 ** bits - 1
-        values.append(packed & mask)
+        values[key] = packed & mask
         packed = packed >> bits
     return values
 

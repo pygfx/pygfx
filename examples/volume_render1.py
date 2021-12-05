@@ -19,8 +19,6 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
 
     def mousePressEvent(self, event):  # noqa: N802
         xy = event.position().x(), event.position().y()
-        # print(renderer.get_pick_info(xy))
-
         mode = self._drag_modes.get(event.button(), None)
         if self._mode or not mode:
             return

@@ -74,7 +74,8 @@ class Volume(WorldObject):
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
         # This should match with the shader
-        _, *texcoords_encoded = unpack_bitfield(pick_value, 20, 14, 14, 14)
+        values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
+        texcoords_encoded = values["x"], values["y"], values["z"]
         size = tex.size
         x, y, z = [(v / 16384) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
         ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
