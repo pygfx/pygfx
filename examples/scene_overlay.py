@@ -57,7 +57,7 @@ def animate():
     cube1.rotation.multiply(rot)
 
     renderer.render(scene1, camera1, flush=False)
-    renderer.render(scene2, camera2, clear_depth=True)
+    renderer.render(scene2, camera2)
 
     canvas.request_draw()
 

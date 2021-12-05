@@ -303,7 +303,6 @@ class WgpuRenderer(Renderer):
         *,
         viewport=None,
         clear_color=None,
-        clear_depth=None,
         flush=True,
     ):
         """Render a scene with the specified camera as the viewpoint.
@@ -316,9 +315,6 @@ class WgpuRenderer(Renderer):
             viewport (tuple, optional): The rectangular region to draw into,
                 expressed in logical pixels.
             clear_color (bool, optional): Whether to clear the color buffer
-                before rendering. By default this is True on the first
-                call to ``render()`` after a flush, and False otherwise.
-            clear_depth (bool, optional): Whether to clear the depth buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
             flush (bool, optional): Whether to flush the rendered result into
@@ -336,14 +332,17 @@ class WgpuRenderer(Renderer):
             else:
                 self._fps = self._fps[0], now, self._fps[2] + 1
 
-        # Define whether to clear color and/or depth
+        # Define whether to clear color.
         if clear_color is None:
             clear_color = self._renders_since_last_flush == 0
         clear_color = bool(clear_color)
-        if clear_depth is None:
-            clear_depth = self._renders_since_last_flush == 0
-        clear_depth = bool(clear_depth)
         self._renders_since_last_flush += 1
+
+        # We always clear the depth, because each render() should be "self-contained".
+        # Any use-cases where you normally would control depth-clearing should
+        # be covered by the blender. Also, this way the blender can better re-use internal
+        # buffers. The only rule is that the color buffer behaves correctly on multiple renders.
+        clear_depth = True
 
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
@@ -472,7 +471,7 @@ class WgpuRenderer(Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for wobject, wobject_pipeline in wobject_tuples:
-            for pinfo in wobject_pipeline["compute_pipelines"]:
+            for pinfo in wobject_pipeline.get("compute_pipelines", ()):
                 compute_pass.set_pipeline(pinfo["pipeline"])
                 for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
                     compute_pass.set_bind_group(
