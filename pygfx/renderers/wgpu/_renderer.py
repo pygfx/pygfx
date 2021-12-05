@@ -342,7 +342,6 @@ class WgpuRenderer(Renderer):
         # Any use-cases where you normally would control depth-clearing should
         # be covered by the blender. Also, this way the blender can better re-use internal
         # buffers. The only rule is that the color buffer behaves correctly on multiple renders.
-        clear_depth = True
 
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
@@ -405,7 +404,7 @@ class WgpuRenderer(Renderer):
         # Render the scene graph
         command_encoder = device.create_command_encoder()
         self._render_recording(
-            command_encoder, wobject_tuples, physical_viewport, clear_color, clear_depth
+            command_encoder, wobject_tuples, physical_viewport, clear_color
         )
         command_buffers = [command_encoder.finish()]
 
@@ -455,7 +454,6 @@ class WgpuRenderer(Renderer):
         wobject_tuples,
         physical_viewport,
         clear_color,
-        clear_depth,
     ):
 
         # You might think that this is slow for large number of world
@@ -486,7 +484,7 @@ class WgpuRenderer(Renderer):
         for pass_index in range(blender.get_pass_count()):
 
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
-            depth_attachment = blender.get_depth_attachment(pass_index, clear_depth)
+            depth_attachment = blender.get_depth_attachment(pass_index)
             if not color_attachments:
                 continue
 

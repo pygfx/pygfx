@@ -43,7 +43,7 @@ class BasePass:
         """
         return {}
 
-    def get_depth_attachment(self, blender, clear_depth):
+    def get_depth_attachment(self, blender):
         """Get a dict that has the depth-specific fields for the
         depth_stencil_attachment argument of command_encoder.begin_render_pass().
         """
@@ -122,10 +122,10 @@ class OpaquePass(BasePass):
             "depth_compare": wgpu.CompareFunction.less,
         }
 
-    def get_depth_attachment(self, blender, clear_depth):
+    def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_value": (1.0 if clear_depth else wgpu.LoadOp.load),
+            "depth_load_value": 1.0,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
@@ -254,6 +254,7 @@ class SimpleTransparencyPass(BasePass):
         ]
 
     def get_color_attachments(self, blender, clear_color):
+        # Renders into the color_view, which is already cleared in an earlier pass
         return [
             {
                 "view": blender.color_view,
@@ -270,7 +271,7 @@ class SimpleTransparencyPass(BasePass):
             "depth_compare": wgpu.CompareFunction.less,
         }
 
-    def get_depth_attachment(self, blender, clear_depth):
+    def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
             "depth_load_value": wgpu.LoadOp.load,
@@ -349,13 +350,9 @@ class WeightedTransparencyPass(BasePass):
         ]
 
     def get_color_attachments(self, blender, clear_color):
-        if clear_color:
-            accum_load_value = 0, 0, 0, 0
-            reveal_load_value = 1, 0, 0, 0
-        else:
-            accum_load_value = wgpu.LoadOp.load
-            reveal_load_value = wgpu.LoadOp.load
-
+        # We always clear, the clear_color only really applies to the main color buffer.
+        accum_load_value = 0, 0, 0, 0
+        reveal_load_value = 1, 0, 0, 0
         return [
             {
                 "view": blender.accum_view,
@@ -378,7 +375,7 @@ class WeightedTransparencyPass(BasePass):
             "depth_compare": wgpu.CompareFunction.less,
         }
 
-    def get_depth_attachment(self, blender, clear_depth):
+    def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
             "depth_load_value": wgpu.LoadOp.load,
@@ -434,11 +431,8 @@ class FrontmostTransparencyPass(BasePass):
         ]
 
     def get_color_attachments(self, blender, clear_color):
-        if clear_color:
-            color_load_value = 0, 0, 0, 0
-        else:
-            color_load_value = wgpu.LoadOp.load
-
+        # We always clear, the clear_color only really applies to the main color buffer.
+        color_load_value = 0, 0, 0, 0
         return [
             {
                 "view": blender.frontcolor_view,
@@ -455,10 +449,10 @@ class FrontmostTransparencyPass(BasePass):
             "depth_compare": wgpu.CompareFunction.less,
         }
 
-    def get_depth_attachment(self, blender, clear_depth):
+    def get_depth_attachment(self, blender):
         return {
             "view": blender.frontdepth_view,
-            "depth_load_value": (1.0 if clear_depth else wgpu.LoadOp.load),
+            "depth_load_value": 1.0,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
@@ -568,8 +562,8 @@ class BaseFragmentBlender:
     def get_depth_descriptor(self, pass_index):
         return self.passes[pass_index].get_depth_descriptor(self)
 
-    def get_depth_attachment(self, pass_index, clear_depth):
-        return self.passes[pass_index].get_depth_attachment(self, clear_depth)
+    def get_depth_attachment(self, pass_index):
+        return self.passes[pass_index].get_depth_attachment(self)
 
     def get_shader_kwargs(self, pass_index):
         return {
