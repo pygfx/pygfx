@@ -206,7 +206,7 @@ class RenderFlusher:
                 for (var x:i32 = -support; x <= support; x = x + 1) {
                     let step = vec2<i32>(x, y);
                     let index = clamp(base_index + step, min_index, max_index);
-                    let dist = length(ref_index - vec2<f32>(index));
+                    let dist = length(ref_index - vec2<f32>(index) - 0.5);
                     let t = dist / sigma;
                     let w = exp(-0.5 * t * t);
                     val = val + textureLoad(r_color, index, 0) * w;
