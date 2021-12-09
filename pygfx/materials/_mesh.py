@@ -1,5 +1,6 @@
 from ._base import Material
 from ..resources import TextureView
+from ..utils import unpack_bitfield
 
 
 def clim_from_format(texture):
@@ -67,12 +68,18 @@ class MeshBasicMaterial(Material):
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
-        inst = pick_value[1]
-        face = pick_value[2]
-        coords = pick_value[3]
-        coords = (coords & 0xFF0000) / 65536, (coords & 0xFF00) / 256, coords & 0xFF
-        coords = coords[0] / 255, coords[1] / 255, coords[2] / 255
-        return {"instance_index": inst, "face_index": face, "face_coords": coords}
+        # This should match with the shader
+        values = unpack_bitfield(
+            pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
+        )
+        return {
+            "face_index": values["index"],
+            "face_coord": (
+                values["coord1"] / 64,
+                values["coord2"] / 64,
+                values["coord3"] / 64,
+            ),
+        }
 
     @property
     def color(self):

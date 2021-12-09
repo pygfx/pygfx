@@ -19,8 +19,8 @@ class WgpuCanvasWithScroll(WgpuCanvas):
         # Print the voxel coordinate being clicked
         xy = event.position().x(), event.position().y()
         info = renderer.get_pick_info(xy)
-        if "voxel_index" in info:
-            print(info["voxel_index"])
+        if "index" in info:
+            print(info["index"], info["voxel_coord"])
 
 
 app = QtWidgets.QApplication([])

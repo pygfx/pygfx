@@ -328,8 +328,15 @@ class VolumeSliceShader(BaseVolumeShader):
             var out = finalize_fragment();
 
             $$ if write_pick
-            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(varyings.texcoord * 1048576.0 + 0.5));
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            out.pick = (
+                pick_pack(u32(u_wobject.id), 20) +
+                pick_pack(u32(varyings.texcoord.x * 16384.0), 14) +
+                pick_pack(u32(varyings.texcoord.y * 16384.0), 14) +
+                pick_pack(u32(varyings.texcoord.z * 16384.0), 14)
+            );
             $$ endif
+
             return out;
         }
 
@@ -526,7 +533,13 @@ class VolumeRayShader(BaseVolumeShader):
             out.depth = ndc_pos.z / ndc_pos.w;
 
             $$ if write_pick
-            out.pick = vec4<i32>(u_wobject.id, vec3<i32>(render_out.coord * 1048576.0 + 0.5));
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            out.pick = (
+                pick_pack(u32(u_wobject.id), 20) +
+                pick_pack(u32(render_out.coord.x * 16384.0), 14) +
+                pick_pack(u32(render_out.coord.y * 16384.0), 14) +
+                pick_pack(u32(render_out.coord.z * 16384.0), 14)
+            );
             $$ endif
             return out;
         }

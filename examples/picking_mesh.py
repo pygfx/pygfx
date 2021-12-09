@@ -23,7 +23,7 @@ class PickingWgpuCanvas(WgpuCanvas):
         if wobject and "face_index" in info:
             # Get what face was clicked
             face_index = info["face_index"]
-            coords = info["face_coords"]
+            coords = info["face_coord"]
             # Select which of the three vertices was closest
             # Note that you can also select all vertices for this face,
             # or use the coords to select the closest edge.

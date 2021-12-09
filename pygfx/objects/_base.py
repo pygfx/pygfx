@@ -1,18 +1,65 @@
-import gc
 import random
 import weakref
+import threading
 
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
 
 
-# Keep track of id's. About the max:
-# * 2_147_483_647 (2**31 -1) max number for signed i32.
-# *    16_777_216 max integer that can be stored exactly in f32
-# *     4_000_000 max integer that survives being passed as a varying (in my tests)
-_idmap = weakref.WeakKeyDictionary()
-_idmax = 16_777_217  # non-inclusive
+class IdProvider:
+    """Object for internal use to manage world object id's."""
+
+    def __init__(self):
+        self._ids_in_use = set([0])
+        self._map = weakref.WeakValueDictionary()
+        self._lock = threading.RLock()
+
+    def claim_id(self, wobject):
+        """Used by wobjects to claim an id."""
+        # We don't simply count up, but keep a pool of ids. This is
+        # because an application *could* create and discard objects at
+        # a high rate, so we want to be able to re-use these ids.
+        #
+        # Some numbers:
+        # * 4_294_967_296 (2**32) max number for u32
+        # * 2_147_483_647 (2**31 -1) max number for i32.
+        # *    16_777_216 max integer that can be stored exactly in f32
+        # *     4_000_000 max integer that survives being passed as a varying (in my tests)
+        # *     1_048_575 is ~1M is 2**20 seems like a good max scene objects.
+        # *    67_108_864 is ~50M is 2**26 seems like a good max vertex count.
+        #                 which leaves 64-20-26=18 bits for any other picking info.
+
+        # Max allowed id, inclusive
+        id_max = 1_048_575  # 2*20-1
+
+        # The max number of ids. This is a bit less to avoid choking
+        # when there are few free id's left.
+        max_items = 1_000_000
+
+        with self._lock:
+            if len(self._ids_in_use) >= max_items:
+                raise RuntimeError("Max number of objects reached.")
+            id = 0
+            while id in self._ids_in_use:
+                id = random.randint(1, id_max)
+            self._ids_in_use.add(id)
+            self._map[id] = wobject
+
+        return id
+
+    def release_id(self, wobject, id):
+        """Release an id associated with a wobject."""
+        with self._lock:
+            self._ids_in_use.discard(id)
+            self._map.pop(id, None)
+
+    def get_object_from_id(self, id):
+        """Return the wobject associated with an id, or None."""
+        return self._map.get(id)
+
+
+id_provider = IdProvider()
 
 
 class ResourceContainer:
@@ -110,19 +157,12 @@ class WorldObject(ResourceContainer):
         # Render order is undocumented feature for now;l it may be removed if we have OIT.
         self.render_order = 0
 
-        # See if we reached max number of objects. If so, try cleanup and try again.
-        # Actually, stop earlier to prevent that while loop below to become slow.
-        max_items = 0.75 * _idmax
-        if len(_idmap) >= max_items:
-            gc.collect()
-            if len(_idmap) >= max_items:
-                raise RuntimeError("Max number of objects reached")
         # Set id
-        self._id = random.randint(1, _idmax - 1)
-        while self._id in _idmap.values():
-            self._id = (self._id + 1) % _idmax
-        _idmap[self] = self._id
+        self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
+
+    def __del__(self):
+        id_provider.release_id(self, self.id)
 
     @property
     def id(self):

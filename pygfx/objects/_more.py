@@ -1,4 +1,5 @@
 from ._base import WorldObject
+from ..utils import unpack_bitfield
 
 
 class Group(WorldObject):
@@ -32,8 +33,7 @@ class Line(WorldObject):
 
     The picking info of a Line (the result of
     ``renderer.get_pick_info()``) will for most materials include
-    ``vertex_index`` (float). Note that ``vertex_index`` is not integer;
-    round the number to obtain the nearest vertex.
+    ``vertex_index`` (int) and ``segment_coord`` (float, sub-segment coordinate).
     """
 
 
@@ -42,8 +42,8 @@ class Points(WorldObject):
 
     The picking info of a Points object (the result of
     ``renderer.get_pick_info()``) will for most materials include
-    ``vertex_index`` (int).
-
+    ``vertex_index`` (int) and ``point_coord`` (tuple of 2 float coordinates
+    in logical pixels).
     """
 
 
@@ -53,7 +53,7 @@ class Mesh(WorldObject):
 
     The picking info of a Mesh (the result of
     ``renderer.get_pick_info()``) will for most materials include
-    ``instance_index`` (int), ``face_index`` (int), and ``face_coords``
+    ``instance_index`` (int), ``face_index`` (int), and ``face_coord``
     (tuple of 3 floats). The latter are the barycentric coordinates for
     each vertex of the face (with values 0..1).
     """
@@ -65,13 +65,21 @@ class Volume(WorldObject):
     The geometry for this object consists only of `geometry.grid`: a texture with the 3D data.
 
     The picking info of a Volume (the result of ``renderer.get_pick_info()``)
-    will for most materials include ``voxel_index`` (tuple of 3 floats).
+    will for most materials include ``index`` (tuple of 3 int),
+    and ``voxel_coord`` (tuple of float subpixel coordinates).
     """
 
     def _wgpu_get_pick_info(self, pick_value):
         tex = self.geometry.grid
         if hasattr(tex, "texture"):
             tex = tex.texture  # tex was a view
+        # This should match with the shader
+        values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
+        texcoords_encoded = values["x"], values["y"], values["z"]
         size = tex.size
-        x, y, z = [(v / 1048576) * s - 0.5 for v, s in zip(pick_value[1:], size)]
-        return {"instance_index": 0, "voxel_index": (x, y, z)}
+        x, y, z = [(v / 16384) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
+        ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
+        return {
+            "index": (ix, iy, iz),
+            "voxel_coord": (x - ix, y - iy, z - iz),
+        }

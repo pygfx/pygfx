@@ -139,7 +139,10 @@ class BackgroundShader(WorldObjectShader):
             // apply_clipping_planes(in.world_pos);
 
             $$ if write_pick
-                // Fake being opaque - backgrounds should be backgrounds
+                // This is the opaque pass.
+                // A fragment of the background could be transparent, but it should still be
+                // written in the opaque pass in order for it to really be background.
+                // So we fool the blender into thinking this fragment is opaque, even if its not.
                 add_fragment(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
                 var out = finalize_fragment();
                 out.color = final_color;

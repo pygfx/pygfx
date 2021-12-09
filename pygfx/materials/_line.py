@@ -1,4 +1,5 @@
 from ._base import Material
+from ..utils import unpack_bitfield
 
 
 class LineMaterial(Material):
@@ -19,11 +20,12 @@ class LineMaterial(Material):
         self._vertex_colors = vertex_colors
 
     def _wgpu_get_pick_info(self, pick_value):
-        # The instance is zero while renderer doesn't support instancing
-        instance = pick_value[1]
-        vertex = pick_value[2]
-        vertex_sub = pick_value[3] / 1048576
-        return {"instance_index": instance, "vertex_index": vertex + vertex_sub}
+        # This should match with the shader
+        values = unpack_bitfield(pick_value, wobject_id=20, index=26, coord=18)
+        return {
+            "vertex_index": values["index"],
+            "segment_coord": (values["coord"] - 100000) / 100000.0,
+        }
 
     @property
     def color(self):
