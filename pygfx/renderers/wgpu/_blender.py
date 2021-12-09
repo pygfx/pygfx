@@ -504,7 +504,7 @@ class BaseFragmentBlender:
 
         # The below targets are always present, and the renderer expects their
         # format, texture, and view to be present.
-        # These contribute to 4+4+16 = 24 bytes per pixel
+        # These contribute to 4+4+8 = 16 bytes per pixel
 
         usg = wgpu.TextureUsage
 
@@ -520,8 +520,8 @@ class BaseFragmentBlender:
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 
-        # The pick texture has 4 channels: object id, and then 3 more, e.g.
-        # the instance nr, vertex nr and weights.
+        # The pick texture has 4 16bit channels, adding up to 64 bits.
+        # These bits are divided over the pick data, e.g. 20 for the wobject id.
         self._texture_info["pick"] = (
             wgpu.TextureFormat.rgba16uint,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
@@ -654,7 +654,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
 
         # Create two additional render targets.
         # These contribute 8+2 = 10 bytes per pixel
-        # So the total = 24 + 10 = 34 bytes per pixel
+        # So the total = 16 + 10 = 26 bytes per pixel
 
         # The accumulation buffer collects weighted fragments
         self._texture_info["accum"] = (
@@ -764,7 +764,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 
         # Create one additional render target.
         # These contribute 4 bytes per pixel
-        # So the total = 24 + 10 + 4 = 38 bytes per pixel
+        # So the total = 16 + 10 + 4 = 30 bytes per pixel
 
         # Color buffer for the front-most semitransparent layer
         self._texture_info["frontcolor"] = (
