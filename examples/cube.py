@@ -2,7 +2,6 @@
 Example showing a single geometric cube.
 """
 
-import imageio
 import pygfx as gfx
 
 from wgpu.gui.auto import WgpuCanvas, run

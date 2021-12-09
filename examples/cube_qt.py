@@ -2,7 +2,6 @@
 Example showing a single geometric cube.
 """
 
-import imageio
 import pygfx as gfx
 
 from PySide6 import QtWidgets  # Replace PySide6 with PyQt6, PyQt5 or PySide2

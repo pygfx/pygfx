@@ -2,7 +2,6 @@
 Example showing a single geometric cube.
 """
 
-import imageio
 import pygfx as gfx
 
 import wx
