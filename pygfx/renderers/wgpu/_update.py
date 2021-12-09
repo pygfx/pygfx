@@ -50,28 +50,26 @@ def update_buffer(device, resource):
         resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
         buffer = device.create_buffer(size=resource.nbytes, usage=resource._wgpu_usage)
 
-    queue = device.queue
-    encoder = device.create_command_encoder()
+    resource._wgpu_buffer = resource.rev, buffer
+    if not pending_uploads:
+        return
 
     # Upload any pending data
     for offset, size in pending_uploads:
         subdata = resource._get_subdata(offset, size)
         # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
         # B: roll data in new buffer, copy from there to existing buffer
-        tmp_buffer = device.create_buffer_with_data(
-            data=subdata,
-            usage=wgpu.BufferUsage.COPY_SRC,
+        # tmp_buffer = device.create_buffer_with_data(
+        #     data=subdata,
+        #     usage=wgpu.BufferUsage.COPY_SRC,
+        # )
+        # boffset, bsize = bytes_per_item * offset, bytes_per_item * size
+        # encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)
+        # C: using queue. This may be sugar for B, but it may also be optimized.
+        device.queue.write_buffer(
+            buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes
         )
-        boffset, bsize = bytes_per_item * offset, bytes_per_item * size
-        encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)
-        # C: using queue. This may be sugar for B, but it may also be optimized
-        # Unfortunately, this seems to crash the device :/
-        # queue.write_buffer(buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes)
         # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
-        # todo: look into staging buffers?
-
-    queue.submit([encoder.finish()])
-    resource._wgpu_buffer = resource.rev, buffer
 
 
 def update_texture_view(device, resource):
@@ -124,8 +122,9 @@ def update_texture(device, resource):
     if pixel_padding is not None:
         bytes_per_pixel += extra_bytes
 
-    queue = device.queue
-    encoder = device.create_command_encoder()
+    resource._wgpu_texture = resource.rev, texture
+    if not pending_uploads:
+        return
 
     # Upload any pending data
     for offset, size in pending_uploads:
@@ -150,15 +149,12 @@ def update_texture(device, resource):
         # )
         # C: using the queue, which may be doing B, but may also be optimized,
         #    and the bytes_per_row limitation does not apply here
-        queue.write_texture(
+        device.queue.write_texture(
             {"texture": texture, "origin": offset, "mip_level": 0},
             subdata,
             {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
             size,
         )
-
-    queue.submit([encoder.finish()])
-    resource._wgpu_texture = resource.rev, texture
 
 
 def update_sampler(device, resource):

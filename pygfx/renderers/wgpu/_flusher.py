@@ -112,7 +112,7 @@ class RenderFlusher:
             self._pipelines[dst_format] = hash, bind_group, render_pipeline
 
         self._update_uniforms(src_color_tex, dst_color_tex)
-        self._render(dst_color_tex, dst_format)
+        return self._render(dst_color_tex, dst_format)
 
     def _update_uniforms(self, src_color_tex, dst_color_tex):
         # Get factor between texture sizes
@@ -158,16 +158,15 @@ class RenderFlusher:
                 }
             ],
             depth_stencil_attachment=None,
-            occlusion_query_set=None,
         )
         render_pass.set_pipeline(render_pipeline)
         render_pass.set_bind_group(0, bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end_pass()
-        device.queue.submit([command_encoder.finish()])
+
+        return [command_encoder.finish()]
 
     def _create_pipeline(self, src_texture_view, dst_format):
-
         device = self._device
 
         bindings_code = """
@@ -219,8 +218,6 @@ class RenderFlusher:
         wgsl = FULL_QUAD_SHADER
         wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
         wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
-
-        # shader_module = device.create_shader_module(code=wgsl)
 
         binding_layouts = [
             {

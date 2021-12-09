@@ -575,14 +575,17 @@ class BaseFragmentBlender:
         """Get the number of passes for this blender."""
         return len(self.passes)
 
-    def perform_combine_pass(self, device, command_encoder):
+    def perform_combine_pass(self, device):
         """Perform a render-pass to combine any multi-pass results, if needed."""
+
         # Get bindgroup and pipeline
         if not self._combine_pass_info:
             self._combine_pass_info = self._create_combination_pipeline(device)
         bind_group, render_pipeline = self._combine_pass_info
         if not render_pipeline:
-            return
+            return []
+
+        command_encoder = device.create_command_encoder()
 
         # Render
         render_pass = command_encoder.begin_render_pass(
@@ -601,6 +604,8 @@ class BaseFragmentBlender:
         render_pass.set_bind_group(0, bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end_pass()
+
+        return [command_encoder.finish()]
 
     def _create_combination_pipeline(self, device):
         """Overload this to setup the specific combiner-pass."""
