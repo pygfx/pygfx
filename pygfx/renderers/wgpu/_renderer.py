@@ -91,23 +91,23 @@ class WgpuRenderer(Renderer):
     to that target. Different renderers can render to the same target though.
 
     It provides a ``.render()`` method that can be called one or more
-    times to render scene. This creates a visual representation that
+    times to render scenes. This creates a visual representation that
     is stored internally, and is finally rendered into its render target
     (the canvas or texture).
                                   __________
-                                 | renderer |
+                                 | blender  |
         [scenes] -- render() --> |  state   | -- flush() --> [target]
                                  |__________|
 
-    The internal visual representation includes things like a depth
-    buffer and is typically at a higher resolution to reduce aliasing
-    effects. Further, the representation may in the future accomodate
-    for proper blending of semitransparent objects.
+    The internal representation is managed by the blender object. The
+    internal render textures are typically at a higher resolution to
+    reduce aliasing (SSAA). The blender has auxilary buffers such as a
+    depth buffer, pick buffer, and buffers for transparent fragments.
+    Depending on the blend mode, a single render call may consist of
+    multiple passes (to deal with semi-transparent fragments).
 
-    The flush-step renders the internal representation into the target
-    texture or canvas, applying anti-aliasing. In the future this is
-    also where fog is applied, as well as any custom post-processing
-    effects.
+    The flush-step resolves the internal representation into the target
+    texture or canvas, averaging neighbouring fragments for anti-aliasing.
 
     Parameters:
         target (WgpuCanvas or Texture): The target to render to, and what

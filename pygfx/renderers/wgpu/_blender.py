@@ -5,7 +5,7 @@ from ._flusher import FULL_QUAD_SHADER, _create_pipeline
 
 # Notes:
 # - The user code provides color as-is in rgba.
-# - In the add_fragment logic defined in the shaders here, the color
+# - In the get_fragment_output logic defined in the shaders here, the color
 #   is pre-multiplied with the alpha.
 # - All fixed-pipeling blending options assume premultiplied alpha.
 
@@ -55,13 +55,8 @@ class BasePass:
         Notes:
 
         * This code gets injected into the shader, so the material shaders
-          can use add_fragment and finalize_fragment.
-        * This code should define:
-          * FragmentOutput2
-          * add_fragment1, add_fragment2
-          * finalize_fragment1, finalize_fragment2
-        * That <private> means its a mutable global, scoped to the current thread.
-          Like a normal `var`, but sharable across functions.
+          can use get_fragment_output.
+        * This code should define FragmentOutput and get_fragment_output.
         """
         return ""
 
@@ -131,23 +126,14 @@ class OpaquePass(BasePass):
 
     def get_shader_code(self, blender):
         return """
-        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_depth : f32 = 1.1;
-
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<u32>;
         };
-        fn add_fragment(depth: f32, color: vec4<f32>) {
-            if (color.a >= 1.0 && depth < p_fragment_depth) {
-                p_fragment_color = vec4<f32>(color.rgb, 1.0);
-                p_fragment_depth = depth;
-            }
-        }
-        fn finalize_fragment() -> FragmentOutput {
-            if (p_fragment_depth > 1.0) { discard; }
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+            if (color.a < 1.0) { discard; }
             var out : FragmentOutput;
-            out.color = p_fragment_color;
+            out.color = vec4<f32>(color.rgb, 1.0);
             return out;
         }
         """
@@ -160,23 +146,13 @@ class FullOpaquePass(OpaquePass):
 
     def get_shader_code(self, blender):
         return """
-        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_depth : f32 = 1.1;
-
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<u32>;
         };
-        fn add_fragment(depth: f32, color: vec4<f32>) {
-            if (depth < p_fragment_depth) {
-                p_fragment_color = vec4<f32>(color.rgb, 1.0);  // always opaque
-                p_fragment_depth = depth;
-            }
-        }
-        fn finalize_fragment() -> FragmentOutput {
-            if (p_fragment_depth > 1.0) { discard; }
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
-            out.color = p_fragment_color;
+            out.color = vec4<f32>(color.rgb, 1.0);  // always opaque
             return out;
         }
         """
@@ -208,23 +184,13 @@ class SimpleSinglePass(OpaquePass):
     def get_shader_code(self, blender):
         # Take depth into account, but don't treat transparent fragments differently
         return """
-        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_depth : f32 = 1.1;
-
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<u32>;
         };
-        fn add_fragment(depth: f32, color: vec4<f32>) {
-            if (depth < p_fragment_depth) {
-                p_fragment_color = vec4<f32>(color.rgb * color.a, color.a);
-                p_fragment_depth = depth;
-            }
-        }
-        fn finalize_fragment() -> FragmentOutput {
-            if (p_fragment_depth > 1.0) { discard; }
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
-            out.color = p_fragment_color;
+            out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
         }
         """
@@ -280,20 +246,13 @@ class SimpleTransparencyPass(BasePass):
 
     def get_shader_code(self, blender):
         return """
-        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
         };
-        fn add_fragment(depth: f32, color: vec4<f32>) {
-            let rgb = (1.0 - color.a) * p_fragment_color.rgb + color.a * color.rgb;
-            let a = (1.0 - color.a) * p_fragment_color.a + color.a;
-            p_fragment_color = vec4<f32>(rgb, a);
-        }
-        fn finalize_fragment() -> FragmentOutput {
-            if (p_fragment_color.a <= 0.0) { discard; }
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+            if (color.a <= 0.0) { discard; }
             var out : FragmentOutput;
-            out.color = p_fragment_color;
+            out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
         }
         """
@@ -384,25 +343,18 @@ class WeightedTransparencyPass(BasePass):
 
     def get_shader_code(self, blender):
         return """
-        var<private> p_fragment_accum : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_reveal : f32 = 0.0;
-
         struct FragmentOutput {
             [[location(0)]] accum: vec4<f32>;
             [[location(1)]] reveal: f32;
         };
-        fn add_fragment(depth: f32, color: vec4<f32>) {
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+            if (color.a <= 0.0) { discard; }
             let premultiplied = color.rgb * color.a;
             let alpha = color.a;  // could take user-specified transmittance into account
             WEIGHT_CODE
-            p_fragment_accum = vec4<f32>(premultiplied, alpha) * weight;
-            p_fragment_reveal = alpha;
-        }
-        fn finalize_fragment() -> FragmentOutput {
-            if (p_fragment_reveal <= 0.0) { discard; }
             var out : FragmentOutput;
-            out.accum = p_fragment_accum;
-            out.reveal = p_fragment_reveal;
+            out.accum = vec4<f32>(premultiplied, alpha) * weight;
+            out.reveal = alpha;
             return out;
         }
         """.replace(
@@ -458,23 +410,14 @@ class FrontmostTransparencyPass(BasePass):
 
     def get_shader_code(self, blender):
         return """
-        var<private> p_fragment_color : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        var<private> p_fragment_depth : f32 = 1.1;
-
         struct FragmentOutput {
             [[location(0)]] color: vec4<f32>;
             [[location(1)]] pick: vec4<u32>;
         };
-        fn add_fragment(depth: f32, color: vec4<f32>) {
-            if (color.a > 0.0 && color.a < 1.0) {
-                p_fragment_color = vec4<f32>(color.rgb * color.a, color.a);
-                p_fragment_depth = depth;
-            }
-        }
-        fn finalize_fragment() -> FragmentOutput {
-            if (p_fragment_depth > 1.0) { discard; }
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+            if (color.a <= 0.0 || color.a >= 1.0) { discard; }
             var out : FragmentOutput;
-            out.color = p_fragment_color;
+            out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
         }
         """
