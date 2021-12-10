@@ -63,10 +63,12 @@ class SharedData:
         # Create adapter and device objects - there should be just one per canvas.
         # Having a global device provides the benefit that we can draw any object
         # anywhere.
-        # We do pass the canvas to request_adapter(), so we get an adapter that is
+        # We could pass the canvas to request_adapter(), so we get an adapter that is
         # at least compatible with the first canvas that a renderer is create for.
+        # However, passing the object has been shown to prevent the creation of
+        # a canvas (on Linux + wx), so, we never pass it for now.
         self.adapter = wgpu.request_adapter(
-            canvas=canvas, power_preference="high-performance"
+            canvas=None, power_preference="high-performance"
         )
         self.device = self.adapter.request_device(
             required_features=[], required_limits={}

@@ -2,28 +2,20 @@
 Example showing a single geometric cube.
 """
 
-import imageio
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
+from wgpu.gui.auto import WgpuCanvas, run
 
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:bricks.jpg")
-tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
-
-geometry = gfx.box_geometry(200, 200, 200)
-geometry.texcoords.data[:] *= 2  # smaller bricks
-material = gfx.MeshPhongMaterial(map=tex, color=(1, 0, 0, 0.2))
-cube = gfx.Mesh(geometry, material)
+cube = gfx.Mesh(
+    gfx.box_geometry(200, 200, 200),
+    gfx.MeshPhongMaterial(color=(0.2, 0.4, 0.6, 1.0)),
+)
 scene.add(cube)
-
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
@@ -39,4 +31,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()
