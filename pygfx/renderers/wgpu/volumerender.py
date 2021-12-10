@@ -324,8 +324,7 @@ class VolumeSliceShader(BaseVolumeShader):
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            add_fragment(varyings.position.z, final_color);
-            var out = finalize_fragment();
+            var out = get_fragment_output(varyings.position.z, final_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
@@ -528,9 +527,11 @@ class VolumeRayShader(BaseVolumeShader):
             // Maybe we did the work for nothing
             apply_clipping_planes(world_pos.xyz);
 
-            add_fragment(varyings.position.z, render_out.color);
-            var out = finalize_fragment();
-            out.depth = ndc_pos.z / ndc_pos.w;
+            // Get fragment output. Note that the depth arg only affects the
+            // blending - setting the depth attribute acually sets the fragment depth.
+            let depth = ndc_pos.z / ndc_pos.w;
+            var out = get_fragment_output(depth, render_out.color);
+            out.depth = depth;
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

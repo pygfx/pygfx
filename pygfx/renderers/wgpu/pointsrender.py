@@ -179,8 +179,7 @@ class PointsShader(WorldObjectShader):
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            add_fragment(varyings.position.z, final_color);
-            var out = finalize_fragment();
+            var out = get_fragment_output(varyings.position.z, final_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

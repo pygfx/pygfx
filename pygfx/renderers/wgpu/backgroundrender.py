@@ -143,8 +143,7 @@ class BackgroundShader(WorldObjectShader):
                 // A fragment of the background could be transparent, but it should still be
                 // written in the opaque pass in order for it to really be background.
                 // So we fool the blender into thinking this fragment is opaque, even if its not.
-                add_fragment(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
-                var out = finalize_fragment();
+                var out = get_fragment_output(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
                 out.color = final_color;
                 return out;
             $$ else

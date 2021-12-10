@@ -473,8 +473,7 @@ class LineShader(WorldObjectShader):
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            add_fragment(varyings.position.z, final_color);
-            var out = finalize_fragment();
+            var out = get_fragment_output(varyings.position.z, final_color);
 
             // Set picking info.
             $$ if write_pick
@@ -599,7 +598,6 @@ class ThinLineShader(WorldObjectShader):
             let final_color = vec4<f32>(color.rgb, color.a * u_material.opacity);
 
             apply_clipping_planes(varyings.world_pos);
-            add_fragment(varyings.position.z, final_color);
-            return finalize_fragment();
+            return get_fragment_output(varyings.position.z, final_color);
         }
         """
