@@ -601,8 +601,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         usg = wgpu.TextureUsage
 
         # Create two additional render targets.
-        # These contribute 8+2 = 10 bytes per pixel
-        # So the total = 16 + 10 = 26 bytes per pixel
+        # These contribute 8+1 = 9 bytes per pixel
+        # So the total = 16 + 9 = 25 bytes per pixel
 
         # The accumulation buffer collects weighted fragments
         self._texture_info["accum"] = (
@@ -610,9 +610,14 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
-        # The reveal buffer collects the weights
+        # The reveal buffer collects the weights.
+        # McGuire: "Using R16F for the revealage render target will give slightly better
+        # precision and make it easier to tune the algorithm, but a 2x savings on bandwidth
+        # and memory footprint for that texture may make it worth compressing into R8 format."
+        # We also found that on Metal r16float produces a FormatNotBlendable error,
+        # while r8unorm and r32float do work. See #207.
         self._texture_info["reveal"] = (
-            wgpu.TextureFormat.r16float,
+            wgpu.TextureFormat.r8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
@@ -712,7 +717,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 
         # Create one additional render target.
         # These contribute 4 bytes per pixel
-        # So the total = 16 + 10 + 4 = 30 bytes per pixel
+        # So the total = 16 + 9 + 4 = 29 bytes per pixel
 
         # Color buffer for the front-most semitransparent layer
         self._texture_info["frontcolor"] = (
