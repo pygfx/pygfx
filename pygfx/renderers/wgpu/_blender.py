@@ -664,7 +664,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
 
         # The reveal buffer collects the weights
         self._texture_info["reveal"] = (
-            wgpu.TextureFormat.r16float,
+            wgpu.TextureFormat.r8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
