@@ -396,24 +396,24 @@ class WgpuRenderer(Renderer):
             if wobject_pipeline:
                 wobject_tuples.append((wobject, wobject_pipeline))
 
-        # Render the scene graph
-        command_encoder = device.create_command_encoder()
-        self._render_recording(
-            command_encoder, wobject_tuples, physical_viewport, clear_color
+        # Collect commands
+        command_buffers = []
+
+        # Record the rendering of all world objects
+        command_buffers += self._render_recording(
+            wobject_tuples, physical_viewport, clear_color
         )
-        command_buffers = [command_encoder.finish()]
 
         # Let the blender do the combinatory pass
         if flush:
-            command_encoder = device.create_command_encoder()
-            self._blender.perform_combine_pass(self._shared.device, command_encoder)
-            command_buffers.append(command_encoder.finish())
-
-        device.queue.submit(command_buffers)
+            command_buffers += self._blender.perform_combine_pass(self._shared.device)
 
         # Flush to target
         if flush:
-            self.flush()
+            command_buffers += self.flush()
+
+        # Submit
+        device.queue.submit(command_buffers)
 
     def flush(self):
         """Render the result into the target texture view. This method is
@@ -433,19 +433,18 @@ class WgpuRenderer(Renderer):
             update_texture_view(self._shared.device, texture_view)
             raw_texture_view = texture_view._wgpu_texture_view[1]
 
-        self._flusher.render(
+        # Reset counter (so we can auto-clear the first next draw)
+        self._renders_since_last_flush = 0
+
+        return self._flusher.render(
             self._blender.color_view,
             None,
             raw_texture_view,
             self._target_tex_format,
         )
 
-        # Reset counter (so we can auto-clear the first next draw)
-        self._renders_since_last_flush = 0
-
     def _render_recording(
         self,
-        command_encoder,
         wobject_tuples,
         physical_viewport,
         clear_color,
@@ -457,6 +456,7 @@ class WgpuRenderer(Renderer):
         # it, really.
         # todo: we may be able to speed this up with render bundles though
 
+        command_encoder = self.device.create_command_encoder()
         blender = self._blender
 
         # ----- compute pipelines
@@ -515,6 +515,8 @@ class WgpuRenderer(Renderer):
                         render_pass.draw(*pinfo["index_args"])
 
             render_pass.end_pass()
+
+        return [command_encoder.finish()]
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data
