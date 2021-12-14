@@ -195,17 +195,8 @@ class WorldObject(ResourceContainer):
     @property
     def render_order(self):
         """This value allows the default rendering order of scene graph
-        objects to be controlled. Objects are sorted on this value
-        before rendering (lower values go first). Default 0.
-
-        The order in which a WorldObject is rendered is determined by:
-
-        * Its distance from the camera.
-        * Its render_order (this property).
-        * Its position in the scene graph (based on a depth-first search).
-
-        When the renderer uses a blend-mode that is order-independent,
-        the order is defined by the scene graph alone.
+        objects to be controlled. Default 0. See ``Renderer.sort_objects``
+        for details.
         """
         return self._render_order
 

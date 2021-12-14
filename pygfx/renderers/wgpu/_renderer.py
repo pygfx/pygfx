@@ -186,6 +186,7 @@ class WgpuRenderer(Renderer):
 
         # Prepare render targets.
         self.blend_mode = "default"
+        self.sort_objects = False
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
@@ -285,6 +286,21 @@ class WgpuRenderer(Renderer):
         # If our target is a canvas, request a new draw
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             self._target.request_draw()
+
+    @property
+    def sort_objects(self):
+        """Whether to sort world objects before rendering.
+
+        * ``True``: the render order is defined by 1) the object's distance to the
+          camera; 2) the object's ``render_order`` property; 3) the position object
+          in the scene graph (based on a depth-first search).
+        * ``False``: don't sort, the render order is defined by the scene graph alone.
+        """
+        return self._sort_objects
+
+    @sort_objects.setter
+    def sort_objects(self, value):
+        self._sort_objects = bool(value)
 
     def _set_wobject_pipelines(self):
         # Each WorldObject has associated with it a wobject_pipeline:
@@ -432,12 +448,13 @@ class WgpuRenderer(Renderer):
         need_recording = any_has_changed or not self._blender.is_order_independent
         need_recording = True
 
-        if need_recording or not hasattr(scene, "_wgpu_command_buffers"):
+        # Sort objects
+        if self.sort_objects:
+            sort_func = _get_sort_function(camera)
+            wobject_tuples.sort(key=sort_func)
+            need_recording = True
 
-            # Sort objects
-            if not self._blender.is_order_independent:
-                sort_func = _get_sort_function(camera)
-                wobject_tuples.sort(key=sort_func)
+        if need_recording or not hasattr(scene, "_wgpu_command_buffers"):
 
             # Record the rendering of all world objects, or re-use previous recording
             command_buffers = []
