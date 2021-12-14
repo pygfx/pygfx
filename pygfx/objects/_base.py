@@ -184,13 +184,6 @@ class WorldObject(ResourceContainer):
     @visible.setter
     def visible(self, visible):
         self._visible = bool(visible)
-        # Bump the revision, signalling to the renderer that it cannot
-        # use the cached information. We could use a seperate revision
-        # attribute here so the render can ditch the recorded commands
-        # while keeping the pipeline objects, but it would probably not
-        # matter because visibility is not something that people would
-        # change often.
-        self._bump_rev()
 
     @property
     def render_order(self):
@@ -203,7 +196,6 @@ class WorldObject(ResourceContainer):
     @render_order.setter
     def render_order(self, value):
         self._render_order = float(value)
-        self._bump_rev()
 
     @property
     def render_pass(self):
@@ -240,7 +232,6 @@ class WorldObject(ResourceContainer):
                 f"WorldObject.render_pass must be one of {options} not {value}"
             )
         self._render_pass = value
-        self._bump_rev()
 
     @property
     def geometry(self):

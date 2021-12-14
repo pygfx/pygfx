@@ -443,10 +443,9 @@ class WgpuRenderer(Renderer):
         # I *think* that (eventually?) it should be possible to record the commands
         # and re-submit them, resulting in better performance. But if I try this now
         # it panics with 'Cannot remove a vacant resource'.
-        # If we do get this to work, we should also trigger a recording
-        # when the wobject.children change.
-        need_recording = any_has_changed or not self._blender.is_order_independent
-        need_recording = True
+        # If we do get this to work, we should trigger a new recording
+        # when the wobject's children, visibile, render_order, or render_pass changes.
+        need_recording = any_has_changed or True
 
         # Sort objects
         if self.sort_objects:
