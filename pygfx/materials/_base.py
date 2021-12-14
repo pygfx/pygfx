@@ -76,7 +76,10 @@ class Material(ResourceContainer):
 
     @opacity.setter
     def opacity(self, value):
-        self.uniform_buffer.data["opacity"] = min(max(float(value), 0), 1)
+        value = min(max(float(value), 0), 1)
+        if (value == 1) != (self.uniform_buffer.data["opacity"] == 1):
+            self._bump_rev()  # rebuild pipeline if we become opaque/transparent
+        self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_range(0, 1)
 
     @property

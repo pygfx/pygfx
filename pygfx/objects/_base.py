@@ -130,7 +130,7 @@ class WorldObject(ResourceContainer):
         *,
         visible=True,
         render_order=0,
-        render_pass="auto",
+        render_mask="auto",
     ):
         super().__init__()
 
@@ -138,9 +138,9 @@ class WorldObject(ResourceContainer):
         self.material = material
 
         # Init visibility and render props
-        self._visible = visible
-        self._render_order = render_order
-        self._render_pass = render_pass
+        self.visible = visible
+        self.render_order = render_order
+        self.render_mask = render_mask
 
         # Init parent and children
         self._parent = None
@@ -198,13 +198,13 @@ class WorldObject(ResourceContainer):
         self._render_order = float(value)
 
     @property
-    def render_pass(self):
+    def render_mask(self):
         """Indicates in what render passes to render this object:
 
+        * "auto": try to determine the best approach (default).
         * "opaque": only in the opaque render pass.
         * "transparent": only in the transparent render pass(es).
         * "all": render in both opaque and transparent render passses.
-        * "auto": try to determine the best approach (default).
 
         If "auto" (the default), the renderer attempts to determine
         whether all fragments will be either opaque or all transparent,
@@ -216,22 +216,27 @@ class WorldObject(ResourceContainer):
         to each pass is determined on a per-fragment basis.
 
         For clarity, rendering objects in all passes even though they
-        are fully opaque or fully transparent yields equal results. The
-        only cost is performance.
+        are fully opaque/transparent yields correct results and is
+        generally the "safest" option. The only cost is performance.
+        Rendering transparent fragments in the opaque pass makes them
+        invisible. Rendering opaque fragments in the transparent pass
+        blends them as if they are transparent with an alpha of 1.
         """
-        return self._render_pass
+        return self._render_mask
 
-    @render_pass.setter
-    def render_pass(self, value):
+    @render_mask.setter
+    def render_mask(self, value):
         value = "auto" if value is None else value
-        assert isinstance(value, str), "render_pass should be string"
+        assert isinstance(value, str), "render_mask should be string"
         value = value.lower()
-        options = ("opaque", "transparent", "auto", "both")
+        options = ("opaque", "transparent", "auto", "all")
         if value not in options:
             raise ValueError(
-                f"WorldObject.render_pass must be one of {options} not {value}"
+                f"WorldObject.render_mask must be one of {options} not {value!r}"
             )
-        self._render_pass = value
+        self._render_mask = value
+        # Trigger a pipeline redraw, because this info is used in that code path
+        self._bump_rev()
 
     @property
     def geometry(self):

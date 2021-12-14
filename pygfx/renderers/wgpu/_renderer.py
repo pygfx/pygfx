@@ -291,8 +291,8 @@ class WgpuRenderer(Renderer):
     def sort_objects(self):
         """Whether to sort world objects before rendering.
 
-        * ``True``: the render order is defined by 1) the object's distance to the
-          camera; 2) the object's ``render_order`` property; 3) the position object
+        * ``True``: the render order is defined by 1) the object's ``render_order``
+          property; 2) the object's distance to the camera; 3) the position object
           in the scene graph (based on a depth-first search).
         * ``False``: don't sort, the render order is defined by the scene graph alone.
         """
@@ -530,15 +530,13 @@ class WgpuRenderer(Renderer):
         compute_pass.end_pass()
 
         # ----- render pipelines
-
-        n_renders = 0
+        n_passes = 0
 
         for pass_index in range(blender.get_pass_count()):
 
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
             depth_attachment = blender.get_depth_attachment(pass_index)
-            render_opaque = blender.passes[pass_index].render_opaque
-            render_transparent = blender.passes[pass_index].render_transparent
+            render_mask = blender.passes[pass_index].render_mask
             if not color_attachments:
                 continue
 
@@ -554,12 +552,9 @@ class WgpuRenderer(Renderer):
             render_pass.set_viewport(*physical_viewport)
 
             for wobject, wobject_pipeline in wobject_tuples:
-                if not (
-                    (render_opaque and wobject_pipeline["render_opaque"])
-                    or (render_transparent and wobject_pipeline["render_transparent"])
-                ):
+                if not (render_mask & wobject_pipeline["render_mask"]):
                     continue
-                n_renders += 1
+                n_passes += 1
                 for pinfo in wobject_pipeline["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipelines"][pass_index])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
@@ -581,7 +576,7 @@ class WgpuRenderer(Renderer):
 
             render_pass.end_pass()
 
-        # print(n_renders)
+        print(n_passes)
         return [command_encoder.finish()]
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):

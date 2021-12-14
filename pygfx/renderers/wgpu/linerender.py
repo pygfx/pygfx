@@ -86,8 +86,10 @@ def line_renderer(render_info):
     )
 
     # Global color or per-vertex?
+    only_color_and_opacity_determine_fragment_alpha = True
     shader["per_vertex_color"] = False
     if material.vertex_colors:
+        only_color_and_opacity_determine_fragment_alpha = False
         colors1 = geometry.colors
         if colors1.data.shape[1] != 4:
             raise ValueError(
@@ -110,9 +112,16 @@ def line_renderer(render_info):
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
+    # The renderer use alpha for aa, so we are never opaque only.
+    suggested_render_mask = 3
+    if only_color_and_opacity_determine_fragment_alpha:
+        if material.opacity < 1 or material.color[3] < 1:
+            suggested_render_mask = 2
+
     # Done
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": (n, 1),
@@ -525,8 +534,10 @@ def thin_line_renderer(render_info):
 
     vertex_buffers = {0: positions1}
 
+    only_color_and_opacity_determine_fragment_alpha = True
     shader["per_vertex_color"] = False
     if material.vertex_colors:
+        only_color_and_opacity_determine_fragment_alpha = False
         shader["per_vertex_color"] = True
         colors1 = geometry.colors
         if colors1.data.shape[1] != 4:
@@ -535,12 +546,19 @@ def thin_line_renderer(render_info):
             )
         vertex_buffers[1] = colors1
 
+    # Determine in what render passes this objects must be rendered
+    suggested_render_mask = 3
+    if only_color_and_opacity_determine_fragment_alpha:
+        is_opaque = material.opacity >= 1 and material.color[3] >= 1
+        suggested_render_mask = 1 if is_opaque else 2
+
     # Let the shader generate code for our bindings
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": primitive,
             "indices": (positions1.nitems, 1),

@@ -64,19 +64,11 @@ def ensure_pipeline(renderer, wobject):
 
     # Set in what passes this object must render
     if has_changed:
-        if wobject.render_pass == "auto":
-            # todo: a smarter auto
-            wobject_pipeline["render_opaque"] = True
-            wobject_pipeline["render_transparent"] = True
-        elif wobject.render_pass == "full":
-            wobject_pipeline["render_opaque"] = True
-            wobject_pipeline["render_transparent"] = True
-        elif wobject.render_pass == "opaque":
-            wobject_pipeline["render_opaque"] = True
-            wobject_pipeline["render_transparent"] = False
-        elif wobject.render_pass == "transparent":
-            wobject_pipeline["render_opaque"] = False
-            wobject_pipeline["render_transparent"] = True
+        m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
+        render_mask = m[wobject.render_mask]
+        if not render_mask:
+            render_mask = new_pipeline_infos[0].get("suggested_render_mask", 3)
+        wobject_pipeline["render_mask"] = render_mask
 
     return wobject_pipeline, has_changed
 

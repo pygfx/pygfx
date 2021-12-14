@@ -23,8 +23,7 @@ standard_texture_des = {
 class BasePass:
     """The base pass class, defining and documenting the API that a pass must provide."""
 
-    render_opaque = True
-    render_transparent = True
+    render_mask = 3  # opaque end transparent
 
     def get_color_descriptors(self, blender):
         """Get the list of fragment targets for device.create_render_pipeline()."""
@@ -68,8 +67,7 @@ class OpaquePass(BasePass):
     in all multi-pass blenders.
     """
 
-    render_opaque = True
-    render_transparent = False
+    render_mask = 1  # opaque only
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -144,8 +142,7 @@ class OpaquePass(BasePass):
 class FullOpaquePass(OpaquePass):
     """A pass that considers all fragments opaque."""
 
-    render_opaque = True
-    render_transparent = True
+    render_mask = 3  # opaque end transparent
 
     def get_shader_code(self, blender):
         return """
@@ -164,8 +161,7 @@ class FullOpaquePass(OpaquePass):
 class SimpleSinglePass(OpaquePass):
     """A pass that blends opaque and transparent fragments in a single pass."""
 
-    render_opaque = True
-    render_transparent = True
+    render_mask = 3  # opaque end transparent
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -206,8 +202,7 @@ class SimpleTransparencyPass(BasePass):
     operator).
     """
 
-    render_opaque = False
-    render_transparent = True
+    render_mask = 2  # transparent only
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -267,8 +262,7 @@ class WeightedTransparencyPass(BasePass):
     Multiple weight functions are supported.
     """
 
-    render_opaque = False
-    render_transparent = True
+    render_mask = 2  # transparent only
 
     def __init__(self, weight_func):
 
@@ -371,8 +365,7 @@ class FrontmostTransparencyPass(BasePass):
     a custom render target. This can then later be used in the combine-pass.
     """
 
-    render_opaque = False
-    render_transparent = True
+    render_mask = 2  # transparent only
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -436,7 +429,6 @@ class BaseFragmentBlender:
     Each renderer has one blender object.
     """
 
-    is_order_independent = False
     passes = []
 
     def __init__(self):
@@ -516,7 +508,7 @@ class BaseFragmentBlender:
     def get_shader_kwargs(self, pass_index):
         return {
             "blending_code": self.passes[pass_index].get_shader_code(self),
-            "write_pick": self.passes[pass_index].render_opaque,
+            "write_pick": (1 & self.passes[pass_index].render_mask),
         }
 
     def get_pass_count(self):
@@ -565,7 +557,6 @@ class OpaqueFragmentBlender(BaseFragmentBlender):
     even if they're not.
     """
 
-    is_order_independent = True
     passes = [FullOpaquePass()]
 
 
@@ -576,7 +567,6 @@ class Simple1FragmentBlender(BaseFragmentBlender):
     pass.
     """
 
-    is_order_independent = False
     passes = [SimpleSinglePass()]
 
 
@@ -587,7 +577,6 @@ class Simple2FragmentBlender(BaseFragmentBlender):
     depth-writing. Not order-independent.
     """
 
-    is_order_independent = False
     passes = [OpaquePass(), SimpleTransparencyPass()]
 
 
@@ -601,7 +590,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
     realizing order independent blending.
     """
 
-    is_order_independent = True
     passes = [OpaquePass(), WeightedTransparencyPass("alpha")]
 
     def __init__(self):
@@ -696,7 +684,6 @@ class WeightedDepthFragmentBlender(WeightedFragmentBlender):
     using a general purpose depth weight function.
     """
 
-    is_order_independent = True
     passes = [OpaquePass(), WeightedTransparencyPass("depth")]
 
 
@@ -714,7 +701,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     single-layer depth peeling.
     """
 
-    is_order_independent = True
     passes = [
         FrontmostTransparencyPass(),
         OpaquePass(),

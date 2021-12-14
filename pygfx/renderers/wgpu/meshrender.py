@@ -76,8 +76,11 @@ def mesh_renderer(render_info):
             "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
         )
 
+    only_color_and_opacity_determine_fragment_alpha = True
+
     # If a texture is applied ...
     if material.map is not None:
+        only_color_and_opacity_determine_fragment_alpha = False
         if isinstance(material.map, Texture):
             raise TypeError("material.map is a Texture, but must be a TextureView")
         elif not isinstance(material.map, TextureView):
@@ -168,9 +171,16 @@ def mesh_renderer(render_info):
     for i, binding in bindings1.items():
         shader.define_binding(1, i, binding)
 
+    # Determine in what render passes this objects must be rendered
+    suggested_render_mask = 3
+    if only_color_and_opacity_determine_fragment_alpha:
+        is_opaque = material.opacity >= 1 and material.color[3] >= 1
+        suggested_render_mask = 1 if is_opaque else 2
+
     # Put it together!
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": topology,
             "cull_mode": cull_mode,
@@ -560,9 +570,17 @@ def meshslice_renderer(render_info):
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
+    # As long as we don't use alpha for aa in the frag shader, we can use a render_mask of 1 or 2.
+    only_color_and_opacity_determine_fragment_alpha = True
+    suggested_render_mask = 3
+    if only_color_and_opacity_determine_fragment_alpha:
+        is_opaque = material.opacity >= 1 and material.color[3] >= 1
+        suggested_render_mask = 1 if is_opaque else 2
+
     # Put it together!
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": topology,
             "indices": (range(n), range(n_instances)),
@@ -763,6 +781,7 @@ class MeshSliceShader(WorldObjectShader):
             }
 
             // No aa. This is something we need to decide on. See line renderer.
+            // Making this < 1 would affect the suggested_render_mask.
             let alpha = 1.0;
 
             // Set color
