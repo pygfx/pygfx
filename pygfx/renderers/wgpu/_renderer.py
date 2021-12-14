@@ -48,6 +48,26 @@ def get_size_from_render_target(target):
     return physical_size, logical_size
 
 
+def _get_sort_function(camera: Camera):
+    """Given a scene object, get a function to sort wobject-tuples"""
+
+    def sort_func(wobject_tuple: WorldObject):
+        wobject = wobject_tuple[0]
+        z = (
+            Vector3()
+            .set_from_matrix_position(wobject.matrix_world)
+            .apply_matrix4(proj_screen_matrix)
+            .z
+        )
+        return wobject.render_order, z
+
+    proj_screen_matrix = Matrix4().multiply_matrices(
+        camera.projection_matrix, camera.matrix_world_inverse
+    )
+
+    return sort_func
+
+
 class SharedData:
     """An object to store global data to share between multiple wgpu renderers.
 
@@ -385,36 +405,53 @@ class WgpuRenderer(Renderer):
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
-        # Get the list of objects to render (visible and having a material)
-        q = self.get_render_list(scene, camera)
-
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
 
+        # Get the list of objects to render, as they appear in the scene graph
+        wobject_list = []
+        scene.traverse(wobject_list.append, True)
+
         # Ensure each wobject has pipeline info, and filter objects that we cannot render
         wobject_tuples = []
-        for wobject in q:
-            wobject_pipeline = ensure_pipeline(self, wobject)
+        any_has_changed = False
+        for wobject in wobject_list:
+            if not wobject.material:
+                continue
+            wobject_pipeline, has_changed = ensure_pipeline(self, wobject)
             if wobject_pipeline:
+                any_has_changed |= has_changed
                 wobject_tuples.append((wobject, wobject_pipeline))
 
-        # Collect commands
-        command_buffers = []
+        # Need a new recording, or can we re-use the previous one?
+        # I *think* that (eventually?) it should be possible to record the commands
+        # and re-submit them, resulting in better performance. But if I try this now
+        # it panics with 'Cannot remove a vacant resource'.
+        # If we do get this to work, we should also trigger a recording
+        # when the wobject.children change.
+        need_recording = any_has_changed or not self._blender.is_order_independent
+        need_recording = True
 
-        # Record the rendering of all world objects
-        command_buffers += self._render_recording(
-            wobject_tuples, physical_viewport, clear_color
-        )
+        if need_recording or not hasattr(scene, "_wgpu_command_buffers"):
 
-        # Let the blender do the combinatory pass
-        if flush:
+            # Sort objects
+            if not self._blender.is_order_independent:
+                sort_func = _get_sort_function(camera)
+                wobject_tuples.sort(key=sort_func)
+
+            # Record the rendering of all world objects, or re-use previous recording
+            command_buffers = []
+            command_buffers += self._render_recording(
+                wobject_tuples, physical_viewport, clear_color
+            )
             command_buffers += self._blender.perform_combine_pass(self._shared.device)
+            scene._wgpu_command_buffers = command_buffers
 
-        # Flush to target
+        # Collect commands and submit
+        command_buffers = []
+        command_buffers += scene._wgpu_command_buffers
         if flush:
             command_buffers += self.flush()
-
-        # Submit
         device.queue.submit(command_buffers)
 
     def flush(self):
@@ -478,10 +515,14 @@ class WgpuRenderer(Renderer):
 
         # ----- render pipelines
 
+        n_renders = 0
+
         for pass_index in range(blender.get_pass_count()):
 
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
             depth_attachment = blender.get_depth_attachment(pass_index)
+            render_opaque = blender.passes[pass_index].render_opaque
+            render_transparent = blender.passes[pass_index].render_transparent
             if not color_attachments:
                 continue
 
@@ -497,6 +538,12 @@ class WgpuRenderer(Renderer):
             render_pass.set_viewport(*physical_viewport)
 
             for wobject, wobject_pipeline in wobject_tuples:
+                if not (
+                    (render_opaque and wobject_pipeline["render_opaque"])
+                    or (render_transparent and wobject_pipeline["render_transparent"])
+                ):
+                    continue
+                n_renders += 1
                 for pinfo in wobject_pipeline["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipelines"][pass_index])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
@@ -518,6 +565,7 @@ class WgpuRenderer(Renderer):
 
             render_pass.end_pass()
 
+        # print(n_renders)
         return [command_encoder.finish()]
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
@@ -536,35 +584,6 @@ class WgpuRenderer(Renderer):
         # Upload to GPU
         self._shared.stdinfo_buffer.update_range(0, 1)
         update_buffer(self._shared.device, self._shared.stdinfo_buffer)
-
-    def get_render_list(self, scene: WorldObject, camera: Camera):
-        """Given a scene object, get a flat list of objects to render."""
-
-        # Collect items
-        def visit(wobject):
-            nonlocal q
-            if wobject.material is not None:
-                q.append(wobject)
-
-        q = []
-        scene.traverse(visit, True)
-
-        # Next, sort them from back-to-front
-        def sort_func(wobject: WorldObject):
-            z = (
-                Vector3()
-                .set_from_matrix_position(wobject.matrix_world)
-                .apply_matrix4(proj_screen_matrix)
-                .z
-            )
-            return wobject.render_order, z
-
-        proj_screen_matrix = Matrix4().multiply_matrices(
-            camera.projection_matrix, camera.matrix_world_inverse
-        )
-        # todo: either revive or remove (leaning for the latter)
-        # q.sort(key=sort_func)
-        return q
 
     # Picking
 

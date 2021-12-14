@@ -70,7 +70,7 @@ class Material(ResourceContainer):
     def opacity(self):
         """The opacity (a.k.a. alpha value) applied to this material, expressed
         as a value between 0 and 1. If the material contains any
-        non-opaque fragments, these are simply scaled by this value.
+        non-opaque fragments, their alphas are simply scaled by this value.
         """
         return float(self.uniform_buffer.data["opacity"])
 

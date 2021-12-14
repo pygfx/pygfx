@@ -154,8 +154,9 @@ class WorldObject(ResourceContainer):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
-        # Render order is undocumented feature for now;l it may be removed if we have OIT.
+        # Render order is undocumented feature for now; it may be removed if we have OIT.
         self.render_order = 0
+        self.render_pass = None
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -177,6 +178,72 @@ class WorldObject(ResourceContainer):
     @visible.setter
     def visible(self, visible):
         self._visible = bool(visible)
+        # Bump the revision, signalling to the renderer that it cannot
+        # use the cached information. We could use a seperate revision
+        # attribute here so the render can ditch the recorded commands
+        # while keeping the pipeline objects, but it would probably not
+        # matter because visibility is not something that people would
+        # change often.
+        self._bump_rev()
+
+    @property
+    def render_order(self):
+        """This value allows the default rendering order of scene graph
+        objects to be controlled. Objects are sorted on this value
+        before rendering (lower values go first). Default 0.
+
+        The order in which a WorldObject is rendered is determined by:
+
+        * Its distance from the camera.
+        * Its render_order (this property).
+        * Its position in the scene graph (based on a depth-first search).
+
+        When the renderer uses a blend-mode that is order-independent,
+        the order is defined by the scene graph alone.
+        """
+        return self._render_order
+
+    @render_order.setter
+    def render_order(self, value):
+        self._render_order = float(value)
+        self._bump_rev()
+
+    @property
+    def render_pass(self):
+        """Indicates in what render passes to render this object:
+
+        * "opaque": only in the opaque render pass.
+        * "transparent": only in the transparent render pass(es).
+        * "all": render in both opaque and transparent render passses.
+        * "auto": try to determine the best approach (default).
+
+        If "auto" (the default), the renderer attempts to determine
+        whether all fragments will be either opaque or all transparent,
+        and only apply the needed render passes. If this cannot be
+        determined, it falls back to "all".
+
+        Some objects may contain both transparent and opaque fragments,
+        and should be rendered in all passes - the object's contribution
+        to each pass is determined on a per-fragment basis.
+
+        For clarity, rendering objects in all passes even though they
+        are fully opaque or fully transparent yields equal results. The
+        only cost is performance.
+        """
+        return self._render_pass
+
+    @render_pass.setter
+    def render_pass(self, value):
+        value = "auto" if value is None else value
+        assert isinstance(value, str), "render_pass should be string"
+        value = value.lower()
+        options = ("opaque", "transparent", "auto", "both")
+        if value not in options:
+            raise ValueError(
+                f"WorldObject.render_pass must be one of {options} not {value}"
+            )
+        self._render_pass = value
+        self._bump_rev()
 
     @property
     def geometry(self):
@@ -248,10 +315,10 @@ class WorldObject(ResourceContainer):
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
         """
-        if skip_invisible and not self.visible:
+        if skip_invisible and not self._visible:
             return
         callback(self)
-        for child in self.children:
+        for child in self._children:
             child.traverse(callback, skip_invisible)
 
     def update_matrix(self):
