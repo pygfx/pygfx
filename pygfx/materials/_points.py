@@ -45,7 +45,7 @@ class PointsMaterial(Material):
     def color(self, color):
         color = tuple(color)
         if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
-            self._bump_rev()  # rebuild pipeline if we become opaque/transparent
+            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
 

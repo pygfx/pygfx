@@ -530,7 +530,6 @@ class WgpuRenderer(Renderer):
         compute_pass.end_pass()
 
         # ----- render pipelines
-        n_passes = 0
 
         for pass_index in range(blender.get_pass_count()):
 
@@ -554,7 +553,6 @@ class WgpuRenderer(Renderer):
             for wobject, wobject_pipeline in wobject_tuples:
                 if not (render_mask & wobject_pipeline["render_mask"]):
                     continue
-                n_passes += 1
                 for pinfo in wobject_pipeline["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipelines"][pass_index])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
@@ -576,7 +574,6 @@ class WgpuRenderer(Renderer):
 
             render_pass.end_pass()
 
-        print(n_passes)
         return [command_encoder.finish()]
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):

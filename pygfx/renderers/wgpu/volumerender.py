@@ -134,7 +134,7 @@ def volume_slice_renderer(render_info):
 
     # Get in what passes this needs rendering
     suggested_render_mask = 3
-    if "a" not in fmt and material.opacity >= 1:
+    if material.opacity >= 1 and shader["texture_nchannels"] in (1, 3):
         suggested_render_mask = 1
     elif material.opacity < 1:
         suggested_render_mask = 2
@@ -403,7 +403,7 @@ def volume_ray_renderer(render_info):
 
     # Get in what passes this needs rendering
     suggested_render_mask = 3
-    if "a" not in fmt and material.opacity >= 1:
+    if material.opacity >= 1 and shader["texture_nchannels"] in (1, 3):
         suggested_render_mask = 1
     elif material.opacity < 1:
         suggested_render_mask = 2
