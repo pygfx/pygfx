@@ -20,10 +20,10 @@ class Background(WorldObject):
     Can be e.g. a gradient, a static image or a skybox.
     """
 
-    def __init__(self, geometry=None, material=None):
+    def __init__(self, geometry=None, material=None, **kwargs):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
-        super().__init__(None, material)
+        super().__init__(None, material, **kwargs)
 
 
 class Line(WorldObject):

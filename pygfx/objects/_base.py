@@ -123,14 +123,24 @@ class WorldObject(ResourceContainer):
     _m = Matrix4()
     _q = Quaternion()
 
-    def __init__(self, geometry=None, material=None):
+    def __init__(
+        self,
+        geometry=None,
+        material=None,
+        *,
+        visible=True,
+        render_order=0,
+        render_pass="auto",
+    ):
         super().__init__()
 
         self.geometry = geometry
         self.material = material
 
-        # Init visibility
-        self._visible = True
+        # Init visibility and render props
+        self._visible = visible
+        self._render_order = render_order
+        self._render_pass = render_pass
 
         # Init parent and children
         self._parent = None
@@ -153,10 +163,6 @@ class WorldObject(ResourceContainer):
         for cls in reversed(self.__class__.mro()):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
-
-        # Render order is undocumented feature for now; it may be removed if we have OIT.
-        self.render_order = 0
-        self.render_pass = None
 
         # Set id
         self._id = id_provider.claim_id(self)

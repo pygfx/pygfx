@@ -76,12 +76,28 @@ canvas._target_fps = 1000
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
-sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
+sphere = gfx.Mesh(
+    gfx.sphere_geometry(10),
+    gfx.MeshPhongMaterial(),
+    render_pass="opaque",
+)
 
 geometry = gfx.plane_geometry(50, 50)
-plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
-plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
-plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
+plane1 = gfx.Mesh(
+    geometry,
+    gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)),
+    render_pass="transparent",
+)
+plane2 = gfx.Mesh(
+    geometry,
+    gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)),
+    render_pass="transparent",
+)
+plane3 = gfx.Mesh(
+    geometry,
+    gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)),
+    render_pass="transparent",
+)
 
 plane1.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 1.571)
 plane2.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), 1.571)
