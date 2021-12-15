@@ -145,7 +145,15 @@ class WgpuRenderer(Renderer):
 
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
-    def __init__(self, target, *, pixel_ratio=None, show_fps=False):
+    def __init__(
+        self,
+        target,
+        *,
+        pixel_ratio=None,
+        show_fps=False,
+        blend_mode="default",
+        sort_objects=False,
+    ):
 
         # Check and normalize inputs
         if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
@@ -185,8 +193,8 @@ class WgpuRenderer(Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         # Prepare render targets.
-        self.blend_mode = "default"
-        self.sort_objects = False
+        self.blend_mode = blend_mode
+        self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
@@ -239,6 +247,7 @@ class WgpuRenderer(Renderer):
     @property
     def blend_mode(self):
         """The method for handling transparency:
+
         * "default" or None: Select the default: currently this is "simple2".
         * "opaque": single-pass approach that consider every fragment opaque.
         * "simple1": single-pass approach that blends fragments (using alpha blending).
@@ -289,7 +298,7 @@ class WgpuRenderer(Renderer):
 
     @property
     def sort_objects(self):
-        """Whether to sort world objects before rendering.
+        """Whether to sort world objects before rendering. Default False.
 
         * ``True``: the render order is defined by 1) the object's ``render_order``
           property; 2) the object's distance to the camera; 3) the position object
