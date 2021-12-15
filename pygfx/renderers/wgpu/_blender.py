@@ -23,7 +23,7 @@ standard_texture_des = {
 class BasePass:
     """The base pass class, defining and documenting the API that a pass must provide."""
 
-    write_pick = False
+    render_mask = 3  # opaque end transparent
 
     def get_color_descriptors(self, blender):
         """Get the list of fragment targets for device.create_render_pipeline()."""
@@ -67,7 +67,7 @@ class OpaquePass(BasePass):
     in all multi-pass blenders.
     """
 
-    write_pick = True
+    render_mask = 1  # opaque only
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -142,7 +142,7 @@ class OpaquePass(BasePass):
 class FullOpaquePass(OpaquePass):
     """A pass that considers all fragments opaque."""
 
-    write_pick = True
+    render_mask = 3  # opaque end transparent
 
     def get_shader_code(self, blender):
         return """
@@ -161,7 +161,7 @@ class FullOpaquePass(OpaquePass):
 class SimpleSinglePass(OpaquePass):
     """A pass that blends opaque and transparent fragments in a single pass."""
 
-    write_pick = True
+    render_mask = 3  # opaque end transparent
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -202,9 +202,7 @@ class SimpleTransparencyPass(BasePass):
     operator).
     """
 
-    write_pick = False
-
-    # todo: this pass re-uses the color and depth buffer - rendering two scenes into the same rectangle will cause wrong results
+    render_mask = 2  # transparent only
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -264,7 +262,7 @@ class WeightedTransparencyPass(BasePass):
     Multiple weight functions are supported.
     """
 
-    write_pick = False
+    render_mask = 2  # transparent only
 
     def __init__(self, weight_func):
 
@@ -367,7 +365,7 @@ class FrontmostTransparencyPass(BasePass):
     a custom render target. This can then later be used in the combine-pass.
     """
 
-    write_pick = False
+    render_mask = 2  # transparent only
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -431,7 +429,6 @@ class BaseFragmentBlender:
     Each renderer has one blender object.
     """
 
-    # A list of passes
     passes = []
 
     def __init__(self):
@@ -511,7 +508,7 @@ class BaseFragmentBlender:
     def get_shader_kwargs(self, pass_index):
         return {
             "blending_code": self.passes[pass_index].get_shader_code(self),
-            "write_pick": self.passes[pass_index].write_pick,
+            "write_pick": (1 & self.passes[pass_index].render_mask),
         }
 
     def get_pass_count(self):

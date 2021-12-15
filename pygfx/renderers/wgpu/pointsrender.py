@@ -31,7 +31,9 @@ def points_renderer(render_info):
         "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
     )
 
+    only_color_and_opacity_determine_fragment_alpha = True
     if material.vertex_colors:
+        only_color_and_opacity_determine_fragment_alpha = False
         bindings[5] = Binding(
             "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
         )
@@ -50,9 +52,16 @@ def points_renderer(render_info):
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
+    # The renderer use alpha for aa, so we are never opaque only.
+    suggested_render_mask = 3
+    if only_color_and_opacity_determine_fragment_alpha:
+        if material.opacity < 1 or material.color[3] < 1:
+            suggested_render_mask = 2
+
     # Put it together!
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "indices": (range(n), range(1)),

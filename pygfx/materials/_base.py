@@ -70,13 +70,16 @@ class Material(ResourceContainer):
     def opacity(self):
         """The opacity (a.k.a. alpha value) applied to this material, expressed
         as a value between 0 and 1. If the material contains any
-        non-opaque fragments, these are simply scaled by this value.
+        non-opaque fragments, their alphas are simply scaled by this value.
         """
         return float(self.uniform_buffer.data["opacity"])
 
     @opacity.setter
     def opacity(self, value):
-        self.uniform_buffer.data["opacity"] = min(max(float(value), 0), 1)
+        value = min(max(float(value), 0), 1)
+        if (value == 1) != (self.uniform_buffer.data["opacity"] == 1):
+            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
+        self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_range(0, 1)
 
     @property

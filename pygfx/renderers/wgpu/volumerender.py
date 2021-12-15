@@ -132,9 +132,17 @@ def volume_slice_renderer(render_info):
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
+    # Get in what passes this needs rendering
+    suggested_render_mask = 3
+    if material.opacity >= 1 and shader["texture_nchannels"] in (1, 3):
+        suggested_render_mask = 1
+    elif material.opacity < 1:
+        suggested_render_mask = 2
+
     # Put it together!
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": topology,
             "indices": (range(n), range(1)),
@@ -393,9 +401,17 @@ def volume_ray_renderer(render_info):
     for i, binding in bindings.items():
         shader.define_binding(0, i, binding)
 
+    # Get in what passes this needs rendering
+    suggested_render_mask = 3
+    if material.opacity >= 1 and shader["texture_nchannels"] in (1, 3):
+        suggested_render_mask = 1
+    elif material.opacity < 1:
+        suggested_render_mask = 2
+
     # Put it together!
     return [
         {
+            "suggested_render_mask": suggested_render_mask,
             "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "cull_mode": wgpu.CullMode.front,  # the back planes are the ref

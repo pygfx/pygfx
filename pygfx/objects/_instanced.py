@@ -8,8 +8,8 @@ from ..resources import Buffer
 class InstancedMesh(Mesh):
     """An instanced mesh with a matrix for each instance."""
 
-    def __init__(self, geometry, material, count):
-        super().__init__(geometry, material)
+    def __init__(self, geometry, material, count, **kwargs):
+        super().__init__(geometry, material, **kwargs)
         count = int(count)
         # Create array of `count` instance_info objects
         dtype = np.dtype(

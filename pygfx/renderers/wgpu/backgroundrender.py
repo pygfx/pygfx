@@ -50,6 +50,7 @@ def background_renderer(render_info):
 
     return [
         {
+            "suggested_render_mask": 1,
             "render_shader": shader,
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
             "indices": 4,

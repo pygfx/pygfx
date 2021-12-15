@@ -123,14 +123,24 @@ class WorldObject(ResourceContainer):
     _m = Matrix4()
     _q = Quaternion()
 
-    def __init__(self, geometry=None, material=None):
+    def __init__(
+        self,
+        geometry=None,
+        material=None,
+        *,
+        visible=True,
+        render_order=0,
+        render_mask="auto",
+    ):
         super().__init__()
 
         self.geometry = geometry
         self.material = material
 
-        # Init visibility
-        self._visible = True
+        # Init visibility and render props
+        self.visible = visible
+        self.render_order = render_order
+        self.render_mask = render_mask
 
         # Init parent and children
         self._parent = None
@@ -154,9 +164,6 @@ class WorldObject(ResourceContainer):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
-        # Render order is undocumented feature for now;l it may be removed if we have OIT.
-        self.render_order = 0
-
         # Set id
         self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
@@ -177,6 +184,59 @@ class WorldObject(ResourceContainer):
     @visible.setter
     def visible(self, visible):
         self._visible = bool(visible)
+
+    @property
+    def render_order(self):
+        """This value allows the default rendering order of scene graph
+        objects to be controlled. Default 0. See ``Renderer.sort_objects``
+        for details.
+        """
+        return self._render_order
+
+    @render_order.setter
+    def render_order(self, value):
+        self._render_order = float(value)
+
+    @property
+    def render_mask(self):
+        """Indicates in what render passes to render this object:
+
+        * "auto": try to determine the best approach (default).
+        * "opaque": only in the opaque render pass.
+        * "transparent": only in the transparent render pass(es).
+        * "all": render in both opaque and transparent render passses.
+
+        If "auto" (the default), the renderer attempts to determine
+        whether all fragments will be either opaque or all transparent,
+        and only apply the needed render passes. If this cannot be
+        determined, it falls back to "all".
+
+        Some objects may contain both transparent and opaque fragments,
+        and should be rendered in all passes - the object's contribution
+        to each pass is determined on a per-fragment basis.
+
+        For clarity, rendering objects in all passes even though they
+        are fully opaque/transparent yields correct results and is
+        generally the "safest" option. The only cost is performance.
+        Rendering transparent fragments in the opaque pass makes them
+        invisible. Rendering opaque fragments in the transparent pass
+        blends them as if they are transparent with an alpha of 1.
+        """
+        return self._render_mask
+
+    @render_mask.setter
+    def render_mask(self, value):
+        value = "auto" if value is None else value
+        assert isinstance(value, str), "render_mask should be string"
+        value = value.lower()
+        options = ("opaque", "transparent", "auto", "all")
+        if value not in options:
+            raise ValueError(
+                f"WorldObject.render_mask must be one of {options} not {value!r}"
+            )
+        self._render_mask = value
+        # Trigger a pipeline redraw, because this info is used in that code path
+        self._bump_rev()
 
     @property
     def geometry(self):
@@ -248,10 +308,10 @@ class WorldObject(ResourceContainer):
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
         """
-        if skip_invisible and not self.visible:
+        if skip_invisible and not self._visible:
             return
         callback(self)
-        for child in self.children:
+        for child in self._children:
             child.traverse(callback, skip_invisible)
 
     def update_matrix(self):

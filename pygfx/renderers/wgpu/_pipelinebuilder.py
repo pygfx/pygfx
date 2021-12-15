@@ -42,7 +42,7 @@ def ensure_pipeline(renderer, wobject):
 
     # Early exit?
     if not wobject_pipeline["renderable"]:
-        return None
+        return None, False
 
     # Check if we need to update any resources. The number of resources
     # should typically be small. We could implement a hook in the
@@ -55,13 +55,22 @@ def ensure_pipeline(renderer, wobject):
             update_resource(device, resource, kind)
 
     # Create gpu objects?
-    if new_pipeline_infos:
+    has_changed = bool(new_pipeline_infos)
+    if has_changed:
         new_wobject_pipeline = create_pipeline_objects(
             shared, blender, wobject, new_pipeline_infos
         )
         wobject_pipeline.update(new_wobject_pipeline)
 
-    return wobject_pipeline
+    # Set in what passes this object must render
+    if has_changed:
+        m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
+        render_mask = m[wobject.render_mask]
+        if not render_mask:
+            render_mask = new_pipeline_infos[0].get("suggested_render_mask", 3)
+        wobject_pipeline["render_mask"] = render_mask
+
+    return wobject_pipeline, has_changed
 
 
 class RenderInfo:

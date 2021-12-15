@@ -48,6 +48,26 @@ def get_size_from_render_target(target):
     return physical_size, logical_size
 
 
+def _get_sort_function(camera: Camera):
+    """Given a scene object, get a function to sort wobject-tuples"""
+
+    def sort_func(wobject_tuple: WorldObject):
+        wobject = wobject_tuple[0]
+        z = (
+            Vector3()
+            .set_from_matrix_position(wobject.matrix_world)
+            .apply_matrix4(proj_screen_matrix)
+            .z
+        )
+        return wobject.render_order, z
+
+    proj_screen_matrix = Matrix4().multiply_matrices(
+        camera.projection_matrix, camera.matrix_world_inverse
+    )
+
+    return sort_func
+
+
 class SharedData:
     """An object to store global data to share between multiple wgpu renderers.
 
@@ -125,7 +145,15 @@ class WgpuRenderer(Renderer):
 
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
-    def __init__(self, target, *, pixel_ratio=None, show_fps=False):
+    def __init__(
+        self,
+        target,
+        *,
+        pixel_ratio=None,
+        show_fps=False,
+        blend_mode="default",
+        sort_objects=False,
+    ):
 
         # Check and normalize inputs
         if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
@@ -165,7 +193,8 @@ class WgpuRenderer(Renderer):
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         # Prepare render targets.
-        self.blend_mode = "default"
+        self.blend_mode = blend_mode
+        self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
@@ -218,6 +247,7 @@ class WgpuRenderer(Renderer):
     @property
     def blend_mode(self):
         """The method for handling transparency:
+
         * "default" or None: Select the default: currently this is "simple2".
         * "opaque": single-pass approach that consider every fragment opaque.
         * "simple1": single-pass approach that blends fragments (using alpha blending).
@@ -265,6 +295,21 @@ class WgpuRenderer(Renderer):
         # If our target is a canvas, request a new draw
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             self._target.request_draw()
+
+    @property
+    def sort_objects(self):
+        """Whether to sort world objects before rendering. Default False.
+
+        * ``True``: the render order is defined by 1) the object's ``render_order``
+          property; 2) the object's distance to the camera; 3) the position object
+          in the scene graph (based on a depth-first search).
+        * ``False``: don't sort, the render order is defined by the scene graph alone.
+        """
+        return self._sort_objects
+
+    @sort_objects.setter
+    def sort_objects(self, value):
+        self._sort_objects = bool(value)
 
     def _set_wobject_pipelines(self):
         # Each WorldObject has associated with it a wobject_pipeline:
@@ -385,36 +430,53 @@ class WgpuRenderer(Renderer):
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
-        # Get the list of objects to render (visible and having a material)
-        q = self.get_render_list(scene, camera)
-
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
 
+        # Get the list of objects to render, as they appear in the scene graph
+        wobject_list = []
+        scene.traverse(wobject_list.append, True)
+
         # Ensure each wobject has pipeline info, and filter objects that we cannot render
         wobject_tuples = []
-        for wobject in q:
-            wobject_pipeline = ensure_pipeline(self, wobject)
+        any_has_changed = False
+        for wobject in wobject_list:
+            if not wobject.material:
+                continue
+            wobject_pipeline, has_changed = ensure_pipeline(self, wobject)
             if wobject_pipeline:
+                any_has_changed |= has_changed
                 wobject_tuples.append((wobject, wobject_pipeline))
 
-        # Collect commands
-        command_buffers = []
+        # Need a new recording, or can we re-use the previous one?
+        # I *think* that (eventually?) it should be possible to record the commands
+        # and re-submit them, resulting in better performance. But if I try this now
+        # it panics with 'Cannot remove a vacant resource'.
+        # If we do get this to work, we should trigger a new recording
+        # when the wobject's children, visibile, render_order, or render_pass changes.
+        need_recording = any_has_changed or True
 
-        # Record the rendering of all world objects
-        command_buffers += self._render_recording(
-            wobject_tuples, physical_viewport, clear_color
-        )
+        # Sort objects
+        if self.sort_objects:
+            sort_func = _get_sort_function(camera)
+            wobject_tuples.sort(key=sort_func)
+            need_recording = True
 
-        # Let the blender do the combinatory pass
-        if flush:
+        if need_recording or not hasattr(scene, "_wgpu_command_buffers"):
+
+            # Record the rendering of all world objects, or re-use previous recording
+            command_buffers = []
+            command_buffers += self._render_recording(
+                wobject_tuples, physical_viewport, clear_color
+            )
             command_buffers += self._blender.perform_combine_pass(self._shared.device)
+            scene._wgpu_command_buffers = command_buffers
 
-        # Flush to target
+        # Collect commands and submit
+        command_buffers = []
+        command_buffers += scene._wgpu_command_buffers
         if flush:
             command_buffers += self.flush()
-
-        # Submit
         device.queue.submit(command_buffers)
 
     def flush(self):
@@ -482,6 +544,7 @@ class WgpuRenderer(Renderer):
 
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
             depth_attachment = blender.get_depth_attachment(pass_index)
+            render_mask = blender.passes[pass_index].render_mask
             if not color_attachments:
                 continue
 
@@ -497,6 +560,8 @@ class WgpuRenderer(Renderer):
             render_pass.set_viewport(*physical_viewport)
 
             for wobject, wobject_pipeline in wobject_tuples:
+                if not (render_mask & wobject_pipeline["render_mask"]):
+                    continue
                 for pinfo in wobject_pipeline["render_pipelines"]:
                     render_pass.set_pipeline(pinfo["pipelines"][pass_index])
                     for slot, vbuffer in pinfo["vertex_buffers"].items():
@@ -536,35 +601,6 @@ class WgpuRenderer(Renderer):
         # Upload to GPU
         self._shared.stdinfo_buffer.update_range(0, 1)
         update_buffer(self._shared.device, self._shared.stdinfo_buffer)
-
-    def get_render_list(self, scene: WorldObject, camera: Camera):
-        """Given a scene object, get a flat list of objects to render."""
-
-        # Collect items
-        def visit(wobject):
-            nonlocal q
-            if wobject.material is not None:
-                q.append(wobject)
-
-        q = []
-        scene.traverse(visit, True)
-
-        # Next, sort them from back-to-front
-        def sort_func(wobject: WorldObject):
-            z = (
-                Vector3()
-                .set_from_matrix_position(wobject.matrix_world)
-                .apply_matrix4(proj_screen_matrix)
-                .z
-            )
-            return wobject.render_order, z
-
-        proj_screen_matrix = Matrix4().multiply_matrices(
-            camera.projection_matrix, camera.matrix_world_inverse
-        )
-        # todo: either revive or remove (leaning for the latter)
-        # q.sort(key=sort_func)
-        return q
 
     # Picking
 
