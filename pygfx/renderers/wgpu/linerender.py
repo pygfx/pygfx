@@ -265,6 +265,7 @@ class LineShader(WorldObjectShader):
             let i = index / 5;
 
             // Sample the current node and it's two neighbours, and convert to NDC
+            // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
             let npos1 = get_point_ndc(max(0, i - 1));
             let npos2 = get_point_ndc(i);
             let npos3 = get_point_ndc(min(u_renderer.last_i, i + 1));
