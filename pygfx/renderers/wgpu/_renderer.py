@@ -248,13 +248,13 @@ class WgpuRenderer(Renderer):
     def blend_mode(self):
         """The method for handling transparency:
 
-        * "default" or None: Select the default: currently this is "simple2".
+        * "default" or None: Select the default: currently this is "ordered2".
         * "opaque": single-pass approach that consider every fragment opaque.
-        * "simple1": single-pass approach that blends fragments (using alpha blending).
+        * "ordered1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
-        * "simple2": two-pass approach that first processes all opaque fragments and
-          then blends transparent fragments (using alpha blending) with depth-write disabled.
-          The visual results are usually better than simple1, but depend on the drawing order.
+        * "ordered2": two-pass approach that first processes all opaque fragments and then
+          blends transparent fragments (using alpha blending) with depth-write disabled. The
+          visual results are usually better than ordered1, but still depend on the drawing order.
         * "weighted": two-pass approach that for order independent transparency,
           using alpha weights.
         * "weighted_depth": two-pass approach for order independent transparency,
@@ -273,12 +273,12 @@ class WgpuRenderer(Renderer):
             value = "default"
         value = value.lower()
         if value == "default":
-            value = "simple2"
+            value = "ordered2"
         # Map string input to a class
         m = {
             "opaque": blender_module.OpaqueFragmentBlender,
-            "simple1": blender_module.Simple1FragmentBlender,
-            "simple2": blender_module.Simple2FragmentBlender,
+            "ordered1": blender_module.Ordered1FragmentBlender,
+            "ordered2": blender_module.Ordered2FragmentBlender,
             "weighted": blender_module.WeightedFragmentBlender,
             "weighted_depth": blender_module.WeightedDepthFragmentBlender,
             "weighted_plus": blender_module.WeightedPlusFragmentBlender,

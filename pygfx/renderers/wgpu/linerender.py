@@ -502,7 +502,7 @@ class LineShader(WorldObjectShader):
             $$ endif
 
             // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
-            // This is only necessary for blend method "simple1"
+            // This is only necessary for blend method "ordered1"
             //out.depth = varyings.position.z + 0.0001 * (0.8 - min(0.8, alpha));
 
             return out;
