@@ -452,26 +452,22 @@ class WgpuRenderer(Renderer):
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
         # when the wobject's children, visibile, render_order, or render_pass changes.
-        need_recording = any_has_changed or True
 
         # Sort objects
         if self.sort_objects:
             sort_func = _get_sort_function(camera)
             wobject_tuples.sort(key=sort_func)
-            need_recording = True
 
-        if need_recording or not hasattr(scene, "_wgpu_command_buffers"):
-
-            # Record the rendering of all world objects, or re-use previous recording
-            command_buffers = []
-            command_buffers += self._render_recording(
-                wobject_tuples, physical_viewport, clear_color
-            )
-            command_buffers += self._blender.perform_combine_pass(self._shared.device)
-            scene._wgpu_command_buffers = command_buffers
+        # Record the rendering of all world objects, or re-use previous recording
+        command_buffers = []
+        command_buffers += self._render_recording(
+            wobject_tuples, physical_viewport, clear_color
+        )
+        command_buffers += self._blender.perform_combine_pass(self._shared.device)
+        command_buffers
 
         # Collect commands and submit
-        device.queue.submit(scene._wgpu_command_buffers)
+        device.queue.submit(command_buffers)
 
         if flush:
             self.flush()
