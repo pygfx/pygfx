@@ -24,7 +24,6 @@ class TriangleMaterial(gfx.Material):
 
 shader_source = """
 
-[[block]]
 struct Stdinfo {
     cam_transform: mat4x4<f32>;
     cam_transform_inv: mat4x4<f32>;

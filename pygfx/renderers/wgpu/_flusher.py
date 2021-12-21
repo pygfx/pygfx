@@ -170,7 +170,6 @@ class RenderFlusher:
         device = self._device
 
         bindings_code = """
-            [[block]]
             struct Render {
                 size: vec2<f32>;
                 sigma: f32;

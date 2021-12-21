@@ -12,7 +12,7 @@ with open(f"{NAME}/__init__.py") as fh:
 
 runtime_deps = [
     "numpy",
-    "wgpu>=0.5.8,<0.6.0",
+    "wgpu>=0.7.0,<0.8.0",
     "Jinja2",
 ]
 

@@ -219,7 +219,6 @@ class MeshShader(WorldObjectShader):
             transform: mat4x4<f32>;
             id: u32;
         };
-        [[block]]
         struct InstanceInfos {
             data: [[stride(80)]] array<InstanceInfo>;
         };

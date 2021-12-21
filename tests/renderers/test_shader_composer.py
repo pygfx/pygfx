@@ -87,7 +87,6 @@ def test_uniform_definitions():
     assert (
         shader.get_definitions().strip()
         == """
-        [[block]]
         struct Struct_zz {
             foo: f32;
             bar: i32;
@@ -104,7 +103,6 @@ def test_uniform_definitions():
     assert (
         shader.get_definitions().strip()
         == """
-        [[block]]
         struct Struct_zz {
             foo: vec4<f32>;
             bar: vec2<i32>;
@@ -121,7 +119,6 @@ def test_uniform_definitions():
     assert (
         shader.get_definitions().strip()
         == """
-        [[block]]
         struct Struct_zz {
             foo: mat4x4<f32>;
             bar: mat3x2<i32>;
