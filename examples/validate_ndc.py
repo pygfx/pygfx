@@ -7,9 +7,8 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 
 """
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
+from wgpu.gui.auto import WgpuCanvas, run
+from pygfx.renderers.wgpu._shadercomposer import Binding, WorldObjectShader
 import pygfx as gfx
 
 
@@ -21,56 +20,60 @@ class SquareMaterial(gfx.Material):
     pass
 
 
-shader_source = """
-struct VertexOutput {
-    [[location(0)]] color: vec4<f32>;
-    [[builtin(position)]] pos: vec4<f32>;
-};
+class SquareShader(WorldObjectShader):
+    def get_code(self):
+        return (
+            self.get_definitions()
+            + self.common_functions()
+            + self.vertex_shader()
+            + self.fragment_shader()
+        )
 
-[[stage(vertex)]]
-fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
-    var positions = array<vec3<f32>, 4>(
-        vec3<f32>(-1.0, -1.0, 0.5), vec3<f32>(-1.0, 1.0, 1.5), vec3<f32>(1.0, -1.0, -0.5), vec3<f32>(1.0, 1.0, 0.5)
-    );
-    var colors = array<vec3<f32>, 4>(
-        vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.5, 0.5), vec3<f32>(0.0, 0.5, 0.5), vec3<f32>(0.0, 0.0, 1.0)
-    );
+    def vertex_shader(self):
+        return """
+        [[stage(vertex)]]
+        fn vs_main([[builtin(vertex_index)]] index: u32) -> Varyings {
+            var positions = array<vec3<f32>, 4>(
+                vec3<f32>(-1.0, -1.0, 0.5), vec3<f32>(-1.0, 1.0, 1.5), vec3<f32>(1.0, -1.0, -0.5), vec3<f32>(1.0, 1.0, 0.5)
+            );
+            var colors = array<vec3<f32>, 4>(
+                vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.5, 0.5), vec3<f32>(0.0, 0.5, 0.5), vec3<f32>(0.0, 0.0, 1.0)
+            );
 
-    var out: VertexOutput;
-    out.pos = vec4<f32>(positions[index], 1.0);
-    out.color = vec4<f32>(colors[index], 1.0);
-    return out;
-}
+            var varyings: Varyings;
+            varyings.position = vec4<f32>(positions[index], 1.0);
+            varyings.color = vec4<f32>(colors[index], 1.0);
+            return varyings;
+        }
+        """
 
-struct FragmentOutput {
-    [[location(0)]] color: vec4<f32>;
-    [[location(1)]] pick: vec4<i32>;
-};
-
-[[stage(fragment)]]
-fn fs_main(in: VertexOutput) -> FragmentOutput {
-    var out: FragmentOutput;
-    out.color = in.color;
-    return out;
-}
-"""
+    def fragment_shader(self):
+        return """
+        [[stage(fragment)]]
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
+            var out: FragmentOutput;
+            out.color = varyings.color;
+            return out;
+        }
+        """
 
 
 @gfx.renderers.wgpu.register_wgpu_render_function(Square, SquareMaterial)
-def square_render_function(wobject, render_info):
+def square_render_function(render_info):
+    shader = SquareShader(render_info)
+    binding = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
+    shader.define_binding(0, 0, binding)
     return [
         {
-            "vertex_shader": (shader_source, "vs_main"),
-            "fragment_shader": (shader_source, "fs_main"),
+            "render_shader": shader,
             "primitive_topology": "triangle-strip",
             "indices": range(4),
+            "bindings0": {0: binding},
         },
     ]
 
 
 # %% Setup scene
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
@@ -85,5 +88,4 @@ camera = gfx.NDCCamera()  # This example does not even use the camera
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
-    canvas.closeEvent = lambda *args: app.quit()
+    run()

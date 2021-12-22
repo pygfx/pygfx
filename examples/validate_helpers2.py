@@ -5,13 +5,9 @@ Example showing the axes and grid helpers with a perspective camera.
 * The yellow axis (y) stick up from the plane.
 """
 
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -31,4 +27,4 @@ camera.look_at(gfx.linalg.Vector3())
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

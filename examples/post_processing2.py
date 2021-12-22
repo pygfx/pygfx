@@ -11,13 +11,11 @@ future.
 
 import numpy as np
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
-
-app = QtWidgets.QApplication([])
+raise RuntimeError("Post-processing needs to be redesigned")
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -69,4 +67,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()

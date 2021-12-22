@@ -3,15 +3,12 @@ Example demonstrating rendering the same scene into two different canvases.
 """
 
 import numpy as np
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
 
 # Create two canvases and two renderers
 
-app = QtWidgets.QApplication([])
 canvas_a = WgpuCanvas(size=(500, 300))
 canvas_b = WgpuCanvas(size=(300, 500))
 
@@ -57,4 +54,4 @@ def animate_b():
 if __name__ == "__main__":
     canvas_a.request_draw(animate_a)
     canvas_b.request_draw(animate_b)
-    app.exec()
+    run()
