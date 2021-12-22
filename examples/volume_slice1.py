@@ -4,20 +4,11 @@ Simple and ... slow.
 """
 
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
-
-class WgpuCanvasWithScroll(WgpuCanvas):
-    def wheelEvent(self, event):  # noqa: N802
-        degrees = event.angleDelta().y() / 8
-        scroll(degrees)
-
-
-app = QtWidgets.QApplication([])
-canvas = WgpuCanvasWithScroll()
+canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -36,9 +27,10 @@ scene.add(plane)
 camera = gfx.OrthographicCamera(200, 200)
 
 
-def scroll(degrees):
+@canvas.add_event_handler("wheel")
+def handle_event(event):
     global index
-    index = index + int(degrees / 15)
+    index = index + int(event["dy"] / 90)
     index = max(0, min(nslices - 1, index))
     im = vol[index]
     tex.data[:] = im
@@ -48,4 +40,4 @@ def scroll(degrees):
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

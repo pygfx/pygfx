@@ -9,54 +9,12 @@ from time import time
 
 import imageio
 import numpy as np
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from skimage.measure import marching_cubes
 
-from PySide6 import QtWidgets, QtCore
-from wgpu.gui.qt import WgpuCanvas
 
-
-class WgpuCanvasWithInputEvents(WgpuCanvas):
-    _drag_modes = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate"}
-    _mode = None
-
-    def wheelEvent(self, event):  # noqa: N802
-        controls.zoom(2 ** (event.angleDelta().y() * 0.0015))
-
-    def mousePressEvent(self, event):  # noqa: N802
-        mode = self._drag_modes.get(event.button(), None)
-        if self._mode or not mode:
-            return
-        self._mode = mode
-        drag_start = (
-            controls.pan_start if self._mode == "pan" else controls.rotate_start
-        )
-        drag_start(
-            (event.position().x(), event.position().y()),
-            self.get_logical_size(),
-            camera,
-        )
-        app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
-
-    def mouseReleaseEvent(self, event):  # noqa: N802
-        if self._mode and self._mode == self._drag_modes.get(event.button(), None):
-            self._mode = None
-            drag_stop = (
-                controls.pan_stop if self._mode == "pan" else controls.rotate_stop
-            )
-            drag_stop()
-            app.restoreOverrideCursor()
-
-    def mouseMoveEvent(self, event):  # noqa: N802
-        if self._mode is not None:
-            drag_move = (
-                controls.pan_move if self._mode == "pan" else controls.rotate_move
-            )
-            drag_move((event.position().x(), event.position().y()))
-
-
-app = QtWidgets.QApplication([])
-canvas = WgpuCanvasWithInputEvents()
+canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -97,6 +55,7 @@ controls = gfx.OrbitControls(
     up=gfx.linalg.Vector3(0, 0, 1),
     zoom_changes_distance=False,
 )
+controls.add_default_event_handlers(canvas, camera)
 
 # Add a slight tilt. This is to show that the slices are still orthogonal
 # to the world coordinates.
@@ -116,4 +75,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()

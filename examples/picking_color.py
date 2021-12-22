@@ -5,23 +5,11 @@ object being clicked, more detailed picking info is available.
 
 import numpy as np
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
-
-class PickingWgpuCanvas(WgpuCanvas):
-    def mousePressEvent(self, event):  # noqa: N802
-        # Get a dict with info about the clicked location
-        xy = event.position().x(), event.position().y()
-        info = renderer.get_pick_info(xy)
-        for key, val in info.items():
-            print(key, "=", val)
-
-
-app = QtWidgets.QApplication([])
-canvas = PickingWgpuCanvas()
+canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -36,10 +24,16 @@ material = gfx.MeshBasicMaterial(map=tex)
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 
-
 # camera = gfx.OrthographicCamera(300, 300)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
+
+
+@canvas.add_event_handler("pointer_down")
+def handle_event(event):
+    info = renderer.get_pick_info((event["x"], event["y"]))
+    for key, val in info.items():
+        print(key, "=", val)
 
 
 def animate():
@@ -52,4 +46,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()

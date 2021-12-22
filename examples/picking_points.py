@@ -4,29 +4,11 @@ is changed. With a small change, a line is shown instead.
 """
 
 import numpy as np
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
-
-class PickingWgpuCanvas(WgpuCanvas):
-    def mousePressEvent(self, event):  # noqa: N802
-        # Get a dict with info about the clicked location
-        xy = event.position().x(), event.position().y()
-        info = renderer.get_pick_info(xy)
-        print(info)
-        wobject = info["world_object"]
-        # If a point was clicked ..
-        if wobject and "vertex_index" in info:
-            i = int(round(info["vertex_index"]))
-            geometry.positions.data[i, 1] *= -1
-            geometry.positions.update_range(i)
-            canvas.request_draw()
-
-
-app = QtWidgets.QApplication([])
-canvas = PickingWgpuCanvas()
+canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -42,6 +24,18 @@ scene.add(ob)
 camera = gfx.OrthographicCamera(120, 120)
 
 
+@canvas.add_event_handler("pointer_down")
+def handle_event(event):
+    info = renderer.get_pick_info((event["x"], event["y"]))
+    wobject = info["world_object"]
+    # If a point was clicked ..
+    if wobject and "vertex_index" in info:
+        i = int(round(info["vertex_index"]))
+        geometry.positions.data[i, 1] *= -1
+        geometry.positions.update_range(i)
+        canvas.request_draw()
+
+
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()
