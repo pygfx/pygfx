@@ -194,21 +194,21 @@ class OrbitControls:
         if type == "pointer_down":
             xy = event["x"], event["y"]
             if event["button"] == 1:
-                self.pan_start(xy, canvas.get_logical_size(), camera)
-            elif event["button"] == 2:
                 self.rotate_start(xy, canvas.get_logical_size(), camera)
+            elif event["button"] == 2:
+                self.pan_start(xy, canvas.get_logical_size(), camera)
         elif type == "pointer_up":
             if event["button"] == 1:
-                self.pan_stop()
-            elif event["button"] == 2:
                 self.rotate_stop()
+            elif event["button"] == 2:
+                self.pan_stop()
             canvas.request_draw()
         elif type == "pointer_move":
             xy = event["x"], event["y"]
             if 1 in event["buttons"]:
-                self.pan_move(xy),
-            if 2 in event["buttons"]:
                 self.rotate_move(xy),
+            if 2 in event["buttons"]:
+                self.pan_move(xy),
             canvas.request_draw()
         elif type == "wheel":
             xy = event["x"], event["y"]
