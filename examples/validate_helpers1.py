@@ -7,13 +7,9 @@ Example showing the axes helper.
 * The blue axes (z) is not visible.
 """
 
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -26,4 +22,4 @@ camera = gfx.OrthographicCamera(100, 100)
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

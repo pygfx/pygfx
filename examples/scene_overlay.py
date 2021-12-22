@@ -6,15 +6,12 @@ the overlay, so that it's always on top.
 """
 
 import numpy as np
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
 
 # Create a canvas and renderer
 
-app = QtWidgets.QApplication([])
 canvas = WgpuCanvas(size=(500, 300))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
@@ -64,4 +61,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()

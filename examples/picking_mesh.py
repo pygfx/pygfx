@@ -7,37 +7,11 @@ on. Upon clicking, the vertex closest to the pick location is moved.
 
 import numpy as np
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
-
-class PickingWgpuCanvas(WgpuCanvas):
-    def mousePressEvent(self, event):  # noqa: N802
-        # Get a dict with info about the clicked location
-        xy = event.position().x(), event.position().y()
-        info = renderer.get_pick_info(xy)
-        wobject = info["world_object"]
-        # If a mesh was clicked ..
-        if wobject and "face_index" in info:
-            # Get what face was clicked
-            face_index = info["face_index"]
-            coords = info["face_coord"]
-            # Select which of the three vertices was closest
-            # Note that you can also select all vertices for this face,
-            # or use the coords to select the closest edge.
-            sub_index = np.argmax(coords)
-            # Look up the vertex index
-            vertex_index = int(wobject.geometry.indices.data[face_index, sub_index])
-            # Change the position of that vertex
-            pos = wobject.geometry.positions.data[vertex_index]
-            pos[:] *= 1.1
-            wobject.geometry.positions.update_range(vertex_index, 1)
-
-
-app = QtWidgets.QApplication([])
-canvas = PickingWgpuCanvas()
+canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -58,6 +32,27 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
 
+@canvas.add_event_handler("pointer_down")
+def handle_event(event):
+    info = renderer.get_pick_info((event["x"], event["y"]))
+    wobject = info["world_object"]
+    # If a mesh was clicked ..
+    if wobject and "face_index" in info:
+        # Get what face was clicked
+        face_index = info["face_index"]
+        coords = info["face_coord"]
+        # Select which of the three vertices was closest
+        # Note that you can also select all vertices for this face,
+        # or use the coords to select the closest edge.
+        sub_index = np.argmax(coords)
+        # Look up the vertex index
+        vertex_index = int(wobject.geometry.indices.data[face_index, sub_index])
+        # Change the position of that vertex
+        pos = wobject.geometry.positions.data[vertex_index]
+        pos[:] *= 1.1
+        wobject.geometry.positions.update_range(vertex_index, 1)
+
+
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube.rotation.multiply(rot)
@@ -69,4 +64,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()

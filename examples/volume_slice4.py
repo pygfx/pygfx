@@ -4,27 +4,11 @@ it with a VolumeSliceMaterial. Easy because we can just define the view plane.
 """
 
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 
-
-class WgpuCanvasWithScroll(WgpuCanvas):
-    def wheelEvent(self, event):  # noqa: N802
-        degrees = event.angleDelta().y() / 8
-        scroll(degrees)
-
-    def mousePressEvent(self, event):  # noqa: N802
-        # Print the voxel coordinate being clicked
-        xy = event.position().x(), event.position().y()
-        info = renderer.get_pick_info(xy)
-        if "index" in info:
-            print(info["index"], info["voxel_coord"])
-
-
-app = QtWidgets.QApplication([])
-canvas = WgpuCanvasWithScroll()
+canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -43,14 +27,22 @@ camera.position.set(64, 64, 128)
 camera.scale.y = -1  # in this case we tweak the camera, not the plane
 
 
-def scroll(degrees):
+@canvas.add_event_handler("wheel")
+def handle_wheel_event(event):
     global index
-    index = index + degrees / 30
+    index = index + event["dy"] / 90
     index = max(0, min(nslices - 1, index))
     vol.material.plane = 0, 0, -1, index
     canvas.request_draw()
 
 
+@canvas.add_event_handler("pointer_down")
+def handle_pointer_event(event):
+    info = renderer.get_pick_info((event["x"], event["y"]))
+    if "index" in info:
+        print(info["index"], info["voxel_coord"])
+
+
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

@@ -1,43 +1,51 @@
 """
 Show an image displayed the correct way. For historic reasons, image
 data (usually) has the first rows representing the top of the image.
-Most our camera's default orientations place the origin at the bottom
-left.
+But the plane gemeometry is such that it is reversed again.
 
-* We flip the y-axis of either the data or the camera.
-* The image should look correct.
-* The rocket should be at the right.
+* The green dots should be on the edge of the image.
+* The green dots should be at the corners that are not darker/brighter.
+* The darker corner is in the top left.
 """
 
-import imageio
+import numpy as np
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
+im = np.array(
+    [
+        [0, 1, 1, 1],
+        [1, 1, 1, 1],
+        [1, 1, 1, 1],
+        [1, 1, 1, 2],
+    ],
+    np.float32,
+)
 
-im = imageio.imread("imageio:astronaut.png")
 tex = gfx.Texture(im, dim=2)
 
-geometry = gfx.plane_geometry(512, 512)
-material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
-
-plane = gfx.Mesh(geometry, material)
-plane.position = gfx.linalg.Vector3(256, 256, 0)  # put corner at 0, 0
+plane = gfx.Mesh(
+    gfx.plane_geometry(4, 4),
+    gfx.MeshBasicMaterial(map=tex.get_view(filter="nearest"), clim=(0, 2)),
+)
+plane.position = gfx.linalg.Vector3(2, 2)  # put corner at 0, 0
 scene.add(plane)
 
-camera = gfx.OrthographicCamera(512, 512)
-camera.position.set(256, 256, 0)
+points = gfx.Points(
+    gfx.Geometry(positions=[[0, 0, 1], [4, 4, 1]]),
+    gfx.PointsMaterial(color=(0, 1, 0, 1), size=20),
+)
+scene.add(points)
+
+camera = gfx.OrthographicCamera(10, 10)
 
 
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

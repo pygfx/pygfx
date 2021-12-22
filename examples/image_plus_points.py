@@ -3,13 +3,9 @@ Show an image with points overlaid.
 """
 
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -25,9 +21,10 @@ material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 
 plane = gfx.Mesh(geometry, material)
 plane.position = gfx.linalg.Vector3(256, 256, 0)  # put corner at 0, 0
-
+plane.geometry.texcoords.data[:, 1] = (
+    1 - plane.geometry.texcoords.data[:, 1]
+)  # flip image
 scene.add(plane)
-
 
 # %% add points
 
@@ -40,12 +37,12 @@ points = gfx.Points(geometry_p, material_p)
 points.position.z = 1  # move points in front of the image
 scene.add(points)
 
-
 near, far = -400, 700
 camera = gfx.OrthographicCamera(512, 512)
 camera.position.set(256, 256, 0)
 camera.scale.y = -1
 
+
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

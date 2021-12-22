@@ -377,7 +377,7 @@ class MeshShader(WorldObjectShader):
             $$ if texture_dim
                 $$ if texture_dim == '1d'
                     $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.x);
+                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord);
                     $$ else
                         let texcoords_dim = f32(textureDimensions(r_tex);
                         let texcoords_u = i32(varyings.texcoord.x * texcoords_dim % texcoords_dim);

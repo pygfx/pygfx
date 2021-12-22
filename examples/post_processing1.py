@@ -14,11 +14,12 @@ import time
 
 import numpy as np
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
 from pygfx.renderers.wgpu._shadercomposer import Binding
+
+
+raise RuntimeError("Post-processing needs to be redesigned")
 
 
 # %% Create a custom object + material
@@ -128,8 +129,6 @@ def triangle_render_function(wobject, render_info):
 
 # %% The application
 
-app = QtWidgets.QApplication([])
-
 # The canvas for eventual display
 canvas = WgpuCanvas(size=(640, 480))
 
@@ -172,4 +171,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
-    app.exec()
+    run()
