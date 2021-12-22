@@ -21,9 +21,10 @@ material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 
 plane = gfx.Mesh(geometry, material)
 plane.position = gfx.linalg.Vector3(256, 256, 0)  # put corner at 0, 0
-
+plane.geometry.texcoords.data[:, 1] = (
+    1 - plane.geometry.texcoords.data[:, 1]
+)  # flip image
 scene.add(plane)
-
 
 # %% add points
 
