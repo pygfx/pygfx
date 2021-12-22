@@ -14,13 +14,3 @@ def merge(groups):
         i += len(g[3])
         j = len(g[0])
     return positions, normals, texcoords, indices
-
-
-def transform(vectors, matrix, directions=False):
-    shape = np.array(vectors.shape)
-    shape[-1] += 1
-    vectors_4d = np.empty(shape, dtype=vectors.dtype)
-    vectors_4d[..., :-1] = vectors
-    # if directions=True translation components of transforms will be ignored
-    vectors_4d[..., -1] = 0 if directions else 1
-    return np.dot(vectors_4d, matrix.T, out=vectors_4d)[..., :-1]

@@ -2,7 +2,10 @@ import random
 import weakref
 import threading
 
+import numpy as np
+
 from ..linalg import Vector3, Matrix4, Quaternion
+from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
 
@@ -399,6 +402,40 @@ class WorldObject(ResourceContainer):
             self._m.extract_rotation(self.parent._matrix_world)
             self._q.set_from_rotation_matrix(self._m)
             self.rotation.premultiply(self._q.inverse())
+
+    def get_world_position(self):
+        self.update_matrix_world(update_parents=True, update_children=False)
+        self._v.set_from_matrix_position(self._matrix_world)
+        return self._v.clone()
+
+    def get_world_bounding_box(self):
+        self.update_matrix_world(update_parents=True, update_children=True)
+        return self._get_world_bounding_box()
+
+    def _get_world_bounding_box(self):
+        boxes = []
+        if self._geometry:
+            aabb = self._geometry.bounding_box()
+            aabb_world = transform_aabb(aabb, self._matrix_world.to_ndarray())
+            boxes.append(aabb_world)
+        if self._children:
+            boxes.extend(
+                [
+                    b
+                    for b in (c.get_world_bounding_box() for c in self._children)
+                    if b is not None
+                ]
+            )
+        if len(boxes) == 1:
+            return boxes[0]
+        elif boxes:
+            boxes = np.array(boxes)
+            return np.array([boxes[:, 0].min(axis=0), boxes[:, 1].max(axis=0)])
+
+    def get_world_bounding_sphere(self):
+        aabb = self.get_world_bounding_box()
+        if aabb is not None:
+            return aabb_to_sphere(aabb)
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
