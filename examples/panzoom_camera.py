@@ -27,7 +27,7 @@ scene.add(plane)
 camera = gfx.OrthographicCamera(512, 512)
 camera.position.set(0, 0, 500)
 controls = gfx.PanZoomControls(camera.position.clone())
-controls.apply_default_interaction(canvas, camera)
+controls.add_default_event_handlers(canvas, camera)
 
 
 def animate():
