@@ -39,7 +39,7 @@ class Camera(WorldObject):
         raise NotImplementedError()
 
     def show_object(
-        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=1.25
+        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=2
     ):
         """Utility function to position and rotate the camera to ensure
         a particular world object is in view.
