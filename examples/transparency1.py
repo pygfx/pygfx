@@ -22,8 +22,8 @@ class WgpuCanvasWithInputEvents(WgpuCanvas):
             m = [
                 None,
                 "opaque",
-                "simple1",
-                "simple2",
+                "ordered1",
+                "ordered2",
                 "weighted",
                 "weighted_depth",
                 "weighted_plus",

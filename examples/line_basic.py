@@ -16,7 +16,6 @@ renderer = gfx.WgpuRenderer(canvas)
 renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
 scene = gfx.Scene()
-
 positions = [[200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
 positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
 positions += [

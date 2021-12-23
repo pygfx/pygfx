@@ -1,8 +1,6 @@
 """
-Example showing picking the color and depth from the scene. This info
-is always available, regardless of the object being clicked. See the
-other examples for using picking info specific to certain
-objects/materials.
+Example showing picking the color from the scene. Depending on the
+object being clicked, more detailed picking info is available.
 """
 
 import numpy as np
@@ -18,13 +16,6 @@ class PickingWgpuCanvas(WgpuCanvas):
         # Get a dict with info about the clicked location
         xy = event.position().x(), event.position().y()
         info = renderer.get_pick_info(xy)
-        # Add more info
-        pos = gfx.linalg.Vector3(*info["ndc"])
-        pos.apply_matrix4(camera.projection_matrix_inverse)
-        pos.apply_matrix4(camera.matrix_world)
-        info["position"] = tuple(pos.to_array())
-        info["distance_to_camera"] = pos.distance_to(camera.position)
-        # Show
         for key, val in info.items():
             print(key, "=", val)
 
@@ -33,6 +24,9 @@ app = QtWidgets.QApplication([])
 canvas = PickingWgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
+
+background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 0, 1, 1)))
+scene.add(background)
 
 im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")

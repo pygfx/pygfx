@@ -560,21 +560,21 @@ class OpaqueFragmentBlender(BaseFragmentBlender):
     passes = [FullOpaquePass()]
 
 
-class Simple1FragmentBlender(BaseFragmentBlender):
+class Ordered1FragmentBlender(BaseFragmentBlender):
     """A minimal fragment blender that uses the classic alpha blending
     equation, without differentiating between opaque and transparent
     objects. This is a common approach for applications using a single
-    pass.
+    pass. Order dependent.
     """
 
     passes = [SimpleSinglePass()]
 
 
-class Simple2FragmentBlender(BaseFragmentBlender):
+class Ordered2FragmentBlender(BaseFragmentBlender):
     """A first step towards better blending: separating the opaque from
     the transparent fragments, and blending the latter using the alpha
     blending equation. The second step has depth-testing, but no
-    depth-writing. Not order-independent.
+    depth-writing. Order dependent.
     """
 
     passes = [OpaquePass(), SimpleTransparencyPass()]

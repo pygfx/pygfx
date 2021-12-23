@@ -348,7 +348,6 @@ class BaseShader:
 
         structname = "Struct_" + binding.name
         code = f"""
-        [[block]]
         struct {structname} {{
         """.rstrip()
 
@@ -488,7 +487,6 @@ class BaseShader:
 
         # Produce the type definition
         code = f"""
-        [[block]]
         struct {typename} {{
             data: [[stride({stride})]] array<{element_type1}>;
         }};

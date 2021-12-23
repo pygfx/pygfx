@@ -202,7 +202,7 @@ class WgpuRenderer(Renderer):
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
         self._pixel_info_buffer = self._shared.device.create_buffer(
-            size=256,
+            size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
 
@@ -248,13 +248,13 @@ class WgpuRenderer(Renderer):
     def blend_mode(self):
         """The method for handling transparency:
 
-        * "default" or None: Select the default: currently this is "simple2".
+        * "default" or None: Select the default: currently this is "ordered2".
         * "opaque": single-pass approach that consider every fragment opaque.
-        * "simple1": single-pass approach that blends fragments (using alpha blending).
+        * "ordered1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
-        * "simple2": two-pass approach that first processes all opaque fragments and
-          then blends transparent fragments (using alpha blending) with depth-write disabled.
-          The visual results are usually better than simple1, but depend on the drawing order.
+        * "ordered2": two-pass approach that first processes all opaque fragments and then
+          blends transparent fragments (using alpha blending) with depth-write disabled. The
+          visual results are usually better than ordered1, but still depend on the drawing order.
         * "weighted": two-pass approach that for order independent transparency,
           using alpha weights.
         * "weighted_depth": two-pass approach for order independent transparency,
@@ -273,12 +273,12 @@ class WgpuRenderer(Renderer):
             value = "default"
         value = value.lower()
         if value == "default":
-            value = "simple2"
+            value = "ordered2"
         # Map string input to a class
         m = {
             "opaque": blender_module.OpaqueFragmentBlender,
-            "simple1": blender_module.Simple1FragmentBlender,
-            "simple2": blender_module.Simple2FragmentBlender,
+            "ordered1": blender_module.Ordered1FragmentBlender,
+            "ordered2": blender_module.Ordered2FragmentBlender,
             "weighted": blender_module.WeightedFragmentBlender,
             "weighted_depth": blender_module.WeightedDepthFragmentBlender,
             "weighted_plus": blender_module.WeightedPlusFragmentBlender,
@@ -448,36 +448,29 @@ class WgpuRenderer(Renderer):
                 any_has_changed |= has_changed
                 wobject_tuples.append((wobject, wobject_pipeline))
 
-        # Need a new recording, or can we re-use the previous one?
-        # I *think* that (eventually?) it should be possible to record the commands
-        # and re-submit them, resulting in better performance. But if I try this now
-        # it panics with 'Cannot remove a vacant resource'.
+        # Command buffers cannot be reused. If we want some sort of re-use we should
+        # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
         # when the wobject's children, visibile, render_order, or render_pass changes.
-        need_recording = any_has_changed or True
 
         # Sort objects
         if self.sort_objects:
             sort_func = _get_sort_function(camera)
             wobject_tuples.sort(key=sort_func)
-            need_recording = True
 
-        if need_recording or not hasattr(scene, "_wgpu_command_buffers"):
-
-            # Record the rendering of all world objects, or re-use previous recording
-            command_buffers = []
-            command_buffers += self._render_recording(
-                wobject_tuples, physical_viewport, clear_color
-            )
-            command_buffers += self._blender.perform_combine_pass(self._shared.device)
-            scene._wgpu_command_buffers = command_buffers
+        # Record the rendering of all world objects, or re-use previous recording
+        command_buffers = []
+        command_buffers += self._render_recording(
+            wobject_tuples, physical_viewport, clear_color
+        )
+        command_buffers += self._blender.perform_combine_pass(self._shared.device)
+        command_buffers
 
         # Collect commands and submit
-        command_buffers = []
-        command_buffers += scene._wgpu_command_buffers
-        if flush:
-            command_buffers += self.flush()
         device.queue.submit(command_buffers)
+
+        if flush:
+            self.flush()
 
     def flush(self):
         """Render the result into the target texture view. This method is
@@ -500,12 +493,13 @@ class WgpuRenderer(Renderer):
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
 
-        return self._flusher.render(
+        command_buffers = self._flusher.render(
             self._blender.color_view,
             None,
             raw_texture_view,
             self._target_tex_format,
         )
+        self.device.queue.submit(command_buffers)
 
     def _render_recording(
         self,
@@ -624,30 +618,24 @@ class WgpuRenderer(Renderer):
         _, logical_size = get_size_from_render_target(self._target)
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
-        can_sample_color = self._blender.color_tex is not None
-
         # Sample
         encoder = self.device.create_command_encoder()
-        self._copy_pixel(encoder, self._blender.depth_tex, float_pos, 0)
-        if can_sample_color:
-            self._copy_pixel(encoder, self._blender.color_tex, float_pos, 8)
-        self._copy_pixel(encoder, self._blender.pick_tex, float_pos, 16)
+        self._copy_pixel(encoder, self._blender.color_tex, float_pos, 0)
+        self._copy_pixel(encoder, self._blender.pick_tex, float_pos, 8)
         queue = self.device.queue
         queue.submit([encoder.finish()])
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.map_read()
-        depth = data[0:4].cast("f")[0]
-        color = tuple(data[8:12].cast("B"))
-        pick_value = tuple(data[16:24].cast("Q"))[0]
+        color = tuple(data[0:4].cast("B"))
+        pick_value = tuple(data[8:16].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
         # Note: the position in world coordinates is not included because
         # it depends on the camera, but we don't "own" the camera.
 
         info = {
-            "ndc": (2 * float_pos[0] - 1, 2 * float_pos[1] - 1, depth),
-            "rgba": color if can_sample_color else (0, 0, 0, 0),
+            "rgba": color,
             "world_object": wobject,
         }
 

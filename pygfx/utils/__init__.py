@@ -56,6 +56,12 @@ def array_from_shadertype(shadertype):
     array_names.append("")
     dtype_fields.append(("__".join(array_names), "uint8", (0,)))
 
+    # Add padding: uniform buffers must align to 16 bytes.
+    size = np.dtype(dtype_fields).itemsize
+    n16 = int(np.ceil(size / 16))
+    padding = n16 * 16 - size
+    dtype_fields.append(("__padding", "uint8", (padding,)))
+
     # Create a scalar of this type
     uniform_data = np.zeros((), dtype=dtype_fields)
     return uniform_data

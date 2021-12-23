@@ -64,7 +64,6 @@ struct FragmentOutput {
     [[location(1)]] pick: vec4<i32>;
 };
 
-[[block]]
 struct Render {
     opacity: f32;
     time: f32;

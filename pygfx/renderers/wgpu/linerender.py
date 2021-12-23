@@ -265,9 +265,10 @@ class LineShader(WorldObjectShader):
             let i = index / 5;
 
             // Sample the current node and it's two neighbours, and convert to NDC
-            let npos1 = get_point_ndc(i - 1);
+            // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
+            let npos1 = get_point_ndc(max(0, i - 1));
             let npos2 = get_point_ndc(i);
-            let npos3 = get_point_ndc(i + 1);
+            let npos3 = get_point_ndc(min(u_renderer.last_i, i + 1));
 
             // Convert to logical screen coordinates, because that's were the lines work
             let ppos1 = (npos1.xy + 1.0) * screen_factor;
@@ -502,7 +503,7 @@ class LineShader(WorldObjectShader):
             $$ endif
 
             // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
-            // This is only necessary for blend method "simple1"
+            // This is only necessary for blend method "ordered1"
             //out.depth = varyings.position.z + 0.0001 * (0.8 - min(0.8, alpha));
 
             return out;
