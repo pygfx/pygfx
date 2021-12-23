@@ -3,13 +3,9 @@ Display a line depicting a noisy signal consisting of a lot of points.
 """
 
 import numpy as np
-
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
@@ -27,11 +23,10 @@ line = gfx.Line(
 )
 scene.add(line)
 
-
 camera = gfx.OrthographicCamera(110, 110)
 camera.position.set(50, 0, 0)
 
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

@@ -1,79 +1,14 @@
 """
 Example showing transparency using three orthogonal planes.
 Press space to toggle the order of the planes.
-Press 1,2,3 to select the blend mode.
+Press 1-6 to select the blend mode.
 """
 
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets, QtCore
-from wgpu.gui.qt import WgpuCanvas
-
-
-class WgpuCanvasWithInputEvents(WgpuCanvas):
-    _drag_modes = {QtCore.Qt.RightButton: "pan", QtCore.Qt.LeftButton: "rotate"}
-    _mode = None
-
-    def wheelEvent(self, event):  # noqa: N802
-        controls.zoom(2 ** (event.angleDelta().y() * 0.0015))
-
-    def mousePressEvent(self, event):  # noqa: N802
-        mode = self._drag_modes.get(event.button(), None)
-        if self._mode or not mode:
-            return
-        self._mode = mode
-        drag_start = (
-            controls.pan_start if self._mode == "pan" else controls.rotate_start
-        )
-        drag_start(
-            (event.position().x(), event.position().y()),
-            self.get_logical_size(),
-            camera,
-        )
-        app.setOverrideCursor(QtCore.Qt.ClosedHandCursor)
-
-    def keyPressEvent(self, event):  # noqa: N802
-        if not event.text():
-            pass
-        elif event.text() == " ":
-            print("Rotating scene element order")
-            scene.add(scene.children[0])
-        elif event.text() in "0123456789":
-            m = [
-                None,
-                "opaque",
-                "ordered1",
-                "ordered2",
-                "weighted",
-                "weighted_depth",
-                "weighted_plus",
-            ]
-            mode = m[int(event.text())]
-            renderer.blend_mode = mode
-            print("Selecting blend_mode", mode)
-
-    def mouseReleaseEvent(self, event):  # noqa: N802
-        if self._mode and self._mode == self._drag_modes.get(event.button(), None):
-            self._mode = None
-            drag_stop = (
-                controls.pan_stop if self._mode == "pan" else controls.rotate_stop
-            )
-            drag_stop()
-            app.restoreOverrideCursor()
-
-    def mouseMoveEvent(self, event):  # noqa: N802
-        if self._mode is not None:
-            drag_move = (
-                controls.pan_move if self._mode == "pan" else controls.rotate_move
-            )
-            drag_move((event.position().x(), event.position().y()))
-
-
-app = QtWidgets.QApplication([])
-
-canvas = WgpuCanvasWithInputEvents()
-canvas._target_fps = 1000
-renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
+canvas = WgpuCanvas()
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
@@ -94,6 +29,30 @@ camera.position.z = 70
 controls = gfx.OrbitControls(camera.position.clone())
 
 
+@canvas.add_event_handler("key_down", "pointer_down", "pointer_up", "pointer_move")
+def handle_event(event):
+    if event["event_type"] == "key_down":
+        if event["key"] == " ":
+            print("Rotating scene element order")
+            scene.add(scene.children[0])
+            canvas.request_draw()
+        elif event["key"] in "0123456789":
+            m = [
+                None,
+                "opaque",
+                "ordered1",
+                "ordered2",
+                "weighted",
+                "weighted_depth",
+                "weighted_plus",
+            ]
+            mode = m[int(event["key"])]
+            renderer.blend_mode = mode
+            print("Selecting blend_mode", mode)
+    else:
+        controls.handle_event(event, canvas, camera)
+
+
 def animate():
     controls.update_camera(camera)
     renderer.render(scene, camera)
@@ -103,4 +62,4 @@ def animate():
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(animate)
-    app.exec()
+    run()

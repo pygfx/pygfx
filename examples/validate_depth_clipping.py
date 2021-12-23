@@ -6,13 +6,9 @@ rectangles near the near and far clipping planes.
 * The greener square should be in the upper-left.
 """
 
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -62,4 +58,4 @@ for plane in (plane1, plane2, plane3, plane4):
 if __name__ == "__main__":
     print(__doc__)
     canvas.request_draw(lambda: renderer.render(scene, camera))
-    app.exec()
+    run()

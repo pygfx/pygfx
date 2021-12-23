@@ -3,13 +3,9 @@ Use a plane geometry to show a texture, which is continuously updated to show vi
 """
 
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -44,4 +40,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas.draw_frame = animate
-    app.exec()
+    run()

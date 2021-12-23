@@ -11,13 +11,8 @@ surface of the cube in the outer scene.
 
 import numpy as np
 import imageio
+from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-
-from PySide6 import QtWidgets
-from wgpu.gui.qt import WgpuCanvas
-
-
-app = QtWidgets.QApplication([])
 
 
 # First create the subscene, that reders into a texture
@@ -70,4 +65,4 @@ def animate():
 
 if __name__ == "__main__":
     canvas2.request_draw(animate)
-    app.exec()
+    run()
