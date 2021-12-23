@@ -13,7 +13,7 @@ TEAPOT = Path(__file__).parent / "models" / "teapot.stl"
 
 teapot = trimesh.load(TEAPOT)
 
-cube = gfx.Mesh(
+mesh = gfx.Mesh(
     gfx.Geometry.from_trimesh(teapot),
     gfx.MeshPhongMaterial(),
 )
@@ -21,7 +21,7 @@ cube = gfx.Mesh(
 # TODO: I'd rather change the camera up vector to be (0, 0, 1) for this model
 # but it's not clear to me how to do that
 rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(np.pi * 1.5))
-cube.rotation.multiply(rot)
+mesh.rotation.multiply(rot)
 
 if __name__ == "__main__":
-    gfx.show(cube)
+    gfx.show(mesh)
