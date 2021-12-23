@@ -53,8 +53,8 @@ class Camera(WorldObject):
         """
         pos = target.get_world_position()
         radius = target.get_world_bounding_sphere()[3]
-        self.position.copy(pos).add_scaled_vector(
-            Vector3(*view_dir).negate(), radius * distance_weight
+        self._position.copy(pos).add_scaled_vector(
+            Vector3(*view_dir).normalize().negate(), radius * distance_weight
         )
         self.look_at(pos)
 
