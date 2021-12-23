@@ -95,6 +95,12 @@ class Geometry(ResourceContainer):
             # Store
             setattr(self, name, resource)
 
+    @classmethod
+    def from_trimesh(cls, mesh):
+        return cls(
+            positions=mesh.vertices.astype("f4"), indices=mesh.faces.astype("i4")
+        )
+
     def bounding_box(self):
         """Compute the axis-aligned bounding box based on either positions
         or the shape of the grid buffer.
