@@ -35,8 +35,8 @@ controls.rotate(-0.5, -0.5)
 def handle_event(event):
     if event["event_type"] == "pointer_down" and "Shift" in event["modifiers"]:
         info = renderer.get_pick_info((event["x"], event["y"]))
-        if "voxel_index" in info:
-            x, y, z = (max(1, int(i)) for i in info["voxel_index"])
+        if "index" in info:
+            x, y, z = (max(1, int(i)) for i in info["index"])
             print("Picking", x, y, z)
             tex.data[z - 1 : z + 1, y - 1 : y + 1, x - 1 : x + 1] = 2000
             tex.update_range((x - 1, y - 1, z - 1), (3, 3, 3))

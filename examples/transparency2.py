@@ -1,16 +1,14 @@
 """
 Example showing transparency using three orthogonal planes.
 Press space to toggle the order of the planes.
-Press 1,2,3 to select the blend mode.
+Press 1-6 to select the blend mode.
 """
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-
 canvas = WgpuCanvas()
-canvas._target_fps = 1000
-renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())

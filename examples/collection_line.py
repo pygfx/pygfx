@@ -10,10 +10,8 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
+canvas = WgpuCanvas(max_fps=999)
 renderer = gfx.WgpuRenderer(canvas, show_fps=True)
-
-canvas._target_fps = 9999  # don't limit fps
 
 scene = gfx.Scene()
 
