@@ -12,7 +12,6 @@ from .. import (
     PerspectiveCamera,
     OrbitControls,
 )
-from ..linalg import Vector3
 
 
 def show(object: WorldObject):
@@ -28,16 +27,12 @@ def show(object: WorldObject):
         scene.add(background)
 
     camera = PerspectiveCamera(70, 16 / 9)
-
-    pos = object.get_world_position()
-    _, radius = object.get_world_bounding_sphere()
-    camera.position.copy(pos).add_scaled_vector(Vector3(1, 1, 1), radius * 1.25)
-    camera.look_at(pos)
+    camera.show_object(object)
 
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)
 
-    controls = OrbitControls(camera.position.clone())
+    controls = OrbitControls(camera.position.clone(), object.get_world_position())
     controls.add_default_event_handlers(canvas, camera)
 
     def animate():

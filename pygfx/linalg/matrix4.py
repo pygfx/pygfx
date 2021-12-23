@@ -1,5 +1,7 @@
 from math import cos, sin
 
+import numpy as np
+
 from .vector3 import Vector3
 
 
@@ -1001,6 +1003,9 @@ class Matrix4:
         for i in range(16):
             array[i + offset] = self.elements[i]
         return array
+
+    def to_ndarray(self) -> np.ndarray:
+        return np.array(self.elements).reshape((4, 4))
 
 
 _zero = Vector3(0, 0, 0)

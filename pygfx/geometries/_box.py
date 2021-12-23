@@ -2,7 +2,8 @@ import numpy as np
 
 from ._base import Geometry
 from ._plane import generate_plane
-from .utils import merge, transform
+from .utils import merge
+from ..linalg.utils import transform
 
 
 def box_geometry(

@@ -2,6 +2,7 @@ import numpy as np
 
 from ..objects._base import ResourceContainer
 from ..resources import Resource, Buffer, Texture
+from ..linalg.utils import aabb_to_sphere
 
 
 class Geometry(ResourceContainer):
@@ -95,31 +96,42 @@ class Geometry(ResourceContainer):
             setattr(self, name, resource)
 
     def bounding_box(self):
-        if not hasattr(self, "positions"):
-            raise ValueError(
-                "No position buffer available for bounding box computation"
-            )
+        """Compute the axis-aligned bounding box based on either positions
+        or the shape of the grid buffer.
 
-        if self._aabb_rev == self.positions.rev:
+        If both are present, the bounding box will be computed based on
+        the positions buffer.
+        """
+        if hasattr(self, "positions"):
+            if self._aabb_rev == self.positions.rev:
+                return self._aabb
+            pos = self.positions.data
+            self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
+            self._aabb_rev = self.positions.rev
             return self._aabb
-        pos = self.positions.data
-        self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
-        self._aabb_rev = self.positions.rev
-        return self._aabb
+
+        if hasattr(self, "grid"):
+            if self._aabb_rev == self.grid.rev:
+                return self._aabb
+            self._aabb = (
+                np.array([np.zeros_like(self.grid.data.shape), self.grid.data.shape])
+                - 0.5
+            )
+            self._aabb_rev = self.grid.rev
+            return self._aabb
+
+        raise ValueError(
+            "No positions or grid buffer available for bounding volume computation"
+        )
 
     def bounding_sphere(self):
-        if not hasattr(self, "positions"):
-            raise ValueError(
-                "No position buffer available for bounding box computation"
-            )
+        """Compute the bounding sphere based on the axis-aligned bounding box.
 
-        if self._bsphere_rev == self.positions.rev:
+        Note: not the optimal fit.
+        """
+        if self._bsphere is not None and self._bsphere_rev == self._aabb_rev:
             return self._bsphere
 
-        bbox = self.bounding_box()
-        diagonal = bbox[1] - bbox[0]
-        center = bbox[0] + diagonal / 2
-        radius = np.linalg.norm(diagonal) / 2
-        self._bsphere = center, radius
-        self._bsphere_rev = self.positions.rev
+        self._bsphere = aabb_to_sphere(self.bounding_box())
+        self._bsphere_rev = self._aabb_rev
         return self._bsphere

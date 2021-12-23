@@ -1,4 +1,3 @@
-import itertools
 import random
 import weakref
 import threading
@@ -6,6 +5,7 @@ import threading
 import numpy as np
 
 from ..linalg import Vector3, Matrix4, Quaternion
+from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
 
@@ -408,27 +408,20 @@ class WorldObject(ResourceContainer):
         self._v.set_from_matrix_position(self._matrix_world)
         return self._v.clone()
 
-    def get_world_bounding_box(self):
+    def get_world_bounding_box(self, include_children=True):
         self.update_matrix_world(update_parents=True, update_children=False)
-        bbox = self._geometry.bounding_box()
-        corners = np.array(list(itertools.product(*bbox.T)))
-        corners_world = np.array(
-            [
-                Vector3(*corner).apply_matrix4(self._matrix_world).to_array()
-                for corner in corners
-            ]
-        )
-        bbox_world = np.array([corners_world.min(axis=0), corners_world.max(axis=0)])
-        return bbox_world
+        aabb = self._geometry.bounding_box()
+        aabb_world = transform_aabb(aabb, self._matrix_world.to_ndarray())
+        if self._children and include_children:
+            aabbs = np.stack(
+                [c.get_world_bounding_box() for c in self._children] + [aabb_world]
+            )
+            aabb_world = np.array([aabbs[:, 0].min(axis=0), aabbs[:, 1].max(axis=1)])
+        return aabb_world
 
-    def get_world_bounding_sphere(self):
-        self.update_matrix_world(update_parents=True, update_children=False)
-        bsphere = self._geometry.bounding_sphere()
-        center_world = (
-            np.array(Vector3(*bsphere[0]).apply_matrix4(self._matrix_world).to_array()),
-        )
-        radius_world = Vector3(bsphere[1]).apply_matrix4(self._matrix_world).length()
-        return center_world, radius_world
+    def get_world_bounding_sphere(self, include_children=True):
+        aabb = self.get_world_bounding_box(include_children=include_children)
+        return aabb_to_sphere(aabb)
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.

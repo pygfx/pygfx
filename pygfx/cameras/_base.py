@@ -1,4 +1,4 @@
-from ..linalg import Matrix4
+from ..linalg import Matrix4, Vector3
 from ..objects._base import WorldObject
 
 
@@ -37,6 +37,26 @@ class Camera(WorldObject):
 
     def update_projection_matrix(self):
         raise NotImplementedError()
+
+    def show_object(
+        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=1.25
+    ):
+        """Utility function to position and rotate the camera to ensure
+        a particular world object is in view.
+
+        Parameters:
+            view_dir: 3-tuple of float
+                Look at the object in this direction
+            distance_weight: float
+                The camera distance to the object's world position is
+                its bounding sphere radius multiplied by this weight
+        """
+        pos = target.get_world_position()
+        radius = target.get_world_bounding_sphere()[3]
+        self.position.copy(pos).add_scaled_vector(
+            Vector3(*view_dir).negate(), radius * distance_weight
+        )
+        self.look_at(pos)
 
     @property
     def flips_winding(self):
