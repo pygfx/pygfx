@@ -95,19 +95,24 @@ class Geometry(ResourceContainer):
             setattr(self, name, resource)
 
     def bounding_box(self):
-        if self._aabb_rev == self.positions.rev:
-            return self._aabb
-
         if not hasattr(self, "positions"):
             raise ValueError(
                 "No position buffer available for bounding box computation"
             )
+
+        if self._aabb_rev == self.positions.rev:
+            return self._aabb
         pos = self.positions.data
         self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
         self._aabb_rev = self.positions.rev
         return self._aabb
 
     def bounding_sphere(self):
+        if not hasattr(self, "positions"):
+            raise ValueError(
+                "No position buffer available for bounding box computation"
+            )
+
         if self._bsphere_rev == self.positions.rev:
             return self._bsphere
 

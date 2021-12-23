@@ -1,3 +1,4 @@
+import itertools
 import random
 import weakref
 import threading
@@ -410,13 +411,14 @@ class WorldObject(ResourceContainer):
     def get_world_bounding_box(self):
         self.update_matrix_world(update_parents=True, update_children=False)
         bbox = self._geometry.bounding_box()
-        transformed = np.array(
+        corners = np.array(list(itertools.product(*bbox.T)))
+        corners_world = np.array(
             [
-                Vector3(*bbox[0]).apply_matrix4(self._matrix_world).to_array(),
-                Vector3(*bbox[1]).apply_matrix4(self._matrix_world).to_array(),
+                Vector3(*corner).apply_matrix4(self._matrix_world).to_array()
+                for corner in corners
             ]
         )
-        bbox_world = np.array([transformed.min(axis=0), transformed.max(axis=0)])
+        bbox_world = np.array([corners_world.min(axis=0), corners_world.max(axis=0)])
         return bbox_world
 
     def get_world_bounding_sphere(self):
