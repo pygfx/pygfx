@@ -43,6 +43,11 @@ class Geometry(ResourceContainer):
     def __init__(self, **kwargs):
         super().__init__()
 
+        self._aabb = None
+        self._aabb_rev = None
+        self._bsphere = None
+        self._bsphere_rev = None
+
         for name, val in kwargs.items():
 
             # Get resource object
@@ -88,3 +93,28 @@ class Geometry(ResourceContainer):
 
             # Store
             setattr(self, name, resource)
+
+    def bounding_box(self):
+        if self._aabb_rev == self.positions.rev:
+            return self._aabb
+
+        if not hasattr(self, "positions"):
+            raise ValueError(
+                "No position buffer available for bounding box computation"
+            )
+        pos = self.positions.data
+        self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
+        self._aabb_rev = self.positions.rev
+        return self._aabb
+
+    def bounding_sphere(self):
+        if self._bsphere_rev == self.positions.rev:
+            return self._bsphere
+
+        bbox = self.bounding_box()
+        diagonal = bbox[1] - bbox[0]
+        center = bbox[0] + diagonal / 2
+        radius = np.linalg.norm(diagonal) / 2
+        self._bsphere = center, radius
+        self._bsphere_rev = self.positions.rev
+        return self._bsphere

@@ -3,8 +3,6 @@ Quickly visualize world objects with as
 little boilerplate as possible.
 """
 
-from wgpu.gui.auto import WgpuCanvas, run
-
 from .. import (
     Background,
     BackgroundMaterial,
@@ -14,9 +12,12 @@ from .. import (
     PerspectiveCamera,
     OrbitControls,
 )
+from ..linalg import Vector3
 
 
 def show(object: WorldObject):
+    from wgpu.gui.auto import WgpuCanvas, run
+
     if isinstance(object, Scene):
         scene = object
     else:
@@ -28,10 +29,10 @@ def show(object: WorldObject):
 
     camera = PerspectiveCamera(70, 16 / 9)
 
-    # TODO: expose utils on world object to compute
-    # world position and bounding box of object
-    # so we can configure the camera appropriately
-    camera.position.set(-90, -110, 100)
+    pos = object.get_world_position()
+    _, radius = object.get_world_bounding_sphere()
+    camera.position.copy(pos).add_scaled_vector(Vector3(1, 1, 1), radius * 1.25)
+    camera.look_at(pos)
 
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)

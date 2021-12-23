@@ -2,6 +2,8 @@ import random
 import weakref
 import threading
 
+import numpy as np
+
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
@@ -399,6 +401,32 @@ class WorldObject(ResourceContainer):
             self._m.extract_rotation(self.parent._matrix_world)
             self._q.set_from_rotation_matrix(self._m)
             self.rotation.premultiply(self._q.inverse())
+
+    def get_world_position(self):
+        self.update_matrix_world(update_parents=True, update_children=False)
+        self._v.set_from_matrix_position(self._matrix_world)
+        return self._v.clone()
+
+    def get_world_bounding_box(self):
+        self.update_matrix_world(update_parents=True, update_children=False)
+        bbox = self._geometry.bounding_box()
+        transformed = np.array(
+            [
+                Vector3(*bbox[0]).apply_matrix4(self._matrix_world).to_array(),
+                Vector3(*bbox[1]).apply_matrix4(self._matrix_world).to_array(),
+            ]
+        )
+        bbox_world = np.array([transformed.min(axis=0), transformed.max(axis=0)])
+        return bbox_world
+
+    def get_world_bounding_sphere(self):
+        self.update_matrix_world(update_parents=True, update_children=False)
+        bsphere = self._geometry.bounding_sphere()
+        center_world = (
+            np.array(Vector3(*bsphere[0]).apply_matrix4(self._matrix_world).to_array()),
+        )
+        radius_world = Vector3(bsphere[1]).apply_matrix4(self._matrix_world).length()
+        return center_world, radius_world
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
