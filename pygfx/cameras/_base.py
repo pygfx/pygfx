@@ -55,7 +55,7 @@ class Camera(WorldObject):
         """
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
-            pos, distance = bsphere[:3], bsphere[3]
+            pos, distance = Vector3(*bsphere[:3]), bsphere[3]
         else:
             pos = target.get_world_position()
             # whatever it is has no bounding sphere, so we just pick an
