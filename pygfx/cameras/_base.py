@@ -53,15 +53,15 @@ class Camera(WorldObject):
                 The camera distance to the object's world position is
                 its bounding sphere radius multiplied by this weight
         """
-        pos = target.get_world_position()
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
-            radius = bsphere[3]
-            distance = radius * distance_weight
+            pos, distance = bsphere[:3], bsphere[3]
         else:
+            pos = target.get_world_position()
             # whatever it is has no bounding sphere, so we just pick an
             # arbitrary distance
-            distance = 100 * distance_weight
+            distance = 100
+        distance *= distance_weight
         self.position.copy(pos).add_scaled_vector(
             Vector3(*view_dir).normalize().negate(), distance
         )
