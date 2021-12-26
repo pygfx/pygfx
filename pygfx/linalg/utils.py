@@ -28,8 +28,8 @@ def transform(vectors, matrix, directions=False):
 def aabb_to_sphere(aabb):
     """Returns a sphere that fits exactly around an axis-aligned bounding box."""
     diagonal = aabb[1] - aabb[0]
-    center = aabb[0] + diagonal / 2
-    radius = np.linalg.norm(diagonal) / 2
+    center = aabb[0] + diagonal * 0.5
+    radius = np.linalg.norm(diagonal) * 0.5
     return np.array([*center, radius])
 
 

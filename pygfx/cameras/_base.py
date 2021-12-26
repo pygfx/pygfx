@@ -52,6 +52,10 @@ class Camera(WorldObject):
             distance_weight: float
                 The camera distance to the object's world position is
                 its bounding sphere radius multiplied by this weight
+
+        Returns:
+            pos: Vector3
+                The world coordinate the camera is looking at
         """
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
@@ -66,6 +70,7 @@ class Camera(WorldObject):
             Vector3(*view_dir).normalize().negate(), distance
         )
         self.look_at(pos)
+        return pos
 
     @property
     def flips_winding(self):

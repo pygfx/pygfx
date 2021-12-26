@@ -33,14 +33,12 @@ def show(object: WorldObject, up=None):
         scene.add(background)
 
     camera = PerspectiveCamera(70, 16 / 9)
-    camera.show_object(object)
+    look_at = camera.show_object(object)
 
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)
 
-    controls = OrbitControls(
-        camera.position.clone(), object.get_world_position(), up=up
-    )
+    controls = OrbitControls(camera.position.clone(), look_at, up=up)
     controls.add_default_event_handlers(canvas, camera)
 
     def animate():

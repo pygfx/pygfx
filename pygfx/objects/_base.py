@@ -428,7 +428,7 @@ class WorldObject(ResourceContainer):
             )
         if len(boxes) == 1:
             return boxes[0]
-        elif boxes:
+        if boxes:
             boxes = np.array(boxes)
             return np.array([boxes[:, 0].min(axis=0), boxes[:, 1].max(axis=0)])
 
