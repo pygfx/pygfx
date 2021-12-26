@@ -2,6 +2,7 @@ import numpy as np
 
 from ..objects._base import ResourceContainer
 from ..resources import Resource, Buffer, Texture
+from ..linalg.utils import aabb_to_sphere
 
 
 class Geometry(ResourceContainer):
@@ -42,6 +43,11 @@ class Geometry(ResourceContainer):
 
     def __init__(self, **kwargs):
         super().__init__()
+
+        self._aabb = None
+        self._aabb_rev = None
+        self._bsphere = None
+        self._bsphere_rev = None
 
         for name, val in kwargs.items():
 
@@ -88,3 +94,44 @@ class Geometry(ResourceContainer):
 
             # Store
             setattr(self, name, resource)
+
+    def bounding_box(self):
+        """Compute the axis-aligned bounding box based on either positions
+        or the shape of the grid buffer.
+
+        If both are present, the bounding box will be computed based on
+        the positions buffer.
+        """
+        if hasattr(self, "positions"):
+            if self._aabb_rev == self.positions.rev:
+                return self._aabb
+            pos = self.positions.data
+            self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
+            self._aabb_rev = self.positions.rev
+            return self._aabb
+
+        if hasattr(self, "grid"):
+            if self._aabb_rev == self.grid.rev:
+                return self._aabb
+            self._aabb = (
+                np.array([np.zeros_like(self.grid.data.shape), self.grid.data.shape])
+                - 0.5
+            )
+            self._aabb_rev = self.grid.rev
+            return self._aabb
+
+        raise ValueError(
+            "No positions or grid buffer available for bounding volume computation"
+        )
+
+    def bounding_sphere(self):
+        """Compute the bounding sphere based on the axis-aligned bounding box.
+
+        Note: not the optimal fit.
+        """
+        if self._bsphere is not None and self._bsphere_rev == self._aabb_rev:
+            return self._bsphere
+
+        self._bsphere = aabb_to_sphere(self.bounding_box())
+        self._bsphere_rev = self._aabb_rev
+        return self._bsphere
