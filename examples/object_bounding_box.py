@@ -26,7 +26,7 @@ scene.add(box_world)
 
 box_local = gfx.BoxHelper()
 box_local.set_object_local(mesh)
-mesh.add(box_local)
+mesh.add(box_local)  # note that the parent is `mesh` here, not `scene`
 
 box_local.material.color = (0, 1, 0, 1)
 
