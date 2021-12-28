@@ -48,22 +48,22 @@ class BoxHelper(Line):
 
     def set_object_world(self, object):
         aabb = object.get_world_bounding_box()
+        self.set_aabb(aabb)
+
+    def set_object_local(self, object):
+        if object.geometry:
+            aabb = object.geometry.bounding_box()
+        else:
+            aabb = None
+        self.set_aabb(aabb)
+
+    def set_aabb(self, aabb):
         if aabb is None:
             raise ValueError("Object has no geometry")
 
-        self._set_aabb(aabb)
-
-    def _set_aabb(self, aabb):
         diagonal = aabb[1] - aabb[0]
         center = aabb[0] + diagonal * 0.5
         scale = diagonal / self._size
 
         self.position.set(*center)
         self.scale.set(*scale)
-
-    def set_object_local(self, object):
-        if not object.geometry:
-            raise ValueError("Object has no geometry")
-        aabb = object.geometry.bounding_box()
-
-        self._set_aabb(aabb)
