@@ -85,6 +85,10 @@ Helper objects
     :members:
     :member-order: bysource
 
+.. autoclass:: pygfx.BoxHelper
+    :members:
+    :member-order: bysource
+
 .. autoclass:: pygfx.GridHelper
     :members:
     :member-order: bysource
