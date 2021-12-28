@@ -7,6 +7,8 @@ class BoxHelper(Line):
     """An object visualizing a box."""
 
     def __init__(self, size=1.0):
+        self._size = size
+
         positions = np.array(
             [
                 [0, 0, 0],  # bottom edges
@@ -37,9 +39,19 @@ class BoxHelper(Line):
             dtype="f4",
         )
         positions -= 0.5
-        positions *= size
+        positions *= self._size
 
         geometry = Geometry(positions=positions)
         material = LineThinSegmentMaterial(color=(1, 0, 0, 1))
 
         super().__init__(geometry, material)
+
+    def set_object_world(self, object):
+        aabb = object.get_world_bounding_box()
+
+        diagonal = aabb[1] - aabb[0]
+        center = aabb[0] + diagonal * 0.5
+        scale = diagonal / self._size
+
+        self.position.set(*center)
+        self.scale.set(*scale)
