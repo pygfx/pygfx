@@ -17,11 +17,18 @@ mesh = gfx.Mesh(
     gfx.trimesh_geometry(teapot),
     gfx.MeshPhongMaterial(),
 )
+mesh.rotation.set_from_euler(gfx.linalg.Euler(0.71, 0.91))
 scene.add(mesh)
 
-box = gfx.BoxHelper()
-box.set_object_world(mesh)
-scene.add(box)
+box_world = gfx.BoxHelper()
+box_world.set_object_world(mesh)
+scene.add(box_world)
+
+box_local = gfx.BoxHelper()
+box_local.set_object_local(mesh)
+mesh.add(box_local)
+
+box_local.material.color = (0, 1, 0, 1)
 
 
 if __name__ == "__main__":
