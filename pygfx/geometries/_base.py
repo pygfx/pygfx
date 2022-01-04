@@ -34,7 +34,9 @@ class Geometry(ResourceContainer):
     * ``grid``: A 2D or 3D Texture/TextureView that contains a regular grid of
       data. I.e. for images and volumes.
 
-    Example:
+    :Example:
+
+    .. code-block:: py
 
         g = Geometry(positions=[[1, 2], [2, 4], [3, 5], [4, 1]])
         g.positions.data  # numpy array
