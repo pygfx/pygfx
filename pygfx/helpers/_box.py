@@ -113,8 +113,10 @@ class BoxHelper(Line):
         """
         aabb = None
         if space not in {"world", "local"}:
-            raise ValueError('Space argument must be either "world"'
-                             f'or "local". Given value: {space}')
+            raise ValueError(
+                'Space argument must be either "world"'
+                f'or "local". Given value: {space}'
+            )
         if space == "world":
             aabb = object.get_world_bounding_box()
         elif space == "local" and object.geometry is not None:
