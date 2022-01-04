@@ -20,11 +20,11 @@ mesh.rotation.set_from_euler(gfx.linalg.Euler(0.71, 0.91))
 scene.add(mesh)
 
 box_world = gfx.BoxHelper()
-box_world.set_object_world(mesh)
+box_world.set_transform_by_object(mesh)
 scene.add(box_world)
 
 box_local = gfx.BoxHelper()
-box_local.set_object_local(mesh)
+box_local.set_transform_by_object(mesh, space="local")
 mesh.add(box_local)  # note that the parent is `mesh` here, not `scene`
 
 box_local.material.color = (0, 1, 0, 1)
