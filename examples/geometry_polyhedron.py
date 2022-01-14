@@ -17,21 +17,22 @@ tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 material = gfx.MeshBasicMaterial(map=tex)
 geometries = [
     gfx.tetrahedron_geometry(),
-    gfx.octahedron_geometry(),
+    gfx.octahedron_geometry(radius=2.0),
     gfx.icosahedron_geometry(),
     gfx.dodecahedron_geometry(),
+    gfx.icosahedron_geometry(subdivisions=2),
 ]
 
-polyhedrons = [gfx.Mesh(geometries[i], material) for i in range(4)]
+polyhedrons = [gfx.Mesh(geometries[i], material) for i in range(5)]
 for i, polyhedron in enumerate(polyhedrons):
-    polyhedron.position.set(4.5 - i * 3, 0, 0)
+    polyhedron.position.set(6 - i * 3, 0, 0)
     scene.add(polyhedron)
 
 background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 7
+camera.position.z = 10
 
 
 def animate():
