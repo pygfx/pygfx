@@ -1,5 +1,5 @@
 """
-Example showing multiple rotating cubes. This also tests the depth buffer.
+Example showing multiple rotating polyhedrons.
 """
 
 import imageio
@@ -15,25 +15,29 @@ im = imageio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
 material = gfx.MeshBasicMaterial(map=tex)
-geometry = gfx.octahedron_geometry()
-cubes = [gfx.Mesh(geometry, material) for i in range(8)]
-for i, cube in enumerate(cubes):
-    cube.position.set(40 - i * 10, 0, 0)
-    scene.add(cube)
+geometries = [
+    gfx.tetrahedron_geometry(),
+    gfx.octahedron_geometry(),
+    gfx.icosahedron_geometry(),
+    gfx.dodecahedron_geometry(),
+]
+
+polyhedrons = [gfx.Mesh(geometries[i], material) for i in range(4)]
+for i, polyhedron in enumerate(polyhedrons):
+    polyhedron.position.set(4.5 - i * 3, 0, 0)
+    scene.add(polyhedron)
 
 background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 100
+camera.position.z = 7
 
 
 def animate():
-    for i, cube in enumerate(cubes):
-        rot = gfx.linalg.Quaternion().set_from_euler(
-            gfx.linalg.Euler(0.01 * i, 0.02 * i)
-        )
-        cube.rotation.multiply(rot)
+    for polyhedron in polyhedrons:
+        rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.01, 0.02))
+        polyhedron.rotation.multiply(rot)
 
     renderer.render(scene, camera)
     canvas.request_draw()

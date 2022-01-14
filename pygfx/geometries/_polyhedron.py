@@ -3,6 +3,30 @@ import numpy as np
 from ._base import Geometry
 
 
+def tetrahedron_geometry(radius=1.0, subdivisions=0):
+    positions = np.array(
+        [
+            [1, 1, 1],
+            [-1, -1, 1],
+            [-1, 1, -1],
+            [1, -1, -1],
+        ],
+        dtype=np.float32,
+    )
+
+    indices = np.array(
+        [
+            [2, 1, 0],
+            [0, 3, 2],
+            [1, 3, 0],
+            [2, 3, 1],
+        ],
+        dtype=np.int32,
+    )
+
+    return polyhedron_geometry(positions, indices, radius, subdivisions)
+
+
 def octahedron_geometry(radius=1.0, subdivisions=0):
     positions = np.array(
         [
@@ -83,6 +107,81 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
     return polyhedron_geometry(positions, indices, radius, subdivisions)
 
 
+def dodecahedron_geometry(radius=1.0, subdivisions=0):
+    t = (1 + np.sqrt(5)) / 2
+    r = 1 / t
+
+    positions = np.array(
+        [
+            [-1, -1, -1],
+            [-1, -1, 1],
+            [-1, 1, -1],
+            [-1, 1, 1],
+            [1, -1, -1],
+            [1, -1, 1],
+            [1, 1, -1],
+            [1, 1, 1],
+            [0, -r, -t],
+            [0, -r, t],
+            [0, r, -t],
+            [0, r, t],
+            [-r, -t, 0],
+            [-r, t, 0],
+            [r, -t, 0],
+            [r, t, 0],
+            [-t, 0, -r],
+            [t, 0, -r],
+            [-t, 0, r],
+            [t, 0, r],
+        ],
+        dtype=np.float32,
+    )
+
+    indices = np.array(
+        [
+            [3, 11, 7],
+            [3, 7, 15],
+            [3, 15, 13],
+            [7, 19, 17],
+            [7, 17, 6],
+            [7, 6, 15],
+            [17, 4, 8],
+            [17, 8, 10],
+            [17, 10, 6],
+            [8, 0, 16],
+            [8, 16, 2],
+            [8, 2, 10],
+            [0, 12, 1],
+            [0, 1, 18],
+            [0, 18, 16],
+            [6, 10, 2],
+            [6, 2, 13],
+            [6, 13, 15],
+            [2, 16, 18],
+            [2, 18, 3],
+            [2, 3, 13],
+            [18, 1, 9],
+            [18, 9, 11],
+            [18, 11, 3],
+            [4, 14, 12],
+            [4, 12, 0],
+            [4, 0, 8],
+            [11, 9, 5],
+            [11, 5, 19],
+            [11, 19, 7],
+            [19, 5, 14],
+            [19, 14, 4],
+            [19, 4, 17],
+            [1, 12, 14],
+            [1, 14, 5],
+            [1, 5, 9],
+        ],
+        dtype=np.int32,
+    )
+
+    return polyhedron_geometry(positions, indices, radius, subdivisions)
+
+
 def polyhedron_geometry(
     positions: np.ndarray, indices: np.ndarray, radius: float, subdivisions: int
 ):
@@ -140,6 +239,7 @@ def polyhedron_geometry(
     # filter out any triangles that contain nan elements
     nan_index = np.any(np.isnan(faces), axis=(-1, -2))
     faces = faces[~nan_index]
+    positions = faces.reshape(-1, 3)
 
     # now that we have our subdivided faces with duplicated vertices
     # we can compute normals
@@ -159,8 +259,12 @@ def polyhedron_geometry(
     # after all this, scale the points to the radius
     faces *= radius
 
+    # technically if meshmaterial didn't require an index buffer we could leave this out
+    indices = np.arange(positions.size, dtype=np.int32).reshape(-1, 3)
+
     return Geometry(
-        positions=faces.reshape(-1, 3),
+        indices=indices,
+        positions=positions,
         normals=normals.reshape(-1, 3),
         texcoords=texcoords.reshape(-1, 2),
     )
