@@ -4,6 +4,20 @@ from ._base import Geometry
 
 
 def tetrahedron_geometry(radius=1.0, subdivisions=0):
+    """Create geometry representing a tetrahedron, centered
+    around the origin.
+
+    The vertices lie on the surface of a sphere of the
+    given radius. There faces are optionally subdivided
+    if subdivisions>0.
+
+    Parameters:
+        radius (int): The vertices lie on the surface of a sphere
+            with this radius.
+        subdivisions (int): The amount of times the tetrahedron
+            faces will be subdivided, where 0 (the default)
+            means no subdivision.
+    """
     positions = np.array(
         [
             [1, 1, 1],
@@ -28,6 +42,20 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def octahedron_geometry(radius=1.0, subdivisions=0):
+    """Create geometry representing a octahedron, centered
+    around the origin.
+
+    The vertices lie on the surface of a sphere of the
+    given radius. There faces are optionally subdivided
+    if subdivisions>0.
+
+    Parameters:
+        radius (float): The vertices lie on the surface of a sphere
+            with this radius.
+        subdivisions (int): The amount of times the
+            faces will be subdivided, where 0 (the default)
+            means no subdivision.
+    """
     positions = np.array(
         [
             [1, 0, 0],
@@ -58,6 +86,20 @@ def octahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def icosahedron_geometry(radius=1.0, subdivisions=0):
+    """Create geometry representing a icosahedron, centered
+    around the origin.
+
+    The vertices lie on the surface of a sphere of the
+    given radius. There faces are optionally subdivided
+    if subdivisions>0.
+
+    Parameters:
+        radius (float): The vertices lie on the surface of a sphere
+            with this radius.
+        subdivisions (int): The amount of times the
+            faces will be subdivided, where 0 (the default)
+            means no subdivision.
+    """
     t = (1 + np.sqrt(5)) / 2
 
     positions = np.array(
@@ -108,6 +150,20 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def dodecahedron_geometry(radius=1.0, subdivisions=0):
+    """Create geometry representing a dodecahedron, centered
+    around the origin.
+
+    The vertices lie on the surface of a sphere of the
+    given radius. There faces are optionally subdivided
+    if subdivisions>0.
+
+    Parameters:
+        radius (float): The vertices lie on the surface of a sphere
+            with this radius.
+        subdivisions (int): The amount of times the
+            faces will be subdivided, where 0 (the default)
+            means no subdivision.
+    """
     t = (1 + np.sqrt(5)) / 2
     r = 1 / t
 
@@ -185,6 +241,24 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
 def polyhedron_geometry(
     positions: np.ndarray, indices: np.ndarray, radius: float, subdivisions: int
 ):
+    """Procedurally generate geometry representing a polyhedron, centered
+    around the origin.
+
+    The vertices lie on the surface of a sphere of the
+    given radius. There faces are optionally subdivided
+    if subdivisions>0.
+
+    Parameters:
+        positions (ndarray): The vertices used to initialize polyhedron
+            generation.
+        indices (ndarray): The face index used to initialize polyhedron
+            generation.
+        radius (float): The vertices lie on the surface of a sphere
+            with this radius.
+        subdivisions (int): The amount of times the
+            faces will be subdivided, where 0 (the default)
+            means no subdivision.
+    """
     # subdivide faces
     faces = positions[indices]
     a = faces[..., 0, :]
