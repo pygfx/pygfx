@@ -8,7 +8,7 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
     around the origin.
 
     The vertices lie on the surface of a sphere of the
-    given radius. There faces are optionally subdivided
+    given radius. The faces are optionally subdivided
     if subdivisions>0.
 
     Parameters:
@@ -46,7 +46,7 @@ def octahedron_geometry(radius=1.0, subdivisions=0):
     around the origin.
 
     The vertices lie on the surface of a sphere of the
-    given radius. There faces are optionally subdivided
+    given radius. The faces are optionally subdivided
     if subdivisions>0.
 
     Parameters:
@@ -90,7 +90,7 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
     around the origin.
 
     The vertices lie on the surface of a sphere of the
-    given radius. There faces are optionally subdivided
+    given radius. The faces are optionally subdivided
     if subdivisions>0.
 
     Parameters:
@@ -154,7 +154,7 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
     around the origin.
 
     The vertices lie on the surface of a sphere of the
-    given radius. There faces are optionally subdivided
+    given radius. The faces are optionally subdivided
     if subdivisions>0.
 
     Parameters:
@@ -245,7 +245,7 @@ def polyhedron_geometry(
     around the origin.
 
     The vertices lie on the surface of a sphere of the
-    given radius. There faces are optionally subdivided
+    given radius. The faces are optionally subdivided
     if subdivisions>0.
 
     Parameters:

@@ -14,7 +14,7 @@ scene = gfx.Scene()
 im = imageio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
-material = gfx.MeshBasicMaterial(map=tex)
+material = gfx.MeshPhongMaterial()
 geometries = [
     gfx.tetrahedron_geometry(),
     gfx.octahedron_geometry(radius=2.0),
