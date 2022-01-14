@@ -280,11 +280,9 @@ def polyhedron_geometry(
     # in other words those positions which lie outside of the original face
     grid = np.triu(grid)
 
-    # grid shape is (n_faces, n, n, 3), moveaxis returns a view so create a copy for
-    # optimal memory layout
-    grid = np.moveaxis(grid, 1, 3)
-
     # normalize the positions so they lie on the surface a sphere
+    # grid shape is (n_faces, n, n, 3)
+    grid = np.moveaxis(grid, 1, 3)
     # keeping nan's so we can filter by that later
     with np.errstate(invalid="ignore"):
         grid /= np.linalg.norm(grid, axis=-1)[..., None]
@@ -305,7 +303,6 @@ def polyhedron_geometry(
 
     # now index the grid
     grid = grid.reshape(grid.shape[0], -1, grid.shape[-1])
-
     # we get (n_faces, n-1, n-1, 2, 3 vertices, xyz)
     faces = grid[:, index]
     # and we reshape to get our new list of triangles
@@ -324,13 +321,18 @@ def polyhedron_geometry(
     face_normals /= np.linalg.norm(face_normals, axis=-1)[..., None]
     normals = np.broadcast_to(face_normals[..., None, :], faces.shape)
 
-    # and our texcoords
+    # and our texcoords via spherical coordinates
     x, y, z = np.moveaxis(faces, -1, 0)
     uu = np.arctan2(y, x) / (np.pi * 2)
     vv = np.arccos(z) / np.pi
     texcoords = np.stack([uu, vv], axis=-1)
 
+    # NOTE: if the initial faces straddle the boundary between 2pi back to 0
+    # you will get wrong results. that can be handled but we don't do so for now
+
     # after all this, scale the points to the radius
+    # we don't do this earlier so we can rely on the assumption that vectors
+    # are normalized there
     faces *= radius
 
     # technically if meshmaterial didn't require an index buffer we could leave this out
