@@ -322,13 +322,12 @@ def polyhedron_geometry(
     normals = np.broadcast_to(face_normals[..., None, :], faces.shape)
 
     # and our texcoords via spherical coordinates
+    # NOTE: if the initial faces straddle the boundary between 2pi back to 0
+    # you will get a weird seam. that can be handled but we don't do so for now
     x, y, z = np.moveaxis(faces, -1, 0)
     uu = np.arctan2(y, x) / (np.pi * 2)
     vv = np.arccos(z) / np.pi
     texcoords = np.stack([uu, vv], axis=-1)
-
-    # NOTE: if the initial faces straddle the boundary between 2pi back to 0
-    # you will get wrong results. that can be handled but we don't do so for now
 
     # after all this, scale the points to the radius
     # we don't do this earlier so we can rely on the assumption that vectors
