@@ -6,6 +6,7 @@ from ._compat import trimesh_geometry
 from ._cylinder import cylinder_geometry, cone_geometry
 from ._sphere import sphere_geometry
 from ._plane import plane_geometry
+from ._polyhedron import octahedron_geometry, icosahedron_geometry
 from ._toroidal import torus_knot_geometry, klein_bottle_geometry
 
 # Define __all__ for e.g. Sphinx
