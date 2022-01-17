@@ -7,18 +7,22 @@ import pygfx as gfx
 
 scene = gfx.Scene()
 
+nm = gfx.MeshNormalLinesMaterial()
 material = gfx.MeshPhongMaterial(wireframe=True, side="FRONT")
 geometries = [
-    gfx.tetrahedron_geometry(subdivisions=3),
-    gfx.octahedron_geometry(subdivisions=3),
-    gfx.icosahedron_geometry(subdivisions=3),
-    gfx.dodecahedron_geometry(subdivisions=3),
+    gfx.tetrahedron_geometry(subdivisions=0),
+    gfx.octahedron_geometry(subdivisions=0),
+    gfx.icosahedron_geometry(subdivisions=0),
+    gfx.dodecahedron_geometry(subdivisions=0),
 ]
 
-polyhedrons = [gfx.Mesh(g, material) for g in geometries]
-for i, polyhedron in enumerate(polyhedrons):
+for i, geometry in enumerate(geometries):
+    polyhedron = gfx.Mesh(geometry, material)
+    npolyhedron = gfx.Mesh(geometry, nm)
     polyhedron.position.set(6 - i * 3, 0, 0)
+    npolyhedron.position.set(6 - i * 3, 0, 0)
     scene.add(polyhedron)
+    scene.add(npolyhedron)
 
 background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
