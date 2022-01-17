@@ -2,7 +2,6 @@
 Example showing multiple rotating polyhedrons.
 """
 
-import imageio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -11,16 +10,12 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:chelsea.png")
-tex = gfx.Texture(im, dim=2).get_view(filter="linear")
-
 material = gfx.MeshPhongMaterial()
 geometries = [
     gfx.tetrahedron_geometry(),
-    gfx.octahedron_geometry(radius=2.0),
+    gfx.octahedron_geometry(),
     gfx.icosahedron_geometry(),
     gfx.dodecahedron_geometry(),
-    gfx.icosahedron_geometry(subdivisions=2),
 ]
 
 polyhedrons = [gfx.Mesh(geometries[i], material) for i in range(5)]
