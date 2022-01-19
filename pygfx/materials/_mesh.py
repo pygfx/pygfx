@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import TextureView
 from ..utils import unpack_bitfield
-from ..utils.colors import Color
+from ..utils.color import Color
 
 
 def clim_from_format(texture):
@@ -91,14 +91,10 @@ class MeshBasicMaterial(Material):
 
     @color.setter
     def color(self, color):
-<<<<<<< HEAD
-        color = tuple(color)
+        color = Color(color)
         if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
             self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
-=======
-        self.uniform_buffer.data["color"] = Color(color)
->>>>>>> e1f736c (proposing a color object)
         self.uniform_buffer.update_range(0, 1)
 
     @property

@@ -1,3 +1,4 @@
+"""Provides utilities to deal with color."""
 import ctypes
 
 
