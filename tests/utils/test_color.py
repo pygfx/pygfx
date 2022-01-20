@@ -1,7 +1,7 @@
 from pytest import raises
 import numpy as np
 
-from pygfx.utils.color import Color
+from pygfx.utils.color import Color, NAMED_COLORS
 
 
 class TColor(Color):
@@ -24,6 +24,8 @@ def test_color_basics():
 def test_color_tuples():
 
     # Test setting with values
+    assert TColor(0).matches(0, 0, 0, 1)
+    assert TColor(1).matches(1, 1, 1, 1)
     assert TColor(0, 0).matches(0, 0, 0, 0)
     assert TColor(1, 1).matches(1, 1, 1, 1)
     assert TColor(0.5, 0.8).matches(0.5, 0.5, 0.5, 0.8)
@@ -33,8 +35,6 @@ def test_color_tuples():
     # Need at least two args to provide a color tuple
     with raises(ValueError):
         Color()
-    with raises(ValueError):
-        Color(0.0)
 
     # Now with real tuples
     assert TColor((0, 0)).matches(0, 0, 0, 0)
@@ -45,6 +45,43 @@ def test_color_tuples():
 
     # Can also do a 1-element tuple then
     assert TColor((0.6,)).matches(0.6, 0.6, 0.6, 1)
+
+
+def test_color_iterable():
+
+    # Accepts any kind of iterable, like tuples and lists
+    assert TColor((0.1, 0.2, 0.3)).matches(0.1, 0.2, 0.3, 1)
+    assert TColor([0.1, 0.2, 0.3]).matches(0.1, 0.2, 0.3, 1)
+
+    # Like arrays
+    a = np.array([0.1, 0.2, 0.3])
+    assert TColor(a).matches(0.1, 0.2, 0.3, 1)
+
+    # And generators
+    def get_color():
+        yield 0.1
+        yield 0.2
+        yield 0.3
+
+    assert TColor(get_color()).matches(0.1, 0.2, 0.3, 1)
+
+    # And like a Color object ;)
+    c = Color((0.1, 0.2, 0.3))
+    assert TColor(c).matches(0.1, 0.2, 0.3, 1)
+
+    # Because its iterable
+    assert len(c) == 4  # This is *always* 4
+    assert c.rgba == tuple(c)
+
+    # Not iterable
+    with raises(TypeError):
+        Color(str)
+    # Too short
+    with raises(ValueError):
+        Color([])
+    # Too long
+    with raises(ValueError):
+        Color([0.1, 0.2, 0.3, 0.4, 0.5])
 
 
 def test_color_attr():
@@ -58,20 +95,18 @@ def test_color_attr():
     assert c.b == c.rgba[2]
     assert c.a == c.rgba[3]
 
+    assert 0.18 < c.gray < 0.22
+    assert 0.3999 < Color(0.4, 0.4, 0.4, 0.8).gray < 0.400001
+
 
 def test_color_indexing():
 
     c = Color(0.1, 0.2, 0.3, 0.8)
 
-    # Indexing
     assert c.r == c[0]
     assert c.g == c[1]
     assert c.b == c[2]
     assert c.a == c[3]
-
-    # Iteration
-    assert len(c) == 4  # This is *always* the case
-    assert c.rgba == tuple(c)
 
 
 def test_color_numpy():
@@ -134,6 +169,8 @@ def test_color_css():
 
     assert Color("rgb(10, 20, 30)").hexa == "#0a141eff"
     assert Color("rgba(10, 20, 30, 0.5)").hexa == "#0a141e80"
+    assert TColor("rgb(10%, 20%, 30%)").matches(0.1, 0.2, 0.3, 1)
+    assert TColor("rgba(10%, 20%, 30%, 0.5)").matches(0.1, 0.2, 0.3, 0.5)
 
     assert Color("#0a141eff").css == "rgb(10,20,30)"
     assert Color("#0a141e80").css == "rgba(10,20,30,0.502)"
@@ -160,9 +197,14 @@ def test_color_named():
     with raises(ValueError):
         Color("notacolorname")
 
+    # Make sure that all named colors can be consumed
+    for key in NAMED_COLORS:
+        Color(key)
+
 
 if __name__ == "__main__":
     test_color_tuples()
+    test_color_iterable()
     test_color_attr()
     test_color_indexing()
     test_color_numpy()
