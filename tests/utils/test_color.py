@@ -15,8 +15,8 @@ def test_color_basics():
 
     c = Color(0.1, 0.2, 0.3)
     assert repr(c) == "Color(0.1, 0.2, 0.3, 1.0)"
-    c = Color(0.123456, 0.2, 0.3, 0.8)
-    assert repr(c) == "Color(0.123, 0.2, 0.3, 0.8)"
+    c = Color(0.012345, 0.2, 0.3, 0.8)
+    assert repr(c) == "Color(0.0123, 0.2, 0.3, 0.8)"
 
     d = Color(c)
     assert list(c) == list(d)
