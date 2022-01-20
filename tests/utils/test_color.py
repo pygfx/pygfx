@@ -14,8 +14,9 @@ class TColor(Color):
 def test_color_basics():
 
     c = Color(0.1, 0.2, 0.3)
-    assert repr(c).startswith("<Color ")
-    assert "0.10 0.20 0.30" in repr(c)
+    assert repr(c) == "Color(0.1, 0.2, 0.3, 1.0)"
+    c = Color(0.123456, 0.2, 0.3, 0.8)
+    assert repr(c) == "Color(0.123, 0.2, 0.3, 0.8)"
 
     d = Color(c)
     assert list(c) == list(d)
@@ -203,6 +204,7 @@ def test_color_named():
 
 
 if __name__ == "__main__":
+    test_color_basics()
     test_color_tuples()
     test_color_iterable()
     test_color_attr()
