@@ -47,7 +47,7 @@ class BoxHelper(Line):
         positions *= self._size
 
         geometry = Geometry(positions=positions)
-        material = LineThinSegmentMaterial(color=(1, 0, 0, 1))
+        material = LineThinSegmentMaterial(color=(1, 0, 0))
 
         super().__init__(geometry, material)
 

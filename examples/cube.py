@@ -12,7 +12,7 @@ scene = gfx.Scene()
 
 cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
-    gfx.MeshPhongMaterial(color=(0.2, 0.4, 0.6, 1.0)),
+    gfx.MeshPhongMaterial(color="#336699"),
 )
 scene.add(cube)
 

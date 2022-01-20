@@ -90,7 +90,7 @@ class Color:
             self._set_from_tuple(args)
 
     def __repr__(self):
-        # A precision of 4 decimals, i.e. 10000 possible values for each color.
+        # A precision of 4 decimals, i.e. 10001 possible values for each color.
         # We truncate zeros, but make sure the value does not end with a dot.
         f = lambda v: f"{v:0.4f}".rstrip("0").ljust(3, "0")  # noqa: stfu
         return f"Color({f(self.r)}, {f(self.g)}, {f(self.b)}, {f(self.a)})"
