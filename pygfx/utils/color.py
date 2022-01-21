@@ -61,13 +61,13 @@ class Color:
 
     * `Color("#ff0000")` the commmon hex format.
     * `Color("#ff0000ff")` the hex format that includes alpha.
-    * `Color("#ff0)` the short form hex format.
-    * `Color("#ff0f)` the short form hex format that includes alpha.
+    * `Color("#ff0")` the short form hex format.
+    * `Color("#ff0f")` the short form hex format that includes alpha.
 
     CSS color functions:
 
-    * `Color("rgb(255, 0, 0")`.
-    * `Color("rgba(255, 0, 0, 1.0")`.
+    * `Color("rgb(255, 0, 0)")`.
+    * `Color("rgba(255, 0, 0, 1.0)")`.
 
     """
 
