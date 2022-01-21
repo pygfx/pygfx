@@ -73,6 +73,10 @@ Specific world objects
     :members:
     :member-order: bysource
 
+.. autoclass:: pygfx.Image
+    :members:
+    :member-order: bysource
+
 .. autoclass:: pygfx.Volume
     :members:
     :member-order: bysource

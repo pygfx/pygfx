@@ -1,10 +1,10 @@
 """
-Show an image displayed the correct way. For historic reasons, image
+Show an image using a plane geometry. For historic reasons, image
 data (usually) has the first rows representing the top of the image.
 But the plane gemeometry is such that it is reversed again.
 
+* The green dots should be at the corners that are NOT darker/brighter.
 * The green dots should be on the edge of the image.
-* The green dots should be at the corners that are not darker/brighter.
 * The darker corner is in the top left.
 """
 
