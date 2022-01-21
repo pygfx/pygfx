@@ -60,7 +60,7 @@ class Mesh(WorldObject):
 
 
 class Image(WorldObject):
-    """An object  representing a 2D image in space.
+    """An object representing a 2D image in space.
 
     The geometry for this object consists only of `geometry.grid`: a
     texture with the 2D data.
