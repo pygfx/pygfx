@@ -139,16 +139,16 @@ class BackgroundShader(WorldObjectShader):
             // We can apply clipping planes, but maybe a background should not be clipped?
             // apply_clipping_planes(in.world_pos);
 
-            $$ if write_pick
-                // This is the opaque pass.
-                // A fragment of the background could be transparent, but it should still be
-                // written in the opaque pass in order for it to really be background.
-                // So we fool the blender into thinking this fragment is opaque, even if its not.
-                var out = get_fragment_output(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
-                out.color = final_color;
-                return out;
-            $$ else
-                discard;
+            $$ if not write_pick
+                if (true) { discard; }
             $$ endif
+
+            // This is the opaque pass.
+            // A fragment of the background could be transparent, but it should still be
+            // written in the opaque pass in order for it to really be background.
+            // So we fool the blender into thinking this fragment is opaque, even if its not.
+            var out = get_fragment_output(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
+            out.color = final_color;
+            return out;
         }
         """
