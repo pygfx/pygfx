@@ -2,6 +2,8 @@ import logging
 
 import numpy as np
 
+from .color import Color  # noqa: F401
+
 
 logger = logging.getLogger("pygfx")
 logger.setLevel(logging.WARNING)

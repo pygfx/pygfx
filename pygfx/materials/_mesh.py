@@ -1,6 +1,7 @@
 from ._base import Material
 from ..resources import TextureView
 from ..utils import unpack_bitfield
+from ..utils.color import Color
 
 
 def clim_from_format(texture):
@@ -86,11 +87,11 @@ class MeshBasicMaterial(Material):
         """The uniform color of the mesh, as an rgba tuple.
         This value is ignored if a texture map is used.
         """
-        return self.uniform_buffer.data["color"]
+        return Color(self.uniform_buffer.data["color"])
 
     @color.setter
     def color(self, color):
-        color = tuple(color)
+        color = Color(color)
         if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
             self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color

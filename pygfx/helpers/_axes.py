@@ -1,6 +1,7 @@
 import numpy as np
 
 from .. import Geometry, Line, LineThinSegmentMaterial
+from ..utils import Color
 
 
 class AxesHelper(Line):
@@ -38,6 +39,7 @@ class AxesHelper(Line):
         super().__init__(geometry, material)
 
     def set_colors(self, x, y, z):
+        x, y, z = Color(x), Color(y), Color(z)
         self._geometry.colors.data[0] = x
         self._geometry.colors.data[1] = x
         self._geometry.colors.data[2] = y

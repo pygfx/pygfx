@@ -1,5 +1,5 @@
 from ._base import Material
-from ..utils import unpack_bitfield
+from ..utils import unpack_bitfield, Color
 
 
 class PointsMaterial(Material):
@@ -39,11 +39,11 @@ class PointsMaterial(Material):
     @property
     def color(self):
         """The color of the points (if map is not set)."""
-        return self.uniform_buffer.data["color"]
+        return Color(self.uniform_buffer.data["color"])
 
     @color.setter
     def color(self, color):
-        color = tuple(color)
+        color = Color(color)
         if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
             self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color

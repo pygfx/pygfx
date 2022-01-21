@@ -1,4 +1,5 @@
 from ._base import Material
+from ..utils import Color
 
 # todo: in ThreeJS you can simply set a CubeTexture as the scene.background
 # we could do that, and the scene could use these objects automatically.
@@ -27,6 +28,7 @@ class BackgroundMaterial(Material):
         the botton and top. If four colors are given, it will be used for the
         four corners.
         """
+        colors = [Color(c) for c in colors]
         if len(colors) == 0:
             self.color_bottom_left = (0, 0, 0, 1)
             self.color_bottom_right = (0, 0, 0, 1)
@@ -53,41 +55,41 @@ class BackgroundMaterial(Material):
     @property
     def color_bottom_left(self):
         """The color in the bottom left corner."""
-        return self.uniform_buffer.data["color_bottom_left"]
+        return Color(self.uniform_buffer.data["color_bottom_left"])
 
     @color_bottom_left.setter
     def color_bottom_left(self, color):
-        self.uniform_buffer.data["color_bottom_left"] = color
+        self.uniform_buffer.data["color_bottom_left"] = Color(color)
         self.uniform_buffer.update_range(0, 1)
 
     @property
     def color_bottom_right(self):
         """The color in the bottom right corner."""
-        return self.uniform_buffer.data["color_bottom_right"]
+        return Color(self.uniform_buffer.data["color_bottom_right"])
 
     @color_bottom_right.setter
     def color_bottom_right(self, color):
-        self.uniform_buffer.data["color_bottom_right"] = color
+        self.uniform_buffer.data["color_bottom_right"] = Color(color)
         self.uniform_buffer.update_range(0, 1)
 
     @property
     def color_top_left(self):
         """The color in the top left corner."""
-        return self.uniform_buffer.data["color_top_left"]
+        return Color(self.uniform_buffer.data["color_top_left"])
 
     @color_top_left.setter
     def color_top_left(self, color):
-        self.uniform_buffer.data["color_top_left"] = color
+        self.uniform_buffer.data["color_top_left"] = Color(color)
         self.uniform_buffer.update_range(0, 1)
 
     @property
     def color_top_right(self):
         """The color in the top right corner."""
-        return self.uniform_buffer.data["color_top_right"]
+        return Color(self.uniform_buffer.data["color_top_right"])
 
     @color_top_right.setter
     def color_top_right(self, color):
-        self.uniform_buffer.data["color_top_right"] = color
+        self.uniform_buffer.data["color_top_right"] = Color(color)
         self.uniform_buffer.update_range(0, 1)
 
 

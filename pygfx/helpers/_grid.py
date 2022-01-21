@@ -1,7 +1,7 @@
 import numpy as np
 
 from .. import Geometry, Line, LineThinSegmentMaterial
-
+from ..utils import Color
 
 DTYPE = "f4"
 
@@ -33,8 +33,8 @@ class GridHelper(Line):
 
         # color1 for the center lines, color2 for the rest
         colors = np.empty((2, n_lines, 2, 4), dtype=DTYPE)
-        colors[..., :] = color2
-        colors[:, n_lines // 2, :, :] = color1
+        colors[..., :] = Color(color2)
+        colors[:, n_lines // 2, :, :] = Color(color1)
 
         geometry = Geometry(
             positions=positions.reshape((-1, 3)), colors=colors.reshape((-1, 4))
