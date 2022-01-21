@@ -462,7 +462,7 @@ class VolumeRayShader(BaseVolumeShader):
 
             // Store values for fragment shader
             varyings.position = vec4<f32>(ndc_pos);
-            varyings.world_pos = vec3<f32>(world_pos);
+            varyings.world_pos = vec3<f32>(world_pos.xzy);
 
             // The position on the face of the cube. We can say that it's the back face,
             // because we cull the front faces.

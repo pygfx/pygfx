@@ -59,10 +59,37 @@ class Mesh(WorldObject):
     """
 
 
+class Image(WorldObject):
+    """An object  representing a 2D image in space.
+
+    The geometry for this object consists only of `geometry.grid`: a
+    texture with the 2D data.
+
+    The picking info of an Image (the result of ``renderer.get_pick_info()``)
+    will for most materials include ``index`` (tuple of 2 int),
+    and ``pixel_coord`` (tuple of float subpixel coordinates).
+    """
+
+    def _wgpu_get_pick_info(self, pick_value):
+        tex = self.geometry.grid
+        if hasattr(tex, "texture"):
+            tex = tex.texture  # tex was a view
+        # This should match with the shader
+        values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
+        x = values["x"] / 4194304 * tex.size[0] - 0.5
+        y = values["y"] / 4194304 * tex.size[1] - 0.5
+        ix, iy = int(x + 0.5), int(y + 0.5)
+        return {
+            "index": (ix, iy),
+            "pixel_coord": (x - ix, y - iy),
+        }
+
+
 class Volume(WorldObject):
     """An object representing a 3D image in space (a volume).
 
-    The geometry for this object consists only of `geometry.grid`: a texture with the 3D data.
+    The geometry for this object consists only of `geometry.grid`: a
+    texture with the 3D data.
 
     The picking info of a Volume (the result of ``renderer.get_pick_info()``)
     will for most materials include ``index`` (tuple of 3 int),

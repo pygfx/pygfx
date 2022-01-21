@@ -6,5 +6,6 @@ from ._renderer import WgpuRenderer
 from . import meshrender
 from . import linerender
 from . import pointsrender
+from . import imagerender
 from . import volumerender
 from . import backgroundrender
