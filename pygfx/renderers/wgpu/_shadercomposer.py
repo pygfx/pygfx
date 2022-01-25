@@ -545,8 +545,10 @@ class WorldObjectShader(BaseShader):
         self["clipping_mode"] = render_info.wobject.material.clipping_mode
 
         # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
-        self["write_pick"] = True
-        self["blending_code"] = ""
+        self.kwargs.setdefault("write_pick", True)
+        self.kwargs.setdefault("blending_code", "")
+        self.kwargs.setdefault("colormap_dim", "")
+        self.kwargs.setdefault("colormap_nchannels", 1)
 
     def common_functions(self):
 
@@ -606,8 +608,60 @@ class WorldObjectShader(BaseShader):
         }
         """
 
+        typemap = {"1d": "f32", "2d": "vec2<f32>", "3d": "vec3<f32>"}
+        self["colormap_coord_type"] = typemap.get(self["colormap_dim"], "f32")
+        colormap_code = """
+        fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
+            // Sample in the colormap. We get a vec4 color, but not all channels may be used.
+            $$ if not colormap_dim
+                let color_value = vec4<f32>(0.0);
+            $$ elif colormap_dim == '1d'
+                $$ if colormap_format == 'f32'
+                    let color_value = textureSample(t_colormap, s_colormap, texcoord);
+                $$ else
+                    let texcoords_dim = f32(textureDimensions(t_colormap);
+                    let texcoords_u = i32(texcoord * texcoords_dim % texcoords_dim);
+                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
+                $$ endif
+            $$ elif colormap_dim == '2d'
+                $$ if colormap_format == 'f32'
+                    let color_value = textureSample(t_colormap, s_colormap, texcoord.xy);
+                $$ else
+                    let texcoords_dim = vec2<f32>(textureDimensions(t_colormap));
+                    let texcoords_u = vec2<i32>(texcoord.xy * texcoords_dim % texcoords_dim);
+                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
+                $$ endif
+            $$ elif colormap_dim == '3d'
+                $$ if colormap_format == 'f32'
+                    let color_value = textureSample(t_colormap, s_colormap, texcoord.xyz);
+                $$ else
+                    let texcoords_dim = vec3<f32>(textureDimensions(t_colormap));
+                    let texcoords_u = vec3<i32>(texcoord.xyz * texcoords_dim % texcoords_dim);
+                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
+                $$ endif
+            $$ endif
+            // Depending on the number of channels we make grayscale, rgb, etc.
+            $$ if colormap_nchannels == 1
+                let color = vec4<f32>(color_value.rrr, 1.0);
+            $$ elif colormap_nchannels == 2
+                let color = vec4<f32>(color_value.rrr, color_value.g);
+            $$ elif colormap_nchannels == 3
+                let color = vec4<f32>(color_value.rgb, 1.0);
+            $$ else
+                let color = vec4<f32>(color_value.rgb, color_value.a);
+            $$ endif
+            return color;
+        }
+        """
+
         blending_code = """
         {{ blending_code }}
         """
 
-        return clipping_plane_code + world_pos_code + picking_code + blending_code
+        return (
+            clipping_plane_code
+            + world_pos_code
+            + picking_code
+            + colormap_code
+            + blending_code
+        )

@@ -28,8 +28,7 @@ def mesh_renderer(render_info):
     shader = MeshShader(
         render_info,
         lighting="",
-        texture_dim="",
-        texture_format="f32",
+        colormap_format="f32",
         instanced=False,
         climcorrection=None,
         wireframe=material.wireframe,
@@ -88,17 +87,17 @@ def mesh_renderer(render_info):
         elif getattr(geometry, "texcoords", None) is None:
             raise ValueError("material.map is present, but geometry has no texcoords")
         bindings1[4] = Binding(
-            "r_sampler", "sampler/filtering", material.map, "FRAGMENT"
+            "s_colormap", "sampler/filtering", material.map, "FRAGMENT"
         )
-        bindings1[5] = Binding("r_tex", "texture/auto", material.map, "FRAGMENT")
+        bindings1[5] = Binding("t_colormap", "texture/auto", material.map, "FRAGMENT")
         # Dimensionality
         view_dim = material.map.view_dim
         if view_dim == "1d":
-            shader["texture_dim"] = "1d"
+            shader["colormap_dim"] = "1d"
         elif view_dim == "2d":
-            shader["texture_dim"] = "2d"
+            shader["colormap_dim"] = "2d"
         elif view_dim == "3d":
-            shader["texture_dim"] = "3d"
+            shader["colormap_dim"] = "3d"
         else:
             raise ValueError("Unexpected texture dimension")
         # Texture dim matches texcoords
@@ -110,24 +109,25 @@ def mesh_renderer(render_info):
                 f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
             )
         # Sampling type
+        # todo: remove clim stuff
         fmt = to_texture_format(material.map.format)
         if "norm" in fmt or "float" in fmt:
-            shader["texture_format"] = "f32"
+            shader["colormap_format"] = "f32"
             if "unorm" in fmt:
                 shader["climcorrection"] = " * 255.0"
             elif "snorm" in fmt:
                 shader["climcorrection"] = " * 255.0 - 128.0"
         elif "uint" in fmt:
-            shader["texture_format"] = "u32"
+            shader["colormap_format"] = "u32"
         else:
-            shader["texture_format"] = "i32"
+            shader["colormap_format"] = "i32"
         # Channels
-        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
     # Collect texture and sampler
     if isinstance(material, MeshNormalMaterial):
         # Special simple fragment shader
-        shader["texture_dim"] = ""  # disable texture if there happens to be one
+        shader["colormap_dim"] = ""  # disable texture if there happens to be one
         shader["normal_color"] = True
     elif isinstance(material, MeshNormalLinesMaterial):
         # Special simple vertex shader with plain fragment shader
@@ -135,7 +135,7 @@ def mesh_renderer(render_info):
         shader.vertex_shader = shader.vertex_shader_normal_lines
         index_buffer = None
         n = geometry.positions.nitems * 2
-        shader["texture_dim"] = ""  # disable texture if there happens to be one
+        shader["colormap_dim"] = ""  # disable texture if there happens to be one
         shader["lighting"] = ""
         shader["wireframe"] = False
     elif isinstance(material, MeshFlatMaterial):
@@ -275,11 +275,11 @@ class MeshShader(WorldObjectShader):
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
             // Set texture coords
-            $$ if texture_dim == '1d'
+            $$ if colormap_dim == '1d'
             varyings.texcoord = f32(load_s_texcoords(i0));
-            $$ elif texture_dim == '2d'
+            $$ elif colormap_dim == '2d'
             varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
-            $$ elif texture_dim == '3d'
+            $$ elif colormap_dim == '3d'
             varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
             $$ endif
 
@@ -372,50 +372,16 @@ class MeshShader(WorldObjectShader):
 
         [[stage(fragment)]]
         fn fs_main(varyings: Varyings, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
-            var color_value: vec4<f32>;
 
-            $$ if texture_dim
-                $$ if texture_dim == '1d'
-                    $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord);
-                    $$ else
-                        let texcoords_dim = f32(textureDimensions(r_tex);
-                        let texcoords_u = i32(varyings.texcoord.x * texcoords_dim % texcoords_dim);
-                        color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-                    $$ endif
-                $$ elif texture_dim == '2d'
-                    $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.xy);
-                    $$ else
-                        let texcoords_dim = vec2<f32>(textureDimensions(r_tex));
-                        let texcoords_u = vec2<i32>(varyings.texcoord.xy * texcoords_dim % texcoords_dim);
-                        color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-                    $$ endif
-                $$ elif texture_dim == '3d'
-                    $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.xyz);
-                    $$ else
-                        let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
-                        let texcoords_u = vec3<i32>(varyings.texcoord.xyz * texcoords_dim % texcoords_dim);
-                        color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-                    $$ endif
-                $$ endif
-
-                $$ if climcorrection
-                    color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
-                $$ endif
-                $$ if texture_nchannels == 1
-                    color_value = vec4<f32>(color_value.rrr, 1.0);
-                $$ elif texture_nchannels == 2
-                    color_value = vec4<f32>(color_value.rrr, color_value.g);
-                $$ endif
-                let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
+            $$ if colormap_dim
+                let color_value = sample_colormap(varyings.texcoord);
+                let albeido = color_value.rgb;  // no more colormap
             $$ elif normal_color
                 let albeido = normalize(varyings.normal.xyz) * 0.5 + 0.5;
-                color_value = vec4<f32>(albeido, 1.0);
+                let color_value = vec4<f32>(albeido, 1.0);
             $$ else
                 // Just a simple color
-                color_value = u_material.color;
+                let color_value = u_material.color;
                 let albeido = color_value.rgb;
             $$ endif
 
