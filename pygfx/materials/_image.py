@@ -16,7 +16,7 @@ class ImageBasicMaterial(Material):
     @property
     def map(self):
         """The colormap to turn the image values into its final color.
-        If not given or None, the image values directly represents the color.
+        If not given or None, the values themselves represents the color.
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of channels in the image.
         """
