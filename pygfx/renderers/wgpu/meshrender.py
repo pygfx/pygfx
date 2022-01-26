@@ -75,11 +75,8 @@ def mesh_renderer(render_info):
             "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
         )
 
-    only_color_and_opacity_determine_fragment_alpha = True
-
-    # If a texture is applied ...
+    # If a colormap (aka texture map) is applied ...
     if material.map is not None:
-        only_color_and_opacity_determine_fragment_alpha = False
         if isinstance(material.map, Texture):
             raise TypeError("material.map is a Texture, but must be a TextureView")
         elif not isinstance(material.map, TextureView):
@@ -91,14 +88,8 @@ def mesh_renderer(render_info):
         )
         bindings1[5] = Binding("t_colormap", "texture/auto", material.map, "FRAGMENT")
         # Dimensionality
-        view_dim = material.map.view_dim
-        if view_dim == "1d":
-            shader["colormap_dim"] = "1d"
-        elif view_dim == "2d":
-            shader["colormap_dim"] = "2d"
-        elif view_dim == "3d":
-            shader["colormap_dim"] = "3d"
-        else:
+        shader["colormap_dim"] = view_dim = material.map.view_dim
+        if view_dim not in ("1d", "2d", "3d"):
             raise ValueError("Unexpected texture dimension")
         # Texture dim matches texcoords
         vert_fmt = to_vertex_format(geometry.texcoords.format)
@@ -173,7 +164,10 @@ def mesh_renderer(render_info):
 
     # Determine in what render passes this objects must be rendered
     suggested_render_mask = 3
-    if only_color_and_opacity_determine_fragment_alpha:
+    if material.map is not None:
+        if shader["colormap_nchannels"] in (1, 3):
+            suggested_render_mask = 1
+    else:
         is_opaque = material.opacity >= 1 and material.color[3] >= 1
         suggested_render_mask = 1 if is_opaque else 2
 

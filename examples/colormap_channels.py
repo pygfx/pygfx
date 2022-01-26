@@ -10,6 +10,7 @@ import pygfx as gfx
 canvas = WgpuCanvas(size=(900, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
+scene.add(gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1))))
 
 geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)
 geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0])

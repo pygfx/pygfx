@@ -99,7 +99,10 @@ class MeshBasicMaterial(Material):
 
     @property
     def map(self):
-        """The texture map specifying the color for each texture coordinate."""
+        """The texture map specifying the color for each texture coordinate.
+        The dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+        """
         return self._map
 
     @map.setter

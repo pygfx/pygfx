@@ -21,7 +21,7 @@ class BaseImageShader(WorldObjectShader):
         };
 
         fn get_im_geometry() -> ImGeometry {
-            let size = textureDimensions(r_tex);
+            let size = textureDimensions(t_img);
             var geo: ImGeometry;
 
             geo.indices = array<i32,6>(0, 1, 2,   3, 2, 1);
@@ -49,10 +49,10 @@ class BaseImageShader(WorldObjectShader):
 
             // Sample the color, always produces a vec4
             $$ if img_format == 'f32'
-                let value_rgba = textureSample(r_tex, r_sampler, texcoord.xy);
+                let value_rgba = textureSample(t_img, s_img, texcoord.xy);
             $$ else
                 let texcoords_u = vec2<i32>(texcoord.xy * sizef.xy);
-                let value_rgba = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
+                let value_rgba = vec4<f32>(textureLoad(t_img, texcoords_u, 0));
             $$ endif
 
             // Make it the correct dimension
@@ -137,8 +137,38 @@ def image_renderer(render_info):
         # Channels
         shader["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-    bindings[3] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
-    bindings[4] = Binding("r_tex", "texture/auto", view, vertex_and_fragment)
+    bindings[3] = Binding("s_img", "sampler/filtering", view, "FRAGMENT")
+    bindings[4] = Binding("t_img", "texture/auto", view, vertex_and_fragment)
+
+    # If a colormap is applied ...
+    if material.map is not None:
+        if isinstance(material.map, Texture):
+            raise TypeError("material.map is a Texture, but must be a TextureView")
+        elif not isinstance(material.map, TextureView):
+            raise TypeError("material.map must be a TextureView")
+        bindings[5] = Binding(
+            "s_colormap", "sampler/filtering", material.map, "FRAGMENT"
+        )
+        bindings[6] = Binding("t_colormap", "texture/auto", material.map, "FRAGMENT")
+        # Dimensionality
+        shader["colormap_dim"] = view_dim = material.map.view_dim
+        if material.map.view_dim not in ("1d", "2d", "3d"):
+            raise ValueError("Unexpected texture dimension")
+        # Texture dim matches image channels
+        if int(view_dim[0]) != shader["img_nchannels"]:
+            raise ValueError(
+                f"Image channels {shader['img_nchannels']} does not match material.map {view_dim}"
+            )
+        # Sampling type
+        fmt = to_texture_format(material.map.format)
+        if "norm" in fmt or "float" in fmt:
+            shader["colormap_format"] = "f32"
+        elif "uint" in fmt:
+            shader["colormap_format"] = "u32"
+        else:
+            shader["colormap_format"] = "i32"
+        # Channels
+        shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
     # Let the shader generate code for our bindings
     for i, binding in bindings.items():
@@ -146,10 +176,14 @@ def image_renderer(render_info):
 
     # Get in what passes this needs rendering
     suggested_render_mask = 3
-    if material.opacity >= 1 and shader["img_nchannels"] in (1, 3):
-        suggested_render_mask = 1
-    elif material.opacity < 1:
+    if material.opacity < 1:
         suggested_render_mask = 2
+    if material.map is not None:
+        if shader["colormap_nchannels"] in (1, 3):
+            suggested_render_mask = 1
+    else:
+        if shader["img_nchannels"] in (1, 3):
+            suggested_render_mask = 1
 
     # Put it together!
     return [
@@ -209,7 +243,7 @@ class ImageShader(BaseImageShader):
 
         [[stage(fragment)]]
         fn fs_main(varyings: Varyings) -> FragmentOutput {
-            let sizef = vec2<f32>(textureDimensions(r_tex));
+            let sizef = vec2<f32>(textureDimensions(t_img));
             let color_value = sample(varyings.texcoord.xy, sizef);
             let albeido = color_value.rgb;
 
