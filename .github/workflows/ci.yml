@@ -58,9 +58,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Test Linux py36
-            os: ubuntu-latest
-            pyversion: '3.6'
           - name: Test Linux py37
             os: ubuntu-latest
             pyversion: '3.7'

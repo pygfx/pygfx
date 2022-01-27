@@ -23,7 +23,7 @@ setup(
     packages=find_packages(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
-    python_requires=">=3.6.0",
+    python_requires=">=3.7.0",
     install_requires=runtime_deps,
     license="BSD 2-Clause",
     description=SUMMARY,
