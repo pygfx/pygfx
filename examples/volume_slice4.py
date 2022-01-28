@@ -12,7 +12,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-voldata = imageio.volread("imageio:stent.npz")
+voldata = imageio.volread("imageio:stent.npz").astype("float32")
 nslices = voldata.shape[0]
 index = nslices // 2
 

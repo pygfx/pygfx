@@ -30,7 +30,6 @@ def mesh_renderer(render_info):
         lighting="",
         colormap_format="f32",
         instanced=False,
-        climcorrection=None,
         wireframe=material.wireframe,
         normal_color=False,
     )
@@ -100,14 +99,9 @@ def mesh_renderer(render_info):
                 f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
             )
         # Sampling type
-        # todo: remove clim stuff
         fmt = to_texture_format(material.map.format)
         if "norm" in fmt or "float" in fmt:
             shader["colormap_format"] = "f32"
-            if "unorm" in fmt:
-                shader["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                shader["climcorrection"] = " * 255.0 - 128.0"
         elif "uint" in fmt:
             shader["colormap_format"] = "u32"
         else:
@@ -496,6 +490,12 @@ class MeshShader(WorldObjectShader):
 @register_wgpu_render_function(Mesh, MeshSliceMaterial)
 def meshslice_renderer(render_info):
     """Render function capable of rendering mesh slices."""
+
+    # It would technically be possible to implement colormapping or
+    # per-vertex colors, but its a tricky dance to get the per-vertex
+    # data (e.g. texcoords) into a varying. And because the visual
+    # result is a line, its likely that in most use-cases a uniform
+    # color is preferred anyway. So for now we don't implement that.
 
     wobject = render_info.wobject
     geometry = wobject.geometry

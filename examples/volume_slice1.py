@@ -12,7 +12,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-vol = imageio.volread("imageio:stent.npz")
+vol = imageio.volread("imageio:stent.npz").astype("float32") / 2000
 nslices = vol.shape[0]
 index = nslices // 2
 im = vol[index].copy()
@@ -20,7 +20,7 @@ im = vol[index].copy()
 tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.plane_geometry(200, 200, 12, 12)
-material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"), clim=(0, 2000))
+material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)
 
