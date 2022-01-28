@@ -91,7 +91,7 @@ pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 Under development, many things can change.
 
 
-## Example screenshot verification
+## Example testing
 
 Include the comment `# test_example = true` in an example to have pytest run it as part of the test suite.
 
