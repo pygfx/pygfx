@@ -5,6 +5,7 @@ Show an image displayed the correct way.
 * The green dots should be in the center of these pixels.
 * The darker corner is in the bottom left.
 """
+# test_example = true
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -40,8 +41,9 @@ scene.add(points)
 
 camera = gfx.OrthographicCamera(10, 10)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
+
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

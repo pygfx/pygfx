@@ -4,6 +4,7 @@ Render a volume and volume slices. You should see:
 * On the right: three orthogonal slices inside - and through the middle of - a green box.
 * The volume has its corners darker and its very center is brighter.
 """
+# test_example = true
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -67,6 +68,7 @@ def animate():
     renderer.flush()
 
 
+canvas.request_draw(animate)
+
 if __name__ == "__main__":
-    canvas.request_draw(animate)
     run()

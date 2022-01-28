@@ -89,3 +89,16 @@ pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 ## Current status
 
 Under development, many things can change.
+
+
+## Example testing
+
+Include the comment `# test_example = true` in an example to have pytest run it as part of the test suite.
+
+To support testing an example, ensure the following requirements are met:
+
+* The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
+* The `canvas` instance is exposed as a global in the module.
+
+By default the test will simply verify that the example can be executed without an error, and that an
+image can be rendered using the canvas.

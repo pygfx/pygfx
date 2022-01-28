@@ -7,6 +7,7 @@ But the plane gemeometry is such that it is reversed again.
 * The green dots should be on the edge of the image.
 * The darker corner is in the top left.
 """
+# test_example = true
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -44,8 +45,8 @@ scene.add(points)
 
 camera = gfx.OrthographicCamera(10, 10)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

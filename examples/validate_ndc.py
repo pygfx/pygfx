@@ -6,6 +6,7 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 * The other corners must be black, cut off at exactly half way: the depth is 0-1.
 
 """
+# test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu._shadercomposer import Binding, WorldObjectShader
@@ -84,8 +85,8 @@ scene.add(t1)
 
 camera = gfx.NDCCamera()  # This example does not even use the camera
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()
