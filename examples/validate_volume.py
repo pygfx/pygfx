@@ -4,6 +4,7 @@ Render a volume and volume slices. You should see:
 * On the right: three orthogonal slices inside - and through the middle of - a green box.
 * The volume has its corners darker and its very center is brighter.
 """
+# test_example = true, ntol = 1300
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -27,11 +28,11 @@ geo = gfx.Geometry(grid=gfx.Texture(voldata, dim=3))
 # Prepare two 3x3x3 boxes to indicate the proper position
 box1 = gfx.Mesh(
     gfx.box_geometry(3.1, 3.1, 3.1),
-    gfx.MeshBasicMaterial(color=(1, 0, 0, 1), wireframe=True, wireframe_thickness=2),
+    gfx.MeshBasicMaterial(color=(1, 0, 0, 1), wireframe=True, wireframe_thickness=1),
 )
 box2 = gfx.Mesh(
     gfx.box_geometry(3.1, 3.1, 3.1),
-    gfx.MeshBasicMaterial(color=(0, 1, 0, 1), wireframe=True, wireframe_thickness=2),
+    gfx.MeshBasicMaterial(color=(0, 1, 0, 1), wireframe=True, wireframe_thickness=1),
 )
 
 # In scene1 we show a raycasted volume
@@ -67,6 +68,7 @@ def animate():
     renderer.flush()
 
 
+canvas.request_draw(animate)
+
 if __name__ == "__main__":
-    canvas.request_draw(animate)
     run()

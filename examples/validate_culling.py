@@ -6,6 +6,7 @@ Example test to validate winding and culling.
 * The bottom row shows the same, but the camera looks backwards.
 
 """
+# test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -51,7 +52,9 @@ def animate():
     renderer.render(scene, camera, viewport=(0, 300, 600, 300))
 
 
+canvas.request_draw(animate)
+
+
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(animate)
     run()

@@ -4,6 +4,7 @@ Pipfile.lock
 .vscode
 pyproject.toml
 poetry.lock
+.DS_Store
 
 # Special for this repo
 nogit/

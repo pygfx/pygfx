@@ -5,6 +5,7 @@ rectangles near the near and far clipping planes.
 * Only the two green ones should be visible.
 * The greener square should be in the upper-left.
 """
+# test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -54,8 +55,8 @@ plane4.position = gfx.linalg.Vector3(+0.51, +0.51, -(far + 0.01))  # out range
 for plane in (plane1, plane2, plane3, plane4):
     scene.add(plane)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

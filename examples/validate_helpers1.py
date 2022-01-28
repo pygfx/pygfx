@@ -6,6 +6,7 @@ Example showing the axes helper.
 * The yellow axes (y) must be to the top.
 * The blue axes (z) is not visible.
 """
+# test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -18,8 +19,8 @@ scene = gfx.Scene()
 scene.add(gfx.AxesHelper(length=40))
 camera = gfx.OrthographicCamera(100, 100)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

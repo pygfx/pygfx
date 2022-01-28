@@ -5,6 +5,7 @@ Example showing the axes and grid helpers with a perspective camera.
 * The yellow axis (y) stick up from the plane.
 * The red box fits snugly around the grid.
 """
+# test_example = true, ntol = 20
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -42,7 +43,9 @@ def animate():
     canvas.request_draw()
 
 
+canvas.request_draw(animate)
+
+
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(animate)
     run()
