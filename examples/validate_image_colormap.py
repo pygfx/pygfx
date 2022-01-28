@@ -4,6 +4,7 @@ Show an image with a simple colormap.
 * You should see a square image with 3 equally sized vertical bands.
 * The bands should be red, green, and blue.
 """
+# test_example = true
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
