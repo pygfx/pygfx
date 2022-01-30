@@ -26,13 +26,13 @@ def get_geometry(**kwargs):
     return geo
 
 
-def WobjectClass(geometry, material):
+def WobjectClass(geometry, material):  # noqa
     return gfx.Mesh(geometry, material)
     # return gfx.Points(geometry, material)
     # return gfx.Line(geometry, material)
 
 
-def MaterialClass(**kwargs):
+def MaterialClass(**kwargs):  # noqa
     return gfx.MeshPhongMaterial(**kwargs)
     # return gfx.PointsMaterial(size=10, **kwargs)
     # return gfx.LineArrowMaterial(thickness=5, **kwargs)
