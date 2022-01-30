@@ -17,6 +17,7 @@ class MeshBasicMaterial(Material):
     def __init__(
         self,
         color=(1, 1, 1, 1),
+        vertex_colors=False,
         map=None,
         wireframe=False,
         wireframe_thickness=1,
@@ -25,8 +26,9 @@ class MeshBasicMaterial(Material):
     ):
         super().__init__(**kwargs)
 
-        self.map = map
         self.color = color
+        self._vertex_colors = bool(vertex_colors)
+        self.map = map
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
         self.side = side
@@ -59,6 +61,18 @@ class MeshBasicMaterial(Material):
             self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def vertex_colors(self):
+        """Whether to use the vertex colors provided in the geometry."""
+        return self._vertex_colors
+
+    @vertex_colors.setter
+    def vertex_colors(self, value):
+        value = bool(value)
+        if value != self._vertex_colors:
+            self._vertex_colors = value
+            self._bump_rev()
 
     @property
     def map(self):

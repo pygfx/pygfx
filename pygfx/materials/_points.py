@@ -1,4 +1,5 @@
 from ._base import Material
+from ..resources import TextureView
 from ..utils import unpack_bitfield, Color
 
 
@@ -18,15 +19,16 @@ class PointsMaterial(Material):
         size=1,
         vertex_colors=False,
         vertex_sizes=False,
+        map=None,
         **kwargs
     ):
         super().__init__(**kwargs)
 
-        self._map = None
         self.color = color
+        self._vertex_colors = bool(vertex_colors)
+        self.map = map
         self.size = size
-        self._vertex_colors = vertex_colors
-        self._vertex_sizes = vertex_sizes
+        self._vertex_sizes = bool(vertex_sizes)
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -56,6 +58,7 @@ class PointsMaterial(Material):
 
     @vertex_colors.setter
     def vertex_colors(self, value):
+        value = bool(value)
         if value != self._vertex_colors:
             self._vertex_colors = value
             self._bump_rev()
@@ -63,7 +66,7 @@ class PointsMaterial(Material):
     @property
     def size(self):
         """The size (diameter) of the points, in logical pixels."""
-        return self.uniform_buffer.data["size"]
+        return float(self.uniform_buffer.data["size"])
 
     @size.setter
     def size(self, size):
@@ -77,19 +80,24 @@ class PointsMaterial(Material):
 
     @vertex_sizes.setter
     def vertex_sizes(self, value):
+        value = bool(value)
         if value != self._vertex_sizes:
             self._vertex_sizes = value
             self._bump_rev()
 
-    # @property
-    # def map(self):
-    #     """ The 1D texture map specifying the color for each point.
-    #     """
-    #     return self._map
-    #
-    # @map.setter
-    # def map(self, map):
-    #     self._map = map
+    @property
+    def map(self):
+        """The texture map specifying the color for each texture coordinate.
+        The dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+        """
+        return self._map
+
+    @map.setter
+    def map(self, map):
+        assert map is None or isinstance(map, TextureView)
+        self._map = map
+
     # todo: sizeAttenuation
 
 
