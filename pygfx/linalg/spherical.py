@@ -16,7 +16,7 @@ class Spherical:
         return self.set_from_cartesian_coords(v.x, v.y, v.z)
 
     def set_from_cartesian_coords(self, x: float, y: float, z: float) -> "Spherical":
-        self.radius = math.sqrt(x ** 2 + y ** 2 + z ** 2)
+        self.radius = math.sqrt(x**2 + y**2 + z**2)
         if self.radius == 0:
             self.theta, self.phi = 0, 0
         else:

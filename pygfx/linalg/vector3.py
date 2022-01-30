@@ -279,7 +279,7 @@ class Vector3:
         return self.x * v.x + self.y * v.y + self.z * v.z
 
     def length_sq(self) -> float:
-        return self.x ** 2 + self.y ** 2 + self.z ** 2
+        return self.x**2 + self.y**2 + self.z**2
 
     def length(self) -> float:
         return self.length_sq() ** 0.5

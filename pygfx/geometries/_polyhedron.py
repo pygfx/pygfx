@@ -288,7 +288,7 @@ def polyhedron_geometry(
         grid /= np.linalg.norm(grid, axis=-1)[..., None]
 
     # create an index array for a single face's plane of quads
-    indices = np.arange(n ** 2, dtype=np.uint32).reshape((n, n))
+    indices = np.arange(n**2, dtype=np.uint32).reshape((n, n))
     index = np.empty((n - 1, n - 1, 2, 3), dtype=np.uint32)
     index[:, :, 0, 0] = indices[np.arange(n - 1)[:, None], np.arange(n - 1)[None, :]]
     # the remainder of the indices for every panel are relative
