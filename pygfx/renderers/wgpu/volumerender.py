@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
-from .imagerender import sampled_value_to_color
+from .imagerender import sampled_value_to_color, handle_colormap
 from ._utils import to_texture_format
 from ...objects import Volume
 from ...materials import VolumeBasicMaterial, VolumeSliceMaterial, VolumeRayMaterial
@@ -39,10 +39,11 @@ def volume_renderer(render_info):
     else:
         raise RuntimeError(f"Unexpected volume material: {material}")
 
-    bindings = {}
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
+    bindings = [
+        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+        Binding("u_material", "buffer/uniform", material.uniform_buffer),
+    ]
 
     # Collect texture and sampler
     if geometry.grid is None:
@@ -71,41 +72,15 @@ def volume_renderer(render_info):
         # Channels
         shader["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-    bindings[3] = Binding("s_img", "sampler/filtering", view, "FRAGMENT")
-    bindings[4] = Binding("t_img", "texture/auto", view, vertex_and_fragment)
+    bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
+    bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
 
     # If a colormap is applied ...
     if material.map is not None:
-        if isinstance(material.map, Texture):
-            raise TypeError("material.map is a Texture, but must be a TextureView")
-        elif not isinstance(material.map, TextureView):
-            raise TypeError("material.map must be a TextureView")
-        bindings[5] = Binding(
-            "s_colormap", "sampler/filtering", material.map, "FRAGMENT"
-        )
-        bindings[6] = Binding("t_colormap", "texture/auto", material.map, "FRAGMENT")
-        # Dimensionality
-        shader["colormap_dim"] = view_dim = material.map.view_dim
-        if material.map.view_dim not in ("1d", "2d", "3d"):
-            raise ValueError("Unexpected colormap texture dimension")
-        # Texture dim matches image channels
-        if int(view_dim[0]) != shader["img_nchannels"]:
-            raise ValueError(
-                f"Volume channels {shader['img_nchannels']} does not match material.map {view_dim}"
-            )
-        # Sampling type
-        fmt = to_texture_format(material.map.format)
-        if "norm" in fmt or "float" in fmt:
-            shader["colormap_format"] = "f32"
-        elif "uint" in fmt:
-            shader["colormap_format"] = "u32"
-        else:
-            shader["colormap_format"] = "i32"
-        # Channels
-        shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        bindings.extend(handle_colormap(geometry, material, shader))
 
     # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
+    for i, binding in enumerate(bindings):
         shader.define_binding(0, i, binding)
 
     # Get in what passes this needs rendering
