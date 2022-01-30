@@ -29,7 +29,7 @@ scene.add(image)
 camera = gfx.OrthographicCamera(99, 99)
 camera.position.set(50, 50, 0)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()
