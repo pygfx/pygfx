@@ -1,3 +1,4 @@
+===============
 The pygfx guide
 ===============
 
@@ -157,6 +158,55 @@ Materials
 Each world object also has a material. This material object defines the
 appearance of the object. Examples can be its color, how it behaves under lighting,
 what render-mode is applied, etc. Multiple world objects may share a material.
+
+
+Colors
+------
+
+Colors in Pygfx can be specified in various ways, e.g.:
+
+.. code-block:: python
+
+    material.color = "red"
+    material.color = "#ff0000"
+    material.color = 1, 0, 0
+
+Most colors in Pygfx contain four components (including alpha), but can be specified
+with 1-4 components:
+
+* a scalar: a grayscale intensity (alpha 1).
+* two values: grayscale intensity plus alpha.
+* three values: red, green, and blue (i.e. rgb).
+* four values: rgb and alpha (i.e. rgba).
+
+
+Colors for the Mesh, Point, and Line
+====================================
+
+These objects can be made a uniform color using `material.color`. More
+sophisticated coloring is possible using colormapping and per-vertex
+colors.
+
+For Colormapping, the geometry must have a `.texcoords` attribute that
+specifies the per-vertex texture coordinates, and the material should
+have a `.map` attribute that is a texture in which the final color
+will be looked up. The texture can be 1D, 2D or 3D, and the number of columns
+in the `geometry.texcoords` should match. This allows for a wide variety of
+visualizations.
+
+Per-vertex colors can be specified as `geometry.colors`. They must be enabled
+by setting `material.vertex_colors` to `True`.
+
+The colors specified in `material.map` and in `geometry.colors` can have 1-4 values.
+
+
+Colors in Image and Volume
+==========================
+
+The values of the Image and Volume can be either directly interpreted as a color
+or can be mapped through a colormap set at `material.map`. If a colormap is used,
+it's dimension should match the number of channels in the data. Again,
+both direct and colormapped colors can be 1-4 values.
 
 
 Using Pygfx in Jupyter
