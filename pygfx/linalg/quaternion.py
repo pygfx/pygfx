@@ -265,7 +265,7 @@ class Quaternion:
             self.normalize()
             return self
 
-        sin_half_theta = sqr_sin_half_theta ** 0.5
+        sin_half_theta = sqr_sin_half_theta**0.5
         half_theta = atan2(sin_half_theta, cos_half_theta)
         ratio_a = sin((1 - t) * half_theta) / sin_half_theta
         ratio_b = sin(t * half_theta) / sin_half_theta

@@ -29,7 +29,8 @@ class Geometry(ResourceContainer):
     * ``normals``: Nx3 normal vectors. These may or may not be unit.
     * ``texcoords``: Texture coordinates used to lookup the color for a vertex.
       Can be Nx1, Nx2 or Nx3, corresponding to a 1D, 2D and 3D texture map.
-    * ``colors``: Nx4 per-vertex colors (rgba).
+    * ``colors``: Per-vertex colors. Must be NxM, with M 1-4 for gray,
+      gray+alpha, rgb, rgba, respectively.
     * ``sizes``: Scalar size per-vertex.
     * ``grid``: A 2D or 3D Texture/TextureView that contains a regular grid of
       data. I.e. for images and volumes.

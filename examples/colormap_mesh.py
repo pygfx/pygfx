@@ -1,5 +1,9 @@
 """
-Example demonstrating different colormap dimensions on a mesh.
+Example demonstrating different colormap dimensions on a mesh, and
+per-vertex colors as a bonus.
+
+The default visiualization is a mesh, but by (un)commenting a few lines,
+this can also be applied for points and lines.
 """
 
 import numpy as np
@@ -13,17 +17,25 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 
-def get_geometry():
-    return gfx.cylinder_geometry(height=2, radial_segments=32, open_ended=True)
+def get_geometry(**kwargs):
+    geo = gfx.cylinder_geometry(
+        height=2, radial_segments=32, height_segments=4, open_ended=False
+    )
+    for key, val in kwargs.items():
+        setattr(geo, key, val)
+    return geo
 
 
-def create_object(texcoords, tex, xpos):
-    geometry = get_geometry()
-    geometry.texcoords = gfx.Buffer(texcoords)
-    material = gfx.MeshPhongMaterial(map=tex, clim=(-0.05, 1))
-    obj = gfx.Mesh(geometry, material)
-    obj.position.x = xpos
-    scene.add(obj)
+def WobjectClass(geometry, material):  # noqa
+    return gfx.Mesh(geometry, material)
+    # return gfx.Points(geometry, material)
+    # return gfx.Line(geometry, material)
+
+
+def MaterialClass(**kwargs):  # noqa
+    return gfx.MeshPhongMaterial(**kwargs)
+    # return gfx.PointsMaterial(size=10, **kwargs)
+    # return gfx.LineArrowMaterial(thickness=5, **kwargs)
 
 
 geometry = get_geometry()
@@ -42,7 +54,13 @@ texcoords1 = geometry.texcoords.data[:, 1].copy()
 cmap1 = np.array([(1, 1, 0), (0, 1, 1)], np.float32)
 tex1 = gfx.Texture(cmap1, dim=1).get_view(filter="linear")
 
-create_object(texcoords1, tex1, -6)
+ob1 = WobjectClass(
+    get_geometry(texcoords=gfx.Buffer(texcoords1)),
+    MaterialClass(map=tex1),
+)
+scene.add(ob1)
+ob1.position.x = -6
+
 
 # === 2D colormap
 #
@@ -54,7 +72,12 @@ texcoords2 = geometry.texcoords.data.copy()
 cmap2 = imageio.imread("imageio:chelsea.png").astype(np.float32) / 255
 tex2 = gfx.Texture(cmap2, dim=2).get_view(address_mode="repeat")
 
-create_object(texcoords2, tex2, -2)
+ob2 = WobjectClass(
+    get_geometry(texcoords=gfx.Buffer(texcoords2)),
+    MaterialClass(map=tex2),
+)
+scene.add(ob2)
+ob2.position.x = -2
 
 
 # === 3D colormap
@@ -70,33 +93,28 @@ texcoords3 = geometry.positions.data * 0.4 + 0.5
 cmap3 = imageio.volread("imageio:stent.npz").astype(np.float32) / 2000
 tex3 = gfx.Texture(cmap3, dim=3).get_view()
 
-create_object(texcoords3, tex3, +2)
+ob3 = WobjectClass(
+    get_geometry(texcoords=gfx.Buffer(texcoords3)),
+    MaterialClass(map=tex3),
+)
+scene.add(ob3)
+ob3.position.x = +2
 
 
 # === Per vertex coloring
 #
-# To specify a color for each vertex, we also use 3D texture coordinates.
-# In this case we use the normals (a normal in the x direction would be red).
-# To make this work, we use a 3D colormap that represents an RGB color cube.
+# To specify a color for each vertex, provide a geometry.colors buffer and
+# enable the material.vertex_colors flag. We use the normals as input.
 
-texcoords4 = geometry.normals.data * 0.4 + 0.5
+colors = geometry.normals.data * 0.4 + 0.5
+colors = colors[:, :3]  # Colors can be Nx1, Nx2, Nx3, Nx4
 
-cmap4 = np.array(
-    [
-        [
-            [(0, 0, 0), (1, 0, 0)],
-            [(0, 1, 0), (1, 1, 0)],
-        ],
-        [
-            [(0, 0, 1), (1, 0, 1)],
-            [(0, 1, 1), (1, 1, 1)],
-        ],
-    ],
-    np.float32,
+ob4 = WobjectClass(
+    get_geometry(colors=gfx.Buffer(colors)),
+    MaterialClass(vertex_colors=True),
 )
-tex4 = gfx.Texture(cmap4, dim=3).get_view(filter="linear")
-
-create_object(texcoords4, tex4, +6)
+scene.add(ob4)
+ob4.position.x = +6
 
 
 def animate():

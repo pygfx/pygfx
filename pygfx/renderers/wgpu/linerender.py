@@ -2,6 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
+from .pointsrender import handle_colormap
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line
@@ -48,7 +49,10 @@ def line_renderer(render_info):
     wobject = render_info.wobject
     material = wobject.material
     geometry = wobject.geometry
-    shader = LineShader(render_info)
+    shader = LineShader(
+        render_info,
+        vertex_color_channels=0,
+    )
 
     assert isinstance(material, LineMaterial)
 
@@ -74,30 +78,29 @@ def line_renderer(render_info):
     uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
     uniform_buffer.data["last_i"] = positions1.nitems - 1
 
-    bindings = {}
+    bindings = [
+        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+        Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        Binding("u_renderer", "buffer/uniform", uniform_buffer),
+        Binding("s_positions", "buffer/read_only_storage", positions1, "VERTEX"),
+    ]
 
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
-    bindings[3] = Binding("u_renderer", "buffer/uniform", uniform_buffer)
-
-    bindings[4] = Binding(
-        "s_positions", "buffer/read_only_storage", positions1, "VERTEX"
-    )
-
-    # Global color or per-vertex?
-    only_color_and_opacity_determine_fragment_alpha = True
-    shader["per_vertex_color"] = False
+    # Per-vertex color, colormap, or a plane color?
+    shader["color_mode"] = "uniform"
     if material.vertex_colors:
-        only_color_and_opacity_determine_fragment_alpha = False
-        colors1 = geometry.colors
-        if colors1.data.shape[1] != 4:
-            raise ValueError(
-                "For rendering (thick) lines, the geometry.colors must be Nx4."
-            )
-        bindings[5] = Binding("s_colors", "buffer/read_only_storage", colors1, "VERTEX")
-        shader["per_vertex_color"] = True
+        shader["color_mode"] = "vertex"
+        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+        if nchannels not in (1, 2, 3, 4):
+            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        bindings.append(
+            Binding("s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX")
+        )
+    elif material.map is not None:
+        shader["color_mode"] = "map"
+        bindings.extend(handle_colormap(geometry, material, shader))
 
+    # Triage over materials
     if isinstance(material, LineArrowMaterial):
         shader["line_type"] = "arrow"
         n = (positions1.nitems // 2) * 2 * 4
@@ -109,14 +112,18 @@ def line_renderer(render_info):
         n = positions1.nitems * 5
 
     # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
+    for i, binding in enumerate(bindings):
         shader.define_binding(0, i, binding)
 
-    # The renderer use alpha for aa, so we are never opaque only.
+    # Determine in what render passes this objects must be rendered
+    # Note: the renderer use alpha for aa, so we are never opaque only.
     suggested_render_mask = 3
-    if only_color_and_opacity_determine_fragment_alpha:
-        if material.opacity < 1 or material.color[3] < 1:
-            suggested_render_mask = 2
+    if material.opacity < 1:
+        suggested_render_mask = 2
+    elif shader["color_mode"] == "uniform":
+        suggested_render_mask = 3 if material.color[3] >= 1 else 2
+    else:
+        suggested_render_mask = 3
 
     # Done
     return [
@@ -197,18 +204,42 @@ class LineShader(WorldObjectShader):
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
             let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
+            let i0 = result.i;
 
             var varyings: Varyings;
             varyings.position = vec4<f32>(result.pos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
             varyings.thickness_p = f32(result.thickness_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
-            varyings.color = vec4<f32>(load_s_colors(result.i));
+
+            // Picking
             // Note: in theory, we can store ints up to 16_777_216 in f32,
             // but in practice, its about 4_000_000 for f32 varyings (in my tests).
             // We use a real u32 to not lose presision, see frag shader for details.
             varyings.pick_idx = u32(result.i);
             varyings.pick_zigzag = f32(select(0.0, 1.0, result.i % 2 == 0));
+
+            // Per-vertex colors
+            $$ if vertex_color_channels == 1
+            let cvalue = load_s_colors(i0);
+            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+            $$ elif vertex_color_channels == 2
+            let cvalue = load_s_colors(i0);
+            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+            $$ elif vertex_color_channels == 3
+            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
+            $$ elif vertex_color_channels == 4
+            varyings.color = vec4<f32>(load_s_colors(i0));
+            $$ endif
+
+            // Set texture coords
+            $$ if colormap_dim == '1d'
+            varyings.texcoord = f32(load_s_texcoords(i0));
+            $$ elif colormap_dim == '2d'
+            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
+            $$ elif colormap_dim == '3d'
+            varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+            $$ endif
 
             return varyings;
         }
@@ -473,10 +504,12 @@ class LineShader(WorldObjectShader):
             alpha = pow(alpha, 2.0);
 
             // Set color
-            $$ if per_vertex_color
-            let color = varyings.color;
+            $$ if color_mode == 'vertex'
+                let color = varyings.color;
+            $$ elif color_mode == 'map'
+                let color = sample_colormap(varyings.texcoord);
             $$ else
-            let color = u_material.color;
+                let color = u_material.color;
             $$ endif
 
             let final_color = vec4<f32>(color.rgb, min(1.0, color.a) * alpha * u_material.opacity);
@@ -519,7 +552,10 @@ def thin_line_renderer(render_info):
     wobject = render_info.wobject
     material = wobject.material
     geometry = wobject.geometry
-    shader = ThinLineShader(render_info)
+    shader = ThinLineShader(
+        render_info,
+        vertex_color_channels=0,
+    )
 
     positions1 = geometry.positions
 
@@ -527,34 +563,41 @@ def thin_line_renderer(render_info):
     if isinstance(material, LineThinSegmentMaterial):
         primitive = wgpu.PrimitiveTopology.line_list
 
-    bindings = {}
-
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
+    bindings = [
+        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+        Binding("u_material", "buffer/uniform", material.uniform_buffer),
+    ]
 
     vertex_buffers = {0: positions1}
 
-    only_color_and_opacity_determine_fragment_alpha = True
-    shader["per_vertex_color"] = False
+    # Per-vertex color, colormap, or a plane color?
+    shader["color_mode"] = "uniform"
     if material.vertex_colors:
-        only_color_and_opacity_determine_fragment_alpha = False
-        shader["per_vertex_color"] = True
-        colors1 = geometry.colors
-        if colors1.data.shape[1] != 4:
-            raise ValueError(
-                "For rendering (thick) lines, the geometry.colors must be Nx4."
-            )
-        vertex_buffers[1] = colors1
+        shader["color_mode"] = "vertex"
+        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+        if nchannels not in (1, 2, 3, 4):
+            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        vertex_buffers[1] = geometry.colors
+    elif material.map is not None:
+        shader["color_mode"] = "map"
+        bindings.extend(handle_colormap(geometry, material, shader))
+        # This shader uses vertex buffers
+        bindings.pop(-1)
+        vertex_buffers[1] = geometry.texcoords
 
     # Determine in what render passes this objects must be rendered
+    # Note: the renderer use alpha for aa, so we are never opaque only.
     suggested_render_mask = 3
-    if only_color_and_opacity_determine_fragment_alpha:
-        is_opaque = material.opacity >= 1 and material.color[3] >= 1
-        suggested_render_mask = 1 if is_opaque else 2
+    if material.opacity < 1:
+        suggested_render_mask = 2
+    elif shader["color_mode"] == "uniform":
+        suggested_render_mask = 3 if material.color[3] >= 1 else 2
+    else:
+        suggested_render_mask = 3
 
     # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
+    for i, binding in enumerate(bindings):
         shader.define_binding(0, i, binding)
 
     return [
@@ -583,12 +626,23 @@ class ThinLineShader(WorldObjectShader):
 
         struct VertexInput {
             [[location(0)]] pos : vec3<f32>;
-            $$ if per_vertex_color
-            [[location(1)]] color : vec4<f32>;
+            $$ if color_mode == 'vertex'
+                $$ if vertex_color_channels == 1
+                [[location(1)]] color : f32;
+                $$ else
+                [[location(1)]] color : vec{{ vertex_color_channels }}<f32>;
+                $$ endif
+            $$ elif color_mode == 'map'
+                $$ if colormap_dim == '1d'
+                [[location(1)]] texcoord : f32;
+                $$ elif colormap_dim == '2d'
+                [[location(1)]] texcoord : vec2<f32>;
+                $$ else
+                [[location(1)]] texcoord : vec3<f32>;
+                $$ endif
             $$ endif
             [[builtin(vertex_index)]] index : u32;
         };
-
 
         [[stage(vertex)]]
         fn vs_main(in: VertexInput) -> Varyings {
@@ -599,7 +653,27 @@ class ThinLineShader(WorldObjectShader):
             var varyings: Varyings;
             varyings.position = vec4<f32>(npos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(npos));
+
+            // Per-vertex colors
+            $$ if vertex_color_channels == 1
+            varyings.color = vec4<f32>(in.color, in.color, in.color, 1.0);
+            $$ elif vertex_color_channels == 2
+            varyings.color = vec4<f32>(in.color.r, in.color.r, in.color.r, in.color.g);
+            $$ elif vertex_color_channels == 3
+            varyings.color = vec4<f32>(in.color, 1.0);
+            $$ elif vertex_color_channels == 4
             varyings.color = vec4<f32>(in.color);
+            $$ endif
+
+            // Set texture coords
+            $$ if colormap_dim == '1d'
+            varyings.texcoord = f32(in.texcoord);
+            $$ elif colormap_dim == '2d'
+            varyings.texcoord = vec2<f32>(in.texcoord);
+            $$ elif colormap_dim == '3d'
+            varyings.texcoord = vec3<f32>(in.texcoord);
+            $$ endif
+
             return varyings;
         }
         """
@@ -608,10 +682,13 @@ class ThinLineShader(WorldObjectShader):
         return """
         [[stage(fragment)]]
         fn fs_main(varyings: Varyings) -> FragmentOutput {
-            $$ if per_vertex_color
-            let color = varyings.color;
+
+            $$ if color_mode == 'vertex'
+                let color = varyings.color;
+            $$ elif color_mode == 'map'
+                let color = sample_colormap(varyings.texcoord);
             $$ else
-            let color = u_material.color;
+                let color = u_material.color;
             $$ endif
 
             let final_color = vec4<f32>(color.rgb, color.a * u_material.opacity);

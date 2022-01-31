@@ -2,7 +2,7 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
-from ._utils import to_vertex_format, to_texture_format
+from .pointsrender import handle_colormap
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -12,7 +12,7 @@ from ...materials import (
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
 )
-from ...resources import Buffer, Texture, TextureView
+from ...resources import Buffer
 from ...utils import normals_from_vertices
 
 
@@ -28,12 +28,10 @@ def mesh_renderer(render_info):
     shader = MeshShader(
         render_info,
         lighting="",
-        texture_dim="",
-        texture_format="f32",
+        colormap_format="f32",
         instanced=False,
-        climcorrection=None,
         wireframe=material.wireframe,
-        normal_color=False,
+        vertex_color_channels=0,
     )
 
     # We're assuming the presence of an index buffer for now
@@ -52,90 +50,45 @@ def mesh_renderer(render_info):
     # We're using storage buffers for everything; no vertex nor index buffers.
     vertex_buffers = {}
     index_buffer = None
-    bindings0 = {}
-    bindings1 = {}
-    bindings2 = {}
 
-    # Init bindings 0: uniforms
-    bindings0[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings0[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings0[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
+    # Init bindings
+    bindings = [
+        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+        Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        Binding("s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"),
+        Binding(
+            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+        ),
+        Binding("s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"),
+    ]
 
-    # Init bindings 1: storage buffers, textures, and samplers
-    bindings1[0] = Binding(
-        "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
-    )
-    bindings1[1] = Binding(
-        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-    )
-    bindings1[2] = Binding(
-        "s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"
-    )
-    if getattr(geometry, "texcoords", None) is not None:
-        bindings1[3] = Binding(
-            "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
+    # Per-vertex color, colormap, or a plane color?
+    shader["color_mode"] = "uniform"
+    if material.vertex_colors:
+        shader["color_mode"] = "vertex"
+        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+        if nchannels not in (1, 2, 3, 4):
+            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        bindings.append(
+            Binding("s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX")
         )
+    elif material.map is not None:
+        shader["color_mode"] = "map"
+        bindings.extend(handle_colormap(geometry, material, shader))
 
-    only_color_and_opacity_determine_fragment_alpha = True
-
-    # If a texture is applied ...
-    if material.map is not None:
-        only_color_and_opacity_determine_fragment_alpha = False
-        if isinstance(material.map, Texture):
-            raise TypeError("material.map is a Texture, but must be a TextureView")
-        elif not isinstance(material.map, TextureView):
-            raise TypeError("material.map must be a TextureView")
-        elif getattr(geometry, "texcoords", None) is None:
-            raise ValueError("material.map is present, but geometry has no texcoords")
-        bindings1[4] = Binding(
-            "r_sampler", "sampler/filtering", material.map, "FRAGMENT"
-        )
-        bindings1[5] = Binding("r_tex", "texture/auto", material.map, "FRAGMENT")
-        # Dimensionality
-        view_dim = material.map.view_dim
-        if view_dim == "1d":
-            shader["texture_dim"] = "1d"
-        elif view_dim == "2d":
-            shader["texture_dim"] = "2d"
-        elif view_dim == "3d":
-            shader["texture_dim"] = "3d"
-        else:
-            raise ValueError("Unexpected texture dimension")
-        # Texture dim matches texcoords
-        vert_fmt = to_vertex_format(geometry.texcoords.format)
-        if view_dim == "1d" and "x" not in vert_fmt:
-            pass
-        elif not vert_fmt.endswith("x" + view_dim[0]):
-            raise ValueError(
-                f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
-            )
-        # Sampling type
-        fmt = to_texture_format(material.map.format)
-        if "norm" in fmt or "float" in fmt:
-            shader["texture_format"] = "f32"
-            if "unorm" in fmt:
-                shader["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                shader["climcorrection"] = " * 255.0 - 128.0"
-        elif "uint" in fmt:
-            shader["texture_format"] = "u32"
-        else:
-            shader["texture_format"] = "i32"
-        # Channels
-        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-
-    # Collect texture and sampler
+    # Triage based on material
     if isinstance(material, MeshNormalMaterial):
         # Special simple fragment shader
-        shader["texture_dim"] = ""  # disable texture if there happens to be one
-        shader["normal_color"] = True
+        shader["color_mode"] = "normal"
+        shader["colormap_dim"] = ""  # disable texture if there happens to be one
     elif isinstance(material, MeshNormalLinesMaterial):
         # Special simple vertex shader with plain fragment shader
         topology = wgpu.PrimitiveTopology.line_list
         shader.vertex_shader = shader.vertex_shader_normal_lines
         index_buffer = None
         n = geometry.positions.nitems * 2
-        shader["texture_dim"] = ""  # disable texture if there happens to be one
+        shader["color_mode"] = "uniform"
         shader["lighting"] = ""
         shader["wireframe"] = False
     elif isinstance(material, MeshFlatMaterial):
@@ -149,11 +102,13 @@ def mesh_renderer(render_info):
     n_instances = 1
     if isinstance(wobject, InstancedMesh):
         shader["instanced"] = True
-        bindings2[0] = Binding(
-            "s_instance_infos",
-            "buffer/read_only_storage",
-            wobject.instance_infos,
-            "VERTEX",
+        bindings.append(
+            Binding(
+                "s_instance_infos",
+                "buffer/read_only_storage",
+                wobject.instance_infos,
+                "VERTEX",
+            )
         )
         n_instances = wobject.instance_infos.nitems
 
@@ -166,16 +121,25 @@ def mesh_renderer(render_info):
         cull_mode = wgpu.CullMode.none
 
     # Let the shader generate code for our bindings
-    for i, binding in bindings0.items():
+    for i, binding in enumerate(bindings):
         shader.define_binding(0, i, binding)
-    for i, binding in bindings1.items():
-        shader.define_binding(1, i, binding)
 
     # Determine in what render passes this objects must be rendered
     suggested_render_mask = 3
-    if only_color_and_opacity_determine_fragment_alpha:
-        is_opaque = material.opacity >= 1 and material.color[3] >= 1
-        suggested_render_mask = 1 if is_opaque else 2
+    if material.opacity < 1:
+        suggested_render_mask = 2
+    elif shader["color_mode"] == "vertex":
+        if shader["vertex_color_channels"] in (1, 3):
+            suggested_render_mask = 1
+    elif shader["color_mode"] == "map":
+        if shader["colormap_nchannels"] in (1, 3):
+            suggested_render_mask = 1
+    elif shader["color_mode"] == "normal":
+        suggested_render_mask = 1
+    elif shader["color_mode"] == "uniform":
+        suggested_render_mask = 1 if material.color[3] >= 1 else 2
+    else:
+        raise RuntimeError(f"Unexpected color mode {shader['color_mode']}")
 
     # Put it together!
     return [
@@ -187,9 +151,7 @@ def mesh_renderer(render_info):
             "indices": (range(n), range(n_instances)),
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
-            "bindings0": bindings0,
-            "bindings1": bindings1,
-            "bindings2": bindings2,
+            "bindings0": bindings,
         }
     ]
 
@@ -274,12 +236,25 @@ class MeshShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
+            // Per-vertex colors
+            $$ if vertex_color_channels == 1
+            let cvalue = load_s_colors(i0);
+            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+            $$ elif vertex_color_channels == 2
+            let cvalue = load_s_colors(i0);
+            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+            $$ elif vertex_color_channels == 3
+            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
+            $$ elif vertex_color_channels == 4
+            varyings.color = vec4<f32>(load_s_colors(i0));
+            $$ endif
+
             // Set texture coords
-            $$ if texture_dim == '1d'
+            $$ if colormap_dim == '1d'
             varyings.texcoord = f32(load_s_texcoords(i0));
-            $$ elif texture_dim == '2d'
+            $$ elif colormap_dim == '2d'
             varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
-            $$ elif texture_dim == '3d'
+            $$ elif colormap_dim == '3d'
             varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
             $$ endif
 
@@ -372,50 +347,18 @@ class MeshShader(WorldObjectShader):
 
         [[stage(fragment)]]
         fn fs_main(varyings: Varyings, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
-            var color_value: vec4<f32>;
 
-            $$ if texture_dim
-                $$ if texture_dim == '1d'
-                    $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord);
-                    $$ else
-                        let texcoords_dim = f32(textureDimensions(r_tex);
-                        let texcoords_u = i32(varyings.texcoord.x * texcoords_dim % texcoords_dim);
-                        color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-                    $$ endif
-                $$ elif texture_dim == '2d'
-                    $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.xy);
-                    $$ else
-                        let texcoords_dim = vec2<f32>(textureDimensions(r_tex));
-                        let texcoords_u = vec2<i32>(varyings.texcoord.xy * texcoords_dim % texcoords_dim);
-                        color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-                    $$ endif
-                $$ elif texture_dim == '3d'
-                    $$ if texture_format == 'f32'
-                        color_value = textureSample(r_tex, r_sampler, varyings.texcoord.xyz);
-                    $$ else
-                        let texcoords_dim = vec3<f32>(textureDimensions(r_tex));
-                        let texcoords_u = vec3<i32>(varyings.texcoord.xyz * texcoords_dim % texcoords_dim);
-                        color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
-                    $$ endif
-                $$ endif
-
-                $$ if climcorrection
-                    color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
-                $$ endif
-                $$ if texture_nchannels == 1
-                    color_value = vec4<f32>(color_value.rrr, 1.0);
-                $$ elif texture_nchannels == 2
-                    color_value = vec4<f32>(color_value.rrr, color_value.g);
-                $$ endif
-                let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
-            $$ elif normal_color
+            $$ if color_mode == 'vertex'
+                let color_value = varyings.color;
+                let albeido = color_value.rgb;
+            $$ elif color_mode == 'map'
+                let color_value = sample_colormap(varyings.texcoord);
+                let albeido = color_value.rgb;  // no more colormap
+            $$ elif color_mode == 'normal'
                 let albeido = normalize(varyings.normal.xyz) * 0.5 + 0.5;
-                color_value = vec4<f32>(albeido, 1.0);
+                let color_value = vec4<f32>(albeido, 1.0);
             $$ else
-                // Just a simple color
-                color_value = u_material.color;
+                let color_value = u_material.color;
                 let albeido = color_value.rgb;
             $$ endif
 
@@ -536,6 +479,12 @@ class MeshShader(WorldObjectShader):
 @register_wgpu_render_function(Mesh, MeshSliceMaterial)
 def meshslice_renderer(render_info):
     """Render function capable of rendering mesh slices."""
+
+    # It would technically be possible to implement colormapping or
+    # per-vertex colors, but its a tricky dance to get the per-vertex
+    # data (e.g. texcoords) into a varying. And because the visual
+    # result is a line, its likely that in most use-cases a uniform
+    # color is preferred anyway. So for now we don't implement that.
 
     wobject = render_info.wobject
     geometry = wobject.geometry

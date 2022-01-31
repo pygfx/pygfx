@@ -44,8 +44,8 @@ class PerspectiveCamera(Camera):
         # Get the reference width / height
         size = 2 * self.near * tan(pi / 180 * 0.5 * self.fov) / self.zoom
         # Pre-apply the reference aspect ratio
-        width = size * self.aspect ** 0.5
-        height = size / self.aspect ** 0.5
+        width = size * self.aspect**0.5
+        height = size / self.aspect**0.5
         # Increase eihter the width or height, depending on the view size
         if self.aspect < self._view_aspect:
             width *= self._view_aspect / self.aspect

@@ -2,8 +2,49 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
+from ._utils import to_vertex_format, to_texture_format
 from ...objects import Points
 from ...materials import PointsMaterial, GaussianPointsMaterial
+from ...resources import Texture, TextureView
+
+
+def handle_colormap(geometry, material, shader):
+    if isinstance(material.map, Texture):
+        raise TypeError("material.map is a Texture, but must be a TextureView")
+    elif not isinstance(material.map, TextureView):
+        raise TypeError("material.map must be a TextureView")
+    elif getattr(geometry, "texcoords", None) is None:
+        raise ValueError("material.map is present, but geometry has no texcoords")
+    # Dimensionality
+    shader["colormap_dim"] = view_dim = material.map.view_dim
+    if view_dim not in ("1d", "2d", "3d"):
+        raise ValueError("Unexpected texture dimension")
+    # Texture dim matches texcoords
+    vert_fmt = to_vertex_format(geometry.texcoords.format)
+    if view_dim == "1d" and "x" not in vert_fmt:
+        pass
+    elif not vert_fmt.endswith("x" + view_dim[0]):
+        raise ValueError(
+            f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
+        )
+    # Sampling type
+    fmt = to_texture_format(material.map.format)
+    if "norm" in fmt or "float" in fmt:
+        shader["colormap_format"] = "f32"
+    elif "uint" in fmt:
+        shader["colormap_format"] = "u32"
+    else:
+        shader["colormap_format"] = "i32"
+    # Channels
+    shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+    # Return bindings
+    return [
+        Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT"),
+        Binding("t_colormap", "texture/auto", material.map, "FRAGMENT"),
+        Binding(
+            "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
+        ),
+    ]
 
 
 @register_wgpu_render_function(Points, PointsMaterial)
@@ -17,46 +58,60 @@ def points_renderer(render_info):
         render_info,
         type="circle",
         per_vertex_sizes=False,
-        per_vertex_colors=False,
+        vertex_color_channels=0,
     )
     n = geometry.positions.nitems * 6
 
-    bindings = {}
-
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
-
-    bindings[3] = Binding(
-        "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-    )
-
-    only_color_and_opacity_determine_fragment_alpha = True
-    if material.vertex_colors:
-        only_color_and_opacity_determine_fragment_alpha = False
-        bindings[5] = Binding(
-            "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
-        )
-        shader["per_vertex_colors"] = True
+    bindings = [
+        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+        Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        Binding(
+            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+        ),
+    ]
 
     if material.vertex_sizes:
-        bindings[4] = Binding(
-            "s_sizes", "buffer/read_only_storage", geometry.sizes, "VERTEX"
-        )
         shader["per_vertex_sizes"] = True
+        bindings.append(
+            Binding("s_sizes", "buffer/read_only_storage", geometry.sizes, "VERTEX")
+        )
+
+    # Per-vertex color, colormap, or a plane color?
+    shader["color_mode"] = "uniform"
+    if material.vertex_colors:
+        shader["color_mode"] = "vertex"
+        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+        if nchannels not in (1, 2, 3, 4):
+            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        bindings.append(
+            Binding("s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX")
+        )
+    elif material.map is not None:
+        shader["color_mode"] = "map"
+        bindings.extend(handle_colormap(geometry, material, shader))
 
     if isinstance(material, GaussianPointsMaterial):
         shader["type"] = "gaussian"
 
     # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
+    for i, binding in enumerate(bindings):
         shader.define_binding(0, i, binding)
 
-    # The renderer use alpha for aa, so we are never opaque only.
+    # Determine in what render passes this objects must be rendered
     suggested_render_mask = 3
-    if only_color_and_opacity_determine_fragment_alpha:
-        if material.opacity < 1 or material.color[3] < 1:
-            suggested_render_mask = 2
+    if material.opacity < 1:
+        suggested_render_mask = 2
+    elif shader["color_mode"] == "vertex":
+        if shader["vertex_color_channels"] in (1, 3):
+            suggested_render_mask = 1
+    elif shader["color_mode"] == "map":
+        if shader["colormap_nchannels"] in (1, 3):
+            suggested_render_mask = 1
+    elif shader["color_mode"] == "uniform":
+        suggested_render_mask = 1 if material.color[3] >= 1 else 2
+    else:
+        raise RuntimeError(f"Unexpected color mode {shader['color_mode']}")
 
     # Put it together!
     return [
@@ -132,8 +187,32 @@ class PointsShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.pointcoord = vec2<f32>(delta_logical);
             varyings.size = f32(size);
-            varyings.color = vec4<f32>(load_s_colors(i0));
+
+            // Picking
             varyings.pick_idx = u32(i0);
+
+            // Per-vertex colors
+            $$ if vertex_color_channels == 1
+            let cvalue = load_s_colors(i0);
+            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+            $$ elif vertex_color_channels == 2
+            let cvalue = load_s_colors(i0);
+            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+            $$ elif vertex_color_channels == 3
+            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
+            $$ elif vertex_color_channels == 4
+            varyings.color = vec4<f32>(load_s_colors(i0));
+            $$ endif
+
+            // Set texture coords
+            $$ if colormap_dim == '1d'
+            varyings.texcoord = f32(load_s_texcoords(i0));
+            $$ elif colormap_dim == '2d'
+            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
+            $$ elif colormap_dim == '3d'
+            varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+            $$ endif
+
             return varyings;
         }
         """
@@ -155,8 +234,10 @@ class PointsShader(WorldObjectShader):
                 let size = u_material.size;
             $$ endif
 
-            $$ if per_vertex_colors
+            $$ if color_mode == 'vertex'
                 let color = varyings.color;
+            $$ elif color_mode == 'map'
+                let color = sample_colormap(varyings.texcoord);
             $$ else
                 let color = u_material.color;
             $$ endif

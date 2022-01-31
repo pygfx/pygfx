@@ -18,21 +18,24 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = np.array(
-    [
-        [0, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 2],
-    ],
-    np.float32,
+im = (
+    np.array(
+        [
+            [0, 1, 1, 1],
+            [1, 1, 1, 1],
+            [1, 1, 1, 1],
+            [1, 1, 1, 2],
+        ],
+        np.float32,
+    )
+    / 2.0
 )
 
 tex = gfx.Texture(im, dim=2)
 
 plane = gfx.Mesh(
     gfx.plane_geometry(4, 4),
-    gfx.MeshBasicMaterial(map=tex.get_view(filter="nearest"), clim=(0, 2)),
+    gfx.MeshBasicMaterial(map=tex.get_view(filter="nearest")),
 )
 plane.position = gfx.linalg.Vector3(2, 2)  # put corner at 0, 0
 scene.add(plane)

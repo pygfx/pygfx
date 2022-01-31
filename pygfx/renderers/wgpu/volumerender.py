@@ -2,18 +2,113 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
+from .imagerender import sampled_value_to_color, handle_colormap
 from ._utils import to_texture_format
 from ...objects import Volume
-from ...materials import VolumeSliceMaterial, VolumeRayMaterial
+from ...materials import VolumeBasicMaterial, VolumeSliceMaterial, VolumeRayMaterial
 from ...resources import Texture, TextureView
 
 
 vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 
+@register_wgpu_render_function(Volume, VolumeBasicMaterial)
+def volume_renderer(render_info):
+    """Render function capable of rendering volumes."""
+
+    wobject = render_info.wobject
+    geometry = wobject.geometry
+    material = wobject.material  # noqa
+
+    # The shaders for the volume slice and ray are very different, but their
+    # setup is very similar. This triage captures all diferences.
+    if isinstance(material, VolumeSliceMaterial):
+        shader = VolumeSliceShader(render_info, climcorrection="")
+        topology = wgpu.PrimitiveTopology.triangle_list
+        n = 12
+        cull_mode = wgpu.CullMode.none
+    elif isinstance(material, VolumeRayMaterial):
+        shader = VolumeRayShader(
+            render_info,
+            climcorrection="",
+            mode=material.render_mode,
+        )
+        topology = wgpu.PrimitiveTopology.triangle_list
+        n = 36
+        cull_mode = wgpu.CullMode.front  # the back planes are the ref
+    else:
+        raise RuntimeError(f"Unexpected volume material: {material}")
+
+    bindings = [
+        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+        Binding("u_material", "buffer/uniform", material.uniform_buffer),
+    ]
+
+    # Collect texture and sampler
+    if geometry.grid is None:
+        raise ValueError("Volume.geometry must have a grid (texture).")
+    else:
+        if isinstance(geometry.grid, TextureView):
+            view = geometry.grid
+        elif isinstance(geometry.grid, Texture):
+            view = geometry.grid.get_view(filter="linear")
+        else:
+            raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
+        if view.view_dim.lower() != "3d":
+            raise TypeError("Volume.geometry.grid must a 3D texture (view)")
+        # Sampling type
+        fmt = to_texture_format(geometry.grid.format)
+        if "norm" in fmt or "float" in fmt:
+            shader["img_format"] = "f32"
+            if "unorm" in fmt:
+                shader["climcorrection"] = " * 255.0"
+            elif "snorm" in fmt:
+                shader["climcorrection"] = " * 255.0 - 128.0"
+        elif "uint" in fmt:
+            shader["img_format"] = "u32"
+        else:
+            shader["img_format"] = "i32"
+        # Channels
+        shader["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+
+    bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
+    bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
+
+    # If a colormap is applied ...
+    if material.map is not None:
+        bindings.extend(handle_colormap(geometry, material, shader))
+
+    # Let the shader generate code for our bindings
+    for i, binding in enumerate(bindings):
+        shader.define_binding(0, i, binding)
+
+    # Get in what passes this needs rendering
+    suggested_render_mask = 3
+    if material.opacity >= 1 and shader["img_nchannels"] in (1, 3):
+        suggested_render_mask = 1
+    elif material.opacity < 1:
+        suggested_render_mask = 2
+
+    # Put it together!
+    return [
+        {
+            "suggested_render_mask": suggested_render_mask,
+            "render_shader": shader,
+            "primitive_topology": topology,
+            "cull_mode": cull_mode,
+            "indices": (range(n), range(1)),
+            "vertex_buffers": {},
+            "bindings0": bindings,
+        }
+    ]
+
+
 class BaseVolumeShader(WorldObjectShader):
     def volume_helpers(self):
-        return """
+        return (
+            sampled_value_to_color
+            + """
         struct VolGeometry {
             indices: array<i32,36>;
             positions: array<vec3<f32>,8>;
@@ -21,7 +116,7 @@ class BaseVolumeShader(WorldObjectShader):
         };
 
         fn get_vol_geometry() -> VolGeometry {
-            let size = textureDimensions(r_tex);
+            let size = textureDimensions(t_img);
             var geo: VolGeometry;
 
             geo.indices = array<i32,36>(
@@ -56,100 +151,17 @@ class BaseVolumeShader(WorldObjectShader):
             return geo;
         }
 
-        fn sample(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
-            var color_value: vec4<f32>;
-
-            $$ if texture_format == 'f32'
-                color_value = textureSample(r_tex, r_sampler, texcoord.xyz);
+        fn sample_vol(texcoord: vec3<f32>, sizef: vec3<f32>) -> vec4<f32> {
+            $$ if img_format == 'f32'
+                return textureSample(t_img, s_img, texcoord.xyz);
             $$ else
                 let texcoords_u = vec3<i32>(texcoord.xyz * sizef);
-                color_value = vec4<f32>(textureLoad(r_tex, texcoords_u, 0));
+                return vec4<f32>(textureLoad(t_img, texcoords_u, 0));
             $$ endif
-
-            $$ if climcorrection
-                color_value = vec4<f32>(color_value.rgb {{ climcorrection }}, color_value.a);
-            $$ endif
-            $$ if texture_nchannels == 1
-                color_value = vec4<f32>(color_value.rrr, 1.0);
-            $$ elif texture_nchannels == 2
-                color_value = vec4<f32>(color_value.rrr, color_value.g);
-            $$ endif
-            return color_value;
         }
 
     """
-
-
-@register_wgpu_render_function(Volume, VolumeSliceMaterial)
-def volume_slice_renderer(render_info):
-    """Render function capable of rendering volumes."""
-
-    wobject = render_info.wobject
-    geometry = wobject.geometry
-    material = wobject.material  # noqa
-    shader = VolumeSliceShader(render_info, climcorrection=False)
-
-    bindings = {}
-
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
-
-    topology = wgpu.PrimitiveTopology.triangle_list
-    n = 12
-
-    # Collect texture and sampler
-    if geometry.grid is None:
-        raise ValueError("Volume.geometry must have a grid (texture).")
-    else:
-        if isinstance(geometry.grid, TextureView):
-            view = geometry.grid
-        elif isinstance(geometry.grid, Texture):
-            view = geometry.grid.get_view(filter="linear")
-        else:
-            raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
-        if view.view_dim.lower() != "3d":
-            raise TypeError("Volume.geometry.grid must a 3D texture (view)")
-        # Sampling type
-        fmt = to_texture_format(geometry.grid.format)
-        if "norm" in fmt or "float" in fmt:
-            shader["texture_format"] = "f32"
-            if "unorm" in fmt:
-                shader["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                shader["climcorrection"] = " * 255.0 - 128.0"
-        elif "uint" in fmt:
-            shader["texture_format"] = "u32"
-        else:
-            shader["texture_format"] = "i32"
-        # Channels
-        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-
-    bindings[3] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
-    bindings[4] = Binding("r_tex", "texture/auto", view, vertex_and_fragment)
-
-    # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
-        shader.define_binding(0, i, binding)
-
-    # Get in what passes this needs rendering
-    suggested_render_mask = 3
-    if material.opacity >= 1 and shader["texture_nchannels"] in (1, 3):
-        suggested_render_mask = 1
-    elif material.opacity < 1:
-        suggested_render_mask = 2
-
-    # Put it together!
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": topology,
-            "indices": (range(n), range(1)),
-            "vertex_buffers": {},
-            "bindings0": bindings,
-        }
-    ]
+        )
 
 
 class VolumeSliceShader(BaseVolumeShader):
@@ -324,11 +336,11 @@ class VolumeSliceShader(BaseVolumeShader):
 
         [[stage(fragment)]]
         fn fs_main(varyings: Varyings) -> FragmentOutput {
-            let sizef = vec3<f32>(textureDimensions(r_tex));
-            let color_value = sample(varyings.texcoord.xyz, sizef);
-            let albeido = (color_value.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
-
-            let final_color = vec4<f32>(albeido, color_value.a * u_material.opacity);
+            let sizef = vec3<f32>(textureDimensions(t_img));
+            let value = sample_vol(varyings.texcoord.xyz, sizef);
+            let color = sampled_value_to_color(value);
+            let albeido = color.rgb;
+            let final_color = vec4<f32>(albeido, color.a * u_material.opacity);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
@@ -348,78 +360,6 @@ class VolumeSliceShader(BaseVolumeShader):
         }
 
         """
-
-
-@register_wgpu_render_function(Volume, VolumeRayMaterial)
-def volume_ray_renderer(render_info):
-    """Render function capable of rendering volumes."""
-
-    wobject = render_info.wobject
-    geometry = wobject.geometry
-    material = wobject.material  # noqa
-    shader = VolumeRayShader(
-        render_info, mode=material.render_mode, climcorrection=False
-    )
-
-    bindings = {}
-
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
-
-    # Collect texture and sampler
-    if geometry.grid is None:
-        raise ValueError("Volume.geometry must have a grid (texture).")
-    else:
-        if isinstance(geometry.grid, TextureView):
-            view = geometry.grid
-        elif isinstance(geometry.grid, Texture):
-            view = geometry.grid.get_view(filter="linear")
-        else:
-            raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
-        if view.view_dim.lower() != "3d":
-            raise TypeError("Volume.geometry.grid must a 3D texture (view)")
-        # Sampling type
-        fmt = to_texture_format(geometry.grid.format)
-        if "norm" in fmt or "float" in fmt:
-            shader["texture_format"] = "f32"
-            if "unorm" in fmt:
-                shader["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                shader["climcorrection"] = " * 255.0 - 128.0"
-        elif "uint" in fmt:
-            shader["texture_format"] = "u32"
-        else:
-            shader["texture_format"] = "i32"
-        # Channels
-        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-
-    bindings[3] = Binding("r_sampler", "sampler/filtering", view, "FRAGMENT")
-    bindings[4] = Binding("r_tex", "texture/auto", view, vertex_and_fragment)
-
-    # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
-        shader.define_binding(0, i, binding)
-
-    # Get in what passes this needs rendering
-    suggested_render_mask = 3
-    if material.opacity >= 1 and shader["texture_nchannels"] in (1, 3):
-        suggested_render_mask = 1
-    elif material.opacity < 1:
-        suggested_render_mask = 2
-
-    # Put it together!
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
-            "cull_mode": wgpu.CullMode.front,  # the back planes are the ref
-            "indices": (range(36), range(1)),
-            "vertex_buffers": {},
-            "bindings0": bindings,
-        }
-    ]
 
 
 class VolumeRayShader(BaseVolumeShader):
@@ -493,7 +433,7 @@ class VolumeRayShader(BaseVolumeShader):
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Get size of the volume
-            let sizef = vec3<f32>(textureDimensions(r_tex));
+            let sizef = vec3<f32>(textureDimensions(t_img));
 
             // Determine the stepsize as a float in pixels.
             // This value should be between ~ 0.1 and 1. Smaller values yield better
@@ -592,17 +532,17 @@ class VolumeRayShader(BaseVolumeShader):
 
             // Primary loop. The purpose is to find the approximate location where
             // the maximum is.
-            var the_val = -999999.0;
+            var the_ref = -999999.0;
             var the_coord = start_coord;
-            var the_color : vec4<f32>;
+            var the_value : vec4<f32>;
             for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
                 let coord = start_coord + iter * step_coord;
-                let color = sample(coord, sizef);
-                let val = color.r;
-                if (val > the_val) {
-                    the_val = val;
+                let value = sample_vol(coord, sizef);
+                let ref = value.r;
+                if (ref > the_ref) {
+                    the_ref = ref;
                     the_coord = coord;
-                    the_color = color;
+                    the_value = value;
                 }
             }
 
@@ -613,24 +553,25 @@ class VolumeRayShader(BaseVolumeShader):
                 substep_coord = substep_coord * 0.5;
                 let coord1 = the_coord - substep_coord;
                 let coord2 = the_coord + substep_coord;
-                let color1 = sample(coord1, sizef);
-                let color2 = sample(coord2, sizef);
-                let val1 = color1.r;
-                let val2 = color2.r;
-                if (val1 >= the_val) {  // deliberate larger-equal
-                    the_val = val1;
+                let value1 = sample_vol(coord1, sizef);
+                let value2 = sample_vol(coord2, sizef);
+                let ref1 = value1.r;
+                let ref2 = value2.r;
+                if (ref1 >= the_ref) {  // deliberate larger-equal
+                    the_ref = ref1;
                     the_coord = coord1;
-                    the_color = color1;
-                } elseif (val2 > the_val) {
-                    the_val = val2;
+                    the_value = value1;
+                } elseif (ref2 > the_ref) {
+                    the_ref = ref2;
                     the_coord = coord2;
-                    the_color = color2;
+                    the_value = value2;
                 }
             }
 
             // Colormapping
-            let albeido = (the_color.rgb - u_material.clim[0]) / (u_material.clim[1] - u_material.clim[0]);
-            let color = vec4<f32>(albeido, the_color.a * u_material.opacity);
+            let color = sampled_value_to_color(the_value);
+            let albeido = color.rgb;
+            let color = vec4<f32>(albeido, color.a * u_material.opacity);
 
             // Produce result
             var out: RenderOutput;

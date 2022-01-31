@@ -135,7 +135,7 @@ class Buffer(Resource):
         assert offset + nbytes <= self.nbytes
         self._vertex_byte_range = offset, nbytes
 
-    def update_range(self, offset=0, size=2 ** 50):
+    def update_range(self, offset=0, size=2**50):
         """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.
         """

@@ -10,6 +10,7 @@ import pygfx as gfx
 canvas = WgpuCanvas(size=(900, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
+scene.add(gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1))))
 
 geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)
 geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0])
@@ -18,7 +19,7 @@ camera = gfx.OrthographicCamera(16, 3)
 
 
 def create_object(tex, xpos):
-    material = gfx.MeshPhongMaterial(map=tex, clim=(-0.05, 1))
+    material = gfx.MeshPhongMaterial(map=tex)
     obj = gfx.Mesh(geometry, material)
     obj.position.x = xpos
     scene.add(obj)
