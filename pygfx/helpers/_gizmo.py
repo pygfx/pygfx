@@ -10,13 +10,44 @@ from pygfx.controls._orbit import get_screen_vectors_in_world_cords
 
 
 class TransformGizmo(WorldObject):
-    def __init__(self, object_to_control):
+    """
+    A gizmo object that can be used to manipulate (i.e. transform) a world object.
+
+    Aguments:
+        object_to_control (WorldObject): the object to transform with the gizmo.
+        screen_size (float): the approximate size of the widget in logical pixels.
+    """
+
+    def __init__(self, object_to_control, screen_size=100):
         super().__init__()
         self._create_components()
-        self._scale()
+        self.set_object(object_to_control)
 
-        self._object_to_control = object_to_control
+        self._screen_size = float(screen_size)
+        self._renderer = None
+        self._canvas = None
+        self._camera = None
         self._ref = None
+        self._vec1 = gfx.linalg.Vector3(0, 0, 0)
+        self._vec2 = gfx.linalg.Vector3(0, 0, 0)
+
+    def set_object(self, object_to_control):
+        """Set the WorldObject to control with the gizmo."""
+        assert isinstance(object_to_control, WorldObject)
+        self._object_to_control = object_to_control
+
+    def add_default_event_handlers(self, renderer, camera):
+        # todo: update other methods with the same name to include renderer?
+        canvas = renderer.target
+        self._renderer = renderer
+        self._canvas = canvas
+        self._camera = camera
+        canvas.add_event_handler(
+            self._handle_event,
+            "pointer_down",
+            "pointer_move",
+            "pointer_up",
+        )
 
     def _create_components(self):
 
@@ -53,6 +84,12 @@ class TransformGizmo(WorldObject):
         )
         self._trans_children = trans_x, trans_y, trans_z
 
+        # Position the translate handles
+        # todo: I don't understand the need for the minus in z :/
+        trans_x.position.set(1, 0, 0)
+        trans_y.position.set(0, 1, 0)
+        trans_z.position.set(0, 0, -1)
+
         # Store info on the object that we can use in the event handler
         trans_x.direction = gfx.linalg.Vector3(1, 0, 0)
         trans_y.direction = gfx.linalg.Vector3(0, 1, 0)
@@ -68,28 +105,24 @@ class TransformGizmo(WorldObject):
         self.add(line_x, line_y, line_z)
         self.add(trans_x, trans_y, trans_z)
 
-    def _scale(self):
-        scale = 1
+    def update_matrix_world(self, *args, **kwargs):
+        # This gets called by the renderer just before rendering.
+        # We take this moment to scale the gizmo.
+        if self._object_to_control and self._canvas and self._camera:
+            # Get the relation between screen space and world space, and store it
+            vec1, vec2 = get_screen_vectors_in_world_cords(
+                self._object_to_control.position,
+                self._canvas.get_logical_size(),
+                self._camera,
+            )
+            self._vec1, self._vec2 = vec1, vec2
+            # Scale this object
+            scale = self._screen_size * (vec1.length() + vec2.length()) / 2
+            self.scale = gfx.linalg.Vector3(scale, scale, scale)
+        # Update the matrix (including our scale change)
+        super().update_matrix_world(*args, **kwargs)
 
-        self._line_children[0].scale.set(scale, 1, 1)
-        self._line_children[1].scale.set(1, scale, 1)
-        self._line_children[2].scale.set(1, 1, scale)
-
-        self._trans_children[0].position.set(scale, 0, 0)
-        self._trans_children[1].position.set(0, scale, 0)
-        self._trans_children[2].position.set(0, 0, -scale)
-        # todo: I don't understand the need for the minus here :/
-
-    def add_default_event_handlers(self, renderer, camera):
-        canvas = renderer.target
-        canvas.add_event_handler(
-            lambda event: self._handle_event(event, renderer, canvas, camera),
-            "pointer_down",
-            "pointer_move",
-            "pointer_up",
-        )
-
-    def _handle_event(self, event, renderer, canvas, camera):
+    def _handle_event(self, event):
         # todo: check buttons and modifiers
         type = event["event_type"]
         if type in "pointer_down":
@@ -97,29 +130,22 @@ class TransformGizmo(WorldObject):
                 return
             self._ref = None
             # todo: make renderer cache pick info calls for the same frame
-            info = renderer.get_pick_info((event["x"], event["y"]))
+            info = self._renderer.get_pick_info((event["x"], event["y"]))
             ob = info["world_object"]
             print(ob)
             if ob in self._trans_children:
-                self._handle_translate_start(event, canvas, camera, ob)
+                self._handle_translate_start(event, ob)
         elif type == "pointer_up":
             self._ref = None
         elif type == "pointer_move" and self._ref:
             if self._ref["kind"] == "translate":
                 self._handle_translate_move(event)
 
-    def _handle_translate_start(self, event, canvas, camera, ob):
-        vecx, vecy = get_screen_vectors_in_world_cords(
-            self._object_to_control.get_world_position(),
-            canvas.get_logical_size(),
-            camera,
-        )
+    def _handle_translate_start(self, event, ob):
         self._ref = {
             "kind": "translate",
             "event": event,
             "pos": self._object_to_control.position.clone(),
-            "vecx": vecx,
-            "vecy": vecy,
             "direction": ob.direction,
         }
 
@@ -127,10 +153,7 @@ class TransformGizmo(WorldObject):
         dx = event["x"] - self._ref["event"]["x"]
         dy = event["y"] - self._ref["event"]["y"]
         return (
-            self._ref["vecx"]
-            .clone()
-            .multiply_scalar(-dx)
-            .add_scaled_vector(self._ref["vecy"], +dy)
+            self._vec1.clone().multiply_scalar(-dx).add_scaled_vector(self._vec2, +dy)
         )
 
     def _handle_translate_move(self, event):
