@@ -1,0 +1,36 @@
+from wgpu.gui.auto import WgpuCanvas, run
+import pygfx as gfx
+
+
+canvas = WgpuCanvas()
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
+
+cube = gfx.Mesh(
+    gfx.box_geometry(1, 1, 1),
+    gfx.MeshPhongMaterial(color="#336699"),
+)
+scene.add(cube)
+
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.z = 4
+
+controls = gfx.OrbitControls(camera.position.clone())
+controls.add_default_event_handlers(canvas, camera)
+
+gizmo = gfx.TransformGizmo(cube)
+
+# todo: we need the renderer to be able to pick. Shall we update the existing add_default_event_handlers for consistency?
+gizmo.add_default_event_handlers(renderer, camera)
+
+
+def animate():
+    controls.update_camera(camera)
+    renderer.render(scene, camera, flush=False)
+    renderer.render(gizmo, camera, clear_color=False)
+    canvas.request_draw()
+
+
+if __name__ == "__main__":
+    canvas.request_draw(animate)
+    run()

@@ -191,6 +191,8 @@ class OrbitControls:
         (compatible with the jupyter_rfb event specification).
         """
         type = event["event_type"]
+        if event["modifiers"] != ["Shift"]:
+            return
         if type == "pointer_down":
             xy = event["x"], event["y"]
             if event["button"] == 1:
@@ -212,6 +214,7 @@ class OrbitControls:
             canvas.request_draw()
         elif type == "wheel":
             xy = event["x"], event["y"]
-            f = 2 ** (-event["dy"] * 0.0015)
+            d = event["dy"] or event["dx"]
+            f = 2 ** (-d * 0.0015)
             self.zoom(f)
             canvas.request_draw()
