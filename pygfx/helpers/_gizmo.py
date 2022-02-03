@@ -6,7 +6,7 @@ A transform gizmo to manipulate world objects.
 import numpy as np
 import pygfx as gfx
 from ..objects import WorldObject
-from pygfx.controls._orbit import get_screen_vectors_in_world_cords
+from pygfx.linalg import Vector3
 
 
 class TransformGizmo(WorldObject):
@@ -23,13 +23,18 @@ class TransformGizmo(WorldObject):
         self._create_components()
         self.set_object(object_to_control)
 
-        self._screen_size = float(screen_size)
         self._renderer = None
         self._canvas = None
         self._camera = None
+
+        # The (approximate) size of the gizmo on screen
+        self._screen_size = float(screen_size)
+
+        # A dict that is a reference for the pointer down event. Or None.
         self._ref = None
-        self._vec1 = gfx.linalg.Vector3(0, 0, 0)
-        self._vec2 = gfx.linalg.Vector3(0, 0, 0)
+
+        # Two vectors in world coords, representing screen-x and screen-y
+        self._screen_vecs = Vector3(0, 0, 0), Vector3(0, 0, 0)
 
     def set_object(self, object_to_control):
         """Set the WorldObject to control with the gizmo."""
@@ -65,62 +70,120 @@ class TransformGizmo(WorldObject):
             line_geo,
             gfx.LineMaterial(thickness=4, color="#000088"),
         )
-        self._line_children = line_x, line_y, line_z
 
         # Create translate handles
         cone_geo = gfx.cone_geometry(0.1, 0.17)
         cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]
-        trans_x = gfx.Mesh(
+        translate_x = gfx.Mesh(
             cone_geo,
             gfx.MeshBasicMaterial(color="#ff0000"),
         )
-        trans_y = gfx.Mesh(
+        translate_y = gfx.Mesh(
             cone_geo,
             gfx.MeshBasicMaterial(color="#00ff00"),
         )
-        trans_z = gfx.Mesh(
+        translate_z = gfx.Mesh(
             cone_geo,
             gfx.MeshBasicMaterial(color="#0000ff"),
         )
-        self._trans_children = trans_x, trans_y, trans_z
-
-        # Position the translate handles
-        # todo: I don't understand the need for the minus in z :/
-        trans_x.position.set(1, 0, 0)
-        trans_y.position.set(0, 1, 0)
-        trans_z.position.set(0, 0, -1)
-
-        # Store info on the object that we can use in the event handler
-        trans_x.direction = gfx.linalg.Vector3(1, 0, 0)
-        trans_y.direction = gfx.linalg.Vector3(0, 1, 0)
-        trans_z.direction = gfx.linalg.Vector3(0, 0, 1)
+        translate_x.position.set(1, 0, 0)
+        translate_y.position.set(0, 1, 0)
+        translate_z.position.set(0, 0, 1)
 
         # Rotate objects to their correct orientation
-        for ob in [line_y, trans_y]:
-            ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), np.pi / 2)
-        for ob in [line_z, trans_z]:
-            ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), np.pi / 2)
+        for ob in [line_y, translate_y]:
+            ob.rotation.set_from_axis_angle(Vector3(0, 0, 1), np.pi / 2)
+        for ob in [line_z, translate_z]:
+            ob.rotation.set_from_axis_angle(Vector3(0, -1, 0), np.pi / 2)
+
+        # Store the objectss
+        self._line_children = line_x, line_y, line_z
+        self._translate_children = translate_x, translate_y, translate_z
+
+        # Assign dimension
+        for triplet in [self._line_children, self._translate_children]:
+            for i, ob in enumerate(triplet):
+                ob.dim = i
 
         # Attach to the gizmo object
-        self.add(line_x, line_y, line_z)
-        self.add(trans_x, trans_y, trans_z)
+        self.add(*self._line_children)
+        self.add(*self._translate_children)
 
     def update_matrix_world(self, *args, **kwargs):
         # This gets called by the renderer just before rendering.
-        # We take this moment to scale the gizmo.
-        if self._object_to_control and self._canvas and self._camera:
-            # Get the relation between screen space and world space, and store it
-            vec1, vec2 = get_screen_vectors_in_world_cords(
-                self._object_to_control.position,
-                self._canvas.get_logical_size(),
-                self._camera,
-            )
-            self._vec1, self._vec2 = vec1, vec2
-            # Scale this object
-            scale = self._screen_size * (vec1.length() + vec2.length()) / 2
-            self.scale = gfx.linalg.Vector3(scale, scale, scale)
-        # Update the matrix (including our scale change)
+        self._adjust_to_camera()
         super().update_matrix_world(*args, **kwargs)
+
+    def _adjust_to_camera(self):
+        if not (self._object_to_control and self._canvas and self._camera):
+            return
+        camera = self._camera
+        canvas_size = self._canvas.get_logical_size()
+
+        # Get center position (of the gizmo) in world and screen coords
+        center_world = self._object_to_control.position
+        center_screen = center_world.clone().project(camera)
+
+        # Get how our direction vectors express on screen
+        pos1 = center_screen.clone().add(Vector3(100, 0, 0)).unproject(camera)
+        pos2 = center_screen.clone().add(Vector3(0, 100, 0)).unproject(camera)
+        pos1.multiply_scalar(2 / 100 / canvas_size[0])
+        pos2.multiply_scalar(2 / 100 / canvas_size[1])
+        self._screen_vecs = pos1, pos2
+
+        # Determine the scale of this object
+        avg_length = self._screen_vecs[0].length() + self._screen_vecs[1].length()
+        scale = self._screen_size * avg_length / 2
+
+        # Calculate the direction vectors in ndc space
+        directions_in_ndc = [
+            center_world.clone()
+            .add(self._get_direction(dim))
+            .project(camera)
+            .sub(center_screen)
+            .multiply_scalar(scale)
+            for dim in (0, 1, 2)
+        ]
+
+        # Determine what directions are orthogonal to the view plane
+        # And also a multiplier to compensate for the smaller leverage at a high angle
+        show_direction = [True, True, True]
+        multipliers = [1, 1, 1]
+        for dim, vec in enumerate(directions_in_ndc):
+            screen_vec = vec.x * canvas_size[0] / 2, vec.y * canvas_size[1] / 2
+            size = (screen_vec[0] ** 2 + screen_vec[1] ** 2) ** 0.5
+            show_direction[dim] = size > 15  # in pixels
+            multipliers[dim] = 1 / (size + 0.1)
+
+        # Store multipler per direction
+        ref_multiplier = min(multipliers)
+        self._direction_multipliers = [x / ref_multiplier for x in multipliers]
+
+        # Hide object for which the direction (on screen) becomes ill-defined.
+        for dim in (0, 1, 2):
+            self._line_children[dim].visible = show_direction[dim]
+            self._translate_children[dim].visible = show_direction[dim]
+
+        # Determine any flips so that the gizmo faces the camera
+        scale_signs = [1 if vec.z < 0 else -1 for vec in directions_in_ndc]
+
+        self.scale = Vector3(
+            scale_signs[0] * scale, scale_signs[1] * scale, scale_signs[2] * scale
+        )
+
+    # %% Utils
+
+    def _get_direction(self, dim):
+        """Get a vector indicating the translation direction in world space."""
+        assert 0 <= dim <= 2
+        if dim == 0:
+            return Vector3(1, 0, 0)
+        elif dim == 1:
+            return Vector3(0, 1, 0)
+        else:
+            return Vector3(0, 0, 1)
+
+    # %% Event handling
 
     def _handle_event(self, event):
         # todo: check buttons and modifiers
@@ -132,8 +195,7 @@ class TransformGizmo(WorldObject):
             # todo: make renderer cache pick info calls for the same frame
             info = self._renderer.get_pick_info((event["x"], event["y"]))
             ob = info["world_object"]
-            print(ob)
-            if ob in self._trans_children:
+            if ob in self._translate_children:
                 self._handle_translate_start(event, ob)
         elif type == "pointer_up":
             self._ref = None
@@ -142,18 +204,25 @@ class TransformGizmo(WorldObject):
                 self._handle_translate_move(event)
 
     def _handle_translate_start(self, event, ob):
+        multiply = self._direction_multipliers[ob.dim]
         self._ref = {
             "kind": "translate",
             "event": event,
             "pos": self._object_to_control.position.clone(),
-            "direction": ob.direction,
+            "screen_vecs": self._screen_vecs,
+            "dim": ob.dim,
+            "direction": self._get_direction(ob.dim).multiply_scalar(multiply),
         }
 
     def _get_world_vector_from_pointer_move(self, event):
         dx = event["x"] - self._ref["event"]["x"]
         dy = event["y"] - self._ref["event"]["y"]
+        screen_vecs = self._ref["screen_vecs"]  # the self._screen_vecs changes
         return (
-            self._vec1.clone().multiply_scalar(-dx).add_scaled_vector(self._vec2, +dy)
+            screen_vecs[0]
+            .clone()
+            .multiply_scalar(-dx)
+            .add_scaled_vector(screen_vecs[1], +dy)
         )
 
     def _handle_translate_move(self, event):
