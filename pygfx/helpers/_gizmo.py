@@ -71,6 +71,13 @@ class TransformGizmo(WorldObject):
             gfx.LineMaterial(thickness=4, color="#000088"),
         )
 
+        # Create translate-screen handle
+        sphere_geo = gfx.sphere_geometry(0.1)
+        translate_screen = gfx.Mesh(
+            sphere_geo,
+            gfx.MeshBasicMaterial(color="#ffffff"),
+        )
+
         # Create translate handles
         cone_geo = gfx.cone_geometry(0.1, 0.17)
         cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]
@@ -116,21 +123,27 @@ class TransformGizmo(WorldObject):
 
         # Store the objectss
         self._line_children = line_x, line_y, line_z
-        self._translate_children = translate_x, translate_y, translate_z
+        self._translate_children = (
+            translate_x,
+            translate_y,
+            translate_z,
+            translate_screen,
+        )
         self._scale_children = scale_x, scale_y, scale_z
 
-        # Assign dimension
+        # Assign dimensions
         for triplet in [
             self._line_children,
-            self._translate_children,
+            self._translate_children[:3],
             self._scale_children,
         ]:
             for i, ob in enumerate(triplet):
                 ob.dim = i
+        translate_screen.dim = "screen"
 
         # Attach to the gizmo object
         self.add(*self._line_children)
-        self.add(*self._translate_children)
+        self.add(translate_screen, *self._translate_children)
         self.add(*self._scale_children)
 
     def update_matrix_world(self, *args, **kwargs):
@@ -254,20 +267,28 @@ class TransformGizmo(WorldObject):
                 self._handle_scale_move(event)
 
     def _handle_translate_start(self, event, ob):
-        multiply = self._direction_multipliers[ob.dim]
+        if isinstance(ob.dim, int):
+            multiply = self._direction_multipliers[ob.dim]
+            direction = self._get_direction(ob.dim).multiply_scalar(multiply)
+        else:
+            direction = None
         self._ref = {
             "kind": "translate",
             "event": event,
             "pos": self._object_to_control.position.clone(),
             "screen_vecs": self._screen_vecs,
             "dim": ob.dim,
-            "direction": self._get_direction(ob.dim).multiply_scalar(multiply),
+            "direction": direction,
         }
 
     def _handle_translate_move(self, event):
+        dim = self._ref["dim"]
         vec = self._get_world_vector_from_pointer_move(event)
-        vec.multiply(self._ref["direction"])
-        position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
+        if dim == "screen":
+            position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
+        else:
+            vec.multiply(self._ref["direction"])
+            position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
         self._object_to_control.position = position
         self.position = position
 
