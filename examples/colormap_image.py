@@ -25,9 +25,7 @@ camera.position.x = 1736 / 2
 
 img_data1 = imageio.imread("imageio:astronaut.png")[:, :, 1]
 
-colormap_data1 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], np.float32)
-
-colormap1 = gfx.Texture(colormap_data1, dim=1).get_view(filter="linear")
+colormap1 = gfx.cm.magma
 image1 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(img_data1, dim=2)),
     gfx.ImageBasicMaterial(clim=(0, 255), map=colormap1),
