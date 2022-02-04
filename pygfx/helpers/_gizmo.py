@@ -90,24 +90,48 @@ class TransformGizmo(WorldObject):
         translate_y.position.set(0, 1, 0)
         translate_z.position.set(0, 0, 1)
 
+        # Create scale handles
+        cube_geo = gfx.box_geometry(0.1, 0.1, 0.1)
+        scale_x = gfx.Mesh(
+            cube_geo,
+            gfx.MeshBasicMaterial(color="#ff0000"),
+        )
+        scale_y = gfx.Mesh(
+            cube_geo,
+            gfx.MeshBasicMaterial(color="#00ff00"),
+        )
+        scale_z = gfx.Mesh(
+            cube_geo,
+            gfx.MeshBasicMaterial(color="#0000ff"),
+        )
+        scale_x.position.set(0.5, 0, 0)
+        scale_y.position.set(0, 0.5, 0)
+        scale_z.position.set(0, 0, 0.5)
+
         # Rotate objects to their correct orientation
-        for ob in [line_y, translate_y]:
+        for ob in [line_y, translate_y, scale_y]:
             ob.rotation.set_from_axis_angle(Vector3(0, 0, 1), np.pi / 2)
-        for ob in [line_z, translate_z]:
+        for ob in [line_z, translate_z, scale_z]:
             ob.rotation.set_from_axis_angle(Vector3(0, -1, 0), np.pi / 2)
 
         # Store the objectss
         self._line_children = line_x, line_y, line_z
         self._translate_children = translate_x, translate_y, translate_z
+        self._scale_children = scale_x, scale_y, scale_z
 
         # Assign dimension
-        for triplet in [self._line_children, self._translate_children]:
+        for triplet in [
+            self._line_children,
+            self._translate_children,
+            self._scale_children,
+        ]:
             for i, ob in enumerate(triplet):
                 ob.dim = i
 
         # Attach to the gizmo object
         self.add(*self._line_children)
         self.add(*self._translate_children)
+        self.add(*self._scale_children)
 
     def update_matrix_world(self, *args, **kwargs):
         # This gets called by the renderer just before rendering.
@@ -132,8 +156,11 @@ class TransformGizmo(WorldObject):
         self._screen_vecs = pos1, pos2
 
         # Determine the scale of this object
-        avg_length = self._screen_vecs[0].length() + self._screen_vecs[1].length()
-        scale = self._screen_size * avg_length / 2
+        avg_length = 0.5 * (
+            self._screen_vecs[0].length() + self._screen_vecs[1].length()
+        )
+        scale_scalar = self._screen_size * avg_length
+        scale = [scale_scalar, scale_scalar, scale_scalar]
 
         # Calculate the direction vectors in ndc space
         directions_in_ndc = [
@@ -141,8 +168,12 @@ class TransformGizmo(WorldObject):
             .add(self._get_direction(dim))
             .project(camera)
             .sub(center_screen)
-            .multiply_scalar(scale)
+            .multiply_scalar(scale_scalar)
             for dim in (0, 1, 2)
+        ]
+        self._directions_in_screen = [
+            (vec.x * canvas_size[0] / 2, vec.y * canvas_size[1] / 2)
+            for vec in directions_in_ndc
         ]
 
         # Determine what directions are orthogonal to the view plane
@@ -165,11 +196,13 @@ class TransformGizmo(WorldObject):
             self._translate_children[dim].visible = show_direction[dim]
 
         # Determine any flips so that the gizmo faces the camera
-        scale_signs = [1 if vec.z < 0 else -1 for vec in directions_in_ndc]
+        for dim, vec in enumerate(directions_in_ndc):
+            if vec.z > 0:
+                scale[dim] = -scale[dim]
+                dir_screen = self._directions_in_screen[dim]
+                self._directions_in_screen[dim] = -dir_screen[0], -dir_screen[1]
 
-        self.scale = Vector3(
-            scale_signs[0] * scale, scale_signs[1] * scale, scale_signs[2] * scale
-        )
+        self.scale = Vector3(*scale)
 
     # %% Utils
 
@@ -182,6 +215,17 @@ class TransformGizmo(WorldObject):
             return Vector3(0, 1, 0)
         else:
             return Vector3(0, 0, 1)
+
+    def _get_world_vector_from_pointer_move(self, event):
+        dx = event["x"] - self._ref["event"]["x"]
+        dy = event["y"] - self._ref["event"]["y"]
+        screen_vecs = self._ref["screen_vecs"]  # the self._screen_vecs changes
+        return (
+            screen_vecs[0]
+            .clone()
+            .multiply_scalar(-dx)
+            .add_scaled_vector(screen_vecs[1], +dy)
+        )
 
     # %% Event handling
 
@@ -197,11 +241,17 @@ class TransformGizmo(WorldObject):
             ob = info["world_object"]
             if ob in self._translate_children:
                 self._handle_translate_start(event, ob)
+            if ob in self._scale_children:
+                self._handle_scale_start(event, ob)
         elif type == "pointer_up":
             self._ref = None
-        elif type == "pointer_move" and self._ref:
-            if self._ref["kind"] == "translate":
+        elif type == "pointer_move":
+            if not self._ref:
+                pass
+            elif self._ref["kind"] == "translate":
                 self._handle_translate_move(event)
+            elif self._ref["kind"] == "scale":
+                self._handle_scale_move(event)
 
     def _handle_translate_start(self, event, ob):
         multiply = self._direction_multipliers[ob.dim]
@@ -214,20 +264,35 @@ class TransformGizmo(WorldObject):
             "direction": self._get_direction(ob.dim).multiply_scalar(multiply),
         }
 
-    def _get_world_vector_from_pointer_move(self, event):
-        dx = event["x"] - self._ref["event"]["x"]
-        dy = event["y"] - self._ref["event"]["y"]
-        screen_vecs = self._ref["screen_vecs"]  # the self._screen_vecs changes
-        return (
-            screen_vecs[0]
-            .clone()
-            .multiply_scalar(-dx)
-            .add_scaled_vector(screen_vecs[1], +dy)
-        )
-
     def _handle_translate_move(self, event):
         vec = self._get_world_vector_from_pointer_move(event)
         vec.multiply(self._ref["direction"])
         position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
         self._object_to_control.position = position
         self.position = position
+
+    def _handle_scale_start(self, event, ob):
+        multiply = self._direction_multipliers[ob.dim]
+        self._ref = {
+            "kind": "scale",
+            "event": event,
+            "scale": self._object_to_control.scale.clone(),
+            "screen_vecs": self._screen_vecs,
+            "dim": ob.dim,
+            "direction": self._get_direction(ob.dim).multiply_scalar(multiply),
+        }
+
+    def _handle_scale_move(self, event):
+        dim = self._ref["dim"]
+        # Calculate how far the mouse has moved
+        dx = event["x"] - self._ref["event"]["x"]
+        dy = event["y"] - self._ref["event"]["y"]
+        dir_x, dir_y = self._directions_in_screen[dim]
+        dir_norm = (dir_x**2 + dir_y**2) ** 0.5
+        dist_pixels = dir_x * dx / dir_norm - dir_y * dy / dir_norm
+        # Turn that into a scale vector
+        scale = [1, 1, 1]
+        scale[dim] = 2 ** (dist_pixels / 100)
+        scale = Vector3(*scale)
+        # Apply
+        self._object_to_control.scale = self._ref["scale"].clone().multiply(scale)
