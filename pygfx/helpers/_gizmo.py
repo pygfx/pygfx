@@ -56,6 +56,8 @@ class TransformGizmo(WorldObject):
 
     def _create_components(self):
 
+        halfway = 0.65
+
         # Create lines
         line_geo = gfx.Geometry(positions=[(0, 0, 0), (1, 0, 0)])
         line_x = gfx.Line(
@@ -73,9 +75,8 @@ class TransformGizmo(WorldObject):
 
         # Create arcs
         t = np.linspace(0, np.pi / 2, 64)
-        arc_geo = gfx.Geometry(
-            positions=np.stack([0 * t, np.sin(t), np.cos(t)], 1).astype(np.float32)
-        )
+        arc_positions = np.stack([0 * t, np.sin(t), np.cos(t)], 1).astype(np.float32)
+        arc_geo = gfx.Geometry(positions=arc_positions * halfway)
         arc_yz = gfx.Line(
             arc_geo,
             gfx.LineMaterial(thickness=4, color="#880000"),
@@ -132,9 +133,9 @@ class TransformGizmo(WorldObject):
             cube_geo,
             gfx.MeshBasicMaterial(color="#0000ff"),
         )
-        scale_x.position.set(0.5, 0, 0)
-        scale_y.position.set(0, 0.5, 0)
-        scale_z.position.set(0, 0, 0.5)
+        scale_x.position.set(halfway, 0, 0)
+        scale_y.position.set(0, halfway, 0)
+        scale_z.position.set(0, 0, halfway)
 
         # Create rotation handles
         rotate_yz = gfx.Mesh(
@@ -149,9 +150,10 @@ class TransformGizmo(WorldObject):
             sphere_geo,
             gfx.MeshBasicMaterial(color="#0000ff"),
         )
-        rotate_yz.position.set(0, 0.707107, 0.707107)
-        rotate_zx.position.set(0.707107, 0, 0.707107)
-        rotate_xy.position.set(0.707107, 0.707107, 0)
+        on_arc = halfway * 2**0.5 / 2
+        rotate_yz.position.set(0, on_arc, on_arc)
+        rotate_zx.position.set(on_arc, 0, on_arc)
+        rotate_xy.position.set(on_arc, on_arc, 0)
 
         # ---
 
@@ -359,7 +361,9 @@ class TransformGizmo(WorldObject):
         dir_x, dir_y = self._directions_in_screen[dim]
         dir_norm = (dir_x**2 + dir_y**2) ** 0.5
         dist_pixels = dir_x * dx / dir_norm - dir_y * dy / dir_norm
-        # Turn that into a scale vector
+        # Turn that into a scale vector.
+        # We can only scale in object coordinates - there is no way to
+        # "rotate a scale transform"
         scale = [1, 1, 1]
         scale[dim] = 2 ** (dist_pixels / 100)
         scale = Vector3(*scale)
