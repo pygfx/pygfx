@@ -17,9 +17,9 @@ class PanZoomControls:
     ) -> None:
         self.rotation = Quaternion()
         if eye is None:
-            eye = Vector3(50.0, 50.0, 50.0)
+            eye = Vector3(0, 0, 0)
         if target is None:
-            target = Vector3()
+            target = Vector3(eye.x, eye.y, eye.z - 100)
         if up is None:
             up = Vector3(0.0, 1.0, 0.0)
         self.zoom_value = zoom
