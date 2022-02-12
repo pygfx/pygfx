@@ -8,7 +8,7 @@ scene = gfx.Scene()
 
 cube = gfx.Mesh(
     gfx.box_geometry(1, 1, 1),
-    gfx.MeshPhongMaterial(color="#336699"),
+    gfx.MeshBasicMaterial(color="#336699"),
 )
 scene.add(cube)
 

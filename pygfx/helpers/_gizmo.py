@@ -58,6 +58,18 @@ class TransformGizmo(WorldObject):
 
         halfway = 0.65
 
+        # --- the parts that are at the center
+
+        # Create screen translate handle
+        sphere_geo = gfx.sphere_geometry(0.07)
+        translate_screen = gfx.Mesh(
+            sphere_geo,
+            gfx.MeshBasicMaterial(color="#ffffff"),
+        )
+        translate_screen.scale.set(1.5, 1.5, 1.5)
+
+        # --- the parts that are fully in one dimension
+
         # Create lines
         line_geo = gfx.Geometry(positions=[(0, 0, 0), (1, 0, 0)])
         line_x = gfx.Line(
@@ -73,34 +85,7 @@ class TransformGizmo(WorldObject):
             gfx.LineMaterial(thickness=4, color="#000088"),
         )
 
-        # Create arcs
-        t = np.linspace(0, np.pi / 2, 64)
-        arc_positions = np.stack([0 * t, np.sin(t), np.cos(t)], 1).astype(np.float32)
-        arc_geo = gfx.Geometry(positions=arc_positions * halfway)
-        arc_yz = gfx.Line(
-            arc_geo,
-            gfx.LineMaterial(thickness=4, color="#880000"),
-        )
-        arc_zx = gfx.Line(
-            arc_geo,
-            gfx.LineMaterial(thickness=4, color="#008800"),
-        )
-        arc_xy = gfx.Line(
-            arc_geo,
-            gfx.LineMaterial(thickness=4, color="#000088"),
-        )
-        arc_zx.scale.y = -1
-        arc_xy.scale.z = -1
-
-        # Create translate-screen handle
-        sphere_geo = gfx.sphere_geometry(0.07)
-        translate_screen = gfx.Mesh(
-            sphere_geo,
-            gfx.MeshBasicMaterial(color="#ffffff"),
-        )
-        translate_screen.scale.set(1.5, 1.5, 1.5)
-
-        # Create translate handles
+        # Create 1D translate handles
         cone_geo = gfx.cone_geometry(0.1, 0.17)
         cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]
         translate_x = gfx.Mesh(
@@ -137,6 +122,46 @@ class TransformGizmo(WorldObject):
         scale_y.position.set(0, halfway, 0)
         scale_z.position.set(0, 0, halfway)
 
+        # --- the parts that are in a plane
+
+        # Create arcs
+        t = np.linspace(0, np.pi / 2, 64)
+        arc_positions = np.stack([0 * t, np.sin(t), np.cos(t)], 1).astype(np.float32)
+        arc_geo = gfx.Geometry(positions=arc_positions * halfway)
+        arc_yz = gfx.Line(
+            arc_geo,
+            gfx.LineMaterial(thickness=4, color="#880000"),
+        )
+        arc_zx = gfx.Line(
+            arc_geo,
+            gfx.LineMaterial(thickness=4, color="#008800"),
+        )
+        arc_xy = gfx.Line(
+            arc_geo,
+            gfx.LineMaterial(thickness=4, color="#000088"),
+        )
+        arc_zx.scale.y = -1
+        arc_xy.scale.z = -1
+
+        # Create in-plane translate handles
+        plane_geo = gfx.box_geometry(0.01, 0.15, 0.15)
+        translate_yz = gfx.Mesh(
+            plane_geo,
+            gfx.MeshBasicMaterial(color="#ff0000"),
+        )
+        translate_zx = gfx.Mesh(
+            plane_geo,
+            gfx.MeshBasicMaterial(color="#00ff00"),
+        )
+        translate_xy = gfx.Mesh(
+            plane_geo,
+            gfx.MeshBasicMaterial(color="#0000ff"),
+        )
+        inside_arc = 0.4 * halfway
+        translate_yz.position.set(0, inside_arc, inside_arc)
+        translate_zx.position.set(inside_arc, 0, inside_arc)
+        translate_xy.position.set(inside_arc, inside_arc, 0)
+
         # Create rotation handles
         rotate_yz = gfx.Mesh(
             sphere_geo,
@@ -155,22 +180,24 @@ class TransformGizmo(WorldObject):
         rotate_zx.position.set(on_arc, 0, on_arc)
         rotate_xy.position.set(on_arc, on_arc, 0)
 
-        # ---
+        # --- post-process
 
         # Rotate objects to their correct orientation
-        for ob in [line_y, translate_y, scale_y, arc_zx]:
+        for ob in [line_y, translate_y, scale_y, arc_zx, translate_zx, rotate_zx]:
             ob.rotation.set_from_axis_angle(Vector3(0, 0, 1), np.pi / 2)
-        for ob in [line_z, translate_z, scale_z, arc_xy]:
+        for ob in [line_z, translate_z, scale_z, arc_xy, translate_xy, rotate_xy]:
             ob.rotation.set_from_axis_angle(Vector3(0, -1, 0), np.pi / 2)
 
         # Store the objectss
         self._line_children = line_x, line_y, line_z
         self._arc_children = arc_yz, arc_zx, arc_xy
+        self._translate0_children = (translate_screen,)
+        self._translate1_children = translate_x, translate_y, translate_z
+        self._translate2_children = translate_yz, translate_zx, translate_xy
         self._translate_children = (
-            translate_x,
-            translate_y,
-            translate_z,
-            translate_screen,
+            self._translate0_children
+            + self._translate1_children
+            + self._translate2_children
         )
         self._scale_children = scale_x, scale_y, scale_z
         self._rotate_children = rotate_yz, rotate_zx, rotate_xy
@@ -178,18 +205,22 @@ class TransformGizmo(WorldObject):
         # Assign dimensions
         for triplet in [
             self._line_children,
-            self._translate_children[:3],
+            self._translate1_children,
             self._scale_children,
             self._rotate_children,
         ]:
             for i, ob in enumerate(triplet):
                 ob.dim = i
         translate_screen.dim = "screen"
+        for i, ob in enumerate(self._translate2_children):
+            dim = [0, 1, 2]
+            dim.pop(i)
+            ob.dim = tuple(dim)
 
         # Attach to the gizmo object
         self.add(*self._line_children)
         self.add(*self._arc_children)
-        self.add(translate_screen, *self._translate_children)
+        self.add(*self._translate_children)
         self.add(*self._scale_children)
         self.add(*self._rotate_children)
 
@@ -246,6 +277,11 @@ class TransformGizmo(WorldObject):
             show_direction[dim] = size > 15  # in pixels
             multipliers[dim] = 1 / (size + 0.1)
 
+        # Hide plane-translation handles if ill-defined
+        for dim, vec in enumerate(directions_in_ndc):
+            in_plane_measure = abs(vec.z / vec.length())
+            self._translate2_children[dim].visible = in_plane_measure > 0.005
+
         # Store multipler per direction
         ref_multiplier = min(multipliers)
         self._direction_multipliers = [x / ref_multiplier for x in multipliers]
@@ -253,7 +289,7 @@ class TransformGizmo(WorldObject):
         # Hide object for which the direction (on screen) becomes ill-defined.
         for dim in (0, 1, 2):
             self._line_children[dim].visible = show_direction[dim]
-            self._translate_children[dim].visible = show_direction[dim]
+            self._translate1_children[dim].visible = show_direction[dim]
             self._scale_children[dim].visible = show_direction[dim]
 
         # Determine any flips so that the gizmo faces the camera
@@ -319,9 +355,14 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
 
     def _handle_translate_start(self, event, ob):
-        if isinstance(ob.dim, int):
+        if ob in self._translate1_children:
             multiply = self._direction_multipliers[ob.dim]
             direction = self._get_direction(ob.dim).multiply_scalar(multiply)
+        elif ob in self._translate2_children:
+            direction = [
+                self._get_direction(d).multiply_scalar(self._direction_multipliers[d])
+                for d in ob.dim
+            ]
         else:
             direction = None
         self._ref = {
@@ -338,8 +379,13 @@ class TransformGizmo(WorldObject):
         vec = self._get_world_vector_from_pointer_move(event)
         if dim == "screen":
             position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
-        else:
+        elif isinstance(dim, int):
             vec.multiply(self._ref["direction"])
+            position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
+        else:  # tuple
+            vec1 = vec.clone().multiply(self._ref["direction"][0])
+            vec2 = vec.clone().multiply(self._ref["direction"][1])
+            vec.add_vectors(vec1, vec2)
             position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
         self._object_to_control.position = position
         self.position = position.clone()
