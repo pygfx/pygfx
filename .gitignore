@@ -5,6 +5,7 @@ Pipfile.lock
 pyproject.toml
 poetry.lock
 .DS_Store
+examples/screenshots/diffs
 
 # Special for this repo
 nogit/

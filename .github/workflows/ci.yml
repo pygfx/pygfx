@@ -91,6 +91,11 @@ jobs:
     - name: Unit tests
       run: |
           pytest -v tests
+    - uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: screenshots-${{ matrix.pyversion }}
+        path: examples/screenshots
 
   release-build:
     name: Build release on ubuntu-latest

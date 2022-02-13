@@ -7,6 +7,7 @@ pytest
 setuptools
 wheel
 twine
+imageio
 
 # examples
 PySide6

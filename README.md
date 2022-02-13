@@ -99,6 +99,43 @@ To support testing an example, ensure the following requirements are met:
 
 * The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
 * The `canvas` instance is exposed as a global in the module.
+* A rendering callback has been registered with `canvas.request_draw(fn)`.
 
-By default the test will simply verify that the example can be executed without an error, and that an
-image can be rendered using the canvas.
+The test will start by simply verifying that the example can be executed without raising an error,
+and that an image can be rendered using the canvas.
+
+### Reference screenshots
+
+If you are running on lavapipe (mesa's software rendering implementation of Vulkan), the test will also
+verify the rendered image against a reference screenshot, but only if one is available in the
+`examples/screenshots` folder. You can generate these reference screenshots as a part of running the
+test suite with the following command:
+
+`pytest --regenerate-screenshots -k test_examples tests`
+
+However, this functionality will be disabled if you are not running lavapipe on your system, since
+images cannot be compared across wgpu backends.
+
+Since it's quite a hassle to setup lavapipe locally on your system, we have provided a Dockerfile and
+CLI tool in the `scripts` folder that you can use to run a Ubuntu container that's configured
+with lavapipe and pygfx. Ensure either docker or podman is installed on your system,
+and use the provided `container.py` script to run any command you want in the container.
+
+The first time around, you will need to build the container image:
+
+`python scripts/container.py --build`
+
+Afterwards, you can use the image to do, well, whatever you want! Of course, the primary use case is
+(re)generating reference screenshots for the test suite, like so:
+
+`python scripts/container.py --volumes pytest --regenerate-screenshots -k test_examples tests`
+
+Notice that it's the same command listed earlier, just passed on to the container using the CLI tool.
+
+### Visual diffs
+
+For every test that fails on screenshot verification, diffs will be generated for the rgb and alpha channels
+and made available in the `examples/screenshots/diffs` folder.
+
+If such a failure occurs on CI, the build will publish the entire folder
+as build artifacts so you can download the diffs, and inspect the differences and debug locally.
