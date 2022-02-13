@@ -66,10 +66,12 @@ def box_geometry(
             plane_index,
         ) = generate_plane(*cube_dim[plane_idx], *cube_seg[plane_idx])
 
+        affine = np.identity(4, dtype=np.float32)
+
         sign_idx = np.flatnonzero(normal != 0)[0]
-        matrix = np.identity(4, dtype=np.float32)
-        matrix[:-1, -1] = (cube_dim[sign_idx] / 2) * normal
-        matrix[:-1, :-1] = np.dot(
+        affine[:-1, -1] = (cube_dim[sign_idx] / 2) * normal
+
+        swap_axes = np.dot(
             np.array(
                 [
                     normal,
@@ -80,8 +82,24 @@ def box_geometry(
             plane_csys,
         )
 
-        plane_positions = transform(plane_positions, matrix)
-        plane_normals = transform(plane_normals, matrix, directions=True)
+        if normal[2] == 0:
+            theta = np.pi / 2
+            rotate90 = np.array(
+                [
+                    [np.cos(theta), -np.sin(theta), 0],
+                    [np.sin(theta), np.cos(theta), 0],
+                    [0, 0, 1],
+                ]
+            )
+            affine[:-1, :-1] = np.dot(
+                swap_axes,
+                rotate90,
+            )
+        else:
+            affine[:-1, :-1] = swap_axes
+
+        plane_positions = transform(plane_positions, affine)
+        plane_normals = transform(plane_normals, affine, directions=True)
 
         planes.append((plane_positions, plane_normals, plane_texcoords, plane_index))
 

@@ -183,7 +183,7 @@ class PointsShader(WorldObjectShader):
             let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
 
             var varyings: Varyings;
-            varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc, ndc_pos.zw);
+            varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.pointcoord = vec2<f32>(delta_logical);
             varyings.size = f32(size);
