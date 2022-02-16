@@ -292,9 +292,7 @@ class TransformGizmo(WorldObject):
             # cam_unproject = camera.projection_matrix_inverse.clone().multiply(camera.matrix_world)
             # cam_unproject = camera.matrix_world.clone().multiply(camera.projection_matrix_inverse)
             # cam_project = camera.projection_matrix.clone().multiply(camera.matrix_world_inverse)
-            rot = gfx.linalg.Quaternion().set_from_rotation_matrix(
-                camera.matrix_world
-            )  # .inverse()
+            rot = gfx.linalg.Quaternion().set_from_rotation_matrix(camera.matrix_world)
             screen_directions = [
                 vec.multiply_scalar(self._screen_size) for vec in base_directions
             ]
@@ -345,6 +343,10 @@ class TransformGizmo(WorldObject):
             self._translate1_children[dim].visible = show_direction[dim]
             self._scale_children[dim].visible = show_direction[dim]
 
+        # Per-dimension scaling is only possible in object-mode
+        for ob in self._scale_children:
+            ob.visible = self._mode == "object"
+
         # Determine any flips so that the gizmo faces the camera
         for dim, vec in enumerate(ndc_directions):
             if vec.z > 0:
@@ -356,26 +358,7 @@ class TransformGizmo(WorldObject):
 
         self.scale = Vector3(*scale)
         self.rotation = rot
-
         self._ndc_pos = self.position.clone().project(camera)
-        self._screen_pos = Vector3(
-            (self._ndc_pos.x + 1) * canvas_size[0] / 2,
-            (self._ndc_pos.y + 1) * canvas_size[1] / 2,
-            0,
-        )
-
-    # %% Utils
-
-    def _get_world_vector_from_pointer_move(self, event):
-        dx = event["x"] - self._ref["event"]["x"]
-        dy = event["y"] - self._ref["event"]["y"]
-        screen_vecs = self._ref["screen_vecs"]  # the self._screen_vecs changes
-        return (
-            screen_vecs[0]
-            .clone()
-            .multiply_scalar(-dx)
-            .add_scaled_vector(screen_vecs[1], +dy)
-        )
 
     # %% Event handling
 
@@ -392,11 +375,11 @@ class TransformGizmo(WorldObject):
             if ob in self._translate0_children:
                 return self.toggle_mode()
             elif ob in self._translate_children:
-                self._handle_translate_start(event, ob)
+                self._handle_start("translate", event, ob)
             elif ob in self._scale_children:
-                self._handle_scale_start(event, ob)
+                self._handle_start("scale", event, ob)
             elif ob in self._rotate_children:
-                self._handle_rotate_start(event, ob)
+                self._handle_start("rotate", event, ob)
         elif type == "pointer_up":
             self._ref = None
         elif type == "pointer_move":
@@ -409,13 +392,19 @@ class TransformGizmo(WorldObject):
             elif self._ref["kind"] == "rotate":
                 self._handle_rotate_move(event)
 
-    def _handle_translate_start(self, event, ob):
+    def _handle_start(self, kind, event, ob):
+        sign = np.sign
         self._ref = {
-            "kind": "translate",
+            "kind": kind,
             "event": event,
+            "dim": ob.dim,
+            # Transform at time of start
+            "scale": self._object_to_control.scale.clone(),
+            "rot": self._object_to_control.rotation.clone(),
             "world_pos": self._object_to_control.position.clone(),
             "ndc_pos": self._ndc_pos.clone(),
-            "dim": ob.dim,
+            # Gizmo direction state at time of start
+            "flips": [sign(self.scale.x), sign(self.scale.y), sign(self.scale.z)],
             "world_directions": [vec.clone() for vec in self._world_directions],
             "ndc_directions": [vec.clone() for vec in self._ndc_directions],
             "screen_directions": [vec.clone() for vec in self._screen_directions],
@@ -458,44 +447,31 @@ class TransformGizmo(WorldObject):
         self._object_to_control.position = new_position.clone()
         self.position = new_position.clone()
 
-    def _handle_scale_start(self, event, ob):
-        self._ref = {
-            "kind": "scale",
-            "event": event,
-            "scale": self._object_to_control.scale.clone(),
-            "screen_vecs": self._screen_vecs,
-            "dim": ob.dim,
-        }
-
     def _handle_scale_move(self, event):
+
+        # Get dimension
         dim = self._ref["dim"]
-        # Calculate how far the mouse has moved
-        dx = event["x"] - self._ref["event"]["x"]
-        dy = event["y"] - self._ref["event"]["y"]
-        dir_x, dir_y = self._screen_directions[dim]
-        dir_norm = (dir_x**2 + dir_y**2) ** 0.5
-        dist_pixels = dir_x * dx / dir_norm - dir_y * dy / dir_norm
-        # Turn that into a scale vector.
-        # We can only scale in object coordinates - there is no way to
-        # "rotate a scale transform"
+
+        # Get how the mouse has moved
+        screen_moved = Vector3(
+            event["x"] - self._ref["event"]["x"],
+            event["y"] - self._ref["event"]["y"],
+            0,
+        )
+
+        # Get how much the mouse has moved in the ref direction
+        screen_dir = self._ref["screen_directions"][dim]
+        factor = get_scale_factor(screen_dir, screen_moved)
+        factor *= self._ref["flips"][dim]
+        npixels = factor * screen_dir.length()
+
+        # Calculate the relative scale
         scale = [1, 1, 1]
-        scale[dim] = 2 ** (dist_pixels / 100)
+        scale[dim] = 2 ** (npixels / 100)
         scale = Vector3(*scale)
+
         # Apply
         self._object_to_control.scale = self._ref["scale"].clone().multiply(scale)
-
-    def _handle_rotate_start(self, event, ob):
-        sign = np.sign
-        self._ref = {
-            "kind": "rotate",
-            "event": event,
-            "rot": self._object_to_control.rotation.clone(),
-            "dim": ob.dim,
-            "flips": [sign(self.scale.x), sign(self.scale.y), sign(self.scale.z)],
-            "world_directions": [vec.clone() for vec in self._world_directions],
-            "ndc_directions": [vec.clone() for vec in self._ndc_directions],
-            "screen_directions": [vec.clone() for vec in self._screen_directions],
-        }
 
     def _handle_rotate_move(self, event):
         # Get dimension around which to rotate, and the *other* dimensions
