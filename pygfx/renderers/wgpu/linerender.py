@@ -52,6 +52,7 @@ def line_renderer(render_info):
     shader = LineShader(
         render_info,
         vertex_color_channels=0,
+        aa=material.aa,
     )
 
     assert isinstance(material, LineMaterial)
@@ -200,8 +201,9 @@ class LineShader(WorldObjectShader):
 
             let index = i32(in.index);
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
-            let half_thickness:f32 = u_material.thickness * 0.5;  // in logical pixels
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
+            let extra_thick = {{ '0.5' if aa else '0.0' }} / l2p;
+            let half_thickness:f32 = u_material.thickness * 0.5 + extra_thick;  // logical pixels
 
             let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
             let i0 = result.i;
@@ -496,12 +498,11 @@ class LineShader(WorldObjectShader):
             // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
             // here this will help the end result. Because this produces semitransparent fragments,
             // it relies on a good blend method, and the object gets drawn twice.
-            // todo: because of this aa edge, our line gets a wee bit thinner, so we have to
-            // output ticker lines in the vertex shader!
-            let aa_width = 1.0;
-            alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
-            alpha = clamp(alpha, 0.0, 1.0);
-            alpha = pow(alpha, 2.0);
+            $$ if aa
+                let aa_width = 1.0;
+                alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
+                alpha = clamp(alpha, 0.0, 1.0);
+            $$ endif
 
             // Set color
             $$ if color_mode == 'vertex'
