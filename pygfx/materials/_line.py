@@ -12,11 +12,18 @@ class LineMaterial(Material):
     )
 
     def __init__(
-        self, color=(1, 1, 1, 1), thickness=2.0, vertex_colors=False, map=None, **kwargs
+        self,
+        color=(1, 1, 1, 1),
+        thickness=2.0,
+        vertex_colors=False,
+        map=None,
+        aa=True,
+        **kwargs
     ):
         super().__init__(**kwargs)
 
         self.color = color
+        self.aa = aa
         self.map = map
         self.thickness = thickness
         self._vertex_colors = bool(vertex_colors)
@@ -31,6 +38,7 @@ class LineMaterial(Material):
 
     @property
     def color(self):
+        """The uniform color of the line."""
         return Color(self.uniform_buffer.data["color"])
 
     @color.setter
@@ -40,6 +48,18 @@ class LineMaterial(Material):
             self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def aa(self):
+        """Whether or not the line should be anti-aliased. Aliasing
+        gives prettier results, but may affect performance for very large
+        datasets. Default True.
+        """
+        return self._aa
+
+    @aa.setter
+    def aa(self, aa):
+        self._aa = bool(aa)
 
     @property
     def vertex_colors(self):
