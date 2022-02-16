@@ -8,9 +8,11 @@ scene = gfx.Scene()
 
 cube = gfx.Mesh(
     gfx.box_geometry(1, 1, 1),
-    gfx.MeshBasicMaterial(color="#336699"),
+    gfx.MeshPhongMaterial(color="#336699"),
 )
 scene.add(cube)
+
+scene.add(gfx.GridHelper())
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 4
