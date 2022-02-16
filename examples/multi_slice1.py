@@ -19,7 +19,7 @@ scene = gfx.Scene()
 background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
 scene.add(background)
 
-scene.add(gfx.AxesHelper(length=50))
+scene.add(gfx.AxesHelper(size=50))
 
 vol = imageio.volread("imageio:stent.npz").astype("float32") / 2000
 tex = gfx.Texture(vol, dim=3)

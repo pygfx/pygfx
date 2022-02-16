@@ -15,18 +15,13 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-background = gfx.Background(
-    None, gfx.BackgroundMaterial((0, 0.1, 0, 1), (0, 0.1, 0.1, 1))
-)
-scene.add(background)
-
-axes = gfx.AxesHelper(length=40)
+axes = gfx.AxesHelper(size=40, thickness=8)
 scene.add(axes)
 
-grid = gfx.GridHelper(size=100)
+grid = gfx.GridHelper(size=100, thickness=4)
 scene.add(grid)
 
-box = gfx.BoxHelper(size=100)
+box = gfx.BoxHelper(size=100, thickness=4)
 scene.add(box)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
