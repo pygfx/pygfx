@@ -37,6 +37,7 @@ class TransformGizmo(WorldObject):
         self._ref = None
 
         # Two vectors in world coords, representing screen-x and screen-y
+        # todo: can remove?
         self._screen_vecs = Vector3(0, 0, 0), Vector3(0, 0, 0)
 
     def set_object(self, object_to_control):
@@ -277,10 +278,6 @@ class TransformGizmo(WorldObject):
                 # .multiply_scalar(scale_scalar)
                 for vec in world_directions
             ]
-            screen_directions = [
-                Vector3(vec.x * canvas_size[0] / 2, vec.y * canvas_size[1] / 2, 0)
-                for vec in ndc_directions
-            ]
 
         elif self._mode == "world":
             # The world direction is the base direction
@@ -292,10 +289,7 @@ class TransformGizmo(WorldObject):
                 # .multiply_scalar(scale_scalar)
                 for vec in world_directions
             ]
-            screen_directions = [
-                Vector3(vec.x * canvas_size[0] / 2, vec.y * canvas_size[1] / 2, 0)
-                for vec in ndc_directions
-            ]
+
         else:
             # The screen direction is the base_direction
             # TODO: perspective projection can show the other axis of the gizmo, what does this mean?
@@ -318,8 +312,13 @@ class TransformGizmo(WorldObject):
                 for vec in ndc_directions
             ]
 
+        screen_directions = [
+            Vector3(vec.x * canvas_size[0] / 2, -vec.y * canvas_size[1] / 2, 0)
+            for vec in ndc_directions
+        ]
         # Store
         self._world_directions = world_directions
+        self._ndc_directions = ndc_directions
         self._screen_directions = screen_directions
 
         # Determine what directions are orthogonal to the view plane
@@ -353,6 +352,7 @@ class TransformGizmo(WorldObject):
         for dim, vec in enumerate(ndc_directions):
             if vec.z > 0:
                 scale[dim] = -scale[dim]
+                # self._screen_directions[dim].multiply_scalar(-1)
                 # dir_screen = self._screen_directions[dim]
                 # self._screen_directions[dim].multiply_scalar(-1)# = Vector3(-dir_screen.x, -dir_screen.y, -dir_screen.z)
                 # self._world_directions[dim].multiply_scalar(-1)
@@ -360,24 +360,14 @@ class TransformGizmo(WorldObject):
         self.scale = Vector3(*scale)
         self.rotation = rot
 
-    # %% Utils
+        self._ndc_pos = self.position.clone().project(camera)
+        self._screen_pos = Vector3(
+            (self._ndc_pos.x + 1) * canvas_size[0] / 2,
+            (self._ndc_pos.y + 1) * canvas_size[1] / 2,
+            0,
+        )
 
-    def _get_direction(self, dim):
-        """Get a vector indicating the translation direction in world space."""
-        assert 0 <= dim <= 2
-        if dim == 0:
-            vec = Vector3(1, 0, 0)
-        elif dim == 1:
-            vec = Vector3(0, 1, 0)
-        else:
-            vec = Vector3(0, 0, 1)
-        return vec
-        if self._mode == "object":
-            return vec.apply_quaternion(self._object_to_control.rotation.inverse())
-        elif self._mode == "world":
-            return vec
-        elif self._mode == "screen":
-            return vec
+    # %% Utils
 
     def _get_world_vector_from_pointer_move(self, event):
         dx = event["x"] - self._ref["event"]["x"]
@@ -423,40 +413,53 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
 
     def _handle_translate_start(self, event, ob):
-        if ob in self._translate1_children:
-            multiply = self._direction_multipliers[ob.dim]
-            direction = self._get_direction(ob.dim).multiply_scalar(multiply)
-        elif ob in self._translate2_children:
-            direction = [
-                self._get_direction(d).multiply_scalar(self._direction_multipliers[d])
-                for d in ob.dim
-            ]
-        else:
-            direction = None
         self._ref = {
             "kind": "translate",
             "event": event,
-            "pos": self._object_to_control.position.clone(),
-            "screen_vecs": self._screen_vecs,
+            "world_pos": self._object_to_control.position.clone(),
+            "ndc_pos": self._ndc_pos.clone(),
             "dim": ob.dim,
-            "direction": direction,
+            "world_directions": [vec.clone() for vec in self._world_directions],
+            "ndc_directions": [vec.clone() for vec in self._ndc_directions],
+            "screen_directions": [vec.clone() for vec in self._screen_directions],
         }
 
     def _handle_translate_move(self, event):
+        # Get dimensions to translate in
         dim = self._ref["dim"]
-        vec = self._get_world_vector_from_pointer_move(event)
-        if dim == "screen":
-            position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
-        elif isinstance(dim, int):
-            vec.multiply(self._ref["direction"])
-            position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
+        if isinstance(dim, int):
+            dims = [dim]
         else:  # tuple
-            vec1 = vec.clone().multiply(self._ref["direction"][0])
-            vec2 = vec.clone().multiply(self._ref["direction"][1])
-            vec.add_vectors(vec1, vec2)
-            position = self._ref["pos"].clone().add_scaled_vector(vec, -1)
-        self._object_to_control.position = position
-        self.position = position.clone()
+            dims = dim
+
+        # Get how the mouse has moved
+        screen_moved = Vector3(
+            event["x"] - self._ref["event"]["x"],
+            event["y"] - self._ref["event"]["y"],
+            0,
+        )
+
+        # Init new position
+        new_position = self._ref["world_pos"].clone()
+
+        for dim in dims:
+            # Sample directions
+            world_dir = self._ref["world_directions"][dim]
+            ndc_dir = self._ref["ndc_directions"][dim].clone()
+            screen_dir = self._ref["screen_directions"][dim].clone()
+            # Calculate how many times the screen_dir matches the moved direction
+            factor = get_scale_factor(screen_dir, screen_moved)
+            # Calculate position by moving ndc_pos in that direction
+            ndc_pos = self._ref["ndc_pos"].clone().add_scaled_vector(ndc_dir, factor)
+            position = ndc_pos.unproject(self._camera)
+            # The found position has roundoff errors, let's align it with the world_dir
+            world_move = position.clone().sub(self._ref["world_pos"])
+            factor = get_scale_factor(world_dir, world_move)
+            new_position.add_scaled_vector(world_dir, factor)
+
+        # Apply
+        self._object_to_control.position = new_position.clone()
+        self.position = new_position.clone()
 
     def _handle_scale_start(self, event, ob):
         self._ref = {
@@ -489,10 +492,10 @@ class TransformGizmo(WorldObject):
             "kind": "rotate",
             "event": event,
             "rot": self._object_to_control.rotation.clone(),
-            "screen_vecs": self._screen_vecs,
-            "world_directions": [vec.clone() for vec in self._world_directions],
-            "screen_directions": [vec.clone() for vec in self._screen_directions],
             "dim": ob.dim,
+            "world_directions": [vec.clone() for vec in self._world_directions],
+            "ndc_directions": [vec.clone() for vec in self._ndc_directions],
+            "screen_directions": [vec.clone() for vec in self._screen_directions],
         }
 
     def _handle_rotate_move(self, event):
@@ -523,3 +526,9 @@ class TransformGizmo(WorldObject):
 
 
 # def world_vec_to_screen_vec(center_world, center_screen, world_directions, camera,)
+
+
+def get_scale_factor(vec1, vec2):
+    factor = vec2.clone().normalize().dot(vec1.clone().normalize())
+    factor *= vec2.length() / vec1.length()
+    return factor
