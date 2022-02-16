@@ -117,14 +117,30 @@ def line_renderer(render_info):
         shader.define_binding(0, i, binding)
 
     # Determine in what render passes this objects must be rendered
-    # Note: the renderer use alpha for aa, so we are never opaque only.
     suggested_render_mask = 3
     if material.opacity < 1:
         suggested_render_mask = 2
     elif shader["color_mode"] == "uniform":
-        suggested_render_mask = 3 if material.color[3] >= 1 else 2
-    else:
-        suggested_render_mask = 3
+        if material.color[3] < 1:
+            suggested_render_mask = 2
+        elif material.aa:
+            suggested_render_mask = 3
+        else:
+            suggested_render_mask = 1
+    elif shader["color_mode"] == "vertex":
+        if shader["vertex_color_channels"] in (2, 4):
+            suggested_render_mask = 3
+        elif material.aa:
+            suggested_render_mask = 3
+        else:
+            suggested_render_mask = 1
+    elif shader["color_mode"] == "map":
+        if shader["colormap_nchannels"] in (2, 4):
+            suggested_render_mask = 3
+        elif material.aa:
+            suggested_render_mask = 3
+        else:
+            suggested_render_mask = 1
 
     # Done
     return [
