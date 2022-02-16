@@ -1,6 +1,6 @@
 import numpy as np
 
-from .. import Geometry, Line, LineThinSegmentMaterial
+from .. import Geometry, Line, LineSegmentMaterial
 from ..utils import Color
 
 DTYPE = "f4"
@@ -15,6 +15,7 @@ class GridHelper(Line):
         divisions=10,
         color1=(0.35, 0.35, 0.35, 1),
         color2=(0.1, 0.1, 0.1, 1),
+        thickness=1,
     ):
         assert isinstance(divisions, int)
         assert size > 0.0
@@ -39,6 +40,6 @@ class GridHelper(Line):
         geometry = Geometry(
             positions=positions.reshape((-1, 3)), colors=colors.reshape((-1, 4))
         )
-        material = LineThinSegmentMaterial(vertex_colors=True)
+        material = LineSegmentMaterial(vertex_colors=True, thickness=thickness, aa=True)
 
         super().__init__(geometry, material)

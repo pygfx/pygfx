@@ -1,13 +1,18 @@
 import numpy as np
 
-from .. import Geometry, Line, LineThinSegmentMaterial
+from .. import Geometry, Line, LineSegmentMaterial
 from ..utils import Color
 
 
 class AxesHelper(Line):
-    """An object indicating the axes directions."""
+    """An object indicating the axes directions.
 
-    def __init__(self, length=1.0):
+    Parameters:
+        size (float): The length of the lines (default 1).
+        thickness (float): the thickness of the lines (default 2 px).
+    """
+
+    def __init__(self, size=1.0, thickness=2):
         positions = np.array(
             [
                 [0, 0, 0],
@@ -19,7 +24,7 @@ class AxesHelper(Line):
             ],
             dtype="f4",
         )
-        positions *= length
+        positions *= size
 
         colors = np.array(
             [
@@ -34,7 +39,7 @@ class AxesHelper(Line):
         )
 
         geometry = Geometry(positions=positions, colors=colors)
-        material = LineThinSegmentMaterial(vertex_colors=True)
+        material = LineSegmentMaterial(vertex_colors=True, thickness=thickness, aa=True)
 
         super().__init__(geometry, material)
 

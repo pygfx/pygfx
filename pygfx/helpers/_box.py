@@ -1,17 +1,18 @@
 import numpy as np
 
-from .. import Geometry, Line, LineThinSegmentMaterial
+from .. import Geometry, Line, LineSegmentMaterial
 
 
 class BoxHelper(Line):
-    """A line box object. Commonly used to visualize bounding boxes."""
+    """A line box object. Commonly used to visualize bounding boxes.
 
-    def __init__(self, size=1.0):
-        """Construct a box line visual centered around the origin.
+    Parameters:
+        size (float): The length of the box' edges (default 1).
+        thickness (float): the thickness of the lines (default 1 px).
+    """
 
-        Parameters:
-            size (float): The length of the box' edges.
-        """
+    def __init__(self, size=1.0, thickness=1):
+
         self._size = size
 
         positions = np.array(
@@ -47,7 +48,7 @@ class BoxHelper(Line):
         positions *= self._size
 
         geometry = Geometry(positions=positions)
-        material = LineThinSegmentMaterial(color=(1, 0, 0))
+        material = LineSegmentMaterial(color=(1, 0, 0), thickness=thickness, aa=True)
 
         super().__init__(geometry, material)
 
