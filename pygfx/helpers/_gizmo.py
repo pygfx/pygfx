@@ -71,15 +71,20 @@ class TransformGizmo(WorldObject):
 
         halfway = 0.65
 
+        # The lines and arcs are not apaque. That way they're also not
+        # pickable, so they won't be "in the way".
+        line_opacity = 0.6
+
         # --- the parts that are at the center
 
         # Create screen translate handle
         sphere_geo = gfx.sphere_geometry(0.07)
-        translate_screen = gfx.Mesh(
+        scale_uniform = gfx.Mesh(
             sphere_geo,
             gfx.MeshBasicMaterial(color="#ffffff"),
         )
-        translate_screen.scale.set(1.5, 1.5, 1.5)
+        scale_uniform.scale.set(1.5, 1.5, 1.5)
+        scale_uniform.dim = None
 
         # --- the parts that are fully in one dimension
 
@@ -87,15 +92,15 @@ class TransformGizmo(WorldObject):
         line_geo = gfx.Geometry(positions=[(0, 0, 0), (1, 0, 0)])
         line_x = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color="#880000"),
+            gfx.LineMaterial(thickness=4, color="#ff0000", opacity=line_opacity),
         )
         line_y = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color="#008800"),
+            gfx.LineMaterial(thickness=4, color="#00ff00", opacity=line_opacity),
         )
         line_z = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color="#000088"),
+            gfx.LineMaterial(thickness=4, color="#0000ff", opacity=line_opacity),
         )
 
         # Create 1D translate handles
@@ -143,15 +148,15 @@ class TransformGizmo(WorldObject):
         arc_geo = gfx.Geometry(positions=arc_positions * halfway)
         arc_yz = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color="#880000"),
+            gfx.LineMaterial(thickness=4, color="#880000", opacity=line_opacity),
         )
         arc_zx = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color="#008800"),
+            gfx.LineMaterial(thickness=4, color="#008800", opacity=line_opacity),
         )
         arc_xy = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color="#000088"),
+            gfx.LineMaterial(thickness=4, color="#000088", opacity=line_opacity),
         )
         arc_zx.scale.y = -1
         arc_xy.scale.z = -1
@@ -202,16 +207,12 @@ class TransformGizmo(WorldObject):
             ob.rotation.set_from_axis_angle(Vector3(0, -1, 0), np.pi / 2)
 
         # Store the objectss
+        self._center_sphere = scale_uniform
         self._line_children = line_x, line_y, line_z
         self._arc_children = arc_yz, arc_zx, arc_xy
-        self._translate0_children = (translate_screen,)
         self._translate1_children = translate_x, translate_y, translate_z
         self._translate2_children = translate_yz, translate_zx, translate_xy
-        self._translate_children = (
-            self._translate0_children
-            + self._translate1_children
-            + self._translate2_children
-        )
+        self._translate_children = self._translate1_children + self._translate2_children
         self._scale_children = scale_x, scale_y, scale_z
         self._rotate_children = rotate_yz, rotate_zx, rotate_xy
 
@@ -224,7 +225,6 @@ class TransformGizmo(WorldObject):
         ]:
             for i, ob in enumerate(triplet):
                 ob.dim = i
-        translate_screen.dim = "screen"
         for i, ob in enumerate(self._translate2_children):
             dim = [0, 1, 2]
             dim.pop(i)
@@ -233,6 +233,7 @@ class TransformGizmo(WorldObject):
         # Attach to the gizmo object
         self.add(*self._line_children)
         self.add(*self._arc_children)
+        self.add(self._center_sphere)
         self.add(*self._translate_children)
         self.add(*self._scale_children)
         self.add(*self._rotate_children)
@@ -344,7 +345,7 @@ class TransformGizmo(WorldObject):
             self._scale_children[dim].visible = show_direction[dim]
 
         # Per-dimension scaling is only possible in object-mode
-        for ob in self._scale_children:
+        for ob in self._scale_children[:3]:
             ob.visible = self._mode == "object"
 
         # Determine any flips so that the gizmo faces the camera
@@ -372,8 +373,8 @@ class TransformGizmo(WorldObject):
             # todo: make renderer cache pick info calls for the same frame
             info = self._renderer.get_pick_info((event["x"], event["y"]))
             ob = info["world_object"]
-            if ob in self._translate0_children:
-                return self.toggle_mode()
+            if ob == self._center_sphere:
+                self._handle_start("scale", event, ob)
             elif ob in self._translate_children:
                 self._handle_start("translate", event, ob)
             elif ob in self._scale_children:
@@ -381,9 +382,19 @@ class TransformGizmo(WorldObject):
             elif ob in self._rotate_children:
                 self._handle_start("rotate", event, ob)
         elif type == "pointer_up":
-            self._ref = None
+            if self._ref:
+                if self._ref["dim"] is None and self._ref["maxdist"] < 3:
+                    self.toggle_mode()
+                self._ref = None
         elif type == "pointer_move":
             if not self._ref:
+                return
+            dist = (
+                (event["x"] - self._ref["event"]["x"]) ** 2
+                + (event["y"] - self._ref["event"]["y"]) ** 2
+            ) ** 0.5
+            self._ref["maxdist"] = max(self._ref["maxdist"], dist)
+            if self._ref["maxdist"] < 3:
                 pass
             elif self._ref["kind"] == "translate":
                 self._handle_translate_move(event)
@@ -398,6 +409,7 @@ class TransformGizmo(WorldObject):
             "kind": kind,
             "event": event,
             "dim": ob.dim,
+            "maxdist": 0,
             # Transform at time of start
             "scale": self._object_to_control.scale.clone(),
             "rot": self._object_to_control.rotation.clone(),
@@ -459,16 +471,22 @@ class TransformGizmo(WorldObject):
             0,
         )
 
-        # Get how much the mouse has moved in the ref direction
-        screen_dir = self._ref["screen_directions"][dim]
-        factor = get_scale_factor(screen_dir, screen_moved)
-        factor *= self._ref["flips"][dim]
-        npixels = factor * screen_dir.length()
-
-        # Calculate the relative scale
-        scale = [1, 1, 1]
-        scale[dim] = 2 ** (npixels / 100)
-        scale = Vector3(*scale)
+        if dim is None:
+            # Uniform scale
+            ref_vec = Vector3(1, -1, 0)
+            npixels = get_scale_factor(ref_vec, screen_moved)
+            scale = 2 ** (npixels / 100)
+            scale = Vector3(scale, scale, scale)
+        else:
+            # Get how much the mouse has moved in the ref direction
+            screen_dir = self._ref["screen_directions"][dim]
+            factor = get_scale_factor(screen_dir, screen_moved)
+            factor *= self._ref["flips"][dim]
+            npixels = factor * screen_dir.length()
+            # Calculate the relative scale
+            scale = [1, 1, 1]
+            scale[dim] = 2 ** (npixels / 100)
+            scale = Vector3(*scale)
 
         # Apply
         self._object_to_control.scale = self._ref["scale"].clone().multiply(scale)
