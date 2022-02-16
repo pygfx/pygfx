@@ -272,21 +272,17 @@ class TransformGizmo(WorldObject):
             # The world direction is derived from the object
             rot = self._object_to_control.rotation.clone()
             world_directions = [vec.apply_quaternion(rot) for vec in base_directions]
-            # Convert to screen directions
             ndc_directions = [
                 center_world.clone().add(vec).project(camera).sub(center_screen)
-                # .multiply_scalar(scale_scalar)
                 for vec in world_directions
             ]
 
         elif self._mode == "world":
             # The world direction is the base direction
-            rot = gfx.linalg.Quaternion()
+            rot = gfx.linalg.Quaternion()  # null rotation
             world_directions = base_directions
-            # Convert to screen directions
             ndc_directions = [
                 center_world.clone().add(vec).project(camera).sub(center_screen)
-                # .multiply_scalar(scale_scalar)
                 for vec in world_directions
             ]
 
@@ -304,7 +300,7 @@ class TransformGizmo(WorldObject):
             ]
             # Convert to world directions
             ndc_directions = [
-                Vector3(vec.x / canvas_size[0] * 2, vec.y / canvas_size[1] * 2, vec.z)
+                Vector3(vec.x / canvas_size[0] * 2, vec.y / canvas_size[1] * 2, -vec.z)
                 for vec in screen_directions
             ]
             world_directions = [
@@ -320,6 +316,7 @@ class TransformGizmo(WorldObject):
         self._world_directions = world_directions
         self._ndc_directions = ndc_directions
         self._screen_directions = screen_directions
+        self._screen_directions_flipped = [vec.clone() for vec in screen_directions]
 
         # Determine what directions are orthogonal to the view plane
         # And also a multiplier to compensate for the smaller leverage at a high angle
@@ -352,7 +349,7 @@ class TransformGizmo(WorldObject):
         for dim, vec in enumerate(ndc_directions):
             if vec.z > 0:
                 scale[dim] = -scale[dim]
-                # self._screen_directions[dim].multiply_scalar(-1)
+                self._screen_directions_flipped[dim].multiply_scalar(-1)
                 # dir_screen = self._screen_directions[dim]
                 # self._screen_directions[dim].multiply_scalar(-1)# = Vector3(-dir_screen.x, -dir_screen.y, -dir_screen.z)
                 # self._world_directions[dim].multiply_scalar(-1)
@@ -488,47 +485,57 @@ class TransformGizmo(WorldObject):
         self._object_to_control.scale = self._ref["scale"].clone().multiply(scale)
 
     def _handle_rotate_start(self, event, ob):
+        sign = np.sign
         self._ref = {
             "kind": "rotate",
             "event": event,
             "rot": self._object_to_control.rotation.clone(),
             "dim": ob.dim,
+            "flips": [sign(self.scale.x), sign(self.scale.y), sign(self.scale.z)],
             "world_directions": [vec.clone() for vec in self._world_directions],
             "ndc_directions": [vec.clone() for vec in self._ndc_directions],
             "screen_directions": [vec.clone() for vec in self._screen_directions],
         }
 
     def _handle_rotate_move(self, event):
+        # Get dimension around which to rotate, and the *other* dimensions
         dim = self._ref["dim"]
-        # dims = [(1, 2), (2, 0), (0, 1)][dim]
-        # Calculate axis of rotation
-        axis = self._ref["world_directions"][dim].clone().normalize()
-        # Calculate how far the mouse has moved
-        dx = event["x"] - self._ref["event"]["x"]
-        dy = event["y"] - self._ref["event"]["y"]
-        #
-        # screen_directions = self._ref["screen_directions"]
-        # vec1, vec2 = screen_directions[dims[0]], screen_directions[dims[1]]
-        # vec12 = vec2.clone().sub(vec1).normalize()
-        # dist_pixels = vec12.x * dx + vec12.y * dy
+        dims = [(1, 2), (2, 0), (0, 1)][dim]
 
-        dir_x, dir_y, _ = self._ref["screen_directions"][dim].to_array()
-        dir_norm = (dir_x**2 + dir_y**2) ** 0.5
-        if dir_norm == 0:
-            dir_norm = 1
-            dir_x = dir_y = -0.7071
-        dist_pixels = dir_x * dy / dir_norm + dir_y * dx / dir_norm
-        # Calculate angle
-        angle = dist_pixels / 50
+        # Get how the mouse has moved
+        screen_moved = Vector3(
+            event["x"] - self._ref["event"]["x"],
+            event["y"] - self._ref["event"]["y"],
+            0,
+        )
+
+        # Calculate axis of rotation
+        world_dir = self._ref["world_directions"][dim]
+        axis = world_dir.clone().normalize()
+
+        # Calculate the vector between the two arrows than span the arc.
+        # We need to flip the sign in the right places to make this work.
+        screen_dir1 = self._ref["screen_directions"][dims[0]].clone()
+        screen_dir2 = self._ref["screen_directions"][dims[1]].clone()
+        flip1, flip2 = self._ref["flips"][dims[0]], self._ref["flips"][dims[1]]
+        screen_dir1.multiply_scalar(flip1)
+        screen_dir2.multiply_scalar(flip2)
+        screen_vec = screen_dir2.sub(screen_dir1)
+
+        # Now we can calculate how far the mouse moved in *that* direction.
+        factor = get_scale_factor(screen_vec, screen_moved)
+        factor = factor * flip1 * flip2
+        angle = factor * 2
+
         # Apply
         rot = gfx.linalg.Quaternion().set_from_axis_angle(axis, angle)
         self._object_to_control.rotation = rot.multiply(self._ref["rot"])
 
 
-# def world_vec_to_screen_vec(center_world, center_screen, world_directions, camera,)
-
-
 def get_scale_factor(vec1, vec2):
+    """Calculate how many times vec2 fits onto vec1. Basically a dot
+    product and a division by their norms.
+    """
     factor = vec2.clone().normalize().dot(vec1.clone().normalize())
     factor *= vec2.length() / vec1.length()
     return factor
