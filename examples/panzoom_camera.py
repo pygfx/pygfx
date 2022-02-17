@@ -11,7 +11,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-axes = gfx.AxesHelper(length=250)
+axes = gfx.AxesHelper(size=250)
 scene.add(axes)
 
 background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))

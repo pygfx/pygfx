@@ -16,7 +16,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
-scene.add(gfx.AxesHelper(length=40))
+scene.add(gfx.AxesHelper(size=40, thickness=5))
 camera = gfx.OrthographicCamera(100, 100)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
