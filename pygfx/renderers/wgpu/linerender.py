@@ -195,9 +195,7 @@ class LineShader(WorldObjectShader):
         fn get_point_ndc(index:i32) -> vec4<f32> {
             let raw_pos = load_s_positions(index);
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
-            var ndc_pos: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-            ndc_pos = ndc_pos / ndc_pos.w;
-            return ndc_pos;
+            return u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         }
         """
 
@@ -320,9 +318,9 @@ class LineShader(WorldObjectShader):
             let npos3 = get_point_ndc(min(u_renderer.last_i, i + 1));
 
             // Convert to logical screen coordinates, because that's were the lines work
-            let ppos1 = (npos1.xy + 1.0) * screen_factor;
-            let ppos2 = (npos2.xy + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy + 1.0) * screen_factor;
+            let ppos1 = (npos1.xy / npos1.w + 1.0) * screen_factor;
+            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
+            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
 
             // Get vectors normal to the line segments
             var v1: vec2<f32> = ppos2.xy - ppos1.xy;
@@ -376,10 +374,11 @@ class LineShader(WorldObjectShader):
             // Select the correct vector, note that all except ne are unit.
             var vectors = array<vec2<f32>,5>(na, nb, ne, nc, nd);
             let the_vec = vectors[index % 5] * half_thickness;
+            let the_pos = ppos2 + the_vec;
 
             var out : VertexFuncOutput;
             out.i = i;
-            out.pos = vec4<f32>((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw);
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
             return out;
@@ -403,8 +402,8 @@ class LineShader(WorldObjectShader):
             let npos2 = get_point_ndc(i);
             let npos3 = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
-            let ppos2 = (npos2.xy + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy + 1.0) * screen_factor;
+            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
+            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
 
             // Get vectors normal to the line segments
             var na: vec2<f32>;
@@ -433,10 +432,11 @@ class LineShader(WorldObjectShader):
             // Note the replicated vertices to create degenerate triangles
             var vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
             let the_vec = vectors[index % 10] * half_thickness;
+            let the_pos = ppos2 + the_vec;
 
             var out : VertexFuncOutput;
             out.i = i;
-            out.pos = vec4<f32>((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw);
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
             return out;
@@ -460,8 +460,8 @@ class LineShader(WorldObjectShader):
             let npos2 = get_point_ndc(i);
             let npos3 = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
-            let ppos2 = (npos2.xy + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy + 1.0) * screen_factor;
+            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
+            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
 
             // Get vectors normal to the line segments
             var na: vec2<f32>;
@@ -484,10 +484,11 @@ class LineShader(WorldObjectShader):
             // Note the replicated vertices to create degenerate triangles
             var vectors = array<vec2<f32>,6>(na, na, nb, na, nb, nb);
             let the_vec = vectors[index % 6];
+            let the_pos = ppos2 + the_vec;
 
             var out : VertexFuncOutput;
             out.i = i;
-            out.pos = vec4<f32>((ppos2 + the_vec) / screen_factor - 1.0, npos2.zw);
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = vec2<f32>(0.0, 0.0);
             return out;
