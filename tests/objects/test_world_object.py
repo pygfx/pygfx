@@ -1,5 +1,6 @@
 from math import pi
 from unittest.mock import Mock, call
+from weakref import ref
 
 from pygfx import WorldObject
 from pygfx.linalg import Euler, Vector3, Quaternion
@@ -108,3 +109,24 @@ def test_update_matrix_world():
     assert not child1.matrix_world_dirty
     # child2 should be flagged as dirty again now
     assert child2.matrix_world_dirty
+
+
+def test_no_cyclic_references():
+    parent = WorldObject()
+    child = WorldObject()
+    parent.add(child)
+    # Add object without creating a strong reference
+    child.add(WorldObject())
+
+    # Create a weak ref to the added child
+    grandchild_ref = ref(child.children[0])
+    # Calling the ref should retrieve the grandchild
+    assert grandchild_ref() == child.children[0]
+
+    # When the child is removed (and deleted), the grandchild
+    # should also be garbage collected as there should be no
+    # direct references anymore
+    parent.remove(child)
+    del child
+
+    assert not grandchild_ref()
