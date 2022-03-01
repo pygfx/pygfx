@@ -111,6 +111,25 @@ def test_update_matrix_world():
     assert child2.matrix_world_dirty
 
 
+def test_reparenting():
+    root = WorldObject()
+    child1 = WorldObject()
+    child2 = WorldObject()
+    root.add(child1, child2)
+
+    obj = WorldObject()
+    child1.add(obj)
+
+    assert obj.parent is child1
+    assert obj in child1.children
+
+    child2.add(obj)
+
+    assert obj.parent is child2
+    assert obj not in child1.children
+    assert obj in child2.children
+
+
 def test_no_cyclic_references():
     parent = WorldObject()
     child = WorldObject()
