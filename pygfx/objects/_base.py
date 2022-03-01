@@ -273,19 +273,28 @@ class WorldObject(ResourceContainer):
         """
         return tuple(self._children)
 
-    def add(self, *objects):
+    def add(self, *objects, before=None):
         """Adds object as child of this object. Any number of
         objects may be added. Any current parent on an object passed
         in here will be removed, since an object can have at most one
         parent.
+        If ``before`` argument is given (and present in children), then
+        the items are inserted before the given element.
         """
+        idx = len(self._children)
+        if before:
+            try:
+                idx = self._children.index(before)
+            except ValueError:
+                pass
         for obj in objects:
             # orphan if needed
             if obj._parent_ref is not None:
                 obj._parent_ref().remove(obj)
             # attach to scene graph
             obj._parent_ref = weakref.ref(self)
-            self._children.append(obj)
+            self._children.insert(idx, obj)
+            idx += 1
             # flag world matrix as dirty
             obj._matrix_world_dirty = True
         return self
