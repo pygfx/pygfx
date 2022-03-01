@@ -149,3 +149,34 @@ def test_no_cyclic_references():
     del child
 
     assert not grandchild_ref()
+
+
+def test_adjust_children_order():
+    root = WorldObject()
+    child1 = WorldObject()
+    child2 = WorldObject()
+
+    root.add(child1, child2)
+
+    assert root.children == (child1, child2)
+
+    root.add(child2, before=child1)
+
+    assert root.children == (child2, child1)
+
+    child3 = WorldObject()
+    root.add(child3, child1, before=child2)
+
+    assert root.children == (child3, child1, child2)
+
+    # Assert that nothing happens when adding the same element
+    # before itself
+    root.add(child1, before=child1)
+    assert root.children == (child3, child1, child2)
+
+    non_child = WorldObject()
+
+    # Append item at end when the `before` parameter
+    # is not in children
+    root.add(child1, before=non_child)
+    assert root.children == (child3, child2, child1)
