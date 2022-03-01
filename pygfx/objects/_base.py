@@ -146,7 +146,7 @@ class WorldObject(ResourceContainer):
         self.render_mask = render_mask
 
         # Init parent and children
-        self._parent = None
+        self._parent_ref = None
         self._children = []
 
         self.position = Vector3()
@@ -264,7 +264,7 @@ class WorldObject(ResourceContainer):
         """Object's parent in the scene graph (read-only).
         An object can have at most one parent.
         """
-        return self._parent
+        return self._parent_ref and self._parent_ref()
 
     @property
     def children(self):
@@ -281,10 +281,10 @@ class WorldObject(ResourceContainer):
         """
         for obj in objects:
             # orphan if needed
-            if obj._parent is not None:
-                obj._parent.remove(obj)
+            if obj._parent_ref is not None:
+                obj._parent_ref().remove(obj)
             # attach to scene graph
-            obj._parent = self
+            obj._parent_ref = weakref.ref(self)
             self._children.append(obj)
             # flag world matrix as dirty
             obj._matrix_world_dirty = True
@@ -295,10 +295,9 @@ class WorldObject(ResourceContainer):
         If a given object is not a child, it is ignored.
         """
         for obj in objects:
-
             try:
                 self._children.remove(obj)
-                obj._parent = None
+                obj._parent_ref = None
             except ValueError:
                 pass
         return self
