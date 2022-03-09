@@ -16,7 +16,7 @@ from .utils.show import show
 from .utils import cm
 
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 version_info = tuple(map(int, __version__.split(".")))
 
 
