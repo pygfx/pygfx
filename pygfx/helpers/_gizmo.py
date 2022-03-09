@@ -31,7 +31,7 @@ class TransformGizmo(WorldObject):
         self._screen_size = float(screen_size)
 
         # The mode of operation
-        self._mode = "object"  # object, world, screen
+        self.toggle_mode("object")  # object, world, screen
 
         # A dict that is a reference for the pointer down event. Or None.
         self._ref = None
@@ -53,6 +53,7 @@ class TransformGizmo(WorldObject):
             raise ValueError(f"Invalid mode '{mode}', must be one of {modes}.")
         print("mode is now", mode)
         self._mode = mode
+        self._on_mode_switch()
 
     def add_default_event_handlers(self, renderer, camera):
         # todo: update other methods with the same name to include renderer?
@@ -69,7 +70,7 @@ class TransformGizmo(WorldObject):
 
     def _create_components(self):
 
-        halfway = 0.65
+        self._halfway = halfway = 0.65
 
         # The lines and arcs are not apaque. That way they're also not
         # pickable, so they won't be "in the way".
@@ -89,7 +90,7 @@ class TransformGizmo(WorldObject):
         # --- the parts that are fully in one dimension
 
         # Create lines
-        line_geo = gfx.Geometry(positions=[(0, 0, 0), (1, 0, 0)])
+        line_geo = gfx.Geometry(positions=[(0, 0, 0), (halfway, 0, 0)])
         line_x = gfx.Line(
             line_geo,
             gfx.LineMaterial(thickness=4, color="#ff0000", opacity=line_opacity),
@@ -181,6 +182,7 @@ class TransformGizmo(WorldObject):
         translate_xy.position.set(inside_arc, inside_arc, 0)
 
         # Create rotation handles
+        # These are positioned on each mode switch
         rotate_yz = gfx.Mesh(
             sphere_geo,
             gfx.MeshBasicMaterial(color="#ff0000"),
@@ -193,10 +195,6 @@ class TransformGizmo(WorldObject):
             sphere_geo,
             gfx.MeshBasicMaterial(color="#0000ff"),
         )
-        on_arc = halfway * 2**0.5 / 2
-        rotate_yz.position.set(0, on_arc, on_arc)
-        rotate_zx.position.set(on_arc, 0, on_arc)
-        rotate_xy.position.set(on_arc, on_arc, 0)
 
         # --- post-process
 
@@ -237,6 +235,21 @@ class TransformGizmo(WorldObject):
         self.add(*self._translate_children)
         self.add(*self._scale_children)
         self.add(*self._rotate_children)
+
+    def _on_mode_switch(self):
+
+        # Update position of rotation handles
+        rotate_yz, rotate_zx, rotate_xy = self._rotate_children
+        halfway = self._halfway
+        on_arc = halfway * 2**0.5 / 2
+        if self._mode == "screen":
+            rotate_yz.position.set(0, on_arc, 0)
+            rotate_zx.position.set(on_arc, 0, 0)
+            rotate_xy.position.set(on_arc, on_arc, 0)
+        else:
+            rotate_yz.position.set(0, on_arc, on_arc)
+            rotate_zx.position.set(on_arc, 0, on_arc)
+            rotate_xy.position.set(on_arc, on_arc, 0)
 
     def update_matrix_world(self, *args, **kwargs):
         # This gets called by the renderer just before rendering.
@@ -323,30 +336,12 @@ class TransformGizmo(WorldObject):
         multipliers = [1, 1, 1]
         for dim, vec in enumerate(screen_directions):
             size = (vec.x**2 + vec.y**2) ** 0.5
-            show_direction[dim] = size > 15  # in pixels
+            show_direction[dim] = size > 20  # in pixels
             multipliers[dim] = 1 / (size + 0.1)
-
-        # Hide plane-translation handles if ill-defined
-        for dim in (0, 1, 2):
-            dims = [(1, 2), (2, 0), (0, 1)][dim]
-            vec1 = screen_directions[dims[0]].clone().normalize()
-            vec2 = screen_directions[dims[1]].clone().normalize()
-            in_plane_measure = abs(vec1.dot(vec2))
-            self._translate2_children[dim].visible = in_plane_measure < 0.75
 
         # Store multipler per direction
         ref_multiplier = min(multipliers)
         self._direction_multipliers = [x / ref_multiplier for x in multipliers]
-
-        # Hide object for which the direction (on screen) becomes ill-defined.
-        for dim in (0, 1, 2):
-            self._line_children[dim].visible = show_direction[dim]
-            self._translate1_children[dim].visible = show_direction[dim]
-            self._scale_children[dim].visible = show_direction[dim]
-
-        # Per-dimension scaling is only possible in object-mode
-        for ob in self._scale_children[:3]:
-            ob.visible = self._mode == "object"
 
         # Determine any flips so that the gizmo faces the camera
         for dim, vec in enumerate(ndc_directions):
@@ -360,6 +355,36 @@ class TransformGizmo(WorldObject):
         self.scale = Vector3(*scale)
         self.rotation = rot
         self._ndc_pos = self.position.clone().project(camera)
+
+        # -- Hide objects for which the direction (on screen) becomes ill-defined.
+
+        if self._mode == "screen":
+            for dim, visible in enumerate([True, True, False]):
+                self._line_children[dim].visible = visible
+                self._translate1_children[dim].visible = visible
+            for dim, visible in enumerate([False, False, True]):
+                self._translate2_children[dim].visible = visible
+                self._arc_children[dim].visible = visible
+
+        else:
+            # Lines and arcs are always shown
+            for dim in (0, 1, 2):
+                self._arc_children[dim].visible = True
+                self._line_children[dim].visible = True
+            # The translate1 and scale handles depend on their angle to the camera
+            for dim in (0, 1, 2):
+                self._translate1_children[dim].visible = show_direction[dim]
+                self._scale_children[dim].visible = show_direction[dim]
+            # The translate2 handles depend on two angles to the camera
+            for dim in (0, 1, 2):
+                dim1, dim2 = [(1, 2), (2, 0), (0, 1)][dim]
+                visible = show_direction[dim1] and show_direction[dim2]
+                self._translate2_children[dim].visible = visible
+
+        # Per-dimension scaling is only possible in object-mode
+        if self._mode != "object":
+            for ob in self._scale_children[:3]:
+                ob.visible = False
 
     # %% Event handling
 
