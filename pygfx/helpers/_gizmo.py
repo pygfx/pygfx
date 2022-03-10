@@ -8,6 +8,12 @@ import pygfx as gfx
 from ..objects import WorldObject
 from pygfx.linalg import Vector3
 
+# Colors in hsluv space - https://www.hsluv.org/
+# With H: 0/120/240, S: 100, L: 50
+RED = "#ea0064"
+GREEN = "#3f8700"
+BLUE = "#007eb7"
+
 
 class TransformGizmo(WorldObject):
     """
@@ -91,15 +97,15 @@ class TransformGizmo(WorldObject):
         line_geo = gfx.Geometry(positions=[(0, 0, 0), (halfway, 0, 0)])
         line_x = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color="#ff0000", opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=RED, opacity=line_opacity),
         )
         line_y = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color="#00ff00", opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=GREEN, opacity=line_opacity),
         )
         line_z = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color="#0000ff", opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=BLUE, opacity=line_opacity),
         )
 
         # Create 1D translate handles
@@ -107,15 +113,15 @@ class TransformGizmo(WorldObject):
         cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]
         translate_x = gfx.Mesh(
             cone_geo,
-            gfx.MeshBasicMaterial(color="#ff0000"),
+            gfx.MeshBasicMaterial(color=RED),
         )
         translate_y = gfx.Mesh(
             cone_geo,
-            gfx.MeshBasicMaterial(color="#00ff00"),
+            gfx.MeshBasicMaterial(color=GREEN),
         )
         translate_z = gfx.Mesh(
             cone_geo,
-            gfx.MeshBasicMaterial(color="#0000ff"),
+            gfx.MeshBasicMaterial(color=BLUE),
         )
         translate_x.position.set(1, 0, 0)
         translate_y.position.set(0, 1, 0)
@@ -125,15 +131,15 @@ class TransformGizmo(WorldObject):
         cube_geo = gfx.box_geometry(0.1, 0.1, 0.1)
         scale_x = gfx.Mesh(
             cube_geo,
-            gfx.MeshBasicMaterial(color="#ff0000"),
+            gfx.MeshBasicMaterial(color=RED),
         )
         scale_y = gfx.Mesh(
             cube_geo,
-            gfx.MeshBasicMaterial(color="#00ff00"),
+            gfx.MeshBasicMaterial(color=GREEN),
         )
         scale_z = gfx.Mesh(
             cube_geo,
-            gfx.MeshBasicMaterial(color="#0000ff"),
+            gfx.MeshBasicMaterial(color=BLUE),
         )
         scale_x.position.set(halfway, 0, 0)
         scale_y.position.set(0, halfway, 0)
@@ -147,15 +153,15 @@ class TransformGizmo(WorldObject):
         arc_geo = gfx.Geometry(positions=arc_positions * halfway)
         arc_yz = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color="#880000", opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=RED, opacity=line_opacity),
         )
         arc_zx = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color="#008800", opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=GREEN, opacity=line_opacity),
         )
         arc_xy = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color="#000088", opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=BLUE, opacity=line_opacity),
         )
         arc_zx.scale.y = -1
         arc_xy.scale.z = -1
@@ -164,15 +170,15 @@ class TransformGizmo(WorldObject):
         plane_geo = gfx.box_geometry(0.01, 0.15, 0.15)
         translate_yz = gfx.Mesh(
             plane_geo,
-            gfx.MeshBasicMaterial(color="#ff0000"),
+            gfx.MeshBasicMaterial(color=RED),
         )
         translate_zx = gfx.Mesh(
             plane_geo,
-            gfx.MeshBasicMaterial(color="#00ff00"),
+            gfx.MeshBasicMaterial(color=GREEN),
         )
         translate_xy = gfx.Mesh(
             plane_geo,
-            gfx.MeshBasicMaterial(color="#0000ff"),
+            gfx.MeshBasicMaterial(color=BLUE),
         )
         inside_arc = 0.4 * halfway
         translate_yz.position.set(0, inside_arc, inside_arc)
@@ -183,15 +189,15 @@ class TransformGizmo(WorldObject):
         # These are positioned on each mode switch
         rotate_yz = gfx.Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color="#ff0000"),
+            gfx.MeshBasicMaterial(color=RED),
         )
         rotate_zx = gfx.Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color="#00ff00"),
+            gfx.MeshBasicMaterial(color=GREEN),
         )
         rotate_xy = gfx.Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color="#0000ff"),
+            gfx.MeshBasicMaterial(color=BLUE),
         )
 
         # --- post-process
@@ -477,8 +483,7 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
 
     def _handle_start(self, kind, event, ob):
-        """Initiate a drag. We create a snapshot of the relevant state at this point.
-        """
+        """Initiate a drag. We create a snapshot of the relevant state at this point."""
         sign = np.sign
         this_pos = self._object_to_control.position.clone()
         ob_pos = ob.get_world_position().clone()
