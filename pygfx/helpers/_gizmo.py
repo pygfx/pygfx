@@ -481,6 +481,7 @@ class TransformGizmo(WorldObject):
         )
 
         # Init new position
+        new_position = self._ref["world_pos"].clone()
         new_position.sub(self._ref["world_offset"])
 
         if isinstance(dim, int):
