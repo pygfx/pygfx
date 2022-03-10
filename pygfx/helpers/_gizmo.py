@@ -338,12 +338,6 @@ class TransformGizmo(WorldObject):
         self._ndc_directions = ndc_directions
         self._screen_directions = screen_directions
 
-        # Determine what directions are orthogonal to the view plane
-        show_direction = [True, True, True]
-        for dim, vec in enumerate(scaled_screen_directions):
-            size = (vec.x**2 + vec.y**2) ** 0.5
-            show_direction[dim] = size > 30  # in pixels
-
         # Determine any flips so that the gizmo faces the camera. Note
         # that this checks whether the vector in question points away
         # from the camera.
@@ -361,6 +355,20 @@ class TransformGizmo(WorldObject):
         self.rotation = rot
 
         # -- Hide objects for which the direction (on screen) becomes ill-defined.
+
+        # Determine what directions are orthogonal to the view plane
+        show_direction = [True, True, True]
+        for dim, vec in enumerate(scaled_screen_directions):
+            size = (vec.x**2 + vec.y**2) ** 0.5
+            show_direction[dim] = size > 30  # in pixels
+
+        # Also get whether in-plane elements become hard to see
+        show_direction2 = [True, True, True]
+        for dim, vec in enumerate(screen_directions):
+            dims = [(1, 2), (2, 0), (0, 1)][dim]
+            vec1 = screen_directions[dims[0]].clone().normalize()
+            vec2 = screen_directions[dims[1]].clone().normalize()
+            show_direction2[dim] = abs(vec1.dot(vec2)) < 0.9
 
         if self._mode == "screen":
             for dim, visible in enumerate([True, True, False]):
@@ -381,7 +389,11 @@ class TransformGizmo(WorldObject):
             # The translate2 handles depend on two angles to the camera
             for dim in (0, 1, 2):
                 dim1, dim2 = [(1, 2), (2, 0), (0, 1)][dim]
-                visible = show_direction[dim1] and show_direction[dim2]
+                visible = (
+                    show_direction[dim1]
+                    and show_direction[dim2]
+                    and show_direction2[dim]
+                )
                 self._translate2_children[dim].visible = visible
 
         # Per-dimension scaling is only possible in object-mode
@@ -469,7 +481,6 @@ class TransformGizmo(WorldObject):
         )
 
         # Init new position
-604604
         new_position.sub(self._ref["world_offset"])
 
         if isinstance(dim, int):
