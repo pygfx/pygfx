@@ -15,12 +15,12 @@ class TransformGizmo(WorldObject):
 
     Aguments:
         object_to_control (WorldObject): the object to transform with the gizmo.
-        screen_size (float): the approximate size of the widget in logical pixels.
+        screen_size (float): the approximate size of the widget in logical pixels. Default 100.
     """
 
     def __init__(self, object_to_control, screen_size=100):
         super().__init__()
-        self._create_components()
+        self._create_elements()
         self.set_object(object_to_control)
 
         self._renderer = None
@@ -42,6 +42,7 @@ class TransformGizmo(WorldObject):
         self._object_to_control = object_to_control
 
     def toggle_mode(self, mode=None):
+        """Toggle between modes. If the mode is omitted, will move to the next mode."""
         modes = "object", "world", "screen"
         if not mode:
             mode = {"object": "world", "world": "screen"}.get(self._mode, "object")
@@ -64,7 +65,8 @@ class TransformGizmo(WorldObject):
             "pointer_up",
         )
 
-    def _create_components(self):
+    def _create_elements(self):
+        """Create lines, handles, etc."""
 
         self._halfway = halfway = 0.65
 
@@ -233,6 +235,7 @@ class TransformGizmo(WorldObject):
         self.add(*self._rotate_children)
 
     def _on_mode_switch(self):
+        """When the mode is changed, some adjustments are made."""
 
         # Update position of rotation handles
         rotate_yz, rotate_zx, rotate_xy = self._rotate_children
@@ -247,41 +250,35 @@ class TransformGizmo(WorldObject):
             rotate_zx.position.set(on_arc, 0, on_arc)
             rotate_xy.position.set(on_arc, on_arc, 0)
 
+    # %% Updating before each draw
+
     def update_matrix_world(self, *args, **kwargs):
-        # This gets called by the renderer just before rendering.
-        self._adjust_to_camera()
+        """We overload this method, which gets called by the renderer
+        just before rendering. This allows us to prep the gizmo just
+        in time.
+        """
+        # Note that we almost always update the transform (scale,
+        # rotation, position) which means the matrix changed, and so
+        # does the world_matrix of all children. In effect the uniforms
+        # of all elements need updating anyway, so any other changes
+        # to wobject properties (e.g. visibility) are "free" - no need
+        # to only update if it actually changes.
+        if self._object_to_control and self._canvas and self._camera:
+            self._update_directions()
+            self._update_scale()
+            self._update_visibility()
         super().update_matrix_world(*args, **kwargs)
 
-    def _adjust_to_camera(self):
-        if not (self._object_to_control and self._canvas and self._camera):
-            return
+    def _update_directions(self):
+        """Calculate the x/y/z reference directions, which depend on
+        mode and camera. Calculate these for world-space, ndc-space and
+        screen-space.
+        """
+
         camera = self._camera
         canvas_size = self._canvas.get_logical_size()
-
-        # Get center position (of the gizmo) in world and screen coords
         world_pos = self._object_to_control.position
         ndc_pos = world_pos.clone().project(camera)
-
-        # Get how our direction vectors express on screen
-        ndc_size_x = self._screen_size * 2 / canvas_size[0]
-        ndc_size_y = self._screen_size * 2 / canvas_size[1]
-        vec1 = (
-            ndc_pos.clone()
-            .add(Vector3(ndc_size_x, 0, 0))
-            .unproject(camera)
-            .sub(world_pos)
-        )
-        vec2 = (
-            ndc_pos.clone()
-            .add(Vector3(0, ndc_size_y, 0))
-            .unproject(camera)
-            .sub(world_pos)
-        )
-
-        # Determine the scale of this object, so that it gets the intended size on screen.
-        # We may flip the scale for some dimensions further down.
-        scale_scalar = 0.5 * (vec1.length() + vec2.length())
-        scale = [scale_scalar, scale_scalar, scale_scalar]
 
         # Calculate direction pairs (world_directions, ndc_directions)
         base_directions = Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)
@@ -321,16 +318,11 @@ class TransformGizmo(WorldObject):
                 for vec in ndc_directions
             ]
 
-        # Calculate screen directions from ndc_directions. Also recalculate for screen mode.
+        # Calculate screen directions from ndc_directions (also re-calculate for screen mode)
         # These represent how much one "step" moves on screen.
         screen_directions = [
             Vector3(vec.x * canvas_size[0] / 2, -vec.y * canvas_size[1] / 2, 0)
             for vec in ndc_directions
-        ]
-
-        # The scaled version matches the size of the widget on screen.
-        scaled_screen_directions = [
-            vec.clone().multiply_scalar(scale_scalar) for vec in screen_directions
         ]
 
         # Store direction lists
@@ -338,23 +330,62 @@ class TransformGizmo(WorldObject):
         self._ndc_directions = ndc_directions
         self._screen_directions = screen_directions
 
+        # Apply rotation
+        self.rotation = rot
+
+    def _update_scale(
+        self,
+    ):
+        """Update the scale of the gizmo so it gets the correct
+        (approximate) size on screen.
+        """
+        camera = self._camera
+        canvas_size = self._canvas.get_logical_size()
+        world_pos = self._object_to_control.position
+        ndc_pos = world_pos.clone().project(camera)
+
+        # Get how our direction vectors express on screen
+        ndc_sx = self._screen_size * 2 / canvas_size[0]
+        ndc_sy = self._screen_size * 2 / canvas_size[1]
+        vec1 = (
+            ndc_pos.clone().add(Vector3(ndc_sx, 0, 0)).unproject(camera).sub(world_pos)
+        )
+        vec2 = (
+            ndc_pos.clone().add(Vector3(0, ndc_sy, 0)).unproject(camera).sub(world_pos)
+        )
+        scale_scalar = 0.5 * (vec1.length() + vec2.length())
+
+        # Determine the scale of this object, so that it gets the intended size on screen.
+        scale = [scale_scalar, scale_scalar, scale_scalar]
+
         # Determine any flips so that the gizmo faces the camera. Note
         # that this checks whether the vector in question points away
         # from the camera.
         # -----------------------#  So on a canvas like this, where the widget
-        #      | g              #  is on the left, the red leg might still
-        # r ___|                #  just point towards the camera, even though
-        #     /                 #  it might not "feel" this way because the
-        #    b                  #  blue leg may partly obscure elements of the
+        #      | g               #  is on the left, the red leg might still
+        # r ___|                 #  just point towards the camera, even though
+        #     /                  #  it might not "feel" this way because the
+        #    b                   #  blue leg may partly obscure elements of the
         # -----------------------#  red leg.
-        for dim, vec in enumerate(ndc_directions):
+        for dim, vec in enumerate(self._ndc_directions):
             if vec.z > 0:
                 scale[dim] = -scale[dim]
 
+        # Apply scale
         self.scale = Vector3(*scale)
-        self.rotation = rot
 
-        # -- Hide objects for which the direction (on screen) becomes ill-defined.
+    def _update_visibility(self):
+        """Depending on the mode and the orientation of the camera,
+        some elements are made invisible.
+        """
+
+        screen_directions = self._screen_directions
+
+        # The scaled version matches the size of the widget on screen.
+        scale_scalar = abs(self.scale.x)
+        scaled_screen_directions = [
+            vec.clone().multiply_scalar(scale_scalar) for vec in screen_directions
+        ]
 
         # Determine what directions are orthogonal to the view plane
         show_direction = [True, True, True]
@@ -362,7 +393,7 @@ class TransformGizmo(WorldObject):
             size = (vec.x**2 + vec.y**2) ** 0.5
             show_direction[dim] = size > 30  # in pixels
 
-        # Also get whether in-plane elements become hard to see
+        # Also determine whether in-plane elements (arcs and translate2 handles) become hard to see
         show_direction2 = [True, True, True]
         for dim, vec in enumerate(screen_directions):
             dims = [(1, 2), (2, 0), (0, 1)][dim]
@@ -371,9 +402,11 @@ class TransformGizmo(WorldObject):
             show_direction2[dim] = abs(vec1.dot(vec2)) < 0.9
 
         if self._mode == "screen":
+            # Show x and y lines and translate1 handles
             for dim, visible in enumerate([True, True, False]):
                 self._line_children[dim].visible = visible
                 self._translate1_children[dim].visible = visible
+            # Show only the xy translate2 handle
             for dim, visible in enumerate([False, False, True]):
                 self._translate2_children[dim].visible = visible
                 self._arc_children[dim].visible = visible
@@ -444,6 +477,8 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
 
     def _handle_start(self, kind, event, ob):
+        """Initiate a drag. We create a snapshot of the relevant state at this point.
+        """
         sign = np.sign
         this_pos = self._object_to_control.position.clone()
         ob_pos = ob.get_world_position().clone()
@@ -466,6 +501,7 @@ class TransformGizmo(WorldObject):
         }
 
     def _handle_translate_move(self, event):
+        """Translate action, either using a translate1 or translate2 handle."""
         # Get dimensions to translate in
         dim = self._ref["dim"]
 
@@ -525,7 +561,7 @@ class TransformGizmo(WorldObject):
         self.position = new_position.clone()
 
     def _handle_scale_move(self, event):
-
+        """Scaling action."""
         # Get dimension
         dim = self._ref["dim"]
 
@@ -557,6 +593,7 @@ class TransformGizmo(WorldObject):
         self._object_to_control.scale = self._ref["scale"].clone().multiply(scale)
 
     def _handle_rotate_move(self, event):
+        """Rotate action."""
         # Get dimension around which to rotate, and the *other* dimensions
         dim = self._ref["dim"]
         dims = [(1, 2), (2, 0), (0, 1)][dim]
@@ -618,6 +655,8 @@ def get_line_plane_intersection(a0, a1, p0, v1, v2):
 
     # So the point where the line intersects the plane is ...
     p1 = a0.clone().add_scaled_vector(av, at)
-    v3 = p1.clone().sub(p0)
 
+    # But let's re-express that in a factor of v1 and v2, so that
+    # we really only move in these directions.
+    v3 = p1.clone().sub(p0)
     return get_scale_factor(v1, v3), get_scale_factor(v2, v3)
