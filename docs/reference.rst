@@ -99,7 +99,7 @@ Helper objects
     :members:
     :member-order: bysource
 
-.. autoclass: pygfx.TransformGizmo
+.. autoclass:: pygfx.TransformGizmo
     :members:
     :member-order: bysource
 
