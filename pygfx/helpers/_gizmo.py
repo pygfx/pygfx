@@ -58,18 +58,18 @@ class TransformGizmo(WorldObject):
         self._mode = mode
         self._on_mode_switch()
 
-    def add_default_event_handlers(self, renderer, camera):
-        # todo: update other methods with the same name to include renderer?
-        canvas = renderer.target
-        self._renderer = renderer
-        self._canvas = canvas
-        self._camera = camera
-        canvas.add_event_handler(
-            self._handle_event,
-            "pointer_down",
-            "pointer_move",
-            "pointer_up",
-        )
+    # def add_default_event_handlers(self, renderer, camera):
+    #     # todo: update other methods with the same name to include renderer?
+    #     canvas = renderer.target
+    #     self._renderer = renderer
+    #     self._canvas = canvas
+    #     self._camera = camera
+    #     canvas.add_event_handler(
+    #         self.handle_event,
+    #         "pointer_down",
+    #         "pointer_move",
+    #         "pointer_up",
+    #     )
 
     def _create_elements(self):
         """Create lines, handles, etc."""
@@ -442,7 +442,11 @@ class TransformGizmo(WorldObject):
 
     # %% Event handling
 
-    def _handle_event(self, event):
+    def handle_event(self, event, renderer, camera):
+        self._renderer = renderer
+        self._canvas = renderer.target
+        self._camera = camera
+
         # todo: check buttons and modifiers
         type = event["event_type"]
         if type in "pointer_down":
@@ -465,9 +469,11 @@ class TransformGizmo(WorldObject):
                 if self._ref["dim"] is None and self._ref["maxdist"] < 3:
                     self.toggle_mode()
                 self._ref = None
+                event["stop_propagation"] = True
         elif type == "pointer_move":
             if not self._ref:
                 return
+            event["stop_propagation"] = True
             dist = (
                 (event["x"] - self._ref["event"]["x"]) ** 2
                 + (event["y"] - self._ref["event"]["y"]) ** 2
@@ -484,6 +490,7 @@ class TransformGizmo(WorldObject):
 
     def _handle_start(self, kind, event, ob):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
+        event["stop_propagation"] = True
         sign = np.sign
         this_pos = self._object_to_control.position.clone()
         ob_pos = ob.get_world_position().clone()

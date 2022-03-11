@@ -16,14 +16,17 @@ scene.add(gfx.GridHelper())
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 4
-
 controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(canvas, camera)
 
 gizmo = gfx.TransformGizmo(cube)
 
-# todo: we need the renderer to be able to pick. Shall we update the existing add_default_event_handlers for consistency?
-gizmo.add_default_event_handlers(renderer, camera)
+
+@canvas.add_event_handler("pointer_down", "pointer_move", "pointer_up", "wheel")
+def handle_event(event):
+    gizmo.handle_event(event, renderer, camera)
+    if not event.get("stop_propagation", False):
+        controls.handle_event(event, canvas, camera)
+    # todo: these handle_event method are not consistent, maybe use (event, renderer, camera) also for controls.
 
 
 def animate():

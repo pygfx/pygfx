@@ -191,8 +191,6 @@ class OrbitControls:
         (compatible with the jupyter_rfb event specification).
         """
         type = event["event_type"]
-        if event["modifiers"] != ["Shift"]:
-            return
         if type == "pointer_down":
             xy = event["x"], event["y"]
             if event["button"] == 1:
