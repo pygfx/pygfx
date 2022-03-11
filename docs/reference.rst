@@ -99,6 +99,10 @@ Helper objects
     :members:
     :member-order: bysource
 
+.. autoclass: pygfx.TransformGizmo
+    :members:
+    :member-order: bysource
+
 
 Geometries
 ----------
