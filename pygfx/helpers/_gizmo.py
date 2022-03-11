@@ -26,7 +26,6 @@ class TransformGizmo(WorldObject):
 
     def __init__(self, object_to_control, screen_size=100):
         super().__init__()
-        self._create_elements()
         self.set_object(object_to_control)
 
         self._renderer = None
@@ -36,11 +35,13 @@ class TransformGizmo(WorldObject):
         # The (approximate) size of the gizmo on screen
         self._screen_size = float(screen_size)
 
-        # The mode of operation
-        self.toggle_mode("object")  # object, world, screen
-
         # A dict that is a reference for the pointer down event. Or None.
         self._ref = None
+
+        # Init
+        self._create_elements()
+        self.toggle_mode("object")  # object, world, screen
+        self._highlight()
 
     def set_object(self, object_to_control):
         """Set the WorldObject to control with the gizmo."""
@@ -76,10 +77,6 @@ class TransformGizmo(WorldObject):
 
         self._halfway = halfway = 0.65
 
-        # The lines and arcs are not apaque. That way they're also not
-        # pickable, so they won't be "in the way".
-        line_opacity = 0.6
-
         # --- the parts that are at the center
 
         # Create screen translate handle
@@ -97,15 +94,15 @@ class TransformGizmo(WorldObject):
         line_geo = gfx.Geometry(positions=[(0, 0, 0), (halfway, 0, 0)])
         line_x = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color=RED, opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=RED),
         )
         line_y = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color=GREEN, opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=GREEN),
         )
         line_z = gfx.Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color=BLUE, opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=BLUE),
         )
 
         # Create 1D translate handles
@@ -153,15 +150,15 @@ class TransformGizmo(WorldObject):
         arc_geo = gfx.Geometry(positions=arc_positions * halfway)
         arc_yz = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color=RED, opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=RED),
         )
         arc_zx = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color=GREEN, opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=GREEN),
         )
         arc_xy = gfx.Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color=BLUE, opacity=line_opacity),
+            gfx.LineMaterial(thickness=4, color=BLUE),
         )
         arc_zx.scale.y = -1
         arc_xy.scale.z = -1
@@ -255,6 +252,42 @@ class TransformGizmo(WorldObject):
             rotate_yz.position.set(0, on_arc, on_arc)
             rotate_zx.position.set(on_arc, 0, on_arc)
             rotate_xy.position.set(on_arc, on_arc, 0)
+
+    def _highlight(self, object=None):
+        # Note that the lines and arcs are never apaque. That way
+        # they're also not pickable, so they won't be "in the way".
+        line_opacity = 0.2 if object else 0.6
+        handle_opacity = 0.2 if object else 1.0
+
+        # Set opacity of all elements
+        for ob in self._line_children + self._arc_children:
+            ob.material.opacity = line_opacity
+        for ob in (
+            (self._center_sphere,)
+            + self._scale_children
+            + self._translate_children
+            + self._rotate_children
+        ):
+            ob.material.opacity = handle_opacity
+
+        # Set opacity for elements corresponding to the object
+        if object:
+            objects = [object]
+            dim = object.dim
+            if not dim:  # center handle
+                pass
+            elif isinstance(dim, int):
+                if object in self._rotate_children:
+                    print("arc ")
+                    objects.append(self._arc_children[dim])
+                else:  # translate1 or scale
+                    print("line ")
+                    objects.append(self._line_children[dim])
+            else:  # translate2
+                objects.append(self._line_children[dim[0]])
+                objects.append(self._line_children[dim[1]])
+            for ob in objects:
+                ob.material.opacity = 1.0
 
     # %% Updating before each draw
 
@@ -469,6 +502,7 @@ class TransformGizmo(WorldObject):
                 if self._ref["dim"] is None and self._ref["maxdist"] < 3:
                     self.toggle_mode()
                 self._ref = None
+                self._highlight()
                 event["stop_propagation"] = True
         elif type == "pointer_move":
             if not self._ref:
@@ -491,6 +525,8 @@ class TransformGizmo(WorldObject):
     def _handle_start(self, kind, event, ob):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
         event["stop_propagation"] = True
+        self._highlight(ob)
+
         sign = np.sign
         this_pos = self._object_to_control.position.clone()
         ob_pos = ob.get_world_position().clone()
