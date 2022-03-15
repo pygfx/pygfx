@@ -360,6 +360,15 @@ class TransformGizmo(WorldObject):
         """Update the scale of the gizmo so it gets the correct
         (approximate) size on screen.
         """
+
+        # During interaction we don't adjust the scale, this way:
+        # * During a rotation the gizmo does not flip,
+        #   making it easier to see how much was rotated.
+        # * During a translation the gizmo keeps its "world size",
+        #   so that the perspective helps you see how the gizmo has moved.
+        if self._ref:
+            return
+
         camera = self._camera
         canvas_size = self._canvas.get_logical_size()
         world_pos = self._object_to_control.position
