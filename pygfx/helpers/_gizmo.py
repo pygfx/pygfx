@@ -202,6 +202,12 @@ class TransformGizmo(WorldObject):
         self._scale_children = scale_x, scale_y, scale_z
         self._rotate_children = rotate_yz, rotate_zx, rotate_xy
 
+        # Lines and arcs are never apaque. That way they're also not
+        # pickable, so they won't be "in the way".
+        line_opacity = 0.6
+        for line in self._line_children:
+            line.material.opacity = line_opacity
+
         # Assign dimensions
         for triplet in [
             self._line_children,
@@ -241,38 +247,29 @@ class TransformGizmo(WorldObject):
             rotate_xy.position.set(on_arc, on_arc, 0)
 
     def _highlight(self, object=None):
-        # Note that the lines and arcs are never apaque. That way
-        # they're also not pickable, so they won't be "in the way".
-        line_opacity = 0.2 if object else 0.6
-        handle_opacity = 0.2 if object else 1.0
 
-        # Set opacity of all elements
+        # Reset thickness of all lines
         for ob in self._line_children + self._arc_children:
-            ob.material.opacity = line_opacity
-        for ob in (
-            (self._center_sphere,)
-            + self._scale_children
-            + self._translate_children
-            + self._rotate_children
-        ):
-            ob.material.opacity = handle_opacity
+            if ob.material.thickness != 3:
+                ob.material.thickness = 3
 
-        # Set opacity for elements corresponding to the object
+        # Set thickness of lines corresponding to the object
         if object:
-            objects = [object]
+            lines = []
             dim = object.dim
-            if not dim:  # center handle
+            if dim is None:  # center handle
                 pass
             elif isinstance(dim, int):
                 if object in self._rotate_children:
-                    objects.append(self._arc_children[dim])
+                    lines.append(self._arc_children[dim])
                 else:  # translate1 or scale
-                    objects.append(self._line_children[dim])
+                    print(dim)
+                    lines.append(self._line_children[dim])
             else:  # translate2
-                objects.append(self._line_children[dim[0]])
-                objects.append(self._line_children[dim[1]])
-            for ob in objects:
-                ob.material.opacity = 1.0
+                lines.append(self._line_children[dim[0]])
+                lines.append(self._line_children[dim[1]])
+            for ob in lines:
+                ob.material.thickness = 5
 
     # %% Updating before each draw
 
