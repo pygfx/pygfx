@@ -37,6 +37,8 @@ def handle_event(event):
 
 
 def animate():
+    # We render the scene, and then the gizmo on top,
+    # as an overlay, so that it's always on top.
     controls.update_camera(camera)
     renderer.render(scene, camera, flush=False)
     renderer.render(gizmo, camera, clear_color=False)

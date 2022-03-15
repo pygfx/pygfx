@@ -13,9 +13,12 @@ from ..linalg import Vector3, Quaternion
 
 # Colors in hsluv space - https://www.hsluv.org/
 # With H: 0/120/240, S: 100, L: 50
+WHITE = "#ffffff"
 RED = "#ea0064"
 GREEN = "#3f8700"
 BLUE = "#007eb7"
+
+THICKNESS = 3
 
 
 class TransformGizmo(WorldObject):
@@ -50,18 +53,17 @@ class TransformGizmo(WorldObject):
         self._screen_size = float(screen_size)
 
         # Init
-        self.set_object(object)
         self._create_elements()
         self.toggle_mode("object")  # object, world, screen
         self._highlight()
+        self.set_object(object)
 
     def set_object(self, object):
         """Set the WorldObject to control with the gizmo."""
-        if object is None:
-            self._object_to_control = None
-        else:
-            assert isinstance(object, WorldObject)
+        if object is None or isinstance(object, WorldObject):
             self._object_to_control = object
+        else:
+            raise ValueError("The object must be None or a WorldObject instance.")
 
     def toggle_mode(self, mode=None):
         """Toggle between modes. If the mode is omitted, will move to the next mode.
@@ -87,7 +89,7 @@ class TransformGizmo(WorldObject):
         sphere_geo = sphere_geometry(0.07)
         scale_uniform = Mesh(
             sphere_geo,
-            MeshBasicMaterial(color="#ffffff"),
+            MeshBasicMaterial(color=WHITE),
         )
         scale_uniform.scale.set(1.5, 1.5, 1.5)
 
@@ -97,20 +99,20 @@ class TransformGizmo(WorldObject):
         line_geo = Geometry(positions=[(0, 0, 0), (halfway, 0, 0)])
         line_x = Line(
             line_geo,
-            LineMaterial(thickness=4, color=RED),
+            LineMaterial(thickness=THICKNESS, color=RED),
         )
         line_y = Line(
             line_geo,
-            LineMaterial(thickness=4, color=GREEN),
+            LineMaterial(thickness=THICKNESS, color=GREEN),
         )
         line_z = Line(
             line_geo,
-            LineMaterial(thickness=4, color=BLUE),
+            LineMaterial(thickness=THICKNESS, color=BLUE),
         )
 
         # Create 1D translate handles
         cone_geo = cone_geometry(0.1, 0.17)
-        cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]
+        cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]  # xyz->zyx
         translate_x = Mesh(
             cone_geo,
             MeshBasicMaterial(color=RED),
@@ -153,15 +155,15 @@ class TransformGizmo(WorldObject):
         arc_geo = Geometry(positions=arc_positions * halfway)
         arc_yz = Line(
             arc_geo,
-            LineMaterial(thickness=4, color=RED),
+            LineMaterial(thickness=THICKNESS, color=RED),
         )
         arc_zx = Line(
             arc_geo,
-            LineMaterial(thickness=4, color=GREEN),
+            LineMaterial(thickness=THICKNESS, color=GREEN),
         )
         arc_xy = Line(
             arc_geo,
-            LineMaterial(thickness=4, color=BLUE),
+            LineMaterial(thickness=THICKNESS, color=BLUE),
         )
         arc_zx.scale.y = -1
         arc_xy.scale.z = -1
@@ -249,7 +251,9 @@ class TransformGizmo(WorldObject):
     def _on_mode_switch(self):
         """When the mode is changed, some adjustments are made."""
 
-        # Note: the visibility of certain elements is handled in _update_visibility()
+        # Note: the elements are affected by the mode in various ways.
+        # Much of that (e.g. visibility) is already handled in the
+        # _update_xx functions, so we don't have to do that here.
 
         # Update position of rotation handles
         rotate_yz, rotate_zx, rotate_xy = self._rotate_children
@@ -270,8 +274,8 @@ class TransformGizmo(WorldObject):
         """
         # Reset thickness of all lines
         for ob in self._line_children + self._arc_children:
-            if ob.material.thickness != 3:
-                ob.material.thickness = 3
+            if ob.material.thickness != THICKNESS:
+                ob.material.thickness = THICKNESS
 
         # Set thickness of lines corresponding to the object
         if object:
@@ -288,7 +292,7 @@ class TransformGizmo(WorldObject):
                 lines.append(self._line_children[dim[0]])
                 lines.append(self._line_children[dim[1]])
             for ob in lines:
-                ob.material.thickness = 5
+                ob.material.thickness = THICKNESS * 1.75
 
     # %% Updating before each draw
 
@@ -325,8 +329,6 @@ class TransformGizmo(WorldObject):
 
         # Calculate direction pairs (world_directions, ndc_directions)
         base_directions = Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)
-        assert self._mode in ("object", "world", "screen")
-
         if self._mode == "object":
             # The world direction is derived from the object
             rot = self._object_to_control.rotation.clone()
@@ -360,6 +362,8 @@ class TransformGizmo(WorldObject):
                 ndc_pos.clone().add(vec).unproject(camera).sub(world_pos)
                 for vec in ndc_directions
             ]
+        else:  # This cannot happen, in theory
+            raise RuntimeError(f"Unexpected mode: '{self._mode}'")
 
         # Calculate screen directions from ndc_directions (also re-calculate for screen mode)
         # These represent how much one "step" moves on screen.
