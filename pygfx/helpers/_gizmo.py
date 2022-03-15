@@ -204,9 +204,8 @@ class TransformGizmo(WorldObject):
 
         # Lines and arcs are never apaque. That way they're also not
         # pickable, so they won't be "in the way".
-        line_opacity = 0.6
-        for line in self._line_children:
-            line.material.opacity = line_opacity
+        for ob in self._line_children + self._arc_children:
+            ob.material.opacity = 0.6
 
         # Assign dimensions
         for triplet in [
