@@ -1,5 +1,5 @@
 from pygfx import Scene, WorldObject
-from pygfx.objects._events import EventTarget, RootHandler, create_event
+from pygfx.objects._events import EventTarget, RootHandler, Event, PointerEvent
 
 
 class Node(EventTarget):
@@ -19,17 +19,17 @@ def test_event_target():
 
     c.add_event_handler(handler, "foo", "bar")
     c.add_event_handler(handler, "bar")
-    c.handle_event(create_event(type="foo", value=1))
-    c.handle_event(create_event(type="bar", value=2))
-    c.handle_event(create_event(type="spam", value=3))
+    c.handle_event(Event(type="foo", value=1))
+    c.handle_event(Event(type="bar", value=2))
+    c.handle_event(Event(type="spam", value=3))
     c.remove_event_handler(handler, "foo")
-    c.handle_event(create_event(type="foo", value=4))
-    c.handle_event(create_event(type="bar", value=5))
-    c.handle_event(create_event(type="spam", value=6))
+    c.handle_event(Event(type="foo", value=4))
+    c.handle_event(Event(type="bar", value=5))
+    c.handle_event(Event(type="spam", value=6))
     c.remove_event_handler(handler, "bar")
-    c.handle_event(create_event(type="foo", value=7))
-    c.handle_event(create_event(type="bar", value=8))
-    c.handle_event(create_event(type="spam", value=9))
+    c.handle_event(Event(type="foo", value=7))
+    c.handle_event(Event(type="bar", value=8))
+    c.handle_event(Event(type="spam", value=9))
 
     assert events == [1, 2, 5]
 
@@ -63,7 +63,7 @@ def test_event_bubbling():
     scene.add_event_handler(scene_callback, "foo")
     item.add_event_handler(item_callback, "foo")
 
-    event = create_event(type="foo", target=item)
+    event = Event(type="foo", target=item)
     root_handler.handle_event(event)
 
     assert item_called == 1
@@ -90,7 +90,7 @@ def test_event_stop_propagation():
     def child_prevent_callback(event):
         nonlocal child_called
         # Prevent bubbling up
-        event["propagate"] = False
+        event.stop_propagation()
         child_called += 1
 
     root = Node()
@@ -101,7 +101,7 @@ def test_event_stop_propagation():
     child.add_event_handler(child_callback, "foo")
 
     event = {"type": "foo", "target": child}
-    root_handler.handle_event(create_event(**event))
+    root_handler.handle_event(Event(**event))
 
     assert child_called == 1
     assert root_called == 1
@@ -109,7 +109,7 @@ def test_event_stop_propagation():
     child.remove_event_handler(child_callback, "foo")
     child.add_event_handler(child_prevent_callback, "foo")
 
-    root_handler.handle_event(create_event(**event))
+    root_handler.handle_event(Event(**event))
 
     assert child_called == 2
     assert root_called == 1
@@ -134,13 +134,13 @@ def test_event_propagation():
 
     root_handler = RootHandler()
 
-    event = create_event(type="foo", target=child, propagate=True)
+    event = Event(type="foo", target=child, bubbles=True)
     root_handler.handle_event(event)
 
     assert child_called == 1
     assert root_called == 1
 
-    event = create_event(type="foo", target=child, propagate=False)
+    event = Event(type="foo", target=child, bubbles=False)
     root_handler.handle_event(event)
 
     assert child_called == 2
@@ -170,9 +170,9 @@ def test_pointer_event_capture():
     )
 
     root_handler = RootHandler()
-    root_handler.handle_event(create_event(type="pointer_down", target=child))
-    root_handler.handle_event(create_event(type="pointer_move", target=child))
-    root_handler.handle_event(create_event(type="pointer_up", target=child))
+    root_handler.handle_event(PointerEvent(type="pointer_down", x=0, y=0, target=child))
+    root_handler.handle_event(PointerEvent(type="pointer_move", x=0, y=0, target=child))
+    root_handler.handle_event(PointerEvent(type="pointer_up", x=0, y=0, target=child))
 
     assert child_called == 3
     assert root_called == 3
@@ -184,11 +184,11 @@ def test_pointer_event_capture():
         lambda e: child.release_pointer_capture(e["pointer_id"]), "pointer_up"
     )
 
-    root_handler.handle_event(create_event(type="pointer_down", target=child))
-    root_handler.handle_event(create_event(type="pointer_move", target=child))
+    root_handler.handle_event(PointerEvent(type="pointer_down", x=0, y=0, target=child))
+    root_handler.handle_event(PointerEvent(type="pointer_move", x=0, y=0, target=child))
     # Test that non-pointer events bubble along just find
-    root_handler.handle_event(create_event(type="other", target=child))
-    root_handler.handle_event(create_event(type="pointer_up", target=child))
+    root_handler.handle_event(Event(type="other", target=child))
+    root_handler.handle_event(PointerEvent(type="pointer_up", x=0, y=0, target=child))
 
     assert child_called == 7
     assert root_called == 4

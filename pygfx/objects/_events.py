@@ -1,34 +1,169 @@
 from collections import defaultdict
+from enum import Enum
 from itertools import count
 from time import perf_counter
+from typing import Union
 
 
-pointer_id_iter = count()
-current_pointer_id = None
+class EventType(str, Enum):
+    # Keyboard
+    KEY_DOWN = "key_down"
+    KEY_UP = "key_up"
+    # Pointer
+    POINTER_DOWN = "pointer_down"
+    POINTER_MOVE = "pointer_move"
+    POINTER_UP = "pointer_up"
+    DOUBLE_CLICK = "double_click"
+    # Wheel
+    WHEEL = "wheel"
+    # Window
+    CLOSE = "close"
+    RESIZE = "resize"
 
 
-def create_event(type: str, *, propagate=True, target=None, **kwargs):
-    event = {"type": type, **kwargs}
+class Event:
+    """Event base class for creating events.
 
-    if "pointer" in type:
-        global current_pointer_id
-        global pointer_id_iter
-        if type == "pointer_down" or current_pointer_id is None:
-            current_pointer_id = next(pointer_id_iter)
-        event["pointer_id"] = current_pointer_id
+    If a target is set, an event can bubble up through a hierarchy
+    of targets, connected through a ``parent`` property.
+    To prevent an event from bubbling up, use ``stop_propagation``.
 
-    # Time stamp in seconds
-    event["time_stamp"] = perf_counter()
-    # Whether the event should propagate
-    event["propagate"] = propagate
-    # target object on which the event is dispatched
-    event["target"] = target
+    Event implements the ``__getitem__` method which makes an event
+    behave like a (read-only) dictionary. This makes it a bit more
+    compatible with the jupyter_rfb event spec.
 
-    return event
+    Custom events can have any fields. Any ``kwargs`` will be captured
+    and can be later retrieved with the square bracket notation, using
+    the same keyword.
+    """
+
+    def __init__(
+        self,
+        type: Union[str, EventType],
+        *,
+        bubbles=True,
+        target: "EventTarget" = None,
+        **kwargs,
+    ):
+        self._type = type
+        self._time_stamp = perf_counter()
+        self._bubbles = bubbles
+        self._target = target
+        # Save extra kwargs to be able to look
+        # them up later with `__getitem__`
+        self._data = kwargs
+
+    @property
+    def type(self) -> str:
+        """A string representing the name of the event."""
+        return self._type
+
+    @property
+    def time_stamp(self) -> float:
+        """The time at which the event was created (in seconds). Not actual timestamp
+        so please only use for relative time measurements."""
+        return self._time_stamp
+
+    @property
+    def bubbles(self) -> bool:
+        """A boolean value indicating whether or not the event bubbles up through
+        the scene tree."""
+        return self._bubbles
+
+    @property
+    def target(self) -> "EventTarget":
+        """The object onto which the event was dispatched."""
+        return self._target
+
+    def stop_propagation(self):
+        """Stops propagation of events further along in the scene tree."""
+        self._bubbles = False
+
+    def __getitem__(self, key):
+        """Make ``Event`` work as a dict as well to be compatible with the jupyter_rfb
+        event spec."""
+        if key == "event_type":
+            return self.type
+        return getattr(self, key, self._data.get(key))
+
+    def __repr__(self):
+        prefix = f"<{type(self).__name__} '{self.type}' "
+        attrs = [
+            f"{key}={self[key]}"
+            for key in dir(self)
+            if not key.startswith("_")
+            and key
+            not in [
+                "bubbles",
+                "stop_propagation",
+                "time_stamp",
+                "type",
+            ]
+        ]
+        attrs.extend([f"{key}={val}" for key, val in self._data.items()])
+        middle = ", ".join(attrs)
+        suffix = ">"
+        return "".join([prefix, middle, suffix])
+
+
+class KeyboardEvent(Event):
+    def __init__(self, *args, key, modifiers=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.key = key
+        self.modifiers = modifiers or []
+
+
+class PointerEvent(Event):
+    pointer_id_iter = count()
+    current_id = None
+
+    def __init__(
+        self,
+        *args,
+        x,
+        y,
+        button=0,
+        buttons=None,
+        modifiers=None,
+        ntouches=0,
+        touches=None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.x = x
+        self.y = y
+        self.button = button
+        self.buttons = buttons or []
+        self.modifiers = modifiers or []
+        self.ntouches = ntouches
+        self.touches = touches or {}
+        if self.type == EventType.POINTER_DOWN:
+            PointerEvent.current_id = next(self.pointer_id_iter)
+        self.pointer_id = self.current_id
+
+
+class WheelEvent(Event):
+    def __init__(self, *args, dx, dy, x, y, modifiers=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dx = dx
+        self.dy = dy
+        self.x = x
+        self.y = y
+        self.modifiers = modifiers or []
+
+
+class WindowEvent(Event):
+    def __init__(self, *args, width=None, height=None, pixel_ratio=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.width = width
+        self.height = height
+        self.pixel_ratio = pixel_ratio
 
 
 class EventTarget:
-    """Mixin class for objects that need to handle events."""
+    """Mixin class that enables event handlers to be attached to objects
+    of the mixed-in class.
+    """
 
     pointer_captures = {}
 
@@ -89,9 +224,16 @@ class EventTarget:
         for type in types:
             self._event_handlers[type].remove(callback)
 
-    def handle_event(self, event: dict):
-        """Dispatches an event to this EventTarget."""
-        for callback in self._event_handlers[event["type"]]:
+    def handle_event(self, event: Event):
+        """Handle an incoming event.
+
+        Subclasses can overload this method. Events include widget
+        resize, mouse/touch interaction, key events, and more. An event
+        is a dict with at least the key event_type. For details, see
+        https://jupyter-rfb.readthedocs.io/en/latest/events.html
+        """
+        event_type = event.type
+        for callback in self._event_handlers[event_type]:
             callback(event)
 
     def set_pointer_capture(self, pointer_id):
@@ -110,29 +252,29 @@ class EventTarget:
 
 
 class RootHandler(EventTarget):
-    def handle_event(self, event: dict):
-        target = event["target"]
+    def handle_event(self, event: Event):
+        target = event.target
         while target and target is not self:
-            pointer_id = event.get("pointer_id")
+            pointer_id = getattr(event, "pointer_id", None)
             if pointer_id and pointer_id in EventTarget.pointer_captures:
                 capture = EventTarget.pointer_captures[pointer_id]
                 capture.handle_event(event)
-                if event["type"] == "pointer_up":
+                if event.type == EventType.POINTER_UP:
                     capture.release_pointer_capture(pointer_id)
                 # Encountered an event with pointer_id while there is a
-                # capture active, so don't propagate, just return immediately
+                # capture active, so don't bubble, just return immediately
                 return
             else:
                 target.handle_event(event)
                 if pointer_id and pointer_id in EventTarget.pointer_captures:
                     # Apparently ``set_pointer_capture`` was called with this
-                    # event["pointer_id"], so return immediately
+                    # event.pointer_id, so return immediately
                     return
-            if not event["propagate"]:
+            if not event.bubbles:
                 break
             target = getattr(target, "parent", None)
 
-        # The root handler itself is not part of the hierarchy
-        # so we'll handle the event separately
-        if not event["target"] or event["propagate"]:
+        # The EventDispatcher itself does not have to be part
+        # of the hierarchy so we'll handle the event separately
+        if not event.target or event.bubbles:
             super().handle_event(event)
