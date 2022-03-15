@@ -49,6 +49,7 @@ class Event:
         self._time_stamp = perf_counter()
         self._bubbles = bubbles
         self._target = target
+        self._current_target = target
         # Save extra kwargs to be able to look
         # them up later with `__getitem__`
         self._data = kwargs
@@ -74,6 +75,10 @@ class Event:
     def target(self) -> "EventTarget":
         """The object onto which the event was dispatched."""
         return self._target
+
+    @property
+    def current_target(self) -> "EventTarget":
+        return self._current_target
 
     def stop_propagation(self):
         """Stops propagation of events further along in the scene tree."""
@@ -201,9 +206,13 @@ class EventTarget:
             def my_handler(event):
                 print(event)
         """
+
         decorating = not callable(args[0])
         callback = None if decorating else args[0]
         types = args if decorating else args[1:]
+
+        if not types:
+            raise ValueError("No types registered for callback")
 
         def decorator(_callback):
             for type in types:
@@ -252,9 +261,15 @@ class EventTarget:
 
 
 class RootHandler(EventTarget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def handle_event(self, event: Event):
         target = event.target
         while target and target is not self:
+            # Update the private current target field
+            event._current_target = target
+            # Check for captured pointer events
             pointer_id = getattr(event, "pointer_id", None)
             if pointer_id and pointer_id in EventTarget.pointer_captures:
                 capture = EventTarget.pointer_captures[pointer_id]

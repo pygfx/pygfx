@@ -6,7 +6,15 @@ import wgpu.backends.rs
 
 from .. import Renderer
 from ...linalg import Matrix4, Vector3
-from ...objects import WorldObject, id_provider
+from ...objects import (
+    id_provider,
+    KeyboardEvent,
+    PointerEvent,
+    RootHandler,
+    WheelEvent,
+    WindowEvent,
+    WorldObject,
+)
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
 from ...utils import array_from_shadertype
@@ -102,7 +110,7 @@ class SharedData:
         self.shader_cache = {}
 
 
-class WgpuRenderer(Renderer):
+class WgpuRenderer(RootHandler, Renderer):
     """Object used to render scenes using wgpu.
 
     The purpose of a renderer is to render (i.e. draw) a scene to a
@@ -148,12 +156,14 @@ class WgpuRenderer(Renderer):
     def __init__(
         self,
         target,
-        *,
+        *args,
         pixel_ratio=None,
         show_fps=False,
         blend_mode="default",
         sort_objects=False,
+        **kwargs,
     ):
+        super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
         if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
@@ -692,3 +702,58 @@ class WgpuRenderer(Renderer):
         )
 
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+
+    def register_canvas(self, canvas):
+        canvas.add_event_handler(
+            self.handle_canvas_events,
+            "key_down",
+            "key_up",
+            "pointer_down",
+            "pointer_move",
+            "pointer_up",
+            "double_click",
+            "wheel",
+            "close",
+            "resize",
+        )
+
+    def unregister_canvas(self, canvas):
+        canvas.remove_event_handler(
+            self.handle_canvas_events,
+            "key_down",
+            "key_up",
+            "pointer_down",
+            "pointer_move",
+            "pointer_up",
+            "double_click",
+            "wheel",
+            "close",
+            "resize",
+        )
+
+    def handle_canvas_events(self, event: dict):
+        event_type = event["event_type"]
+        target = None
+        info = None
+        if "x" in event or "y" in event:
+            info = self.get_pick_info((event["x"], event["y"]))
+            target = info["world_object"]
+            # TODO: maybe add the
+
+        ev = EVENT_TYPE_MAP[event_type](
+            type=event_type, **event, target=target, pick_info=info
+        )
+        self.handle_event(ev)
+
+
+EVENT_TYPE_MAP = {
+    "resize": WindowEvent,
+    "close": WindowEvent,
+    "pointer_down": PointerEvent,
+    "pointer_up": PointerEvent,
+    "pointer_move": PointerEvent,
+    "double_click": PointerEvent,
+    "wheel": WheelEvent,
+    "key_down": KeyboardEvent,
+    "key_up": KeyboardEvent,
+}
