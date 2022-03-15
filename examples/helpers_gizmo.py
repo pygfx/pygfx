@@ -1,3 +1,8 @@
+"""
+Example to demonstrate the Gizmo that can be used to transform world objects.
+Click the center sphere to toggle between object-space, world-space, and screen-space.
+"""
+
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 

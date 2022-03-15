@@ -2,11 +2,14 @@
 A transform gizmo to manipulate world objects.
 """
 
-
 import numpy as np
-import pygfx as gfx
+
+from ..objects import Line, Mesh
+from ..geometries import Geometry, sphere_geometry, cone_geometry, box_geometry
+from ..materials import MeshBasicMaterial, LineMaterial
 from ..objects import WorldObject
-from pygfx.linalg import Vector3
+from ..linalg import Vector3, Quaternion
+
 
 # Colors in hsluv space - https://www.hsluv.org/
 # With H: 0/120/240, S: 100, L: 50
@@ -20,110 +23,123 @@ class TransformGizmo(WorldObject):
     A gizmo object that can be used to manipulate (i.e. transform) a world object.
 
     Aguments:
-        object_to_control (WorldObject): the object to transform with the gizmo.
+        object (WorldObject): the object to transform with the gizmo.
         screen_size (float): the approximate size of the widget in logical pixels. Default 100.
+
+    To control the Gizmo:
+    * Click the center sphere to toggle between object-space, world-space and screen-space.
+    * Grab the center sphere for uniform scaling.
+    * Grab the cubes for one-directional scaling (only in object-space).
+    * Grab the arrows to translate in one direction.
+    * Grab the planes to translate in two directions.
+    * Grab the spheres to rotate.
     """
 
-    def __init__(self, object_to_control, screen_size=100):
+    def __init__(self, object=None, screen_size=100):
         super().__init__()
-        self.set_object(object_to_control)
 
+        # We store these as soon as we get a call in handle_event
         self._renderer = None
         self._canvas = None
         self._camera = None
 
+        # A dict that stores the state at the start of a drag. Or None.
+        self._ref = None
+
         # The (approximate) size of the gizmo on screen
         self._screen_size = float(screen_size)
 
-        # A dict that is a reference for the pointer down event. Or None.
-        self._ref = None
-
         # Init
+        self.set_object(object)
         self._create_elements()
         self.toggle_mode("object")  # object, world, screen
         self._highlight()
 
-    def set_object(self, object_to_control):
+    def set_object(self, object):
         """Set the WorldObject to control with the gizmo."""
-        assert isinstance(object_to_control, WorldObject)
-        self._object_to_control = object_to_control
+        if object is None:
+            self._object_to_control = None
+        else:
+            assert isinstance(object, WorldObject)
+            self._object_to_control = object
 
     def toggle_mode(self, mode=None):
-        """Toggle between modes. If the mode is omitted, will move to the next mode."""
+        """Toggle between modes. If the mode is omitted, will move to the next mode.
+        Must be one of "object", "world", or "screen".
+        """
         modes = "object", "world", "screen"
         if not mode:
             mode = {"object": "world", "world": "screen"}.get(self._mode, "object")
         if mode not in modes:
             raise ValueError(f"Invalid mode '{mode}', must be one of {modes}.")
-        print("mode is now", mode)
         self._mode = mode
-        self._on_mode_switch()
+        self._on_mode_switch()  # The gizmo looks a bit different in each mode
 
     def _create_elements(self):
         """Create lines, handles, etc."""
 
+        # The location of the scale handles, and where the arcs meet the lines.
         self._halfway = halfway = 0.65
 
         # --- the parts that are at the center
 
         # Create screen translate handle
-        sphere_geo = gfx.sphere_geometry(0.07)
-        scale_uniform = gfx.Mesh(
+        sphere_geo = sphere_geometry(0.07)
+        scale_uniform = Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color="#ffffff"),
+            MeshBasicMaterial(color="#ffffff"),
         )
         scale_uniform.scale.set(1.5, 1.5, 1.5)
-        scale_uniform.dim = None
 
         # --- the parts that are fully in one dimension
 
         # Create lines
-        line_geo = gfx.Geometry(positions=[(0, 0, 0), (halfway, 0, 0)])
-        line_x = gfx.Line(
+        line_geo = Geometry(positions=[(0, 0, 0), (halfway, 0, 0)])
+        line_x = Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color=RED),
+            LineMaterial(thickness=4, color=RED),
         )
-        line_y = gfx.Line(
+        line_y = Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color=GREEN),
+            LineMaterial(thickness=4, color=GREEN),
         )
-        line_z = gfx.Line(
+        line_z = Line(
             line_geo,
-            gfx.LineMaterial(thickness=4, color=BLUE),
+            LineMaterial(thickness=4, color=BLUE),
         )
 
         # Create 1D translate handles
-        cone_geo = gfx.cone_geometry(0.1, 0.17)
+        cone_geo = cone_geometry(0.1, 0.17)
         cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]
-        translate_x = gfx.Mesh(
+        translate_x = Mesh(
             cone_geo,
-            gfx.MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED),
         )
-        translate_y = gfx.Mesh(
+        translate_y = Mesh(
             cone_geo,
-            gfx.MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN),
         )
-        translate_z = gfx.Mesh(
+        translate_z = Mesh(
             cone_geo,
-            gfx.MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE),
         )
         translate_x.position.set(1, 0, 0)
         translate_y.position.set(0, 1, 0)
         translate_z.position.set(0, 0, 1)
 
         # Create scale handles
-        cube_geo = gfx.box_geometry(0.1, 0.1, 0.1)
-        scale_x = gfx.Mesh(
+        cube_geo = box_geometry(0.1, 0.1, 0.1)
+        scale_x = Mesh(
             cube_geo,
-            gfx.MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED),
         )
-        scale_y = gfx.Mesh(
+        scale_y = Mesh(
             cube_geo,
-            gfx.MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN),
         )
-        scale_z = gfx.Mesh(
+        scale_z = Mesh(
             cube_geo,
-            gfx.MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE),
         )
         scale_x.position.set(halfway, 0, 0)
         scale_y.position.set(0, halfway, 0)
@@ -134,35 +150,35 @@ class TransformGizmo(WorldObject):
         # Create arcs
         t = np.linspace(0, np.pi / 2, 64)
         arc_positions = np.stack([0 * t, np.sin(t), np.cos(t)], 1).astype(np.float32)
-        arc_geo = gfx.Geometry(positions=arc_positions * halfway)
-        arc_yz = gfx.Line(
+        arc_geo = Geometry(positions=arc_positions * halfway)
+        arc_yz = Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color=RED),
+            LineMaterial(thickness=4, color=RED),
         )
-        arc_zx = gfx.Line(
+        arc_zx = Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color=GREEN),
+            LineMaterial(thickness=4, color=GREEN),
         )
-        arc_xy = gfx.Line(
+        arc_xy = Line(
             arc_geo,
-            gfx.LineMaterial(thickness=4, color=BLUE),
+            LineMaterial(thickness=4, color=BLUE),
         )
         arc_zx.scale.y = -1
         arc_xy.scale.z = -1
 
         # Create in-plane translate handles
-        plane_geo = gfx.box_geometry(0.01, 0.15, 0.15)
-        translate_yz = gfx.Mesh(
+        plane_geo = box_geometry(0.01, 0.15, 0.15)
+        translate_yz = Mesh(
             plane_geo,
-            gfx.MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED),
         )
-        translate_zx = gfx.Mesh(
+        translate_zx = Mesh(
             plane_geo,
-            gfx.MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN),
         )
-        translate_xy = gfx.Mesh(
+        translate_xy = Mesh(
             plane_geo,
-            gfx.MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE),
         )
         inside_arc = 0.4 * halfway
         translate_yz.position.set(0, inside_arc, inside_arc)
@@ -171,17 +187,17 @@ class TransformGizmo(WorldObject):
 
         # Create rotation handles
         # These are positioned on each mode switch
-        rotate_yz = gfx.Mesh(
+        rotate_yz = Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED),
         )
-        rotate_zx = gfx.Mesh(
+        rotate_zx = Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN),
         )
-        rotate_xy = gfx.Mesh(
+        rotate_xy = Mesh(
             sphere_geo,
-            gfx.MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE),
         )
 
         # --- post-process
@@ -208,6 +224,7 @@ class TransformGizmo(WorldObject):
             ob.material.opacity = 0.6
 
         # Assign dimensions
+        scale_uniform.dim = None
         for triplet in [
             self._line_children,
             self._translate1_children,
@@ -232,6 +249,8 @@ class TransformGizmo(WorldObject):
     def _on_mode_switch(self):
         """When the mode is changed, some adjustments are made."""
 
+        # Note: the visibility of certain elements is handled in _update_visibility()
+
         # Update position of rotation handles
         rotate_yz, rotate_zx, rotate_xy = self._rotate_children
         halfway = self._halfway
@@ -246,7 +265,9 @@ class TransformGizmo(WorldObject):
             rotate_xy.position.set(on_arc, on_arc, 0)
 
     def _highlight(self, object=None):
-
+        """Change the appearance during interaction for visual feedback
+        on what is being manipulated.
+        """
         # Reset thickness of all lines
         for ob in self._line_children + self._arc_children:
             if ob.material.thickness != 3:
@@ -262,7 +283,6 @@ class TransformGizmo(WorldObject):
                 if object in self._rotate_children:
                     lines.append(self._arc_children[dim])
                 else:  # translate1 or scale
-                    print(dim)
                     lines.append(self._line_children[dim])
             else:  # translate2
                 lines.append(self._line_children[dim[0]])
@@ -283,7 +303,10 @@ class TransformGizmo(WorldObject):
         # of all elements need updating anyway, so any other changes
         # to wobject properties (e.g. visibility) are "free" - no need
         # to only update if it actually changes.
-        if self._object_to_control and self._canvas and self._camera:
+        if not self._object_to_control:
+            self.visible = False
+        elif self._canvas and self._camera:
+            self.visible = True
             self._update_directions()
             self._update_scale()
             self._update_visibility()
@@ -315,7 +338,7 @@ class TransformGizmo(WorldObject):
             ]
         elif self._mode == "world":
             # The world direction is the base direction
-            rot = gfx.linalg.Quaternion()  # null rotation
+            rot = Quaternion()  # null rotation
             world_directions = base_directions
             # Calculate ndc directions from here
             ndc_directions = [
@@ -324,7 +347,7 @@ class TransformGizmo(WorldObject):
             ]
         elif self._mode == "screen":
             # The screen direction is the base_direction
-            rot = gfx.linalg.Quaternion().set_from_rotation_matrix(camera.matrix_world)
+            rot = Quaternion().set_from_rotation_matrix(camera.matrix_world)
             screen_directions = [
                 vec.multiply_scalar(self._screen_size) for vec in base_directions
             ]
@@ -340,12 +363,13 @@ class TransformGizmo(WorldObject):
 
         # Calculate screen directions from ndc_directions (also re-calculate for screen mode)
         # These represent how much one "step" moves on screen.
+        # Note how for ndc_directions we have a valid z, but for screen_directions z is 0.
         screen_directions = [
             Vector3(vec.x * canvas_size[0] / 2, -vec.y * canvas_size[1] / 2, 0)
             for vec in ndc_directions
         ]
 
-        # Store direction lists
+        # Store direction lists, to be used during a drag operation.
         self._world_directions = world_directions
         self._ndc_directions = ndc_directions
         self._screen_directions = screen_directions
@@ -410,7 +434,7 @@ class TransformGizmo(WorldObject):
 
         screen_directions = self._screen_directions
 
-        # The scaled version matches the size of the widget on screen.
+        # The scaled screen direction matches the size of the widget on screen.
         scale_scalar = abs(self.scale.x)
         scaled_screen_directions = [
             vec.clone().multiply_scalar(scale_scalar) for vec in screen_directions
@@ -466,11 +490,19 @@ class TransformGizmo(WorldObject):
     # %% Event handling
 
     def handle_event(self, event, renderer, camera):
+        """The event handler."""
+        # Store objects that we need outside the event handling.
         self._renderer = renderer
         self._canvas = renderer.target
         self._camera = camera
 
+        # No interaction if there is no object to control
+        if not self._object_to_control:
+            return
+
+        # Triage over event type
         type = event["event_type"]
+
         if type in "pointer_down":
             if event["button"] != 1 or event["modifiers"]:
                 return
@@ -496,6 +528,7 @@ class TransformGizmo(WorldObject):
             self._highlight(ob)
             self._canvas.request_draw()
             event["stop_propagation"] = True
+
         elif type == "pointer_up":
             if not self._ref:
                 return
@@ -506,6 +539,7 @@ class TransformGizmo(WorldObject):
             self._highlight()
             self._canvas.request_draw()
             event["stop_propagation"] = True
+
         elif type == "pointer_move":
             if not self._ref:
                 return
@@ -544,7 +578,7 @@ class TransformGizmo(WorldObject):
             "world_pos": ob_pos,
             "world_offset": ob_pos.clone().sub(this_pos),
             "ndc_pos": ob_pos.clone().project(self._camera),
-            # Gizmo direction state at time of start
+            # Gizmo direction state at start-time of drag
             "flips": [sign(self.scale.x), sign(self.scale.y), sign(self.scale.z)],
             "world_directions": [vec.clone() for vec in self._world_directions],
             "ndc_directions": [vec.clone() for vec in self._ndc_directions],
@@ -612,7 +646,7 @@ class TransformGizmo(WorldObject):
         self.position = new_position.clone()
 
     def _handle_scale_move(self, event):
-        """Scaling action."""
+        """Scale action."""
         # Get dimension
         dim = self._ref["dim"]
 
@@ -660,7 +694,7 @@ class TransformGizmo(WorldObject):
         world_dir = self._ref["world_directions"][dim]
         axis = world_dir.clone().normalize()
 
-        # Calculate the vector between the two arrows than span the arc.
+        # Calculate the vector between the two arrows that span the arc.
         # We need to flip the sign in the right places to make this work.
         screen_dir1 = self._ref["screen_directions"][dims[0]].clone()
         screen_dir2 = self._ref["screen_directions"][dims[1]].clone()
@@ -675,7 +709,7 @@ class TransformGizmo(WorldObject):
         angle = factor * 2
 
         # Apply
-        rot = gfx.linalg.Quaternion().set_from_axis_angle(axis, angle)
+        rot = Quaternion().set_from_axis_angle(axis, angle)
         self._object_to_control.rotation = rot.multiply(self._ref["rot"])
 
 
@@ -691,7 +725,7 @@ def get_scale_factor(vec1, vec2):
 def get_line_plane_intersection(a0, a1, p0, v1, v2):
     """Get the intersection point of a line onto a plane.
     Args a0 and a1 represent two points on a line. Arg p0 is a point
-    on a plane, and v1 and v2 two in-plane vectors. The interserction
+    on a plane, and v1 and v2 two in-plane vectors. The intersection
     is expressed in factors of v1 and v2.
     """
     # Get the vector from a0 to a1
