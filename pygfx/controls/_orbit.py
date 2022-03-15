@@ -176,9 +176,9 @@ class OrbitControls:
         camera.zoom = zoom
         return self
 
-    def add_default_event_handlers(self, canvas, camera):
+    def add_default_event_handlers(self, event_root, canvas, camera):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        canvas.add_event_handler(
+        event_root.add_event_handler(
             lambda event: self.handle_event(event, canvas, camera),
             "pointer_down",
             "pointer_move",
@@ -190,6 +190,7 @@ class OrbitControls:
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
+        # TODO: use Event class attributes
         type = event["event_type"]
         if type == "pointer_down":
             xy = event["x"], event["y"]

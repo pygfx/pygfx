@@ -1,5 +1,5 @@
 from pygfx import Scene, WorldObject
-from pygfx.objects._events import EventTarget, RootHandler, Event, PointerEvent
+from pygfx.objects._events import EventTarget, Event, PointerEvent
 
 
 class Node(EventTarget):

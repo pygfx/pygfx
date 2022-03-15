@@ -9,8 +9,9 @@ from ...linalg import Matrix4, Vector3
 from ...objects import (
     id_provider,
     KeyboardEvent,
+    EventTarget,
+    EventType,
     PointerEvent,
-    RootHandler,
     WheelEvent,
     WindowEvent,
     WorldObject,
@@ -110,7 +111,7 @@ class SharedData:
         self.shader_cache = {}
 
 
-class WgpuRenderer(RootHandler, Renderer):
+class WgpuRenderer(EventTarget, Renderer):
     """Object used to render scenes using wgpu.
 
     The purpose of a renderer is to render (i.e. draw) a scene to a
@@ -161,6 +162,7 @@ class WgpuRenderer(RootHandler, Renderer):
         show_fps=False,
         blend_mode="default",
         sort_objects=False,
+        enable_events=True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -215,6 +217,9 @@ class WgpuRenderer(RootHandler, Renderer):
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
+
+        if enable_events:
+            self.enable_events()
 
     @property
     def device(self):
@@ -703,9 +708,10 @@ class WgpuRenderer(RootHandler, Renderer):
 
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
 
-    def register_canvas(self, canvas):
-        canvas.add_event_handler(
-            self.handle_canvas_events,
+    def enable_events(self):
+        # TODO: check not a texture
+        self._target.add_event_handler(
+            self.dispatch_event,
             "key_down",
             "key_up",
             "pointer_down",
@@ -717,9 +723,9 @@ class WgpuRenderer(RootHandler, Renderer):
             "resize",
         )
 
-    def unregister_canvas(self, canvas):
-        canvas.remove_event_handler(
-            self.handle_canvas_events,
+    def disable_events(self, canvas):
+        self._target.remove_event_handler(
+            self.dispatch_event,
             "key_down",
             "key_up",
             "pointer_down",
@@ -731,19 +737,54 @@ class WgpuRenderer(RootHandler, Renderer):
             "resize",
         )
 
-    def handle_canvas_events(self, event: dict):
+    def dispatch_event(self, event: dict):
+        if not isinstance(event, dict):
+            return
         event_type = event["event_type"]
         target = None
         info = None
         if "x" in event or "y" in event:
             info = self.get_pick_info((event["x"], event["y"]))
             target = info["world_object"]
-            # TODO: maybe add the
 
-        ev = EVENT_TYPE_MAP[event_type](
+        event = EVENT_TYPE_MAP[event_type](
             type=event_type, **event, target=target, pick_info=info
         )
-        self.handle_event(ev)
+
+        # Check for captured pointer events
+        pointer_id = getattr(event, "pointer_id", None)
+        if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
+            captured_target = EventTarget.pointer_captures[pointer_id]
+            # Set the target to be the captured target
+            event._target = captured_target
+            captured_target.handle_event(event)
+            if event.type == EventType.POINTER_UP:
+                captured_target.release_pointer_capture(pointer_id)
+            # Encountered an event with pointer_id while there is a
+            # capture active, so don't bubble, just return immediately
+            return
+
+        target = event.target
+        while target and target is not self:
+            # Update the private current target field
+            event._current_target = target
+            target.handle_event(event)
+            if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
+                # Prevent people from shooting in their foot by calling set_pointer_capture
+                # on POINTER_UP events
+                if event.type == EventType.POINTER_UP:
+                    captured_target.release_pointer_capture(pointer_id)
+                else:
+                    # Apparently ``set_pointer_capture`` was called with this
+                    # event.pointer_id, so return immediately
+                    return
+            if not event.bubbles or event.is_cancelled:
+                break
+            target = getattr(target, "parent", None)
+
+        if event.bubbles:
+            # Let the renderer as the virtual event root handle the event
+            self.handle_event(event)
 
 
 EVENT_TYPE_MAP = {

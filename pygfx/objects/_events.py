@@ -1,6 +1,5 @@
 from collections import defaultdict
 from enum import Enum
-from itertools import count
 from time import perf_counter
 from typing import Union
 
@@ -50,6 +49,7 @@ class Event:
         self._bubbles = bubbles
         self._target = target
         self._current_target = target
+        self._cancelled = False
         # Save extra kwargs to be able to look
         # them up later with `__getitem__`
         self._data = kwargs
@@ -83,6 +83,14 @@ class Event:
     def stop_propagation(self):
         """Stops propagation of events further along in the scene tree."""
         self._bubbles = False
+
+    def cancel(self):
+        self._cancelled = True
+        self._bubbles = False
+
+    @property
+    def is_cancelled(self):
+        return self._cancelled
 
     def __getitem__(self, key):
         """Make ``Event`` work as a dict as well to be compatible with the jupyter_rfb
@@ -119,9 +127,6 @@ class KeyboardEvent(Event):
 
 
 class PointerEvent(Event):
-    pointer_id_iter = count()
-    current_id = None
-
     def __init__(
         self,
         *args,
@@ -132,6 +137,7 @@ class PointerEvent(Event):
         modifiers=None,
         ntouches=0,
         touches=None,
+        pointer_id=0,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -142,9 +148,8 @@ class PointerEvent(Event):
         self.modifiers = modifiers or []
         self.ntouches = ntouches
         self.touches = touches or {}
-        if self.type == EventType.POINTER_DOWN:
-            PointerEvent.current_id = next(self.pointer_id_iter)
-        self.pointer_id = self.current_id
+        # TODO: add support for pointer_id to wgpu-py
+        self.pointer_id = pointer_id
 
 
 class WheelEvent(Event):
@@ -243,6 +248,8 @@ class EventTarget:
         """
         event_type = event.type
         for callback in self._event_handlers[event_type]:
+            if event.is_cancelled:
+                break
             callback(event)
 
     def set_pointer_capture(self, pointer_id):
@@ -250,46 +257,11 @@ class EventTarget:
         until ``release_pointer_capture`` is called or an ``pointer_up``
         event is encountered.
         """
-        self.pointer_captures[pointer_id] = self
+        EventTarget.pointer_captures[pointer_id] = self
 
     def release_pointer_capture(self, pointer_id):
         """Release the pointer capture for the object that was registered
         to the given pointer_id.
         """
-        if pointer_id in self.pointer_captures:
-            del self.pointer_captures[pointer_id]
-
-
-class RootHandler(EventTarget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def handle_event(self, event: Event):
-        target = event.target
-        while target and target is not self:
-            # Update the private current target field
-            event._current_target = target
-            # Check for captured pointer events
-            pointer_id = getattr(event, "pointer_id", None)
-            if pointer_id and pointer_id in EventTarget.pointer_captures:
-                capture = EventTarget.pointer_captures[pointer_id]
-                capture.handle_event(event)
-                if event.type == EventType.POINTER_UP:
-                    capture.release_pointer_capture(pointer_id)
-                # Encountered an event with pointer_id while there is a
-                # capture active, so don't bubble, just return immediately
-                return
-            else:
-                target.handle_event(event)
-                if pointer_id and pointer_id in EventTarget.pointer_captures:
-                    # Apparently ``set_pointer_capture`` was called with this
-                    # event.pointer_id, so return immediately
-                    return
-            if not event.bubbles:
-                break
-            target = getattr(target, "parent", None)
-
-        # The EventDispatcher itself does not have to be part
-        # of the hierarchy so we'll handle the event separately
-        if not event.target or event.bubbles:
-            super().handle_event(event)
+        if pointer_id in EventTarget.pointer_captures:
+            del EventTarget.pointer_captures[pointer_id]

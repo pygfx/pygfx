@@ -15,10 +15,12 @@ import pygfx as gfx
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
-renderer.register_canvas(canvas)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
+
+controls = gfx.OrbitControls(camera.position.clone())
+controls.add_default_event_handlers(renderer, canvas, camera)
 
 scene = gfx.Scene()
 
@@ -65,19 +67,9 @@ def hover(obj):
         state["hovered"].material = hovered_material
 
 
-# Clicking anywhere on the canvas will trigger the pointer_down
-# handler that is set here on the renderer
-@renderer.add_event_handler("pointer_down")
-def pointer_down(event):
-    select(None)
-
-
-# Objects can set themselves to be selected, but need to
-# stop the propagation to prevent the event_handler on the
-# renderer to deselect the object right away
 def select_obj(event):
     select(event.target)
-    event.stop_propagation()
+    event.target.set_pointer_capture(event.pointer_id)
 
 
 def random_rotation():
@@ -94,6 +86,7 @@ def animate():
             obj.rotation.multiply(obj.random_rotation)
 
     scene.traverse(random_rot)
+    controls.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

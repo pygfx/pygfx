@@ -4,9 +4,9 @@ from ._base import WorldObject, id_provider
 from ._events import (
     Event,
     EventTarget,
+    EventType,
     PointerEvent,
     KeyboardEvent,
-    RootHandler,
     WheelEvent,
     WindowEvent,
 )
