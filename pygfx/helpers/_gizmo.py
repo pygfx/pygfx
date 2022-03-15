@@ -59,19 +59,6 @@ class TransformGizmo(WorldObject):
         self._mode = mode
         self._on_mode_switch()
 
-    # def add_default_event_handlers(self, renderer, camera):
-    #     # todo: update other methods with the same name to include renderer?
-    #     canvas = renderer.target
-    #     self._renderer = renderer
-    #     self._canvas = canvas
-    #     self._camera = camera
-    #     canvas.add_event_handler(
-    #         self.handle_event,
-    #         "pointer_down",
-    #         "pointer_move",
-    #         "pointer_up",
-    #     )
-
     def _create_elements(self):
         """Create lines, handles, etc."""
 
@@ -278,10 +265,8 @@ class TransformGizmo(WorldObject):
                 pass
             elif isinstance(dim, int):
                 if object in self._rotate_children:
-                    print("arc ")
                     objects.append(self._arc_children[dim])
                 else:  # translate1 or scale
-                    print("line ")
                     objects.append(self._line_children[dim])
             else:  # translate2
                 objects.append(self._line_children[dim[0]])
@@ -480,15 +465,20 @@ class TransformGizmo(WorldObject):
         self._canvas = renderer.target
         self._camera = camera
 
-        # todo: check buttons and modifiers
         type = event["event_type"]
         if type in "pointer_down":
-            if event["modifiers"]:
+            if event["button"] != 1 or event["modifiers"]:
                 return
             self._ref = None
-            # todo: make renderer cache pick info calls for the same frame
+            # NOTE: I imagine that if multiple tools are active, they
+            # each ask for picking info, causing multiple buffer reads
+            # for the same location. However, with the new event system
+            # this is probably not a problem, when wobjects receive events.
             info = self._renderer.get_pick_info((event["x"], event["y"]))
             ob = info["world_object"]
+            if ob not in self.children:
+                return
+            # Depending on the object under the pointer, we scale/translate/rotate
             if ob == self._center_sphere:
                 self._handle_start("scale", event, ob)
             elif ob in self._translate_children:
@@ -497,22 +487,30 @@ class TransformGizmo(WorldObject):
                 self._handle_start("scale", event, ob)
             elif ob in self._rotate_children:
                 self._handle_start("rotate", event, ob)
+            # Highlight the object
+            self._highlight(ob)
+            self._canvas.request_draw()
+            event["stop_propagation"] = True
         elif type == "pointer_up":
-            if self._ref:
-                if self._ref["dim"] is None and self._ref["maxdist"] < 3:
-                    self.toggle_mode()
-                self._ref = None
-                self._highlight()
-                event["stop_propagation"] = True
+            if not self._ref:
+                return
+            if self._ref["dim"] is None and self._ref["maxdist"] < 3:
+                self.toggle_mode()  # clicked on the center sphere
+            self._ref = None
+            # De-highlight the object
+            self._highlight()
+            self._canvas.request_draw()
+            event["stop_propagation"] = True
         elif type == "pointer_move":
             if not self._ref:
                 return
-            event["stop_propagation"] = True
+            # Get how far we've moved from starting point - we have a dead zone
             dist = (
                 (event["x"] - self._ref["event"]["x"]) ** 2
                 + (event["y"] - self._ref["event"]["y"]) ** 2
             ) ** 0.5
             self._ref["maxdist"] = max(self._ref["maxdist"], dist)
+            # Delegate to the correct handler
             if self._ref["maxdist"] < 3:
                 pass
             elif self._ref["kind"] == "translate":
@@ -521,12 +519,12 @@ class TransformGizmo(WorldObject):
                 self._handle_scale_move(event)
             elif self._ref["kind"] == "rotate":
                 self._handle_rotate_move(event)
+            # Keep viz up to date
+            self._canvas.request_draw()
+            event["stop_propagation"] = True
 
     def _handle_start(self, kind, event, ob):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
-        event["stop_propagation"] = True
-        self._highlight(ob)
-
         sign = np.sign
         this_pos = self._object_to_control.position.clone()
         ob_pos = ob.get_world_position().clone()

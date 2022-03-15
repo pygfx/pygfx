@@ -21,19 +21,20 @@ controls = gfx.OrbitControls(camera.position.clone())
 gizmo = gfx.TransformGizmo(cube)
 
 
+# NOTE: we are working on a new event system, so this event-related
+# code will change in the future. At the least we should make these
+# `handle_event` methods consistent.
 @canvas.add_event_handler("pointer_down", "pointer_move", "pointer_up", "wheel")
 def handle_event(event):
     gizmo.handle_event(event, renderer, camera)
     if not event.get("stop_propagation", False):
         controls.handle_event(event, canvas, camera)
-    # todo: these handle_event method are not consistent, maybe use (event, renderer, camera) also for controls.
 
 
 def animate():
     controls.update_camera(camera)
     renderer.render(scene, camera, flush=False)
     renderer.render(gizmo, camera, clear_color=False)
-    canvas.request_draw()
 
 
 if __name__ == "__main__":
