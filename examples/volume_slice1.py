@@ -27,10 +27,10 @@ scene.add(plane)
 camera = gfx.OrthographicCamera(200, 200)
 
 
-@canvas.add_event_handler("wheel")
+@renderer.add_event_handler("wheel")
 def handle_event(event):
     global index
-    index = index + int(event["dy"] / 90)
+    index = index + int(event.dy / 90)
     index = max(0, min(nslices - 1, index))
     im = vol[index]
     tex.data[:] = im

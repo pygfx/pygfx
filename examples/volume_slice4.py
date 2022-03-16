@@ -27,18 +27,18 @@ camera.position.set(64, 64, 128)
 camera.scale.y = -1  # in this case we tweak the camera, not the plane
 
 
-@canvas.add_event_handler("wheel")
+@renderer.add_event_handler("wheel")
 def handle_wheel_event(event):
     global index
-    index = index + event["dy"] / 90
+    index = index + event.dy / 90
     index = max(0, min(nslices - 1, index))
     vol.material.plane = 0, 0, -1, index
     canvas.request_draw()
 
 
-@canvas.add_event_handler("pointer_down")
+@vol.add_event_handler("pointer_down")
 def handle_pointer_event(event):
-    info = renderer.get_pick_info((event["x"], event["y"]))
+    info = event["pick_info"]
     if "index" in info:
         print(info["index"], info["voxel_coord"])
 

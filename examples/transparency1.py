@@ -26,13 +26,13 @@ scene.add(plane1, plane2, plane3)
 camera = gfx.OrthographicCamera(100, 100)
 
 
-@canvas.add_event_handler("key_down")
+@renderer.add_event_handler("key_down")
 def handle_event(event):
-    if event["key"] == " ":
+    if event.key == " ":
         print("Rotating scene element order")
         scene.add(scene.children[0])
         canvas.request_draw()
-    elif event["key"] in "0123456789":
+    elif event.key in "0123456789":
         m = [
             None,
             "opaque",
@@ -42,7 +42,7 @@ def handle_event(event):
             "weighted_depth",
             "weighted_plus",
         ]
-        mode = m[int(event["key"])]
+        mode = m[int(event.key)]
         renderer.blend_mode = mode
         print("Selecting blend_mode", mode)
 
