@@ -24,12 +24,10 @@ scene.add(ob)
 camera = gfx.OrthographicCamera(120, 120)
 
 
-@canvas.add_event_handler("pointer_down")
-def handle_event(event):
-    info = renderer.get_pick_info((event["x"], event["y"]))
-    wobject = info["world_object"]
-    # If a point was clicked ..
-    if wobject and "vertex_index" in info:
+@ob.add_event_handler("pointer_down")
+def offset_point(event):
+    info = event["pick_info"]
+    if "vertex_index" in info:
         i = int(round(info["vertex_index"]))
         geometry.positions.data[i, 1] *= -1
         geometry.positions.update_range(i)
