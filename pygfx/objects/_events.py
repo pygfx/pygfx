@@ -4,6 +4,9 @@ from time import perf_counter_ns
 from typing import Union
 
 
+CLICK_DEBOUNCE = 500  # in milliseconds
+
+
 class EventType(str, Enum):
     # Keyboard
     KEY_DOWN = "key_down"
@@ -12,6 +15,7 @@ class EventType(str, Enum):
     POINTER_DOWN = "pointer_down"
     POINTER_MOVE = "pointer_move"
     POINTER_UP = "pointer_up"
+    CLICK = "click"
     DOUBLE_CLICK = "double_click"
     # Wheel
     WHEEL = "wheel"
@@ -41,6 +45,7 @@ class Event:
         bubbles=True,
         target: "EventTarget" = None,
         time_stamp: float = None,
+        cancelled: bool = False,
         **kwargs,
     ):
         self._type = type
@@ -50,7 +55,7 @@ class Event:
         self._bubbles = bubbles
         self._target = target
         self._current_target = target
-        self._cancelled = False
+        self._cancelled = cancelled
         # Save extra kwargs to be able to look
         # them up later with `__getitem__`
         self._data = kwargs
@@ -109,24 +114,6 @@ class Event:
         bracket syntax."""
         return self._data[key]
 
-    def __repr__(self):
-        prefix = f"<{type(self).__name__}({self.type}) "
-        attrs = [
-            f"{key}={getattr(self, key)}"
-            for key in dir(self)
-            if not key.startswith("_")
-            and key
-            not in [
-                "stop_propagation",
-                "cancel",
-                "type",
-            ]
-        ]
-        attrs.extend([f"{key}={val}" for key, val in self._data.items()])
-        middle = ", ".join(attrs)
-        suffix = ">"
-        return "".join([prefix, middle, suffix])
-
 
 class KeyboardEvent(Event):
     def __init__(self, *args, key, modifiers=None, **kwargs):
@@ -146,6 +133,7 @@ class PointerEvent(Event):
         modifiers=None,
         ntouches=0,
         touches=None,
+        clicks=0,
         pointer_id=0,
         **kwargs,
     ):
@@ -157,8 +145,29 @@ class PointerEvent(Event):
         self.modifiers = modifiers or ()
         self.ntouches = ntouches
         self.touches = touches or {}
-        # TODO: add support for pointer_id to wgpu-py
+        self.clicks = clicks
         self.pointer_id = pointer_id
+
+    def copy(self, type, clicks):
+        result = PointerEvent(
+            type=type,
+            x=self.x,
+            y=self.y,
+            button=self.button,
+            buttons=self.buttons,
+            modifiers=self.modifiers,
+            ntouches=self.ntouches,
+            touches=self.touches,
+            clicks=clicks,
+            pointer_id=self.pointer_id,
+            bubbles=self.bubbles,
+            target=self.target,
+            cancelled=self.cancelled,
+            time_stamp=self.time_stamp,
+            # **self._data,
+        )
+        result._data = self._data.copy()
+        return result
 
 
 class WheelEvent(Event):
@@ -184,6 +193,7 @@ class EventTarget:
     of the mixed-in class.
     """
 
+    # TODO: convert to weakref dict
     pointer_captures = {}
 
     def __init__(self, *args, **kwargs):
@@ -279,22 +289,22 @@ class EventTarget:
 class RootEventHandler(EventTarget):
     """Root event handler for the Pygfx event system."""
 
+    click_tracker = {}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def dispatch_event(self, event: dict):
-        # Check for captured pointer events
         pointer_id = getattr(event, "pointer_id", None)
+
+        # Check for captured pointer events
         if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
             captured_target = EventTarget.pointer_captures[pointer_id]
-            # Retarget the event to the captured target
-            event._retarget(captured_target)
-            captured_target.handle_event(event)
-            if event.type == EventType.POINTER_UP:
-                captured_target.release_pointer_capture(pointer_id)
             # Encountered an event with pointer_id while there is a
-            # capture active, so don't bubble, just return immediately
-            return
+            # capture active, so don't bubble, and retarget the event
+            # to the captured target
+            event._retarget(captured_target)
+            event.stop_propagation()
 
         target = event.target
         while target and target is not self:
@@ -302,18 +312,40 @@ class RootEventHandler(EventTarget):
             event._update_current_target(target)
             target.handle_event(event)
             if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
-                # Prevent people from shooting in their foot by calling set_pointer_capture
-                # on POINTER_UP events
+                event._retarget(target)
+                event.stop_propagation()
                 if event.type == EventType.POINTER_UP:
                     captured_target.release_pointer_capture(pointer_id)
-                else:
-                    # Apparently ``set_pointer_capture`` was called with this
-                    # event.pointer_id, so return immediately
-                    return
             if not event.bubbles or event.cancelled:
                 break
-            target = getattr(target, "parent", None)
+            target = target.parent
 
         if event.bubbles:
             # Let the renderer as the virtual event root handle the event
             self.handle_event(event)
+
+        if event.type == EventType.POINTER_DOWN:
+            tracked_click = RootEventHandler.click_tracker.get(pointer_id)
+            if (
+                tracked_click
+                and tracked_click["target"] is event.target
+                and event.time_stamp - tracked_click["time_stamp"] < CLICK_DEBOUNCE
+            ):
+                tracked_click["count"] += 1
+                tracked_click["time_stamp"] = event.time_stamp
+            else:
+                RootEventHandler.click_tracker[pointer_id] = {
+                    "count": 1,
+                    "time_stamp": event.time_stamp,
+                    "target": event.target,
+                }
+
+        elif event.type == EventType.POINTER_UP:
+            tracked_click = RootEventHandler.click_tracker.get(pointer_id)
+
+            if tracked_click and tracked_click["target"] is event.target:
+                ev = event.copy("click", tracked_click["count"])
+                self.dispatch_event(ev)
+                if tracked_click["count"] == 2:
+                    double_ev = event.copy("double_click", tracked_click["count"])
+                    self.dispatch_event(double_ev)

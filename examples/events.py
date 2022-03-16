@@ -67,7 +67,6 @@ def hover(obj):
 
 def select_obj(event):
     select(event.target)
-    event.target.set_pointer_capture(event.pointer_id)
 
 
 def random_rotation():
@@ -105,7 +104,7 @@ if __name__ == "__main__":
             cube.position.y = randint(-200, 200)
             cube.position.z = randint(-200, 200)
             cube.random_rotation = random_rotation()
-            cube.add_event_handler(select_obj, "pointer_down")
+            cube.add_event_handler(select_obj, "click")
             cube.add_event_handler(lambda event: hover(event.target), "pointer_move")
             group.add(cube)
 
