@@ -265,3 +265,46 @@ class EventTarget:
         """
         if pointer_id in EventTarget.pointer_captures:
             del EventTarget.pointer_captures[pointer_id]
+
+
+class RootEventHandler(EventTarget):
+    """Root event handler for the Pygfx event system."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def dispatch_event(self, event: dict):
+        # Check for captured pointer events
+        pointer_id = getattr(event, "pointer_id", None)
+        if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
+            captured_target = EventTarget.pointer_captures[pointer_id]
+            # Set the target to be the captured target
+            event._target = captured_target
+            captured_target.handle_event(event)
+            if event.type == EventType.POINTER_UP:
+                captured_target.release_pointer_capture(pointer_id)
+            # Encountered an event with pointer_id while there is a
+            # capture active, so don't bubble, just return immediately
+            return
+
+        target = event.target
+        while target and target is not self:
+            # Update the private current target field
+            event._current_target = target
+            target.handle_event(event)
+            if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
+                # Prevent people from shooting in their foot by calling set_pointer_capture
+                # on POINTER_UP events
+                if event.type == EventType.POINTER_UP:
+                    captured_target.release_pointer_capture(pointer_id)
+                else:
+                    # Apparently ``set_pointer_capture`` was called with this
+                    # event.pointer_id, so return immediately
+                    return
+            if not event.bubbles or event.is_cancelled:
+                break
+            target = getattr(target, "parent", None)
+
+        if event.bubbles:
+            # Let the renderer as the virtual event root handle the event
+            self.handle_event(event)

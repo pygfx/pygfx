@@ -9,8 +9,7 @@ from ...linalg import Matrix4, Vector3
 from ...objects import (
     id_provider,
     KeyboardEvent,
-    EventTarget,
-    EventType,
+    RootEventHandler,
     PointerEvent,
     WheelEvent,
     WindowEvent,
@@ -111,7 +110,7 @@ class SharedData:
         self.shader_cache = {}
 
 
-class WgpuRenderer(EventTarget, Renderer):
+class WgpuRenderer(RootEventHandler, Renderer):
     """Object used to render scenes using wgpu.
 
     The purpose of a renderer is to render (i.e. draw) a scene to a
@@ -711,7 +710,7 @@ class WgpuRenderer(EventTarget, Renderer):
     def enable_events(self):
         # TODO: check not a texture
         self._target.add_event_handler(
-            self.dispatch_event,
+            self.convert_event,
             "key_down",
             "key_up",
             "pointer_down",
@@ -725,7 +724,7 @@ class WgpuRenderer(EventTarget, Renderer):
 
     def disable_events(self, canvas):
         self._target.remove_event_handler(
-            self.dispatch_event,
+            self.convert_event,
             "key_down",
             "key_up",
             "pointer_down",
@@ -737,9 +736,10 @@ class WgpuRenderer(EventTarget, Renderer):
             "resize",
         )
 
-    def dispatch_event(self, event: dict):
-        if not isinstance(event, dict):
-            return
+    def convert_event(self, event: dict):
+        """Converts Wgpu event (jupyter event dict) to Pygfx Event object,
+        adds picking info and then dispatches the event in the Pygfx event system.
+        """
         event_type = event["event_type"]
         target = None
         info = None
@@ -750,41 +750,7 @@ class WgpuRenderer(EventTarget, Renderer):
         event = EVENT_TYPE_MAP[event_type](
             type=event_type, **event, target=target, pick_info=info
         )
-
-        # Check for captured pointer events
-        pointer_id = getattr(event, "pointer_id", None)
-        if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
-            captured_target = EventTarget.pointer_captures[pointer_id]
-            # Set the target to be the captured target
-            event._target = captured_target
-            captured_target.handle_event(event)
-            if event.type == EventType.POINTER_UP:
-                captured_target.release_pointer_capture(pointer_id)
-            # Encountered an event with pointer_id while there is a
-            # capture active, so don't bubble, just return immediately
-            return
-
-        target = event.target
-        while target and target is not self:
-            # Update the private current target field
-            event._current_target = target
-            target.handle_event(event)
-            if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
-                # Prevent people from shooting in their foot by calling set_pointer_capture
-                # on POINTER_UP events
-                if event.type == EventType.POINTER_UP:
-                    captured_target.release_pointer_capture(pointer_id)
-                else:
-                    # Apparently ``set_pointer_capture`` was called with this
-                    # event.pointer_id, so return immediately
-                    return
-            if not event.bubbles or event.is_cancelled:
-                break
-            target = getattr(target, "parent", None)
-
-        if event.bubbles:
-            # Let the renderer as the virtual event root handle the event
-            self.handle_event(event)
+        self.dispatch_event(event)
 
 
 EVENT_TYPE_MAP = {

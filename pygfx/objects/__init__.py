@@ -7,6 +7,7 @@ from ._events import (
     EventType,
     PointerEvent,
     KeyboardEvent,
+    RootEventHandler,
     WheelEvent,
     WindowEvent,
 )
