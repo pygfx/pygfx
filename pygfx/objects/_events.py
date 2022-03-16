@@ -42,10 +42,11 @@ class Event:
         *,
         bubbles=True,
         target: "EventTarget" = None,
+        time_stamp: float = None,
         **kwargs,
     ):
         self._type = type
-        self._time_stamp = perf_counter()
+        self._time_stamp = time_stamp or perf_counter()
         self._bubbles = bubbles
         self._target = target
         self._current_target = target
