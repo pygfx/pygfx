@@ -708,33 +708,34 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
 
     def enable_events(self):
-        # TODO: check not a texture
-        self._target.add_event_handler(
-            self.convert_event,
-            "key_down",
-            "key_up",
-            "pointer_down",
-            "pointer_move",
-            "pointer_up",
-            "double_click",
-            "wheel",
-            "close",
-            "resize",
-        )
+        if hasattr(self._target, "add_event_handler"):
+            self._target.add_event_handler(
+                self.convert_event,
+                "key_down",
+                "key_up",
+                "pointer_down",
+                "pointer_move",
+                "pointer_up",
+                "double_click",
+                "wheel",
+                "close",
+                "resize",
+            )
 
     def disable_events(self, canvas):
-        self._target.remove_event_handler(
-            self.convert_event,
-            "key_down",
-            "key_up",
-            "pointer_down",
-            "pointer_move",
-            "pointer_up",
-            "double_click",
-            "wheel",
-            "close",
-            "resize",
-        )
+        if hasattr(self._target, "remove_event_handler"):
+            self._target.remove_event_handler(
+                self.convert_event,
+                "key_down",
+                "key_up",
+                "pointer_down",
+                "pointer_move",
+                "pointer_up",
+                "double_click",
+                "wheel",
+                "close",
+                "resize",
+            )
 
     def convert_event(self, event: dict):
         """Converts Wgpu event (jupyter event dict) to Pygfx Event object,
