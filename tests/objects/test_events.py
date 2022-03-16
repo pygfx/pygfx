@@ -243,3 +243,48 @@ def test_pointer_event_copy():
 
     assert other.clicks != event.clicks
     assert other.clicks == 5
+
+
+def test_clicks():
+    number_of_clicks = []
+    root_handler = RootEventHandler()
+
+    @root_handler.add_event_handler("click")
+    def root_callback(event):
+        nonlocal number_of_clicks
+        number_of_clicks.append(event.clicks)
+
+    for i in range(4):
+        down = PointerEvent("pointer_down", x=0, y=0, time_stamp=i * 100)
+        up = PointerEvent("pointer_up", x=10, y=30, time_stamp=i * 100 + 50)
+        root_handler.dispatch_event(down)
+        root_handler.dispatch_event(up)
+
+    assert number_of_clicks == [1, 2, 3, 4]
+
+    number_of_clicks = []
+
+    # Bump the 'time' to trigger a reset of the tracker
+    i = 5000
+
+    target = EventTarget()
+    target.parent = None
+    down = PointerEvent("pointer_down", x=3, y=7, time_stamp=i * 100, target=target)
+    up = PointerEvent("pointer_up", x=1, y=2, time_stamp=i * 100 + 50, target=target)
+    root_handler.dispatch_event(down)
+    root_handler.dispatch_event(up)
+
+    assert number_of_clicks == [1]
+
+    # Bump the 'time' to trigger a reset of the tracker
+    i = 10000
+
+    down = PointerEvent("pointer_down", x=9, y=6, time_stamp=i * 100, target=target)
+    up = PointerEvent("pointer_up", x=3, y=5, time_stamp=i * 100 + 50)
+    root_handler.dispatch_event(down)
+    # Delete all references to the target
+    del down
+    del target
+    root_handler.dispatch_event(up)
+
+    assert number_of_clicks == [1]
