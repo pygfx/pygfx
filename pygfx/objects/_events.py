@@ -123,7 +123,7 @@ class KeyboardEvent(Event):
     def __init__(self, *args, key, modifiers=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.key = key
-        self.modifiers = modifiers or []
+        self.modifiers = modifiers or ()
 
 
 class PointerEvent(Event):
@@ -144,8 +144,8 @@ class PointerEvent(Event):
         self.x = x
         self.y = y
         self.button = button
-        self.buttons = buttons or []
-        self.modifiers = modifiers or []
+        self.buttons = buttons or ()
+        self.modifiers = modifiers or ()
         self.ntouches = ntouches
         self.touches = touches or {}
         # TODO: add support for pointer_id to wgpu-py
@@ -159,7 +159,7 @@ class WheelEvent(Event):
         self.dy = dy
         self.x = x
         self.y = y
-        self.modifiers = modifiers or []
+        self.modifiers = modifiers or ()
 
 
 class WindowEvent(Event):
