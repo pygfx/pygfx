@@ -78,19 +78,23 @@ class Event:
 
     @property
     def current_target(self) -> "EventTarget":
+        """The object that is currently handling the event. During event bubbling
+        this property will be updated whenever an event bubbles up in the hierarchy."""
         return self._current_target
+
+    @property
+    def is_cancelled(self) -> bool:
+        """A boolean value indicating whether the event is cancelled."""
+        return self._cancelled
 
     def stop_propagation(self):
         """Stops propagation of events further along in the scene tree."""
         self._bubbles = False
 
     def cancel(self):
+        """Cancels the event and stops propagation."""
         self._cancelled = True
-        self._bubbles = False
-
-    @property
-    def is_cancelled(self):
-        return self._cancelled
+        self.stop_propagation()
 
     def __getitem__(self, key):
         """Make ``Event`` work as a dict as well to be compatible with the jupyter_rfb
