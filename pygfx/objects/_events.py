@@ -99,9 +99,7 @@ class Event:
     def __getitem__(self, key):
         """Make ``Event`` work as a dict as well to be compatible with the jupyter_rfb
         event spec."""
-        if key == "event_type":
-            return self.type
-        return getattr(self, key, self._data.get(key))
+        return self._data[key]
 
     def __repr__(self):
         prefix = f"<{type(self).__name__} '{self.type}' "

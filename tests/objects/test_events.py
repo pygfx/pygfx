@@ -182,10 +182,10 @@ def test_pointer_event_capture():
     assert root_called == 3
 
     child.add_event_handler(
-        lambda e: child.set_pointer_capture(e["pointer_id"]), "pointer_down"
+        lambda e: child.set_pointer_capture(e.pointer_id), "pointer_down"
     )
     child.add_event_handler(
-        lambda e: child.release_pointer_capture(e["pointer_id"]), "pointer_up"
+        lambda e: child.release_pointer_capture(e.pointer_id), "pointer_up"
     )
 
     root_handler.dispatch_event(
