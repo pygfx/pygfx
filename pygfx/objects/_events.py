@@ -84,7 +84,7 @@ class Event:
         return self._current_target
 
     @property
-    def is_cancelled(self) -> bool:
+    def cancelled(self) -> bool:
         """A boolean value indicating whether the event is cancelled."""
         return self._cancelled
 
@@ -251,7 +251,7 @@ class EventTarget:
         """
         event_type = event.type
         for callback in self._event_handlers[event_type]:
-            if event.is_cancelled:
+            if event.cancelled:
                 break
             callback(event)
 
@@ -304,7 +304,7 @@ class RootEventHandler(EventTarget):
                     # Apparently ``set_pointer_capture`` was called with this
                     # event.pointer_id, so return immediately
                     return
-            if not event.bubbles or event.is_cancelled:
+            if not event.bubbles or event.cancelled:
                 break
             target = getattr(target, "parent", None)
 
