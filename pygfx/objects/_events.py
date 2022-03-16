@@ -1,6 +1,6 @@
 from collections import defaultdict
 from enum import Enum
-from time import perf_counter
+from time import perf_counter_ns
 from typing import Union
 
 
@@ -44,7 +44,9 @@ class Event:
         **kwargs,
     ):
         self._type = type
-        self._time_stamp = time_stamp or perf_counter()
+        # Using perf_counter_ns instead of perf_counter
+        # should give us a bit more accuracy
+        self._time_stamp = time_stamp or perf_counter_ns() / 1000000
         self._bubbles = bubbles
         self._target = target
         self._current_target = target
@@ -60,8 +62,8 @@ class Event:
 
     @property
     def time_stamp(self) -> float:
-        """The time at which the event was created (in seconds). Not actual timestamp
-        so please only use for relative time measurements."""
+        """The time at which the event was created (in milliseconds). Might not be
+        an actual time stamp so please only use this for relative time measurements."""
         return self._time_stamp
 
     @property
