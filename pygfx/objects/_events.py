@@ -98,8 +98,8 @@ class Event:
         self.stop_propagation()
 
     def __getitem__(self, key):
-        """Make ``Event`` work as a dict as well to be compatible with the jupyter_rfb
-        event spec."""
+        """Make the extra kwargs available directly on the event object through
+        bracket syntax."""
         return self._data[key]
 
     def __repr__(self):
