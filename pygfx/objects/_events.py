@@ -165,7 +165,6 @@ class PointerEvent(Event):
             target=self.target,
             cancelled=self.cancelled,
             time_stamp=self.time_stamp,
-            # **self._data,
         )
         result._data = self._data.copy()
         return result
@@ -289,6 +288,7 @@ class EventTarget:
 class RootEventHandler(EventTarget):
     """Root event handler for the Pygfx event system."""
 
+    # Dictionary to track clicks, keyed on pointer_id
     click_tracker = {}
 
     def __init__(self, *args, **kwargs):
@@ -324,14 +324,20 @@ class RootEventHandler(EventTarget):
             # Let the renderer as the virtual event root handle the event
             self.handle_event(event)
 
+        # Update the click tracker on all `pointer_down` events
         if event.type == EventType.POINTER_DOWN:
             tracked_click = RootEventHandler.click_tracker.get(pointer_id)
+            # Check if the `pointer_id` is already tracked, targets
+            # the same target and is within the DEBOUNCE time.
+            # Bump the count and update the time_stamp if that is the case.
+            # Otherwise, restart counting.
             if (
                 tracked_click
                 and (
-                    tracked_click["target"]
+                    tracked_click["target"] is not None
+                    and tracked_click["target"]() is not None
                     and tracked_click["target"]() is event.target
-                    or (not tracked_click["target"] and not event.target)
+                    or (tracked_click["target"] is None and event.target is None)
                 )
                 and event.time_stamp - tracked_click["time_stamp"] < CLICK_DEBOUNCE
             ):
@@ -343,13 +349,17 @@ class RootEventHandler(EventTarget):
                     "time_stamp": event.time_stamp,
                     "target": (event.target and ref(event.target)) or None,
                 }
-
+        # On all `pointer_up` events, see if the event is on the same target
+        # as for the `pointer_down`. If so, then a `click` event is dispatched.
+        # When the counter for the click is at 2, then a `double_click` event
+        # is dispatched.
         elif event.type == EventType.POINTER_UP:
             tracked_click = RootEventHandler.click_tracker.get(pointer_id)
             if tracked_click and (
-                tracked_click["target"]
+                tracked_click["target"] is not None
+                and tracked_click["target"]() is not None
                 and tracked_click["target"]() is event.target
-                or (not tracked_click["target"] and not event.target)
+                or (tracked_click["target"] is None and event.target is None)
             ):
                 ev = event.copy("click", tracked_click["count"])
                 self.dispatch_event(ev)
