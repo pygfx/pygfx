@@ -103,16 +103,15 @@ class Event:
         return self._data[key]
 
     def __repr__(self):
-        prefix = f"<{type(self).__name__} '{self.type}' "
+        prefix = f"<{type(self).__name__}({self.type}) "
         attrs = [
-            f"{key}={self[key]}"
+            f"{key}={getattr(self, key)}"
             for key in dir(self)
             if not key.startswith("_")
             and key
             not in [
-                "bubbles",
                 "stop_propagation",
-                "time_stamp",
+                "cancel",
                 "type",
             ]
         ]
