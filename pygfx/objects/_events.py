@@ -99,6 +99,7 @@ class Event:
 
     def _retarget(self, target):
         self._target = target
+        self._update_current_target(target)
 
     def _update_current_target(self, target):
         self._current_target = target
