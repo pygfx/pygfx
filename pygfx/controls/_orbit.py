@@ -176,9 +176,9 @@ class OrbitControls:
         camera.zoom = zoom
         return self
 
-    def add_default_event_handlers(self, event_root, canvas, camera):
+    def add_default_event_handlers(self, renderer, canvas, camera):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        event_root.add_event_handler(
+        renderer.add_event_handler(
             lambda event: self.handle_event(event, canvas, camera),
             "pointer_down",
             "pointer_move",
