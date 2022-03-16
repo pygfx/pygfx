@@ -708,6 +708,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
 
     def enable_events(self):
+        # Check for ``add_event_handler`` attribute
+        # Silently 'fail' otherwise as it is perfectly fine to pass
+        # a texture as a target to the renderer
         if hasattr(self._target, "add_event_handler"):
             self._target.add_event_handler(
                 self.convert_event,
