@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import Enum
 from time import perf_counter_ns
 from typing import Union
-from weakref import WeakValueDictionary
+from weakref import ref, WeakValueDictionary
 
 
 CLICK_DEBOUNCE = 500  # in milliseconds
@@ -290,7 +290,6 @@ class RootEventHandler(EventTarget):
     """Root event handler for the Pygfx event system."""
 
     click_tracker = {}
-    target_tracker = WeakValueDictionary()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -327,10 +326,13 @@ class RootEventHandler(EventTarget):
 
         if event.type == EventType.POINTER_DOWN:
             tracked_click = RootEventHandler.click_tracker.get(pointer_id)
-            tracked_target = RootEventHandler.target_tracker.get(pointer_id)
             if (
                 tracked_click
-                and tracked_target is event.target
+                and (
+                    tracked_click["target"]
+                    and tracked_click["target"]() is event.target
+                    or (not tracked_click["target"] and not event.target)
+                )
                 and event.time_stamp - tracked_click["time_stamp"] < CLICK_DEBOUNCE
             ):
                 tracked_click["count"] += 1
@@ -339,14 +341,16 @@ class RootEventHandler(EventTarget):
                 RootEventHandler.click_tracker[pointer_id] = {
                     "count": 1,
                     "time_stamp": event.time_stamp,
+                    "target": (event.target and ref(event.target)) or None,
                 }
-                if event.target:
-                    RootEventHandler.target_tracker[pointer_id] = event.target
 
         elif event.type == EventType.POINTER_UP:
             tracked_click = RootEventHandler.click_tracker.get(pointer_id)
-            tracked_target = RootEventHandler.target_tracker.get(pointer_id)
-            if tracked_click and tracked_target is event.target:
+            if tracked_click and (
+                tracked_click["target"]
+                and tracked_click["target"]() is event.target
+                or (not tracked_click["target"] and not event.target)
+            ):
                 ev = event.copy("click", tracked_click["count"])
                 self.dispatch_event(ev)
                 if tracked_click["count"] == 2:
