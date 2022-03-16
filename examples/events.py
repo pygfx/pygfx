@@ -25,46 +25,44 @@ controls.add_default_event_handlers(renderer, canvas, camera)
 scene = gfx.Scene()
 
 geometry = gfx.box_geometry(40, 40, 40)
-material = gfx.MeshPhongMaterial()
+default_material = gfx.MeshPhongMaterial()
 selected_material = gfx.MeshPhongMaterial(color="#FF0000")
 hovered_material = gfx.MeshPhongMaterial(color="#FFAA00")
 
-state = {
-    "selected": None,
-    "hovered": None,
-}
+selected_obj = None
+hovered_obj = None
 
 
 def select(obj):
-    global state
-    if state["selected"]:
+    global selected_obj
+    if selected_obj:
 
         def apply_default_mat(obj):
             if isinstance(obj, gfx.Mesh):
-                obj.material = material
+                obj.material = default_material
 
-        state["selected"].traverse(apply_default_mat)
-        state["selected"] = None
+        selected_obj.traverse(apply_default_mat)
+        selected_obj = None
 
-    state["selected"] = obj
-    if state["selected"]:
+    selected_obj = obj
+    if selected_obj:
 
         def apply_selected_mat(obj):
             if isinstance(obj, gfx.Mesh):
                 obj.material = selected_material
 
-        state["selected"].traverse(apply_selected_mat)
+        selected_obj.traverse(apply_selected_mat)
 
 
 def hover(obj):
-    global state
-    if state["hovered"]:
-        if state["hovered"].material is not selected_material:
-            state["hovered"].material = material
-            state["hovered"] = None
-    state["hovered"] = obj
-    if state["hovered"] and state["hovered"].material is not selected_material:
-        state["hovered"].material = hovered_material
+    global hovered_obj
+    if hovered_obj:
+        if hovered_obj.material is not selected_material:
+            hovered_obj.material = default_material
+            hovered_obj = None
+    hovered_obj = obj
+    if hovered_obj and hovered_obj.material is not selected_material:
+        hovered_obj.material = hovered_material
 
 
 def select_obj(event):
@@ -92,7 +90,6 @@ def animate():
 
 
 if __name__ == "__main__":
-
     # Build up scene
     for _ in range(4):
         group = gfx.Group()
@@ -103,7 +100,7 @@ if __name__ == "__main__":
         scene.add(group)
 
         for _ in range(10):
-            cube = gfx.Mesh(geometry, material)
+            cube = gfx.Mesh(geometry, default_material)
             cube.position.x = randint(-200, 200)
             cube.position.y = randint(-200, 200)
             cube.position.z = randint(-200, 200)
