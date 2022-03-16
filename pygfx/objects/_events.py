@@ -97,6 +97,12 @@ class Event:
         self._cancelled = True
         self.stop_propagation()
 
+    def _retarget(self, target):
+        self._target = target
+
+    def _update_current_target(self, target):
+        self._current_target = target
+
     def __getitem__(self, key):
         """Make the extra kwargs available directly on the event object through
         bracket syntax."""
@@ -280,8 +286,8 @@ class RootEventHandler(EventTarget):
         pointer_id = getattr(event, "pointer_id", None)
         if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
             captured_target = EventTarget.pointer_captures[pointer_id]
-            # Set the target to be the captured target
-            event._target = captured_target
+            # Retarget the event to the captured target
+            event._retarget(captured_target)
             captured_target.handle_event(event)
             if event.type == EventType.POINTER_UP:
                 captured_target.release_pointer_capture(pointer_id)
@@ -291,8 +297,8 @@ class RootEventHandler(EventTarget):
 
         target = event.target
         while target and target is not self:
-            # Update the private current target field
-            event._current_target = target
+            # Update the current target
+            event._update_current_target(target)
             target.handle_event(event)
             if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
                 # Prevent people from shooting in their foot by calling set_pointer_capture
