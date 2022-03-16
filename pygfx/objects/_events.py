@@ -189,7 +189,7 @@ class EventTarget:
                 single event argument.
             *types (list of strings): A list of event types.
 
-        For the available events, see
+        For the available event types, see
         https://jupyter-rfb.readthedocs.io/en/latest/events.html
 
         Can also be used as a decorator.
@@ -201,13 +201,13 @@ class EventTarget:
             def my_handler(event):
                 print(event)
 
-            canvas.add_event_handler(my_handler, "pointer_up", "pointer_down")
+            obj.add_event_handler(my_handler, "pointer_up", "pointer_down")
 
         Decorator usage example:
 
         .. code-block:: py
 
-            @canvas.add_event_handler("pointer_up", "pointer_down")
+            @obj.add_event_handler("pointer_up", "pointer_down")
             def my_handler(event):
                 print(event)
         """
