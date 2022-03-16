@@ -743,7 +743,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         event_type = event["event_type"]
         target = None
         info = None
-        if "x" in event or "y" in event:
+        if "x" in event and "y" in event:
             info = self.get_pick_info((event["x"], event["y"]))
             target = info["world_object"]
 
