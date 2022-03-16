@@ -200,3 +200,46 @@ def test_pointer_event_capture():
 
     assert child_called == 7
     assert root_called == 4
+
+
+def test_pointer_event_copy():
+    target = object()
+    event = PointerEvent(
+        "pointer_down",
+        x=1,
+        y=1,
+        button=1,
+        buttons=(1,),
+        modifiers=("Shift",),
+        ntouches=2,
+        touches={"foo": "bar"},
+        clicks=3,
+        pointer_id=3,
+        other="baz",
+        bubbles=False,
+        target=target,
+        time_stamp=1234,
+        cancelled=True,
+    )
+
+    other = event.copy("click", 5)
+
+    assert other.x == event.x
+    assert other.y == event.y
+    assert other.button == event.button
+    assert other.buttons == event.buttons
+    assert other.modifiers == event.modifiers
+    assert other.ntouches == event.ntouches
+    assert other.touches == event.touches
+    assert other.pointer_id == event.pointer_id
+    assert other["other"] == event["other"]
+    assert other.bubbles == event.bubbles
+    assert other.target == event.target
+    assert other.time_stamp == event.time_stamp
+    assert other.cancelled == event.cancelled
+
+    assert other.type != event.type
+    assert other.type == "click"
+
+    assert other.clicks != event.clicks
+    assert other.clicks == 5
