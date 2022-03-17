@@ -285,10 +285,8 @@ class EventTarget:
     def handle_event(self, event: Event):
         """Handle an incoming event.
 
-        Subclasses can overload this method. Events include widget
-        resize, mouse/touch interaction, key events, and more. An event
-        is a dict with at least the key event_type. For details, see
-        https://jupyter-rfb.readthedocs.io/en/latest/events.html
+        Arguments:
+            event: The event to handle
         """
         event_type = event.type
         for callback in self._event_handlers[event_type]:
@@ -303,14 +301,20 @@ class EventTarget:
         """Register this object to capture any other pointer events,
         until ``release_pointer_capture`` is called or an ``pointer_up``
         event is encountered.
+
+        Arguments:
+            pointer_id: id of pointer to capture (mouse, touch, etc.)
         """
         EventTarget.pointer_captures[pointer_id] = self
 
     def release_pointer_capture(self, pointer_id):
         """Release the pointer capture for the object that was registered
         to the given pointer_id.
+
+        Arguments:
+            pointer_id: id of pointer to release (mouse, touch, etc.)
         """
-       EventTarget.pointer_captures.pop(pointer_id, None)
+        EventTarget.pointer_captures.pop(pointer_id, None)
 
 
 class RootEventHandler(EventTarget):
