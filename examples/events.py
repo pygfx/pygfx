@@ -108,12 +108,5 @@ if __name__ == "__main__":
             cube.add_event_handler(lambda event: hover(event.target), "pointer_move")
             group.add(cube)
 
-    try:
-        # Temporary trick to get mouse move events
-        # while no button pressed on Qt backends
-        canvas.setMouseTracking(True)
-        canvas._subwidget.setMouseTracking(True)
-    except ValueError:
-        pass
     canvas.request_draw(animate)
     run()
