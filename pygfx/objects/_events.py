@@ -35,7 +35,7 @@ class Event:
     It is also possible to cancel events, which will stop any further
     handling of the event (also by the same target).
 
-    Custom events can have any fields. Any unknown ``kwargs`` will be
+    Events can have any fields. Unknown ``kwargs`` will be
     captured and can be later retrieved with the square bracket notation.
     """
 
