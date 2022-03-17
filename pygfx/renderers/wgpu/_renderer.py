@@ -708,35 +708,19 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
 
     def enable_events(self):
-        # Check for ``add_event_handler`` attribute
-        # Silently 'fail' otherwise as it is perfectly fine to pass
-        # a texture as a target to the renderer
-        if hasattr(self._target, "add_event_handler"):
-            self._target.add_event_handler(
-                self.convert_event,
-                "key_down",
-                "key_up",
-                "pointer_down",
-                "pointer_move",
-                "pointer_up",
-                "wheel",
-                "close",
-                "resize",
-            )
+        """Add event handlers for a specific list of events that are generated
+        by the canvas. The handler is the ``convert_event`` method in order to
+        convert the Wgpu event dicts into Pygfx event objects."""
 
-    def disable_events(self, canvas):
+        # Check for ``add_event_handler`` attribute. Silently 'fail' as it is
+        # perfectly fine to pass a texture as a target to the renderer
+        if hasattr(self._target, "add_event_handler"):
+            self._target.add_event_handler(self.convert_event, *EVENTS_TO_CONVERT)
+
+    def disable_events(self):
+        """Remove the event handlers from the canvas."""
         if hasattr(self._target, "remove_event_handler"):
-            self._target.remove_event_handler(
-                self.convert_event,
-                "key_down",
-                "key_up",
-                "pointer_down",
-                "pointer_move",
-                "pointer_up",
-                "wheel",
-                "close",
-                "resize",
-            )
+            self._target.remove_event_handler(self.convert_event, *EVENTS_TO_CONVERT)
 
     def convert_event(self, event: dict):
         """Converts Wgpu event (dict following jupyter_rfb spec) to Pygfx Event object,
@@ -749,10 +733,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             info = self.get_pick_info((event["x"], event["y"]))
             target = info["world_object"]
 
-        event = EVENT_TYPE_MAP[event_type](
+        ev = EVENT_TYPE_MAP[event_type](
             type=event_type, **event, target=target, pick_info=info
         )
-        self.dispatch_event(event)
+        self.dispatch_event(ev)
 
 
 EVENT_TYPE_MAP = {
@@ -766,3 +750,15 @@ EVENT_TYPE_MAP = {
     "key_down": KeyboardEvent,
     "key_up": KeyboardEvent,
 }
+
+
+EVENTS_TO_CONVERT = (
+    "key_down",
+    "key_up",
+    "pointer_down",
+    "pointer_move",
+    "pointer_up",
+    "wheel",
+    "close",
+    "resize",
+)
