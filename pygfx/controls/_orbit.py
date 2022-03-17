@@ -212,6 +212,7 @@ class OrbitControls:
             canvas.request_draw()
         elif type == "wheel":
             xy = event.x, event.y
-            f = 2 ** (-event.dy * 0.0015)
+            d = event.dy or event.dx
+            f = 2 ** (-d * 0.0015)
             self.zoom(f)
             canvas.request_draw()
