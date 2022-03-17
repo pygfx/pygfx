@@ -162,7 +162,7 @@ class PointerEvent(Event):
         self.modifiers = modifiers or ()
         self.ntouches = ntouches
         self.touches = touches or {}
-        self.pick_info = (pick_info and pick_info.copy()) or {}
+        self.pick_info = pick_info or {}
         self.clicks = clicks
         self.pointer_id = pointer_id
 
@@ -176,7 +176,7 @@ class PointerEvent(Event):
             modifiers=self.modifiers,
             ntouches=self.ntouches,
             touches=self.touches,
-            pick_info=self.pick_info.copy(),
+            pick_info=self.pick_info,
             clicks=clicks,
             pointer_id=self.pointer_id,
             bubbles=self.bubbles,
