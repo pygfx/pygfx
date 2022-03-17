@@ -547,7 +547,6 @@ class TransformGizmo(WorldObject):
             # De-highlight the object
             self._highlight()
             self._canvas.request_draw()
-            self.release_pointer_capture(event.pointer_id)
 
         elif type == "pointer_move":
             if not self._ref:
