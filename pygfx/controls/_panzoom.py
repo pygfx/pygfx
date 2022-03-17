@@ -116,9 +116,9 @@ class PanZoomControls:
         camera.zoom = zoom
         return self
 
-    def add_default_event_handlers(self, canvas, camera):
+    def add_default_event_handlers(self, renderer, canvas, camera):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        canvas.add_event_handler(
+        renderer.add_event_handler(
             lambda event: self.handle_event(event, canvas, camera),
             "pointer_down",
             "pointer_move",
@@ -130,22 +130,22 @@ class PanZoomControls:
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
-        type = event["event_type"]
+        type = event.type
         if type == "pointer_down":
-            if event["button"] == 1:
-                xy = event["x"], event["y"]
+            if event.button == 1:
+                xy = event.x, event.y
                 self.pan_start(xy, canvas.get_logical_size(), camera)
         elif type == "pointer_up":
-            if event["button"] == 1:
+            if event.button == 1:
                 self.pan_stop()
                 canvas.request_draw()
         elif type == "pointer_move":
-            if 1 in event["buttons"]:
-                xy = event["x"], event["y"]
+            if 1 in event.buttons:
+                xy = event.x, event.y
                 self.pan_move(xy)
                 canvas.request_draw()
         elif type == "wheel":
-            xy = event["x"], event["y"]
-            f = 2 ** (-event["dy"] * 0.0015)
+            xy = event.x, event.y
+            f = 2 ** (-event.dy * 0.0015)
             self.zoom_to_point(f, xy, canvas.get_logical_size(), camera)
             canvas.request_draw()

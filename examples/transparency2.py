@@ -27,30 +27,28 @@ scene.add(plane1, plane2, plane3, sphere)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 70
 controls = gfx.OrbitControls(camera.position.clone())
+controls.add_default_event_handlers(renderer, canvas, camera)
 
 
-@canvas.add_event_handler("key_down", "pointer_down", "pointer_up", "pointer_move")
+@renderer.add_event_handler("key_down")
 def handle_event(event):
-    if event["event_type"] == "key_down":
-        if event["key"] == " ":
-            print("Rotating scene element order")
-            scene.add(scene.children[0])
-            canvas.request_draw()
-        elif event["key"] in "0123456789":
-            m = [
-                None,
-                "opaque",
-                "ordered1",
-                "ordered2",
-                "weighted",
-                "weighted_depth",
-                "weighted_plus",
-            ]
-            mode = m[int(event["key"])]
-            renderer.blend_mode = mode
-            print("Selecting blend_mode", mode)
-    else:
-        controls.handle_event(event, canvas, camera)
+    if event.key == " ":
+        print("Rotating scene element order")
+        scene.add(scene.children[0])
+        canvas.request_draw()
+    elif event.key in "0123456789":
+        m = [
+            None,
+            "opaque",
+            "ordered1",
+            "ordered2",
+            "weighted",
+            "weighted_depth",
+            "weighted_plus",
+        ]
+        mode = m[int(event.key)]
+        renderer.blend_mode = mode
+        print("Selecting blend_mode", mode)
 
 
 def animate():

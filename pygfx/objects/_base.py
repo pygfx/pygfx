@@ -4,6 +4,7 @@ import threading
 
 import numpy as np
 
+from ._events import EventTarget
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Resource, Buffer
@@ -99,7 +100,7 @@ class ResourceContainer:
             self._bump_rev()
 
 
-class WorldObject(ResourceContainer):
+class WorldObject(EventTarget, ResourceContainer):
     """The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define

@@ -41,7 +41,7 @@ class TransformGizmo(WorldObject):
     def __init__(self, object=None, screen_size=100):
         super().__init__()
 
-        # We store these as soon as we get a call in handle_event
+        # We store these as soon as we get a call in ``add_default_event_handlers``
         self._renderer = None
         self._canvas = None
         self._camera = None
@@ -493,30 +493,35 @@ class TransformGizmo(WorldObject):
 
     # %% Event handling
 
-    def handle_event(self, event, renderer, camera):
-        """The event handler."""
+    def add_default_event_handlers(self, renderer, camera):
         # Store objects that we need outside the event handling.
         self._renderer = renderer
         self._canvas = renderer.target
         self._camera = camera
+
+        self.add_event_handler(
+            self.process_event, "pointer_down", "pointer_move", "pointer_up", "wheel"
+        )
+
+    def process_event(self, event):
+        """The event handler."""
 
         # No interaction if there is no object to control
         if not self._object_to_control:
             return
 
         # Triage over event type
-        type = event["event_type"]
+        type = event.type
 
-        if type in "pointer_down":
-            if event["button"] != 1 or event["modifiers"]:
+        if type == "pointer_down":
+            if event.button != 1 or event.modifiers:
                 return
             self._ref = None
             # NOTE: I imagine that if multiple tools are active, they
             # each ask for picking info, causing multiple buffer reads
             # for the same location. However, with the new event system
             # this is probably not a problem, when wobjects receive events.
-            info = self._renderer.get_pick_info((event["x"], event["y"]))
-            ob = info["world_object"]
+            ob = event.target
             if ob not in self.children:
                 return
             # Depending on the object under the pointer, we scale/translate/rotate
@@ -531,7 +536,7 @@ class TransformGizmo(WorldObject):
             # Highlight the object
             self._highlight(ob)
             self._canvas.request_draw()
-            event["stop_propagation"] = True
+            self.set_pointer_capture(event.pointer_id)
 
         elif type == "pointer_up":
             if not self._ref:
@@ -542,15 +547,14 @@ class TransformGizmo(WorldObject):
             # De-highlight the object
             self._highlight()
             self._canvas.request_draw()
-            event["stop_propagation"] = True
 
         elif type == "pointer_move":
             if not self._ref:
                 return
             # Get how far we've moved from starting point - we have a dead zone
             dist = (
-                (event["x"] - self._ref["event"]["x"]) ** 2
-                + (event["y"] - self._ref["event"]["y"]) ** 2
+                (event.x - self._ref["event_pos"][0]) ** 2
+                + (event.y - self._ref["event_pos"][1]) ** 2
             ) ** 0.5
             self._ref["maxdist"] = max(self._ref["maxdist"], dist)
             # Delegate to the correct handler
@@ -564,7 +568,6 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
             # Keep viz up to date
             self._canvas.request_draw()
-            event["stop_propagation"] = True
 
     def _handle_start(self, kind, event, ob):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
@@ -573,7 +576,7 @@ class TransformGizmo(WorldObject):
         ob_pos = ob.get_world_position().clone()
         self._ref = {
             "kind": kind,
-            "event": event,
+            "event_pos": (event.x, event.y),
             "dim": ob.dim,
             "maxdist": 0,
             # Transform at time of start
@@ -596,8 +599,8 @@ class TransformGizmo(WorldObject):
 
         # Get how the mouse has moved
         screen_moved = Vector3(
-            event["x"] - self._ref["event"]["x"],
-            event["y"] - self._ref["event"]["y"],
+            event.x - self._ref["event_pos"][0],
+            event.y - self._ref["event_pos"][1],
             0,
         )
         canvas_size = self._canvas.get_logical_size()
@@ -656,8 +659,8 @@ class TransformGizmo(WorldObject):
 
         # Get how the mouse has moved
         screen_moved = Vector3(
-            event["x"] - self._ref["event"]["x"],
-            event["y"] - self._ref["event"]["y"],
+            event.x - self._ref["event_pos"][0],
+            event.y - self._ref["event_pos"][1],
             0,
         )
 
@@ -689,8 +692,8 @@ class TransformGizmo(WorldObject):
 
         # Get how the mouse has moved
         screen_moved = Vector3(
-            event["x"] - self._ref["event"]["x"],
-            event["y"] - self._ref["event"]["y"],
+            event.x - self._ref["event_pos"][0],
+            event.y - self._ref["event_pos"][1],
             0,
         )
 
