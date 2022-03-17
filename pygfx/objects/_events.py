@@ -281,8 +281,7 @@ class EventTarget:
         """Release the pointer capture for the object that was registered
         to the given pointer_id.
         """
-        if pointer_id in EventTarget.pointer_captures:
-            del EventTarget.pointer_captures[pointer_id]
+       EventTarget.pointer_captures.pop(pointer_id, None)
 
 
 class RootEventHandler(EventTarget):
