@@ -326,7 +326,29 @@ class RootEventHandler(EventTarget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def dispatch_event(self, event: dict):
+    def dispatch_event(self, event: Event):
+        """Dispatch the given event.
+
+        This method will dispatch an event by looking for the right target
+        to handle the event. When a target is set on the event, then that
+        target will be the first object that gets to handle the event.
+        From there it will ask its parents one-by-one to handle the event
+        as long as the event bubbles / propagates up or is not cancelled.
+
+        The RootEventHandler object will serve as a virtual root for the
+        tree hierarchy.
+
+        Whenever an object has captured the pointer (for a specific pointer_id)
+        then that object will get all pointer related events until the object
+        releases the capture or a ``pointer_up`` event is encountered.
+
+        This method will also keep track of ``pointer_down`` and ``pointer_up``
+        events in order to generate and dispatch ``click`` and ``double_click``
+        events.
+
+        Arguments:
+            event: Event object to dispatch
+        """
         pointer_id = getattr(event, "pointer_id", None)
 
         # Check for captured pointer events
@@ -381,9 +403,9 @@ class RootEventHandler(EventTarget):
                     "time_stamp": event.time_stamp,
                     "target": (event.target and ref(event.target)) or None,
                 }
-        # On all `pointer_up` events, see if the event is on the same target
-        # as for the `pointer_down`. If so, then a `click` event is dispatched.
-        # When the counter for the click is at 2, then a `double_click` event
+        # On all ``pointer_up`` events, see if the event is on the same target
+        # as for the ``pointer_down``. If so, then a ``click`` event is dispatched.
+        # When the counter for the click is at 2, then a ``double_click`` event
         # is dispatched.
         elif event.type == EventType.POINTER_UP:
             tracked_click = RootEventHandler.click_tracker.get(pointer_id)
