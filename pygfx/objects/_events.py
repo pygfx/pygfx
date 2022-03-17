@@ -70,7 +70,8 @@ class Event:
         target: "EventTarget" = None,
         time_stamp: float = None,
         cancelled: bool = False,
-        **kwargs,
+        # Swallow event_type to ease conversion from wgpu events to Event objects
+        event_type: str = None,
     ):
         self._type = type
         # Using perf_counter_ns instead of perf_counter
