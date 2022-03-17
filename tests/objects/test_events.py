@@ -218,6 +218,7 @@ def test_pointer_event_copy():
         modifiers=("Shift",),
         ntouches=2,
         touches={"foo": "bar"},
+        pick_info={"FOO": "BAR"},
         clicks=3,
         pointer_id=3,
         bubbles=False,
@@ -228,18 +229,15 @@ def test_pointer_event_copy():
 
     other = event.copy("click", 5)
 
-    assert other.x == event.x
-    assert other.y == event.y
-    assert other.button == event.button
-    assert other.buttons == event.buttons
-    assert other.modifiers == event.modifiers
-    assert other.ntouches == event.ntouches
-    assert other.touches == event.touches
-    assert other.pointer_id == event.pointer_id
-    assert other.bubbles == event.bubbles
-    assert other.target == event.target
-    assert other.time_stamp == event.time_stamp
-    assert other.cancelled == event.cancelled
+    for attr in [
+        attr
+        for attr in dir(other)
+        if not attr.startswith("_") and not callable(getattr(other, attr))
+    ]:
+        if attr not in ["type", "clicks"]:
+            assert getattr(other, attr) == getattr(
+                event, attr
+            ), f"'{attr}' attribute not equal"
 
     assert other.type != event.type
     assert other.type == "click"

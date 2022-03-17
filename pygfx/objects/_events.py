@@ -138,40 +138,31 @@ class KeyboardEvent(Event):
         self.modifiers = modifiers or ()
 
 
-class PositionEvent(Event):
+class PointerEvent(Event):
     def __init__(
         self,
         *args,
         x,
         y,
-        pick_info=None,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.x = x
-        self.y = y
-        self.pick_info = (pick_info and pick_info.copy()) or {}
-
-
-class PointerEvent(PositionEvent):
-    def __init__(
-        self,
-        *args,
         button=0,
         buttons=None,
         modifiers=None,
         ntouches=0,
         touches=None,
+        pick_info=None,
         clicks=0,
         pointer_id=0,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.x = x
+        self.y = y
         self.button = button
         self.buttons = buttons or ()
         self.modifiers = modifiers or ()
         self.ntouches = ntouches
         self.touches = touches or {}
+        self.pick_info = (pick_info and pick_info.copy()) or {}
         self.clicks = clicks
         self.pointer_id = pointer_id
 
@@ -185,6 +176,7 @@ class PointerEvent(PositionEvent):
             modifiers=self.modifiers,
             ntouches=self.ntouches,
             touches=self.touches,
+            pick_info=self.pick_info.copy(),
             clicks=clicks,
             pointer_id=self.pointer_id,
             bubbles=self.bubbles,
@@ -195,7 +187,7 @@ class PointerEvent(PositionEvent):
         return result
 
 
-class WheelEvent(PositionEvent):
+class WheelEvent(PointerEvent):
     def __init__(self, *args, dx, dy, modifiers=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.dx = dx
