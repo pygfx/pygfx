@@ -36,7 +36,7 @@ camera = gfx.OrthographicCamera(600, 500)
 camera.position.set(300, 250, 0)
 
 controls = gfx.PanZoomControls(camera.position.clone())
-controls.add_default_event_handlers(canvas, camera)
+controls.add_default_event_handlers(renderer, canvas, camera)
 
 
 def animate():

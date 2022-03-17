@@ -29,9 +29,9 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
 
-@canvas.add_event_handler("pointer_down")
+@renderer.add_event_handler("pointer_down")
 def handle_event(event):
-    info = renderer.get_pick_info((event["x"], event["y"]))
+    info = event.pick_info
     for key, val in info.items():
         print(key, "=", val)
 

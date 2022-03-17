@@ -22,18 +22,10 @@ scene.add(gfx.GridHelper())
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 4
 controls = gfx.OrbitControls(camera.position.clone())
+controls.add_default_event_handlers(renderer, canvas, camera)
 
 gizmo = gfx.TransformGizmo(cube)
-
-
-# NOTE: we are working on a new event system, so this event-related
-# code will change in the future. At the least we should make these
-# `handle_event` methods consistent.
-@canvas.add_event_handler("pointer_down", "pointer_move", "pointer_up", "wheel")
-def handle_event(event):
-    gizmo.handle_event(event, renderer, camera)
-    if not event.get("stop_propagation", False):
-        controls.handle_event(event, canvas, camera)
+gizmo.add_default_event_handlers(renderer, camera)
 
 
 def animate():
