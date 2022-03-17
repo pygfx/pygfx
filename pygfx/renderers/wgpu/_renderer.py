@@ -739,7 +739,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
 
     def convert_event(self, event: dict):
-        """Converts Wgpu event (jupyter event dict) to Pygfx Event object,
+        """Converts Wgpu event (dict following jupyter_rfb spec) to Pygfx Event object,
         adds picking info and then dispatches the event in the Pygfx event system.
         """
         event_type = event["event_type"]
