@@ -188,11 +188,10 @@ class PointerEvent(Event):
 
 
 class WheelEvent(PointerEvent):
-    def __init__(self, *args, dx, dy, modifiers=None, **kwargs):
+    def __init__(self, *args, dx, dy, **kwargs):
         super().__init__(*args, **kwargs)
         self.dx = dx
         self.dy = dy
-        self.modifiers = modifiers or ()
 
 
 class WindowEvent(Event):
