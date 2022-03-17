@@ -26,7 +26,7 @@ camera = gfx.OrthographicCamera(120, 120)
 
 @ob.add_event_handler("pointer_down")
 def offset_point(event):
-    info = event["pick_info"]
+    info = event.pick_info
     if "vertex_index" in info:
         i = int(round(info["vertex_index"]))
         geometry.positions.data[i, 1] *= -1

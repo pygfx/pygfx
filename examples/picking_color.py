@@ -31,7 +31,7 @@ camera.position.z = 400
 
 @renderer.add_event_handler("pointer_down")
 def handle_event(event):
-    info = event["pick_info"]
+    info = event.pick_info
     for key, val in info.items():
         print(key, "=", val)
 

@@ -60,9 +60,6 @@ class Event:
 
     It is also possible to cancel events, which will stop any further
     handling of the event (also by the same target).
-
-    Events can have any fields. Unknown ``kwargs`` will be
-    captured and can be later retrieved with the square bracket notation.
     """
 
     def __init__(
@@ -83,9 +80,6 @@ class Event:
         self._target = target
         self._current_target = target
         self._cancelled = cancelled
-        # Save extra kwargs to be able to look
-        # them up later with `__getitem__`
-        self._data = kwargs
 
     @property
     def type(self) -> str:
@@ -136,11 +130,6 @@ class Event:
     def _update_current_target(self, target):
         self._current_target = target
 
-    def __getitem__(self, key):
-        """Make the extra kwargs available directly on the event object through
-        bracket syntax."""
-        return self._data[key]
-
 
 class KeyboardEvent(Event):
     def __init__(self, *args, key, modifiers=None, **kwargs):
@@ -149,12 +138,25 @@ class KeyboardEvent(Event):
         self.modifiers = modifiers or ()
 
 
-class PointerEvent(Event):
+class PositionEvent(Event):
     def __init__(
         self,
         *args,
         x,
         y,
+        pick_info=None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.x = x
+        self.y = y
+        self.pick_info = (pick_info and pick_info.copy()) or {}
+
+
+class PointerEvent(PositionEvent):
+    def __init__(
+        self,
+        *args,
         button=0,
         buttons=None,
         modifiers=None,
@@ -165,8 +167,6 @@ class PointerEvent(Event):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.x = x
-        self.y = y
         self.button = button
         self.buttons = buttons or ()
         self.modifiers = modifiers or ()
@@ -192,17 +192,14 @@ class PointerEvent(Event):
             cancelled=self.cancelled,
             time_stamp=self.time_stamp,
         )
-        result._data = self._data.copy()
         return result
 
 
-class WheelEvent(Event):
-    def __init__(self, *args, dx, dy, x, y, modifiers=None, **kwargs):
+class WheelEvent(PositionEvent):
+    def __init__(self, *args, dx, dy, modifiers=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.dx = dx
         self.dy = dy
-        self.x = x
-        self.y = y
         self.modifiers = modifiers or ()
 
 
@@ -294,7 +291,7 @@ class EventTarget:
                 break
             try:
                 callback(event)
-            except Exception:
+            except Exception as err:
                 log_exception(f"Error during handling {event_type} event", err)
 
     def set_pointer_capture(self, pointer_id):

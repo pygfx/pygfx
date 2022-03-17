@@ -40,7 +40,7 @@ controls.add_default_event_handlers(renderer, canvas, camera)
 def handle_event(event):
     if "Shift" not in event.modifiers:
         return
-    info = event["pick_info"]
+    info = event.pick_info
     if "index" in info:
         x, y, z = (max(1, int(i)) for i in info["index"])
         print("Picking", x, y, z)

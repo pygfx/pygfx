@@ -38,7 +38,7 @@ def handle_wheel_event(event):
 
 @vol.add_event_handler("pointer_down")
 def handle_pointer_event(event):
-    info = event["pick_info"]
+    info = event.pick_info
     if "index" in info:
         print(info["index"], info["voxel_coord"])
 

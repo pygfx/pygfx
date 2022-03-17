@@ -15,21 +15,26 @@ def test_event_target():
     events = []
 
     def handler(event):
-        events.append(event["value"])
+        events.append(event.value)
+
+    def event_with_val(type, value):
+        ev = Event(type)
+        ev.value = value
+        return ev
 
     c.add_event_handler(handler, "foo", "bar")
     c.add_event_handler(handler, "bar")
-    c.handle_event(Event(type="foo", value=1))
-    c.handle_event(Event(type="bar", value=2))
-    c.handle_event(Event(type="spam", value=3))
+    c.handle_event(event_with_val(type="foo", value=1))
+    c.handle_event(event_with_val(type="bar", value=2))
+    c.handle_event(event_with_val(type="spam", value=3))
     c.remove_event_handler(handler, "foo")
-    c.handle_event(Event(type="foo", value=4))
-    c.handle_event(Event(type="bar", value=5))
-    c.handle_event(Event(type="spam", value=6))
+    c.handle_event(event_with_val(type="foo", value=4))
+    c.handle_event(event_with_val(type="bar", value=5))
+    c.handle_event(event_with_val(type="spam", value=6))
     c.remove_event_handler(handler, "bar")
-    c.handle_event(Event(type="foo", value=7))
-    c.handle_event(Event(type="bar", value=8))
-    c.handle_event(Event(type="spam", value=9))
+    c.handle_event(event_with_val(type="foo", value=7))
+    c.handle_event(event_with_val(type="bar", value=8))
+    c.handle_event(event_with_val(type="spam", value=9))
 
     assert events == [1, 2, 5]
 
@@ -215,7 +220,6 @@ def test_pointer_event_copy():
         touches={"foo": "bar"},
         clicks=3,
         pointer_id=3,
-        other="baz",
         bubbles=False,
         target=target,
         time_stamp=1234,
@@ -232,7 +236,6 @@ def test_pointer_event_copy():
     assert other.ntouches == event.ntouches
     assert other.touches == event.touches
     assert other.pointer_id == event.pointer_id
-    assert other["other"] == event["other"]
     assert other.bubbles == event.bubbles
     assert other.target == event.target
     assert other.time_stamp == event.time_stamp

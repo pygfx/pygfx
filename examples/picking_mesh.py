@@ -33,7 +33,7 @@ camera.position.z = 400
 
 
 def distort_geometry(event):
-    info = event["pick_info"]
+    info = event.pick_info
     if "face_index" in info:
         # Get what face was clicked
         face_index = info["face_index"]
