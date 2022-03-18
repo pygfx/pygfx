@@ -647,7 +647,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.map_read()
-        rgba = tuple(data[0:4].cast("B"))
+        color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
         pick_value = tuple(data[8:16].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
@@ -655,7 +655,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # it depends on the camera, but we don't "own" the camera.
 
         info = {
-            "rgba": Color(rgba),
+            "rgba": color,
             "world_object": wobject,
         }
 
