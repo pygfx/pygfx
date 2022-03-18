@@ -68,6 +68,7 @@ class Event:
         *,
         bubbles=True,
         target: "EventTarget" = None,
+        root: "RootEventHandler" = None,
         time_stamp: float = None,
         cancelled: bool = False,
         # Swallow event_type to ease conversion from wgpu events to Event objects
@@ -81,11 +82,17 @@ class Event:
         self._target = target
         self._current_target = target
         self._cancelled = cancelled
+        self._root = root
 
     @property
     def type(self) -> str:
         """A string representing the name of the event."""
         return self._type
+
+    @property
+    def root(self) -> "RootEventHandler":
+        """A reference to the root event handler."""
+        return self._root
 
     @property
     def time_stamp(self) -> float:
@@ -184,6 +191,7 @@ class PointerEvent(Event):
             target=self.target,
             cancelled=self.cancelled,
             time_stamp=self.time_stamp,
+            root=self.root,
         )
         return result
 
@@ -349,8 +357,8 @@ class RootEventHandler(EventTarget):
             event._retarget(captured_target)
             event.stop_propagation()
 
-        target = event.target
-        while target and target is not self:
+        target = event.target or self
+        while target:
             # Update the current target
             event._update_current_target(target)
             target.handle_event(event)
@@ -359,13 +367,9 @@ class RootEventHandler(EventTarget):
                 event.stop_propagation()
                 if event.type == EventType.POINTER_UP:
                     captured_target.release_pointer_capture(pointer_id)
-            if not event.bubbles or event.cancelled:
+            if not event.bubbles or event.cancelled or target is self:
                 break
-            target = target.parent
-
-        if event.bubbles:
-            # Let the renderer as the virtual event root handle the event
-            self.handle_event(event)
+            target = target.parent or self
 
         # Update the click tracker on all `pointer_down` events
         if event.type == EventType.POINTER_DOWN:

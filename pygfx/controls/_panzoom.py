@@ -135,6 +135,7 @@ class PanZoomControls:
             if event.button == 1:
                 xy = event.x, event.y
                 self.pan_start(xy, canvas.get_logical_size(), camera)
+                event.root.set_pointer_capture(event.pointer_id)
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()

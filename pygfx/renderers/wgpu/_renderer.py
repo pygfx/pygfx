@@ -733,7 +733,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target = info["world_object"]
             event["pick_info"] = info
 
-        ev = EVENT_TYPE_MAP[event_type](type=event_type, **event, target=target)
+        ev = EVENT_TYPE_MAP[event_type](
+            type=event_type, **event, target=target, root=self
+        )
         self.dispatch_event(ev)
 
 
