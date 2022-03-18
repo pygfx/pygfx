@@ -17,7 +17,7 @@ from ...objects import (
 )
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
-from ...utils import array_from_shadertype
+from ...utils import array_from_shadertype, Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
@@ -632,6 +632,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         _, logical_size = get_size_from_render_target(self._target)
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
+        # Prevent out of range and picking before first draw
+        no_info = {"rgba": Color(0, 0, 0, 0), "world_object": None}
+        if not (0 <= float_pos[0] <= 1 and 0 <= float_pos[1] <= 1):
+            return no_info
+        if self._blender.size == (0, 0):
+            return no_info
+
         # Sample
         encoder = self.device.create_command_encoder()
         self._copy_pixel(encoder, self._blender.color_tex, float_pos, 0)
@@ -641,7 +648,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.map_read()
-        color = tuple(data[0:4].cast("B"))
+        rgba = tuple(data[0:4].cast("B"))
         pick_value = tuple(data[8:16].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
@@ -649,7 +656,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # it depends on the camera, but we don't "own" the camera.
 
         info = {
-            "rgba": color,
+            "rgba": Color(rgba),
             "world_object": wobject,
         }
 
