@@ -195,10 +195,8 @@ class OrbitControls:
             xy = event.x, event.y
             if event.button == 1:
                 self.rotate_start(xy, canvas.get_logical_size(), camera)
-                event.root.set_pointer_capture(event.pointer_id)
             elif event.button == 2:
                 self.pan_start(xy, canvas.get_logical_size(), camera)
-                event.root.set_pointer_capture(event.pointer_id)
         elif type == "pointer_up":
             if event.button == 1:
                 self.rotate_stop()
