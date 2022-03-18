@@ -633,11 +633,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
         # Prevent out of range and picking before first draw
-        no_info = {"rgba": Color(0, 0, 0, 0), "world_object": None}
-        if not (0 <= float_pos[0] <= 1 and 0 <= float_pos[1] <= 1):
-            return no_info
-        if self._blender.size == (0, 0):
-            return no_info
+        out_of_range = not (0 <= float_pos[0] <= 1 and 0 <= float_pos[1] <= 1)
+        blender_zero_size = self._blender.size == (0, 0)
+        if out_of_range or blender_zero_size:
+            return {"rgba": Color(0, 0, 0, 0), "world_object": None}
 
         # Sample
         encoder = self.device.create_command_encoder()
