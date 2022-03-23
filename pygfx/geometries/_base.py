@@ -59,7 +59,8 @@ class Geometry(ResourceContainer):
                 resource = val
             else:
                 if not isinstance(val, np.ndarray):
-                    val = np.asanyarray(val, dtype=np.float32)
+                    dtype = np.uint32 if name == "indices" else np.float32
+                    val = np.asanyarray(val, dtype=dtype)
                 if val.dtype == np.float64:
                     raise ValueError(
                         "64-bit float is not supported, use 32-bit floats instead"
