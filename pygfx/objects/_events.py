@@ -1,34 +1,10 @@
 from collections import defaultdict
 from enum import Enum
-import logging
 from time import perf_counter_ns
 from typing import Union
 from weakref import ref, WeakValueDictionary
 
-
-logger = logging.getLogger("pygfx")
-
-err_hashes = {}
-
-
-def log_exception(kind, err):
-    """Log the given exception instance, but only log a one-liner for
-    subsequent occurances of the same error to avoid spamming (which
-    can happen easily with errors in the event handlers).
-    """
-    msg = str(err)
-    msgh = hash(msg)
-    if msgh not in err_hashes:
-        # Provide the exception, so the default logger prints a stacktrace.
-        # IDE's can get the exception from the root logger for PM debugging.
-        err_hashes[msgh] = 1
-        logger.error(kind, exc_info=err)
-    else:
-        # We've seen this message before, return a one-liner instead.
-        err_hashes[msgh] = count = err_hashes[msgh] + 1
-        msg = kind + ": " + msg.split("\n")[0].strip()
-        msg = msg if len(msg) <= 70 else msg[:69] + "…"
-        logger.error(msg + f" ({count})")
+from wgpu.gui.base import log_exception
 
 
 CLICK_DEBOUNCE = 500  # in milliseconds
@@ -289,10 +265,8 @@ class EventTarget:
         for callback in self._event_handlers[event_type]:
             if event.cancelled:
                 break
-            try:
+            with log_exception(f"Error during handling {event_type} event"):
                 callback(event)
-            except Exception as err:
-                log_exception(f"Error during handling {event_type} event", err)
 
     def set_pointer_capture(self, pointer_id):
         """Register this object to capture any other pointer events,
