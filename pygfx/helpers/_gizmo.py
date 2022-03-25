@@ -323,7 +323,10 @@ class TransformGizmo(WorldObject):
         """
 
         camera = self._camera
-        canvas_size = self._canvas.get_logical_size()
+        canvas_size = (
+            camera._viewport[2],
+            camera._viewport[3],
+        )  # self._canvas.get_logical_size()
         world_pos = self._object_to_control.position
         ndc_pos = world_pos.clone().project(camera)
 
@@ -397,7 +400,10 @@ class TransformGizmo(WorldObject):
             return
 
         camera = self._camera
-        canvas_size = self._canvas.get_logical_size()
+        canvas_size = (
+            camera._viewport[2],
+            camera._viewport[3],
+        )  # self._canvas.get_logical_size()
         world_pos = self._object_to_control.position
         ndc_pos = world_pos.clone().project(camera)
 
@@ -603,7 +609,10 @@ class TransformGizmo(WorldObject):
             event.y - self._ref["event_pos"][1],
             0,
         )
-        canvas_size = self._canvas.get_logical_size()
+        canvas_size = (
+            self._camera._viewport[2],
+            self._camera._viewport[3],
+        )  # self._canvas.get_logical_size()
         ndc_moved = screen_moved.clone().multiply(
             Vector3(2 / canvas_size[0], -2 / canvas_size[1], 0)
         )

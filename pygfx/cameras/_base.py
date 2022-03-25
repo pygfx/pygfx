@@ -23,13 +23,13 @@ class Camera(WorldObject):
     def __init__(self):
         super().__init__()
 
+        self._viewport = 0, 0, 0, 0
         self.matrix_world_inverse = Matrix4()
         self.projection_matrix = Matrix4()
         self.projection_matrix_inverse = Matrix4()
 
-    def set_view_size(self, width, height):
-        # In logical pixels
-        pass
+    def set_view_size(self, viewport):
+        self._viewport = viewport  # Set by renderer, in logical pixels
 
     def update_matrix_world(self, *args, **kwargs):
         super().update_matrix_world(*args, **kwargs)
@@ -100,17 +100,9 @@ class ScreenCoordsCamera(Camera):
     as in NDC (0 to 1).
     """
 
-    def __init__(self):
-        super().__init__()
-        self._width = 1
-        self._height = 1
-
-    def set_view_size(self, width, height):
-        self._width = width
-        self._height = height
-
     def update_projection_matrix(self):
-        sx, sy, sz = 2 / self._width, 2 / self._height, 1
+        width, height = self._viewport[2], self._viewport[3]
+        sx, sy, sz = 2 / width, 2 / height, 1
         dx, dy, dz = -1, -1, 0
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
         self.projection_matrix.set(*m)

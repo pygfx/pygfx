@@ -4,6 +4,13 @@ from ..linalg import Vector3, Matrix4, Quaternion
 from ._orbit import get_screen_vectors_in_world_cords
 
 
+def in_viewport(x, y, viewport):
+    return (
+        viewport[0] <= x <= viewport[0] + viewport[2]
+        and viewport[1] <= y <= viewport[1] + viewport[3]
+    )
+
+
 class PanZoomControls:
     """A class implementing two-dimensional pan-zoom camera control."""
 
@@ -50,13 +57,13 @@ class PanZoomControls:
     def pan_start(
         self,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
         camera: "Camera",
     ) -> "PanZoomControls":
         # Using this function may be a bit overkill. We can also simply
         # get the ortho cameras world_size (camera.visible_world_size).
         # However, now the panzoom controls work with a perspecive camera ...
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
+        scene_size = camera._viewport[2], camera._viewport[3]
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
@@ -86,9 +93,10 @@ class PanZoomControls:
         self,
         multiplier: float,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
         camera: "Camera",
     ) -> "PanZoomControls":
+
+        scene_size = camera._viewport[2], camera._viewport[3]
 
         # Apply zoom
         zoom_old = self.zoom_value
@@ -96,8 +104,9 @@ class PanZoomControls:
         zoom_ratio = zoom_old / self.zoom_value  # usually == multiplier
 
         # Now pan such that what was previously under the mouse is again under the mouse.
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
-        delta = tuple(pos[i] - canvas_size[i] / 2 for i in (0, 1))
+        offset = camera._viewport[0], camera._viewport[1]
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
+        delta = tuple(pos[i] - offset[i] - scene_size[i] / 2 for i in (0, 1))
         delta1 = vecx.multiply_scalar(delta[0]).add(vecy.multiply_scalar(-delta[1]))
         delta2 = delta1.clone().multiply_scalar(zoom_ratio)
         self.pan(delta1.sub(delta2))
@@ -132,9 +141,9 @@ class PanZoomControls:
         """
         type = event.type
         if type == "pointer_down":
-            if event.button == 1:
+            if event.button == 1 and in_viewport(event.x, event.y, camera._viewport):
                 xy = event.x, event.y
-                self.pan_start(xy, canvas.get_logical_size(), camera)
+                self.pan_start(xy, camera)
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
@@ -144,8 +153,8 @@ class PanZoomControls:
                 xy = event.x, event.y
                 self.pan_move(xy)
                 canvas.request_draw()
-        elif type == "wheel":
+        elif type == "wheel" and in_viewport(event.x, event.y, camera._viewport):
             xy = event.x, event.y
             f = 2 ** (-event.dy * 0.0015)
-            self.zoom_to_point(f, xy, canvas.get_logical_size(), camera)
+            self.zoom_to_point(f, xy, camera)
             canvas.request_draw()

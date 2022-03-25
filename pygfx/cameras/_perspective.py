@@ -37,7 +37,9 @@ class PerspectiveCamera(Camera):
         flips = int(self.scale.x < 0) + int(self.scale.y < 0) + int(self.scale.z < 0)
         return bool(flips % 2)
 
-    def set_view_size(self, width, height):
+    def set_view_size(self, viewport):
+        super().set_view_size(viewport)
+        width, height = viewport[2], viewport[3]
         self._view_aspect = width / height
 
     def update_projection_matrix(self):

@@ -406,46 +406,46 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Get logical size (as two floats). This size is constant throughout
         # all post-processing render passes.
-        target_size, logical_size = get_size_from_render_target(self._target)
-        if not all(x > 0 for x in logical_size):
+        target_psize, target_lsize = get_size_from_render_target(self._target)
+        if not all(x > 0 for x in target_lsize):
             return
 
         # Determine the physical size of the render texture
-        target_pixel_ratio = target_size[0] / logical_size[0]
         if self._pixel_ratio:
             pixel_ratio = self._pixel_ratio
         else:
-            pixel_ratio = target_pixel_ratio
+            pixel_ratio = target_psize[0] / target_lsize[0]
             if pixel_ratio <= 1:
                 pixel_ratio = 2.0  # use 2 on non-hidpi displays
 
         # Determine the physical size of the first and last render pass
-        framebuffer_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
+        framebuffer_psize = tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
 
         # Update the render targets
-        self._blender.ensure_target_size(device, framebuffer_size)
+        self._blender.ensure_target_size(device, framebuffer_psize)
 
         # Get viewport in physical pixels
         if not viewport:
-            scene_logical_size = logical_size
-            scene_physical_size = framebuffer_size
-            physical_viewport = 0, 0, framebuffer_size[0], framebuffer_size[1], 0, 1
+            physical_viewport = 0, 0, framebuffer_psize[0], framebuffer_psize[1], 0, 1
+            logical_viewport = 0, 0, target_lsize[0], target_lsize[1]
         elif len(viewport) == 4:
-            scene_logical_size = viewport[2], viewport[3]
+            logical_viewport = tuple(viewport)
             physical_viewport = [int(i * pixel_ratio + 0.4999) for i in viewport]
             physical_viewport = tuple(physical_viewport) + (0, 1)
-            scene_physical_size = physical_viewport[2], physical_viewport[3]
         else:
             raise ValueError("The viewport must be None or 4 elements (x, y, w, h).")
 
+        scene_lsize = logical_viewport[2], logical_viewport[3]
+        scene_psize = physical_viewport[2], physical_viewport[3]
+
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
-        camera.set_view_size(*scene_logical_size)
+        camera.set_view_size(logical_viewport)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
+        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
