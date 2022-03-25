@@ -1,5 +1,5 @@
 """
-Example showing orbit camera controls.
+Example showing pan-zoom camera controls.
 """
 
 import imageio

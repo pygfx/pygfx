@@ -158,6 +158,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target,
         *args,
         pixel_ratio=None,
+        viewport=(0.0, 0.0, 1.0, 1.0),
         show_fps=False,
         blend_mode="default",
         sort_objects=False,
@@ -175,7 +176,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Process other inputs
         self.pixel_ratio = pixel_ratio
+        self.viewport = viewport
         self._show_fps = bool(show_fps)
+
+        # Actual sizes are set in render(), based on viewport, pixel ratio and target size
+        self._physical_viewport = 0, 0, 0, 0
+        self._logical_viewport = 0, 0, 0, 0
 
         # Make sure we have a shared object (the first renderer create it)
         canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
@@ -257,6 +263,36 @@ class WgpuRenderer(RootEventHandler, Renderer):
             raise TypeError(
                 f"Rendered.pixel_ratio expected None or number, not {value}"
             )
+
+    @property
+    def viewport(self):
+        """The rectangular region that the renderer occupies on the canvas.
+        This is a 4-tuple representing (x, y, w, h). Floats represent
+        a measure relative to the canvas size (and should be between
+        0.0 and 1.0). Integers represent logical pixels.
+        """
+        return self._viewport
+
+    @viewport.setter
+    def viewport(self, value):
+        value = tuple(value)
+        if len(value) != 4:
+            raise ValueError("Viewport must consists of 4 values.")
+        if not all(isinstance(x, (float, int)) for x in value):
+            raise ValueError("Viewport values must be float or int.")
+        self._viewport = value
+
+    @property
+    def logical_size(self):
+        """The width and height of the viewport that the renderer occupies
+        on the target, in logical pixels.
+        """
+        return self._logical_viewport[2], self._logical_viewport[3]
+
+    @property
+    def physical_size(self):
+        """The width and height of the internal render textures, in physical pixels."""
+        return self._physical_viewport[2], self._physical_viewport[3]
 
     @property
     def blend_mode(self):
@@ -359,7 +395,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         scene: WorldObject,
         camera: Camera,
         *,
-        viewport=None,
         clear_color=None,
         flush=True,
     ):
@@ -370,8 +405,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 optionally has child objects.
             camera (Camera): The camera object to use, which defines the
                 viewpoint and view transform.
-            viewport (tuple, optional): The rectangular region to draw into,
-                expressed in logical pixels.
             clear_color (bool, optional): Whether to clear the color buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
@@ -406,46 +439,49 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Get logical size (as two floats). This size is constant throughout
         # all post-processing render passes.
-        target_size, logical_size = get_size_from_render_target(self._target)
-        if not all(x > 0 for x in logical_size):
+        target_psize, target_lsize = get_size_from_render_target(self._target)
+        if not all(x > 0 for x in target_lsize):
             return
 
         # Determine the physical size of the render texture
-        target_pixel_ratio = target_size[0] / logical_size[0]
         if self._pixel_ratio:
             pixel_ratio = self._pixel_ratio
         else:
-            pixel_ratio = target_pixel_ratio
+            pixel_ratio = target_psize[0] / target_lsize[0]
             if pixel_ratio <= 1:
                 pixel_ratio = 2.0  # use 2 on non-hidpi displays
 
-        # Determine the physical size of the first and last render pass
-        framebuffer_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
+        # Get viewport in logical pixels
+        logical_viewport = list(self._viewport)
+        for i in range(4):
+            if isinstance(logical_viewport[i], float):
+                logical_viewport[i] *= target_lsize[i % 2]
+
+        # And in physical pixels
+        physical_viewport = [int(i * pixel_ratio + 0.4999) for i in logical_viewport]
+        physical_viewport = tuple(physical_viewport) + (0, 1)
+
+        # Store
+        self._physical_viewport = physical_viewport
+        self._logical_viewport = logical_viewport
+
+        # The viewport contains the render size.
+        # These are now the same as self.logical_size and self.physical size
+        render_lsize = logical_viewport[2], logical_viewport[3]
+        render_psize = physical_viewport[2], physical_viewport[3]
 
         # Update the render targets
-        self._blender.ensure_target_size(device, framebuffer_size)
-
-        # Get viewport in physical pixels
-        if not viewport:
-            scene_logical_size = logical_size
-            scene_physical_size = framebuffer_size
-            physical_viewport = 0, 0, framebuffer_size[0], framebuffer_size[1], 0, 1
-        elif len(viewport) == 4:
-            scene_logical_size = viewport[2], viewport[3]
-            physical_viewport = [int(i * pixel_ratio + 0.4999) for i in viewport]
-            physical_viewport = tuple(physical_viewport) + (0, 1)
-            scene_physical_size = physical_viewport[2], physical_viewport[3]
-        else:
-            raise ValueError("The viewport must be None or 4 elements (x, y, w, h).")
+        # todo: rename to avoid "target"
+        self._blender.ensure_target_size(device, render_psize)
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
-        camera.set_view_size(*scene_logical_size)
+        camera.set_view_size(*render_lsize)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
+        self._update_stdinfo_buffer(camera, render_psize, render_lsize)
 
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
@@ -508,6 +544,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._renders_since_last_flush = 0
 
         command_buffers = self._flusher.render(
+            self._physical_viewport,
             self._blender.color_view,
             None,
             raw_texture_view,
@@ -565,7 +602,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 },
                 occlusion_query_set=None,
             )
-            render_pass.set_viewport(*physical_viewport)
+            # render_pass.set_viewport(*physical_viewport)
 
             for wobject, wobject_pipeline in wobject_tuples:
                 if not (render_mask & wobject_pipeline["render_mask"]):

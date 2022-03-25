@@ -31,9 +31,10 @@ gizmo.add_default_event_handlers(renderer, camera)
 def animate():
     # We render the scene, and then the gizmo on top,
     # as an overlay, so that it's always on top.
+    w, h = canvas.get_logical_size()
     controls.update_camera(camera)
-    renderer.render(scene, camera, flush=False)
-    renderer.render(gizmo, camera, clear_color=False)
+    renderer.render(scene, camera, flush=False, viewport=(w / 2, 0, w / 2, h))
+    renderer.render(gizmo, camera, clear_color=False, viewport=(w / 2, 0, w / 2, h))
 
 
 if __name__ == "__main__":

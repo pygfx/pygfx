@@ -95,7 +95,9 @@ class RenderFlusher:
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-    def render(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
+    def render(
+        self, physical_viewport, src_color_tex, src_depth_tex, dst_color_tex, dst_format
+    ):
         """Render the (internal) result of the renderer into a texture."""
         # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
         assert src_depth_tex is None
@@ -112,7 +114,7 @@ class RenderFlusher:
             self._pipelines[dst_format] = hash, bind_group, render_pipeline
 
         self._update_uniforms(src_color_tex, dst_color_tex)
-        return self._render(dst_color_tex, dst_format)
+        return self._render(physical_viewport, dst_color_tex, dst_format)
 
     def _update_uniforms(self, src_color_tex, dst_color_tex):
         # Get factor between texture sizes
@@ -134,7 +136,7 @@ class RenderFlusher:
         self._uniform_data["sigma"] = sigma
         self._uniform_data["support"] = support
 
-    def _render(self, dst_color_tex, dst_format):
+    def _render(self, physical_viewport, dst_color_tex, dst_format):
         device = self._device
         _, bind_group, render_pipeline = self._pipelines[dst_format]
 
@@ -159,6 +161,7 @@ class RenderFlusher:
             ],
             depth_stencil_attachment=None,
         )
+        render_pass.set_viewport(*physical_viewport)
         render_pass.set_pipeline(render_pipeline)
         render_pass.set_bind_group(0, bind_group, [], 0, 99)
         render_pass.draw(4, 1)
