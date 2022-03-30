@@ -7,35 +7,34 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
-scene = gfx.Scene()
+renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+view = gfx.View(renderer)
 
 cube = gfx.Mesh(
     gfx.box_geometry(1, 1, 1),
     gfx.MeshPhongMaterial(color="#336699"),
 )
-scene.add(cube)
+view.scene.add(cube)
+view.scene.add(gfx.GridHelper())
 
-scene.add(gfx.GridHelper())
-
-camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 4
-controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(renderer, canvas, camera)
+view.camera = gfx.PerspectiveCamera(70, 16 / 9, position=(0, 0, 4))
+controls = gfx.OrbitControls(view.camera.position.clone())
+controls.add_default_event_handlers(view)
 
 gizmo = gfx.TransformGizmo(cube)
-gizmo.add_default_event_handlers(renderer, camera)
+gizmo.add_default_event_handlers(view)
+gizmo_view = gfx.View(renderer, scene=gizmo, camera=view.camera)
 
 
 def animate():
     # We render the scene, and then the gizmo on top,
     # as an overlay, so that it's always on top.
-    controls.update_camera(camera)
-    renderer.render(scene, camera, flush=False)
-    renderer.render(gizmo, camera, clear_color=False)
+    controls.update_camera(view.camera)
+    # renderer.render(scene, camera, flush=False)
+    # renderer.render(gizmo, camera, clear_color=False)
+    renderer.render_views(view, gizmo_view)
 
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    renderer.request_draw(animate)
     run()

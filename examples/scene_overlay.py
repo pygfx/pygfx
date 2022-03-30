@@ -12,23 +12,21 @@ import pygfx as gfx
 
 # Create a canvas and renderer
 
-canvas = WgpuCanvas(size=(500, 300))
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(500, 300)))
 
 # Compose a 3D scene
 
-scene1 = gfx.Scene()
+view1 = gfx.View(renderer, gfx.OrthographicCamera(300, 300))
 
 geometry1 = gfx.box_geometry(200, 200, 200)
 material1 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1.0))
 cube1 = gfx.Mesh(geometry1, material1)
-scene1.add(cube1)
+view1.scene.add(cube1)
 
-camera1 = gfx.OrthographicCamera(300, 300)
 
 # Compose another scene, a 2D overlay
 
-scene2 = gfx.Scene()
+view2 = gfx.View(renderer, gfx.NDCCamera())
 
 positions = np.array(
     [
@@ -44,21 +42,17 @@ positions = np.array(
 geometry2 = gfx.Geometry(positions=positions * 0.9)
 material2 = gfx.LineMaterial(thickness=5.0, color=(0.8, 0.0, 0.2, 1.0))
 line2 = gfx.Line(geometry2, material2)
-scene2.add(line2)
-
-camera2 = gfx.NDCCamera()
+view2.scene.add(line2)
 
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube1.rotation.multiply(rot)
 
-    renderer.render(scene1, camera1, flush=False)
-    renderer.render(scene2, camera2)
-
-    canvas.request_draw()
+    renderer.render_views(view1, view2)
+    renderer.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    renderer.request_draw(animate)
     run()
