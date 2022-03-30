@@ -15,8 +15,8 @@ class OrthographicCamera(Camera):
         far (float): The far clipping plane. Must be larger than near. Default +1000.
     """
 
-    def __init__(self, width=1, height=1, near=-1000, far=1000):
-        super().__init__()
+    def __init__(self, width=1, height=1, near=-1000, far=1000, position=None):
+        super().__init__(position=position)
         # These width and height represent the view-plane in world coordinates
         # and has little to do with the canvas/viewport size.
         self.width = float(width)

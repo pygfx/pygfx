@@ -50,13 +50,14 @@ class PanZoomControls:
     def pan_start(
         self,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
-        camera: "Camera",
+        view: "View",
     ) -> "PanZoomControls":
         # Using this function may be a bit overkill. We can also simply
         # get the ortho cameras world_size (camera.visible_world_size).
         # However, now the panzoom controls work with a perspecive camera ...
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
+        vecx, vecy = get_screen_vectors_in_world_cords(
+            self.target, view.logical_size, view.camera
+        )
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
@@ -86,8 +87,7 @@ class PanZoomControls:
         self,
         multiplier: float,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
-        camera: "Camera",
+        view: "View",
     ) -> "PanZoomControls":
 
         # Apply zoom
@@ -95,9 +95,13 @@ class PanZoomControls:
         self.zoom(multiplier)
         zoom_ratio = zoom_old / self.zoom_value  # usually == multiplier
 
+        x, y, w, h = view.viewport
+        offset = x, y
+        size = w, h
+
         # Now pan such that what was previously under the mouse is again under the mouse.
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
-        delta = tuple(pos[i] - canvas_size[i] / 2 for i in (0, 1))
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, size, view.camera)
+        delta = tuple(pos[i] - offset[i] - size[i] / 2 for i in (0, 1))
         delta1 = vecx.multiply_scalar(delta[0]).add(vecy.multiply_scalar(-delta[1]))
         delta2 = delta1.clone().multiply_scalar(zoom_ratio)
         self.pan(delta1.sub(delta2))
@@ -116,36 +120,36 @@ class PanZoomControls:
         camera.zoom = zoom
         return self
 
-    def add_default_event_handlers(self, renderer, canvas, camera):
+    def add_default_event_handlers(self, view):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        renderer.add_event_handler(
-            lambda event: self.handle_event(event, canvas, camera),
+        view.renderer.add_event_handler(
+            lambda event: self.handle_event(event, view),
             "pointer_down",
             "pointer_move",
             "pointer_up",
             "wheel",
         )
 
-    def handle_event(self, event, canvas, camera):
+    def handle_event(self, event, view):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
         type = event.type
         if type == "pointer_down":
-            if event.button == 1:
+            if event.button == 1 and view.in_viewport(event.x, event.y):
                 xy = event.x, event.y
-                self.pan_start(xy, canvas.get_logical_size(), camera)
+                self.pan_start(xy, view)
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
-                canvas.request_draw()
+                view.renderer.request_draw()
         elif type == "pointer_move":
             if 1 in event.buttons:
                 xy = event.x, event.y
                 self.pan_move(xy)
-                canvas.request_draw()
-        elif type == "wheel":
+                view.renderer.request_draw()
+        elif type == "wheel" and view.in_viewport(event.x, event.y):
             xy = event.x, event.y
             f = 2 ** (-event.dy * 0.0015)
-            self.zoom_to_point(f, xy, canvas.get_logical_size(), camera)
-            canvas.request_draw()
+            self.zoom_to_point(f, xy, view)
+            view.renderer.request_draw()

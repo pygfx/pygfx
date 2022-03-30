@@ -20,8 +20,10 @@ class Camera(WorldObject):
 
     """
 
-    def __init__(self):
+    def __init__(self, *, position=None):
         super().__init__()
+        if position:
+            self.position.set(*position)
 
         self.matrix_world_inverse = Matrix4()
         self.projection_matrix = Matrix4()
@@ -100,8 +102,8 @@ class ScreenCoordsCamera(Camera):
     as in NDC (0 to 1).
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, position=None):
+        super().__init__(position=position)
         self._width = 1
         self._height = 1
 

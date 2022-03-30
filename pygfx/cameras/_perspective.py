@@ -17,8 +17,8 @@ class PerspectiveCamera(Camera):
         far (float): The far clipping plane. Must be larger than near. Default 2000.
     """
 
-    def __init__(self, fov=50, aspect=1, near=0.1, far=2000):
-        super().__init__()
+    def __init__(self, fov=50, aspect=1, near=0.1, far=2000, position=None):
+        super().__init__(position=position)
         self.fov = float(fov)
         self.aspect = float(aspect)
         self.near = float(near)

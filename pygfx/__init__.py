@@ -14,6 +14,7 @@ from .renderers import *
 
 from .utils.show import show
 from .utils import cm
+from .utils.view import View
 
 
 __version__ = "0.1.7"
