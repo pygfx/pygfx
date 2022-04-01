@@ -38,9 +38,7 @@ camera1.position.z = 300
 
 # Then create the actual scene, in the visible canvas
 
-canvas2 = WgpuCanvas()
-
-renderer2 = gfx.renderers.WgpuRenderer(canvas2)
+renderer2 = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene2 = gfx.Scene()
 
 geometry2 = gfx.box_geometry(200, 200, 200)
@@ -60,9 +58,9 @@ def animate():
     renderer1.render(scene1, camera1)
     renderer2.render(scene2, camera2)
 
-    canvas2.request_draw()
+    renderer2.request_draw()
 
 
 if __name__ == "__main__":
-    canvas2.request_draw(animate)
+    renderer2.request_draw(animate)
     run()
