@@ -15,6 +15,7 @@ class PanZoomControls:
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
     ) -> None:
+        self._viewport = None
         self.rotation = Quaternion()
         if eye is None:
             eye = Vector3(0, 0, 0)
@@ -50,13 +51,14 @@ class PanZoomControls:
     def pan_start(
         self,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
+        viewport: Tuple[float, float, float, float],
         camera: "Camera",
     ) -> "PanZoomControls":
         # Using this function may be a bit overkill. We can also simply
         # get the ortho cameras world_size (camera.visible_world_size).
         # However, now the panzoom controls work with a perspecive camera ...
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
+        scene_size = viewport[2], viewport[3]
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
@@ -86,9 +88,13 @@ class PanZoomControls:
         self,
         multiplier: float,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
+        viewport: Tuple[float, float, float, float],
         camera: "Camera",
     ) -> "PanZoomControls":
+
+        x, y, w, h = viewport
+        offset = x, y
+        size = w, h
 
         # Apply zoom
         zoom_old = self.zoom_value
@@ -96,8 +102,8 @@ class PanZoomControls:
         zoom_ratio = zoom_old / self.zoom_value  # usually == multiplier
 
         # Now pan such that what was previously under the mouse is again under the mouse.
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
-        delta = tuple(pos[i] - canvas_size[i] / 2 for i in (0, 1))
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, size, camera)
+        delta = tuple(pos[i] - offset[i] - size[i] / 2 for i in (0, 1))
         delta1 = vecx.multiply_scalar(delta[0]).add(vecy.multiply_scalar(-delta[1]))
         delta2 = delta1.clone().multiply_scalar(zoom_ratio)
         self.pan(delta1.sub(delta2))
@@ -109,43 +115,54 @@ class PanZoomControls:
         )
         return self.rotation, self._v, self.zoom_value
 
-    def update_camera(self, camera: "Camera") -> "PanZoomControls":
+    def update_camera(
+        self, camera: "Camera", viewport: Tuple[float, float, float, float] = None
+    ) -> "PanZoomControls":
         rot, pos, zoom = self.get_view()
         camera.rotation.copy(rot)
         camera.position.copy(pos)
         camera.zoom = zoom
+        self._viewport = viewport
         return self
 
-    def add_default_event_handlers(self, renderer, canvas, camera):
+    def add_default_event_handlers(self, renderer, camera):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
         renderer.add_event_handler(
-            lambda event: self.handle_event(event, canvas, camera),
+            lambda event: self.handle_event(event, renderer, camera),
             "pointer_down",
             "pointer_move",
             "pointer_up",
             "wheel",
         )
 
-    def handle_event(self, event, canvas, camera):
+    def handle_event(self, event, renderer, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
+        if self._viewport is None:
+            vp = (0, 0) + renderer.logical_size
+        else:
+            vp = self._viewport
+        in_viewport = (
+            lambda x, y: vp[0] <= x <= vp[0] + vp[2] and vp[1] <= y <= vp[1] + vp[3]
+        )
+
         type = event.type
-        if type == "pointer_down":
+        if type == "pointer_down" and in_viewport(event.x, event.y):
             if event.button == 1:
                 xy = event.x, event.y
-                self.pan_start(xy, canvas.get_logical_size(), camera)
+                self.pan_start(xy, vp, camera)
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
-                canvas.request_draw()
+                renderer.request_draw()
         elif type == "pointer_move":
             if 1 in event.buttons:
                 xy = event.x, event.y
                 self.pan_move(xy)
-                canvas.request_draw()
-        elif type == "wheel":
+                renderer.request_draw()
+        elif type == "wheel" and in_viewport(event.x, event.y):
             xy = event.x, event.y
             f = 2 ** (-event.dy * 0.0015)
-            self.zoom_to_point(f, xy, canvas.get_logical_size(), camera)
-            canvas.request_draw()
+            self.zoom_to_point(f, xy, vp, camera)
+            renderer.request_draw()
