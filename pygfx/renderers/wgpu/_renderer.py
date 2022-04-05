@@ -727,7 +727,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
 
     def request_draw(self, draw_function=None):
-        """Request a new draw at the target canvas. If the renderer's
+        """Forwards a request_draw call to the target canvas. If the renderer's
         target is not a canvas (e.g. a texture) this function does
         nothing.
         """
