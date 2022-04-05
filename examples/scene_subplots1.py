@@ -76,9 +76,13 @@ def animate():
     viewport2 = w / 2 + 5, 10, w2, h2
     viewport3 = 10, h / 2 + 5, w2, h2
 
-    controls1.update_camera(camera1, viewport1)
-    controls2.update_camera(camera2, viewport2)
-    controls3.update_camera(camera3, viewport3)
+    controls1.update_camera(camera1)
+    controls2.update_camera(camera2)
+    controls3.update_camera(camera3)
+
+    controls1.update_viewport(viewport1)
+    controls2.update_viewport(viewport2)
+    controls3.update_viewport(viewport3)
 
     renderer.render(scene0, camera0, flush=False)
     renderer.render(scene, camera1, viewport=viewport1, flush=False)

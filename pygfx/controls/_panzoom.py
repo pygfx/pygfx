@@ -115,15 +115,22 @@ class PanZoomControls:
         )
         return self.rotation, self._v, self.zoom_value
 
-    def update_camera(
-        self, camera: "Camera", viewport: Tuple[float, float, float, float] = None
-    ) -> "PanZoomControls":
+    def update_camera(self, camera: "Camera") -> "PanZoomControls":
         rot, pos, zoom = self.get_view()
         camera.rotation.copy(rot)
         camera.position.copy(pos)
         camera.zoom = zoom
-        self._viewport = viewport
         return self
+
+    def update_viewport(
+        self, viewport: Tuple[float, float, float, float] = None
+    ) -> "PanZoomControls":
+        """Set the viewport that applies to the controls (relative to
+        the canvas). This is needed to correctly process events.
+        """
+        if not (len(viewport) == 4):
+            raise ValueError("Viewport must be 4 numbers.")
+        self._viewport = [float(v) for v in viewport]
 
     def add_default_event_handlers(self, renderer, camera):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
