@@ -731,8 +731,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target is not a canvas (e.g. a texture) this function does
         nothing.
         """
-        if hasattr(self.target, "request_draw"):
-            self.target.request_draw(draw_function)
+        request_draw = getattr(self.target, "request_draw", None)
+        if request_draw:
+            request_draw(draw_function)
 
     def enable_events(self):
         """Add event handlers for a specific list of events that are generated
