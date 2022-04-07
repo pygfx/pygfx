@@ -89,21 +89,6 @@ def layout(event=None):
 
 layout()
 
-# @renderer.add_event_handler("pointer_down", "pointer_move", "pointer_up", "wheel")
-# def on_event(self, event):
-#     w, h = renderer.logical_size
-#     w2, h2 = (w - 30) / 2, (h - 30) / 2
-#
-#     viewport1 = 10, 10, w2, h2
-#     viewport2 = w / 2 + 5, 10, w2, h2
-#     viewport3 = 10, h / 2 + 5, w2, h2
-#     viewport4 = w / 2 + 5, h / 2 + 5, w2, h2
-#
-#     controls1.handle_event(event, renderer, camera, viewport=viewport1)
-#     controls2.handle_event(event, renderer, camera, viewport=viewport2)
-#     controls3.handle_event(event, renderer, camera, viewport=viewport3)
-#     controls4.handle_event(event, renderer, camera, viewport=viewport4)
-
 
 def animate():
 
