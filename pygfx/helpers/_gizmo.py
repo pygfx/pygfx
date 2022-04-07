@@ -9,6 +9,7 @@ from ..geometries import Geometry, sphere_geometry, cone_geometry, box_geometry
 from ..materials import MeshBasicMaterial, LineMaterial
 from ..objects import WorldObject
 from ..linalg import Vector3, Quaternion
+from ..utils.viewport import Viewport
 
 
 # Colors in hsluv space - https://www.hsluv.org/
@@ -42,8 +43,7 @@ class TransformGizmo(WorldObject):
         super().__init__()
 
         # We store these as soon as we get a call in ``add_default_event_handlers``
-        self._renderer = None
-        self._canvas = None
+        self._viewport = None
         self._camera = None
 
         # A dict that stores the state at the start of a drag. Or None.
@@ -309,7 +309,7 @@ class TransformGizmo(WorldObject):
         # to only update if it actually changes.
         if not self._object_to_control:
             self.visible = False
-        elif self._canvas and self._camera:
+        elif self._viewport and self._camera:
             self.visible = True
             self._update_directions()
             self._update_scale()
@@ -323,7 +323,7 @@ class TransformGizmo(WorldObject):
         """
 
         camera = self._camera
-        canvas_size = self._canvas.get_logical_size()
+        scene_size = self._viewport.logical_size
         world_pos = self._object_to_control.position
         ndc_pos = world_pos.clone().project(camera)
 
@@ -355,7 +355,7 @@ class TransformGizmo(WorldObject):
             ]
             # Convert to world directions
             ndc_directions = [
-                Vector3(vec.x / canvas_size[0] * 2, vec.y / canvas_size[1] * 2, -vec.z)
+                Vector3(vec.x / scene_size[0] * 2, vec.y / scene_size[1] * 2, -vec.z)
                 for vec in screen_directions
             ]
             world_directions = [
@@ -369,7 +369,7 @@ class TransformGizmo(WorldObject):
         # These represent how much one "step" moves on screen.
         # Note how for ndc_directions we have a valid z, but for screen_directions z is 0.
         screen_directions = [
-            Vector3(vec.x * canvas_size[0] / 2, -vec.y * canvas_size[1] / 2, 0)
+            Vector3(vec.x * scene_size[0] / 2, -vec.y * scene_size[1] / 2, 0)
             for vec in ndc_directions
         ]
 
@@ -397,13 +397,13 @@ class TransformGizmo(WorldObject):
             return
 
         camera = self._camera
-        canvas_size = self._canvas.get_logical_size()
+        scene_size = self._viewport.logical_size
         world_pos = self._object_to_control.position
         ndc_pos = world_pos.clone().project(camera)
 
         # Get how our direction vectors express on screen
-        ndc_sx = self._screen_size * 2 / canvas_size[0]
-        ndc_sy = self._screen_size * 2 / canvas_size[1]
+        ndc_sx = self._screen_size * 2 / scene_size[0]
+        ndc_sy = self._screen_size * 2 / scene_size[1]
         vec1 = (
             ndc_pos.clone().add(Vector3(ndc_sx, 0, 0)).unproject(camera).sub(world_pos)
         )
@@ -418,7 +418,7 @@ class TransformGizmo(WorldObject):
         # Determine any flips so that the gizmo faces the camera. Note
         # that this checks whether the vector in question points away
         # from the camera.
-        # -----------------------#  So on a canvas like this, where the widget
+        # -----------------------#  So on a view like this, where the widget
         #      | g               #  is on the left, the red leg might still
         # r ___|                 #  just point towards the camera, even though
         #     /                  #  it might not "feel" this way because the
@@ -493,10 +493,10 @@ class TransformGizmo(WorldObject):
 
     # %% Event handling
 
-    def add_default_event_handlers(self, renderer, camera):
+    def add_default_event_handlers(self, viewport, camera):
         # Store objects that we need outside the event handling.
-        self._renderer = renderer
-        self._canvas = renderer.target
+        viewport = Viewport.from_viewport_or_renderer(viewport)
+        self._viewport = viewport
         self._camera = camera
 
         self.add_event_handler(
@@ -535,7 +535,7 @@ class TransformGizmo(WorldObject):
                 self._handle_start("rotate", event, ob)
             # Highlight the object
             self._highlight(ob)
-            self._canvas.request_draw()
+            self._viewport.renderer.request_draw()
             self.set_pointer_capture(event.pointer_id)
 
         elif type == "pointer_up":
@@ -546,7 +546,7 @@ class TransformGizmo(WorldObject):
             self._ref = None
             # De-highlight the object
             self._highlight()
-            self._canvas.request_draw()
+            self._viewport.renderer.request_draw()
 
         elif type == "pointer_move":
             if not self._ref:
@@ -567,7 +567,7 @@ class TransformGizmo(WorldObject):
             elif self._ref["kind"] == "rotate":
                 self._handle_rotate_move(event)
             # Keep viz up to date
-            self._canvas.request_draw()
+            self._viewport.renderer.request_draw()
 
     def _handle_start(self, kind, event, ob):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
@@ -603,9 +603,9 @@ class TransformGizmo(WorldObject):
             event.y - self._ref["event_pos"][1],
             0,
         )
-        canvas_size = self._canvas.get_logical_size()
+        scene_size = self._viewport.logical_size
         ndc_moved = screen_moved.clone().multiply(
-            Vector3(2 / canvas_size[0], -2 / canvas_size[1], 0)
+            Vector3(2 / scene_size[0], -2 / scene_size[1], 0)
         )
 
         # Init new position

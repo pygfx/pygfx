@@ -63,11 +63,11 @@ class OrbitControls(BaseControls):
     def pan_start(
         self,
         pos: Tuple[float, float],
-        viewport: Tuple[float, float, float, float],
+        viewport: "Viewport",
         camera: "Camera",
     ) -> "OrbitControls":
         """Start a panning operation based (2D) screen coordinates."""
-        scene_size = viewport[2], viewport[3]
+        scene_size = viewport.logical_size
         vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
@@ -118,7 +118,7 @@ class OrbitControls(BaseControls):
     def rotate_start(
         self,
         pos: Tuple[float, float],
-        viewport: Tuple[float, float, float, float],
+        viewport: "Viewport",
         camera: "Camera",
     ) -> "OrbitControls":
         """Start a rotation operation based (2D) screen coordinates."""
@@ -155,38 +155,33 @@ class OrbitControls(BaseControls):
         zoom = 1 if self.zoom_changes_distance else self.zoom_value
         return self.rotation, self._v, zoom
 
-    def handle_event(self, event, renderer, camera):
+    def handle_event(self, event, viewport, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
-        vp = self._get_actual_viewport(renderer)
-        in_viewport = (
-            lambda x, y: vp[0] <= x <= vp[0] + vp[2] and vp[1] <= y <= vp[1] + vp[3]
-        )
-
         type = event.type
-        if type == "pointer_down" and in_viewport(event.x, event.y):
+        if type == "pointer_down" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             if event.button == 1:
-                self.rotate_start(xy, vp, camera)
+                self.rotate_start(xy, viewport, camera)
             elif event.button == 2:
-                self.pan_start(xy, vp, camera)
+                self.pan_start(xy, viewport, camera)
         elif type == "pointer_up":
             if event.button == 1:
                 self.rotate_stop()
             elif event.button == 2:
                 self.pan_stop()
-            renderer.request_draw()
+            viewport.renderer.request_draw()
         elif type == "pointer_move":
             xy = event.x, event.y
             if 1 in event.buttons:
                 self.rotate_move(xy),
             if 2 in event.buttons:
                 self.pan_move(xy),
-            renderer.request_draw()
-        elif type == "wheel" and in_viewport(event.x, event.y):
+            viewport.renderer.request_draw()
+        elif type == "wheel" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             d = event.dy or event.dx
             f = 2 ** (-d * 0.0015)
             self.zoom(f)
-            renderer.request_draw()
+            viewport.renderer.request_draw()

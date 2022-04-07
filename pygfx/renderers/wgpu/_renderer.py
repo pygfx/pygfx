@@ -243,6 +243,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
 
     @property
+    def rect(self):
+        """The rectangular viewport for the renderer area."""
+        return (0, 0) + self.logical_size
+
+    @property
     def logical_size(self):
         """The size of the render target in logical pixels."""
         target = self._target
@@ -437,6 +442,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Update the render targets
         self._blender.ensure_target_size(device, physical_size)
+
+        # The viewpoer could be a Viewport object
+        if hasattr(viewport, "rect"):
+            viewport = viewport.rect
 
         # Get viewport in physical pixels
         if not viewport:

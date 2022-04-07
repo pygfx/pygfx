@@ -9,6 +9,7 @@ import pygfx as gfx
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
+viewport = gfx.Viewport(renderer)
 scene = gfx.Scene()
 
 cube = gfx.Mesh(
@@ -22,18 +23,18 @@ scene.add(gfx.GridHelper())
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 4
 controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(renderer, canvas, camera)
+controls.add_default_event_handlers(viewport, camera)
 
 gizmo = gfx.TransformGizmo(cube)
-gizmo.add_default_event_handlers(renderer, camera)
+gizmo.add_default_event_handlers(viewport, camera)
 
 
 def animate():
     # We render the scene, and then the gizmo on top,
     # as an overlay, so that it's always on top.
     controls.update_camera(camera)
-    renderer.render(scene, camera, flush=False)
-    renderer.render(gizmo, camera, clear_color=False)
+    renderer.render(scene, camera, viewport=viewport, flush=False)
+    renderer.render(gizmo, camera, viewport=viewport, clear_color=False)
 
 
 if __name__ == "__main__":

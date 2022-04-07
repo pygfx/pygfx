@@ -1,35 +1,15 @@
 from typing import Tuple
 
 from ..linalg import Vector3
+from ..utils.viewport import Viewport
 
 
+# todo: I hate that these classes are plural, maybe rename to Controller?
 class BaseControls:
     """Abstract base controls."""
 
     def __init__(self):
-        self._viewport = None
-
-    @property
-    def viewport(self):
-        """The viewport that this controller applies to. Can be None to indicate
-        the full canvas. This is used to correct the positions of events.
-        """
-        return self._viewport
-
-    @viewport.setter
-    def viewport(self, viewport: Tuple[float, float, float, float]):
-        if viewport is None:
-            self._viewport = None
-        else:
-            if not (len(viewport) == 4):
-                raise ValueError("Viewport must be 4 numbers, or None.")
-            self._viewport = tuple(float(v) for v in viewport)
-
-    def _get_actual_viewport(self, renderer):
-        if self._viewport is None:
-            return (0, 0) + renderer.logical_size
-        else:
-            return self._viewport
+        pass
 
     def update_camera(self, camera: "Camera") -> "BaseControls":
         """Update the transform of the camera with the internal transform."""
@@ -39,17 +19,18 @@ class BaseControls:
         camera.zoom = zoom
         return self
 
-    def add_default_event_handlers(self, renderer, camera):
+    def add_default_event_handlers(self, viewport, camera):
         """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        renderer.add_event_handler(
-            lambda event: self.handle_event(event, renderer, camera),
+        viewport = Viewport.from_viewport_or_renderer(viewport)
+        viewport.renderer.add_event_handler(
+            lambda event: self.handle_event(event, viewport, camera),
             "pointer_down",
             "pointer_move",
             "pointer_up",
             "wheel",
         )
 
-    def handle_event(self, event, renderer, camera):
+    def handle_event(self, event, viewport, camera):
         pass
 
 
