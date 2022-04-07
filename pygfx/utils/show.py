@@ -39,7 +39,7 @@ def show(object: WorldObject, up=None):
     renderer = WgpuRenderer(canvas)
 
     controls = OrbitControls(camera.position.clone(), look_at, up=up)
-    controls.add_default_event_handlers(renderer, canvas, camera)
+    controls.add_default_event_handlers(renderer, camera)
 
     def animate():
         controls.update_camera(camera)

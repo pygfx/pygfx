@@ -1,10 +1,10 @@
 from typing import Tuple
 
 from ..linalg import Vector3, Matrix4, Quaternion
-from ._orbit import get_screen_vectors_in_world_cords
+from ._base import BaseControls, get_screen_vectors_in_world_cords
 
 
-class PanZoomControls:
+class PanZoomControls(BaseControls):
     """A class implementing two-dimensional pan-zoom camera control."""
 
     def __init__(
@@ -15,7 +15,7 @@ class PanZoomControls:
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
     ) -> None:
-        self._viewport = None
+        super().__init__()
         self.rotation = Quaternion()
         if eye is None:
             eye = Vector3(0, 0, 0)
@@ -115,41 +115,11 @@ class PanZoomControls:
         )
         return self.rotation, self._v, self.zoom_value
 
-    def update_camera(self, camera: "Camera") -> "PanZoomControls":
-        rot, pos, zoom = self.get_view()
-        camera.rotation.copy(rot)
-        camera.position.copy(pos)
-        camera.zoom = zoom
-        return self
-
-    def update_viewport(
-        self, viewport: Tuple[float, float, float, float] = None
-    ) -> "PanZoomControls":
-        """Set the viewport that applies to the controls (relative to
-        the canvas). This is needed to correctly process events.
-        """
-        if not (len(viewport) == 4):
-            raise ValueError("Viewport must be 4 numbers.")
-        self._viewport = [float(v) for v in viewport]
-
-    def add_default_event_handlers(self, renderer, camera):
-        """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        renderer.add_event_handler(
-            lambda event: self.handle_event(event, renderer, camera),
-            "pointer_down",
-            "pointer_move",
-            "pointer_up",
-            "wheel",
-        )
-
     def handle_event(self, event, renderer, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
-        if self._viewport is None:
-            vp = (0, 0) + renderer.logical_size
-        else:
-            vp = self._viewport
+        vp = self._get_actual_viewport(renderer)
         in_viewport = (
             lambda x, y: vp[0] <= x <= vp[0] + vp[2] and vp[1] <= y <= vp[1] + vp[3]
         )

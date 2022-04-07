@@ -1,0 +1,69 @@
+from typing import Tuple
+
+from ..linalg import Vector3
+
+
+class BaseControls:
+    """Abstract base controls."""
+
+    def __init__(self):
+        self._viewport = None
+
+    @property
+    def viewport(self):
+        """The viewport that this controller applies to. Can be None to indicate
+        the full canvas. This is used to correct the positions of events.
+        """
+        return self._viewport
+
+    @viewport.setter
+    def viewport(self, viewport: Tuple[float, float, float, float]):
+        if viewport is None:
+            self._viewport = None
+        else:
+            if not (len(viewport) == 4):
+                raise ValueError("Viewport must be 4 numbers, or None.")
+            self._viewport = tuple(float(v) for v in viewport)
+
+    def _get_actual_viewport(self, renderer):
+        if self._viewport is None:
+            return (0, 0) + renderer.logical_size
+        else:
+            return self._viewport
+
+    def update_camera(self, camera: "Camera") -> "BaseControls":
+        """Update the transform of the camera with the internal transform."""
+        rot, pos, zoom = self.get_view()
+        camera.rotation.copy(rot)
+        camera.position.copy(pos)
+        camera.zoom = zoom
+        return self
+
+    def add_default_event_handlers(self, renderer, camera):
+        """Apply the default interaction mechanism to a wgpu autogui canvas."""
+        renderer.add_event_handler(
+            lambda event: self.handle_event(event, renderer, camera),
+            "pointer_down",
+            "pointer_move",
+            "pointer_up",
+            "wheel",
+        )
+
+    def handle_event(self, event, renderer, camera):
+        pass
+
+
+def get_screen_vectors_in_world_cords(
+    center_world: Vector3, scene_size: Tuple[float, float], camera: "Camera"
+) -> Tuple[Vector3, Vector3]:
+    """Given a reference center location (in 3D world coordinates)
+    Get the vectors corresponding to the x and y direction in screen coordinates.
+    These vectors are scaled so that they can simply be multiplied with the
+    delta x and delta y.
+    """
+    center = center_world.clone().project(camera)
+    pos1 = Vector3(100, 0, center.z).unproject(camera)
+    pos2 = Vector3(0, 100, center.z).unproject(camera)
+    pos1.multiply_scalar(0.02 / scene_size[0])
+    pos2.multiply_scalar(0.02 / scene_size[1])
+    return pos1, pos2  # now they're vecs, really

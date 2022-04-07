@@ -1,28 +1,12 @@
 from typing import Tuple
 
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
-
+from ._base import BaseControls, get_screen_vectors_in_world_cords
 
 # todo: maybe make an OrbitOrthoControls for ortho cameras, instead of this zoom param?
 
 
-def get_screen_vectors_in_world_cords(
-    center_world: Vector3, canvas_size: Tuple[float, float], camera: "Camera"
-) -> Tuple[Vector3, Vector3]:
-    """Given a reference center location (in 3D world coordinates)
-    Get the vectors corresponding to the x and y direction in screen coordinates.
-    These vectors are scaled so that they can simply be multiplied with the
-    delta x and delta y.
-    """
-    center = center_world.clone().project(camera)
-    pos1 = Vector3(100, 0, center.z).unproject(camera)
-    pos2 = Vector3(0, 100, center.z).unproject(camera)
-    pos1.multiply_scalar(0.02 / canvas_size[0])
-    pos2.multiply_scalar(0.02 / canvas_size[1])
-    return pos1, pos2  # now they're vecs, really
-
-
-class OrbitControls:
+class OrbitControls(BaseControls):
     """A class implementing orbit controls, where the camera is
     rotated around a center position (orbiting around it).
     """
@@ -35,6 +19,7 @@ class OrbitControls:
         zoom_changes_distance=True,
         min_zoom: float = 0.0001,
     ) -> None:
+        super().__init__()
         self.rotation = Quaternion()
         if eye is None:
             eye = Vector3(50.0, 50.0, 50.0)
@@ -78,11 +63,12 @@ class OrbitControls:
     def pan_start(
         self,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
+        viewport: Tuple[float, float, float, float],
         camera: "Camera",
     ) -> "OrbitControls":
         """Start a panning operation based (2D) screen coordinates."""
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, canvas_size, camera)
+        scene_size = viewport[2], viewport[3]
+        vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
@@ -132,7 +118,7 @@ class OrbitControls:
     def rotate_start(
         self,
         pos: Tuple[float, float],
-        canvas_size: Tuple[float, float],
+        viewport: Tuple[float, float, float, float],
         camera: "Camera",
     ) -> "OrbitControls":
         """Start a rotation operation based (2D) screen coordinates."""
@@ -169,50 +155,38 @@ class OrbitControls:
         zoom = 1 if self.zoom_changes_distance else self.zoom_value
         return self.rotation, self._v, zoom
 
-    def update_camera(self, camera: "Camera") -> "OrbitControls":
-        rot, pos, zoom = self.get_view()
-        camera.rotation.copy(rot)
-        camera.position.copy(pos)
-        camera.zoom = zoom
-        return self
-
-    def add_default_event_handlers(self, renderer, canvas, camera):
-        """Apply the default interaction mechanism to a wgpu autogui canvas."""
-        renderer.add_event_handler(
-            lambda event: self.handle_event(event, canvas, camera),
-            "pointer_down",
-            "pointer_move",
-            "pointer_up",
-            "wheel",
-        )
-
-    def handle_event(self, event, canvas, camera):
+    def handle_event(self, event, renderer, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
+        vp = self._get_actual_viewport(renderer)
+        in_viewport = (
+            lambda x, y: vp[0] <= x <= vp[0] + vp[2] and vp[1] <= y <= vp[1] + vp[3]
+        )
+
         type = event.type
-        if type == "pointer_down":
+        if type == "pointer_down" and in_viewport(event.x, event.y):
             xy = event.x, event.y
             if event.button == 1:
-                self.rotate_start(xy, canvas.get_logical_size(), camera)
+                self.rotate_start(xy, vp, camera)
             elif event.button == 2:
-                self.pan_start(xy, canvas.get_logical_size(), camera)
+                self.pan_start(xy, vp, camera)
         elif type == "pointer_up":
             if event.button == 1:
                 self.rotate_stop()
             elif event.button == 2:
                 self.pan_stop()
-            canvas.request_draw()
+            renderer.request_draw()
         elif type == "pointer_move":
             xy = event.x, event.y
             if 1 in event.buttons:
                 self.rotate_move(xy),
             if 2 in event.buttons:
                 self.pan_move(xy),
-            canvas.request_draw()
-        elif type == "wheel":
+            renderer.request_draw()
+        elif type == "wheel" and in_viewport(event.x, event.y):
             xy = event.x, event.y
             d = event.dy or event.dx
             f = 2 ** (-d * 0.0015)
             self.zoom(f)
-            canvas.request_draw()
+            renderer.request_draw()
