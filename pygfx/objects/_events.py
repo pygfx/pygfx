@@ -262,7 +262,7 @@ class EventTarget:
             event: The event to handle
         """
         event_type = event.type
-        for callback in self._event_handlers[event_type]:
+        for callback in self._event_handlers[event_type].copy():
             if event.cancelled:
                 break
             with log_exception(f"Error during handling {event_type} event"):
