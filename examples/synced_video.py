@@ -1,0 +1,54 @@
+"""
+Example demonstrating synced video rendering
+"""
+
+import numpy as np
+from wgpu.gui.auto import WgpuCanvas, run
+import pygfx as gfx
+
+
+canvas = WgpuCanvas(size=(512 * 3 + 100, 400))
+renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
+camera = gfx.OrthographicCamera(1800, 550)
+camera.position.y = 256
+camera.scale.y = -1
+camera.position.x = 1736 / 2
+
+colormap1 = gfx.cm.plasma
+
+
+# Just create a 512x512 random image
+def create_random_image():
+    return gfx.Image(
+        gfx.Geometry(grid=gfx.Texture(np.random.rand(512, 512).astype(np.float32) * 255, dim=2)),
+        gfx.ImageBasicMaterial(clim=(0, 255), map=colormap1),
+    )
+
+
+images = list()
+img_pos = 0
+
+
+for i in range(3):
+    images.append(create_random_image())
+    images[-1].position.x = img_pos
+    img_pos += 50 + 512
+    scene.add(images[-1])
+
+
+# update with new random image
+def update_img(obj):
+    for img in images:
+        img.geometry.grid = gfx.Texture(np.random.rand(512, 512).astype(np.float32) * 255, dim=2)
+
+
+def animate():
+    scene.traverse(update_img)
+    renderer.render(scene, camera)
+    canvas.request_draw()
+
+
+if __name__ == "__main__":
+    canvas.request_draw(animate)
+    run()
