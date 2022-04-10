@@ -7,8 +7,8 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(512 * 3 + 100, 400))
-renderer = gfx.renderers.WgpuRenderer(canvas)
+canvas = WgpuCanvas(size=(512 * 3 + 100, 400), max_fps=999)
+renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(1800, 550)
 camera.position.y = 256
@@ -40,7 +40,8 @@ for i in range(3):
 # update with new random image
 def update_img(obj):
     for img in images:
-        img.geometry.grid = gfx.Texture(np.random.rand(512, 512).astype(np.float32) * 255, dim=2)
+        img.geometry.grid.data[:] = np.random.rand(512, 512).astype(np.float32) * 255
+        img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
 
 
 def animate():
