@@ -20,10 +20,10 @@ colormap1 = gfx.cm.plasma
 
 # Just create a 512x512 random image
 def create_random_image():
+    rand_img = np.random.rand(512, 512).astype(np.float32) * 255
+
     return gfx.Image(
-        gfx.Geometry(
-            grid=gfx.Texture(np.random.rand(512, 512).astype(np.float32) * 255, dim=2)
-        ),
+        gfx.Geometry(grid=gfx.Texture(rand_img, dim=2)),
         gfx.ImageBasicMaterial(clim=(0, 255), map=colormap1),
     )
 
