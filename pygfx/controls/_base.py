@@ -1,7 +1,8 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 from ..linalg import Vector3
 from ..utils.viewport import Viewport
+from ..renderers import Renderer
 
 
 class Controller:
@@ -15,8 +16,12 @@ class Controller:
         camera.zoom = zoom
         return self
 
-    def add_default_event_handlers(self, viewport, camera):
-        """Apply the default interaction mechanism to a wgpu autogui canvas."""
+    def add_default_event_handlers(
+        self, viewport: Union[Viewport, Renderer], camera: "Camera"
+    ):
+        """Apply the default interaction mechanism to a wgpu autogui canvas.
+        Needs either a viewport or renderer, pus the camera.
+        """
         viewport = Viewport.from_viewport_or_renderer(viewport)
         viewport.renderer.add_event_handler(
             lambda event: self.handle_event(event, viewport, camera),
