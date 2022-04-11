@@ -18,7 +18,7 @@ geometries = [
     gfx.dodecahedron_geometry(),
 ]
 
-polyhedrons = [gfx.Mesh(geometries[i], material) for i in range(5)]
+polyhedrons = [gfx.Mesh(g, material) for g in geometries]
 for i, polyhedron in enumerate(polyhedrons):
     polyhedron.position.set(6 - i * 3, 0, 0)
     scene.add(polyhedron)

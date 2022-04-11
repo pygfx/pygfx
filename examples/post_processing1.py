@@ -8,6 +8,8 @@ In many ways this example is similar to the scene_in_a_scene.py example,
 except we use a custom object here for the noise.
 
 Note that we may get a more streamlined way to implement post-processing effects.
+
+# run_example = false
 """
 
 import time

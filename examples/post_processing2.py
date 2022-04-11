@@ -7,6 +7,8 @@ we'd provide an API for it.
 Note: this example makes heavy use of private variables and makes
 assumptions about how the RenderFlusher works that may not hold in the
 future.
+
+# run_example = false
 """
 
 import numpy as np
