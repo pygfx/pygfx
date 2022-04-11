@@ -45,7 +45,7 @@ def test_examples_run(module, pytestconfig):
             env=env,
         )
     except subprocess.TimeoutExpired:
-        assert False, (
+        pytest.fail(
             "opt-out by adding `# run_example = false` to the module docstring,"
             "or use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
         )
