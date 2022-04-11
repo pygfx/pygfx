@@ -14,3 +14,4 @@ PySide6
 imageio
 imageio-ffmpeg
 scikit-image
+trimesh

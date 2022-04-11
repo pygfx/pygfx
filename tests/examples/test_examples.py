@@ -12,7 +12,7 @@ import imageio
 import numpy as np
 import pytest
 
-from .testutils import is_lavapipe, find_examples, ROOT
+from .testutils import is_lavapipe, find_examples, ROOT, screenshots_dir, diffs_dir
 
 
 # run all tests unless they opt-out
@@ -69,7 +69,18 @@ def test_examples_run(module, pytestconfig):
             "or use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
         )
 
-    assert result.returncode == 0, f"failed to run:\n{result.stdout}\n{result.stderr}"
+    zero_exit = result.returncode == 0
+
+    if not zero_exit:
+        # in some cases it's pretty hard to support an example to run on CI
+        # we xfail them on CI, but still allow them to run locally
+        # would be nice to implement support later of course
+        if "qt.qpa.xcb: could not connect to display" in result.stderr:
+            pytest.xfail("Qt examples not supported on CI")
+        if "ModuleNotFoundError: No module named 'wx'" in result.stderr:
+            pytest.xfail("wx library is not available")
+
+    assert zero_exit, f"failed to run:\n{result.stdout}\n{result.stderr}"
 
 
 @pytest.mark.parametrize("module", examples_to_test)
