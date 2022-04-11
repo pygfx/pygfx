@@ -57,7 +57,7 @@ def test_examples_run(module, pytestconfig):
                 str(module.relative_to(ROOT)),
             ],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             universal_newlines=True,
             cwd=ROOT,
             timeout=5,
@@ -75,12 +75,12 @@ def test_examples_run(module, pytestconfig):
         # in some cases it's pretty hard to support an example to run on CI
         # we xfail them on CI, but still allow them to run locally
         # would be nice to implement support later of course
-        if "qt.qpa.xcb: could not connect to display" in result.stderr:
+        if "This application failed to start because no Qt platform plugin could be initialized." in result.stdout:
             pytest.xfail("Qt examples not supported on CI")
-        if "ModuleNotFoundError: No module named 'wx'" in result.stderr:
+        if "ModuleNotFoundError: No module named 'wx'" in result.stdout:
             pytest.xfail("wx library is not available")
 
-    assert zero_exit, f"failed to run:\n{result.stdout}\n{result.stderr}"
+    assert zero_exit, f"failed to run:\n{result.stdout}"
 
 
 @pytest.mark.parametrize("module", examples_to_test)
