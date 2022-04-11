@@ -8,7 +8,7 @@ from unittest.mock import patch
 import subprocess
 import sys
 
-import imageio
+import imageio.v2 as imageio
 import numpy as np
 import pytest
 
