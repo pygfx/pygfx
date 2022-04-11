@@ -12,6 +12,7 @@ from .controls import *
 
 from .renderers import *
 
+from .utils.color import Color
 from .utils.show import show
 from .utils import cm
 
