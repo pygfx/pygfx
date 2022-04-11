@@ -4,6 +4,7 @@ import threading
 
 import numpy as np
 
+from ._events import EventTarget
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Resource, Buffer
@@ -99,7 +100,7 @@ class ResourceContainer:
             self._bump_rev()
 
 
-class WorldObject(ResourceContainer):
+class WorldObject(EventTarget, ResourceContainer):
     """The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
@@ -146,7 +147,7 @@ class WorldObject(ResourceContainer):
         self.render_mask = render_mask
 
         # Init parent and children
-        self._parent = None
+        self._parent_ref = None
         self._children = []
 
         self.position = Vector3()
@@ -264,7 +265,7 @@ class WorldObject(ResourceContainer):
         """Object's parent in the scene graph (read-only).
         An object can have at most one parent.
         """
-        return self._parent
+        return self._parent_ref and self._parent_ref()
 
     @property
     def children(self):
@@ -273,19 +274,28 @@ class WorldObject(ResourceContainer):
         """
         return tuple(self._children)
 
-    def add(self, *objects):
+    def add(self, *objects, before=None):
         """Adds object as child of this object. Any number of
         objects may be added. Any current parent on an object passed
         in here will be removed, since an object can have at most one
         parent.
+        If ``before`` argument is given (and present in children), then
+        the items are inserted before the given element.
         """
+        idx = len(self._children)
+        if before:
+            try:
+                idx = self._children.index(before)
+            except ValueError:
+                pass
         for obj in objects:
             # orphan if needed
-            if obj._parent is not None:
-                obj._parent.remove(obj)
+            if obj._parent_ref is not None:
+                obj._parent_ref().remove(obj)
             # attach to scene graph
-            obj._parent = self
-            self._children.append(obj)
+            obj._parent_ref = weakref.ref(self)
+            self._children.insert(idx, obj)
+            idx += 1
             # flag world matrix as dirty
             obj._matrix_world_dirty = True
         return self
@@ -295,10 +305,9 @@ class WorldObject(ResourceContainer):
         If a given object is not a child, it is ignored.
         """
         for obj in objects:
-
             try:
                 self._children.remove(obj)
-                obj._parent = None
+                obj._parent_ref = None
             except ValueError:
                 pass
         return self

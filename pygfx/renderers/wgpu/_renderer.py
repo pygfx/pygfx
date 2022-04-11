@@ -6,10 +6,18 @@ import wgpu.backends.rs
 
 from .. import Renderer
 from ...linalg import Matrix4, Vector3
-from ...objects import WorldObject, id_provider
+from ...objects import (
+    id_provider,
+    KeyboardEvent,
+    RootEventHandler,
+    PointerEvent,
+    WheelEvent,
+    WindowEvent,
+    WorldObject,
+)
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
-from ...utils import array_from_shadertype
+from ...utils import array_from_shadertype, Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
@@ -102,7 +110,7 @@ class SharedData:
         self.shader_cache = {}
 
 
-class WgpuRenderer(Renderer):
+class WgpuRenderer(RootEventHandler, Renderer):
     """Object used to render scenes using wgpu.
 
     The purpose of a renderer is to render (i.e. draw) a scene to a
@@ -148,12 +156,15 @@ class WgpuRenderer(Renderer):
     def __init__(
         self,
         target,
-        *,
+        *args,
         pixel_ratio=None,
         show_fps=False,
         blend_mode="default",
         sort_objects=False,
+        enable_events=True,
+        **kwargs,
     ):
+        super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
         if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
@@ -205,6 +216,9 @@ class WgpuRenderer(Renderer):
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
+
+        if enable_events:
+            self.enable_events()
 
     @property
     def device(self):
@@ -618,6 +632,12 @@ class WgpuRenderer(Renderer):
         _, logical_size = get_size_from_render_target(self._target)
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
+        # Prevent out of range and picking before first draw
+        out_of_range = not (0 <= float_pos[0] <= 1 and 0 <= float_pos[1] <= 1)
+        blender_zero_size = self._blender.size == (0, 0)
+        if out_of_range or blender_zero_size:
+            return {"rgba": Color(0, 0, 0, 0), "world_object": None}
+
         # Sample
         encoder = self.device.create_command_encoder()
         self._copy_pixel(encoder, self._blender.color_tex, float_pos, 0)
@@ -627,7 +647,7 @@ class WgpuRenderer(Renderer):
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.map_read()
-        color = tuple(data[0:4].cast("B"))
+        color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
         pick_value = tuple(data[8:16].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1
         wobject = id_provider.get_object_from_id(wobject_id)
@@ -692,3 +712,59 @@ class WgpuRenderer(Renderer):
         )
 
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+
+    def enable_events(self):
+        """Add event handlers for a specific list of events that are generated
+        by the canvas. The handler is the ``convert_event`` method in order to
+        convert the Wgpu event dicts into Pygfx event objects."""
+
+        # Check for ``add_event_handler`` attribute. Silently 'fail' as it is
+        # perfectly fine to pass a texture as a target to the renderer
+        if hasattr(self._target, "add_event_handler"):
+            self._target.add_event_handler(self.convert_event, *EVENTS_TO_CONVERT)
+
+    def disable_events(self):
+        """Remove the event handlers from the canvas."""
+        if hasattr(self._target, "remove_event_handler"):
+            self._target.remove_event_handler(self.convert_event, *EVENTS_TO_CONVERT)
+
+    def convert_event(self, event: dict):
+        """Converts Wgpu event (dict following jupyter_rfb spec) to Pygfx Event object,
+        adds picking info and then dispatches the event in the Pygfx event system.
+        """
+        event_type = event["event_type"]
+        target = None
+        if "x" in event and "y" in event:
+            info = self.get_pick_info((event["x"], event["y"]))
+            target = info["world_object"]
+            event["pick_info"] = info
+
+        ev = EVENT_TYPE_MAP[event_type](
+            type=event_type, **event, target=target, root=self
+        )
+        self.dispatch_event(ev)
+
+
+EVENT_TYPE_MAP = {
+    "resize": WindowEvent,
+    "close": WindowEvent,
+    "pointer_down": PointerEvent,
+    "pointer_up": PointerEvent,
+    "pointer_move": PointerEvent,
+    "double_click": PointerEvent,
+    "wheel": WheelEvent,
+    "key_down": KeyboardEvent,
+    "key_up": KeyboardEvent,
+}
+
+
+EVENTS_TO_CONVERT = (
+    "key_down",
+    "key_up",
+    "pointer_down",
+    "pointer_move",
+    "pointer_up",
+    "wheel",
+    "close",
+    "resize",
+)

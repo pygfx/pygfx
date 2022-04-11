@@ -29,7 +29,7 @@ camera.position.set(75, 75, 75)
 camera.look_at(gfx.linalg.Vector3())
 
 controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(canvas, camera)
+controls.add_default_event_handlers(renderer, canvas, camera)
 
 
 def animate():

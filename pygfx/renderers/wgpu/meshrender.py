@@ -62,6 +62,7 @@ def mesh_renderer(render_info):
         ),
         Binding("s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"),
     ]
+    bindings1 = []  # non-auto-generated bindings
 
     # Per-vertex color, colormap, or a plane color?
     shader["color_mode"] = "uniform"
@@ -102,7 +103,7 @@ def mesh_renderer(render_info):
     n_instances = 1
     if isinstance(wobject, InstancedMesh):
         shader["instanced"] = True
-        bindings.append(
+        bindings1.append(
             Binding(
                 "s_instance_infos",
                 "buffer/read_only_storage",
@@ -152,6 +153,7 @@ def mesh_renderer(render_info):
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
             "bindings0": bindings,
+            "bindings1": bindings1,
         }
     ]
 
@@ -184,7 +186,7 @@ class MeshShader(WorldObjectShader):
         struct InstanceInfos {
             data: [[stride(80)]] array<InstanceInfo>;
         };
-        [[group(2), binding(0)]]
+        [[group(1), binding(0)]]
         var<storage,read> s_instance_infos: InstanceInfos;
         $$ endif
 

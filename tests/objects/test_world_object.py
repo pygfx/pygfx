@@ -1,5 +1,6 @@
 from math import pi
 from unittest.mock import Mock, call
+from weakref import ref
 
 from pygfx import WorldObject
 from pygfx.linalg import Euler, Vector3, Quaternion
@@ -108,3 +109,74 @@ def test_update_matrix_world():
     assert not child1.matrix_world_dirty
     # child2 should be flagged as dirty again now
     assert child2.matrix_world_dirty
+
+
+def test_reparenting():
+    root = WorldObject()
+    child1 = WorldObject()
+    child2 = WorldObject()
+    root.add(child1, child2)
+
+    obj = WorldObject()
+    child1.add(obj)
+
+    assert obj.parent is child1
+    assert obj in child1.children
+
+    child2.add(obj)
+
+    assert obj.parent is child2
+    assert obj not in child1.children
+    assert obj in child2.children
+
+
+def test_no_cyclic_references():
+    parent = WorldObject()
+    child = WorldObject()
+    parent.add(child)
+    # Add object without creating a strong reference
+    child.add(WorldObject())
+
+    # Create a weak ref to the added child
+    grandchild_ref = ref(child.children[0])
+    # Calling the ref should retrieve the grandchild
+    assert grandchild_ref() == child.children[0]
+
+    # When the child is removed (and deleted), the grandchild
+    # should also be garbage collected as there should be no
+    # direct references anymore
+    parent.remove(child)
+    del child
+
+    assert not grandchild_ref()
+
+
+def test_adjust_children_order():
+    root = WorldObject()
+    child1 = WorldObject()
+    child2 = WorldObject()
+
+    root.add(child1, child2)
+
+    assert root.children == (child1, child2)
+
+    root.add(child2, before=child1)
+
+    assert root.children == (child2, child1)
+
+    child3 = WorldObject()
+    root.add(child3, child1, before=child2)
+
+    assert root.children == (child3, child1, child2)
+
+    # Assert that nothing happens when adding the same element
+    # before itself
+    root.add(child1, before=child1)
+    assert root.children == (child3, child1, child2)
+
+    non_child = WorldObject()
+
+    # Append item at end when the `before` parameter
+    # is not in children
+    root.add(child1, before=non_child)
+    assert root.children == (child3, child2, child1)

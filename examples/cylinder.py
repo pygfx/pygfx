@@ -49,11 +49,7 @@ for pos, color, geometry in cylinders:
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(0, -65, 50)
 controls = gfx.OrbitControls(camera.position.clone())
-
-
-@canvas.add_event_handler("pointer_down", "pointer_up", "pointer_move", "wheel")
-def handle_event(event):
-    controls.handle_event(event, canvas, camera)
+controls.add_default_event_handlers(renderer, canvas, camera)
 
 
 def animate():
