@@ -45,7 +45,7 @@ def mock_time():
 def test_examples_run(module, pytestconfig):
     """Run every example marked to see if they can run without error."""
     if not pytestconfig.getoption("slow"):
-        pytest.skip("Skipping slow tests because --slow was not passed")
+        pytest.skip("pass --slow to run")
 
     env = os.environ.copy()
     env["WGPU_FORCE_OFFSCREEN"] = "true"
@@ -65,8 +65,8 @@ def test_examples_run(module, pytestconfig):
         )
     except subprocess.TimeoutExpired:
         pytest.xfail(
-            "does not exit automatically, use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
-            "or opt-out by adding `# run_example = false` to the module docstring."
+            "opt-out by adding `# run_example = false` to the module docstring,"
+            "or use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
         )
 
     assert result.returncode == 0, f"failed to run:\n{result.stdout}\n{result.stderr}"
