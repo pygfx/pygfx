@@ -90,51 +90,37 @@ pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 Under development, many things can change.
 
 
-## Example testing
+## Testing examples
 
-Include the comment `# test_example = true` in an example to have pytest run it as part of the test suite.
+There are two types of tests for examples included with pygfx:
 
-To support testing an example, ensure the following requirements are met:
+### Type 1: Checking if examples can run
+
+When running the test suite with `--slow` (enabled on CI), pytest will run every example in a subprocess,
+to see if it can run and exit cleanly. You can opt out of this mechanism by including the comment
+`# run_example = false` in the module docstring.
+
+### Type 2: Checking if examples output an image
+
+You can also (independently) opt-in to output testing for examples, by including the comment
+`# test_example = true` in the module docstring. Output testing means the test suite will
+attempt to import the `canvas` instance global from your example, and call `draw()` on it
+to see if an image is produced.
+
+To support this type of testing, ensure the following requirements are met:
 
 * The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
 * The `canvas` instance is exposed as a global in the module.
 * A rendering callback has been registered with `canvas.request_draw(fn)`.
 
-The test will start by simply verifying that the example can be executed without raising an error,
-and that an image can be rendered using the canvas.
+Additionally, if a reference screenshot is available in the `examples/screenshots` folder,
+the test suite will also compare the rendered image with the reference.
 
-### Reference screenshots
-
-If you are running on lavapipe (mesa's software rendering implementation of Vulkan), the test will also
-verify the rendered image against a reference screenshot, but only if one is available in the
-`examples/screenshots` folder. You can generate these reference screenshots as a part of running the
-test suite with the following command:
-
-`pytest --regenerate-screenshots -k test_examples tests`
-
-However, this functionality will be disabled if you are not running lavapipe on your system, since
-images cannot be compared across wgpu backends.
-
-Since it's quite a hassle to setup lavapipe locally on your system, we have provided a Dockerfile and
-CLI tool in the `scripts` folder that you can use to run a Ubuntu container that's configured
-with lavapipe and pygfx. Ensure either docker or podman is installed on your system,
-and use the provided `container.py` script to run any command you want in the container.
-
-The first time around, you will need to build the container image:
-
-`python scripts/container.py --build`
-
-Afterwards, you can use the image to do, well, whatever you want! Of course, the primary use case is
-(re)generating reference screenshots for the test suite, like so:
-
-`python scripts/container.py --volumes pytest --regenerate-screenshots -k test_examples tests`
-
-Notice that it's the same command listed earlier, just passed on to the container using the CLI tool.
-
-### Visual diffs
+Note: this step will be skipped when not on running CI. Since images will have subtle differences
+depending on the system on which it was rendered, that would make the tests unreliable.
 
 For every test that fails on screenshot verification, diffs will be generated for the rgb and alpha channels
-and made available in the `examples/screenshots/diffs` folder.
+and made available in the `examples/screenshots/diffs` folder. On CI, the `examples/screenshots` folder
+will be published as a build artifact so you can download and inspect the differences.
 
-If such a failure occurs on CI, the build will publish the entire folder
-as build artifacts so you can download the diffs, and inspect the differences and debug locally.
+TODO: Add separate github actions workflow to regenerate reference screenshots, and add usage instructions

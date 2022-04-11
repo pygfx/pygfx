@@ -22,25 +22,6 @@ examples_to_run = find_examples(negative_query="# run_example = false")
 examples_to_test = find_examples(query="# test_example = true", return_stems=True)
 
 
-@pytest.fixture(autouse=True, scope="module")
-def force_offscreen():
-    """Force the offscreen canvas to be selected by the auto gui module."""
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-    try:
-        yield
-    finally:
-        del os.environ["WGPU_FORCE_OFFSCREEN"]
-
-
-@pytest.fixture(autouse=True)
-def mock_time():
-    """Some examples use time to animate. Fix the return value
-    for repeatable output."""
-    with patch("time.time") as time_mock:
-        time_mock.return_value = 1.23456
-        yield
-
-
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda module: module.stem)
 def test_examples_run(module, pytestconfig):
     """Run every example marked to see if they can run without error."""
@@ -73,18 +54,40 @@ def test_examples_run(module, pytestconfig):
 
     if not zero_exit:
         # in some cases it's pretty hard to support an example to run on CI
-        # we xfail them on CI, but still allow them to run locally
+        # we skip them on CI, but still allow them to run locally
         # would be nice to implement support later of course
-        if "This application failed to start because no Qt platform plugin could be initialized." in result.stdout:
-            pytest.xfail("Qt examples not supported on CI")
+        if (
+            "This application failed to start because no Qt platform plugin could be initialized."
+            in result.stdout
+        ):
+            pytest.skip("Qt examples are currently not supported on headless")
         if "ModuleNotFoundError: No module named 'wx'" in result.stdout:
-            pytest.xfail("wx library is not available")
+            pytest.skip("wx library is not available")
 
     assert zero_exit, f"failed to run:\n{result.stdout}"
 
 
+@pytest.fixture
+def force_offscreen():
+    """Force the offscreen canvas to be selected by the auto gui module."""
+    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    try:
+        yield
+    finally:
+        del os.environ["WGPU_FORCE_OFFSCREEN"]
+
+
+@pytest.fixture
+def mock_time():
+    """Some examples use time to animate. Fix the return value
+    for repeatable output."""
+    with patch("time.time") as time_mock:
+        time_mock.return_value = 1.23456
+        yield
+
+
 @pytest.mark.parametrize("module", examples_to_test)
-def test_examples_rendering(module, pytestconfig):
+def test_examples_rendering(module, pytestconfig, force_offscreen, mock_time):
     """Run every example marked for testing."""
 
     # render
@@ -140,4 +143,4 @@ if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
     pytest.getoption = lambda x: False
-    test_examples("validate_volume", pytest)
+    test_examples_rendering("validate_volume", pytest)
