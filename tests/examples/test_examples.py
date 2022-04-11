@@ -45,7 +45,7 @@ def test_examples_run(module, pytestconfig):
             env=env,
         )
     except subprocess.TimeoutExpired:
-        pytest.xfail(
+        assert False, (
             "opt-out by adding `# run_example = false` to the module docstring,"
             "or use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
         )
@@ -112,17 +112,19 @@ def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
         imageio.imwrite(screenshot_path, img)
 
     # if a reference screenshot exists, assert it is equal
-    if screenshot_path.exists():
-        stored_img = imageio.imread(screenshot_path)
-        # assert similarity
-        is_similar = np.allclose(img, stored_img, atol=1)
-        update_diffs(module, is_similar, img, stored_img)
-        assert is_similar, (
-            f"rendered image for example {module} changed, see "
-            f"the {diffs_dir.relative_to(ROOT).as_posix()} folder"
-            " for visual diffs (you can download this folder from"
-            " CI build artifacts as well)"
-        )
+    assert (
+        screenshot_path.exists()
+    ), "found # test_example = true but no reference screenshot available"
+    stored_img = imageio.imread(screenshot_path)
+    # assert similarity
+    is_similar = np.allclose(img, stored_img, atol=1)
+    update_diffs(module, is_similar, img, stored_img)
+    assert is_similar, (
+        f"rendered image for example {module} changed, see "
+        f"the {diffs_dir.relative_to(ROOT).as_posix()} folder"
+        " for visual diffs (you can download this folder from"
+        " CI build artifacts as well)"
+    )
 
 
 def update_diffs(module, is_similar, img, stored_img):
