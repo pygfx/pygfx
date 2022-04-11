@@ -1,7 +1,9 @@
 """
 Example showing how to render to a subregion of a canvas.
 
-This is a feature necessary to implement e.g. subplots.
+This is a feature necessary to implement e.g. subplots. This example
+uses a low-level approach without using the Viewport object. See
+scene_subplot2.py for a slightly higher-level approach.
 """
 
 import numpy as np
@@ -47,10 +49,10 @@ def animate():
     cube1.rotation.multiply(rot)
 
     w, h = canvas.get_logical_size()
-    renderer.render(scene1, camera1, flush=False, viewport=(0, 0, w / 2, h / 2))
-    renderer.render(scene2, camera2, flush=False, viewport=(w / 2, 0, w / 2, h / 2))
-    renderer.render(scene2, camera2, flush=False, viewport=(0, h / 2, w / 2, h / 2))
-    renderer.render(scene1, camera1, flush=False, viewport=(w / 2, h / 2, w / 2, h / 2))
+    renderer.render(scene1, camera1, flush=False, rect=(0, 0, w / 2, h / 2))
+    renderer.render(scene2, camera2, flush=False, rect=(w / 2, 0, w / 2, h / 2))
+    renderer.render(scene2, camera2, flush=False, rect=(0, h / 2, w / 2, h / 2))
+    renderer.render(scene1, camera1, flush=False, rect=(w / 2, h / 2, w / 2, h / 2))
     renderer.flush()
 
     canvas.request_draw()

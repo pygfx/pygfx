@@ -1,5 +1,6 @@
 import time
 import weakref
+import logging
 
 import numpy as np
 import wgpu.backends.rs
@@ -25,6 +26,9 @@ from ._pipelinebuilder import ensure_pipeline
 from ._update import update_buffer, update_texture, update_texture_view
 
 
+logger = logging.getLogger("pygfx")
+
+
 # Definition uniform struct with standard info related to transforms,
 # provided to each shader as uniform at slot 0.
 # todo: a combined transform would be nice too, for performance
@@ -38,22 +42,6 @@ stdinfo_uniform_type = dict(
     logical_size="2xf4",
     flipped_winding="i4",  # A bool, really
 )
-
-
-def get_size_from_render_target(target):
-    """Get physical and logical size from a render target."""
-    if isinstance(target, wgpu.gui.WgpuCanvasBase):
-        physical_size = target.get_physical_size()
-        logical_size = target.get_logical_size()
-    elif isinstance(target, Texture):
-        physical_size = target.size[:2]
-        logical_size = physical_size
-    elif isinstance(target, TextureView):
-        physical_size = target.texture.size[:2]
-        logical_size = physical_size
-    else:
-        raise TypeError(f"Unexpected render target {target.__class__.__name__}")
-    return physical_size, logical_size
 
 
 def _get_sort_function(camera: Camera):
@@ -259,6 +247,51 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
 
     @property
+    def rect(self):
+        """The rectangular viewport for the renderer area."""
+        return (0, 0) + self.logical_size
+
+    @property
+    def logical_size(self):
+        """The size of the render target in logical pixels."""
+        target = self._target
+        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+            return target.get_logical_size()
+        elif isinstance(target, Texture):
+            return target.size[:2]  # assuming pixel-ratio 1
+        elif isinstance(target, TextureView):
+            return target.texture.size[:2]  # assuming pixel-ratio 1
+        else:
+            raise TypeError(f"Unexpected render target {target.__class__.__name__}")
+
+    @property
+    def physical_size(self):
+        """The physical size of the internal render texture."""
+
+        # Get physical size of the target
+        target = self._target
+        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+            target_psize = target.get_physical_size()
+        elif isinstance(target, Texture):
+            target_psize = target.size[:2]
+        elif isinstance(target, TextureView):
+            target_psize = target.texture.size[:2]
+        else:
+            raise TypeError(f"Unexpected render target {target.__class__.__name__}")
+
+        # Determine the pixel ratio of the render texture
+        if self._pixel_ratio:
+            pixel_ratio = self._pixel_ratio
+        else:
+            target_lsize = self.logical_size
+            pixel_ratio = target_psize[0] / target_lsize[0]
+            if pixel_ratio <= 1:
+                pixel_ratio = 2.0  # use 2 on non-hidpi displays
+
+        # Determine the physical size of the internal render textures
+        return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
+
+    @property
     def blend_mode(self):
         """The method for handling transparency:
 
@@ -359,6 +392,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         scene: WorldObject,
         camera: Camera,
         *,
+        rect=None,
         viewport=None,
         clear_color=None,
         flush=True,
@@ -370,8 +404,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 optionally has child objects.
             camera (Camera): The camera object to use, which defines the
                 viewpoint and view transform.
-            viewport (tuple, optional): The rectangular region to draw into,
-                expressed in logical pixels.
+            rect (tuple, optional): The rectangular region to draw into,
+                expressed in logical pixels, a.k.a. the viewport.
             clear_color (bool, optional): Whether to clear the color buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
@@ -404,48 +438,49 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # todo: also note that the fragment shader is (should be) optional
         #      (e.g. depth only passes like shadow mapping or z prepass)
 
-        # Get logical size (as two floats). This size is constant throughout
-        # all post-processing render passes.
-        target_size, logical_size = get_size_from_render_target(self._target)
-        if not all(x > 0 for x in logical_size):
+        # Get size for the render textures
+        logical_size = self.logical_size
+        physical_size = self.physical_size
+        if not all(i > 0 for i in logical_size):
             return
-
-        # Determine the physical size of the render texture
-        target_pixel_ratio = target_size[0] / logical_size[0]
-        if self._pixel_ratio:
-            pixel_ratio = self._pixel_ratio
-        else:
-            pixel_ratio = target_pixel_ratio
-            if pixel_ratio <= 1:
-                pixel_ratio = 2.0  # use 2 on non-hidpi displays
-
-        # Determine the physical size of the first and last render pass
-        framebuffer_size = tuple(max(1, int(pixel_ratio * x)) for x in logical_size)
+        pixel_ratio = physical_size[1] / logical_size[1]
 
         # Update the render targets
-        self._blender.ensure_target_size(device, framebuffer_size)
+        self._blender.ensure_target_size(device, physical_size)
+
+        # todo: 11-04-2022 - remove viewport arg and this backwards compat logic in the next release
+        if viewport is not None:
+            if not hasattr(self, "_warned_for_viewport_arg"):
+                self._warned_for_viewport_arg = True
+                logger.warning(
+                    "render(viewport=xx) is deprecated, use rect=xx instead."
+                )
+            if not rect:
+                rect = viewport
 
         # Get viewport in physical pixels
-        if not viewport:
-            scene_logical_size = logical_size
-            scene_physical_size = framebuffer_size
-            physical_viewport = 0, 0, framebuffer_size[0], framebuffer_size[1], 0, 1
-        elif len(viewport) == 4:
-            scene_logical_size = viewport[2], viewport[3]
-            physical_viewport = [int(i * pixel_ratio + 0.4999) for i in viewport]
+        if not rect:
+            scene_lsize = logical_size
+            scene_psize = physical_size
+            physical_viewport = 0, 0, physical_size[0], physical_size[1], 0, 1
+        elif len(rect) == 4:
+            scene_lsize = rect[2], rect[3]
+            physical_viewport = [int(i * pixel_ratio + 0.4999) for i in rect]
             physical_viewport = tuple(physical_viewport) + (0, 1)
-            scene_physical_size = physical_viewport[2], physical_viewport[3]
+            scene_psize = physical_viewport[2], physical_viewport[3]
         else:
-            raise ValueError("The viewport must be None or 4 elements (x, y, w, h).")
+            raise ValueError(
+                "The viewport rect must be None or 4 elements (x, y, w, h)."
+            )
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
-        camera.set_view_size(*scene_logical_size)
+        camera.set_view_size(*scene_lsize)
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
         # Update stdinfo uniform buffer object that we'll use during this render call
-        self._update_stdinfo_buffer(camera, scene_physical_size, scene_logical_size)
+        self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
@@ -629,7 +664,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
 
         # Make pos 0..1, so we can scale it to the render texture
-        _, logical_size = get_size_from_render_target(self._target)
+        logical_size = self.logical_size
         float_pos = pos[0] / logical_size[0], pos[1] / logical_size[1]
 
         # Prevent out of range and picking before first draw
@@ -712,6 +747,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         )
 
         return np.frombuffer(data, np.uint8).reshape(size[1], size[0], 4)
+
+    def request_draw(self, draw_function=None):
+        """Forwards a request_draw call to the target canvas. If the renderer's
+        target is not a canvas (e.g. a texture) this function does
+        nothing.
+        """
+        request_draw = getattr(self.target, "request_draw", None)
+        if request_draw:
+            request_draw(draw_function)
 
     def enable_events(self):
         """Add event handlers for a specific list of events that are generated

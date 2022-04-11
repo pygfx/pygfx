@@ -6,8 +6,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 cube = gfx.Mesh(
@@ -25,9 +24,9 @@ def animate():
     cube.rotation.multiply(rot)
 
     renderer.render(scene, camera)
-    canvas.request_draw()
+    renderer.request_draw()
 
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    renderer.request_draw(animate)
     run()
