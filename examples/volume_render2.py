@@ -31,7 +31,7 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.y = 500
 controls = gfx.OrbitControls(camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1))
 controls.rotate(-0.5, -0.5)
-controls.add_default_event_handlers(renderer, canvas, camera)
+controls.add_default_event_handlers(renderer, camera)
 
 # A clipping plane at z=0 - only the rotating volume will be affected
 material.clipping_planes = [(0, 0, 1, 0)]

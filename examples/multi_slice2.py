@@ -55,7 +55,7 @@ controls = gfx.OrbitControls(
     up=gfx.linalg.Vector3(0, 0, 1),
     zoom_changes_distance=False,
 )
-controls.add_default_event_handlers(renderer, canvas, camera)
+controls.add_default_event_handlers(renderer, camera)
 
 # Add a slight tilt. This is to show that the slices are still orthogonal
 # to the world coordinates.

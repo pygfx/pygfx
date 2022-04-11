@@ -39,7 +39,7 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 250
 
 controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(renderer, canvas, camera)
+controls.add_default_event_handlers(renderer, camera)
 
 
 def animate():
