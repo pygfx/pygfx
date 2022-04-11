@@ -98,12 +98,12 @@ There are two types of tests for examples included with pygfx:
 
 When running the test suite with `--slow` (enabled on CI), pytest will run every example in a subprocess,
 to see if it can run and exit cleanly. You can opt out of this mechanism by including the comment
-`# run_example = false` in the module docstring.
+`# run_example = false` in the module.
 
 ### Type 2: Checking if examples output an image
 
 You can also (independently) opt-in to output testing for examples, by including the comment
-`# test_example = true` in the module docstring. Output testing means the test suite will
+`# test_example = true` in the module. Output testing means the test suite will
 attempt to import the `canvas` instance global from your example, and call `draw()` on it
 to see if an image is produced.
 
@@ -123,4 +123,5 @@ For every test that fails on screenshot verification, diffs will be generated fo
 and made available in the `examples/screenshots/diffs` folder. On CI, the `examples/screenshots` folder
 will be published as a build artifact so you can download and inspect the differences.
 
-TODO: Add separate github actions workflow to regenerate reference screenshots, and add usage instructions
+If you want to update the reference screenshot for a given example, you can grab those from the
+build artifacts as well and commit them to your branch.
