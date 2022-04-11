@@ -27,7 +27,7 @@ scene.add(plane1, plane2, plane3, sphere)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 70
 controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(renderer, canvas, camera)
+controls.add_default_event_handlers(renderer, camera)
 
 
 @renderer.add_event_handler("key_down")

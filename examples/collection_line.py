@@ -45,7 +45,7 @@ camera = gfx.OrthographicCamera(cols, rows)
 camera.maintain_aspect = False
 controls = gfx.PanZoomControls(camera.position.clone())
 controls.pan(gfx.linalg.Vector3(cols / 2, rows / 2, 0))
-controls.add_default_event_handlers(renderer, canvas, camera)
+controls.add_default_event_handlers(renderer, camera)
 
 
 def animate():

@@ -235,6 +235,8 @@ class EventTarget:
 
         if not types:
             raise ValueError("No types registered for callback")
+        if not all(isinstance(t, str) for t in types):
+            raise TypeError("All types must be string.")
 
         def decorator(_callback):
             for type in types:
