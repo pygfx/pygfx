@@ -87,7 +87,7 @@ def mock_time():
 
 
 @pytest.mark.parametrize("module", examples_to_test)
-def test_examples_rendering(module, pytestconfig, force_offscreen, mock_time):
+def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
     """Run every example marked for testing."""
 
     # render
@@ -143,4 +143,4 @@ if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
     pytest.getoption = lambda x: False
-    test_examples_rendering("validate_volume", pytest)
+    test_examples_screenshots("validate_volume", pytest)
