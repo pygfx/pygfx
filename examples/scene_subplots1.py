@@ -1,111 +1,63 @@
 """
-Like scene_side_by_side, but now with a more plot-like idea, and mouse interaction.
+Example showing how to render to a subregion of a canvas.
+
+This is a feature necessary to implement e.g. subplots. This example
+uses a low-level approach without using the Viewport object. See
+scene_subplot2.py for a slightly higher-level approach.
 """
 
+import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-import numpy as np
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+# Create a anvas and a renderer
 
+canvas = WgpuCanvas(size=(500, 300))
+renderer = gfx.renderers.WgpuRenderer(canvas)
 
-# Create a scene to display multiple times. It contains three points clouds.
-scene = gfx.Scene()
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#ddd")))
+# Compose a 3D scene
 
-for clr, offset in [
-    ("red", (-3, -1, 0)),
-    ("green", (0, 0, 0)),
-    ("blue", (3, 1, 0)),
-]:
-    N = 100
-    positions = np.random.normal(size=(N, 3)) + np.array(offset)
-    colors = np.repeat([clr], N, 0)
+scene1 = gfx.Scene()
 
-    points = gfx.Points(
-        gfx.Geometry(positions=positions.astype(np.float32)),
-        gfx.PointsMaterial(size=10, color=clr),
-    )
-    scene.add(points)
+geometry1 = gfx.box_geometry(200, 200, 200)
+material1 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1.0))
+cube1 = gfx.Mesh(geometry1, material1)
+scene1.add(cube1)
 
+camera1 = gfx.PerspectiveCamera(70, 16 / 9)
+camera1.position.z = 400
 
-# Background
-viewport0 = gfx.Viewport(renderer)
-camera0 = gfx.NDCCamera()
-scene0 = gfx.Background(None, gfx.BackgroundMaterial("#fff"))
+# Compose another scene
 
-# Create view 1 - xy
-viewport1 = gfx.Viewport(renderer)
-camera1 = gfx.OrthographicCamera(8, 8)
-controls1 = gfx.PanZoomControls(
-    gfx.linalg.Vector3(0, 0, 1),
-    gfx.linalg.Vector3(0, 0, 0),
-    gfx.linalg.Vector3(0, 1, 0),
+scene2 = gfx.Scene()
+
+positions = np.array(
+    [[-1, -1, 0], [-1, +1, 0], [+1, +1, 0], [+1, -1, 0], [-1, -1, 0], [+1, +1, 0]],
+    np.float32,
 )
-controls1.add_default_event_handlers(viewport1, camera1)
+geometry2 = gfx.Geometry(positions=positions)
+material2 = gfx.LineMaterial(thickness=5.0, color=(0.8, 0.0, 0.2, 1.0))
+line2 = gfx.Line(geometry2, material2)
+scene2.add(line2)
 
-# Create view 2 - xz
-viewport2 = gfx.Viewport(renderer)
-camera2 = gfx.OrthographicCamera(8, 8)
-controls2 = gfx.PanZoomControls(
-    gfx.linalg.Vector3(0, 1, 0),
-    gfx.linalg.Vector3(0, 0, 0),
-    gfx.linalg.Vector3(0, 0, 1),
-)
-controls2.add_default_event_handlers(viewport2, camera2)
-
-# Create view 3 - yz
-camera3 = gfx.OrthographicCamera(8, 8)
-viewport3 = gfx.Viewport(renderer)
-controls3 = gfx.PanZoomControls(
-    gfx.linalg.Vector3(1, 0, 0),
-    gfx.linalg.Vector3(0, 0, 0),
-    gfx.linalg.Vector3(0, 0, 1),
-)
-controls3.add_default_event_handlers(viewport3, camera3)
-
-# Create view 4 - 3D
-viewport4 = gfx.Viewport(renderer)
-camera4 = gfx.OrthographicCamera(8, 8)
-controls4 = gfx.OrbitControls(
-    gfx.linalg.Vector3(1, 1, 1),
-    gfx.linalg.Vector3(0, 0, 0),
-    gfx.linalg.Vector3(0, 0, 1),
-    zoom_changes_distance=False,
-)
-controls4.add_default_event_handlers(viewport4, camera4)
-
-
-@renderer.add_event_handler("resize")
-def layout(event=None):
-    w, h = renderer.logical_size
-    w2, h2 = (w - 30) / 2, (h - 30) / 2
-    viewport1.rect = 10, 10, w2, h2
-    viewport2.rect = w / 2 + 5, 10, w2, h2
-    viewport3.rect = 10, h / 2 + 5, w2, h2
-    viewport4.rect = w / 2 + 5, h / 2 + 5, w2, h2
-
-
-# Initialize layout
-layout()
+camera2 = gfx.OrthographicCamera(2.2, 2.2)
 
 
 def animate():
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+    cube1.rotation.multiply(rot)
 
-    controls1.update_camera(camera1)
-    controls2.update_camera(camera2)
-    controls3.update_camera(camera3)
-    controls4.update_camera(camera4)
-
-    viewport0.render(scene0, camera0)
-    viewport1.render(scene, camera1)
-    viewport2.render(scene, camera2)
-    viewport3.render(scene, camera3)
-    viewport4.render(scene, camera4)
+    w, h = canvas.get_logical_size()
+    renderer.render(scene1, camera1, flush=False, rect=(0, 0, w / 2, h / 2))
+    renderer.render(scene2, camera2, flush=False, rect=(w / 2, 0, w / 2, h / 2))
+    renderer.render(scene2, camera2, flush=False, rect=(0, h / 2, w / 2, h / 2))
+    renderer.render(scene1, camera1, flush=False, rect=(w / 2, h / 2, w / 2, h / 2))
     renderer.flush()
+
+    canvas.request_draw()
 
 
 if __name__ == "__main__":
-    renderer.request_draw(animate)
+    canvas.request_draw(animate)
     run()
