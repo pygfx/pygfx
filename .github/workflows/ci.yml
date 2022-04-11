@@ -25,11 +25,11 @@ jobs:
         python-version: 3.9
     - name: Install dev dependencies
       run: |
-          python -m pip install --upgrade pip
-          pip install -U black flake8 flake8-black pep8-naming
+        python -m pip install --upgrade pip
+        pip install -U black flake8 flake8-black pep8-naming
     - name: Flake8
       run: |
-          flake8 .
+        flake8 .
 
   docs-build:
     name: Docs
@@ -44,12 +44,12 @@ jobs:
         python-version: 3.9
     - name: Install dev dependencies
       run: |
-          python -m pip install --upgrade pip
-          pip install -U -r docs/docs_requirements.txt
+        python -m pip install --upgrade pip
+        pip install -U -r docs/docs_requirements.txt
     - name: Build docs
       run: |
-          cd docs
-          make html SPHINXOPTS="-W --keep-going"
+        cd docs
+        make html SPHINXOPTS="-W --keep-going"
 
   test-builds:
     name: ${{ matrix.name }}
@@ -85,12 +85,12 @@ jobs:
         sudo apt install -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
-          python -m pip install --upgrade pip
-          pip install -U -r dev-requirements.txt
-          pip install -e .
+        python -m pip install --upgrade pip
+        pip install -U -r dev-requirements.txt
+        pip install -e .
     - name: Unit tests
       run: |
-          pytest -v --slow tests
+        pytest -v --slow tests
     - uses: actions/upload-artifact@v2
       if: failure()
       with:
@@ -110,26 +110,26 @@ jobs:
           python-version: '3.9'
       - name: Install dev dependencies
         run: |
-            python -m pip install --upgrade pip wheel setuptools twine
+          python -m pip install --upgrade pip wheel setuptools twine
       - name: Create source distribution
         run: |
           python setup.py sdist
       - name: Build wheels
         run: |
-            pip wheel --no-deps -w dist .
+          pip wheel --no-deps -w dist .
       - name: Test sdist
         shell: bash
         run: |
-            rm -rf ./pygfx
-            pushd $HOME
-            pip install $GITHUB_WORKSPACE/dist/*.tar.gz
-            popd
-            # don't run tests, we just want to know if the sdist can be installed
-            pip uninstall -y pygfx
-            git reset --hard HEAD
+          rm -rf ./pygfx
+          pushd $HOME
+          pip install $GITHUB_WORKSPACE/dist/*.tar.gz
+          popd
+          # don't run tests, we just want to know if the sdist can be installed
+          pip uninstall -y pygfx
+          git reset --hard HEAD
       - name: Twine check
         run: |
-            twine check dist/*
+          twine check dist/*
       - name: Upload distributions
         uses: actions/upload-artifact@v2
         with:
