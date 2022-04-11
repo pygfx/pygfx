@@ -10,6 +10,12 @@ def pytest_addoption(parser):
         dest="regenerate_screenshots",
         default=False,
     )
+    parser.addoption(
+        "--slow",
+        action="store_true",
+        dest="slow",
+        default=False,
+    )
 
 
 @pytest.fixture(autouse=True)

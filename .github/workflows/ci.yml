@@ -90,7 +90,7 @@ jobs:
           pip install -e .
     - name: Unit tests
       run: |
-          pytest -v tests
+          pytest -v --slow tests
     - uses: actions/upload-artifact@v2
       if: failure()
       with:

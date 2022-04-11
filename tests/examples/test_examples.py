@@ -3,7 +3,6 @@ Test that the examples run without error.
 """
 
 import os
-from pathlib import Path
 import importlib
 from unittest.mock import patch
 import subprocess
@@ -13,40 +12,14 @@ import imageio
 import numpy as np
 import pytest
 
-
-def _determine_lavapipe():
-    code = "import wgpu.utils; d = wgpu.utils.get_default_device(); print(d.adapter.properties['adapterType'], d.adapter.properties['backendType'])"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            code,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-    )
-    return (
-        result.stdout.strip().endswith("CPU Vulkan")
-        and "traceback" not in result.stderr.lower()
-    )
+from .testutils import is_lavapipe, find_examples, ROOT
 
 
-is_lavapipe = _determine_lavapipe()
+# run all tests unless they opt-out
+examples_to_run = find_examples(negative_query="# run_example = false")
 
-
-ROOT = Path(__file__).parent.parent
-examples_dir = ROOT / "examples"
-screenshots_dir = examples_dir / "screenshots"
-diffs_dir = screenshots_dir / "diffs"
-
-# find examples that contain the marker comment for inclusion in the test suite
-MARKER_COMMENT = "# test_example = true"
-examples_to_test = []
-for example_path in examples_dir.glob("*.py"):
-    example_code = example_path.read_text()
-    if MARKER_COMMENT in example_code:
-        examples_to_test.append(example_path.stem)
+# only test output of examples that opt-in
+examples_to_test = find_examples(query="# test_example = true", return_stems=True)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -68,8 +41,39 @@ def mock_time():
         yield
 
 
+@pytest.mark.parametrize("module", examples_to_run, ids=lambda module: module.stem)
+def test_examples_run(module, pytestconfig):
+    """Run every example marked to see if they can run without error."""
+    if not pytestconfig.getoption("slow"):
+        pytest.skip("Skipping slow tests because --slow was not passed")
+
+    env = os.environ.copy()
+    env["WGPU_FORCE_OFFSCREEN"] = "true"
+
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(module.relative_to(ROOT)),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            cwd=ROOT,
+            timeout=5,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.xfail(
+            "does not exit automatically, use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
+            "or opt-out by adding `# run_example = false` to the module docstring."
+        )
+
+    assert result.returncode == 0, f"failed to run:\n{result.stdout}\n{result.stderr}"
+
+
 @pytest.mark.parametrize("module", examples_to_test)
-def test_examples(module, pytestconfig):
+def test_examples_rendering(module, pytestconfig):
     """Run every example marked for testing."""
 
     # render
