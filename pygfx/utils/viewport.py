@@ -65,4 +65,4 @@ class Viewport:
         """A shorthand for ``renderer.render(scene, camera)`` at the appropriate
         viewport. Does not flush.
         """
-        self.renderer.render(scene, camera, viewport=self.rect, flush=False)
+        self.renderer.render(scene, camera, rect=self.rect, flush=False)

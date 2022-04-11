@@ -1,5 +1,6 @@
 import time
 import weakref
+import logging
 
 import numpy as np
 import wgpu.backends.rs
@@ -23,6 +24,9 @@ from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipelinebuilder import ensure_pipeline
 from ._update import update_buffer, update_texture, update_texture_view
+
+
+logger = logging.getLogger("pygfx")
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -388,6 +392,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         scene: WorldObject,
         camera: Camera,
         *,
+        rect=None,
         viewport=None,
         clear_color=None,
         flush=True,
@@ -399,8 +404,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 optionally has child objects.
             camera (Camera): The camera object to use, which defines the
                 viewpoint and view transform.
-            viewport (tuple, optional): The rectangular region to draw into,
-                expressed in logical pixels.
+            rect (tuple, optional): The rectangular region to draw into,
+                expressed in logical pixels, a.k.a. the viewport.
             clear_color (bool, optional): Whether to clear the color buffer
                 before rendering. By default this is True on the first
                 call to ``render()`` after a flush, and False otherwise.
@@ -443,22 +448,30 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update the render targets
         self._blender.ensure_target_size(device, physical_size)
 
-        # The viewpoer could be a Viewport object
-        if hasattr(viewport, "rect"):
-            viewport = viewport.rect
+        # todo: 11-04-2022 - remove viewport arg and this backwards compat logic in the next release
+        if viewport is not None:
+            if not hasattr(self, "_warned_for_viewport_arg"):
+                self._warned_for_viewport_arg = True
+                logger.warning(
+                    "render(viewport=xx) is deprecated, use rect=xx instead."
+                )
+            if not rect:
+                rect = viewport
 
         # Get viewport in physical pixels
-        if not viewport:
+        if not rect:
             scene_lsize = logical_size
             scene_psize = physical_size
             physical_viewport = 0, 0, physical_size[0], physical_size[1], 0, 1
-        elif len(viewport) == 4:
-            scene_lsize = viewport[2], viewport[3]
-            physical_viewport = [int(i * pixel_ratio + 0.4999) for i in viewport]
+        elif len(rect) == 4:
+            scene_lsize = rect[2], rect[3]
+            physical_viewport = [int(i * pixel_ratio + 0.4999) for i in rect]
             physical_viewport = tuple(physical_viewport) + (0, 1)
             scene_psize = physical_viewport[2], physical_viewport[3]
         else:
-            raise ValueError("The viewport must be None or 4 elements (x, y, w, h).")
+            raise ValueError(
+                "The viewport rect must be None or 4 elements (x, y, w, h)."
+            )
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()

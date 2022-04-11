@@ -494,7 +494,11 @@ class TransformGizmo(WorldObject):
     # %% Event handling
 
     def add_default_event_handlers(self, viewport, camera):
-        # Store objects that we need outside the event handling.
+        # Store objects that we need outside the event handling. In
+        # contrast to e.g. a controller, the Gizmo also needs to do
+        # some calculation at draw time (or right before a draw, to be
+        # precise), and for these calculations it needs the viewport
+        # cand camera.
         viewport = Viewport.from_viewport_or_renderer(viewport)
         self._viewport = viewport
         self._camera = camera

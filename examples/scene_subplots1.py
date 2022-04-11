@@ -87,6 +87,7 @@ def layout(event=None):
     viewport4.rect = w / 2 + 5, h / 2 + 5, w2, h2
 
 
+# Initialize layout
 layout()
 
 

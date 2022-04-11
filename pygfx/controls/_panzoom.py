@@ -1,10 +1,10 @@
 from typing import Tuple
 
 from ..linalg import Vector3, Matrix4, Quaternion
-from ._base import BaseControls, get_screen_vectors_in_world_cords
+from ._base import Controller, get_screen_vectors_in_world_cords
 
 
-class PanZoomControls(BaseControls):
+class PanZoomControls(Controller):
     """A class implementing two-dimensional pan-zoom camera control."""
 
     def __init__(

@@ -1,12 +1,12 @@
 from typing import Tuple
 
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
-from ._base import BaseControls, get_screen_vectors_in_world_cords
+from ._base import Controller, get_screen_vectors_in_world_cords
 
 # todo: maybe make an OrbitOrthoControls for ortho cameras, instead of this zoom param?
 
 
-class OrbitControls(BaseControls):
+class OrbitControls(Controller):
     """A class implementing orbit controls, where the camera is
     rotated around a center position (orbiting around it).
     """

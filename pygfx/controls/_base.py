@@ -4,14 +4,10 @@ from ..linalg import Vector3
 from ..utils.viewport import Viewport
 
 
-# todo: I hate that these classes are plural, maybe rename to Controller?
-class BaseControls:
-    """Abstract base controls."""
+class Controller:
+    """Abstract base controller."""
 
-    def __init__(self):
-        pass
-
-    def update_camera(self, camera: "Camera") -> "BaseControls":
+    def update_camera(self, camera: "Camera") -> "Controller":
         """Update the transform of the camera with the internal transform."""
         rot, pos, zoom = self.get_view()
         camera.rotation.copy(rot)
@@ -31,7 +27,7 @@ class BaseControls:
         )
 
     def handle_event(self, event, viewport, camera):
-        pass
+        raise NotImplementedError()
 
 
 def get_screen_vectors_in_world_cords(
