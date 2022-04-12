@@ -47,8 +47,8 @@ def animate():
     controls.update_camera(camera)
 
     w, h = canvas.get_logical_size()
-    renderer.render(scene1, camera, flush=False, viewport=(0, 0, w / 2, h))
-    renderer.render(scene2, camera, flush=False, viewport=(w / 2, 0, w / 2, h))
+    renderer.render(scene1, camera, flush=False, rect=(0, 0, w / 2, h))
+    renderer.render(scene2, camera, flush=False, rect=(w / 2, 0, w / 2, h))
     renderer.flush()
 
     canvas.request_draw()

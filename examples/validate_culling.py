@@ -43,13 +43,13 @@ camera = gfx.OrthographicCamera(6, 4)
 def animate():
     # Render top row
     camera.scale.z = 1
-    renderer.render(scene, camera, viewport=(0, 0, 600, 300), flush=False)
+    renderer.render(scene, camera, rect=(0, 0, 600, 300), flush=False)
     # Render same scene in bottom row. The camera's z scale is negative.
     # This means it looks backwards, but more importantly, it means that the
     # winding is affected. The result should still look correct because we
     # take this effect into account in the mesh shader.
     camera.scale.z = -1
-    renderer.render(scene, camera, viewport=(0, 300, 600, 300))
+    renderer.render(scene, camera, rect=(0, 300, 600, 300))
 
 
 canvas.request_draw(animate)

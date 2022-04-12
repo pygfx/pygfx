@@ -60,10 +60,10 @@ camera.position.x = 3
 def animate():
     w, h = canvas.get_logical_size()
     renderer.render(
-        scene1, camera, viewport=(0.0 * w, -0.4 * h, 0.7 * w, 1.4 * h), flush=False
+        scene1, camera, rect=(0.0 * w, -0.4 * h, 0.7 * w, 1.4 * h), flush=False
     )
     renderer.render(
-        scene2, camera, viewport=(0.5 * w, -0.4 * h, 0.7 * w, 1.4 * h), flush=False
+        scene2, camera, rect=(0.5 * w, -0.4 * h, 0.7 * w, 1.4 * h), flush=False
     )
     renderer.flush()
 
