@@ -96,7 +96,7 @@ There are two types of tests for examples included with pygfx:
 
 ### Type 1: Checking if examples can run
 
-When running the test suite with `--slow` (enabled on CI), pytest will run every example in a subprocess,
+When running the test suite, pytest will run every example in a subprocess,
 to see if it can run and exit cleanly. You can opt out of this mechanism by including the comment
 `# run_example = false` in the module.
 
