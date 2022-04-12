@@ -113,7 +113,7 @@ To support this type of testing, ensure the following requirements are met:
 * The `canvas` instance is exposed as a global in the module.
 * A rendering callback has been registered with `canvas.request_draw(fn)`.
 
-Reference screenshot are available in the `examples/screenshots` folder,
+Reference screenshots are stored in the `examples/screenshots` folder,
 the test suite will compare the rendered image with the reference.
 
 Note: this step will be skipped when not running on CI. Since images will have subtle differences
