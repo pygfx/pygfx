@@ -6,7 +6,7 @@ from ..renderers import Renderer
 
 
 class Controller:
-    """Abstract base controller."""
+    """Base camera controller."""
 
     def update_camera(self, camera: "Camera") -> "Controller":
         """Update the transform of the camera with the internal transform."""

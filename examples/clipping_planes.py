@@ -38,13 +38,13 @@ scene2 = create_scene(clipping_planes, "all")
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 250
 
-controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera.position.clone())
+controller.add_default_event_handlers(renderer, camera)
 
 
 def animate():
 
-    controls.update_camera(camera)
+    controller.update_camera(camera)
 
     w, h = canvas.get_logical_size()
     renderer.render(scene1, camera, flush=False, viewport=(0, 0, w / 2, h))

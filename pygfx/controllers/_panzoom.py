@@ -4,8 +4,8 @@ from ..linalg import Vector3, Matrix4, Quaternion
 from ._base import Controller, get_screen_vectors_in_world_cords
 
 
-class PanZoomControls(Controller):
-    """A class implementing two-dimensional pan-zoom camera control."""
+class PanZoomController(Controller):
+    """A class implementing two-dimensional pan-zoom camera controller."""
 
     def __init__(
         self,
@@ -36,14 +36,14 @@ class PanZoomControls(Controller):
         # Initialize orientation
         self.look_at(eye, target, up)
 
-    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "PanZoomControls":
+    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
         self.target = target
         self.up = up
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         return self
 
-    def pan(self, vec3: Vector3) -> "PanZoomControls":
+    def pan(self, vec3: Vector3) -> Controller:
         """Pan in 3D world coordinates."""
         self.target.add(vec3)
         return self
@@ -53,20 +53,20 @@ class PanZoomControls(Controller):
         pos: Tuple[float, float],
         viewport: "Viewport",
         camera: "Camera",
-    ) -> "PanZoomControls":
+    ) -> Controller:
         # Using this function may be a bit overkill. We can also simply
         # get the ortho cameras world_size (camera.visible_world_size).
-        # However, now the panzoom controls work with a perspecive camera ...
+        # However, now the panzoom controller work with a perspecive camera ...
         scene_size = viewport.logical_size
         vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
-    def pan_stop(self) -> "PanZoomControls":
+    def pan_stop(self) -> Controller:
         self._pan_info = None
         return self
 
-    def pan_move(self, pos: Tuple[float, float]) -> "PanZoomControls":
+    def pan_move(self, pos: Tuple[float, float]) -> Controller:
         """Pan the camera, based on a (2D) screen location. Call pan_start first."""
         if self._pan_info is None:
             return
@@ -80,7 +80,7 @@ class PanZoomControls(Controller):
         self._pan_info["last"] = pos
         return self
 
-    def zoom(self, multiplier: float) -> "PanZoomControls":
+    def zoom(self, multiplier: float) -> Controller:
         self.zoom_value = max(self.min_zoom, float(multiplier) * self.zoom_value)
         return self
 
@@ -90,7 +90,7 @@ class PanZoomControls(Controller):
         pos: Tuple[float, float],
         viewport: "Viewport",
         camera: "Camera",
-    ) -> "PanZoomControls":
+    ) -> Controller:
 
         x, y, w, h = viewport.rect
         offset = x, y

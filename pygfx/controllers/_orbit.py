@@ -3,11 +3,9 @@ from typing import Tuple
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 from ._base import Controller, get_screen_vectors_in_world_cords
 
-# todo: maybe make an OrbitOrthoControls for ortho cameras, instead of this zoom param?
 
-
-class OrbitControls(Controller):
-    """A class implementing orbit controls, where the camera is
+class OrbitController(Controller):
+    """A class implementing an orbit camera controller, where the camera is
     rotated around a center position (orbiting around it).
     """
 
@@ -16,6 +14,7 @@ class OrbitControls(Controller):
         eye: Vector3 = None,
         target: Vector3 = None,
         up: Vector3 = None,
+        *,
         zoom_changes_distance=True,
         min_zoom: float = 0.0001,
     ) -> None:
@@ -46,7 +45,7 @@ class OrbitControls(Controller):
         self.look_at(eye, target, up)
         self._initial_distance = self.distance
 
-    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> "OrbitControls":
+    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
         self.target = target
         self.up = up
@@ -55,7 +54,7 @@ class OrbitControls(Controller):
         self._up_quat_inv = self._up_quat.clone().inverse()
         return self
 
-    def pan(self, vec3: Vector3) -> "OrbitControls":
+    def pan(self, vec3: Vector3) -> Controller:
         """Pan in 3D world coordinates."""
         self.target.add(vec3)
         return self
@@ -65,18 +64,18 @@ class OrbitControls(Controller):
         pos: Tuple[float, float],
         viewport: "Viewport",
         camera: "Camera",
-    ) -> "OrbitControls":
+    ) -> Controller:
         """Start a panning operation based (2D) screen coordinates."""
         scene_size = viewport.logical_size
         vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
         self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
-    def pan_stop(self) -> "OrbitControls":
+    def pan_stop(self) -> Controller:
         self._pan_info = None
         return self
 
-    def pan_move(self, pos: Tuple[float, float]) -> "OrbitControls":
+    def pan_move(self, pos: Tuple[float, float]) -> Controller:
         """Pan the center of rotation, based on a (2D) screen location. Call pan_start first."""
         if self._pan_info is None:
             return
@@ -90,7 +89,7 @@ class OrbitControls(Controller):
         self._pan_info["last"] = pos
         return self
 
-    def rotate(self, theta: float, phi: float) -> "OrbitControls":
+    def rotate(self, theta: float, phi: float) -> Controller:
         """Rotate using angles (in radians). theta and phi are also known
         as azimuth and elevation.
         """
@@ -120,18 +119,18 @@ class OrbitControls(Controller):
         pos: Tuple[float, float],
         viewport: "Viewport",
         camera: "Camera",
-    ) -> "OrbitControls":
+    ) -> Controller:
         """Start a rotation operation based (2D) screen coordinates."""
         self._rotate_info = {"last": pos}
         return self
 
-    def rotate_stop(self) -> "OrbitControls":
+    def rotate_stop(self) -> Controller:
         self._rotate_info = None
         return self
 
     def rotate_move(
         self, pos: Tuple[float, float], speed: float = 0.0175
-    ) -> "OrbitControls":
+    ) -> Controller:
         """Rotate, based on a (2D) screen location. Call rotate_start first.
         The speed is 1 degree per pixel by default.
         """
@@ -142,7 +141,7 @@ class OrbitControls(Controller):
         self._rotate_info["last"] = pos
         return self
 
-    def zoom(self, multiplier: float) -> "OrbitControls":
+    def zoom(self, multiplier: float) -> Controller:
         self.zoom_value = max(self.min_zoom, float(multiplier) * self.zoom_value)
         if self.zoom_changes_distance:
             self.distance = self._initial_distance / self.zoom_value
@@ -185,3 +184,21 @@ class OrbitControls(Controller):
             f = 2 ** (-d * 0.0015)
             self.zoom(f)
             viewport.renderer.request_draw()
+
+
+class OrbitOrthoController(OrbitController):
+    """An orbit controller for orthographic camera's (zooming is done
+    by projection, instead of changing the distance.
+    """
+
+    def __init__(
+        self,
+        eye: Vector3 = None,
+        target: Vector3 = None,
+        up: Vector3 = None,
+        *,
+        min_zoom: float = 0.0001,
+    ):
+        super().__init__(
+            eye, target, up, zoom_changes_distance=False, min_zoom=min_zoom
+        )

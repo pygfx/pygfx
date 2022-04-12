@@ -120,9 +120,9 @@ Materials
     :member-order: bysource
 
 
-Controls
----------
+Controllers
+-----------
 
-.. automodule:: pygfx.controls
+.. automodule:: pygfx.controllers
     :members:
     :member-order: bysource

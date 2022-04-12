@@ -38,43 +38,42 @@ scene0 = gfx.Background(None, gfx.BackgroundMaterial("#fff"))
 # Create view 1 - xy
 viewport1 = gfx.Viewport(renderer)
 camera1 = gfx.OrthographicCamera(8, 8)
-controls1 = gfx.PanZoomControls(
+controller1 = gfx.PanZoomController(
     gfx.linalg.Vector3(0, 0, 1),
     gfx.linalg.Vector3(0, 0, 0),
     gfx.linalg.Vector3(0, 1, 0),
 )
-controls1.add_default_event_handlers(viewport1, camera1)
+controller1.add_default_event_handlers(viewport1, camera1)
 
 # Create view 2 - xz
 viewport2 = gfx.Viewport(renderer)
 camera2 = gfx.OrthographicCamera(8, 8)
-controls2 = gfx.PanZoomControls(
+controller2 = gfx.PanZoomController(
     gfx.linalg.Vector3(0, 1, 0),
     gfx.linalg.Vector3(0, 0, 0),
     gfx.linalg.Vector3(0, 0, 1),
 )
-controls2.add_default_event_handlers(viewport2, camera2)
+controller2.add_default_event_handlers(viewport2, camera2)
 
 # Create view 3 - yz
 camera3 = gfx.OrthographicCamera(8, 8)
 viewport3 = gfx.Viewport(renderer)
-controls3 = gfx.PanZoomControls(
+controller3 = gfx.PanZoomController(
     gfx.linalg.Vector3(1, 0, 0),
     gfx.linalg.Vector3(0, 0, 0),
     gfx.linalg.Vector3(0, 0, 1),
 )
-controls3.add_default_event_handlers(viewport3, camera3)
+controller3.add_default_event_handlers(viewport3, camera3)
 
 # Create view 4 - 3D
 viewport4 = gfx.Viewport(renderer)
 camera4 = gfx.OrthographicCamera(8, 8)
-controls4 = gfx.OrbitControls(
+controller4 = gfx.OrbitOrthoController(
     gfx.linalg.Vector3(1, 1, 1),
     gfx.linalg.Vector3(0, 0, 0),
     gfx.linalg.Vector3(0, 0, 1),
-    zoom_changes_distance=False,
 )
-controls4.add_default_event_handlers(viewport4, camera4)
+controller4.add_default_event_handlers(viewport4, camera4)
 
 
 @renderer.add_event_handler("resize")
@@ -93,10 +92,10 @@ layout()
 
 def animate():
 
-    controls1.update_camera(camera1)
-    controls2.update_camera(camera2)
-    controls3.update_camera(camera3)
-    controls4.update_camera(camera4)
+    controller1.update_camera(camera1)
+    controller2.update_camera(camera2)
+    controller3.update_camera(camera3)
+    controller4.update_camera(camera4)
 
     viewport0.render(scene0, camera0)
     viewport1.render(scene, camera1)

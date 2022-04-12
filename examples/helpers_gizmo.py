@@ -22,8 +22,8 @@ scene.add(gfx.GridHelper())
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 4
-controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(viewport, camera)
+controller = gfx.OrbitController(camera.position.clone())
+controller.add_default_event_handlers(viewport, camera)
 
 gizmo = gfx.TransformGizmo(cube)
 gizmo.add_default_event_handlers(viewport, camera)
@@ -32,7 +32,7 @@ gizmo.add_default_event_handlers(viewport, camera)
 def animate():
     # We render the scene, and then the gizmo on top,
     # as an overlay, so that it's always on top.
-    controls.update_camera(camera)
+    controller.update_camera(camera)
     viewport.render(scene, camera)
     viewport.render(gizmo, camera)
     renderer.flush()
