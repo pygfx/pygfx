@@ -31,9 +31,6 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda module: module.stem)
 def test_examples_run(module, pytestconfig):
     """Run every example marked to see if they can run without error."""
-    if not pytestconfig.getoption("slow"):
-        pytest.skip("pass --slow to run")
-
     env = os.environ.copy()
     env["WGPU_FORCE_OFFSCREEN"] = "true"
 

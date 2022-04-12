@@ -58,16 +58,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Test Linux py37
+          - name: Test py37
             os: ubuntu-latest
             pyversion: '3.7'
-          - name: Test Linux py38
+          - name: Test py38
             os: ubuntu-latest
             pyversion: '3.8'
-          - name: Test Linux py39
+          - name: Test py39
             os: ubuntu-latest
             pyversion: '3.9'
-          - name: Test Linux py310
+          - name: Test examples py39
+            os: ubuntu-latest
+            pyversion: '3.9'
+            examples: true
+          - name: Test py310
             os: ubuntu-latest
             pyversion: '3.10'
     steps:
@@ -89,12 +93,17 @@ jobs:
         pip install -U -r dev-requirements.txt
         pip install -e .
     - name: Unit tests
+      if: ${{ !matrix.examples }}
       run: |
-        pytest -v --slow tests
+        pytest -v -k 'not test_examples' tests
+    - name: Test examples
+      if: ${{ matrix.examples }}
+      run: |
+        pytest -v -k 'test_examples' tests
     - uses: actions/upload-artifact@v2
-      if: failure()
+      if: ${{ matrix.examples && failure() }}
       with:
-        name: screenshots-${{ matrix.pyversion }}
+        name: screenshot-diffs
         path: examples/screenshots
 
   release-build:
