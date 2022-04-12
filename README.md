@@ -116,8 +116,8 @@ To support this type of testing, ensure the following requirements are met:
 Reference screenshot are available in the `examples/screenshots` folder,
 the test suite will compare the rendered image with the reference.
 
-Note: this step will be skipped when not on running CI. Since images will have subtle differences
-depending on the system on which it was rendered, that would make the tests unreliable.
+Note: this step will be skipped when not running on CI. Since images will have subtle differences
+depending on the system on which they are rendered, that would make the tests unreliable.
 
 For every test that fails on screenshot verification, diffs will be generated for the rgb and alpha channels
 and made available in the `examples/screenshots/diffs` folder. On CI, the `examples/screenshots` folder
