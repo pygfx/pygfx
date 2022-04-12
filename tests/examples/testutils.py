@@ -47,9 +47,8 @@ def find_examples(query=None, negative_query=None, return_stems=False):
             negative_query is None or negative_query not in example_code
         )
         if query_match and negative_query_match:
-            if return_stems:
-                example_return = example_path.stem
-            else:
-                example_return = example_path
-            result.append(example_return)
+            result.append(example_path)
+    result = list(sorted(result))
+    if return_stems:
+        result = [r.stem for r in result]
     return result
