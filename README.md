@@ -90,14 +90,38 @@ pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 Under development, many things can change.
 
 
-## Example testing
+## Testing examples
 
-Include the comment `# test_example = true` in an example to have pytest run it as part of the test suite.
+There are two types of tests for examples included with pygfx:
 
-To support testing an example, ensure the following requirements are met:
+### Type 1: Checking if examples can run
+
+When running the test suite, pytest will run every example in a subprocess,
+to see if it can run and exit cleanly. You can opt out of this mechanism by including the comment
+`# run_example = false` in the module.
+
+### Type 2: Checking if examples output an image
+
+You can also (independently) opt-in to output testing for examples, by including the comment
+`# test_example = true` in the module. Output testing means the test suite will
+attempt to import the `renderer` instance global from your example, and call it
+to see if an image is produced.
+
+To support this type of testing, ensure the following requirements are met:
 
 * The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
-* The `canvas` instance is exposed as a global in the module.
+* The `renderer` instance is exposed as a global in the module.
+* A rendering callback has been registered with `renderer.request_draw(fn)`.
 
-By default the test will simply verify that the example can be executed without an error, and that an
-image can be rendered using the canvas.
+Reference screenshots are stored in the `examples/screenshots` folder,
+the test suite will compare the rendered image with the reference.
+
+Note: this step will be skipped when not running on CI. Since images will have subtle differences
+depending on the system on which they are rendered, that would make the tests unreliable.
+
+For every test that fails on screenshot verification, diffs will be generated for the rgb and alpha channels
+and made available in the `examples/screenshots/diffs` folder. On CI, the `examples/screenshots` folder
+will be published as a build artifact so you can download and inspect the differences.
+
+If you want to update the reference screenshot for a given example, you can grab those from the
+build artifacts as well and commit them to your branch.

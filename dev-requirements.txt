@@ -7,9 +7,11 @@ pytest
 setuptools
 wheel
 twine
+imageio
 
 # examples
 PySide6
 imageio
 imageio-ffmpeg
 scikit-image
+trimesh

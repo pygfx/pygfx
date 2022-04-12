@@ -3,6 +3,15 @@ import numpy as np
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--regenerate-screenshots",
+        action="store_true",
+        dest="regenerate_screenshots",
+        default=False,
+    )
+
+
 @pytest.fixture(autouse=True)
 def predictable_random_numbers():
     """
