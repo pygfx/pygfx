@@ -12,7 +12,13 @@ import imageio.v2 as imageio
 import numpy as np
 import pytest
 
-from .testutils import is_lavapipe, find_examples, ROOT, screenshots_dir, diffs_dir
+from tests.examples.testutils import (
+    is_lavapipe,
+    find_examples,
+    ROOT,
+    screenshots_dir,
+    diffs_dir,
+)
 
 
 # run all tests unless they opt-out
@@ -129,9 +135,17 @@ def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
 
 def update_diffs(module, is_similar, img, stored_img):
     diffs_dir.mkdir(exist_ok=True)
+    # cast to float32 to avoid overflow
+    # compute absolute per-pixel difference
+    diffs_rgba = np.abs(stored_img.astype("f4") - img)
+    # magnify small values, making it easier to spot small errors
+    diffs_rgba = ((diffs_rgba / 255) ** 0.25) * 255
+    # cast back to uint8
+    diffs_rgba = diffs_rgba.astype("u1")
+    # split into an rgb and an alpha diff
     diffs = {
-        diffs_dir / f"{module}-rgb.png": np.abs(stored_img[..., :3] - img[..., :3]),
-        diffs_dir / f"{module}-alpha.png": np.abs(stored_img[..., 3] - img[..., 3]),
+        diffs_dir / f"{module}-rgb.png": diffs_rgba[..., :3],
+        diffs_dir / f"{module}-alpha.png": diffs_rgba[..., 3],
     }
 
     for path, diff in diffs.items():
@@ -145,4 +159,5 @@ if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
     pytest.getoption = lambda x: False
-    test_examples_screenshots("validate_volume", pytest)
+    is_lavapipe = True  # noqa: F811
+    test_examples_screenshots("validate_volume", pytest, None, None)
