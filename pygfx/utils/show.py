@@ -10,7 +10,7 @@ from .. import (
     WorldObject,
     Scene,
     PerspectiveCamera,
-    OrbitControls,
+    OrbitController,
 )
 
 
@@ -19,7 +19,7 @@ def show(object: WorldObject, up=None):
 
     Parameters:
         object (WorldObject): The object to show.
-        up (Vector3): Optional. Configure the up vector for the camera controls.
+        up (Vector3): Optional. Configure the up vector for the camera controller.
     """
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -38,11 +38,11 @@ def show(object: WorldObject, up=None):
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)
 
-    controls = OrbitControls(camera.position.clone(), look_at, up=up)
-    controls.add_default_event_handlers(renderer, camera)
+    controller = OrbitController(camera.position.clone(), look_at, up=up)
+    controller.add_default_event_handlers(renderer, camera)
 
     def animate():
-        controls.update_camera(camera)
+        controller.update_camera(camera)
         renderer.render(scene, camera)
 
     canvas.request_draw(animate)

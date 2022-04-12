@@ -8,7 +8,7 @@ from .geometries import *
 from .materials import *
 from .cameras import *
 from .helpers import *
-from .controls import *
+from .controllers import *
 
 from .renderers import *
 

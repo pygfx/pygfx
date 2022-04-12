@@ -14,7 +14,7 @@ This is a Python render engine build on top of [WGPU](https://github.com/pygfx/w
 We take a lot of inspiration from ThreeJS, e.g.:
 
 * Materials and Geometry are combined in world objects.
-* Decoupled cameras and controls.
+* Decoupled cameras and controllers.
 * The code for the render engines is decoupled from the objects, allowing multiple render engines (e.g. wgpu and svg).
 
 Further we aim for a few niceties:

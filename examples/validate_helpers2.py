@@ -28,12 +28,12 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(75, 75, 75)
 camera.look_at(gfx.linalg.Vector3())
 
-controls = gfx.OrbitControls(camera.position.clone())
-controls.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera.position.clone())
+controller.add_default_event_handlers(renderer, camera)
 
 
 def animate():
-    controls.update_camera(camera)
+    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 
