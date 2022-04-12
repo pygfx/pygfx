@@ -104,14 +104,14 @@ to see if it can run and exit cleanly. You can opt out of this mechanism by incl
 
 You can also (independently) opt-in to output testing for examples, by including the comment
 `# test_example = true` in the module. Output testing means the test suite will
-attempt to import the `canvas` instance global from your example, and call `draw()` on it
+attempt to import the `renderer` instance global from your example, and call it
 to see if an image is produced.
 
 To support this type of testing, ensure the following requirements are met:
 
 * The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
-* The `canvas` instance is exposed as a global in the module.
-* A rendering callback has been registered with `canvas.request_draw(fn)`.
+* The `renderer` instance is exposed as a global in the module.
+* A rendering callback has been registered with `renderer.request_draw(fn)`.
 
 Reference screenshots are stored in the `examples/screenshots` folder,
 the test suite will compare the rendered image with the reference.

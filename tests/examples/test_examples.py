@@ -95,7 +95,7 @@ def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
 
     # render
     example = importlib.import_module(f"examples.{module}")
-    img = example.canvas.draw()
+    img = example.renderer.target.draw()
 
     # check if _something_ was rendered
     assert img is not None and img.size > 0
