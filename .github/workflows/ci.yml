@@ -53,26 +53,18 @@ jobs:
 
   test-builds:
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: Test py37
-            os: ubuntu-latest
             pyversion: '3.7'
           - name: Test py38
-            os: ubuntu-latest
             pyversion: '3.8'
           - name: Test py39
-            os: ubuntu-latest
             pyversion: '3.9'
-          - name: Test examples py39
-            os: ubuntu-latest
-            pyversion: '3.9'
-            examples: true
           - name: Test py310
-            os: ubuntu-latest
             pyversion: '3.10'
     steps:
     - uses: actions/checkout@v2
@@ -80,8 +72,27 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.pyversion }}
+    - name: Install dev dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -U -r dev-requirements.txt
+        pip install -e .
+    - name: Unit tests
+      run: |
+        pytest -v -k 'not test_examples' tests
+
+  test-examples-build:
+    name: Test examples
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
     - name: Install llvmpipe and lavapipe for offscreen canvas
-      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update -y -qq
         sudo add-apt-repository ppa:oibaf/graphics-drivers -y
@@ -92,19 +103,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -U -r dev-requirements.txt
         pip install -e .
-    - name: Unit tests
-      if: ${{ !matrix.examples }}
-      run: |
-        pytest -v -k 'not test_examples' tests
     - name: Test examples
-      if: ${{ matrix.examples }}
       run: |
         pytest -v -k 'test_examples' tests
     - uses: actions/upload-artifact@v2
-      if: ${{ matrix.examples && failure() }}
+      if: ${{ failure() }}
       with:
         name: screenshot-diffs
-        path: examples/screenshots
+        path: examples/screenshots/diffs
 
   release-build:
     name: Build release on ubuntu-latest
