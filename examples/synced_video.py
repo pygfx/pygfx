@@ -39,15 +39,12 @@ for i in range(3):
     scene.add(images[-1])
 
 
-# update with new random image
-def update_img(obj):
+def animate():
+    # update with new random image
     for img in images:
         img.geometry.grid.data[:] = np.random.rand(512, 512).astype(np.float32) * 255
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
 
-
-def animate():
-    scene.traverse(update_img)
     renderer.render(scene, camera)
     canvas.request_draw()
 
