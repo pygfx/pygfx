@@ -14,13 +14,7 @@ dims = (512, 512)  # image dimensions
 center_cam_pos = (256, 256, 0)
 
 # colormaps for each of the 4 images
-cmaps = \
-    [
-        gfx.cm.inferno,
-        gfx.cm.plasma,
-        gfx.cm.magma,
-        gfx.cm.viridis
-    ]
+cmaps = [gfx.cm.inferno, gfx.cm.plasma, gfx.cm.magma, gfx.cm.viridis]
 
 # lists of everything necessary to make this plot
 scenes = list()
@@ -37,8 +31,10 @@ for i in range(4):
 
     # create Image WorldObject
     img = gfx.Image(
-        gfx.Geometry(grid=gfx.Texture(np.random.rand(*dims).astype(np.float32) * 255, dim=2)),
-        gfx.ImageBasicMaterial(clim=(0, 255), map=cmaps[i])
+        gfx.Geometry(
+            grid=gfx.Texture(np.random.rand(*dims).astype(np.float32) * 255, dim=2)
+        ),
+        gfx.ImageBasicMaterial(clim=(0, 255), map=cmaps[i]),
     )
 
     # add image to list
@@ -61,9 +57,9 @@ for i in range(4):
 
     # get the initial controller params so the camera can be reset later
     cntl_default = dict()
-    cntl_default['distance'] = controller.distance
-    cntl_default['zoom_value'] = controller.zoom_value
-    cntl_default['target'] = controller.target.clone()
+    cntl_default["distance"] = controller.distance
+    cntl_default["zoom_value"] = controller.zoom_value
+    cntl_default["target"] = controller.target.clone()
     cntl_defaults.append(cntl_default)
 
 w_div = 2
@@ -76,7 +72,7 @@ def produce_rect(w, h):
         (0, 0, w / w_div, h / h_div),
         (w / w_div, 0, w / w_div, h / h_div),
         (0, h / h_div, w / w_div, h / h_div),
-        (w / w_div, h / h_div, w / w_div, h / h_div)
+        (w / w_div, h / h_div, w / w_div, h / h_div),
     ]
 
 
@@ -98,20 +94,26 @@ def animate():
 
     # reset the cameras if `reset_camera` is set to True
     if reset_cameras:
-        for camera, controller, cntrl_default in zip(cameras, controllers, cntl_defaults):
-            pan_delta = cntl_default['target'].clone().sub(camera.position)  # find the dx, dy
+        for camera, controller, cntrl_default in zip(
+            cameras, controllers, cntl_defaults
+        ):
+            pan_delta = (
+                cntl_default["target"].clone().sub(camera.position)
+            )  # find the dx, dy
             controller.pan(pan_delta)  # pan to initial state
 
             # set zoom and distance to initial state
-            controller.zoom_value = cntl_default['zoom_value']
-            controller.distance = cntl_default['distance']
+            controller.zoom_value = cntl_default["zoom_value"]
+            controller.distance = cntl_default["distance"]
 
             # update camera with the new params
             controller.update_camera(camera)
 
         reset_cameras = False
     else:
-        for camera, controller, cntrl_default in zip(cameras, controllers, cntl_defaults):
+        for camera, controller, cntrl_default in zip(
+            cameras, controllers, cntl_defaults
+        ):
             # if not reset, update with the pan & zoom params
             controller.update_camera(camera)
 
@@ -140,5 +142,3 @@ if __name__ == "__main__":
 # reset_button.on_click(on_button_clicked)
 #
 # reset_button
-
-
