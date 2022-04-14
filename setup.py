@@ -24,7 +24,7 @@ extras_require = {
         "pep8-naming",
         "pytest",
         "setuptools",
-        "wheels",
+        "wheel",
         "twine",
     ],
     "examples": [
