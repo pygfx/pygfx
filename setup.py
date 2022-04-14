@@ -16,6 +16,26 @@ runtime_deps = [
     "Jinja2",
 ]
 
+extras_require = {
+    "dev": [
+        "black",
+        "flake8",
+        "flake8-black",
+        "pep8-naming",
+        "pytest",
+        "setuptools",
+        "wheels",
+        "twine",
+    ],
+    "examples": [
+        "PySide6",
+        "imageio",
+        "imageio-ffmpeg>=0.4.7",
+        "scikit-image",
+        "trimesh",
+    ],
+}
+
 
 setup(
     name=NAME,
@@ -25,6 +45,7 @@ setup(
     ),
     python_requires=">=3.7.0",
     install_requires=runtime_deps,
+    extras_require=extras_require,
     license="BSD 2-Clause",
     description=SUMMARY,
     long_description=open("README.md").read(),

@@ -25,8 +25,7 @@ jobs:
     - name: Install dev dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -U -r dev-requirements.txt
-        pip install -e .
+        pip install -e .[examples]
     - name: Regenerate screenshots
       run: |
         pytest -v --regenerate-screenshots -k test_examples_screenshots tests
