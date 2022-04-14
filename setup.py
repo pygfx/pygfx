@@ -26,8 +26,10 @@ extras_require = {
         "setuptools",
         "wheel",
         "twine",
+        "imageio",
     ],
     "examples": [
+        "pytest",
         "PySide6",
         "imageio",
         "imageio-ffmpeg>=0.4.7",
