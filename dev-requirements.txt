@@ -12,6 +12,6 @@ imageio
 # examples
 PySide6
 imageio
-imageio-ffmpeg==0.4.5
+imageio-ffmpeg>=0.4.7
 scikit-image
 trimesh
