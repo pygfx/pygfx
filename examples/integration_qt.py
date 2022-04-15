@@ -1,3 +1,5 @@
+# run_example = false
+
 import random
 
 from PySide6 import QtWidgets

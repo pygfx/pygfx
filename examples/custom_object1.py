@@ -39,8 +39,8 @@ class TriangleShader(WorldObjectShader):
 
     def vertex_shader(self):
         return """
-        [[stage(vertex)]]
-        fn vs_main([[builtin(vertex_index)]] index: u32) -> [[builtin(position)]] vec4<f32> {
+        @stage(vertex)
+        fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
             var positions = array<vec2<f32>, 3>(
                 vec2<f32>(10.0, 10.0), vec2<f32>(90.0, 10.0), vec2<f32>(10.0, 90.0)
             );
@@ -51,7 +51,7 @@ class TriangleShader(WorldObjectShader):
 
     def fragment_shader(self):
         return """
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main() -> FragmentOutput {
             var out: FragmentOutput;
             out.color = vec4<f32>(1.0, 0.7, 0.2, 1.0);

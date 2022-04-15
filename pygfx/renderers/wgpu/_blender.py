@@ -89,23 +89,23 @@ class OpaquePass(BasePass):
 
     def get_color_attachments(self, blender, clear_color):
         if clear_color:
-            color_load_value = 0, 0, 0, 0
-            pick_load_value = 0, 0, 0, 0
+            color_load_op = pick_load_op = wgpu.LoadOp.clear
         else:
-            color_load_value = wgpu.LoadOp.load
-            pick_load_value = wgpu.LoadOp.load
+            color_load_op = pick_load_op = wgpu.LoadOp.load
 
         return [
             {
                 "view": blender.color_view,
                 "resolve_target": None,
-                "load_value": color_load_value,
+                "clear_value": (0, 0, 0, 0),
+                "load_op": color_load_op,
                 "store_op": wgpu.StoreOp.store,
             },
             {
                 "view": blender.pick_view,
                 "resolve_target": None,
-                "load_value": pick_load_value,
+                "clear_value": (0, 0, 0, 0),
+                "load_op": pick_load_op,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -120,15 +120,16 @@ class OpaquePass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_value": 1.0,
+            "depth_clear_value": 1.0,
+            "depth_load_op": wgpu.LoadOp.clear,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<u32>;
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             if (color.a < 1.0) { discard; }
@@ -147,8 +148,8 @@ class FullOpaquePass(OpaquePass):
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<u32>;
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
@@ -185,8 +186,8 @@ class SimpleSinglePass(OpaquePass):
         # Take depth into account, but don't treat transparent fragments differently
         return """
         struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<u32>;
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             var out : FragmentOutput;
@@ -223,7 +224,7 @@ class SimpleTransparencyPass(BasePass):
             {
                 "view": blender.color_view,
                 "resolve_target": None,
-                "load_value": wgpu.LoadOp.load,
+                "load_op": wgpu.LoadOp.load,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -238,14 +239,14 @@ class SimpleTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_value": wgpu.LoadOp.load,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.discard,
         }
 
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
+            @location(0) color: vec4<f32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= 0.0) { discard; }
@@ -308,19 +309,21 @@ class WeightedTransparencyPass(BasePass):
 
     def get_color_attachments(self, blender, clear_color):
         # We always clear, the clear_color only really applies to the main color buffer.
-        accum_load_value = 0, 0, 0, 0
-        reveal_load_value = 1, 0, 0, 0
+        accum_clear_value = 0, 0, 0, 0
+        reveal_clear_value = 1, 0, 0, 0
         return [
             {
                 "view": blender.accum_view,
                 "resolve_target": None,
-                "load_value": accum_load_value,
+                "clear_value": accum_clear_value,
+                "load_op": wgpu.logger.clear,
                 "store_op": wgpu.StoreOp.store,
             },
             {
                 "view": blender.reveal_view,
                 "resolve_target": None,
-                "load_value": reveal_load_value,
+                "clear_value": reveal_clear_value,
+                "load_op": wgpu.logger.clear,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -335,15 +338,15 @@ class WeightedTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_value": wgpu.LoadOp.load,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.discard,
         }
 
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            [[location(0)]] accum: vec4<f32>;
-            [[location(1)]] reveal: f32;
+            @location(0) accum: vec4<f32>,
+            @location(1) reveal: f32,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= 0.0) { discard; }
@@ -382,12 +385,12 @@ class FrontmostTransparencyPass(BasePass):
 
     def get_color_attachments(self, blender, clear_color):
         # We always clear, the clear_color only really applies to the main color buffer.
-        color_load_value = 0, 0, 0, 0
         return [
             {
                 "view": blender.frontcolor_view,
                 "resolve_target": None,
-                "load_value": color_load_value,
+                "clear_value": (0, 0, 0, 0),
+                "load_op": wgpu.LoadOp.clear,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -402,15 +405,16 @@ class FrontmostTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_value": 1.0,
+            "depth_clear_value": 1.0,
+            "depth_load_op": wgpu.LoadOp.clear,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
         return """
         struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<u32>;
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             if (color.a <= 0.0 || color.a >= 1.0) { discard; }
@@ -533,7 +537,7 @@ class BaseFragmentBlender:
                 {
                     "view": self.color_view,
                     "resolve_target": None,
-                    "load_value": wgpu.LoadOp.load,
+                    "load_op": wgpu.LoadOp.load,
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
@@ -543,7 +547,7 @@ class BaseFragmentBlender:
         render_pass.set_pipeline(render_pipeline)
         render_pass.set_bind_group(0, bind_group, [], 0, 99)
         render_pass.draw(4, 1)
-        render_pass.end_pass()
+        render_pass.end()
 
         return [command_encoder.finish()]
 
@@ -650,9 +654,9 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         ]
 
         bindings_code = """
-            [[group(0), binding(0)]]
+            @group(0) @binding(0)
             var r_accum: texture_2d<f32>;
-            [[group(0), binding(1)]]
+            @group(0) @binding(1)
             var r_reveal: texture_2d<f32>;
         """
 
@@ -760,11 +764,11 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         ]
 
         bindings_code = """
-            [[group(0), binding(0)]]
+            @group(0) @binding(0)
             var r_accum: texture_2d<f32>;
-            [[group(0), binding(1)]]
+            @group(0) @binding(1)
             var r_reveal: texture_2d<f32>;
-            [[group(0), binding(2)]]
+            @group(0) @binding(2)
             var r_frontcolor: texture_2d<f32>;
         """
 

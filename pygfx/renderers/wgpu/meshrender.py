@@ -172,26 +172,26 @@ class MeshShader(WorldObjectShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
             $$ if instanced
-            [[builtin(instance_index)]] instance_index : u32;
+            @builtin(instance_index) instance_index : u32,
             $$ endif
         };
 
         $$ if instanced
         struct InstanceInfo {
-            transform: mat4x4<f32>;
-            id: u32;
+            transform: mat4x4<f32>,
+            id: u32,
         };
         struct InstanceInfos {
-            data: [[stride(80)]] array<InstanceInfo>;
+            data: array<InstanceInfo>,
         };
-        [[group(1), binding(0)]]
+        @group(1) @binding(0)
         var<storage,read> s_instance_infos: InstanceInfos;
         $$ endif
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             // Select what face we're at
@@ -308,11 +308,11 @@ class MeshShader(WorldObjectShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
         };
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
             let r = index % 2;
@@ -347,8 +347,8 @@ class MeshShader(WorldObjectShader):
     def fragment_shader(self):
         return """
 
-        [[stage(fragment)]]
-        fn fs_main(varyings: Varyings, [[builtin(front_facing)]] is_front: bool) -> FragmentOutput {
+        @stage(fragment)
+        fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
             $$ if color_mode == 'vertex'
                 let color_value = varyings.color;
@@ -554,11 +554,11 @@ class MeshSliceShader(WorldObjectShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
         };
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             // This vertex shader uses VertexId and storage buffers instead of
@@ -718,7 +718,7 @@ class MeshSliceShader(WorldObjectShader):
     def fragment_shader(self):
         return """
 
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
 

@@ -1,3 +1,5 @@
+# run_example = false
+
 import numpy as np
 import pygfx as gfx
 

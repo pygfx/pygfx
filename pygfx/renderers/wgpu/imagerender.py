@@ -168,9 +168,9 @@ class BaseImageShader(WorldObjectShader):
             sampled_value_to_color
             + """
         struct ImGeometry {
-            indices: array<i32,6>;
-            positions: array<vec3<f32>,4>;
-            texcoords: array<vec2<f32>,4>;
+            indices: array<i32,6>,
+            positions: array<vec3<f32>,4>,
+            texcoords: array<vec2<f32>,4>,
         };
 
         fn get_im_geometry() -> ImGeometry {
@@ -224,11 +224,11 @@ class ImageShader(BaseImageShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
         };
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             var geo = get_im_geometry();
@@ -253,7 +253,7 @@ class ImageShader(BaseImageShader):
     def fragment_shader(self):
         return """
 
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             let sizef = vec2<f32>(textureDimensions(t_img));
             let value = sample_im(varyings.texcoord.xy, sizef);

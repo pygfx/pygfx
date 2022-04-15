@@ -180,7 +180,7 @@ def resolve_varyings(wgsl):
     if struct_insert_pos is not None:
         # Maybe we should move up a bit
         if struct_insert_pos > 0:
-            if lines[struct_insert_pos - 1].lstrip().startswith("[["):
+            if lines[struct_insert_pos - 1].lstrip().startswith("@"):
                 struct_insert_pos -= 1
         # First divide into slot-based and builtins
         used_varyings = set(used_varyings)
@@ -190,9 +190,9 @@ def resolve_varyings(wgsl):
         # Build struct
         struct_lines = ["struct Varyings {"]
         for slotnr, name in enumerate(used_slots):
-            struct_lines.append(f"    [[location({slotnr})]] {name} : {types[name]};")
+            struct_lines.append(f"    @location({slotnr}) {name} : {types[name]},")
         for name in sorted(used_builtins):
-            struct_lines.append(f"    [[builtin({name})]] {name} : {types[name]};")
+            struct_lines.append(f"    @builtin({name}) {name} : {types[name]},")
         struct_lines.append("};\n")
         # Apply indentation and insert
         line = lines[struct_insert_pos]
@@ -243,7 +243,7 @@ def resolve_depth_output(wgsl):
     if depth_is_set:
         if struct_linrnr < 0:
             raise TypeError("FragmentOutput definition not found.")
-        depth_field = "    [[builtin(frag_depth)]] depth : f32;"
+        depth_field = "    @builtin(frag_depth) depth : f32,"
         line = lines[struct_linrnr]
         indent = line[: len(line) - len(line.lstrip())]
         lines.insert(struct_linrnr + 1, indent + depth_field)
@@ -433,13 +433,13 @@ class BaseShader:
                     f"Struct alignment error: {binding.name}.{fieldname} alignment must be {alignment}"
                 )
 
-            code += f"\n            {fieldname}: {wgsl_type};"
+            code += f"\n            {fieldname}: {wgsl_type},"
 
         code += "\n        };"
         self._typedefs[structname] = code
 
         code = f"""
-        [[group({bindgroup}), binding({index})]]
+        @group({bindgroup}) @binding({index})
         var<uniform> {binding.name}: {structname};
         """.rstrip()
         self._binding_codes[binding.name] = code
@@ -488,14 +488,14 @@ class BaseShader:
         # Produce the type definition
         code = f"""
         struct {typename} {{
-            data: [[stride({stride})]] array<{element_type1}>;
+            data: array<{element_type1}>,
         }};
         """.rstrip()
         self._typedefs[typename] = code
 
         # Produce the binding code and accessor function
         code = f"""
-        [[group({bindgroup}), binding({index})]]
+        @group({bindgroup}) @binding({index})
         var<storage, {type_modifier}> {binding.name}: {typename};
         fn load_{binding.name} (i: i32) -> {element_type2} {{
         """.rstrip()
@@ -512,7 +512,7 @@ class BaseShader:
 
     def _define_sampler(self, bindgroup, index, binding):
         code = f"""
-        [[group({bindgroup}), binding({index})]]
+        @group({bindgroup}) @binding({index})
         var {binding.name}: sampler;
         """.rstrip()
         self._binding_codes[binding.name] = code
@@ -527,7 +527,7 @@ class BaseShader:
         else:
             format = "i32"
         code = f"""
-        [[group({bindgroup}), binding({index})]]
+        @group({bindgroup}) @binding({index})
         var {binding.name}: texture_{texture.view_dim}<{format}>;
         """.rstrip()
         self._binding_codes[binding.name] = code

@@ -88,11 +88,11 @@ def test_uniform_definitions():
         shader.get_definitions().strip()
         == """
         struct Struct_zz {
-            foo: f32;
-            bar: i32;
+            foo: f32,
+            bar: i32,
         };
 
-        [[group(0), binding(0)]]
+        @group(0) @binding(0)
         var<uniform> zz: Struct_zz;
     """.strip()
     )
@@ -104,11 +104,11 @@ def test_uniform_definitions():
         shader.get_definitions().strip()
         == """
         struct Struct_zz {
-            foo: vec4<f32>;
-            bar: vec2<i32>;
+            foo: vec4<f32>,
+            bar: vec2<i32>,
         };
 
-        [[group(0), binding(0)]]
+        @group(0) @binding(0)
         var<uniform> zz: Struct_zz;
     """.strip()
     )
@@ -120,11 +120,11 @@ def test_uniform_definitions():
         shader.get_definitions().strip()
         == """
         struct Struct_zz {
-            foo: mat4x4<f32>;
-            bar: mat3x2<i32>;
+            foo: mat4x4<f32>,
+            bar: mat3x2<i32>,
         };
 
-        [[group(0), binding(0)]]
+        @group(0) @binding(0)
         var<uniform> zz: Struct_zz;
     """.strip()
     )
@@ -147,7 +147,7 @@ def test_resolve_depth_output():
 
     code1 = """
     struct FragmentOutput {
-        [[location(0)]] color: vec4<f32>;
+        @location(0) color: vec4<f32>,
     }
     fn fs_main() {
     }
@@ -157,7 +157,7 @@ def test_resolve_depth_output():
 
     code1 = """
     struct FragmentOutput {
-        [[location(0)]] color: vec4<f32>;
+        @location(0) color: vec4<f32>,
     }
     fn fs_main() {
         out.depth = 0.0;
@@ -166,8 +166,8 @@ def test_resolve_depth_output():
 
     code2 = """
     struct FragmentOutput {
-        [[builtin(frag_depth)]] depth : f32;
-        [[location(0)]] color: vec4<f32>;
+        @builtin(frag_depth) depth : f32,
+        @location(0) color: vec4<f32>,
     }
     fn fs_main() {
         out.depth = 0.0;

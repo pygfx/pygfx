@@ -577,9 +577,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     compute_pass.set_bind_group(
                         bind_group_id, bind_group, [], 0, 999999
                     )
-                compute_pass.dispatch(*pinfo["index_args"])
+                compute_pass.dispatch_workgroups(*pinfo["index_args"])
 
-        compute_pass.end_pass()
+        compute_pass.end()
 
         # ----- render pipelines
 
@@ -595,7 +595,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 color_attachments=color_attachments,
                 depth_stencil_attachment={
                     **depth_attachment,
-                    "stencil_load_value": wgpu.LoadOp.load,
+                    "stencil_load_op": wgpu.LoadOp.load,
                     "stencil_store_op": wgpu.StoreOp.store,
                 },
                 occlusion_query_set=None,
@@ -624,7 +624,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     else:
                         render_pass.draw(*pinfo["index_args"])
 
-            render_pass.end_pass()
+            render_pass.end()
 
         return [command_encoder.finish()]
 

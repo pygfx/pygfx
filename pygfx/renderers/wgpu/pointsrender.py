@@ -147,11 +147,11 @@ class PointsShader(WorldObjectShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
         };
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.vertex_index);
@@ -221,7 +221,7 @@ class PointsShader(WorldObjectShader):
         # Also see See https://github.com/vispy/vispy/blob/master/vispy/visuals/markers.py
         return """
 
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var final_color : vec4<f32>;
 
@@ -245,7 +245,7 @@ class PointsShader(WorldObjectShader):
             $$ if type == 'circle'
                 if (d <= size - 0.5 * aa_width) {
                     final_color = color;
-                } elseif (d <= size + 0.5 * aa_width) {
+                } else if (d <= size + 0.5 * aa_width) {
                     let alpha1 = 0.5 + (size - d) / aa_width;
                     let alpha2 = pow(alpha1, 2.0);  // this works better
                     final_color = vec4<f32>(color.rgb, color.a * alpha2);
