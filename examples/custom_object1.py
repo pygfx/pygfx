@@ -41,6 +41,9 @@ class TriangleShader(WorldObjectShader):
         return """
         @stage(vertex)
         fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+
+            FAIL
+
             var positions = array<vec2<f32>, 3>(
                 vec2<f32>(10.0, 10.0), vec2<f32>(90.0, 10.0), vec2<f32>(10.0, 90.0)
             );
