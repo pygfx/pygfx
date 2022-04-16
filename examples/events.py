@@ -54,9 +54,15 @@ def select(obj):
 
 
 def hover(event):
-    if event.type == gfx.EventType.POINTER_LEAVE and event.target is not selected_obj:
+    if (
+        event.type == gfx.EventType.POINTER_LEAVE
+        and event.target.material is not selected_material
+    ):
         event.target.material = default_material
-    elif event.type == gfx.EventType.POINTER_ENTER and event.target is not selected_obj:
+    elif (
+        event.type == gfx.EventType.POINTER_ENTER
+        and event.target.material is not selected_material
+    ):
         event.target.material = hovered_material
 
 
