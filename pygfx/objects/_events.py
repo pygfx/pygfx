@@ -347,12 +347,12 @@ class RootEventHandler(EventTarget):
             previous_target = (previous_target_ref and previous_target_ref()) or None
             # Get the current target for this pointer (if any)
             new_target = event.target
-            # Update the current target for this pointer
-            RootEventHandler.target_tracker[pointer_id] = (
-                new_target and ref(new_target)
-            ) or None
             # Check if the target has changed since the previous move event
             if previous_target is not new_target or first_move:
+                # Update the current target for this pointer
+                RootEventHandler.target_tracker[pointer_id] = (
+                    new_target and ref(new_target)
+                ) or None
                 if not first_move:
                     # Dispatch a `pointer_leave` event for the previous target
                     ev = event.copy(type="pointer_leave")
