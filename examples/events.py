@@ -30,7 +30,6 @@ selected_material = gfx.MeshPhongMaterial(color="#FF0000")
 hovered_material = gfx.MeshPhongMaterial(color="#FFAA00")
 
 selected_obj = None
-hovered_obj = None
 
 
 def select(obj):
@@ -54,15 +53,11 @@ def select(obj):
         selected_obj.traverse(apply_selected_mat)
 
 
-def hover(obj):
-    global hovered_obj
-    if hovered_obj:
-        if hovered_obj.material is not selected_material:
-            hovered_obj.material = default_material
-            hovered_obj = None
-    hovered_obj = obj
-    if hovered_obj and hovered_obj.material is not selected_material:
-        hovered_obj.material = hovered_material
+def hover(event):
+    if event.type == gfx.EventType.POINTER_LEAVE and event.target is not selected_obj:
+        event.target.material = default_material
+    elif event.type == gfx.EventType.POINTER_ENTER and event.target is not selected_obj:
+        event.target.material = hovered_material
 
 
 def select_obj(event):
@@ -105,7 +100,7 @@ if __name__ == "__main__":
             cube.position.z = randint(-200, 200)
             cube.random_rotation = random_rotation()
             cube.add_event_handler(select_obj, "click")
-            cube.add_event_handler(lambda event: hover(event.target), "pointer_move")
+            cube.add_event_handler(hover, "pointer_enter", "pointer_leave")
             group.add(cube)
 
     canvas.request_draw(animate)

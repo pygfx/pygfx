@@ -18,6 +18,8 @@ class EventType(str, Enum):
     POINTER_DOWN = "pointer_down"
     POINTER_MOVE = "pointer_move"
     POINTER_UP = "pointer_up"
+    POINTER_ENTER = "pointer_enter"
+    POINTER_LEAVE = "pointer_leave"
     CLICK = "click"
     DOUBLE_CLICK = "double_click"
     # Wheel
