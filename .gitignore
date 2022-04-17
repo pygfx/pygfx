@@ -7,7 +7,7 @@ poetry.lock
 .DS_Store
 examples/screenshots/diffs
 examples/offscreen.png
- Special for this repo
+# Special for this repo
 nogit/
 
 # Byte-compiled / optimized / DLL files
