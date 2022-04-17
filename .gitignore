@@ -6,8 +6,8 @@ pyproject.toml
 poetry.lock
 .DS_Store
 examples/screenshots/diffs
-
-# Special for this repo
+examples/offscreen.png
+ Special for this repo
 nogit/
 
 # Byte-compiled / optimized / DLL files
