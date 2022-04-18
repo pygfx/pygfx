@@ -17,7 +17,7 @@ class Controller:
     def save_state(self):
         raise NotImplementedError()
 
-    def load_state(self):
+    def load_state(self, state=None):
         raise NotImplementedError()
 
     def update_camera(self, camera: "Camera") -> "Controller":
