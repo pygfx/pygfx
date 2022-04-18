@@ -355,9 +355,7 @@ class RootEventHandler(EventTarget):
                 ) or None
                 if not first_move:
                     # Dispatch a `pointer_leave` event for the previous target
-                    ev = event.copy(type="pointer_leave")
-                    # Retarget to the previous target
-                    ev._retarget(previous_target)
+                    ev = event.copy(type="pointer_leave", target=previous_target)
                     self.dispatch_event(ev)
                 # Dispatch a `pointer_enter` event for the new target
                 ev = event.copy(type="pointer_enter")
