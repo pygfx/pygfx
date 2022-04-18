@@ -338,22 +338,22 @@ class RootEventHandler(EventTarget):
             event._retarget(captured_target)
             event.stop_propagation()
 
+        # Current target is either something that was under the pointer, or nothing
+        # in which case we set the target to the root event handler (self)
+        target = event.target or self
+
         # Update the target tracker on all `pointer_move` events
         if event.type == EventType.POINTER_MOVE:
-            # Check if this is the first move event for the pointer
-            first_move = pointer_id not in RootEventHandler.target_tracker
             # Get the previous target for this pointer (if any)
             previous_target_ref = RootEventHandler.target_tracker.get(pointer_id)
             previous_target = (previous_target_ref and previous_target_ref()) or None
-            # Get the current target for this pointer (if any)
-            new_target = event.target
             # Check if the target has changed since the previous move event
-            if previous_target is not new_target or first_move:
+            if previous_target is not target:
                 # Update the current target for this pointer
                 RootEventHandler.target_tracker[pointer_id] = (
-                    new_target and ref(new_target)
+                    target and ref(target)
                 ) or None
-                if not first_move:
+                if previous_target is not None:
                     # Dispatch a `pointer_leave` event for the previous target
                     ev = event.copy(type="pointer_leave", target=previous_target)
                     self.dispatch_event(ev)
@@ -362,7 +362,6 @@ class RootEventHandler(EventTarget):
                 self.dispatch_event(ev)
 
         # Dispatch the event to target and bubble up the hierarchy
-        target = event.target or self
         while target:
             # Update the current target
             event._update_current_target(target)
