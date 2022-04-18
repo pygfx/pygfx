@@ -36,6 +36,29 @@ class PanZoomController(Controller):
         # Initialize orientation
         self.look_at(eye, target, up)
 
+        # Save initial state
+        self.save_state()
+
+    def save_state(self):
+        self._saved_state = {
+            "rotation": self.rotation.clone(),
+            "distance": self.distance,
+            "target": self.target.clone(),
+            "up": self.up.clone(),
+            "zoom_value": self.zoom_value,
+            "min_zoom": self.min_zoom,
+        }
+        return self._saved_state
+
+    def load_state(self, state=None):
+        state = state or self._saved_state
+        self.rotation = state["rotation"].clone()
+        self.distance = state["distance"]
+        self.target = state["target"].clone()
+        self.up = state["up"].clone()
+        self.zoom_value = state["zoom_value"]
+        self.min_zoom = state["min_zoom"]
+
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
         self.target = target
