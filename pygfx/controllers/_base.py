@@ -8,6 +8,18 @@ from ..renderers import Renderer
 class Controller:
     """Base camera controller."""
 
+    def get_view(self):
+        raise NotImplementedError()
+
+    def handle_event(self, event, viewport, camera):
+        raise NotImplementedError()
+
+    def save_state(self):
+        raise NotImplementedError()
+
+    def load_state(self, state=None):
+        raise NotImplementedError()
+
     def update_camera(self, camera: "Camera") -> "Controller":
         """Update the transform of the camera with the internal transform."""
         rot, pos, zoom = self.get_view()
@@ -30,9 +42,6 @@ class Controller:
             "pointer_up",
             "wheel",
         )
-
-    def handle_event(self, event, viewport, camera):
-        raise NotImplementedError()
 
 
 def get_screen_vectors_in_world_cords(
