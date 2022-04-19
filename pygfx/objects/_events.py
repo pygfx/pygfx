@@ -18,6 +18,8 @@ class EventType(str, Enum):
     POINTER_DOWN = "pointer_down"
     POINTER_MOVE = "pointer_move"
     POINTER_UP = "pointer_up"
+    POINTER_ENTER = "pointer_enter"
+    POINTER_LEAVE = "pointer_leave"
     CLICK = "click"
     DOUBLE_CLICK = "double_click"
     # Wheel
@@ -150,9 +152,9 @@ class PointerEvent(Event):
         self.clicks = clicks
         self.pointer_id = pointer_id
 
-    def copy(self, type, clicks):
-        result = PointerEvent(
-            type=type,
+    def copy(self, **kwargs):
+        values = dict(
+            type=self.type,
             x=self.x,
             y=self.y,
             button=self.button,
@@ -161,7 +163,7 @@ class PointerEvent(Event):
             ntouches=self.ntouches,
             touches=self.touches,
             pick_info=self.pick_info,
-            clicks=clicks,
+            clicks=self.clicks,
             pointer_id=self.pointer_id,
             bubbles=self.bubbles,
             target=self.target,
@@ -169,7 +171,8 @@ class PointerEvent(Event):
             time_stamp=self.time_stamp,
             root=self.root,
         )
-        return result
+        values.update(kwargs)
+        return PointerEvent(**values)
 
 
 class WheelEvent(PointerEvent):
@@ -295,6 +298,8 @@ class RootEventHandler(EventTarget):
 
     # Dictionary to track clicks, keyed on pointer_id
     click_tracker = {}
+    # Dictionary to track targets, keyed on pointer_id
+    target_tracker = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -333,7 +338,30 @@ class RootEventHandler(EventTarget):
             event._retarget(captured_target)
             event.stop_propagation()
 
+        # Current target is either something that was under the pointer, or nothing
+        # in which case we set the target to the root event handler (self)
         target = event.target or self
+
+        # Update the target tracker on all `pointer_move` events
+        if event.type == EventType.POINTER_MOVE:
+            # Get the previous target for this pointer (if any)
+            previous_target_ref = RootEventHandler.target_tracker.get(pointer_id)
+            previous_target = (previous_target_ref and previous_target_ref()) or None
+            # Check if the target has changed since the previous move event
+            if previous_target is not target:
+                # Update the current target for this pointer
+                RootEventHandler.target_tracker[pointer_id] = (
+                    target and ref(target)
+                ) or None
+                if previous_target is not None:
+                    # Dispatch a `pointer_leave` event for the previous target
+                    ev = event.copy(type="pointer_leave", target=previous_target)
+                    self.dispatch_event(ev)
+                # Dispatch a `pointer_enter` event for the new target
+                ev = event.copy(type="pointer_enter")
+                self.dispatch_event(ev)
+
+        # Dispatch the event to target and bubble up the hierarchy
         while target:
             # Update the current target
             event._update_current_target(target)
@@ -384,8 +412,10 @@ class RootEventHandler(EventTarget):
                 and tracked_click["target"]() is event.target
                 or (tracked_click["target"] is None and event.target is None)
             ):
-                ev = event.copy("click", tracked_click["count"])
+                ev = event.copy(type="click", clicks=tracked_click["count"])
                 self.dispatch_event(ev)
                 if tracked_click["count"] == 2:
-                    double_ev = event.copy("double_click", tracked_click["count"])
+                    double_ev = event.copy(
+                        type="double_click", clicks=tracked_click["count"]
+                    )
                     self.dispatch_event(double_ev)

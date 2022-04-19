@@ -7,6 +7,7 @@ the items from that group (because the group has a double-click
 event handler).
 """
 
+from functools import partial
 from random import randint, random
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -27,46 +28,53 @@ scene = gfx.Scene()
 geometry = gfx.box_geometry(40, 40, 40)
 default_material = gfx.MeshPhongMaterial()
 selected_material = gfx.MeshPhongMaterial(color="#FF0000")
-hovered_material = gfx.MeshPhongMaterial(color="#FFAA00")
+hover_material = gfx.MeshPhongMaterial(color="#FFAA00")
 
 selected_obj = None
-hovered_obj = None
 
 
-def select(obj):
+def set_material(material, obj):
+    if isinstance(obj, gfx.Mesh):
+        obj.material = material
+
+
+def select(event):
+    # when this event handler is invoked on non-leaf nodes of the
+    # scene graph, event.target will still point to the leaf node that
+    # originally triggered the event, so we use event.current_target
+    # to get a reference to the node that is currently handling
+    # the event, which can be a Mesh, a Group or None (the event root)
+    obj = event.current_target
+
+    # prevent propagation so we handle this event only at one
+    # level in the hierarchy
+    event.stop_propagation()
+
+    # clear selection
     global selected_obj
     if selected_obj:
-
-        def apply_default_mat(obj):
-            if isinstance(obj, gfx.Mesh):
-                obj.material = default_material
-
-        selected_obj.traverse(apply_default_mat)
+        selected_obj.traverse(partial(set_material, default_material))
         selected_obj = None
 
+    # if the background was clicked, we're done
+    if isinstance(obj, gfx.Renderer):
+        return
+
+    # set selection (group or mesh)
     selected_obj = obj
-    if selected_obj:
-
-        def apply_selected_mat(obj):
-            if isinstance(obj, gfx.Mesh):
-                obj.material = selected_material
-
-        selected_obj.traverse(apply_selected_mat)
+    selected_obj.traverse(partial(set_material, selected_material))
 
 
-def hover(obj):
-    global hovered_obj
-    if hovered_obj:
-        if hovered_obj.material is not selected_material:
-            hovered_obj.material = default_material
-            hovered_obj = None
-    hovered_obj = obj
-    if hovered_obj and hovered_obj.material is not selected_material:
-        hovered_obj.material = hovered_material
+def hover(event):
+    obj = event.target
 
+    if obj.material is selected_material:
+        return
 
-def select_obj(event):
-    select(event.target)
+    obj.material = {
+        "pointer_leave": default_material,
+        "pointer_enter": hover_material,
+    }[event.type]
 
 
 def random_rotation():
@@ -89,13 +97,13 @@ def animate():
 
 
 if __name__ == "__main__":
+    renderer.add_event_handler(select, "click")
+
     # Build up scene
     for _ in range(4):
         group = gfx.Group()
         group.random_rotation = random_rotation()
-        group.add_event_handler(
-            lambda event: select(event.current_target), "double_click"
-        )
+        group.add_event_handler(select, "double_click")
         scene.add(group)
 
         for _ in range(10):
@@ -104,8 +112,8 @@ if __name__ == "__main__":
             cube.position.y = randint(-200, 200)
             cube.position.z = randint(-200, 200)
             cube.random_rotation = random_rotation()
-            cube.add_event_handler(select_obj, "click")
-            cube.add_event_handler(lambda event: hover(event.target), "pointer_move")
+            cube.add_event_handler(select, "click")
+            cube.add_event_handler(hover, "pointer_enter", "pointer_leave")
             group.add(cube)
 
     canvas.request_draw(animate)
