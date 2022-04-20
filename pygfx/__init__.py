@@ -18,7 +18,7 @@ from .utils.viewport import Viewport
 from .utils import cm
 
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 version_info = tuple(map(int, __version__.split(".")))
 
 
