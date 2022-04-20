@@ -129,7 +129,7 @@ def test_varyings_struct_position5():
     code1 = """
     fn foo() = {
     }
-    [[blabla]]
+    @blabla
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -142,7 +142,7 @@ def test_varyings_struct_position5():
     struct Varyings {
     };
 
-    [[blabla]]
+    @blabla
     fn vs_main() -> Varyings {
     }
     fn fs_main(varyings : Varyings) {
@@ -204,7 +204,7 @@ def test_varyings_remove2():
 
     code2 = """
     struct Varyings {
-        [[location(0)]] bar : vec2<f32>;
+        @location(0) bar : vec2<f32>,
     };
 
     fn vs_main() -> Varyings {
@@ -281,7 +281,7 @@ def test_varyings_remove4():
 
     code2 = """
     struct Varyings {
-        [[location(0)]] foo : f32;
+        @location(0) foo : f32,
     };
 
     fn vs_main() -> Varyings {
@@ -352,9 +352,9 @@ def test_varyings_struct1():
 
     code2 = """
     struct Varyings {
-        [[location(0)]] bar : vec2<f32>;
-        [[location(1)]] foo : f32;
-        [[location(2)]] spam : vec3<f32>;
+        @location(0) bar : vec2<f32>,
+        @location(1) foo : f32,
+        @location(2) spam : vec3<f32>,
     };
 
     fn vs_main() -> Varyings {
@@ -396,7 +396,7 @@ def test_varyings_attr1():
 
     code2 = """
     struct Varyings {
-        [[location(0)]] color : vec4<f32>;
+        @location(0) color : vec4<f32>,
     };
 
     fn vs_main() -> Varyings {
@@ -469,9 +469,9 @@ def test_varyings_builtin1():
 
     code2 = """
     struct Varyings {
-        [[location(0)]] bar : vec2<f32>;
-        [[location(1)]] foo : f32;
-        [[builtin(position)]] position : vec4<f32>;
+        @location(0) bar : vec2<f32>,
+        @location(1) foo : f32,
+        @builtin(position) position : vec4<f32>,
     };
 
     fn vs_main() -> Varyings {
@@ -508,7 +508,7 @@ def test_varyings_builtin2():
 
     code2 = """
     struct Varyings {
-        [[builtin(position)]] position : vec4<f32>;
+        @builtin(position) position : vec4<f32>,
     };
 
     fn vs_main() -> Varyings {

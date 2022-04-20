@@ -172,20 +172,20 @@ class LineShader(WorldObjectShader):
         let PI: f32 = 3.14159265359;
 
         struct VertexInput {
-            [[builtin(vertex_index)]] index : u32;
+            @builtin(vertex_index) index : u32,
         };
 
         struct VertexFuncOutput {
-            i: i32;
-            pos: vec4<f32>;
-            thickness_p: f32;
-            vec_from_node_p: vec2<f32>;
+            i: i32,
+            pos: vec4<f32>,
+            thickness_p: f32,
+            vec_from_node_p: vec2<f32>,
         };
 
         struct FragmentOutput {
-            [[location(0)]] color: vec4<f32>;
-            [[location(1)]] pick: vec4<i32>;
-            [[builtin(frag_depth)]] depth : f32;
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<i32>,
+            @builtin(frag_depth) depth : f32,
         };
         """
 
@@ -210,7 +210,7 @@ class LineShader(WorldObjectShader):
         return (
             core
             + """
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.index);
@@ -339,7 +339,7 @@ class LineShader(WorldObjectShader):
                 na = nd;
                 nb = nd - normalize(v2);
                 ne = nc - normalize(v2);
-            } elseif (i == u_renderer.last_i) {
+            } else if (i == u_renderer.last_i) {
                 // This is the last point on the line: create a cap.
                 v2 = v1;
                 na = normalize(vec2<f32>(v1.y, -v1.x));
@@ -497,7 +497,7 @@ class LineShader(WorldObjectShader):
 
     def fragment_shader(self):
         return """
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Discard fragments outside of the radius. This is what makes round
@@ -643,26 +643,26 @@ class ThinLineShader(WorldObjectShader):
         return """
 
         struct VertexInput {
-            [[location(0)]] pos : vec3<f32>;
+            @location(0) pos : vec3<f32>,
             $$ if color_mode == 'vertex'
                 $$ if vertex_color_channels == 1
-                [[location(1)]] color : f32;
+                @location(1) color : f32,
                 $$ else
-                [[location(1)]] color : vec{{ vertex_color_channels }}<f32>;
+                @location(1) color : vec{{ vertex_color_channels }}<f32>,
                 $$ endif
             $$ elif color_mode == 'map'
                 $$ if colormap_dim == '1d'
-                [[location(1)]] texcoord : f32;
+                @location(1) texcoord : f32,
                 $$ elif colormap_dim == '2d'
-                [[location(1)]] texcoord : vec2<f32>;
+                @location(1) texcoord : vec2<f32>,
                 $$ else
-                [[location(1)]] texcoord : vec3<f32>;
+                @location(1) texcoord : vec3<f32>,
                 $$ endif
             $$ endif
-            [[builtin(vertex_index)]] index : u32;
+            @builtin(vertex_index) index : u32,
         };
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             let wpos = u_wobject.world_transform * vec4<f32>(in.pos.xyz, 1.0);
@@ -698,7 +698,7 @@ class ThinLineShader(WorldObjectShader):
 
     def fragment_shader(self):
         return """
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             $$ if color_mode == 'vertex'

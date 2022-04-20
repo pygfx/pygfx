@@ -72,11 +72,11 @@ class BackgroundShader(WorldObjectShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] index : u32;
+            @builtin(vertex_index) index : u32,
         };
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
             var varyings: Varyings;
             // Define positions at the four corners of the viewport, at the largest depth
@@ -109,7 +109,7 @@ class BackgroundShader(WorldObjectShader):
 
     def fragment_shader(self):
         return """
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var final_color : vec4<f32>;
             $$ if texture_dim

@@ -58,30 +58,30 @@ class NoiseMaterial(gfx.materials.Material):
 
 shader_source = """
 struct VertexOutput {
-    [[location(0)]] texcoord: vec2<f32>;
-    [[builtin(position)]] pos: vec4<f32>;
+    @location(0) texcoord: vec2<f32>,
+    @builtin(position) pos: vec4<f32>,
 };
 
 struct FragmentOutput {
-    [[location(0)]] color: vec4<f32>;
-    [[location(1)]] pick: vec4<i32>;
+    @location(0) color: vec4<f32>,
+    @location(1) pick: vec4<i32>,
 };
 
 struct Render {
-    opacity: f32;
-    time: f32;
-    noise: f32;
+    opacity: f32,
+    time: f32,
+    noise: f32,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> u_render: Render;
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var r_sampler: sampler;
-[[group(1), binding(1)]]
+@group(1) @binding(1)
 var r_tex: texture_2d<f32>;
 
-[[stage(vertex)]]
-fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
+@stage(vertex)
+fn vs_main(@builtin(vertex_index) index: u32) -> VertexOutput {
     var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
     let pos = positions[index];
     var out: VertexOutput;
@@ -90,7 +90,7 @@ fn vs_main([[builtin(vertex_index)]] index: u32) -> VertexOutput {
     return out;
 }
 
-[[stage(fragment)]]
+@stage(fragment)
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     let u_render_time = 0.0;
     let u_render_noise = 1.0;

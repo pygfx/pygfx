@@ -4,19 +4,19 @@ import numpy as np
 
 FULL_QUAD_SHADER = """
     struct VertexInput {
-        [[builtin(vertex_index)]] index: u32;
+        @builtin(vertex_index) index: u32,
     };
     struct Varyings {
-        [[location(0)]] texcoord: vec2<f32>;
-        [[builtin(position)]] position: vec4<f32>;
+        @location(0) texcoord: vec2<f32>,
+        @builtin(position) position: vec4<f32>,
     };
     struct FragmentOutput {
-        [[location(0)]] color: vec4<f32>;
+        @location(0) color: vec4<f32>,
     };
 
     BINDINGS_CODE
 
-    [[stage(vertex)]]
+    @stage(vertex)
     fn vs_main(in: VertexInput) -> Varyings {
         var positions = array<vec2<f32>,4>(
             vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0)
@@ -28,7 +28,7 @@ FULL_QUAD_SHADER = """
         return varyings;
     }
 
-    [[stage(fragment)]]
+    @stage(fragment)
     fn fs_main(varyings: Varyings) -> FragmentOutput {
         var out : FragmentOutput;
         let texcoord = varyings.texcoord;  // for textureSample
@@ -153,7 +153,8 @@ class RenderFlusher:
                 {
                     "view": dst_color_tex,
                     "resolve_target": None,
-                    "load_value": (0, 0, 0, 0),  # LoadOp.load or color
+                    "clear_value": (0, 0, 0, 0),
+                    "load_op": wgpu.LoadOp.clear,
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
@@ -162,7 +163,7 @@ class RenderFlusher:
         render_pass.set_pipeline(render_pipeline)
         render_pass.set_bind_group(0, bind_group, [], 0, 99)
         render_pass.draw(4, 1)
-        render_pass.end_pass()
+        render_pass.end()
 
         return [command_encoder.finish()]
 
@@ -171,13 +172,13 @@ class RenderFlusher:
 
         bindings_code = """
             struct Render {
-                size: vec2<f32>;
-                sigma: f32;
-                support: i32;
+                size: vec2<f32>,
+                sigma: f32,
+                support: i32,
             };
-            [[group(0), binding(0)]]
+            @group(0) @binding(0)
             var<uniform> u_render: Render;
-            [[group(0), binding(1)]]
+            @group(0) @binding(1)
             var r_color: texture_2d<f32>;
         """
 

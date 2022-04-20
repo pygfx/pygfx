@@ -44,7 +44,7 @@ def test_examples_run(module, pytestconfig):
             stderr=subprocess.STDOUT,
             universal_newlines=True,
             cwd=ROOT,
-            timeout=5,
+            timeout=16,
             env=env,
         )
     except subprocess.TimeoutExpired:

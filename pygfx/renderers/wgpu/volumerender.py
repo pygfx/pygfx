@@ -110,9 +110,9 @@ class BaseVolumeShader(WorldObjectShader):
             sampled_value_to_color
             + """
         struct VolGeometry {
-            indices: array<i32,36>;
-            positions: array<vec3<f32>,8>;
-            texcoords: array<vec3<f32>,8>;
+            indices: array<i32,36>,
+            positions: array<vec3<f32>,8>,
+            texcoords: array<vec3<f32>,8>,
         };
 
         fn get_vol_geometry() -> VolGeometry {
@@ -178,11 +178,11 @@ class VolumeSliceShader(BaseVolumeShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
         };
 
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             // Our geometry is implicitly defined by the volume dimensions.
@@ -296,7 +296,7 @@ class VolumeSliceShader(BaseVolumeShader):
                             plane_index = ed2pl[i][1];
                             i_last = i;
                             break;
-                        } elseif (ed2pl[i][1] == plane_index) {
+                        } else if (ed2pl[i][1] == plane_index) {
                             vertices[iter] = intersect_positions[i];
                             texcoords[iter] = intersect_texcoords[i];
                             plane_index = ed2pl[i][0];
@@ -334,7 +334,7 @@ class VolumeSliceShader(BaseVolumeShader):
     def fragment_shader(self):
         return """
 
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             let sizef = vec3<f32>(textureDimensions(t_img));
             let value = sample_vol(varyings.texcoord.xyz, sizef);
@@ -377,10 +377,10 @@ class VolumeRayShader(BaseVolumeShader):
         return """
 
         struct VertexInput {
-            [[builtin(vertex_index)]] vertex_index : u32;
+            @builtin(vertex_index) vertex_index : u32,
         };
 
-        [[stage(vertex)]]
+        @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
             // Our geometry is implicitly defined by the volume dimensions.
@@ -429,7 +429,7 @@ class VolumeRayShader(BaseVolumeShader):
 
     def fragment_shader(self):
         return """
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Get size of the volume
@@ -508,8 +508,8 @@ class VolumeRayShader(BaseVolumeShader):
 
         preamble = """
         struct RenderOutput {
-            color: vec4<f32>;
-            coord: vec3<f32>;
+            color: vec4<f32>,
+            coord: vec3<f32>,
         };
         """
 
@@ -561,7 +561,7 @@ class VolumeRayShader(BaseVolumeShader):
                     the_ref = ref1;
                     the_coord = coord1;
                     the_value = value1;
-                } elseif (ref2 > the_ref) {
+                } else if (ref2 > the_ref) {
                     the_ref = ref2;
                     the_coord = coord2;
                     the_value = value2;

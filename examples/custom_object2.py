@@ -58,8 +58,8 @@ class TriangleShader(WorldObjectShader):
 
     def vertex_shader(self):
         return """
-        [[stage(vertex)]]
-        fn vs_main([[builtin(vertex_index)]] index: u32) -> Varyings {
+        @stage(vertex)
+        fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
             // Transform object positition into NDC coords
             let model_pos = vec4<f32>(0.0, 0.0, 0.0, 1.0);
             let world_pos = u_wobject.world_transform * model_pos;
@@ -83,7 +83,7 @@ class TriangleShader(WorldObjectShader):
 
     def fragment_shader(self):
         return """
-        [[stage(fragment)]]
+        @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
             let a = u_material.opacity * u_material.color.a;

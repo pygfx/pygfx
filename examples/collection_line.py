@@ -2,6 +2,7 @@
 Display a lot of line objects. Because of the architecture of wgpu,
 this is still performant.
 """
+# run_example = false - because it takes too long and times out
 
 import time  # noqa
 
