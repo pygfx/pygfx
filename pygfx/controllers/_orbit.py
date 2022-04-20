@@ -45,13 +45,44 @@ class OrbitController(Controller):
         self.look_at(eye, target, up)
         self._initial_distance = self.distance
 
+        # Save initial state
+        self.save_state()
+
+    def save_state(self):
+        self._saved_state = {
+            "rotation": self.rotation.clone(),
+            "distance": self.distance,
+            "target": self.target.clone(),
+            "up": self.up.clone(),
+            "zoom_changes_distance": self.zoom_changes_distance,
+            "zoom_value": self.zoom_value,
+            "min_zoom": self.min_zoom,
+            "initial_distance": self._initial_distance,
+        }
+        return self._saved_state
+
+    def load_state(self, state=None):
+        state = state or self._saved_state
+        self.rotation = state["rotation"].clone()
+        self.distance = state["distance"]
+        self.target = state["target"].clone()
+        self.up = state["up"].clone()
+        self.zoom_changes_distance = state["zoom_changes_distance"]
+        self.zoom_value = state["zoom_value"]
+        self.min_zoom = state["min_zoom"]
+        self.initial_distance = state["initial_distance"]
+        self._update_up_quats()
+
+    def _update_up_quats(self):
+        self._up_quat = Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
+        self._up_quat_inv = self._up_quat.clone().inverse()
+
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
         self.target = target
         self.up = up
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
-        self._up_quat = Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
-        self._up_quat_inv = self._up_quat.clone().inverse()
+        self._update_up_quats()
         return self
 
     def pan(self, vec3: Vector3) -> Controller:

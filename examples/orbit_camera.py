@@ -1,5 +1,8 @@
 """
 Example showing orbit camera controller.
+
+Press 's' to save the state, and
+press 'l' to load the last saved state.
 """
 
 import imageio
@@ -30,6 +33,16 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(0, 0, 500)
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
+
+
+def on_key_down(event):
+    if event.key == "s":
+        controller.save_state()
+    elif event.key == "l":
+        controller.load_state()
+
+
+renderer.add_event_handler(on_key_down, "key_down")
 
 
 def animate():

@@ -227,7 +227,7 @@ def test_pointer_event_copy():
         cancelled=True,
     )
 
-    other = event.copy("click", 5)
+    other = event.copy(type="click", clicks=5)
 
     for attr in [
         attr
