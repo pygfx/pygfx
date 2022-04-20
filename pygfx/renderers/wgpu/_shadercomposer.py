@@ -481,6 +481,8 @@ class BaseShader:
             element_type1 = element_type2 = f"vec{nchannels}<{scalar_type}>"
             stride = 4 * nchannels
 
+        stride  # not actually used anymore in wgsl?
+
         # Prepare some names
         typename = "Buffer_" + element_type1.replace("<", "").replace(">", "")
         type_modifier = "read" if "read_only" in binding.type else "read_write"
