@@ -78,7 +78,7 @@ jobs:
         pip install -e .[dev]
     - name: Unit tests
       run: |
-        pytest -v -k 'not test_examples' tests
+        pytest -v tests
 
   test-examples-build:
     name: Test examples
@@ -103,7 +103,7 @@ jobs:
         pip install -e .[dev,examples]
     - name: Test examples
       run: |
-        pytest -v -k 'test_examples' tests
+        pytest -v examples
     - uses: actions/upload-artifact@v2
       if: ${{ failure() }}
       with:

@@ -1,4 +1,3 @@
-examples/offscreen.png
 Pipfile
 Pipfile.lock
 .vscode
@@ -6,7 +5,8 @@ pyproject.toml
 poetry.lock
 .DS_Store
 examples/screenshots/diffs
-
+examples/offscreen.png
+offscreen.png
 # Special for this repo
 nogit/
 
