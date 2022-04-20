@@ -183,11 +183,8 @@ class MeshShader(WorldObjectShader):
             transform: mat4x4<f32>,
             id: u32,
         };
-        struct InstanceInfos {
-            data: array<InstanceInfo>,
-        };
         @group(1) @binding(0)
-        var<storage,read> s_instance_infos: InstanceInfos;
+        var<storage,read> s_instance_infos: array<InstanceInfo>;
         $$ endif
 
 
@@ -209,7 +206,7 @@ class MeshShader(WorldObjectShader):
 
             // Get world transform
             $$ if instanced
-                let instance_info = s_instance_infos.data[in.instance_index];
+                let instance_info = s_instance_infos[in.instance_index];
                 let world_transform = u_wobject.world_transform * instance_info.transform;
             $$ else
                 let world_transform = u_wobject.world_transform;

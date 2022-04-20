@@ -483,32 +483,21 @@ class BaseShader:
 
         stride  # not actually used anymore in wgsl?
 
-        # Prepare some names
-        typename = "Buffer_" + element_type1.replace("<", "").replace(">", "")
-        type_modifier = "read" if "read_only" in binding.type else "read_write"
-
-        # Produce the type definition
-        code = f"""
-        struct {typename} {{
-            data: array<{element_type1}>,
-        }};
-        """.rstrip()
-        self._typedefs[typename] = code
-
         # Produce the binding code and accessor function
+        type_modifier = "read" if "read_only" in binding.type else "read_write"
         code = f"""
         @group({bindgroup}) @binding({index})
-        var<storage, {type_modifier}> {binding.name}: {typename};
+        var<storage, {type_modifier}> {binding.name}: array<{element_type1}>;
         fn load_{binding.name} (i: i32) -> {element_type2} {{
         """.rstrip()
         if element_type1 == element_type2:
-            code += f" return {binding.name}.data[i];"
+            code += f" return {binding.name}[i];"
         elif nchannels == 2:
-            code += f" return {element_type2}( {binding.name}.data[i * 2], {binding.name}.data[i * 2 + 1] );"
+            code += f" return {element_type2}( {binding.name}[i * 2], {binding.name}[i * 2 + 1] );"
         elif nchannels == 3:
-            code += f" return {element_type2}( {binding.name}.data[i * 3], {binding.name}.data[i * 3 + 1], {binding.name}.data[i * 3 + 2] );"
+            code += f" return {element_type2}( {binding.name}[i * 3], {binding.name}[i * 3 + 1], {binding.name}[i * 3 + 2] );"
         else:  # nchannels == 4
-            code += f" return {element_type2}( {binding.name}.data[i * 4], {binding.name}.data[i * 4 + 1], {binding.name}.data[i * 4 + 2], {binding.name}.data[i * 4 + 3] );"
+            code += f" return {element_type2}( {binding.name}[i * 4], {binding.name}[i * 4 + 1], {binding.name}[i * 4 + 2], {binding.name}[i * 4 + 3] );"
         code += " }"
         self._binding_codes[binding.name] = code
 
