@@ -92,6 +92,11 @@ Under development, many things can change.
 
 ## Testing examples
 
+The test suite is divided into two parts; unit tests for the core, and unit tests for the examples.
+
+* `pytest -v tests` runs the core unit tests.
+* `pytest -v examples` tests the examples.
+
 There are two types of tests for examples included with pygfx:
 
 ### Type 1: Checking if examples can run
