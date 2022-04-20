@@ -12,7 +12,7 @@ import imageio.v2 as imageio
 import numpy as np
 import pytest
 
-from tests.examples.testutils import (
+from examples.tests.testutils import (
     is_lavapipe,
     find_examples,
     ROOT,
@@ -53,21 +53,7 @@ def test_examples_run(module, pytestconfig):
             "or use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
         )
 
-    zero_exit = result.returncode == 0
-
-    if not zero_exit:
-        # in some cases it's pretty hard to support an example to run on CI
-        # we skip them on CI, but still allow them to run locally
-        # would be nice to implement support later of course
-        if (
-            "This application failed to start because no Qt platform plugin could be initialized."
-            in result.stdout
-        ):
-            pytest.skip("Qt examples are currently not supported on headless")
-        if "ModuleNotFoundError: No module named 'wx'" in result.stdout:
-            pytest.skip("wx library is not available")
-
-    assert zero_exit, f"failed to run:\n{result.stdout}"
+    assert result.returncode == 0, f"failed to run:\n{result.stdout}"
 
 
 @pytest.fixture
