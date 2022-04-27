@@ -2,8 +2,8 @@
 Example showing the axes helper.
 
 * The axes must be centered in the middle.
-* The orange axes (x) must be to the right.
-* The yellow axes (y) must be to the top.
+* The red axes (x) must be to the right.
+* The green axes (y) must be to the top.
 * The blue axes (z) is not visible.
 """
 # test_example = true
