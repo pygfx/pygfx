@@ -121,7 +121,7 @@ class Geometry(ResourceContainer):
             # if grid is multichannel, e.g. 3xf4
             format = self.grid.format
             if len(format) == 4 and format[1] == "x" and format[0] != "1":
-                # then strip last dimension from shape,
+                # then strip last dimension from shape
                 grid_shape.pop(-1)
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape], dtype="f8")
