@@ -28,12 +28,12 @@ class AxesHelper(Line):
 
         colors = np.array(
             [
-                [1, 0.6, 0, 1],
-                [1, 0.6, 0, 1],  # x is orange-ish
-                [0.6, 1, 0, 1],
-                [0.6, 1, 0, 1],  # y is yellow-ish
-                [0, 0.6, 1, 1],
-                [0, 0.6, 1, 1],  # z is blue-ish
+                [1, 0, 0, 1],
+                [1, 0, 0, 1],  # x is red
+                [0, 1, 0, 1],
+                [0, 1, 0, 1],  # y is green
+                [0, 0, 1, 1],
+                [0, 0, 1, 1],  # z is blue
             ],
             dtype="f4",
         )
