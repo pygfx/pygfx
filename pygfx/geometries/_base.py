@@ -117,12 +117,8 @@ class Geometry(ResourceContainer):
         if hasattr(self, "grid"):
             if self._aabb_rev == self.grid.rev:
                 return self._aabb
-            grid_shape = list(self.grid.data.shape)
-            # if grid is multichannel, e.g. 3xf4
-            format = self.grid.format
-            if len(format) == 4 and format[1] == "x" and format[0] != "1":
-                # then strip last dimension from shape
-                grid_shape.pop(-1)
+            # account for multi-channel image data
+            grid_shape = self.grid.data.shape[: self.grid.dim]
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape], dtype="f8")
             # convert to local image space by aligning
@@ -131,7 +127,7 @@ class Geometry(ResourceContainer):
             # ensure coordinates are 3D
             # NOTE: important we do this last, we don't want to apply
             # the -0.5 offset to the z-coordinate of 2D images
-            if len(grid_shape) == 2:
+            if aabb.shape[1] == 2:
                 aabb = np.hstack([aabb, [[0], [0]]])
             self._aabb = aabb
             self._aabb_rev = self.grid.rev
