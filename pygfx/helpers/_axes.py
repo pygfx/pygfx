@@ -17,7 +17,9 @@ class AxesHelper(Line):
 
     Parameters:
         size (float): The length of the lines (default 1).
-        thickness (float): the thickness of the lines (default 2 px).
+        thickness (float): The thickness of the lines (default 2 px).
+        arrow_start (float): Percentage where the arrow head should start (default 0.80).
+        arrow_radius (float): Radius of the arrow heads' cone base (default 4).
     """
 
     def __init__(self, size=1.0, thickness=2, arrow_start=0.80, arrow_radius=4):
