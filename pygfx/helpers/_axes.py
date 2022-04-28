@@ -18,12 +18,10 @@ class AxesHelper(Line):
     Parameters:
         size (float): The length of the lines (default 1).
         thickness (float): The thickness of the lines (default 2 px).
-        arrow_start (float): Percentage where the arrow head should start (default 0.80).
-        arrow_radius (float): Radius of the arrow heads' cone base (default 4).
     """
 
-    def __init__(self, size=1.0, thickness=2, arrow_start=0.80, arrow_radius=4):
-        positions = np.array(
+    def __init__(self, size=1.0, thickness=2):
+        line_positions = np.array(
             [
                 [0, 0, 0],
                 [1, 0, 0],
@@ -34,7 +32,6 @@ class AxesHelper(Line):
             ],
             dtype="f4",
         )
-        positions *= arrow_start * size
 
         colors = np.array(
             [
@@ -48,21 +45,31 @@ class AxesHelper(Line):
             dtype="f4",
         )
 
-        geometry = Geometry(positions=positions, colors=colors)
+        # the radius of the cone is the thickness, so that the arrow is twice as wide
+        # as the line it sits on.
+        # we want the arrow head to maintain the proportions of a equilateral triangle
+        # when viewed from the side, so the desired height can be computed
+        # by multiplying the radius by sqrt(3)
+        arrow_size = np.sqrt(3) * thickness
+        cone = cone_geometry(radius=thickness, height=arrow_size)
+
+        line_size = np.max([0, size - arrow_size])  # ensure >= 0
+        line_positions *= line_size
+
+        geometry = Geometry(positions=line_positions, colors=colors)
         material = LineSegmentMaterial(vertex_colors=True, thickness=thickness, aa=True)
 
         super().__init__(geometry, material)
 
-        height = (1 - arrow_start) * size
-        cone = cone_geometry(radius=arrow_radius, height=height)
-
-        for pos, color in zip(positions[1::2], colors[1::2]):
+        for pos, color in zip(line_positions[1::2], colors[1::2]):
             material = MeshBasicMaterial(color=color)
             arrow_head = Mesh(cone, material)
             arrow_head.position = Vector3(*pos)
             # offset by half of height since the cones
             # are centered around the origin
-            arrow_head.position.add_scaled_vector(Vector3(*pos).normalize(), height / 2)
+            arrow_head.position.add_scaled_vector(
+                Vector3(*pos).normalize(), arrow_size / 2
+            )
             arrow_head.rotation.set_from_unit_vectors(
                 Vector3(0, 0, 1),
                 Vector3(*pos).normalize(),
