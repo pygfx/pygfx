@@ -117,10 +117,19 @@ class Geometry(ResourceContainer):
         if hasattr(self, "grid"):
             if self._aabb_rev == self.grid.rev:
                 return self._aabb
-            self._aabb = (
-                np.array([np.zeros_like(self.grid.data.shape), self.grid.data.shape])
-                - 0.5
-            )
+            # account for multi-channel image data
+            grid_shape = self.grid.data.shape[: self.grid.dim]
+            # create aabb in index/data space
+            aabb = np.array([np.zeros_like(grid_shape), grid_shape], dtype="f8")
+            # convert to local image space by aligning
+            # center of voxel index (0, 0, 0) with origin (0, 0, 0)
+            aabb -= 0.5
+            # ensure coordinates are 3D
+            # NOTE: important we do this last, we don't want to apply
+            # the -0.5 offset to the z-coordinate of 2D images
+            if aabb.shape[1] == 2:
+                aabb = np.hstack([aabb, [[0], [0]]])
+            self._aabb = aabb
             self._aabb_rev = self.grid.rev
             return self._aabb
 

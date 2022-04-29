@@ -418,10 +418,15 @@ class WorldObject(EventTarget, ResourceContainer):
         return self._v.clone()
 
     def get_world_bounding_box(self):
+        """Updates all parent and children world matrices, and returns
+        a single world-space axis-aligned bounding box for this object's
+        geometry and all of its children (recursively)."""
         self.update_matrix_world(update_parents=True, update_children=True)
         return self._get_world_bounding_box()
 
     def _get_world_bounding_box(self):
+        """Returns a world-space axis-aligned bounding box for this object's
+        geometry and all of its children (recursively)."""
         boxes = []
         if self._geometry:
             aabb = self._geometry.bounding_box()
@@ -442,6 +447,11 @@ class WorldObject(EventTarget, ResourceContainer):
             return np.array([boxes[:, 0].min(axis=0), boxes[:, 1].max(axis=0)])
 
     def get_world_bounding_sphere(self):
+        """Returns a world-space bounding sphere by converting an
+        axis-aligned bounding box to a sphere.
+
+        See WorldObject.get_world_bounding_box.
+        """
         aabb = self.get_world_bounding_box()
         if aabb is not None:
             return aabb_to_sphere(aabb)
