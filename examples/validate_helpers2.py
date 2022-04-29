@@ -1,8 +1,8 @@
 """
 Example showing the axes and grid helpers with a perspective camera.
 
-* The grid spans the x-z plane (orange and blue axis).
-* The yellow axis (y) stick up from the plane.
+* The grid spans the x-z plane (red and blue axis).
+* The green axis (y) stick up from the plane.
 * The red box fits snugly around the grid.
 """
 # test_example = true
