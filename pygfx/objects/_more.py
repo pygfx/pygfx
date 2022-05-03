@@ -114,3 +114,7 @@ class Volume(WorldObject):
             "index": (ix, iy, iz),
             "voxel_coord": (x - ix, y - iy, z - iz),
         }
+
+
+class Text(WorldObject):
+    """An object representing text."""

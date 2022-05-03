@@ -16,6 +16,8 @@ from . import pointsshader
 from . import lineshader
 from . import imageshader
 from . import volumeshader
+from . import textshader
+
 
 """
 Below is the high level model in which the visualization is described.

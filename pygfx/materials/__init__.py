@@ -30,6 +30,7 @@ from ._background import (
     BackgroundImageMaterial,
     BackgroundSkyboxMaterial,
 )
+from ._text import TextMaterial
 
 
 # Define __all__ for e.g. Sphinx
