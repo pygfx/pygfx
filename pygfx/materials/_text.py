@@ -18,12 +18,14 @@ class TextMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
+        # todo: map glyph index to characters (can use wobject._wgpu_get_pick_info)
         _ = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
         return {}
 
     @property
     def screen_space(self):
         """Whether the text is applied in screen space (in contrast to model space)."""
+        # todo: maybe make different materials for these cases instead
         return self._screen_space
 
     @screen_space.setter

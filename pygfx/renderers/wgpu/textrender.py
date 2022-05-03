@@ -4,6 +4,7 @@ from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
 from ...objects import Text
 from ...materials import TextMaterial
+
 # from ...resources import Texture, TextureView
 
 

@@ -78,7 +78,6 @@ class TextPart:
 
 class TextGeometry(Geometry):
     def __init__(self, text_parts, max_width=0, line_height=1.2, text_align="left"):
-        super().__init__()
 
         # Check incoming parts
         self._text_parts = tuple(text_parts)
@@ -105,19 +104,25 @@ class TextGeometry(Geometry):
             positions_arrays.append(part.positions)
 
         # Store
-        self.indices = Buffer(np.concatenate(indices_arrays, 0))
-        self.positions = Buffer(np.concatenate(positions_arrays, 0))
+        super().__init__(
+            indices=Buffer(np.concatenate(indices_arrays, 0)),
+            positions=Buffer(np.concatenate(positions_arrays, 0)),
+        )
 
     @property
     def max_width(self):
-        """The maximum width of the text (in model coords). Text will
-        wrap if beyond this limit. Set to 0 for no wrap. Default 0.
+        """The maximum width of the text. Text will wrap if beyond this
+        limit. The coordinate system that this applies to depends on
+        the material, but it's coordinate system that the text_size
+        applies to. Set to 0 for no wrap. Default 0.
         """
+        # todo: double-check these docstrings on coord systems when we're done
         return self._max_width
 
     @max_width.setter
     def max_width(self, width):
         self._max_width = float(width or 0)
+        self._position()
 
     @property
     def line_height(self):
@@ -129,6 +134,7 @@ class TextGeometry(Geometry):
     @line_height.setter
     def line_height(self, heigh):
         self._line_height = float(heigh or 1.2)
+        self._position()
 
     @property
     def text_align(self):
@@ -150,6 +156,7 @@ class TextGeometry(Geometry):
         if align not in alignments:
             raise ValueError(f"Align must be one of {alignments}")
         self._text_align = align
+        self._position()
 
     def _position(self):
 
