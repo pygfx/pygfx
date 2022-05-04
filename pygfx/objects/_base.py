@@ -312,6 +312,12 @@ class WorldObject(EventTarget, ResourceContainer):
                 pass
         return self
 
+    def clear(self):
+        """Removes all children."""
+        for child in self._children:
+            child._parent_ref = None
+        self._children.clear()
+
     def traverse(self, callback, skip_invisible=False):
         """Executes the callback on this object and all descendants.
 
