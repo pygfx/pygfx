@@ -61,7 +61,7 @@ class TextItem:
         font_filename = find_font(font_props)
 
         # === Shaping - generate indices and positions
-        indices, positions = shape_text(text, font_filename)
+        indices, positions, coverages = shape_text(text, font_filename)
 
         # or ..
         # glyph_indices, positions = shape_text(text, font_props, font_filename)
@@ -74,14 +74,17 @@ class TextItem:
         #     positions[i] = i * font_props.size, 0, 0
 
         # Store stuff for the geometry to use
+        self.props = font_props
         self.indices = indices
         self.positions = positions
+        self.coverages = coverages
 
 
 class TextGeometry(Geometry):
     """Produce renderable geometry from a list of TextItem objects."""
 
     def __init__(self, text_items, max_width=0, line_height=1.2, text_align="left"):
+        super().__init__()
 
         # Check incoming items
         self._text_items = tuple(text_items)
@@ -89,29 +92,31 @@ class TextGeometry(Geometry):
             if not isinstance(item, TextItem):
                 raise TypeError("TextGeometry only accepts TextItem objects.")
 
-        # Set props
-        self.max_width = max_width
-        self.line_height = line_height
-        self.text_align = text_align
-
         # Compose the items in a single geometry
         indices_arrays = []
+        coverages_arrays = []
         positions_arrays = []
         glyph_count = 0
         for item in self._text_items:
             assert item.indices.dtype == np.uint32
             assert item.positions.dtype == np.float32
-            assert item.positions.shape == (item.indices.size, 3)
+            assert item.positions.shape == (item.indices.size, 2)
             item.offset = glyph_count
             glyph_count += item.indices.size
             indices_arrays.append(item.indices)
+            coverages_arrays.append(item.coverages)
             positions_arrays.append(item.positions)
 
         # Store
-        super().__init__(
-            indices=Buffer(np.concatenate(indices_arrays, 0)),
-            positions=Buffer(np.concatenate(positions_arrays, 0)),
-        )
+        self.indices = Buffer(np.concatenate(indices_arrays, 0))
+        self.coverages = Buffer(np.concatenate(coverages_arrays, 0))
+        self.positions = Buffer(np.concatenate(positions_arrays, 0))
+
+        # Set props
+        # todo: each of the below line invokes the positioning algotrithm :/
+        self.max_width = max_width
+        self.line_height = line_height
+        self.text_align = text_align
 
     @property
     def max_width(self):
@@ -171,8 +176,9 @@ class TextGeometry(Geometry):
 
         for item in self._text_items:
             positions = item.positions.copy()
+            positions *= 12
             # todo: tweak positions
             if not (positions == item.positions).all():
                 i1, i2 = item.offset, item.offset + positions.shape[0]
-                self.posisions.data[i1:i2] = positions
+                self.positions.data[i1:i2] = positions
                 self.positions.update_range(i1, i2)

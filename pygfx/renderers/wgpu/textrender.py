@@ -27,6 +27,9 @@ def text_renderer(render_info):
         Binding("u_material", "buffer/uniform", material.uniform_buffer),
         Binding("s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"),
         Binding(
+            "s_coverages", "buffer/read_only_storage", geometry.coverages, "VERTEX"
+        ),
+        Binding(
             "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
         ),
     ]
@@ -76,18 +79,25 @@ class TextShader(WorldObjectShader):
             let sub_index = index % 6;
 
             let glyph_pos = load_s_positions(i0);
+            let coverage = load_s_coverages(i0);
 
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
 
             var deltas = array<vec2<f32>, 6>(
-                vec2<f32>(-1.0, -1.0),
-                vec2<f32>(-1.0,  1.0),
-                vec2<f32>( 1.0, -1.0),
-                vec2<f32>(-1.0,  1.0),
-                vec2<f32>( 1.0, -1.0),
-                vec2<f32>( 1.0,  1.0),
+                vec2<f32>(0.0, 0.0),
+                vec2<f32>(0.0,  coverage.y),
+                vec2<f32>( coverage.x, 0.0),
+                vec2<f32>(0.0,  coverage.y),
+                vec2<f32>( coverage.x, 0.0),
+                vec2<f32>( coverage.x,  coverage.y),
+                //vec2<f32>(-1.0, -1.0),
+                //vec2<f32>(-1.0,  1.0),
+                //vec2<f32>( 1.0, -1.0),
+                //vec2<f32>(-1.0,  1.0),
+                //vec2<f32>( 1.0, -1.0),
+                //vec2<f32>( 1.0,  1.0),
             );
-            let size = 12.0;  // todo: where to get the size?
+            let size = 10.0;  // todo: where to get the size?
             let aa_margin = 1.0;
             let point_coord = deltas[sub_index] * (size + aa_margin);
 
@@ -105,8 +115,8 @@ class TextShader(WorldObjectShader):
 
                 // We take the glyph positions as model pos, move to world and then NDC.
 
-                let raw_pos = glyph_pos + vec3<f32>(point_coord, 0.0);
-                let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+                let raw_pos = glyph_pos + point_coord;
+                let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 0.0, 1.0);
                 let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
                 let delta_ndc = vec2<f32>(0.0, 0.0);
 
@@ -134,7 +144,7 @@ class TextShader(WorldObjectShader):
             let max_d = 0.5 * varyings.size;
 
             if (varyings.pointcoord.x < -0.7 * max_d || varyings.pointcoord.x > 0.7 * max_d) {
-                discard;
+                //discard;
             }
 
             let color = u_material.color;
