@@ -1,107 +1,111 @@
+"""
+This module implements text geometry.
+
+The TextGeometry class accepts a list of TextItem objects, and turns these into
+positions and atlas_indices. Each TextItem object represents a piece of text
+with specific font properties.
+
+The TextGeometry object has a few text properties that affect the positioning
+of the text.
+
+The text_geometry() function is the user-frienfly API to generate text geometry.
+
+For details about the text rendering process, see pygfx/utils/text/README.md
+"""
+
 import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-
-
-"""
-From https://www.slideshare.net/NicolasRougier1/siggraph-2018-digital-typography
-
-Text rendering can be divided into the following steps:
-
-* Start with Unicode text.
-* Itemization: cut in parts (each has own font, formatting and even shaping)
-* Reordering: To deal with mix of LTR and RTL languages.
-* Shaping: out comes set of positions and glyph indices.
-* Positioning: justification and other positioning tweaks.
-* Rendering.
-
-
-The text_geometry function takes care of itemization. E.g. when markdown
-is given as "hello *world*" it will produce two TextPart objects, one for
-the "hello" and one for "world" in bold.
-TODO: do we also split words into parts so we can justify easier?
-
-The same function will also re-order the text parts if necessary.
-
-The TextPart object is responsible for the shaping. From the unicode text
-it produces glyph indices and positions. There may be less glyphs than
-Unicode characters because of ligatures etc. It also makes sure to add
-the glyph to the global glyph atlas.
-
-The TextGeometry takes the text parts and combines them into a single
-string of glyphs. It is responsible for the positioning.
-
-Finally, the renderer will render the glyphs on screen.
-
-"""
+from ..utils.text import FontProps, find_font, shape_text
 
 
 def text_geometry(
-    text=None, markdown=None, max_width=None, line_height=None, text_align=None
+    *,
+    text=None,
+    markdown=None,
+    family=None,
+    max_width=None,
+    line_height=None,
+    text_align=None,
 ):
     """Generate text geometry."""
 
-    # === Itemization - generate a list of TextParts objects
-    parts = []
+    # === Itemization - generate a list of TextItem objects
+    items = []
     if text:
         if not isinstance(text, str):
             raise TypeError("Text must be a Unicode string.")
-        parts.append(TextPart(text))
+        items.append(TextItem(text, family))
     if markdown:
         raise NotImplementedError()
 
-    # === Reordering - put parts in the right order
-    pass  # we're assuming LTR for now
-
     return TextGeometry(
-        parts, max_width=max_width, line_height=line_height, text_align=text_align
+        items, max_width=max_width, line_height=line_height, text_align=text_align
     )
 
 
-class TextPart:
-    """A text part represents a piece of text that is formatted in a uniform
-    way. One piece of text can consists of multiple parts. This class
-    is responsible for shaping the text.
+class TextItem:
+    """A text item represents a unit piece of text that is formatted
+    in a specific way. The TextGeometry positions a list of text items so that
+    they together display the intended total text.
     """
 
-    def __init__(self, text, font=None, font_size=12, weight=400, italic=False):
+    def __init__(self, text, font_props=None):
+
+        # Set font props
+        if font_props is None:
+            font_props = FontProps()  # default
+
+        # === Font selection
+        font_filename = find_font(font_props)
 
         # === Shaping - generate indices and positions
+        indices, positions = shape_text(text, font_filename)
 
-        self.indices = np.zeros((len(text),), np.uint32)
-        self.positions = np.zeros((len(text), 3), np.float32)
+        # or ..
+        # glyph_indices, positions = shape_text(text, font_props, font_filename)
+        # atlas_indices, position_updates = generate_glyphs(glyph_indices, font_filename)
 
-        for i in range(len(text)):
-            self.positions[i] = i * font_size, 0, 0
+        # indices = np.zeros((len(text),), np.uint32)
+        # positions = np.zeros((len(text), 3), np.float32)
+        #
+        # for i in range(len(text)):
+        #     positions[i] = i * font_props.size, 0, 0
+
+        # Store stuff for the geometry to use
+        self.indices = indices
+        self.positions = positions
 
 
 class TextGeometry(Geometry):
-    def __init__(self, text_parts, max_width=0, line_height=1.2, text_align="left"):
+    """Produce renderable geometry from a list of TextItem objects."""
 
-        # Check incoming parts
-        self._text_parts = tuple(text_parts)
-        for part in self._text_parts:
-            if not isinstance(part, TextPart):
-                raise TypeError("TextGeometry only accepts TextPart objects.")
+    def __init__(self, text_items, max_width=0, line_height=1.2, text_align="left"):
+
+        # Check incoming items
+        self._text_items = tuple(text_items)
+        for item in self._text_items:
+            if not isinstance(item, TextItem):
+                raise TypeError("TextGeometry only accepts TextItem objects.")
 
         # Set props
         self.max_width = max_width
         self.line_height = line_height
         self.text_align = text_align
 
-        # Compose the parts in a single geometry
+        # Compose the items in a single geometry
         indices_arrays = []
         positions_arrays = []
         glyph_count = 0
-        for part in self._text_parts:
-            assert part.indices.dtype == np.uint32
-            assert part.positions.dtype == np.float32
-            assert part.positions.shape == (part.indices.size, 3)
-            part.offset = glyph_count
-            glyph_count += part.indices.size
-            indices_arrays.append(part.indices)
-            positions_arrays.append(part.positions)
+        for item in self._text_items:
+            assert item.indices.dtype == np.uint32
+            assert item.positions.dtype == np.float32
+            assert item.positions.shape == (item.indices.size, 3)
+            item.offset = glyph_count
+            glyph_count += item.indices.size
+            indices_arrays.append(item.indices)
+            positions_arrays.append(item.positions)
 
         # Store
         super().__init__(
@@ -165,10 +169,10 @@ class TextGeometry(Geometry):
         # Note, could render the text in a curve or something.
         # todo: perhaps use a hook for custom positioning effects?
 
-        for part in self._text_parts:
-            positions = part.positions.copy()
+        for item in self._text_items:
+            positions = item.positions.copy()
             # todo: tweak positions
-            if not (positions == part.positions).all():
-                i1, i2 = part.offset, part.offset + positions.shape[0]
+            if not (positions == item.positions).all():
+                i1, i2 = item.offset, item.offset + positions.shape[0]
                 self.posisions.data[i1:i2] = positions
                 self.positions.update_range(i1, i2)

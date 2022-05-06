@@ -9,7 +9,10 @@ import pygfx as gfx
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
-obj = gfx.Text(gfx.text_geometry("Hello world"), gfx.TextMaterial(color="cyan"))
+obj = gfx.Text(
+    gfx.text_geometry(text="Hello world"),
+    gfx.TextMaterial(color="cyan"),
+)
 scene.add(obj)
 
 scene.add(gfx.AxesHelper(size=250))

@@ -1,5 +1,6 @@
 import os
 import logging
+from pkg_resources import resource_filename
 
 import numpy as np
 
@@ -27,6 +28,11 @@ def _set_log_level():
 _set_log_level()
 
 
+def get_resource_filename(name):
+    """Get the filename to a pygfx package resource."""
+    return resource_filename("pygfx.pkg_resources", name)
+
+
 def array_from_shadertype(shadertype, count=None):
     """Get a numpy array object from a dict shadertype.
     params:
@@ -36,7 +42,6 @@ def array_from_shadertype(shadertype, count=None):
             If count is not None, array has a shape of (count, ),
             Indicates that the corresponding "Buffer" is an array of struct.
     """
-
     assert isinstance(shadertype, dict)
     assert count is None or count > 0
 
