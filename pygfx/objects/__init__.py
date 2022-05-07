@@ -12,4 +12,5 @@ from ._events import (
     WindowEvent,
 )
 from ._more import Group, Scene, Background, Points, Line, Mesh, Image, Volume
+from ._lights import Light, PointLight, DirectionalLight
 from ._instanced import InstancedMesh

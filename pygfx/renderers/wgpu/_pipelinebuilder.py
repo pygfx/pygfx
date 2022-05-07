@@ -20,6 +20,7 @@ def ensure_pipeline(renderer, wobject):
     blender = renderer._blender
     pipelines = renderer._wobject_pipelines
     device = shared.device
+    state = renderer._render_state
 
     # Get wobject_pipeline dict associated with this renderer and wobject
     wobject_pipeline = pipelines.get(wobject, {})
@@ -28,12 +29,28 @@ def ensure_pipeline(renderer, wobject):
     new_pipeline_infos = None
 
     # Do we need to recreate the pipeline_objects?
-    if wobject.rev != wobject_pipeline.get("ref", ()):
+
+    # Check if render state has changed
+    state_hash = ""
+    for key in state:
+        values = state[key]
+        for value in values:
+            assert hasattr(value, "id")
+            state_hash += f"{key}.{value.id}_"
+
+    if wobject.rev != wobject_pipeline.get(
+        "ref", ()
+    ) or state_hash != wobject_pipeline.get("render_state_hash", ""):
         # Create fresh wobject_pipeline
-        wobject_pipeline = {"ref": wobject.rev, "renderable": False, "resources": []}
+        wobject_pipeline = {
+            "ref": wobject.rev,
+            "render_state_hash": state_hash,
+            "renderable": False,
+            "resources": [],
+        }
         pipelines[wobject] = wobject_pipeline
         # Create pipeline_info and collect resources
-        new_pipeline_infos = create_pipeline_infos(shared, blender, wobject)
+        new_pipeline_infos = create_pipeline_infos(shared, blender, wobject, state)
         if new_pipeline_infos:
             wobject_pipeline["renderable"] = True
             wobject_pipeline["resources"] = collect_pipeline_resources(
@@ -79,15 +96,17 @@ class RenderInfo:
     * wobject
     * stdinfo buffer
     * blender
+    * state
     """
 
-    def __init__(self, *, wobject, stdinfo_uniform, blender):
+    def __init__(self, *, wobject, stdinfo_uniform, blender, state):
         self.wobject = wobject
         self.stdinfo_uniform = stdinfo_uniform
         self.blender = blender
+        self.state = state
 
 
-def create_pipeline_infos(shared, blender, wobject):
+def create_pipeline_infos(shared, blender, wobject, state):
     """Use the render function for this wobject and material,
     and return a list of dicts representing pipelines in an abstract way.
     These dicts can then be turned into actual pipeline objects.
@@ -104,7 +123,10 @@ def create_pipeline_infos(shared, blender, wobject):
 
     # Prepare info for the render function
     render_info = RenderInfo(
-        wobject=wobject, stdinfo_uniform=shared.stdinfo_buffer, blender=blender
+        wobject=wobject,
+        stdinfo_uniform=shared.stdinfo_buffer,
+        blender=blender,
+        state=state,
     )
 
     # Call render function

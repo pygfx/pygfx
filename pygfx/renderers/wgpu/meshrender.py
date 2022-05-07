@@ -12,6 +12,7 @@ from ...materials import (
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
 )
+from ...objects import PointLight, DirectionalLight
 from ...resources import Buffer
 from ...utils import normals_from_vertices
 
@@ -62,6 +63,7 @@ def mesh_renderer(render_info):
         ),
         Binding("s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"),
     ]
+
     bindings1 = []  # non-auto-generated bindings
 
     # Per-vertex color, colormap, or a plane color?
@@ -92,10 +94,38 @@ def mesh_renderer(render_info):
         shader["color_mode"] = "uniform"
         shader["lighting"] = ""
         shader["wireframe"] = False
-    elif isinstance(material, MeshFlatMaterial):
-        shader["lighting"] = "flat"
-    elif isinstance(material, MeshPhongMaterial):
-        shader["lighting"] = "phong"
+    elif isinstance(material, (MeshFlatMaterial, MeshPhongMaterial)):
+        shader["lighting"] = (
+            "flat" if isinstance(material, MeshFlatMaterial) else "phong"
+        )
+        shader["lights"] = {"point": [], "directional": []}
+        if render_info.state and "lights" in render_info.state:
+            lights = render_info.state["lights"]
+            if len(lights) > 0:
+                for i, light in enumerate(lights):
+                    if isinstance(light, PointLight):
+                        bindings.append(
+                            Binding(
+                                f"u_light_{i}",
+                                "buffer/uniform",
+                                light.uniform_buffer,
+                                struct_name="u_point_light",
+                            ),
+                        )
+                        shader["lights"]["point"].append(f"u_light_{i}")
+                    elif isinstance(light, DirectionalLight):
+                        bindings.append(
+                            Binding(
+                                f"u_light_{i}",
+                                "buffer/uniform",
+                                light.uniform_buffer,
+                                struct_name="u_directional_light",
+                            ),
+                        )
+                        shader["lights"]["directional"].append(f"u_light_{i}")
+                    # elif isinstance(light, AmbientLight):
+                    #    pass
+
     else:
         pass  # simple lighting
 
@@ -363,8 +393,26 @@ class MeshShader(WorldObjectShader):
 
             // Lighting
             $$ if lighting
-                let world_pos = varyings.world_pos;
-                let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, albeido);
+                // give a default lighting if no light in the scene?
+                $$ if lights.point|length == 0 and lights.directional|length == 0
+                    let light_color = vec3<f32>(1.0, 1.0, 1.0);
+                    let light_dir = normalize(vec3<f32>(1.0, 1.0, 0.0));
+                    let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
+                $$ else
+                    var lit_color = vec3<f32>(0.0, 0.0, 0.0);
+                    $$ for light in lights.point
+                        let light_pos = {{ light }}.world_transform[3].xyz;
+                        let light_dir = normalize(light_pos - varyings.world_pos);
+                        let light_color = {{ light }}.color.rgb;
+                        lit_color += lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
+                    $$ endfor
+                    $$ for light in lights.directional
+                        let light_pos = {{ light }}.world_transform[3].xyz;
+                        let light_dir = normalize(light_pos - {{ light }}.target.xyz);
+                        let light_color = {{ light }}.color.rgb;
+                        lit_color += lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
+                    $$ endfor
+                $$ endif
             $$ else
                 let lit_color = albeido;
             $$ endif
@@ -407,12 +455,10 @@ class MeshShader(WorldObjectShader):
             is_front: bool,
             world_pos: vec3<f32>,
             normal: vec3<f32>,
-            light: vec3<f32>,
-            view: vec3<f32>,
+            light_color: vec3<f32>,
+            light_dir: vec3<f32>,
             albeido: vec3<f32>,
         ) -> vec3<f32> {
-            let light_color = vec3<f32>(1.0, 1.0, 1.0);
-
             // Light parameters
             let ambient_factor = 0.1;
             let diffuse_factor = 0.7;
@@ -421,22 +467,21 @@ class MeshShader(WorldObjectShader):
 
             // Base vectors
             var normal: vec3<f32> = normalize(normal);
-            let view = normalize(view);
-            let light = normalize(light);
 
             // Maybe flip the normal - otherwise backfacing faces are not lit
             // See pygfx/issues/#105 for details
-            normal = select(normal, -normal, is_front);
+            normal = select(-normal, normal, is_front);
 
             // Ambient
             let ambient_color = light_color * ambient_factor;
 
             // Diffuse (blinn-phong reflection model)
-            let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
+            let lambert_term = clamp(dot(light_dir, normal), 0.0, 1.0);
             let diffuse_color = diffuse_factor * light_color * lambert_term;
 
             // Specular
-            let halfway = normalize(light + view);  // halfway vector
+            let view_dir = normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos);
+            let halfway = normalize(light_dir + view_dir);  // halfway vector
             var specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
             specular_term = select(0.0, specular_term, shininess > 0.0);
             let specular_color = specular_factor * specular_term * light_color;
@@ -452,8 +497,8 @@ class MeshShader(WorldObjectShader):
             is_front: bool,
             world_pos: vec3<f32>,
             normal: vec3<f32>,
-            light: vec3<f32>,
-            view: vec3<f32>,
+            light_color: vec3<f32>,
+            light_dir: vec3<f32>,
             albeido: vec3<f32>,
         ) -> vec3<f32> {
 
@@ -468,7 +513,7 @@ class MeshShader(WorldObjectShader):
             normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
 
             // The rest is the same as phong
-            return lighting_phong(is_front, world_pos, normal, light, view, albeido);
+            return lighting_phong(is_front, world_pos, normal, light_color, light_dir, albeido);
         }
         $$ endif
 

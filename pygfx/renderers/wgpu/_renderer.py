@@ -15,6 +15,7 @@ from ...objects import (
     WheelEvent,
     WindowEvent,
     WorldObject,
+    Light,
 )
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
@@ -194,6 +195,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Prepare render targets.
         self.blend_mode = blend_mode
         self.sort_objects = sort_objects
+
+        # Lights, Fogs，etc.
+        self._render_state = {}
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
@@ -482,9 +486,21 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
+        # clear render state every render frame
+        self._render_state.clear()
+
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
-        scene.traverse(wobject_list.append, True)
+
+        def _get_wobject_list(wobject):
+            if isinstance(wobject, Light):
+                if "lights" not in self._render_state:
+                    self._render_state["lights"] = []
+                self._render_state["lights"].append(wobject)
+            else:
+                wobject_list.append(wobject)
+
+        scene.traverse(_get_wobject_list, True)
 
         # Ensure each wobject has pipeline info, and filter objects that we cannot render
         wobject_tuples = []
