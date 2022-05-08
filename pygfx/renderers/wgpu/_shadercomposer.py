@@ -345,9 +345,13 @@ class BaseShader:
             )
 
     def _define_uniform(self, bindgroup, index, binding):
-        structname = "Struct_" + (
-            binding.struct_name if hasattr(binding, "struct_name") else binding.name
-        )
+        # Get struct name
+        struct_hash = str(binding.resource.data.dtype)
+        try:
+            structname = self._uniform_struct_names[struct_hash]
+        except KeyError:
+            structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
+            self._uniform_struct_names[struct_hash] = structname
         if structname not in self._typedefs:
             code = f"""
         struct {structname} {{
