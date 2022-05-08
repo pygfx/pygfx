@@ -1,7 +1,8 @@
-from wgpu.gui.auto import WgpuCanvas, run
-import pygfx as gfx
 import time
 import math
+
+from wgpu.gui.auto import WgpuCanvas, run
+import pygfx as gfx
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
