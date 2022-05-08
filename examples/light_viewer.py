@@ -235,7 +235,7 @@ def create_directionallight_helper(light, length=None):
                 [0, -1, 1],
             ]
         ),
-        gfx.LineArrowMaterial(color="#ffaa00"),
+        gfx.LineArrowMaterial(color=light.color.hex),
     )
 
     light.add(helper)
