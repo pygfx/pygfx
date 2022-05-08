@@ -1,7 +1,8 @@
+import math
+
 from PyQt5 import QtWidgets, QtGui
 from wgpu.gui.qt import WgpuWidget
 import pygfx as gfx
-import math
 
 from pygfx.linalg.vector3 import Vector3
 

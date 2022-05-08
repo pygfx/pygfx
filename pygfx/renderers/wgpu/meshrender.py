@@ -103,25 +103,16 @@ def mesh_renderer(render_info):
             lights = render_info.state["lights"]
             if len(lights) > 0:
                 for i, light in enumerate(lights):
+                    bindings.append(
+                        Binding(
+                            f"u_light_{i}",
+                            "buffer/uniform",
+                            light.uniform_buffer
+                        ),
+                    )
                     if isinstance(light, PointLight):
-                        bindings.append(
-                            Binding(
-                                f"u_light_{i}",
-                                "buffer/uniform",
-                                light.uniform_buffer,
-                                struct_name="u_point_light",
-                            ),
-                        )
                         shader["lights"]["point"].append(f"u_light_{i}")
                     elif isinstance(light, DirectionalLight):
-                        bindings.append(
-                            Binding(
-                                f"u_light_{i}",
-                                "buffer/uniform",
-                                light.uniform_buffer,
-                                struct_name="u_directional_light",
-                            ),
-                        )
                         shader["lights"]["directional"].append(f"u_light_{i}")
                     # elif isinstance(light, AmbientLight):
                     #    pass

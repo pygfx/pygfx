@@ -8,7 +8,7 @@ class Light(WorldObject):
 
     uniform_type = dict(
         color="4xf4",
-        intensity="i4",
+        intensity="f4",
     )
 
     def __init__(self, color=(1, 1, 1, 1), intensity=1):

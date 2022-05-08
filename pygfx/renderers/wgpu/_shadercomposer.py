@@ -268,6 +268,7 @@ class BaseShader:
         self.kwargs = kwargs
         self._typedefs = {}
         self._binding_codes = {}
+        self._uniform_struct_names = {}  # dtype -> name
 
     def __setitem__(self, key, value):
         if hasattr(self.__class__, key):
