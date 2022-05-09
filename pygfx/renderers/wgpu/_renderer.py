@@ -196,8 +196,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.blend_mode = blend_mode
         self.sort_objects = sort_objects
 
-        # Lights, Fogs，etc.
-        self._render_state = {}
+        # Lights, Fogs, etc.
+        self._render_state = {
+            "lights": [],
+        }
+
+        self._current_state_hash = ""
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
@@ -487,15 +491,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
         # clear render state every render frame
-        self._render_state.clear()
+        for k in self._render_state:
+            state = self._render_state[k]
+            state.clear()
 
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
 
         def _get_wobject_list(wobject):
             if isinstance(wobject, Light):
-                if "lights" not in self._render_state:
-                    self._render_state["lights"] = []
                 self._render_state["lights"].append(wobject)
             else:
                 wobject_list.append(wobject)

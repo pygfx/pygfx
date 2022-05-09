@@ -1,6 +1,8 @@
+# run_example = false
+
 import math
 
-from PyQt5 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui
 from wgpu.gui.qt import WgpuWidget
 import pygfx as gfx
 

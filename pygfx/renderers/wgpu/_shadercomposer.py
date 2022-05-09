@@ -346,33 +346,33 @@ class BaseShader:
             )
 
     def _define_uniform(self, bindgroup, index, binding):
+
+        resource = binding.resource
+        if isinstance(resource, dict):
+            dtype_struct = array_from_shadertype(resource).dtype
+        elif isinstance(resource, Buffer):
+            if resource.data.dtype.fields is None:
+                raise TypeError(f"define_uniform() needs a structured dtype")
+            dtype_struct = resource.data.dtype
+        elif isinstance(resource, np.dtype):
+            if resource.fields is None:
+                raise TypeError(f"define_uniform() needs a structured dtype")
+            dtype_struct = resource
+        else:
+            raise TypeError(f"Unsupported struct type {resource.__class__.__name__}")
+
         # Get struct name
-        struct_hash = str(binding.resource.data.dtype)
+        struct_hash = str(dtype_struct)
         try:
             structname = self._uniform_struct_names[struct_hash]
         except KeyError:
             structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
             self._uniform_struct_names[struct_hash] = structname
+
         if structname not in self._typedefs:
             code = f"""
         struct {structname} {{
             """.rstrip()
-
-            resource = binding.resource
-            if isinstance(resource, dict):
-                dtype_struct = array_from_shadertype(resource).dtype
-            elif isinstance(resource, Buffer):
-                if resource.data.dtype.fields is None:
-                    raise TypeError(f"define_uniform() needs a structured dtype")
-                dtype_struct = resource.data.dtype
-            elif isinstance(resource, np.dtype):
-                if resource.fields is None:
-                    raise TypeError(f"define_uniform() needs a structured dtype")
-                dtype_struct = resource
-            else:
-                raise TypeError(
-                    f"Unsupported struct type {resource.__class__.__name__}"
-                )
 
             # Obtain names of fields that are arrays. This is encoded as an empty field with a
             # name that has the array-fields-names separated with double underscores.
@@ -662,10 +662,18 @@ class WorldObjectShader(BaseShader):
         {{ blending_code }}
         """
 
+        # Maybe should use a constant instead of a function?
+        is_orthographic_code = """
+        fn is_orthographic() -> bool {
+            return u_stdinfo.projection_transform[2][3] == 0.0;
+        }
+        """
+
         return (
             clipping_plane_code
             + world_pos_code
             + picking_code
             + colormap_code
             + blending_code
+            + is_orthographic_code
         )

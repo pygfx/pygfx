@@ -11,10 +11,10 @@ class Light(WorldObject):
         intensity="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1):
+    def __init__(self, color=(1, 1, 1, 1)):
         super().__init__()
         self.color = color
-        self.intensity = intensity  # not used for now
+        # self.intensity = intensity  # not used for now
 
     @property
     def color(self):
@@ -35,12 +35,12 @@ class PointLight(Light):
         decay="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1):
-        super().__init__(color, intensity)
+    def __init__(self, color=(1, 1, 1, 1)):
+        super().__init__(color)
 
         # not used for now
-        self.distance = distance
-        self.decay = decay
+        # self.distance = distance
+        # self.decay = decay
 
 
 class DirectionalLight(Light):
@@ -50,8 +50,8 @@ class DirectionalLight(Light):
         target="4xf4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1):
-        super().__init__(color, intensity)
+    def __init__(self, color=(1, 1, 1, 1)):
+        super().__init__(color)
         self.target = Vector3()  # TODO should be a WorldObject
 
     @property
@@ -64,5 +64,5 @@ class DirectionalLight(Light):
         self.uniform_buffer.update_range(0, 1)
 
 
-class AmbientLight(Light):
-    """This light globally illuminates all objects in the scene equally."""
+# class AmbientLight(Light):
+#    """This light globally illuminates all objects in the scene equally."""

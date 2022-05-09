@@ -4,10 +4,20 @@
 import wgpu
 
 from ...resources import Buffer, TextureView
+from ...materials import Material, MeshPhongMaterial, MeshFlatMaterial
 
 from ._utils import to_vertex_format, to_texture_format
 from ._update import update_resource, ALTTEXFORMAT
 from . import registry
+
+
+# todo: Should a Boolean property be added to the Material
+#       to indicate whether it is affected by light?
+#       Also fog, etc.
+def _is_affected_by_lights(material: Material):
+    """Check if the given material is affected by lights."""
+
+    return isinstance(material, (MeshPhongMaterial, MeshFlatMaterial))
 
 
 def ensure_pipeline(renderer, wobject):
@@ -30,23 +40,27 @@ def ensure_pipeline(renderer, wobject):
 
     # Do we need to recreate the pipeline_objects?
 
-    # Check if render state has changed
     state_hash = ""
-    for key in state:
-        values = state[key]
-        for value in values:
-            assert hasattr(value, "id")
-            state_hash += f"{key}.{value.id}_"
 
+    if _is_affected_by_lights(wobject.material):
+        # Check if render state has changed
+        for key in state:
+            values = state[key]
+            for value in values:
+                assert hasattr(value, "id")
+                state_hash += f"{key}.{value.id}_"
+
+    # TODO: When a wobject is rendered simultaneously in different scenes
+    # with different render states, the pipeline maybe rebuild on each draw.
     if wobject.rev != wobject_pipeline.get(
         "ref", ()
     ) or state_hash != wobject_pipeline.get("render_state_hash", ""):
         # Create fresh wobject_pipeline
         wobject_pipeline = {
             "ref": wobject.rev,
-            "render_state_hash": state_hash,
             "renderable": False,
             "resources": [],
+            "render_state_hash": state_hash,
         }
         pipelines[wobject] = wobject_pipeline
         # Create pipeline_info and collect resources

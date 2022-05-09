@@ -104,11 +104,7 @@ def mesh_renderer(render_info):
             if len(lights) > 0:
                 for i, light in enumerate(lights):
                     bindings.append(
-                        Binding(
-                            f"u_light_{i}",
-                            "buffer/uniform",
-                            light.uniform_buffer
-                        ),
+                        Binding(f"u_light_{i}", "buffer/uniform", light.uniform_buffer),
                     )
                     if isinstance(light, PointLight):
                         shader["lights"]["point"].append(f"u_light_{i}")
@@ -388,7 +384,7 @@ class MeshShader(WorldObjectShader):
                 $$ if lights.point|length == 0 and lights.directional|length == 0
                     let light_color = vec3<f32>(1.0, 1.0, 1.0);
                     // let light_dir = -normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
-                    let light_dir = normalize((vec4<f32>(0.0, 0.0, 1.0, 1.0) * u_stdinfo.cam_transform_inv).xyz);
+                    let light_dir = (vec4<f32>(0.0, 0.0, 1.0, 0.0) * u_stdinfo.cam_transform_inv).xyz;
                     let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
                 $$ else
                     var lit_color = vec3<f32>(0.0, 0.0, 0.0);
@@ -472,7 +468,12 @@ class MeshShader(WorldObjectShader):
             let diffuse_color = diffuse_factor * light_color * lambert_term;
 
             // Specular
-            let view_dir = normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos);
+            // Need to distinguish whether it is orthogonal projection here
+            let view_dir = select(
+                normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos),
+                (vec4<f32>(0.0, 0.0, 1.0, 0.0) * u_stdinfo.cam_transform_inv).xyz,
+                is_orthographic()
+            );
             let halfway = normalize(light_dir + view_dir);  // halfway vector
             var specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
             specular_term = select(0.0, specular_term, shininess > 0.0);
