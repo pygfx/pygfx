@@ -1,6 +1,7 @@
 """
 """
 
+import weakref
 import wgpu
 
 from ...resources import Buffer, TextureView
@@ -11,13 +12,23 @@ from ._update import update_resource, ALTTEXFORMAT
 from . import registry
 
 
-# todo: Should a Boolean property be added to the Material
-#       to indicate whether it is affected by light?
-#       Also fog, etc.
+# todo: Should add a proerty to materials to indicate if they are affected by lights?
 def _is_affected_by_lights(material: Material):
     """Check if the given material is affected by lights."""
 
     return isinstance(material, (MeshPhongMaterial, MeshFlatMaterial))
+
+
+def _calculate_pipeline_cache_key(wobject, state):
+    """Compute a unique key for the given wobject and render state."""
+
+    key = (wobject.rev,)
+
+    if _is_affected_by_lights(wobject.material):
+        state_hash = state.state_hash
+        key += (state_hash,)
+
+    return key
 
 
 def ensure_pipeline(renderer, wobject):
@@ -30,39 +41,22 @@ def ensure_pipeline(renderer, wobject):
     blender = renderer._blender
     pipelines = renderer._wobject_pipelines
     device = shared.device
-    state = renderer._render_state
+    state = renderer._current_render_state
 
     # Get wobject_pipeline dict associated with this renderer and wobject
-    wobject_pipeline = pipelines.get(wobject, {})
+    wobject_state_pipelines = pipelines.setdefault(wobject, weakref.WeakKeyDictionary())
+    wobject_pipeline = wobject_state_pipelines.get(state, {})
 
     # This becomes not-None if we need to update the pipeline dict
     new_pipeline_infos = None
 
+    cache_key = _calculate_pipeline_cache_key(wobject, state)
+
     # Do we need to recreate the pipeline_objects?
-
-    state_hash = ""
-
-    if _is_affected_by_lights(wobject.material):
-        # Check if render state has changed
-        for key in state:
-            values = state[key]
-            for value in values:
-                assert hasattr(value, "id")
-                state_hash += f"{key}.{value.id}_"
-
-    # TODO: When a wobject is rendered simultaneously in different scenes
-    # with different render states, the pipeline maybe rebuild on each draw.
-    if wobject.rev != wobject_pipeline.get(
-        "ref", ()
-    ) or state_hash != wobject_pipeline.get("render_state_hash", ""):
+    if cache_key != wobject_pipeline.get("ref", ()):
         # Create fresh wobject_pipeline
-        wobject_pipeline = {
-            "ref": wobject.rev,
-            "renderable": False,
-            "resources": [],
-            "render_state_hash": state_hash,
-        }
-        pipelines[wobject] = wobject_pipeline
+        wobject_pipeline = {"ref": cache_key, "renderable": False, "resources": []}
+        wobject_state_pipelines[state] = wobject_pipeline
         # Create pipeline_info and collect resources
         new_pipeline_infos = create_pipeline_infos(shared, blender, wobject, state)
         if new_pipeline_infos:

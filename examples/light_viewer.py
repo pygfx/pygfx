@@ -142,7 +142,7 @@ class LightViewer(QtWidgets.QWidget):
         scene.add(light1)
 
         # Point Light2
-        light2 = gfx.DirectionalLight("#80ff80")
+        light2 = gfx.PointLight("#80ff80")
         self.light2_color_btn.setStyleSheet("background-color: %s" % light2.color.hex)
         self.light2 = light2
         light2.visible = False
@@ -254,4 +254,4 @@ if __name__ == "__main__":
     window = LightViewer()
     window.init_scene()
     window.show()
-    app.exec_()
+    app.exec()

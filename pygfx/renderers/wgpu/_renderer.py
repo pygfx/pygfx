@@ -65,6 +65,27 @@ def _get_sort_function(camera: Camera):
     return sort_func
 
 
+class RenderState:
+    def __init__(self) -> None:
+        # only lights for now
+        self.lights: list[Light] = []
+
+    def init(self):
+        self.lights.clear()
+
+    def pushLight(self, light):
+        self.lights.append(light)
+
+    # def is_changed(self):
+    #     pass
+
+    @property
+    def state_hash(self):
+        # Ensure sequence independence
+        self.lights.sort(key=lambda light: light.id)
+        return hash(tuple(self.lights))
+
+
 class SharedData:
     """An object to store global data to share between multiple wgpu renderers.
 
@@ -142,6 +163,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
+    _render_states = weakref.WeakKeyDictionary()  # Scene -> RenderState
+
     def __init__(
         self,
         target,
@@ -195,13 +218,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Prepare render targets.
         self.blend_mode = blend_mode
         self.sort_objects = sort_objects
-
-        # Lights, Fogs, etc.
-        self._render_state = {
-            "lights": [],
-        }
-
-        self._current_state_hash = ""
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
@@ -490,17 +506,18 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
-        # clear render state every render frame
-        for k in self._render_state:
-            state = self._render_state[k]
-            state.clear()
+        self._current_render_state: RenderState = (
+            WgpuRenderer._render_states.setdefault(scene, RenderState())
+        )
+
+        self._current_render_state.init()
 
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
 
         def _get_wobject_list(wobject):
             if isinstance(wobject, Light):
-                self._render_state["lights"].append(wobject)
+                self._current_render_state.pushLight(wobject)
             else:
                 wobject_list.append(wobject)
 

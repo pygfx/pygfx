@@ -99,19 +99,18 @@ def mesh_renderer(render_info):
             "flat" if isinstance(material, MeshFlatMaterial) else "phong"
         )
         shader["lights"] = {"point": [], "directional": []}
-        if render_info.state and "lights" in render_info.state:
-            lights = render_info.state["lights"]
-            if len(lights) > 0:
-                for i, light in enumerate(lights):
-                    bindings.append(
-                        Binding(f"u_light_{i}", "buffer/uniform", light.uniform_buffer),
-                    )
-                    if isinstance(light, PointLight):
-                        shader["lights"]["point"].append(f"u_light_{i}")
-                    elif isinstance(light, DirectionalLight):
-                        shader["lights"]["directional"].append(f"u_light_{i}")
-                    # elif isinstance(light, AmbientLight):
-                    #    pass
+        lights = render_info.state.lights
+        if len(lights) > 0:
+            for i, light in enumerate(lights):
+                bindings.append(
+                    Binding(f"u_light_{i}", "buffer/uniform", light.uniform_buffer),
+                )
+                if isinstance(light, PointLight):
+                    shader["lights"]["point"].append(f"u_light_{i}")
+                elif isinstance(light, DirectionalLight):
+                    shader["lights"]["directional"].append(f"u_light_{i}")
+                # elif isinstance(light, AmbientLight):
+                #    pass
 
     else:
         pass  # simple lighting
