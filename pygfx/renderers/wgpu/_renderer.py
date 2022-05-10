@@ -73,7 +73,7 @@ class RenderState:
     def init(self):
         self.lights.clear()
 
-    def pushLight(self, light):
+    def push_light(self, light):
         self.lights.append(light)
 
     # def is_changed(self):
@@ -517,7 +517,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         def _get_wobject_list(wobject):
             if isinstance(wobject, Light):
-                self._current_render_state.pushLight(wobject)
+                self._current_render_state.push_light(wobject)
             else:
                 wobject_list.append(wobject)
 
