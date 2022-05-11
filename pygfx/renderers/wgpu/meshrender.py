@@ -383,7 +383,7 @@ class MeshShader(WorldObjectShader):
                 $$ if lights.point|length == 0 and lights.directional|length == 0
                     let light_color = vec3<f32>(1.0, 1.0, 1.0);
                     // let light_dir = -normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
-                    let light_dir = (vec4<f32>(0.0, 0.0, 1.0, 0.0) * u_stdinfo.cam_transform_inv).xyz;
+                    let light_dir = (u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0)).xyz;
                     let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
                 $$ else
                     var lit_color = vec3<f32>(0.0, 0.0, 0.0);
