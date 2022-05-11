@@ -4,6 +4,7 @@ from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
 from ...objects import Text
 from ...materials import TextMaterial
+from ...utils.text import atlas
 
 # from ...resources import Texture, TextureView
 
@@ -33,6 +34,10 @@ def text_renderer(render_info):
             "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
         ),
     ]
+
+    view = atlas.texture_view
+    bindings.append(Binding("s_atlas", "sampler/filtering", view, "FRAGMENT"))
+    bindings.append(Binding("t_atlas", "texture/auto", view, "FRAGMENT"))
 
     # Let the shader generate code for our bindings
     for i, binding in enumerate(bindings):
@@ -74,12 +79,12 @@ class TextShader(WorldObjectShader):
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
-            let index = i32(in.vertex_index);
-            let i0 = index / 6;
-            let sub_index = index % 6;
+            let raw_index = i32(in.vertex_index);
+            let index = raw_index / 6;
+            let sub_index = raw_index % 6;
 
-            let glyph_pos = load_s_positions(i0);
-            let coverage = load_s_coverages(i0);
+            let glyph_pos = load_s_positions(index);
+            let coverage = load_s_coverages(index);
 
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
 
@@ -127,9 +132,10 @@ class TextShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.pointcoord = vec2<f32>(point_coord);
             varyings.size = f32(size);
+            varyings.index = i32(index);
 
             // Picking
-            varyings.pick_idx = u32(i0);
+            varyings.pick_idx = u32(index);
 
             return varyings;
         }
@@ -146,6 +152,15 @@ class TextShader(WorldObjectShader):
             if (varyings.pointcoord.x < -0.7 * max_d || varyings.pointcoord.x > 0.7 * max_d) {
                 //discard;
             }
+
+            let atlas_size = textureDimensions(t_atlas);
+            let glyph_size = GLYPH_SIZE;
+            let index = varyings.index;
+            let ncols = atlas_size.x / glyph_size;
+            let topleft = vec2<i32>(index / ncols, index % ncols);
+
+            //let texcoord = topleft + pointcoord +
+
 
             let color = u_material.color;
             let final_color = vec4<f32>(color.rgb, color.a * u_material.opacity);
@@ -166,4 +181,6 @@ class TextShader(WorldObjectShader):
 
             return out;
         }
-        """
+        """.replace(
+            "GLYPH_SIZE", str(atlas.glyph_size)
+        )

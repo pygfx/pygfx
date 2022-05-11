@@ -1,6 +1,8 @@
 import freetype
 import numpy as np
 
+from ._atlas import atlas
+
 
 reference_size = 200
 
@@ -45,41 +47,22 @@ def shape_text(text, font_filename):
     # todo: use the line_gap as the reference line_height
     line_gap = face.height
 
+    def generate_glyph(glyph_index):
+        face.load_char(glyph_index, freetype.FT_LOAD_DEFAULT)
+        face.glyph.render(freetype.FT_RENDER_MODE_SDF)
+        bitmap = face.glyph.bitmap
+        # a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
+        a = np.zeros((atlas.glyph_size, atlas.glyph_size), np.uint8)
+        a[:, 20:-20] = 255
+        return a
+
     # === Glyph generation
     altas_indices = np.zeros((len(glyph_indices),), np.uint32)
     coverage = np.zeros((len(glyph_indices), 2), np.float32)
     for i, glyph_index in enumerate(glyph_indices):
-        face.load_char(glyph_index, freetype.FT_LOAD_DEFAULT)
-        face.glyph.render(freetype.FT_RENDER_MODE_SDF)
-        bitmap = face.glyph.bitmap
-        a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
         glyph_hash = (font_index, glyph_index)
-        atlas_index = atlas.add_glyph(glyph_hash, a)
+        atlas_index = atlas.register_glyph(glyph_hash, generate_glyph, glyph_index)
         altas_indices[i] = atlas_index
-        coverage[i] = a.shape[1] / reference_size, a.shape[0] / reference_size
+        coverage[i] = 1, 1  # a.shape[1] / reference_size, a.shape[0] / reference_size
 
     return altas_indices, positions, coverage
-
-
-from ...resources import Texture
-
-
-class GlyphAtlas:
-    def __init__(self):
-
-        self._texture = Texture(dim=2, size=(1024, 1024, 1), format="u1")
-        self._map = {}  # font_props id -> index
-
-    def add_glyph(self, glyph_hash, a):
-        try:
-            index = self._map[glyph_hash]
-        except KeyError:
-            index = len(self._map)
-            self._map[glyph_hash] = index
-
-        # todo: upload array
-
-        return index
-
-
-atlas = GlyphAtlas()
