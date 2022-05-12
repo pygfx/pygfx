@@ -79,18 +79,20 @@ class TextShader(WorldObjectShader):
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
+            let size = 22.0;  // todo: where to get the size?
+
             let raw_index = i32(in.vertex_index);
             let index = raw_index / 6;
             let sub_index = raw_index % 6;
 
-            let glyph_pos = load_s_positions(index);
+            let glyph_pos = load_s_positions(index) * size;
             let coverage = load_s_coverages(index);
 
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
 
             var deltas = array<vec2<f32>, 6>(
                 vec2<f32>(0.0, 0.0),
-                vec2<f32>(0.0,  coverage.y),
+                vec2<f32>(0.0, coverage.y),
                 vec2<f32>( coverage.x, 0.0),
                 vec2<f32>(0.0,  coverage.y),
                 vec2<f32>( coverage.x, 0.0),
@@ -102,9 +104,7 @@ class TextShader(WorldObjectShader):
                 //vec2<f32>( 1.0, -1.0),
                 //vec2<f32>( 1.0,  1.0),
             );
-            let size = 10.0;  // todo: where to get the size?
-            let aa_margin = 1.0;
-            let point_coord = deltas[sub_index] * (size + aa_margin);
+            let point_coord = deltas[sub_index] * size;
 
             $$ if screen_space
 
@@ -114,7 +114,7 @@ class TextShader(WorldObjectShader):
                 let raw_pos = vec3<f32>(0.0, 0.0, 0.0);
                 let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
                 let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-                let delta_ndc = (glyph_pos.xy + point_coord) / screen_factor;
+                let delta_ndc = (glyph_pos.xy + vec2<f32>(1.0, -1.0) * point_coord) / screen_factor;
 
             $$ else
 
@@ -132,7 +132,7 @@ class TextShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.pointcoord = vec2<f32>(point_coord);
             varyings.size = f32(size);
-            varyings.index = i32(index);
+            varyings.atlas_index = i32(load_s_indices(index));
 
             // Picking
             varyings.pick_idx = u32(index);
@@ -149,25 +149,48 @@ class TextShader(WorldObjectShader):
 
             let max_d = 0.5 * varyings.size;
 
-            if (varyings.pointcoord.x < -0.7 * max_d || varyings.pointcoord.x > 0.7 * max_d) {
-                //discard;
-            }
+            // TODO: the below is likely not fully correct yet :)
+            //
+            // The glyph is represented in the texture as a square region
+            // of fixed size, though only a subrectangle is actually used:
+            // the coverage.
+            //
+            // o-------   →  pointcoord.x in logical pizels
+            // |       |
+            // |       |  ↓  pointcoord.y in logical pixels
+            // |       |
+            //  -------
 
             let atlas_size = textureDimensions(t_atlas);
             let glyph_size = GLYPH_SIZE;
-            let index = varyings.index;
+            let index = varyings.atlas_index;
             let ncols = atlas_size.x / glyph_size;
-            let topleft = vec2<i32>(index / ncols, index % ncols);
+            let col_row = vec2<i32>(index % ncols, index / ncols);
+            let left_top = col_row * glyph_size;
 
-            //let texcoord = topleft + pointcoord +
+            // pointcoord is in logical pixels (and so is size)
+            let localcoord = f32(glyph_size) * varyings.pointcoord / varyings.size;
+            let texcoord_f = (vec2<f32>(left_top) + localcoord) / vec2<f32>(atlas_size);
+            let texcoord_i = left_top + vec2<i32>(localcoord + 0.5);
 
+            // Sample value
+            // TODO: This is an SDF
+            // TODO: gamma correction
+            let value = textureSample(t_atlas, s_atlas, texcoord_f).r;
+            // textureLoad(t_atlas, let_texcoord_i, 0);
 
-            let color = u_material.color;
-            let final_color = vec4<f32>(color.rgb, color.a * u_material.opacity);
+            var color: vec4<f32> = u_material.color;
+            color.a = color.a * u_material.opacity * value;
+
+            if color.a <= 0.0 { discard; }
+
+            // Debug
+            color = vec4<f32>(mix(vec3<f32>(0.2, 0.0, 0.0), color.rgb, value), 1.0);
+            //color.g = varyings.pointcoord.y / varyings.size;
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

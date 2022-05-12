@@ -17,7 +17,7 @@ import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-from ..utils.text import FontProps, find_font, shape_text
+from ..utils.text import FontProps, find_font, shape_text_and_generate_glyph
 
 
 def text_geometry(
@@ -61,7 +61,9 @@ class TextItem:
         font_filename = find_font(font_props)
 
         # === Shaping - generate indices and positions
-        indices, positions, coverages = shape_text(text, font_filename)
+        indices, positions, coverages = shape_text_and_generate_glyph(
+            text, font_filename
+        )
 
         # or ..
         # glyph_indices, positions = shape_text(text, font_props, font_filename)
@@ -176,7 +178,6 @@ class TextGeometry(Geometry):
 
         for item in self._text_items:
             positions = item.positions.copy()
-            positions *= 12
             # todo: tweak positions
             if not (positions == item.positions).all():
                 i1, i2 = item.offset, item.offset + positions.shape[0]

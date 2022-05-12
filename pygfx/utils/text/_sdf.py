@@ -2,6 +2,8 @@ import freetype
 import numpy as np
 import threading
 
+# todo: this is just a test script and should be removed
+
 
 class Font:
     def __init__(self, filename):
@@ -28,7 +30,7 @@ class Font:
 
 
 f = Font("/Users/almar/dev/py/pygfx/pygfx/pkg_resources/NotoSans-Regular.ttf")
-
+face = f.face
 print(f.face.height)
 
 a = f.render_sdf("W")
@@ -39,3 +41,10 @@ print(a.shape, f.face.get_advance(f.face.get_char_index("i"), 0))
 import imageio
 
 imageio.imwrite("/Users/Almar/Desktop/tmp.png", a)
+
+
+##
+import matplotlib.pyplot as plt
+
+plt.imshow(gfx.utils.text.atlas._array)
+plt.show()

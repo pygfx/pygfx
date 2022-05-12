@@ -17,7 +17,8 @@ class GlyphAtlas:
         self._lock = threading.RLock()
 
         # Keep track of the index for each glyph
-        self._hash2index = {}
+        self._hash2index = {}  # hash -> dict
+        self._hash2info = {}
         self._index2hash = {}
         self._free_indices = set()
 
@@ -92,12 +93,24 @@ class GlyphAtlas:
         self._array[gs * row : gs * (row + 1), gs * col : gs * (col + 1)] = glyph
         return row, col
 
-    def register_glyph(self, hash, glyph_creator, *args):
-        """Register a glyph in the atlas and return the index.
-        If the glyph is already present, this method returns fast.
-        Otherwise it will call the given glyph_creator function to
-        obtain a glyph (glyph_size x glyph_size array).
+    def get_glyph_info(self, hash):
+        """Get info for the glyph corresponding to the given hash.
+        If present, returns a dict with at least the field 'index'. Otherwise
+        returns None.
         """
+        with self._lock:
+            try:
+                return self._hash2index[hash]
+            except KeyError:
+                return None
+
+    def set_glyph(self, hash, glyph, info=None):
+        """Set the glyph corresponding to the given hash, and return
+        the glyph info dict. If the glyph is already set, this method
+        returns fast. The given glyph must be an array with shape
+        (glyph_size, glyph_size).
+        """
+
         with self._lock:
 
             try:
@@ -107,26 +120,29 @@ class GlyphAtlas:
                 # Otherwise, continue below
                 pass
 
-            # Obtain the glyph
+            # Check glyph array
             gs = self.glyph_size
-            glyph = glyph_creator(*args)
             if not (isinstance(glyph, np.ndarray) and glyph.shape == (gs, gs)):
-                raise ValueError(f"Glyph must be a {gs}x{gs} array.")
+                raise ValueError(f"Glyph array must be a {gs}x{gs} array.")
 
-            # We might need a bigger array
+            # We might need a bigger atlas array
             if not self._free_indices:
                 self._ensure_capacity(self.capacity * 2)
 
-            # Get index and do bookkeeping
+            # Get index and construct info
             index = min(self._free_indices)
+            info = (info or {}).copy()
+            info["index"] = index
+
+            # Bookkeeping
             self._free_indices.remove(index)
-            self._hash2index[hash] = index
+            self._hash2index[hash] = info
             self._index2hash[index] = hash
 
             # Store
             self._set_glyph_slot(index, glyph)
 
-            return index
+            return info
 
     def free_slot(self, index):
         """Free up a glyph slot."""
