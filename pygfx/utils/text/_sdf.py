@@ -30,6 +30,7 @@ class Font:
 
 
 f = Font("/Users/almar/dev/py/pygfx/pygfx/pkg_resources/NotoSans-Regular.ttf")
+# f = Font("/Users/almar/dev/py/pygfx/pygfx/pkg_resources/DejaVuSans.ttf")
 face = f.face
 print(f.face.height)
 
@@ -41,7 +42,6 @@ print(a.shape, f.face.get_advance(f.face.get_char_index("i"), 0))
 import imageio
 
 imageio.imwrite("/Users/Almar/Desktop/tmp.png", a)
-
 
 ##
 import matplotlib.pyplot as plt

@@ -41,7 +41,7 @@ def test_atlas():
     assert atlas.get_glyph_info("0") is None
 
     # Now there is
-    i0 = atlas.set_glyph("0", glyphgen(gs), {"foo":42})
+    i0 = atlas.set_glyph("0", glyphgen(gs), {"foo": 42})
     assert isinstance(i0, dict)
     assert i0["foo"] == 42
 

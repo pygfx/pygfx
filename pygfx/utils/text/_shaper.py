@@ -70,11 +70,15 @@ def shape_text_and_generate_glyph(text, font_filename):
     # Convert advances to positions
     positions = np.zeros((len(advances), 2), np.float32)
     pen_x = 0
+    prev = " "
     for i in range(len(advances)):
+        c = text[i]
+        kerning = face.get_kerning(prev, c, freetype.FT_KERNING_UNSCALED)
+        pen_x += kerning.x / 64
         positions[i] = pen_x, 0
         pen_x += advances[i]
+        prev = c
 
-    # todo: kerning
     # todo: use the line_gap as the reference line_height
     line_gap = face.height
 
