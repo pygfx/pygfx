@@ -466,7 +466,7 @@ class BaseShader:
 
         type_name = (
             f"array<{structname}, {binding.resource.data.shape[0]}>"
-            if binding.resource.data.shape
+            if isinstance(resource, Buffer) and resource.data.shape  # Buffer.items > 1
             else structname
         )
 

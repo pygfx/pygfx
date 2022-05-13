@@ -37,9 +37,13 @@ obj1.rotation.multiply(rot)
 obj2.rotation.multiply(rot)
 scene.add(obj1, obj2)
 
-# add a directional light to illuminate the scene
+# add a directional light to illuminate the front face
 light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
 scene.add(light)
+
+# add an opposite direction light to illuminate the back face
+light2 = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, 1))
+scene.add(light2)
 
 camera = gfx.OrthographicCamera(6, 4)
 
@@ -47,14 +51,12 @@ camera = gfx.OrthographicCamera(6, 4)
 def animate():
     # Render top row
     camera.scale.z = 1
-    light.direction = (0, 0, -1)
     renderer.render(scene, camera, rect=(0, 0, 600, 300), flush=False)
     # Render same scene in bottom row. The camera's z scale is negative.
     # This means it looks backwards, but more importantly, it means that the
     # winding is affected. The result should still look correct because we
     # take this effect into account in the mesh shader.
     camera.scale.z = -1
-    light.direction = (0, 0, 1)
     renderer.render(scene, camera, rect=(0, 300, 600, 300))
 
 

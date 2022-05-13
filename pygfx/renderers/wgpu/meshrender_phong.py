@@ -230,7 +230,7 @@ class MeshPhongShader(WorldObjectShader):
                     normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
                 }
 
-                normal = select(-normal, normal, is_front);  // do we really need this?
+                // normal = select(-normal, normal, is_front);  // do we really need this?
 
             $$ endif
 
