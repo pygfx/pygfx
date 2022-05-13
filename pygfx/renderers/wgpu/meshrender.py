@@ -12,7 +12,6 @@ from ...materials import (
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
 )
-from ...objects import PointLight, DirectionalLight
 from ...resources import Buffer
 from ...utils import normals_from_vertices
 
@@ -98,19 +97,47 @@ def mesh_renderer(render_info):
         shader["lighting"] = (
             "flat" if isinstance(material, MeshFlatMaterial) else "phong"
         )
-        shader["lights"] = {"point": [], "directional": []}
-        lights = render_info.state.lights
-        if len(lights) > 0:
-            for i, light in enumerate(lights):
-                bindings.append(
-                    Binding(f"u_light_{i}", "buffer/uniform", light.uniform_buffer),
-                )
-                if isinstance(light, PointLight):
-                    shader["lights"]["point"].append(f"u_light_{i}")
-                elif isinstance(light, DirectionalLight):
-                    shader["lights"]["directional"].append(f"u_light_{i}")
-                # elif isinstance(light, AmbientLight):
-                #    pass
+
+        shader["RECIPROCAL_PI"] = "0.3183098861837907"
+
+        state_buffers = render_info.state.uniform_buffers
+
+        shader["has_ambient_light"] = render_info.state.ambient_light is not None
+        shader["num_dir_lights"] = len(render_info.state.directional_lights)
+        shader["num_point_lights"] = len(render_info.state.point_lights)
+
+        ambient_lights_buffer = state_buffers["ambient_lights"]
+        if ambient_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_ambient_light",
+                    "buffer/uniform",
+                    ambient_lights_buffer,
+                    structname="AmbientLight",
+                ),
+            )
+
+        directional_lights_buffer = state_buffers["directional_lights"]
+        if directional_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_directional_lights",
+                    "buffer/uniform",
+                    directional_lights_buffer,
+                    structname="DirectionalLight",
+                ),
+            )
+
+        point_lights_buffer = state_buffers["point_lights"]
+        if point_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_point_lights",
+                    "buffer/uniform",
+                    point_lights_buffer,
+                    structname="PointLight",
+                ),
+            )
 
     else:
         pass  # simple lighting
@@ -380,25 +407,45 @@ class MeshShader(WorldObjectShader):
             // Lighting
             $$ if lighting
                 // give a default lighting if no light in the scene?
-                $$ if lights.point|length == 0 and lights.directional|length == 0
+                $$ if not has_ambient_light and num_dir_lights == 0 and num_point_lights == 0
                     let light_color = vec3<f32>(1.0, 1.0, 1.0);
                     // let light_dir = -normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
                     let light_dir = (u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0)).xyz;
                     let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
                 $$ else
                     var lit_color = vec3<f32>(0.0, 0.0, 0.0);
-                    $$ for light in lights.point
-                        let light_pos = {{ light }}.world_transform[3].xyz;
-                        let light_dir = normalize(light_pos - varyings.world_pos);
-                        let light_color = {{ light }}.color.rgb;
-                        lit_color += lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
-                    $$ endfor
-                    $$ for light in lights.directional
-                        let light_pos = {{ light }}.world_transform[3].xyz;
-                        let light_dir = normalize(light_pos - {{ light }}.target.xyz);
-                        let light_color = {{ light }}.color.rgb;
-                        lit_color += lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light_color, light_dir, albeido);
-                    $$ endfor
+
+                    $$ if has_ambient_light
+                        lit_color += u_ambient_light.color.rgb;
+                    $$ endif
+
+                    var i: i32 = 0;
+
+                    $$ if num_dir_lights > 0
+                    loop {
+                        if (i >= {{ num_dir_lights }}) { break; }
+
+                        let light = u_directional_lights[i];
+                        let light_dir = normalize(light.direction.xyz);
+                        lit_color += lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light.color.rgb, light_dir, albeido);
+
+                        i += 1;
+                    }
+                    $$ endif
+
+                    $$ if num_point_lights > 0
+                    i = 0;
+                    loop {
+                        if (i >= {{ num_point_lights }}) { break; }
+
+                        let light = u_point_lights[i];
+                        let light_dir = normalize(light.world_transform[3].xyz - varyings.world_pos);
+                        lit_color += lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, light.color.rgb, light_dir, albeido);
+
+                        i += 1;
+                    }
+                    $$ endif
+
                 $$ endif
             $$ else
                 let lit_color = albeido;
@@ -470,7 +517,7 @@ class MeshShader(WorldObjectShader):
             // Need to distinguish whether it is orthogonal projection here
             let view_dir = select(
                 normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos),
-                (vec4<f32>(0.0, 0.0, 1.0, 0.0) * u_stdinfo.cam_transform_inv).xyz,
+                (u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0)).xyz,
                 is_orthographic()
             );
             let halfway = normalize(light_dir + view_dir);  // halfway vector

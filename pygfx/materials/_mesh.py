@@ -185,13 +185,19 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     uniform_type = dict(
         emissive_color="4xf4",
+        specular_color="4xf4",
         shininess="f4",
+        flat_shading="i4",
     )
 
-    def __init__(self, shininess=30, emissive=(0, 0, 0, 0), **kwargs):
+    def __init__(
+        self, shininess=30, emissive=(0, 0, 0, 0), specular="#111111", **kwargs
+    ):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.shininess = shininess
+        self.specular = specular
+        self.flat_shading = False
 
     @property
     def emissive(self):
@@ -199,11 +205,25 @@ class MeshPhongMaterial(MeshBasicMaterial):
         This color is added to the final color and is unaffected by lighting.
         The alpha channel of this color is ignored.
         """
-        return self.uniform_buffer.data["emissive_color"]
+        return Color(self.uniform_buffer.data["emissive_color"])
 
     @emissive.setter
     def emissive(self, color):
+        color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def specular(self):
+        """The specular (highlight) color of the mesh, as an rgba tuple.
+        Default is a Color set to #111111 (very dark grey)"""
+
+        return Color(self.uniform_buffer.data["specular_color"])
+
+    @specular.setter
+    def specular(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["specular_color"] = color
         self.uniform_buffer.update_range(0, 1)
 
     @property
@@ -216,6 +236,20 @@ class MeshPhongMaterial(MeshBasicMaterial):
     @shininess.setter
     def shininess(self, value):
         self.uniform_buffer.data["shininess"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def flat_shading(self):
+        """Whether the mesh is rendered with flat shading.
+        A material that applies lighting per-face (non-interpolated).
+        This gives a "pixelated" look, but can also be usefull if one wants
+        to show the (size of) the triangle faces.
+        """
+        return bool(self.uniform_buffer.data["flat_shading"])
+
+    @flat_shading.setter
+    def flat_shading(self, value: bool):
+        self.uniform_buffer.data["flat_shading"] = value
         self.uniform_buffer.update_range(0, 1)
 
 

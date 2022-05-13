@@ -106,6 +106,9 @@ rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 0.1))
 for obj in scene.children:
     obj.rotation.multiply(rot)
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 

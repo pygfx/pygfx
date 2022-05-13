@@ -128,6 +128,11 @@ class Buffer(Resource):
         """The offset and size, in bytes, when used as a vertex buffer."""
         return self._vertex_byte_range
 
+    @property
+    def shape(self):
+        """The shape of the data."""
+        return self._mem.shape if hasattr(self, "_mem") else None
+
     @vertex_byte_range.setter
     def vertex_byte_range(self, offset_nbytes):
         offset, nbytes = int(offset_nbytes[0]), int(offset_nbytes[1])

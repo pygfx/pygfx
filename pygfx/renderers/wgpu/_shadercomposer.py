@@ -363,10 +363,23 @@ class BaseShader:
 
         # Get struct name
         struct_hash = str(dtype_struct)
+
         try:
             structname = self._uniform_struct_names[struct_hash]
+            if hasattr(binding, "structname"):
+                # Do we need to ensure that a dtype corresponds to only one struct?
+                assert (
+                    structname == binding.structname
+                ), "dtype[{struct_hash}] has been defined as struct[{structname}]"
         except KeyError:
-            structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
+            # sometimes, we need a meaningful alias for the struct name.
+            if hasattr(binding, "structname"):
+                structname = binding.structname
+                assert (
+                    structname not in self._uniform_struct_names.values()
+                ), "structname has been used for another dtype"
+            else:
+                structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
             self._uniform_struct_names[struct_hash] = structname
 
         if structname not in self._typedefs:
@@ -451,9 +464,15 @@ class BaseShader:
             code += "\n        };"
             self._typedefs[structname] = code
 
+        type_name = (
+            f"array<{structname}, {binding.resource.data.shape[0]}>"
+            if binding.resource.data.shape
+            else structname
+        )
+
         code = f"""
         @group({bindgroup}) @binding({index})
-        var<uniform> {binding.name}: {structname};
+        var<uniform> {binding.name}: {type_name};
         """.rstrip()
         self._binding_codes[binding.name] = code
 

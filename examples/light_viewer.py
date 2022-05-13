@@ -2,11 +2,9 @@
 
 import math
 
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 from wgpu.gui.qt import WgpuWidget
 import pygfx as gfx
-
-from pygfx.linalg.vector3 import Vector3
 
 
 class LightViewer(QtWidgets.QWidget):
@@ -20,151 +18,255 @@ class LightViewer(QtWidgets.QWidget):
         main_layout.addWidget(self.wgpu_widget, 1)
         main_layout.addSpacing(10)
 
-        btn_layout = QtWidgets.QVBoxLayout()
-        main_layout.addLayout(btn_layout)
+        self.btn_layout = QtWidgets.QVBoxLayout()
+        main_layout.addLayout(self.btn_layout)
 
-        self.light1_checkbox = QtWidgets.QCheckBox("Point Light1")
-        self.light1_checkbox.setChecked(True)
-        self.light1_checkbox.toggled.connect(self.toggle_light1)
-        btn_layout.addWidget(self.light1_checkbox)
-
-        self.light1_color_btn = QtWidgets.QPushButton("Color")
-        self.light1_color_btn.clicked.connect(self.set_light1_color)
-        btn_layout.addWidget(self.light1_color_btn)
-
-        self.light1_movement = QtWidgets.QCheckBox("Movement")
-        btn_layout.addWidget(self.light1_movement)
-
-        btn_layout.addSpacing(10)
-        btn_layout.addWidget(QtWidgets.QLabel("-----------------------"))
-        btn_layout.addSpacing(10)
-
-        self.light2_checkbox = QtWidgets.QCheckBox("Point Light2")
-        self.light2_checkbox.toggled.connect(self.toggle_light2)
-        btn_layout.addWidget(self.light2_checkbox)
-
-        self.light2_color_btn = QtWidgets.QPushButton("Color")
-        self.light2_color_btn.setEnabled(False)
-        self.light2_color_btn.clicked.connect(self.set_light2_color)
-        btn_layout.addWidget(self.light2_color_btn)
-
-        self.light2_movement = QtWidgets.QCheckBox("Movement")
-        self.light2_movement.setEnabled(False)
-        btn_layout.addWidget(self.light2_movement)
-
-        btn_layout.addSpacing(10)
-        btn_layout.addWidget(QtWidgets.QLabel("-----------------------"))
-        btn_layout.addSpacing(10)
-
-        self.light3_checkbox = QtWidgets.QCheckBox("Directional Light")
-        self.light3_checkbox.toggled.connect(self.toggle_light3)
-        btn_layout.addWidget(self.light3_checkbox)
-
-        self.light3_color_btn = QtWidgets.QPushButton("Color")
-        self.light3_color_btn.setEnabled(False)
-        self.light3_color_btn.clicked.connect(self.set_light3_color)
-        btn_layout.addWidget(self.light3_color_btn)
-
-        btn_layout.addStretch(1)
         self.setLayout(main_layout)
 
-    def set_light1_color(self):
-        color = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.light1.color.hex))
-        if color.isValid():
-            self.light1_color_btn.setStyleSheet("background-color: %s" % color.name())
-            self.light1.color = color.name()
-            self.light1_helper.material.color = color.name()
+        self.init_scene()
+        self.init_gui()
 
-    def set_light2_color(self):
-        color = QtWidgets.QColorDialog.getColor()
-        if color.isValid():
-            self.light2_color_btn.setStyleSheet("background-color: %s" % color.name())
-            self.light2.color = color.name()
-            self.light2_helper.material.color = color.name()
+    def init_gui(self):
 
-    def set_light3_color(self):
-        color = QtWidgets.QColorDialog.getColor()
-        if color.isValid():
-            self.light3_color_btn.setStyleSheet("background-color: %s" % color.name())
-            self.light3.color = color.name()
-            self.light3_helper.material.color = color.name()
+        self.mesh_flat_checkbox = self.create_checkbox(
+            "Flat Shading", self.mesh.material, "flat_shading"
+        )
 
-    def toggle_light1(self):
-        if self.light1_checkbox.isChecked():
-            self.light1.visible = True
-            self.light1_color_btn.setEnabled(True)
-            self.light1_movement.setEnabled(True)
+        self.mesh_rotate_checkbox = self.create_checkbox("Auto Rotate")
+
+        self.mesh_color_btn = self.create_color_btn(
+            "Material", self.mesh.material, "color"
+        )
+
+        self.mesh_specular_btn = self.create_color_btn(
+            "Specular", self.mesh.material, "specular"
+        )
+
+        self.mesh_emissive_btn = self.create_color_btn(
+            "Emissive", self.mesh.material, "emissive"
+        )
+
+        self.create_slider("Shininess", 1, 800, self.mesh.material, "shininess")
+
+        self.add_split()
+
+        self.point_light1_move = self.create_checkbox("Auto Move")
+
+        self.point_light1_checkbox = self.create_checkbox(
+            "Point Light 1",
+            self.point_light1,
+            "visible",
+            toggle=[
+                self.create_color_btn(
+                    "Color",
+                    self.point_light1,
+                    "color",
+                    lambda c: setattr(self.point_light1_helper.material, "color", c),
+                ),
+                self.create_slider(
+                    "Intensity", 0, 10, self.point_light1, "intensity", step=0.1
+                ),
+                self.point_light1_move,
+            ],
+            index=self.btn_layout.indexOf(self.point_light1_move),
+        )
+
+        self.add_split()
+
+        self.point_light2_move = self.create_checkbox("Auto Move")
+        self.point_light2_checkbox = self.create_checkbox(
+            "Point Light 2",
+            self.point_light2,
+            "visible",
+            toggle=[
+                self.create_color_btn(
+                    "Color",
+                    self.point_light2,
+                    "color",
+                    lambda c: setattr(self.point_light2_helper.material, "color", c),
+                ),
+                self.create_slider(
+                    "Intensity", 0, 10, self.point_light2, "intensity", step=0.1
+                ),
+                self.point_light2_move,
+            ],
+            index=self.btn_layout.indexOf(self.point_light2_move),
+        )
+
+        self.add_split()
+
+        self.directional_light_checkbox = self.create_checkbox(
+            "Directional Light",
+            self.directional_light,
+            "visible",
+            toggle=[
+                self.create_color_btn(
+                    "Color",
+                    self.directional_light,
+                    "color",
+                    lambda c: setattr(
+                        self.directional_light_helper.material, "color", c
+                    ),
+                ),
+                self.create_slider(
+                    "Intensity", 0, 10, self.directional_light, "intensity", step=0.1
+                ),
+            ],
+        )
+
+        # self.directional_light_color_btn = self.create_color_btn(
+        #     "Color", self.directional_light, "color", lambda c: setattr(self.directional_light_helper.material, "color", c))
+        # self.directional_light_color_btn.setEnabled(False)
+
+        # self.directional_light_slider = self.create_slider("Intensity", 0, 10, self.directional_light,
+        #                                                    "intensity", step=0.1)
+
+        self.add_split()
+
+        self.ambient_light_checkbox = self.create_checkbox(
+            "Ambient Light", self.ambient_light, "visible"
+        )
+
+        self.ambient_light_color_btn = self.create_color_btn(
+            "Color", self.ambient_light, "color"
+        )
+
+        self.create_slider(
+            "Intensity", 0, 10, self.ambient_light, "intensity", step=0.1
+        )
+
+        self.btn_layout.addStretch(1)
+
+    def add_split(self):
+        self.btn_layout.addSpacing(5)
+        self.btn_layout.addWidget(QtWidgets.QLabel("-----------------------"))
+        self.btn_layout.addSpacing(5)
+
+    def create_color_btn(self, name, target, property, callback=None):
+        layout = QtWidgets.QHBoxLayout()
+
+        layout.addWidget(QtWidgets.QLabel(name))
+
+        color_btn = QtWidgets.QPushButton()
+        color_btn.setStyleSheet("background-color: %s" % getattr(target, property).hex)
+
+        def set_color():
+            color = QtWidgets.QColorDialog.getColor(
+                QtGui.QColor(getattr(target, property).hex)
+            )
+            if color.isValid():
+                color_btn.setStyleSheet("background-color: %s" % color.name())
+                setattr(target, property, color.name())
+                if callback:
+                    callback(color.name())
+
+        color_btn.clicked.connect(set_color)
+
+        layout.addWidget(color_btn)
+        self.btn_layout.addLayout(layout)
+        return color_btn
+
+    def create_checkbox(
+        self, name, target=None, property=None, callback=None, toggle=[], index=None
+    ):
+        checkbox = QtWidgets.QCheckBox(name)
+
+        if target and property:
+            checkbox.setChecked(getattr(target, property))
+
+        def set_property(*args):
+            if target and property:
+                setattr(target, property, checkbox.isChecked())
+            for e in toggle:
+                e.setEnabled(checkbox.isChecked())
+            if callback:
+                callback(checkbox.isChecked())
+
+        checkbox.toggled.connect(set_property)
+
+        set_property()
+        if index is not None:
+            self.btn_layout.insertWidget(index, checkbox)
         else:
-            self.light1.visible = False
-            self.light1_color_btn.setEnabled(False)
-            self.light1_movement.setEnabled(False)
+            self.btn_layout.addWidget(checkbox)
+        return checkbox
 
-    def toggle_light2(self):
-        if self.light2_checkbox.isChecked():
-            self.light2.visible = True
-            self.light2_color_btn.setEnabled(True)
-            self.light2_movement.setEnabled(True)
-        else:
-            self.light2.visible = False
-            self.light2_color_btn.setEnabled(False)
-            self.light2_movement.setEnabled(False)
+    def create_slider(self, name, min, max, target, property, step=1, callback=None):
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(QtWidgets.QLabel(name))
+        slide = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        slide.setMinimum(min)
+        slide.setMaximum(max)
+        slide.setSingleStep(step)
+        val = getattr(target, property)
+        slide.setValue(val)
+        val_label = QtWidgets.QLabel(f"{int(val):03d}")
+        layout.addWidget(val_label)
 
-    def toggle_light3(self):
-        if self.light3_checkbox.isChecked():
-            self.light3.visible = True
-            self.light3_color_btn.setEnabled(True)
-        else:
-            self.light3.visible = False
-            self.light3_color_btn.setEnabled(False)
+        def set_value(value):
+            val_label.setText(f"{value:03d}")
+            setattr(target, property, value)
+            if callback:
+                callback(value)
+
+        slide.valueChanged.connect(set_value)
+
+        layout.addWidget(slide)
+
+        self.btn_layout.addLayout(layout)
+        return slide
 
     def init_scene(self):
         renderer = gfx.renderers.WgpuRenderer(self.wgpu_widget)
         scene = gfx.Scene()
         self.scene = scene
 
-        cube = gfx.Mesh(
-            gfx.box_geometry(20, 20, 20),
-            gfx.MeshFlatMaterial(),
+        self.mesh = gfx.Mesh(
+            # gfx.box_geometry(20, 20, 20),
+            gfx.torus_knot_geometry(10, 3, 64, 32),
+            material=gfx.MeshPhongMaterial(color="#00aaff"),
         )
-        cube.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 6, math.pi / 6))
-        scene.add(cube)
+
+        # mesh.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 6, math.pi / 6))
+        scene.add(self.mesh)
 
         # Point Light1
-        light1 = gfx.PointLight("#0040ff")
-        self.light1_color_btn.setStyleSheet("background-color: %s" % light1.color.hex)
-        self.light1 = light1
-        light1.position.x = 25
-        light1.position.y = 20
+        point_light1 = gfx.PointLight("#ffffff")
+        self.point_light1 = point_light1
+        point_light1.position.x = 25
+        point_light1.position.y = 20
 
         light_sp = gfx.sphere_geometry(1)
 
-        self.light1_helper = create_pointlight_helper(light1, light_sp)
-        scene.add(light1)
+        self.point_light1_helper = create_pointlight_helper(point_light1, light_sp)
+        scene.add(point_light1)
 
         # Point Light2
-        light2 = gfx.PointLight("#80ff80")
-        self.light2_color_btn.setStyleSheet("background-color: %s" % light2.color.hex)
-        self.light2 = light2
-        light2.visible = False
-        light2.position.x = -25
-        light2.position.y = 20
+        point_light2 = gfx.PointLight("#80ff80")
+        self.point_light2 = point_light2
+        point_light2.visible = False
+        point_light2.position.x = -25
+        point_light2.position.y = 20
 
-        self.light2_helper = create_pointlight_helper(light2, light_sp)
-        scene.add(light2)
+        self.point_light2_helper = create_pointlight_helper(point_light2, light_sp)
+        scene.add(point_light2)
 
         # Directional light
-        light3 = gfx.DirectionalLight("#ffaa00")
-        self.light3_color_btn.setStyleSheet("background-color: %s" % light3.color.hex)
-        self.light3 = light3
-        light3.visible = False
-        light3.position.x = -25
-        light3.position.y = 20
+        directional_light = gfx.DirectionalLight("#ffff00")
+        self.directional_light = directional_light
+        directional_light.visible = False
+        directional_light.position.x = -25
+        directional_light.position.y = 20
 
-        self.light3_helper = create_directionallight_helper(light3, 10)
-        scene.add(light3)
+        self.light3_helper = create_directionallight_helper(directional_light, 20)
+        scene.add(directional_light)
+
+        # Ambient light
+        self.ambient_light = gfx.AmbientLight("#202020")
+        scene.add(self.ambient_light)
 
         camera = gfx.PerspectiveCamera(70, 16 / 9)
-        camera.position.z = 60
+        camera.position.z = 50
 
         controller = gfx.OrbitController(camera.position.clone())
         controller.add_default_event_handlers(renderer, camera)
@@ -173,32 +275,36 @@ class LightViewer(QtWidgets.QWidget):
         t2 = 0
         scale = 30
 
-        light1.position.x = math.sin(t1 + math.pi / 3) * scale
-        light1.position.y = math.sin(t1 + 1) * 5 + 15
-        light1.position.z = math.cos(t1 + math.pi / 3) * scale
+        point_light1.position.x = math.sin(t1 + math.pi / 3) * scale
+        point_light1.position.y = math.sin(t1 + 1) * 5 + 15
+        point_light1.position.z = math.cos(t1 + math.pi / 3) * scale
 
-        light2.position.x = math.sin(t2 - math.pi / 3) * scale
-        light2.position.y = math.sin(t2 + 2) * 5 + 15
-        light2.position.z = math.cos(t2 - math.pi / 3) * scale
+        point_light2.position.x = math.sin(t2 - math.pi / 3) * scale
+        point_light2.position.y = math.sin(t2 + 2) * 5 + 15
+        point_light2.position.z = math.cos(t2 - math.pi / 3) * scale
 
         def animate():
-            # rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-            # cube.rotation.multiply(rot)
+            if self.mesh_rotate_checkbox.isChecked():
+                rot = gfx.linalg.Quaternion().set_from_euler(
+                    gfx.linalg.Euler(0.01, 0.02)
+                )
+                self.mesh.rotation.multiply(rot)
+
             controller.update_camera(camera)
 
             nonlocal t1, t2, scale
 
-            if self.light1_movement.isChecked() and self.light1.visible:
+            if self.point_light1_move.isChecked() and self.point_light1.visible:
                 t1 += 0.01
-                light1.position.x = math.sin(t1 + math.pi / 3) * scale
-                light1.position.y = math.sin(t1 + 1) * 5 + 15
-                light1.position.z = math.cos(t1 + math.pi / 3) * scale
+                point_light1.position.x = math.sin(t1 + math.pi / 3) * scale
+                point_light1.position.y = math.sin(t1 + 1) * 5 + 15
+                point_light1.position.z = math.cos(t1 + math.pi / 3) * scale
 
-            if self.light2_movement.isChecked() and self.light2.visible:
+            if self.point_light2_move.isChecked() and self.point_light2.visible:
                 t2 += 0.02
-                light2.position.x = math.sin(t2 - math.pi / 3) * scale
-                light2.position.y = math.sin(t2 + 2) * 5 + 15
-                light2.position.z = math.cos(t2 - math.pi / 3) * scale
+                point_light2.position.x = math.sin(t2 - math.pi / 3) * scale
+                point_light2.position.y = math.sin(t2 + 2) * 5 + 15
+                point_light2.position.z = math.cos(t2 - math.pi / 3) * scale
 
             # light1.position.x = math.cos(t) * math.cos(3*t) * scale
             # light1.position.y = math.cos(3*t) * math.sin(t) * scale
@@ -222,12 +328,10 @@ def create_pointlight_helper(light, geometry=None):
     return helper
 
 
-def create_directionallight_helper(light, length=None):
+def create_directionallight_helper(light, length):
     helper = gfx.Line(
         gfx.Geometry(
             positions=[
-                [0, 0, 0],
-                [0, 0, 1],
                 [1, 0, 0],
                 [1, 0, 1],
                 [-1, 0, 0],
@@ -241,17 +345,14 @@ def create_directionallight_helper(light, length=None):
         gfx.LineArrowMaterial(color=light.color.hex),
     )
 
+    helper.look_at(light.direction)
+    helper.scale.z = length
     light.add(helper)
-    helper.look_at(light.target)
-    helper.scale.z = (
-        length or Vector3().sub_vectors(light.target, light.position).length()
-    )
     return helper
 
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     window = LightViewer()
-    window.init_scene()
     window.show()
     app.exec()

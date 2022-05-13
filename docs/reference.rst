@@ -50,6 +50,26 @@ Camera objects
     :member-order: bysource
 
 
+Light objects
+--------------
+
+.. autoclass:: pygfx.Light
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.PointLight
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.DirectionalLight
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.AmbientLight
+    :members:
+    :member-order: bysource
+
+
 Specific world objects
 ----------------------
 

@@ -255,6 +255,20 @@ class Color:
         else:
             return f"rgba({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)},{a:0.3f})"
 
+    def muultiply_scalar(self, factor):
+        """Multiply the color by a scalar. The alpha channel is ignored."""
+        self._val[0] *= factor
+        self._val[1] *= factor
+        self._val[2] *= factor
+        return self
+
+    def add_color(self, color):
+        """Add another color to this one. The alpha channel is ignored."""
+        self._val[0] += color.r
+        self._val[1] += color.g
+        self._val[2] += color.b
+        return self
+
 
 NAMED_COLORS = {
     # CSS Level 1

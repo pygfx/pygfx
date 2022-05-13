@@ -16,6 +16,9 @@ from ...objects import (
     WindowEvent,
     WorldObject,
     Light,
+    PointLight,
+    DirectionalLight,
+    AmbientLight,
 )
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
@@ -68,22 +71,115 @@ def _get_sort_function(camera: Camera):
 class RenderState:
     def __init__(self) -> None:
         # only lights for now
-        self.lights: list[Light] = []
+        self.directional_lights: list[DirectionalLight] = []
+        self.point_lights: list[PointLight] = []
+
+        self.ambient_light_color = [0, 0, 0]
+
+        self.uniform_buffers = {
+            "ambient_lights": Buffer(
+                array_from_shadertype(AmbientLight().uniform_type)
+            ),
+            "directional_lights": None,
+            "point_lights": None,
+        }
 
     def init(self):
-        self.lights.clear()
+        self.point_lights.clear()
+        self.directional_lights.clear()
+        self.ambient_light_color = [0, 0, 0]
 
     def push_light(self, light):
-        self.lights.append(light)
+        if isinstance(light, PointLight):
+            self.point_lights.append(light)
+        elif isinstance(light, DirectionalLight):
+            self.directional_lights.append(light)
+        elif isinstance(light, AmbientLight):
+            self.ambient_light_color[0] += light.uniform_buffer.data["color"][0]
+            self.ambient_light_color[1] += light.uniform_buffer.data["color"][1]
+            self.ambient_light_color[2] += light.uniform_buffer.data["color"][2]
 
-    # def is_changed(self):
-    #     pass
+    def set_up(self):
+
+        ambient_uniform_buffer: Buffer = self.uniform_buffers["ambient_lights"]
+        if not np.all(
+            ambient_uniform_buffer.data["color"][:3] == self.ambient_light_color
+        ):
+            ambient_uniform_buffer.data["color"].flat = self.ambient_light_color
+            ambient_uniform_buffer.update_range(0, 1)
+
+        # directional lights
+        dir_light_num = len(self.directional_lights)
+        if dir_light_num > 0:
+            dir_light_uniform_buffer: Buffer = self.uniform_buffers.setdefault(
+                "directional_lights", None
+            )
+
+            if (
+                dir_light_uniform_buffer is None
+                or dir_light_uniform_buffer.nitems != dir_light_num
+            ):
+                # Light uniform size has changed, create new buffer
+                self.uniform_buffers["directional_lights"] = Buffer(
+                    array_from_shadertype(
+                        DirectionalLight().uniform_type, dir_light_num
+                    )
+                )
+
+            for i, light in enumerate(self.directional_lights):
+                if (
+                    self.uniform_buffers["directional_lights"].data[i]
+                    != light.uniform_buffer.data
+                ):
+                    self.uniform_buffers["directional_lights"].data[
+                        i
+                    ] = light.uniform_buffer.data
+                    self.uniform_buffers["directional_lights"].update_range(i, 1)
+                    light.uniform_buffer._pending_uploads = []
+
+        else:
+            self.uniform_buffers["directional_lights"] = None
+
+        # point lights
+        point_light_num = len(self.point_lights)
+        if point_light_num > 0:
+            point_light_uniform_buffer: Buffer = self.uniform_buffers.get(
+                "point_lights", None
+            )
+
+            if (
+                point_light_uniform_buffer is None
+                or point_light_uniform_buffer.nitems != point_light_num
+            ):
+                self.uniform_buffers["point_lights"] = Buffer(
+                    array_from_shadertype(PointLight().uniform_type, point_light_num)
+                )
+
+            for i, light in enumerate(self.point_lights):
+                if (
+                    self.uniform_buffers["point_lights"].data[i]
+                    != light.uniform_buffer.data
+                ):
+                    self.uniform_buffers["point_lights"].data[
+                        i
+                    ] = light.uniform_buffer.data
+                    self.uniform_buffers["point_lights"].update_range(i, 1)
+                    light.uniform_buffer._pending_uploads = []
+        else:
+            self.uniform_buffers["point_lights"] = None
 
     @property
     def state_hash(self):
         # Ensure sequence independence
-        self.lights.sort(key=lambda light: light.id)
-        return hash(tuple(self.lights))
+        self.directional_lights.sort(key=lambda light: light.id)
+        self.point_lights.sort(key=lambda light: light.id)
+
+        return hash(
+            (
+                len(self.directional_lights),
+                len(self.point_lights),
+            )
+        )
 
 
 class SharedData:
@@ -522,6 +618,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 wobject_list.append(wobject)
 
         scene.traverse(_get_wobject_list, True)
+
+        self._current_render_state.set_up()
 
         # Ensure each wobject has pipeline info, and filter objects that we cannot render
         wobject_tuples = []
