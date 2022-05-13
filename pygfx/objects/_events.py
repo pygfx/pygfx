@@ -373,7 +373,7 @@ class RootEventHandler(EventTarget):
                     captured_target.release_pointer_capture(pointer_id)
             if not event.bubbles or event.cancelled or target is self:
                 break
-            target = target.parent or self
+            target = getattr(target, "parent", None) or self
 
         # Update the click tracker on all `pointer_down` events
         if event.type == EventType.POINTER_DOWN:
