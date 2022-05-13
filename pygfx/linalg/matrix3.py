@@ -23,7 +23,7 @@ class Matrix3:
         n31: float,
         n32: float,
         n33: float,
-    ) -> "Matrix4":
+    ) -> "Matrix3":
         te = self.elements
 
         te[0] = n11
