@@ -754,7 +754,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                     # Draw with or without index buffer
                     if pinfo["index_buffer"] is not None:
                         ibuffer = pinfo["index_buffer"]
-                        render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
+                        render_pass.set_index_buffer(
+                            ibuffer, "uint32"
+                        )  # todo: uint32 or uint16
                         render_pass.draw_indexed(*pinfo["index_args"])
                     else:
                         render_pass.draw(*pinfo["index_args"])

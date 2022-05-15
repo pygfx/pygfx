@@ -4,20 +4,29 @@ mesh_vertex_shader = """
         $$ if instanced
         @builtin(instance_index) instance_index : u32,
         $$ endif
+
+        $$ for vertex_attribute in vertex_attributes
+        @location({{loop.index0}}) {{vertex_attribute[0]}} : {{vertex_attribute[1]}},
+        $$ endfor
+
     };
 
     $$ if instanced
     struct InstanceInfo {
-        transform: mat4x4<f32>,
-        id: u32,
+        @location({{ vertex_attributes|length }}) transform0: vec4<f32>,
+        @location({{ vertex_attributes|length + 1 }}) transform1: vec4<f32>,
+        @location({{ vertex_attributes|length + 2 }}) transform2: vec4<f32>,
+        @location({{ vertex_attributes|length + 3 }}) transform3: vec4<f32>,
+        @location({{ vertex_attributes|length + 4 }}) id: u32,
     };
-    @group(1) @binding(0)
-    var<storage,read> s_instance_infos: array<InstanceInfo>;
     $$ endif
 
-
     @stage(vertex)
+    $$ if instanced
+    fn vs_main(in: VertexInput, instance_info: InstanceInfo) -> Varyings {
+    $$ else
     fn vs_main(in: VertexInput) -> Varyings {
+    $$ endif
 
         // Select what face we're at
         let index = i32(in.vertex_index);
@@ -28,33 +37,27 @@ mesh_vertex_shader = """
         // We can correct for this by adjusting the order (sub_index) here.
         sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
 
-        // Sample
-        let ii = load_s_indices(face_index);
-        let i0 = i32(ii[sub_index]);
 
         // Get world transform
         $$ if instanced
-            let instance_info = s_instance_infos[in.instance_index];
-            let world_transform = u_wobject.world_transform * instance_info.transform;
+            // let instance_info = s_instance_infos[in.instance_index];
+            let instance_transform =  mat4x4<f32>(
+                instance_info.transform0,
+                instance_info.transform1,
+                instance_info.transform2,
+                instance_info.transform3,
+            );
+            let world_transform = u_wobject.world_transform * instance_transform;
         $$ else
             let world_transform = u_wobject.world_transform;
         $$ endif
 
         // Get vertex position
-        let raw_pos = load_s_positions(i0);
+        let raw_pos = in.position;
         let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
         var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
-        // For the wireframe we also need the ndc_pos of the other vertices of this face
-        $$ if wireframe
-            $$ for i in (1, 2, 3)
-                let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
-                let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
-                let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
-            $$ endfor
-            let depth_offset = -0.0001;  // to put the mesh slice atop a mesh
-            ndc_pos.z = ndc_pos.z + depth_offset;
-        $$ endif
+
 
         // Prepare output
         var varyings: Varyings;
@@ -65,50 +68,32 @@ mesh_vertex_shader = """
 
         // Per-vertex colors
         $$ if vertex_color_channels == 1
-        let cvalue = load_s_colors(i0);
+        let cvalue = in.color;
         varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
         $$ elif vertex_color_channels == 2
-        let cvalue = load_s_colors(i0);
+        let cvalue = in.color;
         varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
         $$ elif vertex_color_channels == 3
-        varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
+        varyings.color = vec4<f32>(in.color, 1.0);
         $$ elif vertex_color_channels == 4
-        varyings.color = vec4<f32>(load_s_colors(i0));
+        varyings.color = in.color;
         $$ endif
 
         // Set texture coords
         $$ if colormap_dim == '1d'
-        varyings.texcoord = f32(load_s_texcoords(i0));
+        varyings.texcoord = f32(in.texcoord);
         $$ elif colormap_dim == '2d'
-        varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
+        varyings.texcoord = vec2<f32>(in.texcoord);
         $$ elif colormap_dim == '3d'
-        varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+        varyings.texcoord = vec3<f32>(in.texcoord);
         $$ endif
 
         // Set the normal
-        let raw_normal = load_s_normals(i0);
+        let raw_normal = in.normal;
         let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
         let world_normal = normalize(world_pos_n - world_pos).xyz;
         varyings.normal = vec3<f32>(world_normal);
 
-        // Vectors for lighting, all in world coordinates
-        let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
-        varyings.view = vec3<f32>(view_vec);
-        varyings.light = vec3<f32>(view_vec);
-
-        // Set wireframe barycentric-like coordinates
-        $$ if wireframe
-            $$ for i in (1, 2, 3)
-                let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
-            $$ endfor
-            let dist1 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
-            let dist2 = abs((p3.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p3.y - p1.y)) / distance(p1, p3);
-            let dist3 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
-            var arr_wireframe_coords = array<vec3<f32>, 3>(
-                vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
-            );
-            varyings.wireframe_coords = vec3<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
-        $$ endif
 
         // Set varyings for picking. We store the face_index, and 3 weights
         // that indicate how close the fragment is to each vertex (barycentric

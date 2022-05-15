@@ -160,7 +160,11 @@ def collect_pipeline_resources(shared, wobject, pipeline_infos):
         if buffer is not None:
             buffer._wgpu_usage |= wgpu.BufferUsage.INDEX
             pipeline_resources.append(("buffer", buffer))
-        for buffer in pipeline_info.get("vertex_buffers", {}).values():
+        buffer = pipeline_info.get("instance_buffers", None)
+        if buffer is not None:
+            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX
+            pipeline_resources.append(("buffer", buffer))
+        for buffer in pipeline_info.get("vertex_buffers", []):
             buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX
             pipeline_resources.append(("buffer", buffer))
         for key in pipeline_info.keys():
@@ -331,7 +335,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
     vertex_buffer_descriptors = []
     # todo: we can probably expose multiple attributes per buffer using a BufferView
     # -> can we also leverage numpy here?
-    for slot, buffer in pipeline_info.get("vertex_buffers", {}).items():
+    for slot, buffer in enumerate(pipeline_info.get("vertex_buffers", [])):
         slot = int(slot)
         vbo_des = {
             "array_stride": buffer.nbytes // buffer.nitems,
@@ -346,6 +350,42 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
         }
         vertex_buffers[slot] = buffer
         vertex_buffer_descriptors.append(vbo_des)
+
+    instance_buffer = pipeline_info.get("instance_buffers", None)
+    if instance_buffer is not None:
+        ibo_des = {
+            "array_stride": instance_buffer.nbytes // instance_buffer.nitems,
+            "step_mode": wgpu.VertexStepMode.instance,  # vertex or instance
+            "attributes": [
+                {
+                    "format": "float32x4",
+                    "offset": 0,
+                    "shader_location": slot + 1,
+                },
+                {
+                    "format": "float32x4",
+                    "offset": 16,
+                    "shader_location": slot + 2,
+                },
+                {
+                    "format": "float32x4",
+                    "offset": 32,
+                    "shader_location": slot + 3,
+                },
+                {
+                    "format": "float32x4",
+                    "offset": 48,
+                    "shader_location": slot + 4,
+                },
+                {
+                    "format": "uint32",
+                    "offset": 64,
+                    "shader_location": slot + 5,
+                },
+            ],
+        }
+        vertex_buffers[slot + 1] = instance_buffer
+        vertex_buffer_descriptors.append(ibo_des)
 
     # Get bind groups and pipeline layout from the buffers in pipeline_info.
     # This also makes sure the buffers and textures are up-to-date.
@@ -405,6 +445,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
         "index_args": index_args,  # tuple
         "index_buffer": wgpu_index_buffer,  # Buffer
         "vertex_buffers": vertex_buffers,  # dict of slot -> Buffer
+        "instance_buffer": instance_buffer,  # Buffer
         "bind_groups": bind_groups,  # list of wgpu bind_group objects
     }
 

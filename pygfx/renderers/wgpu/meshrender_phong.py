@@ -18,10 +18,13 @@ def mesh_renderer(render_info):
     material = wobject.material  # noqa
 
     # Initialize
-    topology = wgpu.PrimitiveTopology.triangle_list
+    topology = (
+        wgpu.PrimitiveTopology.line_list
+        if material.wireframe
+        else wgpu.PrimitiveTopology.triangle_list
+    )
     shader = MeshPhongShader(
         render_info,
-        lighting="",
         colormap_format="f32",
         instanced=False,
         wireframe=material.wireframe,
@@ -42,19 +45,22 @@ def mesh_renderer(render_info):
         normal_buffer = Buffer(normal_data)
 
     # We're using storage buffers for everything; no vertex nor index buffers.
-    vertex_buffers = {}
-    index_buffer = None
+    vertex_buffers = []
+    index_buffer = geometry.indices
+    shader["vertex_attributes"] = []
+
+    vertex_buffers.append(geometry.positions)
+    # TODO: auto get type from buffer
+    shader["vertex_attributes"].append(("position", "vec3<f32>"))
+
+    vertex_buffers.append(normal_buffer)
+    shader["vertex_attributes"].append(("normal", "vec3<f32>"))
 
     # Init bindings
     bindings = [
         Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
         Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
         Binding("u_material", "buffer/uniform", material.uniform_buffer),
-        Binding("s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"),
-        Binding(
-            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-        ),
-        Binding("s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"),
     ]
 
     bindings1 = []  # non-auto-generated bindings
@@ -66,12 +72,23 @@ def mesh_renderer(render_info):
         shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
         if nchannels not in (1, 2, 3, 4):
             raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        bindings.append(
-            Binding("s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX")
-        )
+
+        vertex_buffers.append(geometry.colors)
+        shader["vertex_attributes"].append(("color", f"vec{nchannels}<f32>"))
     elif material.map is not None:
         shader["color_mode"] = "map"
-        bindings.extend(handle_colormap(geometry, material, shader))
+        map_bindings = handle_colormap(geometry, material, shader)
+
+        # TODO: this is a hack, we don't need the texcoords buffer
+        # Code refactoring required
+        map_bindings = map_bindings[:-1]
+        bindings.extend(map_bindings)
+
+        vertex_buffers.append(geometry.texcoords)
+
+        colormap_dim = shader["colormap_dim"][:-1]
+        atype = "f32" if colormap_dim == "1" else f"vec{colormap_dim}<f32>"
+        shader["vertex_attributes"].append(("texcoord", atype))
 
     # Lights states
     shader["num_dir_lights"] = len(render_info.state.directional_lights)
@@ -113,17 +130,19 @@ def mesh_renderer(render_info):
         )
 
     # Instanced meshes have an extra storage buffer that we add manually
+    instance_buffer = None
     n_instances = 1
     if isinstance(wobject, InstancedMesh):
         shader["instanced"] = True
-        bindings1.append(
-            Binding(
-                "s_instance_infos",
-                "buffer/read_only_storage",
-                wobject.instance_infos,
-                "VERTEX",
-            )
-        )
+        instance_buffer = wobject.instance_infos
+        # bindings1.append(
+        #     Binding(
+        #         "s_instance_infos",
+        #         "buffer/read_only_storage",
+        #         wobject.instance_infos,
+        #         "VERTEX",
+        #     )
+        # )
         n_instances = wobject.instance_infos.nitems
 
     # Determine culling
@@ -167,6 +186,7 @@ def mesh_renderer(render_info):
             "vertex_buffers": vertex_buffers,
             "bindings0": bindings,
             "bindings1": bindings1,
+            "instance_buffers": instance_buffer,
         }
     ]
 
@@ -282,14 +302,6 @@ class MeshPhongShader(WorldObjectShader):
             reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, reflected_light, material );
 
             let lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
-
-
-            $$ if wireframe
-                let distance_from_edge = min(varyings.wireframe_coords.x, min(varyings.wireframe_coords.y, varyings.wireframe_coords.z));
-                if (distance_from_edge > 0.5 * u_material.wireframe) {
-                    discard;
-                }
-            $$ endif
 
             let final_color = vec4<f32>(lit_color, color_value.a * u_material.opacity);
 

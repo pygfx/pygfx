@@ -191,13 +191,18 @@ class MeshPhongMaterial(MeshBasicMaterial):
     )
 
     def __init__(
-        self, shininess=30, emissive=(0, 0, 0, 0), specular="#111111", **kwargs
+        self,
+        shininess=30,
+        emissive=(0, 0, 0, 0),
+        specular="#111111",
+        flat_shading=False,
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.shininess = shininess
         self.specular = specular
-        self.flat_shading = False
+        self.flat_shading = flat_shading
 
     @property
     def emissive(self):

@@ -429,7 +429,7 @@ class BaseShader:
                         raise TypeError(
                             f"Type {dtype} looks like an unsupported mat{n}x{m}."
                         )
-                    align_type = f"vec{m}<primitive_type>"
+                    align_type = f"vec{m}<{primitive_type}>"
                     wgsl_type = f"mat{n}x{m}<{primitive_type}>"
                 else:
                     raise TypeError(f"Unsupported type {dtype}")
@@ -477,7 +477,7 @@ class BaseShader:
         self._binding_codes[binding.name] = code
 
     def _define_buffer(self, bindgroup, index, binding):
-
+        
         # Get format, and split in the scalar part and the number of channels
         fmt = to_vertex_format(binding.resource.format)
         if "x" in fmt:
