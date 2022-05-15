@@ -28,6 +28,10 @@ controller.add_default_event_handlers(viewport, camera)
 gizmo = gfx.TransformGizmo(cube)
 gizmo.add_default_event_handlers(viewport, camera)
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
+
 
 def animate():
     # We render the scene, and then the gizmo on top,

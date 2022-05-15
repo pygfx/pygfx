@@ -21,6 +21,9 @@ material = gfx.MeshPhongMaterial(map=tex)
 obj = gfx.InstancedMesh(geometry, material, 100)
 scene.add(obj)
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
 
 # Set matrices. Note that these are sub-transforms of the mesh's own matrix.
 for y in range(10):

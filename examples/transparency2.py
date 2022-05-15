@@ -29,6 +29,10 @@ camera.position.z = 70
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
+
 
 @renderer.add_event_handler("key_down")
 def handle_event(event):

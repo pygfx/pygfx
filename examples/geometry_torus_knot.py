@@ -23,6 +23,10 @@ scene.add(obj)
 camera = gfx.PerspectiveCamera(70, 1)
 camera.position.z = 4
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
+
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))

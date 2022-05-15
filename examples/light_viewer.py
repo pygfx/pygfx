@@ -12,7 +12,7 @@ class LightViewer(QtWidgets.QWidget):
         super().__init__()
         self.setWindowTitle("Light_viewer")
         self.resize(800, 600)
-        self.wgpu_widget = WgpuWidget()
+        self.wgpu_widget = WgpuWidget(max_fps=60)
 
         main_layout = QtWidgets.QHBoxLayout()
         main_layout.addWidget(self.wgpu_widget, 1)
@@ -32,6 +32,10 @@ class LightViewer(QtWidgets.QWidget):
             "Flat Shading", self.mesh.material, "flat_shading"
         )
 
+        self.mesh_flat_checkbox = self.create_checkbox(
+            "Wireframe", self.mesh.material, "wireframe"
+        )
+
         self.mesh_rotate_checkbox = self.create_checkbox("Auto Rotate")
 
         self.mesh_color_btn = self.create_color_btn(
@@ -46,7 +50,7 @@ class LightViewer(QtWidgets.QWidget):
             "Emissive", self.mesh.material, "emissive"
         )
 
-        self.create_slider("Shininess", 1, 800, self.mesh.material, "shininess")
+        self.create_slider("Shininess", 1, 100, self.mesh.material, "shininess")
 
         self.add_split()
 
@@ -64,7 +68,7 @@ class LightViewer(QtWidgets.QWidget):
                     lambda c: setattr(self.point_light1_helper.material, "color", c),
                 ),
                 self.create_slider(
-                    "Intensity", 0, 10, self.point_light1, "intensity", step=0.1
+                    "Intensity", 0, 2, self.point_light1, "intensity", step=0.01
                 ),
                 self.point_light1_move,
             ],
@@ -86,7 +90,7 @@ class LightViewer(QtWidgets.QWidget):
                     lambda c: setattr(self.point_light2_helper.material, "color", c),
                 ),
                 self.create_slider(
-                    "Intensity", 0, 10, self.point_light2, "intensity", step=0.1
+                    "Intensity", 0, 2, self.point_light2, "intensity", step=0.01
                 ),
                 self.point_light2_move,
             ],
@@ -99,6 +103,7 @@ class LightViewer(QtWidgets.QWidget):
             "Directional Light",
             self.directional_light,
             "visible",
+            index=self.btn_layout.count(),
             toggle=[
                 self.create_color_btn(
                     "Color",
@@ -109,30 +114,24 @@ class LightViewer(QtWidgets.QWidget):
                     ),
                 ),
                 self.create_slider(
-                    "Intensity", 0, 10, self.directional_light, "intensity", step=0.1
+                    "Intensity", 0, 2, self.directional_light, "intensity", step=0.01
                 ),
             ],
         )
 
-        # self.directional_light_color_btn = self.create_color_btn(
-        #     "Color", self.directional_light, "color", lambda c: setattr(self.directional_light_helper.material, "color", c))
-        # self.directional_light_color_btn.setEnabled(False)
-
-        # self.directional_light_slider = self.create_slider("Intensity", 0, 10, self.directional_light,
-        #                                                    "intensity", step=0.1)
-
         self.add_split()
 
         self.ambient_light_checkbox = self.create_checkbox(
-            "Ambient Light", self.ambient_light, "visible"
-        )
-
-        self.ambient_light_color_btn = self.create_color_btn(
-            "Color", self.ambient_light, "color"
-        )
-
-        self.create_slider(
-            "Intensity", 0, 10, self.ambient_light, "intensity", step=0.1
+            "Ambient Light",
+            self.ambient_light,
+            "visible",
+            index=self.btn_layout.count(),
+            toggle=[
+                self.create_color_btn("Color", self.ambient_light, "color"),
+                self.create_slider(
+                    "Intensity", 0, 2, self.ambient_light, "intensity", step=0.01
+                ),
+            ],
         )
 
         self.btn_layout.addStretch(1)
@@ -172,7 +171,7 @@ class LightViewer(QtWidgets.QWidget):
         checkbox = QtWidgets.QCheckBox(name)
 
         if target and property:
-            checkbox.setChecked(getattr(target, property))
+            checkbox.setChecked(bool(getattr(target, property)))
 
         def set_property(*args):
             if target and property:
@@ -195,16 +194,25 @@ class LightViewer(QtWidgets.QWidget):
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(QtWidgets.QLabel(name))
         slide = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        slide.setMinimum(min)
-        slide.setMaximum(max)
-        slide.setSingleStep(step)
+        slide.setMinimum(min / step)
+        slide.setMaximum(max / step)
+        # slide.setSingleStep(step)
         val = getattr(target, property)
-        slide.setValue(val)
-        val_label = QtWidgets.QLabel(f"{int(val):03d}")
+        slide.setValue(val / step)
+
+        if isinstance(step, float):
+            val_label = QtWidgets.QLabel(f"{float(val):3.2f}")
+        else:
+            val_label = QtWidgets.QLabel(f"{int(val):03d}")
+
         layout.addWidget(val_label)
 
         def set_value(value):
-            val_label.setText(f"{value:03d}")
+            value = value * step
+            if isinstance(step, float):
+                val_label.setText(f"{float(value):3.2f}")
+            else:
+                val_label.setText(f"{int(value):03d}")
             setattr(target, property, value)
             if callback:
                 callback(value)
@@ -223,7 +231,7 @@ class LightViewer(QtWidgets.QWidget):
 
         self.mesh = gfx.Mesh(
             # gfx.box_geometry(20, 20, 20),
-            gfx.torus_knot_geometry(10, 3, 64, 32),
+            gfx.torus_knot_geometry(10, 3, 128, 32),
             material=gfx.MeshPhongMaterial(color="#00aaff"),
         )
 

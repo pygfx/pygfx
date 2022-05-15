@@ -49,6 +49,10 @@ cmap4 = np.array([(1, 1, 0, 1), (0, 1, 0, 1), (0, 1, 0, 0), (1, 1, 0, 0)], np.fl
 tex1 = gfx.Texture(cmap4, dim=1).get_view(filter="linear")
 create_object(tex1, +6)
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
+
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))

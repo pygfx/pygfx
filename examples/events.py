@@ -32,6 +32,10 @@ hover_material = gfx.MeshPhongMaterial(color="#FFAA00")
 
 selected_obj = None
 
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+scene.add(light)
+
 
 def set_material(material, obj):
     if isinstance(obj, gfx.Mesh):

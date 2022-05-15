@@ -11,6 +11,9 @@ from .. import (
     Scene,
     PerspectiveCamera,
     OrbitController,
+    MeshPhongMaterial,
+    DirectionalLight,
+    AmbientLight,
 )
 
 
@@ -28,6 +31,14 @@ def show(object: WorldObject, up=None):
     else:
         scene = Scene()
         scene.add(object)
+
+        if object.material and isinstance(object.material, MeshPhongMaterial):
+            # add default light to illuminate the scene
+            light = DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+            scene.add(light)
+
+            light2 = AmbientLight(color="#111111")
+            scene.add(light2)
 
         background = Background(None, BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
         scene.add(background)
