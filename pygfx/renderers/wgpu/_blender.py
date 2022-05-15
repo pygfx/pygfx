@@ -132,7 +132,7 @@ class OpaquePass(BasePass):
             @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a < 1.0) { discard; }
+            // if (color.a < 1.0) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
             return out;
