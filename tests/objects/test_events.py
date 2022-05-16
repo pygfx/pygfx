@@ -164,6 +164,7 @@ def test_pointer_event_capture():
         nonlocal child_called
         child_called += 1
 
+    root_handler = RootEventHandler()
     root = Node()
     child = Node(parent=root)
 
@@ -174,20 +175,24 @@ def test_pointer_event_capture():
         child_callback, "pointer_down", "pointer_move", "other", "pointer_up"
     )
 
-    root_handler = RootEventHandler()
     root_handler.dispatch_event(
         PointerEvent(type="pointer_down", x=0, y=0, target=child)
     )
+    assert child_called == 1
+    assert root_called == 1
+
     root_handler.dispatch_event(
         PointerEvent(type="pointer_move", x=0, y=0, target=child)
     )
-    root_handler.dispatch_event(PointerEvent(type="pointer_up", x=0, y=0, target=child))
+    assert child_called == 2
+    assert root_called == 2
 
+    root_handler.dispatch_event(PointerEvent(type="pointer_up", x=0, y=0, target=child))
     assert child_called == 3
     assert root_called == 3
 
     child.add_event_handler(
-        lambda e: child.set_pointer_capture(e.pointer_id), "pointer_down"
+        lambda e: child.set_pointer_capture(e.pointer_id, e.root), "pointer_down"
     )
     child.add_event_handler(
         lambda e: child.release_pointer_capture(e.pointer_id), "pointer_up"
@@ -196,13 +201,21 @@ def test_pointer_event_capture():
     root_handler.dispatch_event(
         PointerEvent(type="pointer_down", x=0, y=0, target=child)
     )
+    assert child_called == 4
+    assert root_called == 3
+
     root_handler.dispatch_event(
         PointerEvent(type="pointer_move", x=0, y=0, target=child)
     )
-    # Test that non-pointer events bubble along just find
-    root_handler.dispatch_event(Event(type="other", target=child))
-    root_handler.dispatch_event(PointerEvent(type="pointer_up", x=0, y=0, target=child))
+    assert child_called == 5
+    assert root_called == 3
 
+    # Test that non-pointer events bubble along just fine
+    root_handler.dispatch_event(Event(type="other", target=child))
+    assert child_called == 6
+    assert root_called == 4
+
+    root_handler.dispatch_event(PointerEvent(type="pointer_up", x=0, y=0, target=child))
     assert child_called == 7
     assert root_called == 4
 
@@ -289,3 +302,120 @@ def test_clicks():
     root_handler.dispatch_event(up)
 
     assert number_of_clicks == [1]
+
+
+def test_multiple_root_event_handlers():
+    root_called = 0
+
+    def pointer_leave_callback(event):
+        nonlocal root_called
+        root_called += 1
+
+    root_handler = RootEventHandler()
+    root_handler.add_event_handler(pointer_leave_callback, "pointer_leave")
+
+    alt_handler = RootEventHandler()
+
+    root_handler.dispatch_event(
+        PointerEvent(type="pointer_move", x=0, y=0, target=root_handler)
+    )
+    # When click_tracker and target_tracker were still class attributes,
+    # the target_tracker wasn't cleared after other tests, so an actual
+    # pointer_leave event was already emitted
+    # Let's make sure this doesn't happen again :)
+    assert root_called == 0
+
+    # Also make
+    alt_handler.dispatch_event(
+        PointerEvent(type="pointer_move", x=0, y=0, target=alt_handler)
+    )
+    assert root_called == 0
+
+
+def test_multiple_root_event_handlers_with_pointer_capture():
+    root_called = 0
+    child_called = 0
+    alt_called = 0
+
+    def root_callback(event):
+        nonlocal root_called
+        root_called += 1
+
+    def child_callback(event):
+        nonlocal child_called
+        print(event.type)
+        if event.type == "pointer_move":
+            print(event.x, event.y)
+        child_called += 1
+
+    def alt_callback(event):
+        nonlocal alt_called
+        alt_called += 1
+
+    root = Node()
+    child = Node(parent=root)
+
+    root.add_event_handler(
+        root_callback, "pointer_down", "pointer_move", "other", "pointer_up"
+    )
+    child.add_event_handler(
+        child_callback, "pointer_down", "pointer_move", "other", "pointer_up"
+    )
+
+    child.add_event_handler(
+        lambda e: child.set_pointer_capture(e.pointer_id, e.root), "pointer_down"
+    )
+    child.add_event_handler(
+        lambda e: child.release_pointer_capture(e.pointer_id), "pointer_up"
+    )
+
+    root_handler = RootEventHandler()
+    alt_handler = RootEventHandler()
+    alt_handler.add_event_handler(alt_callback, "pointer_move")
+
+    # Check that alt callback works with no pointer capture
+    alt_handler.dispatch_event(
+        PointerEvent(
+            type="pointer_move", x=1, y=2, target=alt_handler, root=alt_handler
+        )
+    )
+    assert alt_called == 1
+    alt_called = 0
+
+    assert root_called == 0
+    assert alt_called == 0
+    assert child_called == 0
+    root_handler.dispatch_event(
+        PointerEvent(type="pointer_down", x=0, y=0, target=child, root=root_handler)
+    )
+    assert child_called == 1
+    assert root_called == 0
+    assert alt_called == 0
+    root_handler.dispatch_event(
+        PointerEvent(type="pointer_move", x=0, y=0, target=child, root=root_handler)
+    )
+    assert child_called == 2
+    assert root_called == 0
+    assert alt_called == 0
+
+    # Simulate a pointer_move on another canvas.
+    # Pointer is captured by an item within a certain canvas, so it should
+    # stay captured until the pointer_up event. Events that might be generated by
+    # other canvasses/root_handlers should be disregarded.
+    # Check that the alt callback is *not* called when pointer is captured
+    # event when dispatched by another root handler (which means another canvas)
+    alt_handler.dispatch_event(
+        PointerEvent(
+            type="pointer_move", x=1, y=2, target=alt_handler, root=alt_handler
+        )
+    )
+    assert child_called == 2
+    assert root_called == 0
+    assert alt_called == 0
+
+    root_handler.dispatch_event(
+        PointerEvent(type="pointer_up", x=0, y=0, target=child, root=root_handler)
+    )
+    assert child_called == 3
+    assert root_called == 0
+    assert alt_called == 0
