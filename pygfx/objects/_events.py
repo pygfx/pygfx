@@ -303,9 +303,9 @@ class RootEventHandler(EventTarget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Dictionary to track clicks, keyed on pointer_id
-        self.click_tracker = {}
+        self._click_tracker = {}
         # Dictionary to track targets, keyed on pointer_id
-        self.target_tracker = {}
+        self._target_tracker = {}
 
     def dispatch_event(self, event: Event):
         """Dispatch the given event.
@@ -360,12 +360,12 @@ class RootEventHandler(EventTarget):
         # Update the target tracker on all `pointer_move` events
         if event.type == EventType.POINTER_MOVE:
             # Get the previous target for this pointer (if any)
-            previous_target_ref = self.target_tracker.get(pointer_id)
+            previous_target_ref = self._target_tracker.get(pointer_id)
             previous_target = (previous_target_ref and previous_target_ref()) or None
             # Check if the target has changed since the previous move event
             if previous_target is not target:
                 # Update the current target for this pointer
-                self.target_tracker[pointer_id] = (target and ref(target)) or None
+                self._target_tracker[pointer_id] = (target and ref(target)) or None
                 if previous_target is not None:
                     # Dispatch a `pointer_leave` event for the previous target
                     ev = event.copy(type="pointer_leave", target=previous_target)
@@ -391,7 +391,7 @@ class RootEventHandler(EventTarget):
 
         # Update the click tracker on all `pointer_down` events
         if event.type == EventType.POINTER_DOWN:
-            tracked_click = self.click_tracker.get(pointer_id)
+            tracked_click = self._click_tracker.get(pointer_id)
             # Check if the `pointer_id` is already tracked, targets
             # the same target and is within the DEBOUNCE time.
             # Bump the count and update the time_stamp if that is the case.
@@ -409,7 +409,7 @@ class RootEventHandler(EventTarget):
                 tracked_click["count"] += 1
                 tracked_click["time_stamp"] = event.time_stamp
             else:
-                self.click_tracker[pointer_id] = {
+                self._click_tracker[pointer_id] = {
                     "count": 1,
                     "time_stamp": event.time_stamp,
                     "target": (event.target and ref(event.target)) or None,
@@ -419,7 +419,7 @@ class RootEventHandler(EventTarget):
         # When the counter for the click is at 2, then a ``double_click`` event
         # is dispatched.
         elif event.type == EventType.POINTER_UP:
-            tracked_click = self.click_tracker.get(pointer_id)
+            tracked_click = self._click_tracker.get(pointer_id)
             if tracked_click and (
                 tracked_click["target"] is not None
                 and tracked_click["target"]() is not None
