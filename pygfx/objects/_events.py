@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import Enum
 from time import perf_counter_ns
 from typing import Union
-from weakref import ref, WeakValueDictionary
+from weakref import ref
 
 from wgpu.gui.base import log_exception
 
