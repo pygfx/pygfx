@@ -540,7 +540,7 @@ class TransformGizmo(WorldObject):
             # Highlight the object
             self._highlight(ob)
             self._viewport.renderer.request_draw()
-            self.set_pointer_capture(event.pointer_id)
+            self.set_pointer_capture(event.pointer_id, event.root)
 
         elif type == "pointer_up":
             if not self._ref:
