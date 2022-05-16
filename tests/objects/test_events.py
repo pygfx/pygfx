@@ -325,7 +325,8 @@ def test_multiple_root_event_handlers():
     # Let's make sure this doesn't happen again :)
     assert root_called == 0
 
-    # Also make
+    # Make sure that an event handled by another root handler does not
+    # trigger the pointer_leave on the root_handler
     alt_handler.dispatch_event(
         PointerEvent(type="pointer_move", x=0, y=0, target=alt_handler)
     )
@@ -343,9 +344,6 @@ def test_multiple_root_event_handlers_with_pointer_capture():
 
     def child_callback(event):
         nonlocal child_called
-        print(event.type)
-        if event.type == "pointer_move":
-            print(event.x, event.y)
         child_called += 1
 
     def alt_callback(event):
@@ -372,6 +370,7 @@ def test_multiple_root_event_handlers_with_pointer_capture():
     root_handler = RootEventHandler()
     alt_handler = RootEventHandler()
     alt_handler.add_event_handler(alt_callback, "pointer_move")
+    alt_handler.add_event_handler(alt_callback, "other")
 
     # Check that alt callback works with no pointer capture
     alt_handler.dispatch_event(
@@ -382,15 +381,17 @@ def test_multiple_root_event_handlers_with_pointer_capture():
     assert alt_called == 1
     alt_called = 0
 
+    assert child_called == 0
     assert root_called == 0
     assert alt_called == 0
-    assert child_called == 0
+
     root_handler.dispatch_event(
         PointerEvent(type="pointer_down", x=0, y=0, target=child, root=root_handler)
     )
     assert child_called == 1
     assert root_called == 0
     assert alt_called == 0
+
     root_handler.dispatch_event(
         PointerEvent(type="pointer_move", x=0, y=0, target=child, root=root_handler)
     )
@@ -413,9 +414,15 @@ def test_multiple_root_event_handlers_with_pointer_capture():
     assert root_called == 0
     assert alt_called == 0
 
+    # Check that non-pointer events are still handled by the alt_handler
+    alt_handler.dispatch_event(Event(type="other", target=alt_handler))
+    assert child_called == 2
+    assert root_called == 0
+    assert alt_called == 1
+
     root_handler.dispatch_event(
         PointerEvent(type="pointer_up", x=0, y=0, target=child, root=root_handler)
     )
     assert child_called == 3
     assert root_called == 0
-    assert alt_called == 0
+    assert alt_called == 1
