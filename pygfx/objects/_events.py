@@ -342,7 +342,8 @@ class RootEventHandler(EventTarget):
                 event_root_ref and event_root_ref(),
             )
             # If the pointer was captured in the context of another root event
-            # handler, then let's not handle this event
+            # handler, then let's not handle this event. It will be handled by
+            # the appropriate RootEventHandler
             if event_root and event_root is not self:
                 return
 
