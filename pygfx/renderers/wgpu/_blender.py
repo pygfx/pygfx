@@ -25,6 +25,8 @@ class BasePass:
 
     render_mask = 3  # opaque end transparent
 
+    EPSILON = 1e-6
+
     def get_color_descriptors(self, blender):
         """Get the list of fragment targets for device.create_render_pipeline()."""
         # The result affects the wobject's pipeline.
@@ -126,17 +128,17 @@ class OpaquePass(BasePass):
         }
 
     def get_shader_code(self, blender):
-        return """
-        struct FragmentOutput {
+        return f"""
+        struct FragmentOutput {{
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
-        };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            // if (color.a < 1.0) { discard; }
+        }};
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {{
+            if (color.a < 1.0 - {self.EPSILON} ) {{ discard; }}
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
             return out;
-        }
+        }}
         """
 
 
@@ -244,16 +246,16 @@ class SimpleTransparencyPass(BasePass):
         }
 
     def get_shader_code(self, blender):
-        return """
-        struct FragmentOutput {
+        return f"""
+        struct FragmentOutput {{
             @location(0) color: vec4<f32>,
-        };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= 0.0) { discard; }
+        }};
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {{
+            if (color.a <= {self.EPSILON}) {{ discard; }}
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
-        }
+        }}
         """
 
 
@@ -343,13 +345,13 @@ class WeightedTransparencyPass(BasePass):
         }
 
     def get_shader_code(self, blender):
-        return """
-        struct FragmentOutput {
+        return f"""
+        struct FragmentOutput {{
             @location(0) accum: vec4<f32>,
             @location(1) reveal: f32,
-        };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= 0.0) { discard; }
+        }};
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {{
+            if (color.a <={self.EPSILON}) {{ discard; }}
             let premultiplied = color.rgb * color.a;
             let alpha = color.a;  // could take user-specified transmittance into account
             WEIGHT_CODE
@@ -357,7 +359,7 @@ class WeightedTransparencyPass(BasePass):
             out.accum = vec4<f32>(premultiplied, alpha) * weight;
             out.reveal = alpha;
             return out;
-        }
+        }}
         """.replace(
             "WEIGHT_CODE", self._weight_code
         )
@@ -411,17 +413,17 @@ class FrontmostTransparencyPass(BasePass):
         }
 
     def get_shader_code(self, blender):
-        return """
-        struct FragmentOutput {
+        return f"""
+        struct FragmentOutput {{
             @location(0) color: vec4<f32>,
             @location(1) pick: vec4<u32>,
-        };
-        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= 0.0 || color.a >= 1.0) { discard; }
+        }};
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {{
+            if (color.a <= {self.EPSILON} || color.a >= 1.0 - {self.EPSILON}) {{ discard; }}
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
-        }
+        }}
         """
 
 
