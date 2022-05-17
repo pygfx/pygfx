@@ -316,14 +316,14 @@ class WeightedTransparencyPass(BasePass):
                 "view": blender.accum_view,
                 "resolve_target": None,
                 "clear_value": accum_clear_value,
-                "load_op": wgpu.logger.clear,
+                "load_op": wgpu.LoadOp.clear,
                 "store_op": wgpu.StoreOp.store,
             },
             {
                 "view": blender.reveal_view,
                 "resolve_target": None,
                 "clear_value": reveal_clear_value,
-                "load_op": wgpu.logger.clear,
+                "load_op": wgpu.LoadOp.clear,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
