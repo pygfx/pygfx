@@ -117,8 +117,8 @@ scene.add(ob4)
 ob4.position.x = +6
 
 # add a directional light to illuminate the scene
-light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
-scene.add(light)
+light = gfx.DirectionalLight(color=(1, 1, 1, 1))
+camera.add(light)
 
 
 def animate():

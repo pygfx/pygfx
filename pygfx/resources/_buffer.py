@@ -158,8 +158,9 @@ class Buffer(Resource):
         # Merge with current entry?
         if self._pending_uploads:
             cur_offset, cur_size = self._pending_uploads.pop(-1)
+            end = max(offset + size, cur_offset + cur_size)
             offset = min(offset, cur_offset)
-            size = max(size, cur_size)
+            size = end - offset
         # Limit and apply
         self._pending_uploads.append((offset, size))
         self._rev += 1

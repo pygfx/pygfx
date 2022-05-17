@@ -93,10 +93,11 @@ def mesh_renderer(render_info):
     # Lights states
     shader["num_dir_lights"] = len(render_info.state.directional_lights)
     shader["num_point_lights"] = len(render_info.state.point_lights)
+    shader["num_spot_lights"] = len(render_info.state.spot_lights)
 
     state_buffers = render_info.state.uniform_buffers
-    ambient_lights_buffer = state_buffers["ambient_lights"]
 
+    ambient_lights_buffer = state_buffers["ambient_lights"]
     if ambient_lights_buffer:
         bindings.append(
             Binding(
@@ -126,6 +127,17 @@ def mesh_renderer(render_info):
                 "buffer/uniform",
                 point_lights_buffer,
                 structname="PointLight",
+            ),
+        )
+
+    spot_lights_buffer = state_buffers["spot_lights"]
+    if spot_lights_buffer:
+        bindings.append(
+            Binding(
+                f"u_spot_lights",
+                "buffer/uniform",
+                spot_lights_buffer,
+                structname="SpotLight",
             ),
         )
 
@@ -234,63 +246,68 @@ class MeshPhongShader(WorldObjectShader):
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
 
-            $$ if num_dir_lights > 0 or num_point_lights > 0
-                let view_dir = select(
-                    normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
-                    ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
-                    is_orthographic()
-                );
+            let view_dir = select(
+                normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
+                ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
+                is_orthographic()
+            );
 
-                var normal = varyings.normal;
+            var normal = varyings.normal;
 
-                if (u_material.flat_shading != 0 ) {
-                    let u = dpdx(varyings.world_pos);
-                    let v = dpdy(varyings.world_pos);
-                    normal = normalize(cross(u, v));
-                    normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
-                }
+            if (u_material.flat_shading != 0 ) {
+                let u = dpdx(varyings.world_pos);
+                let v = dpdy(varyings.world_pos);
+                normal = normalize(cross(u, v));
+                normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
+            }
 
-                // normal = select(-normal, normal, is_front);  // do we really need this?
+            // normal = select(-normal, normal, is_front);  // do we really need this?
 
-            $$ endif
+            var geometry: GeometricContext;
+            geometry.position = varyings.world_pos;
+            geometry.normal = normal;
+            geometry.view_dir = view_dir;
 
-            $$ if num_dir_lights > 0
-                loop {
-                    if (i >= {{ num_dir_lights }}) { break; }
-
-                    let dir_light = u_directional_lights[i];
-
-                    var light: IncidentLight;
-
-                    light.color = dir_light.color.rgb;
-                    light.direction = -dir_light.direction.xyz;
-                    light.visible = true;
-
-                    reflected_light = RE_Direct_BlinnPhong( light, reflected_light, view_dir, normal, material );
-
-                    i += 1;
-                }
-            $$ endif
-
+            var i = 0;
             $$ if num_point_lights > 0
-                i = 0;
                 loop {
                     if (i >= {{ num_point_lights }}) { break; }
 
                     let point_light = u_point_lights[i];
 
-                    var light: IncidentLight;
+                    let light = getPointLightInfo(point_light, geometry);
 
-                    let i_vector = point_light.world_transform[3].xyz - varyings.world_pos;
+                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
 
-                    light.direction = normalize(i_vector);
-                    let light_distance = length(i_vector);
+                    i += 1;
+                }
+            $$ endif
 
-                    light.color = point_light.color.rgb;
-                    light.color *= getDistanceAttenuation( light_distance, point_light.distance, point_light.decay );
-                    light.visible = (light.color.r != 0.0) || (light.color.g != 0.0) || (light.color.b != 0.0);
+            $$ if num_spot_lights > 0
+                i = 0;
+                loop {
+                    if (i >= {{ num_spot_lights }}) { break; }
 
-                    reflected_light = RE_Direct_BlinnPhong( light, reflected_light, view_dir, normal, material );
+                    let spot_light = u_spot_lights[i];
+
+                    let light = getSpotLightInfo(spot_light, geometry);
+
+                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+
+                    i += 1;
+                }
+            $$ endif
+
+            $$ if num_dir_lights > 0
+                i = 0;
+                loop {
+                    if (i >= {{ num_dir_lights }}) { break; }
+
+                    let dir_light = u_directional_lights[i];
+
+                    let light = getDirectionalLightInfo(dir_light, geometry);
+
+                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
 
                     i += 1;
                 }
@@ -299,7 +316,7 @@ class MeshPhongShader(WorldObjectShader):
 
             let ambient_color = u_ambient_light.color.rgb;
             let irradiance = getAmbientLightIrradiance( ambient_color );
-            reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, reflected_light, material );
+            reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
 
             let lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
 

@@ -14,18 +14,21 @@ cube = gfx.Mesh(
 cube.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 6, math.pi / 6))
 scene.add(cube)
 
-light = gfx.PointLight("#0040ff")
+light = gfx.DirectionalLight("#0040ff")
 light.position.x = 15
 light.position.y = 20
 
 light_sp = gfx.sphere_geometry(1)
 
-light_helper = gfx.Mesh(
-    light_sp,
-    gfx.MeshBasicMaterial(color="#0040ff"),
-)
-light.add(light_helper)
+h1 = gfx.DirectionalLightHelper(light, 10)
+
+# light_helper = gfx.Mesh(
+#     light_sp,
+#     gfx.MeshBasicMaterial(color="#0040ff"),
+# )
+# light.add(light_helper)
 scene.add(light)
+scene.add(h1)
 
 light2 = gfx.PointLight("#ffaa00")
 light2.position.x = -15

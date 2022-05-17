@@ -30,7 +30,7 @@ mesh.add(box_local)  # note that the parent is `mesh` here, not `scene`
 box_local.material.color = (0, 1, 0, 1)
 
 # add a directional light to illuminate the scene
-light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+light = gfx.DirectionalLight(color=(1, 1, 1, 1))
 scene.add(light)
 
 if __name__ == "__main__":

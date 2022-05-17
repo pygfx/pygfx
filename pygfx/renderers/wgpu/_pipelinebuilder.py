@@ -22,11 +22,11 @@ def _is_affected_by_lights(material: Material):
 def _calculate_pipeline_cache_key(wobject, state):
     """Compute a unique key for the given wobject and render state."""
 
-    key = (wobject.rev,)
+    key = str(wobject.rev)
 
     if _is_affected_by_lights(wobject.material):
         state_hash = state.state_hash
-        key += (state_hash,)
+        key = key + "_" + state_hash
 
     return key
 
@@ -51,7 +51,6 @@ def ensure_pipeline(renderer, wobject):
     new_pipeline_infos = None
 
     cache_key = _calculate_pipeline_cache_key(wobject, state)
-
     # Do we need to recreate the pipeline_objects?
     if cache_key != wobject_pipeline.get("ref", ()):
         # Create fresh wobject_pipeline
@@ -158,14 +157,14 @@ def collect_pipeline_resources(shared, wobject, pipeline_infos):
         assert isinstance(pipeline_info, dict)
         buffer = pipeline_info.get("index_buffer", None)
         if buffer is not None:
-            buffer._wgpu_usage |= wgpu.BufferUsage.INDEX
+            buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
         buffer = pipeline_info.get("instance_buffers", None)
         if buffer is not None:
-            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX
+            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
         for buffer in pipeline_info.get("vertex_buffers", []):
-            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX
+            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
         for key in pipeline_info.keys():
             if key.startswith("bindings"):
@@ -181,6 +180,10 @@ def collect_pipeline_resources(shared, wobject, pipeline_infos):
                             resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
                         elif "storage" in binding.type:
                             resource._wgpu_usage |= wgpu.BufferUsage.STORAGE
+                            if "indices" in binding.name:
+                                resource._wgpu_usage |= wgpu.BufferUsage.INDEX
+                            else:
+                                resource._wgpu_usage |= wgpu.BufferUsage.VERTEX
                     elif binding.type.startswith("sampler/"):
                         assert isinstance(resource, TextureView)
                         pipeline_resources.append(("sampler", resource))

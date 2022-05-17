@@ -477,7 +477,7 @@ class BaseShader:
         self._binding_codes[binding.name] = code
 
     def _define_buffer(self, bindgroup, index, binding):
-        
+
         # Get format, and split in the scalar part and the number of channels
         fmt = to_vertex_format(binding.resource.format)
         if "x" in fmt:

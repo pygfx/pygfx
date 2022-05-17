@@ -586,8 +586,9 @@ def thin_line_renderer(render_info):
         Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
         Binding("u_material", "buffer/uniform", material.uniform_buffer),
     ]
-
-    vertex_buffers = {0: positions1}
+    vertex_buffers = []
+    # vertex_buffers = {0: positions1}
+    vertex_buffers.append(positions1)
 
     # Per-vertex color, colormap, or a plane color?
     shader["color_mode"] = "uniform"
@@ -596,13 +597,15 @@ def thin_line_renderer(render_info):
         shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
         if nchannels not in (1, 2, 3, 4):
             raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        vertex_buffers[1] = geometry.colors
+        # vertex_buffers[1] = geometry.colors
+        vertex_buffers.append(geometry.colors)
     elif material.map is not None:
         shader["color_mode"] = "map"
         bindings.extend(handle_colormap(geometry, material, shader))
         # This shader uses vertex buffers
         bindings.pop(-1)
-        vertex_buffers[1] = geometry.texcoords
+        # vertex_buffers[1] = geometry.texcoords
+        vertex_buffers.append(geometry.texcoords)
 
     # Determine in what render passes this objects must be rendered
     # Note: the renderer use alpha for aa, so we are never opaque only.

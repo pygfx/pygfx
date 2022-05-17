@@ -27,8 +27,8 @@ scene1.add(cube1)
 camera1 = gfx.OrthographicCamera(300, 300)
 
 # add a directional light to illuminate the scene
-light1 = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
-scene1.add(light1)
+light = gfx.DirectionalLight(color=(1, 1, 1, 1))
+camera1.add(light)
 
 # Compose another scene, a 2D overlay
 

@@ -69,6 +69,9 @@ Light objects
     :members:
     :member-order: bysource
 
+.. autoclass:: pygfx.SpotLight
+    :members:
+    :member-order: bysource
 
 Specific world objects
 ----------------------
@@ -120,6 +123,18 @@ Helper objects
     :member-order: bysource
 
 .. autoclass:: pygfx.TransformGizmo
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.PointLightHelper
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.DirectionalLightHelper
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.SpotLightHelper
     :members:
     :member-order: bysource
 

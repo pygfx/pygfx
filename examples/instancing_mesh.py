@@ -21,10 +21,6 @@ material = gfx.MeshPhongMaterial(map=tex)
 obj = gfx.InstancedMesh(geometry, material, 100)
 scene.add(obj)
 
-# add a directional light to illuminate the scene
-light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
-scene.add(light)
-
 # Set matrices. Note that these are sub-transforms of the mesh's own matrix.
 for y in range(10):
     for x in range(10):
@@ -34,6 +30,10 @@ for y in range(10):
 
 camera = gfx.PerspectiveCamera(70, 1)
 camera.position.set(9, 9, 15)
+
+# add a directional light to illuminate the scene
+light = gfx.DirectionalLight(color=(1, 1, 1, 1))
+camera.add(light)
 
 
 def animate():

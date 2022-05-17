@@ -19,6 +19,7 @@ from ...objects import (
     PointLight,
     DirectionalLight,
     AmbientLight,
+    SpotLight,
 )
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
@@ -69,10 +70,13 @@ def _get_sort_function(camera: Camera):
 
 
 class RenderState:
+    _tmp_vector = Vector3()
+
     def __init__(self) -> None:
         # only lights for now
         self.directional_lights: list[DirectionalLight] = []
         self.point_lights: list[PointLight] = []
+        self.spot_lights: list[SpotLight] = []
 
         self.ambient_light_color = [0, 0, 0]
 
@@ -82,11 +86,13 @@ class RenderState:
             ),
             "directional_lights": None,
             "point_lights": None,
+            "spot_lights": None,
         }
 
     def init(self):
         self.point_lights.clear()
         self.directional_lights.clear()
+        self.spot_lights.clear()
         self.ambient_light_color = [0, 0, 0]
 
     def push_light(self, light):
@@ -94,6 +100,8 @@ class RenderState:
             self.point_lights.append(light)
         elif isinstance(light, DirectionalLight):
             self.directional_lights.append(light)
+        elif isinstance(light, SpotLight):
+            self.spot_lights.append(light)
         elif isinstance(light, AmbientLight):
             self.ambient_light_color[0] += light.uniform_buffer.data["color"][0]
             self.ambient_light_color[1] += light.uniform_buffer.data["color"][1]
@@ -127,6 +135,10 @@ class RenderState:
                 )
 
             for i, light in enumerate(self.directional_lights):
+                direction = self._tmp_vector.sub_vectors(
+                    light.target.get_world_position(), light.get_world_position()
+                ).normalize()
+                light.uniform_buffer.data["direction"].flat = direction.to_array()
                 if (
                     self.uniform_buffers["directional_lights"].data[i]
                     != light.uniform_buffer.data
@@ -168,18 +180,42 @@ class RenderState:
         else:
             self.uniform_buffers["point_lights"] = None
 
+        # spot lights
+        spot_light_num = len(self.spot_lights)
+        if spot_light_num > 0:
+            spot_light_uniform_buffer: Buffer = self.uniform_buffers.get(
+                "spot_lights", None
+            )
+
+            if (
+                spot_light_uniform_buffer is None
+                or spot_light_uniform_buffer.nitems != spot_light_num
+            ):
+                self.uniform_buffers["spot_lights"] = Buffer(
+                    array_from_shadertype(SpotLight().uniform_type, spot_light_num)
+                )
+
+            for i, light in enumerate(self.spot_lights):
+                direction = self._tmp_vector.sub_vectors(
+                    light.target.get_world_position(), light.get_world_position()
+                ).normalize()
+                light.uniform_buffer.data["direction"].flat = direction.to_array()
+
+                if (
+                    self.uniform_buffers["spot_lights"].data[i]
+                    != light.uniform_buffer.data
+                ):
+                    self.uniform_buffers["spot_lights"].data[
+                        i
+                    ] = light.uniform_buffer.data
+                    self.uniform_buffers["spot_lights"].update_range(i, 1)
+                    light.uniform_buffer._pending_uploads = []
+        else:
+            self.uniform_buffers["spot_lights"] = None
+
     @property
     def state_hash(self):
-        # Ensure sequence independence
-        self.directional_lights.sort(key=lambda light: light.id)
-        self.point_lights.sort(key=lambda light: light.id)
-
-        return hash(
-            (
-                len(self.directional_lights),
-                len(self.point_lights),
-            )
-        )
+        return f"{len(self.directional_lights)}_{len(self.point_lights)}_{len(self.spot_lights)}"
 
 
 class SharedData:
@@ -617,7 +653,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
             else:
                 wobject_list.append(wobject)
 
+        def _get_light(wobject):
+            if isinstance(wobject, Light):
+                self._current_render_state.push_light(wobject)
+
         scene.traverse(_get_wobject_list, True)
+
+        camera.traverse(_get_light, True)  # light from camera
 
         self._current_render_state.set_up()
 

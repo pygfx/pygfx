@@ -32,18 +32,18 @@ def show(object: WorldObject, up=None):
         scene = Scene()
         scene.add(object)
 
-        if object.material and isinstance(object.material, MeshPhongMaterial):
-            # add default light to illuminate the scene
-            light = DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
-            scene.add(light)
-
-            light2 = AmbientLight(color="#111111")
-            scene.add(light2)
-
         background = Background(None, BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
         scene.add(background)
 
     camera = PerspectiveCamera(70, 16 / 9)
+    if object.material and isinstance(object.material, MeshPhongMaterial):
+        # add default light to illuminate the scene
+        light = DirectionalLight(color=(1, 1, 1, 1))
+        camera.add(light)
+
+        light2 = AmbientLight(color="#111111")
+        scene.add(light2)
+
     look_at = camera.show_object(object)
 
     canvas = WgpuCanvas()

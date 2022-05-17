@@ -43,8 +43,8 @@ camera = gfx.PerspectiveCamera(70)
 camera.scale.y = -1
 camera.position.z = 0
 
-light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
-scene.add(light)
+camera.add(gfx.DirectionalLight(color=(1, 1, 1, 1)))
+camera.add(gfx.AmbientLight())
 
 
 def animate():

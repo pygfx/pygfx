@@ -50,7 +50,8 @@ tex1 = gfx.Texture(cmap4, dim=1).get_view(filter="linear")
 create_object(tex1, +6)
 
 # add a directional light to illuminate the scene
-light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
+light = gfx.DirectionalLight(color=(1, 1, 1, 1))
+light.position.set(0, 0, 1)
 scene.add(light)
 
 

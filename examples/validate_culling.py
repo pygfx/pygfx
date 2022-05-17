@@ -37,15 +37,18 @@ obj1.rotation.multiply(rot)
 obj2.rotation.multiply(rot)
 scene.add(obj1, obj2)
 
-# add a directional light to illuminate the front face
-light = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, -1))
-scene.add(light)
-
-# add an opposite direction light to illuminate the back face
-light2 = gfx.DirectionalLight(color=(1, 1, 1, 1), direction=(0, 0, 1))
-scene.add(light2)
 
 camera = gfx.OrthographicCamera(6, 4)
+
+# add a directional light to illuminate the frontward
+light = gfx.DirectionalLight(color=(1, 1, 1, 1))
+light.position.set(0, 0, 1)
+scene.add(light)
+
+# add a directional light to illuminate the backward
+light2 = gfx.DirectionalLight(color=(1, 1, 1, 1))
+light2.position.set(0, 0, -1)
+scene.add(light2)
 
 
 def animate():

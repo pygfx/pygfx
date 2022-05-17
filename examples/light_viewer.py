@@ -353,7 +353,7 @@ def create_directionallight_helper(light, length):
         gfx.LineArrowMaterial(color=light.color.hex),
     )
 
-    helper.look_at(light.direction)
+    helper.look_at(light.position)
     helper.scale.z = length
     light.add(helper)
     return helper

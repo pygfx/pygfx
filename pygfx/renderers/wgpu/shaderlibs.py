@@ -40,7 +40,6 @@ mesh_vertex_shader = """
 
         // Get world transform
         $$ if instanced
-            // let instance_info = s_instance_infos[in.instance_index];
             let instance_transform =  mat4x4<f32>(
                 instance_info.transform0,
                 instance_info.transform1,
@@ -123,6 +122,15 @@ lights = """
         return 1.0;
     }
 
+    fn smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
+        let t = clamp( ( x - low ) / ( high - low ), 0.0, 1.0 );
+        return t * t * ( 3.0 - 2.0 * t );
+    }
+
+    fn getSpotAttenuation( coneCosine: f32, penumbraCosine: f32, angleCosine: f32 ) -> f32 {
+        return smoothstep( coneCosine, penumbraCosine, angleCosine );
+    }
+
     fn getAmbientLightIrradiance( ambientlight_color: vec3<f32> ) -> vec3<f32> {
         let irradiance = ambientlight_color;
         return irradiance;
@@ -141,12 +149,68 @@ lights = """
         indirect_specular: vec3<f32>,
     };
 
+    struct GeometricContext {
+        position: vec3<f32>,
+        normal: vec3<f32>,
+        view_dir: vec3<f32>,
+    };
+
+    $$ if num_dir_lights > 0
+    fn getDirectionalLightInfo( directional_light: DirectionalLight, geometry: GeometricContext ) -> IncidentLight {
+        var light: IncidentLight;
+        light.color = directional_light.color.rgb;
+        light.direction = -directional_light.direction.xyz;
+        light.visible = true;
+        return light;
+    }
+    $$ endif
+
+    $$ if num_point_lights > 0
+    fn getPointLightInfo( point_light: PointLight, geometry: GeometricContext ) -> IncidentLight {
+        var light: IncidentLight;
+
+        let i_vector = point_light.world_transform[3].xyz - geometry.position;
+        light.direction = normalize(i_vector);
+        let light_distance = length(i_vector);
+        light.color = point_light.color.rgb;
+        light.color *= getDistanceAttenuation( light_distance, point_light.distance, point_light.decay );
+        light.visible = any(light.color != vec3<f32>(0.0));
+
+        return light;
+    }
+    $$ endif
+
+    $$ if num_spot_lights > 0
+    fn getSpotLightInfo( spot_light: SpotLight, geometry: GeometricContext ) -> IncidentLight {
+        var light: IncidentLight;
+
+        let i_vector = spot_light.world_transform[3].xyz - geometry.position;
+
+        light.direction = normalize(i_vector);
+
+        let angle_cos = dot(light.direction, -spot_light.direction.xyz);
+        let spot_attenuation = getSpotAttenuation(spot_light.cone_cos, spot_light.penumbra_cos, angle_cos);
+
+        if ( spot_attenuation > 0.0 ) {
+            let light_distance = length( i_vector );
+            light.color = spot_light.color.rgb * spot_attenuation;
+            light.color *= getDistanceAttenuation( light_distance, spot_light.distance, spot_light.decay );
+            light.visible = any(light.color != vec3<f32>(0.0));
+        } else {
+            light.color = vec3<f32>( 0.0 );
+            light.visible = false;
+        }
+
+        return light;
+    }
+    $$ endif
+
     """
 
 
 bsdfs = """
     fn BRDF_Lambert(diffuse_color: vec3<f32>) -> vec3<f32> {
-        return 0.3183098861837907 * diffuse_color;  // 1 / pi = 0.3183098861837907
+        return 0.3183098861837907 * diffuse_color;  //  1/pi = 0.3183098861837907
     }
 
     fn F_Schlick(f0: vec3<f32>, f90: f32, dot_vh: f32,) -> vec3<f32> {
@@ -201,19 +265,18 @@ blinn_phong = """
 
     fn RE_Direct_BlinnPhong(
         direct_light: IncidentLight,
-        reflected_light: ReflectedLight,
-        view_dir: vec3<f32>,
-        normal: vec3<f32>,
+        geometry: GeometricContext,
         material: BlinnPhongMaterial,
+        reflected_light: ReflectedLight,
     ) -> ReflectedLight {
 
-        let dot_nl = clamp(dot(normal, direct_light.direction), 0.0, 1.0);
+        let dot_nl = clamp(dot(geometry.normal, direct_light.direction), 0.0, 1.0);
 
         let irradiance = dot_nl * direct_light.color;
 
         let direct_diffuse = irradiance * BRDF_Lambert( material.diffuse_color );
 
-        let direct_specular = irradiance * BRDF_BlinnPhong( direct_light.direction, view_dir, normal, material.specular_color, material.specular_shininess ) * material.specular_strength;
+        let direct_specular = irradiance * BRDF_BlinnPhong( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_shininess ) * material.specular_strength;
 
 
         var out_reflected_light: ReflectedLight;
@@ -228,8 +291,9 @@ blinn_phong = """
 
     fn RE_IndirectDiffuse_BlinnPhong(
         irradiance: vec3<f32>,
-        reflected_light: ReflectedLight,
+        geometry: GeometricContext,
         material: BlinnPhongMaterial,
+        reflected_light: ReflectedLight,
     ) -> ReflectedLight {
         let indirect_diffuse = irradiance * BRDF_Lambert( material.diffuse_color );
 
