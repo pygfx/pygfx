@@ -62,18 +62,18 @@ for i in range(4):
     cntl_default["target"] = controller.target.clone()
     cntl_defaults.append(cntl_default)
 
-w_div = 2
-h_div = 2
 
-
-# 2x2 arrangement for the viewports
-def produce_rect(w, h):
-    return [
-        (0, 0, w / w_div, h / h_div),
-        (w / w_div, 0, w / w_div, h / h_div),
-        (0, h / h_div, w / w_div, h / h_div),
-        (w / w_div, h / h_div, w / w_div, h / h_div),
-    ]
+@renderer.add_event_handler("resize")
+def layout(event=None):
+    """
+    Update the viewports when the canvas is resized
+    """
+    w, h = renderer.logical_size
+    w2, h2 = w / 2, h / 2
+    viewports[0].rect = 10, 10, w2, h2
+    viewports[1].rect = w / 2 + 5, 10, w2, h2
+    viewports[2].rect = 10, h / 2 + 5, w2, h2
+    viewports[3].rect = w / 2 + 5, h / 2 + 5, w2, h2
 
 
 reset_cameras = False
@@ -86,45 +86,45 @@ def animate():
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
         # img.geometry.grid = gfx.Texture(np.random.rand(*dims).astype(np.float32) * 255, dim=2)
 
-    w, h = canvas.get_logical_size()
-
-    rects = produce_rect(w, h)
-
     global reset_cameras
 
     # reset the cameras if `reset_camera` is set to True
     if reset_cameras:
-        for camera, controller, cntrl_default in zip(
-            cameras, controllers, cntl_defaults
-        ):
-            pan_delta = (
-                cntl_default["target"].clone().sub(camera.position)
-            )  # find the dx, dy
-            controller.pan(pan_delta)  # pan to initial state
+        for camera, image in zip(cameras, images):
+            camera.show_object(image)
 
-            # set zoom and distance to initial state
-            controller.zoom_value = cntl_default["zoom_value"]
-            controller.distance = cntl_default["distance"]
-
-            # update camera with the new params
-            controller.update_camera(camera)
+        # for camera, controller, cntrl_default in zip(
+        #     cameras, controllers, cntl_defaults
+        # ):
+        #     pan_delta = (
+        #         cntl_default["target"].clone().sub(camera.position)
+        #     )  # find the dx, dy
+        #     controller.pan(pan_delta)  # pan to initial state
+        #
+        #     # set zoom and distance to initial state
+        #     controller.zoom_value = cntl_default["zoom_value"]
+        #     controller.distance = cntl_default["distance"]
+        #
+        #     # update camera with the new params
+        #     controller.update_camera(camera)
 
         reset_cameras = False
     else:
-        for camera, controller, cntrl_default in zip(
-            cameras, controllers, cntl_defaults
+        for camera, controller in zip(
+            cameras, controllers
         ):
             # if not reset, update with the pan & zoom params
             controller.update_camera(camera)
 
     # render the viewports
-    for viewport, s, c, r in zip(viewports, scenes, cameras, rects):
-        viewport.rect = r
+    for viewport, s, c in zip(viewports, scenes, cameras):
         viewport.render(s, c)
 
     renderer.flush()
     canvas.request_draw()
 
+
+layout()
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
