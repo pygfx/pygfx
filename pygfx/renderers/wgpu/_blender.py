@@ -25,8 +25,6 @@ class BasePass:
 
     render_mask = 3  # opaque end transparent
 
-    EPSILON = 1e-6
-
     def get_color_descriptors(self, blender):
         """Get the list of fragment targets for device.create_render_pipeline()."""
         # The result affects the wobject's pipeline.
