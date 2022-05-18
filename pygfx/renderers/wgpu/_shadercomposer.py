@@ -646,6 +646,7 @@ class WorldObjectShader(BaseShader):
         """
 
         blending_code = """
+        let alpha_compare_epsilon : f32 = 1e-6;
         {{ blending_code }}
         """
 
