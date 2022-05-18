@@ -55,12 +55,8 @@ for i in range(4):
     controller.add_default_event_handlers(viewport, camera)
     controllers.append(controller)
 
-    # get the initial controller params so the camera can be reset later
-    cntl_default = dict()
-    cntl_default["distance"] = controller.distance
-    cntl_default["zoom_value"] = controller.zoom_value
-    cntl_default["target"] = controller.target.clone()
-    cntl_defaults.append(cntl_default)
+    # # get the initial controller params so the camera can be reset later
+    cntl_defaults.append(controller.save_state())
 
 
 @renderer.add_event_handler("resize")
@@ -84,35 +80,25 @@ def animate():
         # create new image data
         img.geometry.grid.data[:] = np.random.rand(*dims).astype(np.float32) * 255
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
-        # img.geometry.grid = gfx.Texture(np.random.rand(*dims).astype(np.float32) * 255, dim=2)
 
     global reset_cameras
 
     # reset the cameras if `reset_camera` is set to True
     if reset_cameras:
-        for camera, image in zip(cameras, images):
-            camera.show_object(image)
+        # this should work in the future
+        # for camera, image in zip(cameras, images):
+        #     camera.show_object(image)
 
-        # for camera, controller, cntrl_default in zip(
-        #     cameras, controllers, cntl_defaults
-        # ):
-        #     pan_delta = (
-        #         cntl_default["target"].clone().sub(camera.position)
-        #     )  # find the dx, dy
-        #     controller.pan(pan_delta)  # pan to initial state
-        #
-        #     # set zoom and distance to initial state
-        #     controller.zoom_value = cntl_default["zoom_value"]
-        #     controller.distance = cntl_default["distance"]
-        #
-        #     # update camera with the new params
-        #     controller.update_camera(camera)
+        # until a way to center the controller in the scene is implemented
+        for camera, controller, cntrl_default in zip(
+            cameras, controllers, cntl_defaults
+        ):
+            controller.load_state(cntrl_default)
+            controller.update_camera(camera)
 
         reset_cameras = False
     else:
-        for camera, controller in zip(
-            cameras, controllers
-        ):
+        for camera, controller in zip(cameras, controllers):
             # if not reset, update with the pan & zoom params
             controller.update_camera(camera)
 
@@ -125,6 +111,7 @@ def animate():
 
 
 layout()
+
 
 if __name__ == "__main__":
     canvas.request_draw(animate)
