@@ -31,29 +31,6 @@ varying_types = (
 )
 
 
-class Binding:
-    """Simple object to hold together some information about a binding, for internal use.
-
-    * name: the name in wgsl
-    * type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
-      The subtype: depends on the type:
-      BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
-    * resource: Buffer, Texture or TextureView.
-    * visibility: wgpu.ShaderStage flag
-    * kwargs: could add more specifics in the future.
-    """
-
-    def __init__(self, name, type, resource, visibility=visibility_render, **kwargs):
-        if isinstance(visibility, str):
-            visibility = getattr(wgpu.ShaderStage, visibility)
-        self.name = name
-        self.type = type
-        self.resource = resource
-        self.visibility = visibility
-        for key, val in kwargs.items():
-            setattr(self, key, val)
-
-
 re_varying_getter = re.compile(r"[\s,\(\[]varyings\.(\w+)", re.UNICODE)
 re_varying_setter = re.compile(r"\A\s*?varyings\.(\w+)(\.\w+)?\s*?\=")
 builtin_varyings = {"position": "vec4<f32>"}
@@ -538,6 +515,7 @@ class WorldObjectShader(BaseShader):
         # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
         self.kwargs.setdefault("write_pick", True)
         self.kwargs.setdefault("blending_code", "")
+
         self.kwargs.setdefault("colormap_dim", "")
         self.kwargs.setdefault("colormap_nchannels", 1)
 

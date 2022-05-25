@@ -3,9 +3,7 @@ import time
 from pygfx.objects._trackable import Trackable, RootTrackable
 
 
-
 class MyRootTrackable(RootTrackable):
-
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if not name.startswith("_"):
@@ -13,7 +11,6 @@ class MyRootTrackable(RootTrackable):
 
 
 class MyTrackable(Trackable):
-
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if not name.startswith("_"):
@@ -203,16 +200,16 @@ def profile_runner():
     # Do a buch of work
     for ob in range(n_objects):
         for i in range(n_access):
-            setattr(root.sub1, f"attr_0_{i}", i//2)
+            setattr(root.sub1, f"attr_0_{i}", i // 2)
     t1 = time.perf_counter()
-    assert root.pop_changed() == {0}#set(range(n_levels))
+    assert root.pop_changed() == {0}  # set(range(n_levels))
 
     return t1 - t0
 
 
-
 def profile_speed():
     import cProfile, io, pstats
+
     pr = cProfile.Profile()
     pr.enable()
 
@@ -236,4 +233,3 @@ if __name__ == "__main__":
     print("done")
 
     # profile_speed()
-

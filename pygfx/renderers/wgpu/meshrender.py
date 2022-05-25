@@ -14,9 +14,195 @@ from ...materials import (
 )
 from ...resources import Buffer
 from ...utils import normals_from_vertices
+from ._pipelinebuilder import WobjectRenderer
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
+def mesh_renderer(render_info):
+    return [MeshRenderer()]
+
+
+class MeshRenderBuilder(WobjectRenderBuilder):
+    def get_shader(self, wobject, render_info):
+
+        material = wobject.material
+
+        shader = MeshShader(
+            render_info,
+            lighting="",
+            colormap_format="f32",
+            instanced=False,
+            wireframe=material.wireframe,
+            vertex_color_channels=0,
+        )
+
+        # Is this an instanced mesh?
+        if isinstance(wobject, InstancedMesh):
+            shader["instanced"] = True
+
+        # Per-vertex color, colormap, or a plane color?
+        shader["color_mode"] = "uniform"
+        if material.vertex_colors:
+            shader["color_mode"] = "vertex"
+            shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif material.map is not None:
+            shader["color_mode"] = "map"
+            handle_colormap(geometry, material, shader)
+
+        # Triage based on material
+        if isinstance(material, MeshNormalMaterial):
+            # Special simple fragment shader
+            shader["color_mode"] = "normal"
+            shader["colormap_dim"] = ""  # disable texture if there happens to be one
+        elif isinstance(material, MeshFlatMaterial):
+            shader["lighting"] = "flat"
+        elif isinstance(material, MeshPhongMaterial):
+            shader["lighting"] = "phong"
+        else:
+            pass  # simple lighting
+
+        return shader
+
+    def get_resources(self, wobject):
+        geometry = wobject.geometry
+        material = wobject.material
+        shader = self.shader
+
+        # indexbuffer
+        # vertex_buffers
+        # list of list of dicts
+
+        # We're assuming the presence of an index buffer for now
+        assert getattr(geometry, "indices", None)
+
+        # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
+        if getattr(geometry, "normals", None) is not None:
+            normal_buffer = geometry.normals
+        else:
+            normal_data = normals_from_vertices(
+                geometry.positions.data, geometry.indices.data
+            )
+            normal_buffer = Buffer(normal_data)
+
+        # We're using storage buffers for everything; no vertex nor index buffers.
+        vertex_buffers = {}
+
+        index_buffer = None
+
+        # Init bindings
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+            Binding(
+                "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
+            ),
+            Binding(
+                "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+            ),
+            Binding("s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"),
+        ]
+
+        if shader["color_mode"] == "vertex":
+            bindings.append(
+                Binding(
+                    "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
+                )
+            )
+        if shader["color_mode"] == "map":
+            # bindings.extend(handle_colormap(geometry, material, shader))
+            bindings.append(
+                Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT")
+            )
+            bindings.append(
+                Binding("t_colormap", "texture/auto", material.map, "FRAGMENT")
+            )
+
+        bindings1 = []  # non-auto-generated bindings
+
+        # Instanced meshes have an extra storage buffer that we add manually
+
+        if shader["instanced"]:
+            bindings1.append(
+                Binding(
+                    "s_instance_infos",
+                    "buffer/read_only_storage",
+                    wobject.instance_infos,
+                    "VERTEX",
+                )
+            )
+
+    def get_pipeline_info(self, wobject):
+        material = wobject.material
+
+        topology = wgpu.PrimitiveTopology.triangle_list
+
+        if material.side == "FRONT":
+            cull_mode = wgpu.CullMode.back
+        elif material.side == "BACK":
+            cull_mode = wgpu.CullMode.front
+        else:  # material.side == "BOTH"
+            cull_mode = wgpu.CullMode.none
+
+        return {
+            "topology": topology,
+            "cull_mode": cull_mode,
+        }
+
+    def get_render_info(self, geometry):
+        geometry = wobject.geometry
+
+        n = geometry.indices.data.size
+        n_instances = 1
+        if shader["instanced"]:
+            n_instances = wobject.instance_infos.nitems
+
+        render_mask = 3
+        if material.opacity < 1:
+            render_mask = 2
+        elif shader["color_mode"] == "vertex":
+            if shader["vertex_color_channels"] in (1, 3):
+                render_mask = 1
+        elif shader["color_mode"] == "map":
+            if shader["colormap_nchannels"] in (1, 3):
+                render_mask = 1
+        elif shader["color_mode"] == "normal":
+            render_mask = 1
+        elif shader["color_mode"] == "uniform":
+            render_mask = 1 if material.color[3] >= 1 else 2
+        else:
+            raise RuntimeError(f"Unexpected color mode {shader['color_mode']}")
+
+        return {
+            "indices": (n, n_instances),
+            "render_mask": render_mask,
+        }
+
+
+@register_wgpu_render_function(Mesh, MeshNormalLinesMaterial)
+class MeshNormalLinesRenderer(MeshRenderer):
+    def get_shader(self, wobject):
+        shader = super().get_shader(wobject)
+        shader.vertex_shader = shader.vertex_shader_normal_lines
+        shader["color_mode"] = "uniform"
+        shader["lighting"] = ""
+        shader["wireframe"] = False
+        return shader
+
+    def get_pipeline_dict(self, wobject):
+        d = super().get_pipeline_dict(wobject)
+        d["topology"] = wgpu.PrimitiveTopology.line_list
+        return d
+
+    def get_render_dict(self):
+        d = super().get_render_dict()
+        d["indices"] = geometry.positions.nitems * 2, d["indices"][1]
+        return d
+
+
+# @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 def mesh_renderer(render_info):
     """Render function capable of rendering meshes."""
     wobject = render_info.wobject

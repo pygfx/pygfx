@@ -28,8 +28,8 @@ simple_value_types = None.__class__, bool, int, float, str
 
 
 class TrackContext:
-    """ A context used when tracking usage of trackable objects.
-    """
+    """A context used when tracking usage of trackable objects."""
+
     def __init__(self, root, level, include_trackables):
         assert isinstance(root, RootTrackable)
         self.root = root
@@ -53,8 +53,7 @@ class TrackContext:
 
 
 class Trackable:
-    """ A base class to make an object trackable.
-    """
+    """A base class to make an object trackable."""
 
     def __init__(self):
         # Keep track of our parents  -  parent -> names
@@ -63,8 +62,7 @@ class Trackable:
         self._trackable_children = weakref.WeakValueDictionary()
 
     def _track_get(self, name, value):
-        """ The subclass should ideally call this in a property getter.
-        """
+        """The subclass should ideally call this in a property getter."""
         # Called when getting an attribute to track usage.
         if global_context:
             for parent, names in self._trackable_parents.items():
@@ -73,8 +71,7 @@ class Trackable:
         return value
 
     def _track_set(self, name, value):
-        """ The subclass should ideally call this in a property setter.
-        """
+        """The subclass should ideally call this in a property setter."""
         # Called when setting an attribute, which *may* bump a change at the root.
         if "." not in name:
             self._track_trackable_children(name, value)
@@ -115,7 +112,7 @@ class Trackable:
 
 
 class RootTrackable(Trackable):
-    """ Base class for the root trackable object. This is where the actual
+    """Base class for the root trackable object. This is where the actual
     reaction data is stored.
     """
 
@@ -131,7 +128,7 @@ class RootTrackable(Trackable):
         self._trackable_changed = {}
 
     def track_usage(self, level, include_trackables):
-        """ Used to track the usage of attributes. The result of this method
+        """Used to track the usage of attributes. The result of this method
         should be used as a context manager. This method must only be
         used by the one system that is tracking this object's changes.
         """
@@ -176,7 +173,9 @@ class RootTrackable(Trackable):
         # Called when getting an attribute to track usage.
         # Register the given name as a trigger.
         if global_context and global_context.root is self:
-            if not (isinstance(value, Trackable) and not global_context.include_trackables):
+            if not (
+                isinstance(value, Trackable) and not global_context.include_trackables
+            ):
                 self._trackable_names.setdefault(name, set()).add(global_context.level)
                 if isinstance(value, simple_value_types):
                     self._trackable_values[name] = value, value
@@ -228,7 +227,7 @@ class RootTrackable(Trackable):
             return
         # Try to obtain the new value. If we fail, we return.
         ob = trackable
-        for subname in name[len(prefix):].split("."):
+        for subname in name[len(prefix) :].split("."):
             try:
                 ob = getattr(ob, subname)
             except AttributeError:

@@ -572,12 +572,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         for wobject, wobject_pipeline in wobject_tuples:
             for pinfo in wobject_pipeline.get("compute_pipelines", ()):
-                compute_pass.set_pipeline(pinfo["pipeline"])
-                for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                    compute_pass.set_bind_group(
-                        bind_group_id, bind_group, [], 0, 999999
-                    )
-                compute_pass.dispatch_workgroups(*pinfo["index_args"])
+                xxxx.container.dispatch(compute_pass)
+                # compute_pass.set_pipeline(pinfo["pipeline"])
+                # for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                #     compute_pass.set_bind_group(
+                #         bind_group_id, bind_group, [], 0, 999999
+                #     )
+                # compute_pass.dispatch_workgroups(*pinfo["index_args"])
 
         compute_pass.end()
 
