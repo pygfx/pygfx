@@ -604,26 +604,27 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_pass.set_viewport(*physical_viewport)
 
             for wobject, wobject_pipeline in wobject_tuples:
-                if not (render_mask & wobject_pipeline["render_mask"]):
-                    continue
-                for pinfo in wobject_pipeline["render_pipelines"]:
-                    render_pass.set_pipeline(pinfo["pipelines"][pass_index])
-                    for slot, vbuffer in pinfo["vertex_buffers"].items():
-                        render_pass.set_vertex_buffer(
-                            slot,
-                            vbuffer._wgpu_buffer[1],
-                            vbuffer.vertex_byte_range[0],
-                            vbuffer.vertex_byte_range[1],
-                        )
-                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                        render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
-                    # Draw with or without index buffer
-                    if pinfo["index_buffer"] is not None:
-                        ibuffer = pinfo["index_buffer"]
-                        render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
-                        render_pass.draw_indexed(*pinfo["index_args"])
-                    else:
-                        render_pass.draw(*pinfo["index_args"])
+                xxx.dispatch()
+                # if not (render_mask & wobject_pipeline["render_mask"]):
+                #     continue
+                # for pinfo in wobject_pipeline["render_pipelines"]:
+                #     render_pass.set_pipeline(pinfo["pipelines"][pass_index])
+                #     for slot, vbuffer in pinfo["vertex_buffers"].items():
+                #         render_pass.set_vertex_buffer(
+                #             slot,
+                #             vbuffer._wgpu_buffer[1],
+                #             vbuffer.vertex_byte_range[0],
+                #             vbuffer.vertex_byte_range[1],
+                #         )
+                #     for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
+                #         render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
+                #     # Draw with or without index buffer
+                #     if pinfo["index_buffer"] is not None:
+                #         ibuffer = pinfo["index_buffer"]
+                #         render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
+                #         render_pass.draw_indexed(*pinfo["index_args"])
+                #     else:
+                #         render_pass.draw(*pinfo["index_args"])
 
             render_pass.end()
 
