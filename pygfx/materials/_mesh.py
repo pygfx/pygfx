@@ -77,12 +77,12 @@ class MeshBasicMaterial(Material):
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of columns in the geometry's texcoords.
         """
-        return self._map
+        return self._track_get("map", self._map)
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, TextureView)
-        self._map = map
+        self._map = self._track_set("map", map)
 
     @property
     def side(self):
@@ -94,24 +94,25 @@ class MeshBasicMaterial(Material):
         Counter-clockwise (CCW) winding is assumed. If this is not the case,
         adjust your geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
         """
-        return self._side
+        return self._track_get("side", self._side)
 
     @side.setter
     def side(self, value):
         side = str(value).upper()
         if side in ("FRONT", "BACK", "BOTH"):
-            self._side = side
+            self._side = self._track_set("side", side)
         else:
             raise ValueError(f"Unexpected side: '{value}'")
 
     @property
     def wireframe(self):
         """Render geometry as a wireframe. Default is False (i.e. render as polygons)."""
-        return self.uniform_buffer.data["wireframe"] > 0
+        return self._track_get("wireframe", self.uniform_buffer.data["wireframe"] > 0)
 
     @wireframe.setter
     def wireframe(self, value):
         is_wiremode = bool(value)
+        self._track_set("wireframe", is_wiremode)
         was_wiremode = self.uniform_buffer.data["wireframe"] > 0
         if was_wiremode == is_wiremode:
             return
@@ -122,7 +123,6 @@ class MeshBasicMaterial(Material):
             self.uniform_buffer.data["wireframe"] = thickness
         else:
             self.uniform_buffer.data["wireframe"] = -thickness
-        # Trigger a pipleine rebuild if the mode changes
         self.uniform_buffer.update_range(0, 1)
 
     @property

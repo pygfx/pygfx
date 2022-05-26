@@ -37,6 +37,7 @@ class Buffer(Resource):
         nitems=None,
         format=None,
     ):
+        super().__init__()
         self._rev = 0
         # To specify the buffer size
         self._nbytes = 0

@@ -24,6 +24,7 @@ class Texture(Resource):
     """
 
     def __init__(self, data=None, *, dim, size=None, format=None):
+        super().__init__()
         self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
@@ -278,6 +279,7 @@ class TextureView(Resource):
         mip_range=None,
         layer_range=None,
     ):
+        super().__init__()
         self._rev = 1
         assert isinstance(texture, Texture)
         self._texture = texture

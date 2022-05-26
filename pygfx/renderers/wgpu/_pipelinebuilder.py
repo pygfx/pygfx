@@ -367,7 +367,7 @@ class PipelineContainer:
             self.wgpu_pipelines = {}
 
         if "render" in levels:
-            with wobject.track_usage("pipeline", False):
+            with wobject.track_usage("render", False):
                 self.render_info = self.builder.get_render_info(
                     builder_args, self.shader
                 )
@@ -447,10 +447,8 @@ class PipelineContainer:
         # Always create wgpu objects for the bind groups. Note that this dict
         # includes the buffer texture objects.
         self.wgpu_bind_groups = []
-        for bg_descriptor in bg_descriptors:
-            bind_group = device.create_bind_group(
-                layout=bind_group_layout, entries=bg_descriptor
-            )
+        for bg_descriptor, layout in zip(bg_descriptors, self.wgpu_bind_group_layouts):
+            bind_group = device.create_bind_group(layout=layout, entries=bg_descriptor)
             self.wgpu_bind_groups.append(bind_group)
 
     def collect_flat_resources(self):

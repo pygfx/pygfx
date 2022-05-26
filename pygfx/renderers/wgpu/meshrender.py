@@ -30,6 +30,7 @@ class MeshRenderBuilder(PipelineBuilder):
 
         wobject = build_args.wobject
         material = wobject.material
+        geometry = wobject.geometry
 
         shader = MeshShader(
             build_args,
@@ -53,7 +54,6 @@ class MeshRenderBuilder(PipelineBuilder):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif material.map is not None:
             shader["color_mode"] = "map"
-            handle_colormap(geometry, material, shader)
 
         # Triage based on material
         if isinstance(material, MeshNormalMaterial):
@@ -117,7 +117,8 @@ class MeshRenderBuilder(PipelineBuilder):
                 )
             )
         if shader["color_mode"] == "map":
-            # bindings.extend(handle_colormap(geometry, material, shader))
+            # todo: this affects the shader!!!
+            bindings.extend(handle_colormap(geometry, material, shader))
             bindings.append(
                 Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT")
             )

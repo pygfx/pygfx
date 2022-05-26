@@ -29,6 +29,7 @@ def create_object(tex, xpos):
 
 cmap1 = np.array([(1,), (0,), (0,), (1,)], np.float32)
 tex1 = gfx.Texture(cmap1, dim=1).get_view(filter="linear")
+tex1 = gfx.cm.cividis
 create_object(tex1, -6)
 
 # ==== 2-channel colormap: grayscale + alpha
