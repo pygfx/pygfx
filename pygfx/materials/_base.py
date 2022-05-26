@@ -1,9 +1,9 @@
-from ..objects._base import ResourceContainer
+from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
 
 
-class Material(ResourceContainer):
+class Material(Trackable):
     """The base class for all materials.
     Materials define how an object is rendered, subject to certain properties.
     """

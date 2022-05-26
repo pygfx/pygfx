@@ -1,6 +1,6 @@
 import time
 
-from pygfx.objects._trackable import Trackable, RootTrackable
+from pygfx.utils.trackable import Trackable, RootTrackable
 
 
 class MyRootTrackable(RootTrackable):

@@ -1,9 +1,11 @@
+from ..utils.trackable import Trackable
+
 import numpy as np
 
 STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
 
-class Resource:
+class Resource(Trackable):
     pass
 
 

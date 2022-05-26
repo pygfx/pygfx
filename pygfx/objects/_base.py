@@ -4,11 +4,12 @@ import threading
 
 import numpy as np
 
-from ._events import EventTarget
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Resource, Buffer
 from ..utils import array_from_shadertype
+from ..utils.trackable import RootTrackable
+from ._events import EventTarget
 
 
 class IdProvider:
@@ -66,41 +67,7 @@ class IdProvider:
 id_provider = IdProvider()
 
 
-class ResourceContainer:
-    """Base class for WorldObject, Geometry and Material."""
-
-    def __init__(self):
-        self._resource_parents = weakref.WeakSet()
-        self._rev = 0
-
-    @property
-    def rev(self):
-        """Monotonically increasing integer that gets bumped when any
-        of its buffers or textures are set. (Not when updates are made
-        to these resources themselves).
-        """
-        return self._rev
-
-    # NOTE: we could similarly let bumping of a resource's rev bump a
-    # data_rev here. But it is not clear whether the (minor?) increase
-    # in performance is worth the added complexity.
-
-    def _bump_rev(self):
-        """Bump the rev (and that of any "resource parents"), to trigger a pipeline rebuild."""
-        self._rev += 1
-        for x in self._resource_parents:
-            x._rev += 1
-
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if isinstance(value, ResourceContainer):
-            value._resource_parents.add(self)
-            self._bump_rev()
-        elif isinstance(value, Resource):
-            self._bump_rev()
-
-
-class WorldObject(EventTarget, ResourceContainer):
+class WorldObject(EventTarget, RootTrackable):
     """The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define

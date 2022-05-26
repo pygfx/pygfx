@@ -1,7 +1,8 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
+from ._shadercomposer import WorldObjectShader
+from ._pipelinebuilder import Binding, PipelineBuilder
 from .pointsrender import handle_colormap
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
@@ -14,15 +15,17 @@ from ...materials import (
 )
 from ...resources import Buffer
 from ...utils import normals_from_vertices
-from ._pipelinebuilder import WobjectRenderer
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 def mesh_renderer(render_info):
-    return [MeshRenderer()]
+    return [MeshRenderBuilder()]
 
 
-class MeshRenderBuilder(WobjectRenderBuilder):
+class MeshRenderBuilder(PipelineBuilder):
+
+    type = "render"
+
     def get_shader(self, wobject, render_info):
 
         material = wobject.material
@@ -182,7 +185,11 @@ class MeshRenderBuilder(WobjectRenderBuilder):
 
 
 @register_wgpu_render_function(Mesh, MeshNormalLinesMaterial)
-class MeshNormalLinesRenderer(MeshRenderer):
+def mesh_normal_lines_renderer(render_info):
+    return [MeshRenderBuilder()]
+
+
+class MeshNormalLinesRenderer(MeshRenderBuilder):
     def get_shader(self, wobject):
         shader = super().get_shader(wobject)
         shader.vertex_shader = shader.vertex_shader_normal_lines
@@ -203,7 +210,7 @@ class MeshNormalLinesRenderer(MeshRenderer):
 
 
 # @register_wgpu_render_function(Mesh, MeshBasicMaterial)
-def mesh_renderer(render_info):
+def xxx_mesh_renderer(render_info):
     """Render function capable of rendering meshes."""
     wobject = render_info.wobject
     geometry = wobject.geometry

@@ -1,11 +1,11 @@
 import numpy as np
 
-from ..objects._base import ResourceContainer
+from ..utils.trackable import Trackable
 from ..resources import Resource, Buffer, Texture
 from ..linalg.utils import aabb_to_sphere
 
 
-class Geometry(ResourceContainer):
+class Geometry(Trackable):
     """A Geomerty object is a container for geometry data of a WorldObject.
 
     A geometry object contains the data that defines (the shape of) the

@@ -7,8 +7,13 @@ from ...resources import Buffer, TextureView
 
 from ._utils import to_vertex_format, to_texture_format
 from ._update import update_resource, ALTTEXFORMAT
-from ._shadercomposer import Binding
 from . import registry
+
+
+visibility_render = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
+visibility_all = (
+    wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
+)
 
 
 def ensure_pipeline(renderer, wobject):
@@ -275,14 +280,13 @@ class PipelineContainerGroup:
             # Call render function
             builders = renderfunc(render_info)
             for builder in builders:
-                if isinstance(builder, WobjectRenderBuilder):
-                    self.render_pipelines.append(RenderPipelineContainer(builder))
-                elif isinstance(builder, WobjectComputeBuilder):
+                assert isinstance(builder, PipelineBuilder)
+                if builder.type == "compute":
                     self.compute_pipelines.append(ComputePipelineContainer(builder))
+                elif builder.type == "render":
+                    self.render_pipelines.append(RenderPipelineContainer(builder))
                 else:
-                    raise ValueError(
-                        "Render function should return an iterable of WobjectComputeBuilder and WobjectRenderBuilder objects."
-                    )
+                    raise ValueError(f"PipelineBuilder type {builder.type} is unknown.")
 
         for container in self.compute_pipelines:
             container.update()
@@ -290,36 +294,37 @@ class PipelineContainerGroup:
             container.update()
 
 
-class WobjectBuilder:
+class PipelineBuilder:
+    """Class that render functions return (in a list).
+    Each such object represents the high level representation
+    of a pipeline. It has multiple functions that must be implemented in order
+    to generate information. When something in the world-object (or its sub objects)
+    changes, then the appropriate steps are repeated.
+
+    For type == "compute":
+
+    * get_shader(): should return a (templated) Shader object.
+    * get_pipeline_info(): an empty dict.
+    * get_render_info(): a dict with fields "indices" (3 ints)
+    * get_resources(): a dict with fields:
+      * "bindings": a dict of dicts with binding objects (group_slot -> binding_slot -> binding)
+
+    For type == "render":
+
+    * get_shader(): should return a (templated) Shader object.
+    * get_pipeline_info(): a dict with fields "cull_mode" and "primitive_topology"
+    * get_render_info(): a dict with fields "render_mask" and "indices" (list of 2 or 4 ints).
+    * get_resources(): a dict with fields:
+      * "index_buffer": None or a Buffer object.
+      * "vertex_buffer": a dict of buffer objects.
+      * "bindings": a dict of dicts with binding objects (group_slot -> binding_slot -> binding)
+
+    """
+
+    type = "unspecified"  # must be "compute" or "render"
+
     def __setattr__(self, name, value):
         raise AttributeError("Its not allowed to store stuff on the builder object.")
-
-
-class WobjectComputeBuilder(WobjectBuilder):
-    pass
-
-
-class WobjectRenderBuilder(WobjectBuilder):
-    def get_shader(self):
-        # material props here are tracked
-        # resources are tracked to, but in this case the access to their metadata
-        pass
-
-    def get_resources(self):
-        # indexbuffer
-        # vertex_buffers
-        # list of list of dicts
-        pass
-
-    def get_pipeline_info(self):
-        # cull_mode
-        # primitive_topology
-        pass
-
-    def get_render_info(self):
-        # render_mask
-        # indices
-        pass
 
 
 class PipelineContainer:

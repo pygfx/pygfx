@@ -19,10 +19,6 @@ jinja_env = jinja2.Environment(
 )
 
 
-visibility_render = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
-visibility_all = (
-    wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
-)
 varying_types = ["f32", "vec2<f32>", "vec3<f32>", "vec4<f32>"]
 varying_types = (
     varying_types
