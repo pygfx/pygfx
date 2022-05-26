@@ -206,8 +206,6 @@ class WorldObject(EventTarget, RootTrackable):
                 f"WorldObject.render_mask must be one of {options} not {value!r}"
             )
         self._render_mask = value
-        # Trigger a pipeline redraw, because this info is used in that code path
-        self._bump_rev()
 
     @property
     def geometry(self):

@@ -18,7 +18,7 @@ from ...utils import normals_from_vertices
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
-def mesh_renderer(render_info):
+def mesh_renderer(build_args):
     return [MeshRenderBuilder()]
 
 
@@ -26,12 +26,13 @@ class MeshRenderBuilder(PipelineBuilder):
 
     type = "render"
 
-    def get_shader(self, wobject, render_info):
+    def get_shader(self, build_args):
 
+        wobject = build_args.wobject
         material = wobject.material
 
         shader = MeshShader(
-            render_info,
+            build_args,
             lighting="",
             colormap_format="f32",
             instanced=False,
@@ -68,10 +69,11 @@ class MeshRenderBuilder(PipelineBuilder):
 
         return shader
 
-    def get_resources(self, wobject):
+    def get_resources(self, build_args, shader):
+        wobject = build_args.wobject
+        shared = build_args.shared
         geometry = wobject.geometry
         material = wobject.material
-        shader = self.shader
 
         # indexbuffer
         # vertex_buffers
@@ -96,7 +98,7 @@ class MeshRenderBuilder(PipelineBuilder):
 
         # Init bindings
         bindings = [
-            Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
             Binding(
@@ -123,21 +125,33 @@ class MeshRenderBuilder(PipelineBuilder):
                 Binding("t_colormap", "texture/auto", material.map, "FRAGMENT")
             )
 
-        bindings1 = []  # non-auto-generated bindings
+        bindings1 = {}  # non-auto-generated bindings
 
         # Instanced meshes have an extra storage buffer that we add manually
 
         if shader["instanced"]:
-            bindings1.append(
-                Binding(
-                    "s_instance_infos",
-                    "buffer/read_only_storage",
-                    wobject.instance_infos,
-                    "VERTEX",
-                )
+            bindings1[0] = Binding(
+                "s_instance_infos",
+                "buffer/read_only_storage",
+                wobject.instance_infos,
+                "VERTEX",
             )
 
-    def get_pipeline_info(self, wobject):
+        # todo: euhm, so now the bindings DO affect the shader :/
+        for i, binding in enumerate(bindings):
+            shader.define_binding(0, i, binding)
+
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: {i: b for i, b in enumerate(bindings)},
+                1: bindings1,
+            },
+        }
+
+    def get_pipeline_info(self, build_args, shader):
+        wobject = build_args.wobject
         material = wobject.material
 
         topology = wgpu.PrimitiveTopology.triangle_list
@@ -150,12 +164,14 @@ class MeshRenderBuilder(PipelineBuilder):
             cull_mode = wgpu.CullMode.none
 
         return {
-            "topology": topology,
+            "primitive_topology": topology,
             "cull_mode": cull_mode,
         }
 
-    def get_render_info(self, geometry):
+    def get_render_info(self, build_args, shader):
+        wobject = build_args.wobject
         geometry = wobject.geometry
+        material = wobject.material
 
         n = geometry.indices.data.size
         n_instances = 1
@@ -185,7 +201,7 @@ class MeshRenderBuilder(PipelineBuilder):
 
 
 @register_wgpu_render_function(Mesh, MeshNormalLinesMaterial)
-def mesh_normal_lines_renderer(render_info):
+def mesh_normal_lines_renderer(wobject):
     return [MeshRenderBuilder()]
 
 
@@ -200,7 +216,7 @@ class MeshNormalLinesRenderer(MeshRenderBuilder):
 
     def get_pipeline_dict(self, wobject):
         d = super().get_pipeline_dict(wobject)
-        d["topology"] = wgpu.PrimitiveTopology.line_list
+        d["primitive_topology"] = wgpu.PrimitiveTopology.line_list
         return d
 
     def get_render_dict(self):

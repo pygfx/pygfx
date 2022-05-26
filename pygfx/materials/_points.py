@@ -46,8 +46,6 @@ class PointsMaterial(Material):
     @color.setter
     def color(self, color):
         color = Color(color)
-        if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
-            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
 
@@ -61,7 +59,6 @@ class PointsMaterial(Material):
         value = bool(value)
         if value != self._vertex_colors:
             self._vertex_colors = value
-            self._bump_rev()
 
     @property
     def size(self):
@@ -83,7 +80,6 @@ class PointsMaterial(Material):
         value = bool(value)
         if value != self._vertex_sizes:
             self._vertex_sizes = value
-            self._bump_rev()
 
     @property
     def map(self):

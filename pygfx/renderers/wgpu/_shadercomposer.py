@@ -502,11 +502,11 @@ class WorldObjectShader(BaseShader):
     that can be used in all material-specific renderers.
     """
 
-    def __init__(self, render_info, **kwargs):
+    def __init__(self, build_args, **kwargs):
         super().__init__(**kwargs)
 
-        self["n_clipping_planes"] = len(render_info.wobject.material.clipping_planes)
-        self["clipping_mode"] = render_info.wobject.material.clipping_mode
+        self["n_clipping_planes"] = len(build_args.wobject.material.clipping_planes)
+        self["clipping_mode"] = build_args.wobject.material.clipping_mode
 
         # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
         self.kwargs.setdefault("write_pick", True)
