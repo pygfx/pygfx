@@ -179,6 +179,10 @@ class Binding:
 
 
 class PipelineContainerGroup:
+    """The purpose of this object is to invoke the appropiate render function
+    to collect the builder objects, wrap these in PipelineContainer objects,
+    and store these.
+    """
 
     # Different levels of updates:
     #

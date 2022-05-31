@@ -20,11 +20,9 @@ import weakref
 import threading
 
 
+global_id_counter = 0
 global_lock = threading.RLock()
 global_context = None
-
-
-simple_value_types = None.__class__, bool, int, float, str
 
 
 class TrackContext:
@@ -35,7 +33,6 @@ class TrackContext:
         self.root = root
         self.level = level
         self.include_trackables = include_trackables
-        self.new_names = set()
 
     def __enter__(self):
         global global_context
@@ -52,63 +49,48 @@ class TrackContext:
         global_lock.release()
 
 
+class Store(dict):
+    """Object to store key-value pairs that are tracked. Each Trackable
+    has one such object. Must use attribute access to trigger the tracking
+    mechanics. The internals can use index access.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Give it an id
+        global global_id_counter
+        with global_lock:
+            global_id_counter += 1
+            self["_trackable_id"] = f"t{global_id_counter}"
+        # Store what roots are interested in our values
+        self["_trackable_roots"] = weakref.WeakSet()
+
+    def __setattr__(self, key, value):
+        self[key] = value
+        id = self["_trackable_id"]
+        for root in self["_trackable_roots"]:
+            root._track_set(id, key, value)
+
+    def __getattribute__(self, key):
+        value = None
+        try:
+            value = self[key]
+            return value
+        except KeyError:
+            raise AttributeError(key) from None
+        finally:
+            if global_context:
+                root = global_context.root
+                id = self["_trackable_id"]
+                root._track_get(id, key, value, global_context.level)
+                self["_trackable_roots"].add(root)
+
+
 class Trackable:
     """A base class to make an object trackable."""
 
     def __init__(self):
-        # Keep track of our parents  -  parent -> names
-        self._trackable_parents = weakref.WeakKeyDictionary()
-        # Keep track of child trackabeles  -  name -> child
-        self._trackable_children = weakref.WeakValueDictionary()
-
-    def _track_get(self, name, value):
-        """The subclass should ideally call this in a property getter."""
-        # Called when getting an attribute to track usage.
-        if global_context:
-            for parent, names in self._trackable_parents.items():
-                for name_at_parent in names:
-                    parent._track_get(f"{name_at_parent}.{name}", value)
-        return value
-
-    def _track_set(self, name, value):
-        """The subclass should ideally call this in a property setter."""
-        # Called when setting an attribute, which *may* bump a change at the root.
-        if "." not in name:
-            self._track_trackable_children(name, value)
-        for parent, names in self._trackable_parents.items():
-            for name_at_parent in names:
-                parent._track_set(f"{name_at_parent}.{name}", value)
-        return value
-
-    def _track_trackable_children(self, name, value):
-        # Bookkeeping for removing a trackable child/attribute
-        assert "." not in name
-        bubble_up = False
-        if name in self._trackable_children:
-            # Technically this outer if-statement (above) is not necessary,
-            # but it is a bit faster because it's a weakvalue dict.
-            old_child = self._trackable_children.pop(name, None)
-            if old_child:
-                bubble_up = True
-                names = old_child._trackable_parents.setdefault(self, set())
-                names.discard(name)
-                if not names:
-                    old_child._trackable_parents.pop(self)
-        # Bookkeeping for adding a trackable child/attribute
-        if isinstance(value, Trackable):
-            bubble_up = True
-            self._trackable_children[name] = value
-            names = value._trackable_parents.setdefault(self, set())
-            names.add(name)
-        if bubble_up:
-            self._track_set_trackable(name, value)
-
-    def _track_set_trackable(self, name, value):
-        # Bubble up the setting/unsetting of a trackable object.
-        for parent, names in self._trackable_parents.items():
-            for name_at_parent in names:
-                parent._track_set_trackable(f"{name_at_parent}.{name}", value)
-        return value
+        self._store = Store()
 
 
 class RootTrackable(Trackable):
@@ -118,8 +100,18 @@ class RootTrackable(Trackable):
 
     def __init__(self):
         super().__init__()
-        # A root has no parents
-        self._trackable_parents = None
+
+        # === Keep track of the "tree of dependencies"
+
+        # Keep track of trackables this root depends on  -  name -> trackable
+        self._trackable_deps = weakref.WeakValueDictionary()
+        # A set of the keys for performance
+        self._trackable_deps_keys = set()
+        # A lookup to keep track of "path names"  -   id -> name.sub.foo
+        self._trackable_ids = {self._store["_trackable_id"]: ""}
+
+        # === Keep track of changes
+
         # The names to track  -  name -> levels
         self._trackable_names = {}
         # Keep track of values  -  name -> (ref_value, cur_value)
@@ -155,7 +147,6 @@ class RootTrackable(Trackable):
         result = set()
         for levels in self._trackable_changed.values():
             result.update(levels)
-        names = list(self._trackable_changed.keys())
         # Reset and return
         self._trackable_changed = {}
         return result
@@ -169,24 +160,81 @@ class RootTrackable(Trackable):
                 self._trackable_names.pop(name)
                 self._trackable_values.pop(name, None)
 
-    def _track_get(self, name, value):
-        # Called when getting an attribute to track usage.
-        # Register the given name as a trigger.
-        if global_context and global_context.root is self:
-            if not (
-                isinstance(value, Trackable) and not global_context.include_trackables
-            ):
-                self._trackable_names.setdefault(name, set()).add(global_context.level)
-                if isinstance(value, simple_value_types):
-                    self._trackable_values[name] = value, value
-        return value
+    def _track_a_trackable(self, name, trackable):
+        id = trackable._store["_trackable_id"]
+        self._trackable_ids[id] = name
+        self._trackable_deps[name] = trackable
+        self._trackable_deps_keys.add(name)
+        trackable._store["_trackable_roots"].add(self)
+        for key, value in dict.items(trackable._store):
+            if isinstance(value, Trackable):
+                self._track_a_trackable(name + "." + key, value)
 
-    def _track_set(self, name, value):
-        # Called when setting an attribute to mark the root object as changed.
-        if "." not in name:
-            self._track_trackable_children(name, value)
-        # Mark the object as changed if needed.
+    def _untrack_a_trackable(self, name):
+        names_to_drop = [n for n in self._trackable_deps_keys if n.startswith(name)]
+        for name2 in names_to_drop:
+            self._trackable_deps_keys.discard(name2)
+            trackable = self._trackable_deps.pop(name2, None)
+            if trackable:
+                id = trackable._store["_trackable_id"]
+                self._trackable_ids.pop(id, None)
+                trackable._store["_trackable_roots"].discard(self)
+
+    def _track_get(self, id, key, value, level):
+        # Called when *any* trackable has an attribute GET while a
+        # global context is active. The trackable can be in the tree
+        # of the root (a (grand)child), but can also be part of a
+        # detached tree. In both cases we must track the "path names".
+        name = self._trackable_ids.get(id, id) + "." + key
+
+        if isinstance(value, Trackable):
+            self._track_a_trackable(name, value)
+
+        self._trackable_names.setdefault(name, set()).add(level)
+        if isinstance(value, simple_value_types):
+            self._trackable_values[name] = value, value
+        else:
+            self._trackable_values.pop(name, None)
+        return key
+
+    def _track_set(self, id, key, value):
+        # Called when a trackable, that is setup to notify this root,
+        # has an attribute SET. When this attribute was itself a
+        # trackable, and/or is a trackable, we must update the complete
+        # tree behind that trackable (to the extend that we track it).
+
+        name = self._trackable_ids.get(id, id) + "." + key
+        is_trackable = False
+
+        # If this attribute *was* a trackable, unregister it, and all things down its tree
+        if name in self._trackable_deps_keys:
+            is_trackable = True
+            self._untrack_a_trackable(name)
+
+        # If the new value *is* a trackable, register it, and (part of) its tree
+        if isinstance(value, Trackable):
+            is_trackable = True
+            self._track_a_trackable(name, value)
+
+        # If this is/was a trackable, check sub-props
+        if is_trackable:
+            prefix = name + "."
+            sub_count = 0
+            for name2 in self._trackable_names.keys():
+                if name2.startswith(prefix):
+                    if name2 not in self._trackable_deps_keys:
+                        sub_count += 1
+                        self._track_set_trackable_attribute(prefix, value, name2)
+            # If the sub is/was a trackable, and we had sub-props of it,
+            # we assume it was about these subprops. But if it had not,
+            # it could have been a check for an attribute's presence.
+            if sub_count:
+                return
+
+        # Should setting this name register as a change?
         levels = self._trackable_names.get(name, None)
+
+        # Update changed values
         if levels:
             # Mark changed
             dirty_levels_for_this_name = self._trackable_changed.setdefault(name, set())
@@ -204,15 +252,6 @@ class RootTrackable(Trackable):
                         self._trackable_changed.pop(name)
                 elif value != cur_value:
                     self._trackable_values[name] = ref_value, value
-        return value
-
-    def _track_set_trackable(self, name, value):
-        # If a trackable is set, we must check its attributes.
-        # Note that value can also be None, e.g. when a trackable is unset.
-        prefix = name + "."
-        for name2 in self._trackable_names.keys():
-            if name2.startswith(prefix):
-                self._track_set_trackable_attribute(prefix, value, name2)
 
     def _track_set_trackable_attribute(self, prefix, trackable, name):
         # Track_set when a trackable is set, so we can inspect the sub-values.
@@ -229,8 +268,8 @@ class RootTrackable(Trackable):
         ob = trackable
         for subname in name[len(prefix) :].split("."):
             try:
-                ob = getattr(ob, subname)
-            except AttributeError:
+                ob = ob._store[subname]
+            except (AttributeError, KeyError):
                 return
         new_value = ob
         # Update
@@ -240,3 +279,9 @@ class RootTrackable(Trackable):
             dirty_levels_for_this_name.difference_update(levels)
             if not dirty_levels_for_this_name:
                 self._trackable_changed.pop(name)
+
+
+simple_value_types = None.__class__, bool, int, float, str
+
+valid_types = simple_value_types  # + Trackable
+# todo: allow adding color to it?

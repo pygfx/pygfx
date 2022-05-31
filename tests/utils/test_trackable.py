@@ -3,18 +3,50 @@ import time
 from pygfx.utils.trackable import Trackable, RootTrackable
 
 
-class MyRootTrackable(RootTrackable):
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if not name.startswith("_"):
-            self._track_set(name, value)
+class Mixin:
+    def __init__(self):
+        super().__init__()
+        self._store["foo"] = 0
+
+    @property
+    def foo(self):
+        return self._store.foo
+
+    @foo.setter
+    def foo(self, value):
+        self._store.foo = value
+
+    @property
+    def sub1(self):
+        return self._store.sub1
+
+    @sub1.setter
+    def sub1(self, value):
+        self._store.sub1 = value
+
+    @property
+    def sub2(self):
+        return self._store.sub2
+
+    @sub2.setter
+    def sub2(self, value):
+        self._store.sub2 = value
+
+    @property
+    def sub3(self):
+        return self._store.sub3
+
+    @sub3.setter
+    def sub3(self, value):
+        self._store.sub3 = value
 
 
-class MyTrackable(Trackable):
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if not name.startswith("_"):
-            self._track_set(name, value)
+class MyRootTrackable(Mixin, RootTrackable):
+    pass
+
+
+class MyTrackable(Mixin, Trackable):
+    pass
 
 
 def test_changes_on_root():
@@ -27,7 +59,7 @@ def test_changes_on_root():
 
     # Now mark the attribute
     with rt.track_usage("L1", False):
-        rt._track_get("foo", 42)
+        rt.foo
     assert not rt.pop_changed()
 
     # Set to a different value
@@ -77,7 +109,7 @@ def test_changes_on_sub_sub_sub():
 
 def make_changes_on_sub(root, parent, t1, t2):
 
-    parent.sub = t1
+    parent.sub1 = t1
 
     # -- all the same as above
 
@@ -87,7 +119,7 @@ def make_changes_on_sub(root, parent, t1, t2):
 
     # Now mark the attribute
     with root.track_usage("L1", False):
-        t1._track_get("foo", 42)
+        parent.sub1.foo
     assert not root.pop_changed()
 
     # Set to a different value
@@ -109,7 +141,7 @@ def make_changes_on_sub(root, parent, t1, t2):
 
     # -- Removing the sub
 
-    parent.sub = None
+    parent.sub1 = None
 
     # Indeed the object has changed
     assert root.pop_changed() == {"L1"}
@@ -121,49 +153,161 @@ def make_changes_on_sub(root, parent, t1, t2):
     assert not root.pop_changed()
 
     # Putting it back again
-    parent.sub = t1
+    parent.sub1 = t1
     assert root.pop_changed() == {"L1"}
 
     # -- Replacing the sub
 
     # Replace with sub with different value
     t1.foo = 42
-    parent.sub = t1
+    parent.sub1 = t1
     root.pop_changed()
     #
     t2.foo = 43
-    parent.sub = t2
+    parent.sub1 = t2
     assert root.pop_changed() == {"L1"}
 
     # Replace with sub with same value
     t1.foo = 42
-    parent.sub = t1
+    parent.sub1 = t1
     root.pop_changed()
     #
     t2.foo = 42
-    parent.sub = t2
+    parent.sub1 = t2
     assert not root.pop_changed()
 
     # Replace with sub and back again
     t1.foo = 42
-    parent.sub = t1
+    parent.sub1 = t1
     root.pop_changed()
     #
     t2.foo = 43
-    parent.sub = t2
-    parent.sub = t1
+    parent.sub1 = t2
+    parent.sub1 = t1
     assert not root.pop_changed()
 
     # Replace with sub and back again, but now its value has changed
     t1.foo = 42
-    parent.sub = t1
+    parent.sub1 = t1
     root.pop_changed()
     #
     t2.foo = 42
-    parent.sub = t2
+    parent.sub1 = t2
     t1.foo = 43
-    parent.sub = t1
+    parent.sub1 = t1
     assert root.pop_changed() == {"L1"}
+
+
+def test_whole_tree_get_removed():
+
+    root = MyRootTrackable()
+    t1 = MyTrackable()
+    t2 = MyTrackable()
+    t3 = MyTrackable()
+    root.sub1 = t1
+    root.sub1.sub1 = t2
+    root.sub1.sub1.sub1 = t3
+
+    with root.track_usage("x", False):
+        root.foo
+        root.sub1.foo
+        root.sub1.sub1.foo
+        root.sub1.sub1.sub1.foo
+
+    assert not root.pop_changed()
+
+    # Check that is reacts to all subs
+
+    root.foo = 1
+    assert root.pop_changed() == {"x"}
+
+    t1.foo = 1
+    assert root.pop_changed() == {"x"}
+
+    t2.foo = 1
+    assert root.pop_changed() == {"x"}
+
+    t3.foo = 1
+    assert root.pop_changed() == {"x"}
+
+    # Remove the hole tree
+
+    root.sub1 = None
+    assert root.pop_changed() == {"x"}
+
+    # This should still work
+    root.foo = 2
+    assert root.pop_changed() == {"x"}
+
+    # But these not
+
+    t1.foo = 2
+    assert not root.pop_changed()
+
+    t2.foo = 2
+    assert not root.pop_changed()
+
+    t3.foo = 2
+    assert not root.pop_changed()
+
+
+def test_deep_prop():
+
+    root = MyRootTrackable()
+    tree1 = MyTrackable()
+    tree1.sub1 = MyTrackable()
+    tree1.sub1.sub1 = t1 = MyTrackable()
+    tree2 = MyTrackable()
+    tree2.sub1 = MyTrackable()
+    tree2.sub1.sub1 = t2 = MyTrackable()
+
+    root.sub1 = tree1
+
+    with root.track_usage("x", False):
+        root.sub1.sub1.sub1.foo
+
+    assert not root.pop_changed()
+
+    # Make a change to t1
+    t1.foo = 42
+    assert root.pop_changed() == {"x"}
+
+    # Make a change in t2
+    t2.foo = 42
+    assert not root.pop_changed()
+
+    # Replace the tree (same values)
+    root.sub1 = tree2
+
+    assert not root.pop_changed()
+
+    # Make a change to t1
+    t1.foo = 43
+    assert not root.pop_changed()
+
+    # Make a change in t2
+    t2.foo = 44
+    assert root.pop_changed() == {"x"}
+
+    # Replace the tree (different values)
+    root.sub1 = tree1
+    assert root.pop_changed() == {"x"}
+
+
+def test_reacting_to_trackable_presence():
+
+    wobject = MyRootTrackable()
+    wobject.sub1 = MyTrackable()  # geometry
+
+    with wobject.track_usage("shader", False):
+        res = hasattr(wobject.sub1._store, "sub2")
+        assert not res
+
+    assert not wobject.pop_changed()
+
+    wobject.sub1.sub2 = MyTrackable()  # e.g. normal
+
+    assert wobject.pop_changed() == {"shader"}
 
 
 def test_track_setting_objects():
@@ -194,13 +338,15 @@ def profile_runner():
     for level in range(n_levels):
         with root.track_usage(level, False):
             for attr in range(n_atts):
-                root.sub1._track_get(f"attr_{level}_{attr}", 4)
+                key = f"attr_{level}_{attr}"
+                root.sub1._store[key] = 0
+                getattr(root.sub1._store, key)
 
     t0 = time.perf_counter()
     # Do a buch of work
     for ob in range(n_objects):
         for i in range(n_access):
-            setattr(root.sub1, f"attr_0_{i}", i // 2)
+            setattr(root.sub1._store, f"attr_0_{i}", i // 2)
     t1 = time.perf_counter()
     assert root.pop_changed() == {0}  # set(range(n_levels))
 
