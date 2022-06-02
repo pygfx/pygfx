@@ -1,18 +1,58 @@
 """
 Implements the base classes for trackable classes.
 
-This is implemented in a more or less generic way. The code does not
+## Introduction
+
+This module implemented in a more or less generic way. The code does not
 refer to world objects, geometry, materials or resources. But don't be
 fooled - this code is *very* much tailored to the needs of such objects.
 In particular:
 
 * we want to track properties (that may need to trigger a pipeline).
-* we want to be able to swap out similar objects and not trigger of the
-  new object has the same properties as before (so that we can e.g. replace
-  colormaps or texture atlasses).
 * we want to be able to track objects themselves depending on the situation
   (because the pipeline only cares about the object's properties while the
   bindings much match to the correct buffers/textures).
+* we want to be able to swap out similar objects and not trigger of the
+  new object has the same properties as before (so that we can e.g. replace
+  colormaps or texture atlasses).
+* we also want to track "external objects" that are not in the tree of the root.
+
+The last two points mean that the code must be aware of the tree
+structure, but must also be able to track external Trackable objects
+(wich may also have a tree).
+
+## High level overview
+
+We define a Trackable object as something of which the properties can
+be tracked (its properties can be other Trackable objects).
+
+The RootTrackable is the object that keeps track of the changes. One
+first tracks usage of properties, after which any changes to these
+properties get communicated to this root. Any trackable can participate
+(not only the trackables in the tree of the root).
+
+## Finer details
+
+The Trackable uses a Store - a custom dictionary object that has hooks
+for attribute access. This is where the magic happens. The Trackable
+object itself is just a container for the store. This has the benefit
+that subclasses of Trackable just store the props that they want to
+track on its store.
+
+The Store keeps a set of what roots need to be notified (using weak
+refs). The root keeps a set of what stores notify it, for the sole
+reason that the root can disconnect these stores when usage is
+re-tracked.
+
+Every store has a unique id, and the root uses (id, prop) tuples as
+keys to keep track of things. When a property sets/unsets a Trackable,
+the tree is resolved at that moment (i.e. the root is temporary aware
+of the tree). This avoids the need for the root (or stores?) to keep
+track of a hierarchy which would make the code a lot more complex (I
+tried and it was not fun). The only downside (that I can think of) is
+that setting `matererial.map = other_map` works while
+`matererial.map = None; material.map = other_map` does not, because
+there is no persistent knowledge of hierarchy.
 
 """
 
@@ -25,26 +65,45 @@ global_lock = threading.RLock()
 global_context = None
 
 
+# todo: need this??
+class Null:
+    pass
+
+
+NULL = Null
+
+
 class TrackContext:
     """A context used when tracking usage of trackable objects."""
 
-    def __init__(self, root, level, include_trackables):
+    def __init__(self, root, label):
         assert isinstance(root, RootTrackable)
+        assert isinstance(label, str)
         self.root = root
-        self.level = level
-        self.include_trackables = include_trackables
+        self.label = label
 
     def __enter__(self):
         global global_context
         global_lock.acquire()
         global_context = self
-        self.root._clear_trackable_data(self.level)
+        self.root._clear_trackable_data(self.label)
+
+        # Get old stores that notifying this store for this label
+        old_stores = self.root._stores.get(self.label, set())
+        for store in old_stores:
+            store["_trackable_roots"].discard(self.root)
+        self.stores = weakref.WeakSet()
+        self.root._stores[self.label] = self.stores
+
         return None
 
     def __exit__(self, value, type, tb):
         global global_context
+        if not self.stores:
+            self.root._stores.pop(self.label, None)
+
         self.root = None
-        self.level = 0
+        self.label = 0
         global_context = None
         global_lock.release()
 
@@ -61,15 +120,25 @@ class Store(dict):
         global global_id_counter
         with global_lock:
             global_id_counter += 1
-            self["_trackable_id"] = f"t{global_id_counter}"
+            self["_trackable_id"] = global_id_counter  # f"t{global_id_counter}"
         # Store what roots are interested in our values
         self["_trackable_roots"] = weakref.WeakSet()
 
-    def __setattr__(self, key, value):
-        self[key] = value
+    def __hash__(self):
+        return self["_trackable_id"]
+
+    def __setattr__(self, key, new_value):
+        # Get a reference to the current value, so the gc will not clean
+        # it up until after this method exits. If it is a trackable,
+        # it allows the roots to properly clean up the bookkeeping for
+        # that trackable.
+        old_value = dict.get(self, key, NULL)
+        # Set the value
+        self[key] = new_value
+        # Notify the roots
         id = self["_trackable_id"]
         for root in self["_trackable_roots"]:
-            root._track_set(id, key, value)
+            root._track_set(id, key, old_value, new_value)
 
     def __getattribute__(self, key):
         value = None
@@ -80,10 +149,7 @@ class Store(dict):
             raise AttributeError(key) from None
         finally:
             if global_context:
-                root = global_context.root
-                id = self["_trackable_id"]
-                root._track_get(id, key, value, global_context.level)
-                self["_trackable_roots"].add(root)
+                global_context.root._track_get(self, key, value, global_context.label)
 
 
 class Trackable:
@@ -101,33 +167,26 @@ class RootTrackable(Trackable):
     def __init__(self):
         super().__init__()
 
-        # === Keep track of the "tree of dependencies"
-
-        # Keep track of trackables this root depends on  -  name -> trackable
-        self._trackable_deps = weakref.WeakValueDictionary()
-        # A set of the keys for performance
-        self._trackable_deps_keys = set()
-        # A lookup to keep track of "path names"  -   id -> name.sub.foo
-        self._trackable_ids = {self._store["_trackable_id"]: ""}
-
-        # === Keep track of changes
-
-        # The names to track  -  name -> levels
+        # Keep track of what stores have a reference to *this*,
+        # so that we can clear that reference when we want.
+        # The store and root are always connected/disconnected together.
+        self._stores = {}  # label -> weakset
+        # The names to track. Names are (id, key)  -  name -> labels
         self._trackable_names = {}
         # Keep track of values  -  name -> (ref_value, cur_value)
         self._trackable_values = {}
-        # Keep track of what has changed  -  name -> levels
+        # Keep track of what has changed  -  name -> labels
         self._trackable_changed = {}
 
-    def track_usage(self, level, include_trackables):
+    def track_usage(self, label):
         """Used to track the usage of attributes. The result of this method
         should be used as a context manager. This method must only be
         used by the one system that is tracking this object's changes.
         """
-        return TrackContext(self, level, include_trackables)
+        return TrackContext(self, label)
 
     def pop_changed(self):
-        """Get a set of levels for which the object (and its child
+        """Get a set of labels for which the object (and its child
         trackable objects) has changed. Also resets the changed status
         to unchanged. This method must only be used by the one system
         that is tracking this object's changes.
@@ -143,142 +202,384 @@ class RootTrackable(Trackable):
                 pass
             else:
                 self._trackable_values[name] = cur_value, cur_value
-        # Collect changed level
+        # Collect changed label
         result = set()
-        for levels in self._trackable_changed.values():
-            result.update(levels)
+        for labels in self._trackable_changed.values():
+            result.update(labels)
         # Reset and return
         self._trackable_changed = {}
         return result
 
-    def _clear_trackable_data(self, level):
-        # Reset the tracking data for a given level
+    def _track_store(self, store, label):
+        # id = store["_trackable_id"]
+        # Introduce the store and root to each-other
+        store["_trackable_roots"].add(self)
+        self._stores[label].add(store)
+
+    def _untrack_store(self, store, label):
+        store["_trackable_roots"].discard(self)
+        self._stores[label].discard(store)
+
+    def _clear_trackable_data(self, label):
+        # Reset the tracking data for a given label
         for name in list(self._trackable_names):
             s = self._trackable_names[name]
-            s.discard(level)
+            s.discard(label)
             if not s:
                 self._trackable_names.pop(name)
                 self._trackable_values.pop(name, None)
 
-    def _track_a_trackable(self, name, trackable):
-        id = trackable._store["_trackable_id"]
-        self._trackable_ids[id] = name
-        self._trackable_deps[name] = trackable
-        self._trackable_deps_keys.add(name)
-        trackable._store["_trackable_roots"].add(self)
-        for key, value in dict.items(trackable._store):
-            if isinstance(value, Trackable):
-                self._track_a_trackable(name + "." + key, value)
+    # def _clean_id_map(self):
+    #     # todo:  to be called after doing the track_usage
+    #     # Does a more thorough cleanup of external objects.
+    #     # The thing is that _trackable_names is names, so its a bit slow.
+    #
+    #     root_id = self._store["_trackable_id"]
+    #     # Collect what to remove
+    #     base_names = set(name.rpartition(".")[0] for name in self._trackable_names)
+    #     to_remove = set()
+    #     for id, names in self._trackable_ids.items():
+    #         if id != root_id and not any(name in base_names for name in names):
+    #             to_remove.add(id)
+    #     # Remove them
+    #     for id in to_remove:
+    #         names = self._trackable_ids.pop(id, ())
+    #         for name in names:
+    #             trackable = self._trackable_deps.pop(name, None)
+    #             if trackable:
+    #                 trackable._store["_trackable_roots"].discard(self)
 
-    def _untrack_a_trackable(self, name):
-        names_to_drop = [n for n in self._trackable_deps_keys if n.startswith(name)]
-        for name2 in names_to_drop:
-            self._trackable_deps_keys.discard(name2)
-            trackable = self._trackable_deps.pop(name2, None)
-            if trackable:
-                id = trackable._store["_trackable_id"]
-                self._trackable_ids.pop(id, None)
-                trackable._store["_trackable_roots"].discard(self)
+    # def _track_a_trackable(self, name, trackable):
+    #     id = trackable._store["_trackable_id"]
+    #     self._trackable_ids.setdefault(id, set()).add(name)
+    #     self._trackable_deps[name] = trackable
+    #     self._trackable_deps_keys.add(name)
+    #     trackable._store["_trackable_roots"].add(self)
+    #     for key, value in dict.items(trackable._store):
+    #         if isinstance(value, Trackable):
+    #             self._track_a_trackable(name + "." + key, value)
+    #
+    # def _untrack_a_trackable(self, name):
+    #     names_to_drop = [n for n in self._trackable_deps_keys if n.startswith(name)]
+    #     for name2 in names_to_drop:
+    #         self._trackable_deps_keys.discard(name2)
+    #         trackable = self._trackable_deps.pop(name2, None)
+    #         if trackable:
+    #             id = trackable._store["_trackable_id"]
+    #             names2 = self._trackable_ids.setdefault(id, set())
+    #             names2.discard(name2)
+    #             if not names2:
+    #                 self._trackable_ids.pop(id, None)
+    #             trackable._store["_trackable_roots"].discard(self)
 
-    def _track_get(self, id, key, value, level):
+    def _track_get(self, store, key, value, label):
         # Called when *any* trackable has an attribute GET while a
         # global context is active. The trackable can be in the tree
         # of the root (a (grand)child), but can also be part of a
         # detached tree. In both cases we must track the "path names".
-        name = self._trackable_ids.get(id, id) + "." + key
 
-        if isinstance(value, Trackable):
-            self._track_a_trackable(name, value)
+        self._track_store(store, label)
 
-        self._trackable_names.setdefault(name, set()).add(level)
-        if isinstance(value, simple_value_types):
-            self._trackable_values[name] = value, value
-        else:
-            self._trackable_values.pop(name, None)
-        return key
+        id = store["_trackable_id"]
 
-    def _track_set(self, id, key, value):
+        # for base_name in self._trackable_ids.get(id, (id, )):
+        #     name = base_name + "." + key
+        if True:
+            name = id, key
+            # if isinstance(value, Trackable):
+            #     self._track_a_trackable(name, value)
+
+            self._trackable_names.setdefault(name, set()).add(label)
+            if isinstance(value, simple_value_types):
+                self._trackable_values[name] = value, value
+            else:
+                self._trackable_values.pop(name, None)
+
+    def _track_set(self, id, key, old_value, new_value):
         # Called when a trackable, that is setup to notify this root,
         # has an attribute SET. When this attribute was itself a
         # trackable, and/or is a trackable, we must update the complete
         # tree behind that trackable (to the extend that we track it).
 
-        name = self._trackable_ids.get(id, id) + "." + key
-        is_trackable = False
-
-        # If this attribute *was* a trackable, unregister it, and all things down its tree
-        if name in self._trackable_deps_keys:
-            is_trackable = True
-            self._untrack_a_trackable(name)
-
-        # If the new value *is* a trackable, register it, and (part of) its tree
-        if isinstance(value, Trackable):
-            is_trackable = True
-            self._track_a_trackable(name, value)
-
-        # If this is/was a trackable, check sub-props
-        if is_trackable:
-            prefix = name + "."
-            sub_count = 0
-            for name2 in self._trackable_names.keys():
-                if name2.startswith(prefix):
-                    if name2 not in self._trackable_deps_keys:
-                        sub_count += 1
-                        self._track_set_trackable_attribute(prefix, value, name2)
-            # If the sub is/was a trackable, and we had sub-props of it,
-            # we assume it was about these subprops. But if it had not,
-            # it could have been a check for an attribute's presence.
-            if sub_count:
-                return
+        is_trackable = 0
+        is_trackable |= 1 * isinstance(old_value, Trackable)
+        is_trackable |= 2 * isinstance(new_value, Trackable)
 
         # Should setting this name register as a change?
-        levels = self._trackable_names.get(name, None)
+        name = id, key
+        labels = self._trackable_names.get(name, None)
+
+        # Register / unregister stores
+        if is_trackable & 1:
+            for label in labels:
+                self._untrack_store(old_value._store, label)
+        if is_trackable & 2:
+            for label in labels:
+                self._track_store(new_value._store, label)
+
+        # If this was or is a trackable, we only process labels starting with "!"
+        if is_trackable == 3:
+            labels = set(label for label in labels if label.startswith("!"))
 
         # Update changed values
-        if levels:
-            # Mark changed
-            dirty_levels_for_this_name = self._trackable_changed.setdefault(name, set())
-            dirty_levels_for_this_name.update(levels)
-            # If the value has not changed from the previous (since the
-            # last reset) we can un-mark this name as changed.
-            try:
-                ref_value, cur_value = self._trackable_values[name]
-            except KeyError:
-                pass
-            else:
-                if value == ref_value:
-                    dirty_levels_for_this_name.difference_update(levels)
-                    if not dirty_levels_for_this_name:
-                        self._trackable_changed.pop(name)
-                elif value != cur_value:
-                    self._trackable_values[name] = ref_value, value
+        if labels:
+            self._track_value_update(name, new_value, labels)
 
-    def _track_set_trackable_attribute(self, prefix, trackable, name):
-        # Track_set when a trackable is set, so we can inspect the sub-values.
-        levels = self._trackable_names[name]
-        # Let's assume the value has changed for now
-        dirty_levels_for_this_name = self._trackable_changed.setdefault(name, set())
-        dirty_levels_for_this_name.update(levels)
-        # Check if we have a previous value. If not, return.
+        if is_trackable:
+            self._track_set_follow_tree(old_value, new_value)
+
+    def _track_set_follow_tree(self, old_value, new_value):
+        def _get_old_tree(trackable, basename):
+            known_names_by_path = {}
+            id = trackable._store["_trackable_id"]
+            if id in id_map:
+                for name in id_map[id]:
+                    _, key = name  # _ == id
+                    try:
+                        value = trackable._store[key]
+                    except KeyError:
+                        continue
+                    pathname = basename + (key,)
+                    known_names_by_path[pathname] = name, value
+                    if isinstance(value, Trackable):
+                        known_names_by_path.update(_get_old_tree(value, pathname))
+            return known_names_by_path
+
+        #
+        # def _follow_new_tree(trackable, basename):
+        #     known_names_by_path = {}
+        #     for key, value in dict.items(trackable._store):
+        #         if isinstance(value, Trackable):
+        #             pathname = basename + (key, )
+        #             known_names_by_path.update(_get_sub_trackables(value, pathname))
+        #         else:
+        #             name = id, key
+        #     return known_names_by_path
+
+        # Create idmap for all names that we track
+        id_map = {}
+        for name2 in self._trackable_names.keys():
+            id_map.setdefault(name2[0], set()).add(name2)
+
+        old_stuff = {}
+        if isinstance(old_value, Trackable):
+            old_stuff |= _get_old_tree(old_value, ())
+
+        for pathname in old_stuff:
+            name1, value1 = old_stuff[pathname]
+
+            # Try get matching new
+            value2 = NULL
+            ob = new_value
+            name2 = name1
+            for subname in pathname:
+                try:
+                    name2 = ob._store["_trackable_id"], subname
+                    ob = ob._store[subname]
+                except (AttributeError, KeyError):
+                    break
+            else:
+                value2 = ob
+
+            if value2 is not NULL:
+                # Woo, we have a value
+
+                # Rename
+                self._trackable_names[name2] = self._trackable_names.pop(name1)
+                try:
+                    self._trackable_values[name2] = self._trackable_values.pop(name1)
+                except KeyError:
+                    pass
+                try:
+                    self._trackable_changed[name2] = self._trackable_changed.pop(name1)
+                except KeyError:
+                    pass
+
+                is_trackable = 0
+                is_trackable |= 1 * isinstance(value1, Trackable)
+                is_trackable |= 2 * isinstance(value2, Trackable)
+
+                # Update
+                labels = self._trackable_names.get(name2, ())
+
+                # Register / unregister stores
+                if is_trackable & 1:
+                    for label in labels:
+                        self._untrack_store(value1._store, label)
+                if is_trackable & 2:
+                    for label in labels:
+                        self._track_store(value2._store, label)
+
+                if is_trackable == 3:
+                    labels = set(label for label in labels if label.startswith("!"))
+
+                self._track_value_update(name2, value2, labels)
+
+            else:
+                # Unregister
+                labels = self._trackable_names.pop(name1, ())
+                self._trackable_values.pop(name1, None)
+                dirty_labels_for_this_name = self._trackable_changed.setdefault(
+                    name1, set()
+                )
+                dirty_labels_for_this_name.update(labels)
+                # Unregister stores
+                if isinstance(value1, Trackable):
+                    for label in labels:
+                        self._untrack_store(value1._store, label)
+
+            # # For props that we tracked but no longer exist, we need to bump the version.
+            # # We also stop tracking these props.
+            # old_not_new = set(old_stuff) - set(new_stuff)
+            # for pathname in old_not_new:
+            #     name, value = old_stuff[pathname]
+            #     # labels = self._trackable_names.pop(name)
+            #     # self._trackable_values.pop(name, None)
+            #     labels = self._trackable_names[name]
+            #     # self._trackable_values[name]
+            #     # todo: set to NULL
+            #     dirty_labels_for_this_name = self._trackable_changed.setdefault(name, set())
+            #     dirty_labels_for_this_name.update(labels)
+            #     # Unregister stores
+            #     if isinstance(value, Trackable):
+            #         for label in labels:
+            #             self._untrack_store(value._store, label)
+            #
+            # # For props that we tracked that did not previously exist, ...
+            # new_not_old = set(new_stuff) - set(old_stuff)
+            # for pathname in new_not_old:
+            #     1/0
+            #     name, value = new_stuff[pathname]
+            #     dirty_labels_for_this_name = self._trackable_changed.setdefault(name, set())
+            #     dirty_labels_for_this_name.update(labels)
+            #     # Register store
+            #     if isinstance(value, Trackable):
+            #         for label in labels:
+            #             self._track_store(value._store, label)
+            #
+            # # For props that we tracked that are still there, we compare the values.
+            # # And we rename the props.
+            # old_and_new = set(old_stuff) & set(new_stuff)
+            # for pathname in old_and_new:
+            #     old_name, old_value = old_stuff[pathname]
+            #     new_name, new_value = new_stuff[pathname]
+            #
+            #     # Rename
+            #     self._trackable_names[new_name] = self._trackable_names.pop(old_name)
+            #     try:
+            #         self._trackable_values[new_name] = self._trackable_values.pop(old_name)
+            #     except KeyError:
+            #         pass
+            #     try:
+            #         self._trackable_changed[new_name] = self._trackable_changed.pop(old_name)
+            #     except KeyError:
+            #         pass
+            #
+            #     # Update
+            #     labels = self._trackable_names.get(new_name, ())
+            #     self._track_value_update(new_name, new_value, labels)
+            #
+            #     # Register / unregister stores
+            #     if isinstance(old_value, Trackable):
+            #         for label in labels:
+            #             self._untrack_store(old_value._store, label)
+            #     if isinstance(new_value, Trackable):
+            #         for label in labels:
+            #             self._track_store(new_value._store, label)
+
+        # for base_name in self._trackable_ids.get(id, (id, )):
+        #     name = base_name + "." + key
+        #     is_trackable = 0
+        #
+        #     # If this attribute *was* a trackable, unregister it, and all things down its tree
+        #     if name in self._trackable_deps_keys:
+        #         is_trackable += 1
+        #         self._untrack_a_trackable(name)
+        #
+        #     # If the new value *is* a trackable, register it, and (part of) its tree
+        #     if isinstance(value, Trackable):
+        #         is_trackable += 1
+        #         self._track_a_trackable(name, value)
+        #
+        #     # If this was or is a trackable, check sub props
+        #     if is_trackable:
+        #         prefix = name + "."
+        #         for name2 in self._trackable_names.keys():
+        #             if name2.startswith(prefix):
+        #                 if name2 not in self._trackable_deps_keys:
+        #                     self._track_set_trackable_attribute(prefix, value, name2)
+        #
+        #
+        #     # Should setting this name register as a change?
+        #     labels = self._trackable_names.get(name, None)
+        #
+        #     # If this was or is a trackable, we only process labels starting with "!"
+        #     if is_trackable == 2:
+        #         labels = set(label for label in labels if label.startswith("!"))
+        #
+        #     # Update changed values
+        #     if labels:
+        #         # Mark changed
+        #         dirty_labels_for_this_name = self._trackable_changed.setdefault(name, set())
+        #         dirty_labels_for_this_name.update(labels)
+        #         # If the value has not changed from the previous (since the
+        #         # last reset) we can un-mark this name as changed.
+        #         try:
+        #             ref_value, cur_value = self._trackable_values[name]
+        #         except KeyError:
+        #             pass
+        #         else:
+        #             if value == ref_value:
+        #                 dirty_labels_for_this_name.difference_update(labels)
+        #                 if not dirty_labels_for_this_name:
+        #                     self._trackable_changed.pop(name)
+        #             elif value != cur_value:
+        #                 self._trackable_values[name] = ref_value, value
+
+    def _track_value_update(self, name, new_value, labels):
+        # Mark changed to begin with
+        dirty_labels_for_this_name = self._trackable_changed.setdefault(name, set())
+        dirty_labels_for_this_name.update(labels)
+        # If the value has not changed from the previous (since the
+        # last reset) we can un-mark this name as changed.
         try:
             ref_value, cur_value = self._trackable_values[name]
         except KeyError:
-            return
-        # Try to obtain the new value. If we fail, we return.
-        ob = trackable
-        for subname in name[len(prefix) :].split("."):
-            try:
-                ob = ob._store[subname]
-            except (AttributeError, KeyError):
-                return
-        new_value = ob
-        # Update
-        self._trackable_values[name] = ref_value, new_value
-        # Maybe unset this change
-        if new_value == ref_value:
-            dirty_levels_for_this_name.difference_update(levels)
-            if not dirty_levels_for_this_name:
-                self._trackable_changed.pop(name)
+            pass
+        else:
+            if new_value == ref_value:
+                dirty_labels_for_this_name.difference_update(labels)
+                if not dirty_labels_for_this_name:
+                    self._trackable_changed.pop(name)
+            elif new_value != cur_value:
+                self._trackable_values[name] = ref_value, new_value
+
+    # def _track_set_trackable_attribute(self, prefix, trackable, name):
+    #     # Track_set when a trackable is set, so we can inspect the sub-values.
+    #     labels = self._trackable_names[name]
+    #     # Let's assume the value has changed for now
+    #     dirty_labels_for_this_name = self._trackable_changed.setdefault(name, set())
+    #     dirty_labels_for_this_name.update(labels)
+    #     # Check if we have a previous value. If not, return.
+    #     try:
+    #         ref_value, cur_value = self._trackable_values[name]
+    #     except KeyError:
+    #         return
+    #     # Try to obtain the new value. If we fail, we return.
+    #     ob = trackable
+    #     for subname in name[len(prefix) :].split("."):
+    #         try:
+    #             ob = ob._store[subname]
+    #         except (AttributeError, KeyError):
+    #             return
+    #     new_value = ob
+    #     # Update
+    #     self._trackable_values[name] = ref_value, new_value
+    #     # Maybe unset this change
+    #     if new_value == ref_value:
+    #         dirty_labels_for_this_name.difference_update(labels)
+    #         if not dirty_labels_for_this_name:
+    #             self._trackable_changed.pop(name)
 
 
 simple_value_types = None.__class__, bool, int, float, str
