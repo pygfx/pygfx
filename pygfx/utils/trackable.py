@@ -188,6 +188,8 @@ class Root:
         that is tracking this object's changes.
         """
         # Quick version
+        if not self._trackable_changed:
+            return set()
 
         # Reset the cached values
         for name in self._trackable_changed:
