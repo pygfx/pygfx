@@ -45,7 +45,7 @@ class Mixin:
 
 class MyRootTrackable(Mixin, RootTrackable):
     @property
-6496
+    def all_known_store_ids(self):
         stores_ids = set()
         for stores in self._stores.values():
             stores_ids.update(store["_trackable_id"] for store in stores)
@@ -335,7 +335,7 @@ def test_reacting_to_trackable_presence1():
 
 def test_reacting_to_trackable_presence2():
     # Test that changing from nothing to something triggers a change
-    # This could represent checking whether the geometry has normals.
+    # This could represent changing geometry.normals from undefined to a Buffer.
 
     wobject = MyRootTrackable()
     wobject.sub1 = MyTrackable()  # geometry
@@ -347,6 +347,24 @@ def test_reacting_to_trackable_presence2():
     assert not wobject.pop_changed()
 
     wobject.sub1.sub2 = MyTrackable()  # e.g. normal
+
+    assert wobject.pop_changed() == {"shader"}
+
+
+def test_reacting_to_trackable_presence3():
+    # Test that changing from nothing to something triggers a change
+    # This could represent changing geometry.normals from undefined to None.
+
+    wobject = MyRootTrackable()
+    wobject.sub1 = MyTrackable()  # geometry
+
+    with wobject.track_usage("shader"):
+        res = hasattr(wobject.sub1._store, "sub2")
+        assert not res
+
+    assert not wobject.pop_changed()
+
+    wobject.sub1.sub2 = None
 
     assert wobject.pop_changed() == {"shader"}
 
