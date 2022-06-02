@@ -39,6 +39,10 @@ object itself is just a container for the store. This has the benefit
 that subclasses of Trackable just store the props that they want to
 track on its store.
 
+Similarly the functionality of the RootTrackable is offloaded to an
+internal Root object. That way the RootTrackable (and its subclasses)
+stay clean, and can implement their own API for the tracking.
+
 The Store keeps a set of what roots need to be notified (using weak
 refs). The root keeps a set of what stores notify it, for the sole
 reason that the root can disconnect these stores when usage is
@@ -75,11 +79,26 @@ class Undefined:
 undefined = Undefined()
 
 
+class Trackable:
+    """A base class to make an object trackable."""
+
+    def __init__(self):
+        self._store = Store()
+
+
+class RootTrackable(Trackable):
+    """Base class for the root trackable object."""
+
+    def __init__(self):
+        super().__init__()
+        self._root_tracker = Root()
+
+
 class TrackContext:
     """A context used when tracking usage of trackable objects."""
 
     def __init__(self, root, label):
-        assert isinstance(root, RootTrackable)
+        assert isinstance(root, Root)
         assert isinstance(label, str)
         self.root = root
         self.label = label
@@ -140,21 +159,10 @@ class Store(dict):
                 global_context.root._track_get(self, key, value, global_context.label)
 
 
-class Trackable:
-    """A base class to make an object trackable."""
+class Root:
+    """Object to store all the tracking data for a RootTrackable."""
 
     def __init__(self):
-        self._store = Store()
-
-
-class RootTrackable(Trackable):
-    """Base class for the root trackable object. This is where the actual
-    reaction data is stored.
-    """
-
-    def __init__(self):
-        super().__init__()
-
         # Keep track of what stores have a reference to *this*,
         # so that we can clear that reference when we want.
         # The store and root are always connected/disconnected together.
@@ -180,8 +188,7 @@ class RootTrackable(Trackable):
         that is tracking this object's changes.
         """
         # Quick version
-        if not self._trackable_changed:
-            return set()
+
         # Reset the cached values
         for name in self._trackable_changed:
             try:

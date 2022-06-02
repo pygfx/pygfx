@@ -45,9 +45,19 @@ class Mixin:
 
 class MyRootTrackable(Mixin, RootTrackable):
     @property
+    def tracker(self):
+        return self._root_tracker
+
+    def track_usage(self, label):
+        return self._root_tracker.track_usage(label)
+
+    def pop_changed(self):
+        return self._root_tracker.pop_changed()
+
+    @property
     def all_known_store_ids(self):
         stores_ids = set()
-        for stores in self._stores.values():
+        for stores in self._root_tracker._stores.values():
             stores_ids.update(store["_trackable_id"] for store in stores)
         return stores_ids
 
@@ -583,8 +593,8 @@ def test_cleanup4():
     assert id1 in root.all_known_store_ids
     assert id2 in root.all_known_store_ids
 
-    assert root in ext.known_roots
-    assert root in ext.sub1.known_roots
+    assert root.tracker in ext.known_roots
+    assert root.tracker in ext.sub1.known_roots
 
     # Now listen to stuff in root's tree
 
@@ -595,8 +605,8 @@ def test_cleanup4():
     assert id1 not in root.all_known_store_ids
     assert id2 not in root.all_known_store_ids
 
-    assert root not in ext.known_roots
-    assert root not in ext.sub1.known_roots
+    assert root.tracker not in ext.known_roots
+    assert root.tracker not in ext.sub1.known_roots
 
     ext.sub1.foo = 42
     assert not root.pop_changed()
