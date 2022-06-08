@@ -28,17 +28,15 @@ class Texture(Resource):
         self._rev = 0
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
-        self._dim = int(dim)
-        # The size specifies the size on the GPU (width, height, depth)
-        self._size = ()
-        self._format = None if format is None else str(format)
-        self._nbytes = 0
+        self._store.dim = int(dim)
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
         self._wgpu_usage = 0
+
+        self._store.format = None if format is None else str(format)
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -48,11 +46,12 @@ class Texture(Resource):
                 raise ValueError("Float64 data is not supported, use float32 instead.")
             self._data = data
             self._mem = mem
-            self._nbytes = mem.nbytes
-            self._size = self._size_from_data(mem, dim, size)
-            self.update_range((0, 0, 0), self._size)
+            self._store.nbytes = mem.nbytes
+            self._store.size = self._size_from_data(mem, dim, size)
+            self.update_range((0, 0, 0), self.size)
         elif size is not None and format is not None:
-            self._size = size
+            self._store.size = size
+            self._store.nbytes = 0
         else:
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
@@ -70,7 +69,7 @@ class Texture(Resource):
     @property
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
-        return self._dim
+        return self._store.dim
 
     @property
     def data(self):
@@ -92,14 +91,14 @@ class Texture(Resource):
     @property
     def nbytes(self):
         """Get the number of bytes in the texture."""
-        return self._nbytes
+        return self._store.nbytes
 
     @property
     def size(self):
         """The size of the texture as (width, height, depth).
         (always a 3-tuple, regardless of the dimension).
         """
-        return self._size
+        return self._store.size
 
     @property
     def format(self):
@@ -107,11 +106,12 @@ class Texture(Resource):
         (e.g. u2 for scalar uint16, or 3xf4 for RGB float32),
         but can also be a overriden to a backend-specific format.
         """
-        if self._format is not None:
-            return self._format
+        format = self._store.format
+        if format is not None:
+            return format
         elif self.data is not None:
-            self._format = format_from_memoryview(self.mem, self.size)
-            return self._format
+            self._store["format"] = format_from_memoryview(self.mem, self.size)
+            return self._store.format
         else:
             raise ValueError("Texture has no data nor format.")
 

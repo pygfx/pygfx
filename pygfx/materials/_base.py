@@ -22,7 +22,7 @@ class Material(Trackable):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
 
         # Create matching uniform buffer
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
@@ -51,7 +51,7 @@ class Material(Trackable):
         self.uniform_type[key] = f"{new_length}*{subtype}"
         # Recreate buffer
         data = self.uniform_buffer.data
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
         # Copy data
         for k in data.dtype.names:
             if k != key:
@@ -65,6 +65,10 @@ class Material(Trackable):
         """
         # Note that this is a private friend-method of the renderer.
         return {}
+
+    @property
+    def uniform_buffer(self):
+        return self._store.uniform_buffer
 
     @property
     def opacity(self):

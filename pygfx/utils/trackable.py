@@ -166,7 +166,7 @@ class Root:
         # Keep track of what stores have a reference to *this*,
         # so that we can clear that reference when we want.
         # The store and root are always connected/disconnected together.
-        self._stores = {}  # label -> weakset
+        self._stores = weakref.WeakKeyDictionary()  # store -> labels
         # The names to track. Names are (id, key)  -  name -> labels
         self._trackable_names = {}
         # Keep track of values  -  name -> (ref_value, cur_value)
@@ -210,12 +210,16 @@ class Root:
     def _track_store(self, store, label):
         # Introduce the store and root to each-other
         store["_trackable_roots"].add(self)
-        self._stores[label].add(store)
+        labels = self._stores.setdefault(store, set())
+        labels.add(label)
 
     def _untrack_store(self, store, label):
         # Break the connection between root and store
-        store["_trackable_roots"].discard(self)
-        self._stores[label].discard(store)
+        labels = self._stores.setdefault(store, set())
+        labels.discard(label)
+        if not labels:
+            self._stores.pop(store, None)
+            store["_trackable_roots"].discard(self)
 
     def _track_init(self, label):
         # Reset the tracking data for the given label
@@ -227,14 +231,17 @@ class Root:
                 self._trackable_values.pop(name, None)
 
         # Break connections with old stores
-        for store in self._stores.pop(label, set()):
+        to_remove = []
+        for store, labels in self._stores.items():
+            labels.discard(label)
+            if not labels:
+                to_remove.append(store)
+        for store in to_remove:
+            self._stores.pop(store, None)
             store["_trackable_roots"].discard(self)
-        self._stores[label] = weakref.WeakSet()
 
     def _track_done(self, label):
-        # Remove backrefs-dict if its empty
-        if not self._stores[label]:
-            self._stores.pop(label, None)
+        pass
 
     def _track_get(self, store, key, value, label):
         # Called when *any* trackable has an attribute GET while a
@@ -316,38 +323,42 @@ class Root:
                 except KeyError:
                     continue
 
-            # Try get matching path in the new hierarchy
-            try:
-                name2 = new_value._store["_trackable_id"], key
-                value2 = new_value._store[key]
-            except (AttributeError, KeyError):
-                value2 = undefined
-
-            if value2 is not undefined:
-                # Rename
-                self._trackable_names[name2] = self._trackable_names.pop(name1)
+                # Try get matching path in the new hierarchy
                 try:
-                    self._trackable_values[name2] = self._trackable_values.pop(name1)
-                except KeyError:
-                    pass
-                try:
-                    self._trackable_changed[name2] = self._trackable_changed.pop(name1)
-                except KeyError:
-                    pass
-                # Recurse
-                self._track_set(name2, value1, value2)
+                    name2 = new_value._store["_trackable_id"], key
+                    value2 = new_value._store[key]
+                except (AttributeError, KeyError):
+                    value2 = undefined
 
-            else:
-                # Unregister
-                labels = self._trackable_names.pop(name1, ())
-                self._trackable_values.pop(name1, None)
-                dirty_labels_for_this_name = self._trackable_changed.setdefault(
-                    name1, set()
-                )
-                dirty_labels_for_this_name.update(labels)
-                # Unregister stores
-                if isinstance(value1, Trackable):
-                    for label in labels:
-                        self._untrack_store(value1._store, label)
-                # Recurse
-                self._track_set_follow_tree(value1, value2)
+                if value2 is not undefined:
+                    # Rename
+                    self._trackable_names[name2] = self._trackable_names.pop(name1)
+                    try:
+                        self._trackable_values[name2] = self._trackable_values.pop(
+                            name1
+                        )
+                    except KeyError:
+                        pass
+                    try:
+                        self._trackable_changed[name2] = self._trackable_changed.pop(
+                            name1
+                        )
+                    except KeyError:
+                        pass
+                    # Recurse
+                    self._track_set(name2, value1, value2)
+
+                else:
+                    # Unregister
+                    labels = self._trackable_names.pop(name1, ())
+                    self._trackable_values.pop(name1, None)
+                    dirty_labels_for_this_name = self._trackable_changed.setdefault(
+                        name1, set()
+                    )
+                    dirty_labels_for_this_name.update(labels)
+                    # Unregister stores
+                    if isinstance(value1, Trackable):
+                        for label in labels:
+                            self._untrack_store(value1._store, label)
+                    # Recurse
+                    self._track_set_follow_tree(value1, value2)

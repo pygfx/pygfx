@@ -743,7 +743,6 @@ class RenderPipelineContainer(PipelineContainer):
         if self.broken:
             return
 
-        # todo: take wobject.render_mask into account
         if not (render_mask & self.render_info["render_mask"]):
             return
         blend_mode = blender.__class__.__name__

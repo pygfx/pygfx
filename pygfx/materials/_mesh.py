@@ -27,7 +27,7 @@ class MeshBasicMaterial(Material):
         super().__init__(**kwargs)
 
         self.color = color
-        self._vertex_colors = bool(vertex_colors)
+        self.vertex_colors = bool(vertex_colors)
         self.map = map
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
@@ -63,13 +63,11 @@ class MeshBasicMaterial(Material):
     @property
     def vertex_colors(self):
         """Whether to use the vertex colors provided in the geometry."""
-        return self._vertex_colors
+        return self._store.vertex_colors
 
     @vertex_colors.setter
     def vertex_colors(self, value):
-        value = bool(value)
-        if value != self._vertex_colors:
-            self._vertex_colors = value
+        self._store.vertex_colors = bool(value)
 
     @property
     def map(self):

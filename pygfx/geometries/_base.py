@@ -99,6 +99,23 @@ class Geometry(Trackable):
             # Store
             setattr(self, name, resource)
 
+    def __setattr__(self, key, new_value):
+        if not key.startswith("_"):
+            if isinstance(new_value, Trackable) or key in self._store:
+                return setattr(self._store, key, new_value)
+        object.__setattr__(self, key, new_value)
+
+    def __getattribute__(self, key):
+        if not key.startswith("_"):
+            if key in self._store:
+                return getattr(self._store, key)
+        return object.__getattribute__(self, key)
+
+    def __dir__(self):
+        x = object.__dir__(self)
+        x.extend(dict.keys(self._store))
+        return x
+
     def bounding_box(self):
         """Compute the axis-aligned bounding box based on either positions
         or the shape of the grid buffer.

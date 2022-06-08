@@ -56,10 +56,7 @@ class MyRootTrackable(Mixin, RootTrackable):
 
     @property
     def all_known_store_ids(self):
-        stores_ids = set()
-        for stores in self._root_tracker._stores.values():
-            stores_ids.update(store["_trackable_id"] for store in stores)
-        return stores_ids
+        return set(s["_trackable_id"] for s in self._root_tracker._stores.keys())
 
 
 class MyTrackable(Mixin, Trackable):

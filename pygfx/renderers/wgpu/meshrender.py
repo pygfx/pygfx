@@ -134,7 +134,7 @@ class MeshRenderBuilder(PipelineBuilder):
             bindings1[0] = Binding(
                 "s_instance_infos",
                 "buffer/read_only_storage",
-                wobject.instance_infos,
+                wobject.instance_buffer,
                 "VERTEX",
             )
 
@@ -177,23 +177,26 @@ class MeshRenderBuilder(PipelineBuilder):
         n = geometry.indices.data.size
         n_instances = 1
         if shader["instanced"]:
-            n_instances = wobject.instance_infos.nitems
+            n_instances = wobject.instance_buffer.nitems
 
-        render_mask = 3
-        if material.opacity < 1:
-            render_mask = 2
-        elif shader["color_mode"] == "vertex":
-            if shader["vertex_color_channels"] in (1, 3):
+        m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
+
+        render_mask = m[wobject.render_mask]
+        if not render_mask:
+            if material.opacity < 1:
+                render_mask = 2
+            elif shader["color_mode"] == "vertex":
+                if shader["vertex_color_channels"] in (1, 3):
+                    render_mask = 1
+            elif shader["color_mode"] == "map":
+                if shader["colormap_nchannels"] in (1, 3):
+                    render_mask = 1
+            elif shader["color_mode"] == "normal":
                 render_mask = 1
-        elif shader["color_mode"] == "map":
-            if shader["colormap_nchannels"] in (1, 3):
-                render_mask = 1
-        elif shader["color_mode"] == "normal":
-            render_mask = 1
-        elif shader["color_mode"] == "uniform":
-            render_mask = 1 if material.color[3] >= 1 else 2
-        else:
-            raise RuntimeError(f"Unexpected color mode {shader['color_mode']}")
+            elif shader["color_mode"] == "uniform":
+                render_mask = 1 if material.color[3] >= 1 else 2
+            else:
+                raise RuntimeError(f"Unexpected color mode {shader['color_mode']}")
 
         return {
             "indices": (n, n_instances),
@@ -317,11 +320,11 @@ def xxx_mesh_renderer(render_info):
             Binding(
                 "s_instance_infos",
                 "buffer/read_only_storage",
-                wobject.instance_infos,
+                wobject.instance_buffer,
                 "VERTEX",
             )
         )
-        n_instances = wobject.instance_infos.nitems
+        n_instances = wobject.instance_buffer.nitems
 
     # Determine culling
     if material.side == "FRONT":

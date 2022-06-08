@@ -154,11 +154,11 @@ class WorldObject(EventTarget, RootTrackable):
     @property
     def visible(self):
         """Wheter is object is rendered or not. Default True."""
-        return self._visible
+        return self._store.visible
 
     @visible.setter
     def visible(self, visible):
-        self._visible = bool(visible)
+        self._store.visible = bool(visible)
 
     @property
     def render_order(self):
@@ -166,11 +166,11 @@ class WorldObject(EventTarget, RootTrackable):
         objects to be controlled. Default 0. See ``Renderer.sort_objects``
         for details.
         """
-        return self._render_order
+        return self._store.render_order
 
     @render_order.setter
     def render_order(self, value):
-        self._render_order = float(value)
+        self._store.render_order = float(value)
 
     @property
     def render_mask(self):
@@ -197,7 +197,7 @@ class WorldObject(EventTarget, RootTrackable):
         invisible. Rendering opaque fragments in the transparent pass
         blends them as if they are transparent with an alpha of 1.
         """
-        return self._render_mask
+        return self._store.render_mask
 
     @render_mask.setter
     def render_mask(self, value):
@@ -209,7 +209,7 @@ class WorldObject(EventTarget, RootTrackable):
             raise ValueError(
                 f"WorldObject.render_mask must be one of {options} not {value!r}"
             )
-        self._render_mask = value
+        self._store.render_mask = value
 
     @property
     def geometry(self):
@@ -295,7 +295,7 @@ class WorldObject(EventTarget, RootTrackable):
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
         """
-        if skip_invisible and not self._visible:
+        if skip_invisible and not self.visible:
             return
         callback(self)
         for child in self._children:

@@ -40,9 +40,6 @@ class Buffer(Resource):
         super().__init__()
         self._rev = 0
         # To specify the buffer size
-        self._nbytes = 0
-        self._nitems = 1
-        self._format = format
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
@@ -62,23 +59,27 @@ class Buffer(Resource):
             #     mem = memoryview(x)
             self._data = data
             self._mem = mem
-            self._nbytes = mem.nbytes
-            self._nitems = mem.shape[0] if mem.shape else 1
-            self._pending_uploads.append((0, self._nitems))
-            if nbytes is not None and nbytes != self._nbytes:
+            the_nbytes = mem.nbytes
+            the_nitems = mem.shape[0] if mem.shape else 1
+            self._pending_uploads.append((0, the_nitems))
+            if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
-            if nitems is not None and nitems != self._nitems:
+            if nitems is not None and nitems != the_nitems:
                 raise ValueError("Given nitems does not match shape of given data.")
         elif nbytes is not None and nitems is not None:
-            self._nbytes = int(nbytes)
-            self._nitems = int(nitems)
+            the_nbytes = int(nbytes)
+            the_nitems = int(nitems)
         else:
             raise ValueError(
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
+        self._store.nbytes = the_nbytes
+        self._store.nitems = the_nitems
+        self._store.format = format
+
         # We can use a subset when used as a vertex buffer
-        self._vertex_byte_range = (0, self._nbytes)
+        self._vertex_byte_range = (0, the_nbytes)
 
     @property
     def rev(self):
@@ -105,12 +106,12 @@ class Buffer(Resource):
     @property
     def nbytes(self):
         """The number of bytes in the buffer."""
-        return self._nbytes
+        return self._store.nbytes
 
     @property
     def nitems(self):
         """The number of items in the buffer."""
-        return self._nitems
+        return self._store.nitems
 
     @property
     def format(self):
@@ -118,11 +119,12 @@ class Buffer(Resource):
         for scalar uint16, or 3xf4 for 3xfloat32), but can also be a
         overriden to a backend-specific format.
         """
-        if self._format is not None:
-            return self._format
+        format = self._store.format
+        if format is not None:
+            return format
         elif self.data is not None:
-            self._format = format_from_memoryview(self.mem)
-            return self._format
+            self._store["format"] = format_from_memoryview(self.mem)
+            return self._store.format
         else:
             raise ValueError("Buffer has no data nor format.")
 
