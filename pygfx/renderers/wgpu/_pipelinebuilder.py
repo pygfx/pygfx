@@ -34,7 +34,7 @@ def ensure_pipeline(renderer, wobject):
         levels = {"reset"}
     else:
         # Get whether the object has changes
-        levels = wobject.pop_changed()
+        levels = wobject.tracker.pop_changed()
 
     # Update if necessary
     if levels:
@@ -237,7 +237,7 @@ class PipelineContainerGroup:
 
             # Call render function
             args = BuilderArgs(wobject=wobject, shared=shared)
-            with wobject.track_usage("reset", False):
+            with wobject.tracker.track_usage("reset"):
                 builders = renderfunc(args)
 
             # Divide result over two bins, one for compute, and one for render
@@ -355,14 +355,14 @@ class PipelineContainer:
         builder_args = BuilderArgs(wobject=wobject, shared=shared)
 
         if "shader" in levels:
-            with wobject.track_usage("shader", False):
+            with wobject.tracker.track_usage("shader"):
                 self.shader = self.builder.get_shader(builder_args)
             self._check_shader()
             levels.update(("resources", "pipeline"))
             self.wgpu_shaders = {}
 
         if "pipeline" in levels:
-            with wobject.track_usage("pipeline", False):
+            with wobject.tracker.track_usage("pipeline"):
                 self.pipeline_info = self.builder.get_pipeline_info(
                     builder_args, self.shader
                 )
@@ -371,14 +371,14 @@ class PipelineContainer:
             self.wgpu_pipelines = {}
 
         if "render" in levels:
-            with wobject.track_usage("render", False):
+            with wobject.tracker.track_usage("render"):
                 self.render_info = self.builder.get_render_info(
                     builder_args, self.shader
                 )
             self._check_render_info()
 
         if "resources" in levels:
-            with wobject.track_usage("resources", True):
+            with wobject.tracker.track_usage("!resources"):
                 self.resources = self.builder.get_resources(builder_args, self.shader)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:

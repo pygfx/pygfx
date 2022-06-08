@@ -148,6 +148,10 @@ class WorldObject(EventTarget, RootTrackable):
         return self._id
 
     @property
+    def tracker(self):
+        return self._root_tracker
+
+    @property
     def visible(self):
         """Wheter is object is rendered or not. Default True."""
         return self._visible
@@ -210,20 +214,20 @@ class WorldObject(EventTarget, RootTrackable):
     @property
     def geometry(self):
         """The object's geometry, the data that defines (the shape of) this object."""
-        return self._track_get("geometry", self._geometry)
+        return self._store.geometry
 
     @geometry.setter
     def geometry(self, geometry):
-        self._geometry = self._track_set("geometry", geometry)
+        self._store.geometry = geometry
 
     @property
     def material(self):
         """Wheter is object is rendered or not. Default True."""
-        return self._track_get("material", self._material)
+        return self._store.material
 
     @material.setter
     def material(self, material):
-        self._material = self._track_set("material", material)
+        self._store.material = material
 
     @property
     def parent(self):
