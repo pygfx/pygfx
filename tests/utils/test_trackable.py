@@ -68,6 +68,10 @@ class MyTrackable(Mixin, Trackable):
         return set(self._store["_trackable_roots"])
 
 
+class MyTrackable2(MyTrackable):
+    pass
+
+
 def test_changes_on_root():
     # Test basic stuff on a root object
 
@@ -451,13 +455,13 @@ def test_track_trackables1():
     assert root.pop_changed() == {"format"}
 
     root.sub1 = t2
-    assert root.pop_changed() == {"format", "!resources"}
+    assert root.pop_changed() == {"format", "resources"}
 
     t2.foo = 43
     assert root.pop_changed() == {"format"}
 
     root.sub1 = t1
-    assert root.pop_changed() == {"!resources"}
+    assert root.pop_changed() == {"resources"}
 
 
 def test_track_trackables2():
@@ -483,13 +487,57 @@ def test_track_trackables2():
     assert root.pop_changed() == {"format"}
 
     root.sub1 = tree2
-    assert root.pop_changed() == {"format", "!resources"}
+    assert root.pop_changed() == {"format", "resources"}
 
     t2.foo = 43
     assert root.pop_changed() == {"format"}
 
     root.sub1 = tree1
-    assert root.pop_changed() == {"!resources"}
+    assert root.pop_changed() == {"resources"}
+
+
+def test_track_trackables_typing1():
+    # This represents tracking the resource objects themselves
+
+    root = MyRootTrackable()
+    t1 = MyTrackable()
+    t2 = MyTrackable2()
+
+    t1.foo = t2.foo = 42
+
+    root.sub1 = t1
+
+    with root.track_usage("format"):
+        root.sub1.foo
+
+    with root.track_usage("!resources"):
+        root.sub1
+
+    root.sub1 = t2
+    assert root.pop_changed() == {"format", "resources"}
+
+
+def test_track_trackables_typing2():
+    # Test that if the trackable changes type, everything triggers
+
+    root = MyRootTrackable()
+    tree1 = MyTrackable()
+    tree2 = MyTrackable()
+    tree1.sub1 = MyTrackable()
+    tree2.sub1 = MyTrackable2()
+
+    tree1.sub1.foo = tree2.sub1.foo = 42
+
+    root.sub1 = tree1
+
+    with root.track_usage("format"):
+        root.sub1.sub1.foo
+
+    with root.track_usage("!resources"):
+        root.sub1.sub1
+
+    root.sub1 = tree2
+    assert root.pop_changed() == {"format", "resources"}
 
 
 def test_track_externals():
