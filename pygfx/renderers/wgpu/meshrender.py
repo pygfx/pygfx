@@ -100,13 +100,11 @@ def mesh_renderer(render_info):
 
         shader["RECIPROCAL_PI"] = "0.3183098861837907"
 
-        state_buffers = render_info.state.uniform_buffers
-
         shader["has_ambient_light"] = render_info.state.ambient_light is not None
         shader["num_dir_lights"] = len(render_info.state.directional_lights)
         shader["num_point_lights"] = len(render_info.state.point_lights)
 
-        ambient_lights_buffer = state_buffers["ambient_lights"]
+        ambient_lights_buffer = render_info.state.ambient_lights_uniform_buffer
         if ambient_lights_buffer:
             bindings.append(
                 Binding(
@@ -117,7 +115,7 @@ def mesh_renderer(render_info):
                 ),
             )
 
-        directional_lights_buffer = state_buffers["directional_lights"]
+        directional_lights_buffer = render_info.state.directional_lights_uniform_buffer
         if directional_lights_buffer:
             bindings.append(
                 Binding(
@@ -128,7 +126,7 @@ def mesh_renderer(render_info):
                 ),
             )
 
-        point_lights_buffer = state_buffers["point_lights"]
+        point_lights_buffer = render_info.state.point_lights_uniform_buffer
         if point_lights_buffer:
             bindings.append(
                 Binding(

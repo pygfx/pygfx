@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import wgpu.backends.rs
+import wgpu
 
 from .. import Renderer
 from ...linalg import Matrix4, Vector3
@@ -20,6 +21,9 @@ from ...objects import (
     DirectionalLight,
     AmbientLight,
     SpotLight,
+    DirectionalLightShadow,
+    SpotLightShadow,
+    PointLightShadow,
 )
 from ...cameras import Camera
 from ...resources import Buffer, Texture, TextureView
@@ -29,6 +33,7 @@ from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipelinebuilder import ensure_pipeline
 from ._update import update_buffer, update_texture, update_texture_view
+from . import _shadowutils as shadow_pipeline_module
 
 
 logger = logging.getLogger("pygfx")
@@ -72,7 +77,9 @@ def _get_sort_function(camera: Camera):
 class RenderState:
     _tmp_vector = Vector3()
 
-    def __init__(self) -> None:
+    def __init__(self, renderer) -> None:
+        self.renderer = renderer
+
         # only lights for now
         self.directional_lights: list[DirectionalLight] = []
         self.point_lights: list[PointLight] = []
@@ -80,14 +87,23 @@ class RenderState:
 
         self.ambient_light_color = [0, 0, 0]
 
-        self.uniform_buffers = {
-            "ambient_lights": Buffer(
-                array_from_shadertype(AmbientLight().uniform_type)
-            ),
-            "directional_lights": None,
-            "point_lights": None,
-            "spot_lights": None,
-        }
+        self.ambient_lights_uniform_buffer = Buffer(
+            array_from_shadertype(AmbientLight().uniform_type)
+        )
+        self.directional_lights_uniform_buffer: Buffer = None
+        self.point_lights_uniform_buffer: Buffer = None
+        self.spot_lights_uniform_buffer: Buffer = None
+
+        self.shadow_sampler = None
+
+        self.directional_shadows_uniform_buffer = None
+        self.spot_shadows_uniform_buffer = None
+
+        self.directional_lights_shadow_texture = None
+        self.spot_lights_shadow_texture = None
+        self.point_lights_shadow_texture = None
+
+        self.shadow_map_size = (1024, 1024)  # TODO: make this configurable
 
     def init(self):
         self.point_lights.clear()
@@ -108,8 +124,8 @@ class RenderState:
             self.ambient_light_color[2] += light.uniform_buffer.data["color"][2]
 
     def set_up(self):
-
-        ambient_uniform_buffer: Buffer = self.uniform_buffers["ambient_lights"]
+        has_shadow = False
+        ambient_uniform_buffer: Buffer = self.ambient_lights_uniform_buffer
         if not np.all(
             ambient_uniform_buffer.data["color"][:3] == self.ambient_light_color
         ):
@@ -119,18 +135,32 @@ class RenderState:
         # directional lights
         dir_light_num = len(self.directional_lights)
         if dir_light_num > 0:
-            dir_light_uniform_buffer: Buffer = self.uniform_buffers.setdefault(
-                "directional_lights", None
-            )
-
             if (
-                dir_light_uniform_buffer is None
-                or dir_light_uniform_buffer.nitems != dir_light_num
+                self.directional_lights_uniform_buffer is None
+                or self.directional_lights_uniform_buffer.nitems != dir_light_num
             ):
                 # Light uniform size has changed, create new buffer
-                self.uniform_buffers["directional_lights"] = Buffer(
+                self.directional_lights_uniform_buffer = Buffer(
                     array_from_shadertype(
                         DirectionalLight().uniform_type, dir_light_num
+                    )
+                )
+
+                self.directional_lights_shadow_texture = self.renderer.device.create_texture(
+                    # shadow map size is same for all lights. TODO: make this configurable
+                    size=(
+                        self.shadow_map_size[0],
+                        self.shadow_map_size[1],
+                        dir_light_num,
+                    ),
+                    usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+                    | wgpu.TextureUsage.TEXTURE_BINDING,
+                    format="depth32float",
+                )
+
+                self.directional_shadows_uniform_buffer = Buffer(
+                    array_from_shadertype(
+                        DirectionalLightShadow().uniform_type, dir_light_num
                     )
                 )
 
@@ -140,59 +170,134 @@ class RenderState:
                 ).normalize()
                 light.uniform_buffer.data["direction"].flat = direction.to_array()
                 if (
-                    self.uniform_buffers["directional_lights"].data[i]
+                    self.directional_lights_uniform_buffer.data[i]
                     != light.uniform_buffer.data
                 ):
-                    self.uniform_buffers["directional_lights"].data[
+                    self.directional_lights_uniform_buffer.data[
                         i
                     ] = light.uniform_buffer.data
-                    self.uniform_buffers["directional_lights"].update_range(i, 1)
+                    self.directional_lights_uniform_buffer.update_range(i, 1)
                     light.uniform_buffer._pending_uploads = []
 
+                if light.cast_shadow:
+                    has_shadow = True
+                    light.shadow.update_matrix(light)
+
+                    if (
+                        self.directional_shadows_uniform_buffer.data[i]
+                        != light.shadow.uniform_buffer.data
+                    ):
+                        self.directional_shadows_uniform_buffer.data[
+                            i
+                        ] = light.shadow.uniform_buffer.data
+                        self.directional_shadows_uniform_buffer.update_range(i, 1)
+                        # light.shadow.uniform_buffer._pending_uploads = []
+
+                    if light.shadow._map is None or light.shadow._map_index != i:
+
+                        light.shadow._map = (
+                            self.directional_lights_shadow_texture.create_view(
+                                base_array_layer=i
+                            )
+                        )
+                        light.shadow._map_index = i
+
         else:
-            self.uniform_buffers["directional_lights"] = None
+            self.directional_lights_uniform_buffer = None
 
         # point lights
         point_light_num = len(self.point_lights)
         if point_light_num > 0:
-            point_light_uniform_buffer: Buffer = self.uniform_buffers.get(
-                "point_lights", None
-            )
-
             if (
-                point_light_uniform_buffer is None
-                or point_light_uniform_buffer.nitems != point_light_num
+                self.point_lights_uniform_buffer is None
+                or self.point_lights_uniform_buffer.nitems != point_light_num
             ):
-                self.uniform_buffers["point_lights"] = Buffer(
+                self.point_lights_uniform_buffer = Buffer(
                     array_from_shadertype(PointLight().uniform_type, point_light_num)
+                )
+
+                self.point_lights_shadow_texture = self.renderer.device.create_texture(
+                    # shadow map size is same for all lights. TODO: make this configurable
+                    size=(
+                        self.shadow_map_size[0],
+                        self.shadow_map_size[1],
+                        point_light_num * 6,
+                    ),
+                    usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+                    | wgpu.TextureUsage.TEXTURE_BINDING,
+                    format="depth32float",
+                )
+
+                self.point_shadows_uniform_buffer = Buffer(
+                    array_from_shadertype(
+                        PointLightShadow().uniform_type, point_light_num
+                    )
                 )
 
             for i, light in enumerate(self.point_lights):
                 if (
-                    self.uniform_buffers["point_lights"].data[i]
+                    self.point_lights_uniform_buffer.data[i]
                     != light.uniform_buffer.data
                 ):
-                    self.uniform_buffers["point_lights"].data[
-                        i
-                    ] = light.uniform_buffer.data
-                    self.uniform_buffers["point_lights"].update_range(i, 1)
+                    self.point_lights_uniform_buffer.data[i] = light.uniform_buffer.data
+                    self.point_lights_uniform_buffer.update_range(i, 1)
                     light.uniform_buffer._pending_uploads = []
+
+                if light.cast_shadow:
+                    has_shadow = True
+                    light.shadow.update_matrix(light)
+
+                    if (
+                        self.point_shadows_uniform_buffer.data[i]
+                        != light.shadow.uniform_buffer.data
+                    ):
+                        self.point_shadows_uniform_buffer.data[
+                            i
+                        ] = light.shadow.uniform_buffer.data
+                        self.point_shadows_uniform_buffer.update_range(i, 1)
+                        # light.shadow.uniform_buffer._pending_uploads = []
+
+                    if light.shadow._map is None or light.shadow._map_index != i:
+                        light.shadow._map = []
+                        for face in range(6):
+                            light.shadow._map.append(
+                                self.point_lights_shadow_texture.create_view(
+                                    base_array_layer=i * 6 + face
+                                )
+                            )
+
+                        light.shadow._map_index = i
+
         else:
-            self.uniform_buffers["point_lights"] = None
+            self.point_lights_uniform_buffer = None
 
         # spot lights
         spot_light_num = len(self.spot_lights)
         if spot_light_num > 0:
-            spot_light_uniform_buffer: Buffer = self.uniform_buffers.get(
-                "spot_lights", None
-            )
-
             if (
-                spot_light_uniform_buffer is None
-                or spot_light_uniform_buffer.nitems != spot_light_num
+                self.spot_lights_uniform_buffer is None
+                or self.spot_lights_uniform_buffer.nitems != spot_light_num
             ):
-                self.uniform_buffers["spot_lights"] = Buffer(
+                self.spot_lights_uniform_buffer = Buffer(
                     array_from_shadertype(SpotLight().uniform_type, spot_light_num)
+                )
+
+                self.spot_lights_shadow_texture = self.renderer.device.create_texture(
+                    # shadow map size is same for all lights. TODO: make this configurable
+                    size=(
+                        self.shadow_map_size[0],
+                        self.shadow_map_size[1],
+                        spot_light_num,
+                    ),
+                    usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+                    | wgpu.TextureUsage.TEXTURE_BINDING,
+                    format="depth32float",
+                )
+
+                self.spot_shadows_uniform_buffer = Buffer(
+                    array_from_shadertype(
+                        SpotLightShadow().uniform_type, spot_light_num
+                    )
                 )
 
             for i, light in enumerate(self.spot_lights):
@@ -201,17 +306,40 @@ class RenderState:
                 ).normalize()
                 light.uniform_buffer.data["direction"].flat = direction.to_array()
 
-                if (
-                    self.uniform_buffers["spot_lights"].data[i]
-                    != light.uniform_buffer.data
-                ):
-                    self.uniform_buffers["spot_lights"].data[
-                        i
-                    ] = light.uniform_buffer.data
-                    self.uniform_buffers["spot_lights"].update_range(i, 1)
+                if self.spot_lights_uniform_buffer.data[i] != light.uniform_buffer.data:
+                    self.spot_lights_uniform_buffer.data[i] = light.uniform_buffer.data
+                    self.spot_lights_uniform_buffer.update_range(i, 1)
                     light.uniform_buffer._pending_uploads = []
+
+                if light.cast_shadow:
+                    has_shadow = True
+                    light.shadow.update_matrix(light)
+
+                    if (
+                        self.spot_shadows_uniform_buffer.data[i]
+                        != light.shadow.uniform_buffer.data
+                    ):
+                        self.spot_shadows_uniform_buffer.data[
+                            i
+                        ] = light.shadow.uniform_buffer.data
+                        self.spot_shadows_uniform_buffer.update_range(i, 1)
+
+                    if light.shadow._map is None or light.shadow._map_index != i:
+
+                        light.shadow._map = self.spot_lights_shadow_texture.create_view(
+                            base_array_layer=i
+                        )
+                        light.shadow._map_index = i
+
         else:
-            self.uniform_buffers["spot_lights"] = None
+            self.spot_lights_uniform_buffer = None
+
+        if has_shadow and self.shadow_sampler is None:
+            self.shadow_sampler = self.renderer.device.create_sampler(
+                mag_filter=wgpu.FilterMode.linear,
+                min_filter=wgpu.FilterMode.linear,
+                compare=wgpu.CompareFunction.less_equal,
+            )
 
     @property
     def state_hash(self):
@@ -639,7 +767,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
         self._current_render_state: RenderState = (
-            WgpuRenderer._render_states.setdefault(scene, RenderState())
+            WgpuRenderer._render_states.setdefault(scene, RenderState(self))
         )
 
         self._current_render_state.init()
@@ -690,7 +818,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             wobject_tuples, physical_viewport, clear_color
         )
         command_buffers += self._blender.perform_combine_pass(self._shared.device)
-        command_buffers
 
         # Collect commands and submit
         device.queue.submit(command_buffers)
@@ -758,6 +885,121 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         compute_pass.end()
 
+        # ----- shadow map pipeline
+        shadow_bind_group_layout = shadow_pipeline_module.get_shadow_bind_group_layout(
+            self._shared
+        )
+        for light in (
+            self._current_render_state.directional_lights
+            + self._current_render_state.spot_lights
+            + self._current_render_state.point_lights
+        ):
+            if light.cast_shadow:
+                update_buffer(self.device, light.shadow.uniform_buffer)
+
+                if isinstance(light, PointLight):
+                    for buffer in light.shadow.vp_matrix_buffers:
+                        update_buffer(self.device, buffer)
+
+                if not isinstance(light.shadow._map, list):
+                    shadow_maps = [light.shadow._map]
+                else:
+                    shadow_maps = light.shadow._map
+
+                for i, shadow_map in enumerate(shadow_maps):
+                    shadow_pass = command_encoder.begin_render_pass(
+                        color_attachments=[],
+                        depth_stencil_attachment={
+                            "view": shadow_map,
+                            "depth_clear_value": 1.0,
+                            "depth_load_op": wgpu.LoadOp.clear,
+                            "depth_store_op": wgpu.StoreOp.store,
+                            "stencil_load_op": wgpu.LoadOp.clear,
+                            "stencil_store_op": wgpu.StoreOp.store,
+                        },
+                    )
+
+                    if not hasattr(light.shadow, f"__shadow_bind_group_{i}"):
+
+                        buffer = (
+                            light.shadow.vp_matrix_buffers[i]._wgpu_buffer[1]
+                            if isinstance(light, PointLight)
+                            else light.shadow.uniform_buffer._wgpu_buffer[1]
+                        )
+
+                        setattr(
+                            light.shadow,
+                            f"__shadow_bind_group_{i}",
+                            self.device.create_bind_group(
+                                layout=shadow_bind_group_layout,
+                                entries=[
+                                    {
+                                        "binding": 0,
+                                        "resource": {
+                                            "buffer": buffer,
+                                            "offset": 0,
+                                            "size": 64,
+                                        },
+                                    }
+                                ],
+                            ),
+                        )
+
+                    shadow_pass.set_bind_group(
+                        0, getattr(light.shadow, f"__shadow_bind_group_{i}"), [], 0, 99
+                    )
+
+                    for wobject, wobject_pipeline in wobject_tuples:
+                        if wobject.cast_shadow:
+
+                            pinfo = wobject_pipeline["render_pipelines"][0]
+                            shadow_pipeline = pinfo.get("shadow_pipeline", None)
+                            if shadow_pipeline is not None:
+
+                                shadow_pass.set_pipeline(shadow_pipeline)
+                                for slot, vbuffer in pinfo["vertex_buffers"].items():
+                                    shadow_pass.set_vertex_buffer(
+                                        slot,
+                                        vbuffer._wgpu_buffer[1],
+                                        vbuffer.vertex_byte_range[0],
+                                        vbuffer.vertex_byte_range[1],
+                                    )
+
+                                if pinfo.get("shadow_bind_group", None) is None:
+                                    pinfo[
+                                        "shadow_bind_group"
+                                    ] = self.device.create_bind_group(
+                                        layout=shadow_bind_group_layout,
+                                        entries=[
+                                            {
+                                                "binding": 0,
+                                                "resource": {
+                                                    "buffer": wobject.uniform_buffer._wgpu_buffer[
+                                                        1
+                                                    ],
+                                                    "offset": 0,
+                                                    "size": 64,
+                                                },
+                                            }
+                                        ],
+                                    )
+
+                                shadow_pass.set_bind_group(
+                                    1, pinfo["shadow_bind_group"], [], 0, 99
+                                )
+
+                                # Draw with or without index buffer
+                                if pinfo["index_buffer"] is not None:
+                                    ibuffer = pinfo["index_buffer"]
+                                    shadow_pass.set_index_buffer(
+                                        ibuffer, "uint32"
+                                    )  # todo: uint32 or uint16
+                                    shadow_pass.draw_indexed(*pinfo["index_args"])
+                                else:
+                                    shadow_pass.draw(*pinfo["index_args"])
+
+                    shadow_pass.end()
+
         # ----- render pipelines
 
         for pass_index in range(blender.get_pass_count()):
@@ -777,6 +1019,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 },
                 occlusion_query_set=None,
             )
+
             render_pass.set_viewport(*physical_viewport)
 
             for wobject, wobject_pipeline in wobject_tuples:
@@ -806,6 +1049,27 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_pass.end()
 
         return [command_encoder.finish()]
+
+    # def _get_shadow_group_layout(self):
+    #     if not hasattr(self, "_shadow_group_layout"):
+    #         self._shadow_group_layout = self._create_shadow_group_layout()
+    #     return self._shadow_group_layout
+
+    # def _create_shadow_group_layout(self):
+    #     binding_layouts = [
+    #         {
+    #             "binding": 0,
+    #             "visibility": wgpu.ShaderStage.VERTEX,
+    #             "buffer": {"type": wgpu.BufferBindingType.uniform},
+    #         },
+    #         {
+    #             "binding": 1,
+    #             "visibility": wgpu.ShaderStage.VERTEX,
+    #             "buffer": {"type": wgpu.BufferBindingType.uniform},
+    #         }
+    #     ]
+    #     bind_group_layout = self.device.create_bind_group_layout(entries=binding_layouts)
+    #     return bind_group_layout
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data

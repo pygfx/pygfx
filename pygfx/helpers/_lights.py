@@ -15,9 +15,9 @@ from .. import (
 
 
 class PointLightHelper(Mesh):
-    def __init__(self, light, geometry=None, color=None):
+    def __init__(self, light, size=1, geometry=None, color=None):
         if geometry is None:
-            geometry = sphere_geometry(1)
+            geometry = sphere_geometry(size)
 
         material = MeshBasicMaterial()
 
@@ -74,7 +74,7 @@ class DirectionalLightHelper(WorldObject):
             LineArrowMaterial(color=light.color.hex),
         )
         length = length or 1
-        self.lines.scale.z = length
+        self.lines.scale.set(length / 5, length / 5, length)
         self.add(self.lines)
         self.update()
 

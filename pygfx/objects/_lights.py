@@ -1,7 +1,14 @@
 import math
 
+import wgpu
+
 from ._base import WorldObject
 from ..utils.color import Color
+from ..linalg import Matrix4, Vector3
+from ..cameras import Camera
+from ..resources import Buffer
+from ..cameras import OrthographicCamera, PerspectiveCamera
+from ..utils import array_from_shadertype
 
 
 class Light(WorldObject):
@@ -18,6 +25,9 @@ class Light(WorldObject):
 
         self.color = color
         self.intensity = intensity
+
+        self._cast_shadow = False
+        self._light_shadow = None
 
     @property
     def color(self):
@@ -60,6 +70,8 @@ class PointLight(Light):
         self.distance = distance
         self.decay = decay
 
+        self.shadow = PointLightShadow()
+
     @property
     def distance(self):
         return float(self.uniform_buffer.data["distance"])
@@ -91,6 +103,8 @@ class DirectionalLight(Light):
         # self.direction = direction
         self.target = WorldObject()
         self.position.set(0, 1, 0)  # default direction
+
+        self.shadow = DirectionalLightShadow()
 
 
 class SpotLight(Light):
@@ -125,6 +139,8 @@ class SpotLight(Light):
 
         self.angle = angle
         self.penumbra = penumbra
+
+        self.shadow = SpotLightShadow()
 
     @property
     def distance(self):
@@ -175,7 +191,157 @@ class SpotLight(Light):
 
 
 class AmbientLight(Light):
+    """This light globally illuminates all objects in the scene equally."""
+
     def __init__(self, color="#111111", intensity=1):
         super().__init__(color, intensity)
 
-    """This light globally illuminates all objects in the scene equally."""
+
+# shadows
+
+_look_target = Vector3()
+_proj_screen_matrix = Matrix4()
+
+
+class LightShadow:
+    uniform_type = dict(
+        light_view_proj_matrix="4x4xf4",
+        bias="f4",
+        # radius="i4",
+    )
+
+    def __init__(self, camera: Camera) -> None:
+        self.camera = camera
+
+        # self.radius = 1
+        # self.map_size = [1024, 1024]
+
+        # used for internal rendering shadow map
+        self._map = None
+        self._map_index = 0
+
+        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self.uniform_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
+
+    @property
+    def bias(self):
+        return float(self.uniform_buffer.data["bias"])
+
+    @bias.setter
+    def bias(self, value):
+        self.uniform_buffer.data["bias"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    def update_matrix(self, light: Light) -> None:
+        shadow_camera = self.camera
+        shadow_camera.position.set_from_matrix_position(light.matrix_world)
+        _look_target.set_from_matrix_position(light.target.matrix_world)
+        shadow_camera.look_at(_look_target)
+        shadow_camera.update_matrix_world()
+
+        _proj_screen_matrix.multiply_matrices(
+            shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
+        )
+
+        self.uniform_buffer.data[
+            "light_view_proj_matrix"
+        ].flat = _proj_screen_matrix.elements
+        self.uniform_buffer.update_range(0, 1)
+
+
+class DirectionalLightShadow(LightShadow):
+    def __init__(self) -> None:
+        # OrthographicCamera for directional light
+        super().__init__(OrthographicCamera(1000, 1000, 0, 500))
+
+
+class SpotLightShadow(LightShadow):
+    def __init__(self) -> None:
+        super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
+        self.focus = 1
+
+    def update_matrix(self, light):
+        camera = self.camera
+
+        fov = 180 / math.pi * 2 * light.angle * self.focus
+
+        aspect = 1
+        far = light.distance or camera.far
+
+        if fov != camera.fov or far != camera.far:
+            camera.fov = fov
+            camera.aspect = aspect
+            camera.far = far
+            camera.update_projection_matrix()
+
+        super().update_matrix(light)
+
+
+class PointLightShadow(LightShadow):
+
+    uniform_type = dict(
+        light_view_proj_matrix="6*4x4xf4",
+        bias="f4",
+    )
+
+    _cube_directions = [
+        Vector3(1, 0, 0),
+        Vector3(-1, 0, 0),
+        Vector3(0, 1, 0),
+        Vector3(0, -1, 0),
+        Vector3(0, 0, 1),
+        Vector3(0, 0, -1),
+    ]
+
+    _cube_up = [
+        Vector3(0, 1, 0),
+        Vector3(0, 1, 0),
+        Vector3(0, 1, 0),
+        Vector3(0, 1, 0),
+        Vector3(0, 0, 1),
+        Vector3(0, 0, -1),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
+
+        self.vp_matrix_buffers = []
+
+        for _ in range(6):
+            buffer = Buffer(array_from_shadertype(LightShadow.uniform_type))
+            buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
+            self.vp_matrix_buffers.append(buffer)
+
+    def update_matrix(self, light: Light) -> None:
+        camera = self.camera
+
+        far = light.distance or camera.far
+
+        if far != camera.far:
+            camera.far = far
+            camera.update_projection_matrix()
+
+        for i in range(6):
+            camera.position.set_from_matrix_position(light.matrix_world)
+
+            _look_target.copy(camera.position)
+            _look_target.add(self._cube_directions[i])
+
+            camera.up.copy(self._cube_up[i])
+
+            camera.look_at(_look_target)
+            camera.update_matrix_world()
+
+            _proj_screen_matrix.multiply_matrices(
+                camera.projection_matrix, camera.matrix_world_inverse
+            )
+
+            self.uniform_buffer.data[f"light_view_proj_matrix"][
+                i
+            ].flat = _proj_screen_matrix.elements
+            self.uniform_buffer.update_range(i, 1)
+
+            self.vp_matrix_buffers[i].data[
+                "light_view_proj_matrix"
+            ].flat = _proj_screen_matrix.elements
+            self.vp_matrix_buffers[i].update_range(0, 1)

@@ -7,7 +7,7 @@ from ...objects import Mesh, InstancedMesh
 from ...materials import MeshPhongMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
-from .shaderlibs import mesh_vertex_shader, lights, bsdfs, blinn_phong
+from .shaderlibs import mesh_vertex_shader, lights, bsdfs, blinn_phong, shadow
 
 
 @register_wgpu_render_function(Mesh, MeshPhongMaterial)
@@ -95,9 +95,7 @@ def mesh_renderer(render_info):
     shader["num_point_lights"] = len(render_info.state.point_lights)
     shader["num_spot_lights"] = len(render_info.state.spot_lights)
 
-    state_buffers = render_info.state.uniform_buffers
-
-    ambient_lights_buffer = state_buffers["ambient_lights"]
+    ambient_lights_buffer = render_info.state.ambient_lights_uniform_buffer
     if ambient_lights_buffer:
         bindings.append(
             Binding(
@@ -108,7 +106,7 @@ def mesh_renderer(render_info):
             ),
         )
 
-    directional_lights_buffer = state_buffers["directional_lights"]
+    directional_lights_buffer = render_info.state.directional_lights_uniform_buffer
     if directional_lights_buffer:
         bindings.append(
             Binding(
@@ -119,7 +117,7 @@ def mesh_renderer(render_info):
             ),
         )
 
-    point_lights_buffer = state_buffers["point_lights"]
+    point_lights_buffer = render_info.state.point_lights_uniform_buffer
     if point_lights_buffer:
         bindings.append(
             Binding(
@@ -130,7 +128,7 @@ def mesh_renderer(render_info):
             ),
         )
 
-    spot_lights_buffer = state_buffers["spot_lights"]
+    spot_lights_buffer = render_info.state.spot_lights_uniform_buffer
     if spot_lights_buffer:
         bindings.append(
             Binding(
@@ -140,6 +138,82 @@ def mesh_renderer(render_info):
                 structname="SpotLight",
             ),
         )
+
+    shader["has_shadow"] = False
+    if wobject.receive_shadow and (
+        len(render_info.state.spot_lights)
+        + len(render_info.state.point_lights)
+        + len(render_info.state.directional_lights)
+        > 0
+    ):
+        shader["has_shadow"] = True
+        bindings.append(
+            Binding(
+                f"u_shadow_sampler",
+                "shadow_sampler/comparison",
+                render_info.state.shadow_sampler,
+            )
+        )
+
+        if len(render_info.state.directional_lights) > 0:
+
+            bindings.append(
+                Binding(
+                    f"u_shadow_map_dir_light",
+                    "shadow_texture/2d-array",
+                    render_info.state.directional_lights_shadow_texture.create_view(
+                        dimension="2d-array"
+                    ),
+                )
+            )
+
+            bindings.append(
+                Binding(
+                    f"u_shadow_dir_light",
+                    "buffer/uniform",
+                    render_info.state.directional_shadows_uniform_buffer,
+                )
+            )
+
+        if len(render_info.state.spot_lights) > 0:
+
+            bindings.append(
+                Binding(
+                    f"u_shadow_map_spot_light",
+                    "shadow_texture/2d-array",
+                    render_info.state.spot_lights_shadow_texture.create_view(
+                        dimension="2d-array"
+                    ),
+                )
+            )
+
+            bindings.append(
+                Binding(
+                    f"u_shadow_spot_light",
+                    "buffer/uniform",
+                    render_info.state.spot_shadows_uniform_buffer,
+                )
+            )
+
+        if len(render_info.state.point_lights) > 0:
+
+            bindings.append(
+                Binding(
+                    f"u_shadow_map_point_light",
+                    "shadow_texture/cube-array",
+                    render_info.state.point_lights_shadow_texture.create_view(
+                        dimension="cube-array"
+                    ),
+                )
+            )
+
+            bindings.append(
+                Binding(
+                    f"u_shadow_point_light",
+                    "buffer/uniform",
+                    render_info.state.point_shadows_uniform_buffer,
+                )
+            )
 
     # Instanced meshes have an extra storage buffer that we add manually
     instance_buffer = None
@@ -212,8 +286,28 @@ class MeshPhongShader(WorldObjectShader):
             + lights
             + bsdfs
             + blinn_phong
+            + shadow
             + self.fragment_shader()
         )
+
+    # def shadow_fragment_shader(self):
+    #     return """
+    #     @stage(fragment)
+    #     fn fs_main(varyings: Varyings) -> FragmentOutput {
+    #         var depth = 1.0;
+
+    #         let point_light = u_point_lights[0];
+
+    #         let light_dir = point_light.world_transform[3].xyz - varyings.world_pos;
+
+    #         $$ if has_shadow
+    #             depth = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, 0, u_shadow_point_light[0].light_view_proj_matrix, varyings.world_pos, light_dir);
+    #         $$ endif
+
+    #         var out = get_fragment_output(varyings.position.z, vec4<f32>(depth, depth, depth, 1.0));
+    #         return out;
+    #     }
+    #     """
 
     def fragment_shader(self):
         return """
@@ -261,7 +355,7 @@ class MeshPhongShader(WorldObjectShader):
                 normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
             }
 
-            // normal = select(-normal, normal, is_front);  // do we really need this?
+            normal = select(-normal, normal, is_front);  // do we really need this?
 
             var geometry: GeometricContext;
             geometry.position = varyings.world_pos;
@@ -275,7 +369,12 @@ class MeshPhongShader(WorldObjectShader):
 
                     let point_light = u_point_lights[i];
 
-                    let light = getPointLightInfo(point_light, geometry);
+                    var light = getPointLightInfo(point_light, geometry);
+
+                    $$ if has_shadow
+                    let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, u_shadow_point_light[i].light_view_proj_matrix, geometry.position, light.direction, u_shadow_point_light[i].bias);
+                    light.color *= shadow;
+                    $$ endif
 
                     reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
 
@@ -290,7 +389,13 @@ class MeshPhongShader(WorldObjectShader):
 
                     let spot_light = u_spot_lights[i];
 
-                    let light = getSpotLightInfo(spot_light, geometry);
+                    var light = getSpotLightInfo(spot_light, geometry);
+
+                    $$ if has_shadow
+                    let coords = u_shadow_spot_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                    let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, u_shadow_spot_light[i].bias);
+                    light.color *= shadow;
+                    $$ endif
 
                     reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
 
@@ -305,7 +410,13 @@ class MeshPhongShader(WorldObjectShader):
 
                     let dir_light = u_directional_lights[i];
 
-                    let light = getDirectionalLightInfo(dir_light, geometry);
+                    var light = getDirectionalLightInfo(dir_light, geometry);
+
+                    $$ if has_shadow
+                    let coords = u_shadow_dir_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                    let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, u_shadow_dir_light[i].bias);
+                    light.color *= shadow;
+                    $$ endif
 
                     reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
 

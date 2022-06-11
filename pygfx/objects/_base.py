@@ -172,6 +172,9 @@ class WorldObject(EventTarget, ResourceContainer):
         self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
 
+        self._cast_shadow = False
+        self._receive_shadow = False
+
     def __del__(self):
         id_provider.release_id(self, self.id)
 
@@ -273,6 +276,25 @@ class WorldObject(EventTarget, ResourceContainer):
         Use ``.add()`` and ``.remove()`` to change this list.
         """
         return tuple(self._children)
+
+    @property
+    def cast_shadow(self):
+        """Whether this object casts shadows. Default False."""
+        return self._cast_shadow
+
+    @cast_shadow.setter
+    def cast_shadow(self, value):
+        self._cast_shadow = bool(value)
+
+    @property
+    def receive_shadow(self):
+        """Whether this object receive shadows. Default False."""
+        return self._receive_shadow
+
+    @receive_shadow.setter
+    def receive_shadow(self, value):
+        self._receive_shadow = bool(value)
+        self._bump_rev()  # Trigger a pipeline rebuild
 
     def add(self, *objects, before=None):
         """Adds object as child of this object. Any number of

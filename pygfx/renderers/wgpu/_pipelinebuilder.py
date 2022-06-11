@@ -7,6 +7,7 @@ import wgpu
 from ...resources import Buffer, TextureView
 from ...materials import Material, MeshPhongMaterial, MeshFlatMaterial
 
+from ._shadowutils import create_shadow_pipeline
 from ._utils import to_vertex_format, to_texture_format
 from ._update import update_resource, ALTTEXFORMAT
 from . import registry
@@ -75,7 +76,7 @@ def ensure_pipeline(renderer, wobject):
     # prematurely.
     for kind, resource in wobject_pipeline["resources"]:
         our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
-        if resource.rev > our_version:
+        if hasattr(resource, "rev") and resource.rev > our_version:
             update_resource(device, resource, kind)
 
     # Create gpu objects?
@@ -201,6 +202,12 @@ def collect_pipeline_resources(shared, wobject, pipeline_infos):
                         )
                         pipeline_resources.append(("texture", resource.texture))
                         pipeline_resources.append(("texture_view", resource))
+                    elif binding.type.startswith("shadow_texture"):
+                        assert isinstance(resource, wgpu.GPUTextureView)
+                        pipeline_resources.append(("texture_view", resource))
+                    elif binding.type.startswith("shadow_sampler"):
+                        assert isinstance(resource, wgpu.GPUSampler)
+                        pipeline_resources.append(("sampler", resource))
                     else:
                         raise RuntimeError(
                             f"Unknown resource binding {binding.name} of type {binding.type}"
@@ -399,6 +406,11 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
     if "strip" in pipeline_info["primitive_topology"]:
         strip_index_format = index_format
 
+    shadow_pipeline = None
+
+    if wobject.cast_shadow:
+        shadow_pipeline = create_shadow_pipeline(shared, vertex_buffer_descriptors)
+
     # Instantiate the pipeline objects
 
     pipelines = {}
@@ -411,6 +423,8 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
         # Compile shader
         shader = pipeline_info["render_shader"]
         wgsl = shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
+        # print("============================================")
+        # print(wgsl)
         shader_module = get_shader_module(shared, wgsl)
 
         pipelines[pass_index] = device.create_render_pipeline(
@@ -444,6 +458,7 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
         )
 
     return {
+        "shadow_pipeline": shadow_pipeline,
         "pipelines": pipelines,  # wgpu objects
         "index_args": index_args,  # tuple
         "index_buffer": wgpu_index_buffer,  # Buffer
@@ -584,7 +599,33 @@ def get_bind_groups(shared, pipeline_info):
                         },
                     }
                 )
+            elif binding.type.startswith("shadow_texture/"):
+                assert isinstance(resource, wgpu.GPUTextureView)
+                bindings.append({"binding": slot, "resource": resource})
 
+                binding_layouts.append(
+                    {
+                        "binding": slot,
+                        "visibility": wgpu.ShaderStage.FRAGMENT,
+                        "texture": {
+                            "sample_type": wgpu.TextureSampleType.depth,
+                            "view_dimension": subtype,
+                            "multisampled": False,
+                        },
+                    }
+                )
+
+            elif binding.type.startswith("shadow_sampler/"):
+                assert isinstance(resource, wgpu.GPUSampler)
+                bindings.append({"binding": slot, "resource": resource})
+
+                binding_layouts.append(
+                    {
+                        "binding": slot,
+                        "visibility": wgpu.ShaderStage.FRAGMENT,
+                        "sampler": {"type": wgpu.SamplerBindingType.comparison},
+                    }
+                )
         # Create wgpu objects
         bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
         bind_group = device.create_bind_group(

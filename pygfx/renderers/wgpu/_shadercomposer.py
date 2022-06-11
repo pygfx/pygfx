@@ -340,6 +340,10 @@ class BaseShader:
             self._define_sampler(bindgroup, index, binding)
         elif binding.type.startswith("texture"):
             self._define_texture(bindgroup, index, binding)
+        elif binding.type.startswith("shadow_texture"):
+            self._define_shadow_texture(bindgroup, index, binding)
+        elif binding.type.startswith("shadow_sampler"):
+            self._define_shadow_sampler(bindgroup, index, binding)
         else:
             raise RuntimeError(
                 f"Unknown binding {binding.name} with type {binding.type}"
@@ -552,6 +556,28 @@ class BaseShader:
         code = f"""
         @group({bindgroup}) @binding({index})
         var {binding.name}: texture_{texture.view_dim}<{format}>;
+        """.rstrip()
+        self._binding_codes[binding.name] = code
+
+    def _define_shadow_texture(self, bindgroup, index, binding):
+        texture_view = binding.resource  # wgpu.TextureView
+
+        dim = "2d"
+        if texture_view.size[2] == 1:
+            dim = "2d"
+        elif texture_view.size[2] == 6:
+            dim = "cube"
+
+        code = f"""
+        @group({bindgroup}) @binding({index})
+        var {binding.name}: texture_depth_{dim}_array;
+        """.rstrip()
+        self._binding_codes[binding.name] = code
+
+    def _define_shadow_sampler(self, bindgroup, index, binding):
+        code = f"""
+        @group({bindgroup}) @binding({index})
+        var {binding.name}: sampler_comparison;
         """.rstrip()
         self._binding_codes[binding.name] = code
 
