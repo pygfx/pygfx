@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import Enum
 from time import perf_counter_ns
 from typing import Union
-from weakref import ref, WeakValueDictionary
+from weakref import ref
 
 from wgpu.gui.base import log_exception
 
@@ -195,7 +195,7 @@ class EventTarget:
     of the mixed-in class.
     """
 
-    pointer_captures = WeakValueDictionary()
+    pointer_captures = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -273,15 +273,19 @@ class EventTarget:
             with log_exception(f"Error during handling {event_type} event"):
                 callback(event)
 
-    def set_pointer_capture(self, pointer_id):
+    def set_pointer_capture(self, pointer_id, event_root):
         """Register this object to capture any other pointer events,
         until ``release_pointer_capture`` is called or an ``pointer_up``
         event is encountered.
 
         Arguments:
             pointer_id: id of pointer to capture (mouse, touch, etc.)
+            event_root: the event root that this pointer is captured on
         """
-        EventTarget.pointer_captures[pointer_id] = self
+        EventTarget.pointer_captures[pointer_id] = (
+            ref(self),
+            (event_root and ref(event_root)) or None,
+        )
 
     def release_pointer_capture(self, pointer_id):
         """Release the pointer capture for the object that was registered
@@ -296,13 +300,12 @@ class EventTarget:
 class RootEventHandler(EventTarget):
     """Root event handler for the Pygfx event system."""
 
-    # Dictionary to track clicks, keyed on pointer_id
-    click_tracker = {}
-    # Dictionary to track targets, keyed on pointer_id
-    target_tracker = {}
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Dictionary to track clicks, keyed on pointer_id
+        self._click_tracker = {}
+        # Dictionary to track targets, keyed on pointer_id
+        self._target_tracker = {}
 
     def dispatch_event(self, event: Event):
         """Dispatch the given event.
@@ -331,12 +334,25 @@ class RootEventHandler(EventTarget):
 
         # Check for captured pointer events
         if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
-            captured_target = EventTarget.pointer_captures.get(pointer_id)
-            # Encountered an event with pointer_id while there is a
-            # capture active, so don't bubble, and retarget the event
-            # to the captured target
-            event._retarget(captured_target)
-            event.stop_propagation()
+            captured_target_ref, event_root_ref = EventTarget.pointer_captures[
+                pointer_id
+            ]
+            captured_target, event_root = (
+                captured_target_ref(),
+                event_root_ref and event_root_ref(),
+            )
+            # If the pointer was captured in the context of another root event
+            # handler, then let's not handle this event. It will be handled by
+            # the appropriate RootEventHandler
+            if event_root and event_root is not self:
+                return
+
+            if captured_target:
+                # Encountered an event with pointer_id while there is a
+                # capture active, so don't bubble, and retarget the event
+                # to the captured target
+                event._retarget(captured_target)
+                event.stop_propagation()
 
         # Current target is either something that was under the pointer, or nothing
         # in which case we set the target to the root event handler (self)
@@ -345,14 +361,12 @@ class RootEventHandler(EventTarget):
         # Update the target tracker on all `pointer_move` events
         if event.type == EventType.POINTER_MOVE:
             # Get the previous target for this pointer (if any)
-            previous_target_ref = RootEventHandler.target_tracker.get(pointer_id)
+            previous_target_ref = self._target_tracker.get(pointer_id)
             previous_target = (previous_target_ref and previous_target_ref()) or None
             # Check if the target has changed since the previous move event
             if previous_target is not target:
                 # Update the current target for this pointer
-                RootEventHandler.target_tracker[pointer_id] = (
-                    target and ref(target)
-                ) or None
+                self._target_tracker[pointer_id] = (target and ref(target)) or None
                 if previous_target is not None:
                     # Dispatch a `pointer_leave` event for the previous target
                     ev = event.copy(type="pointer_leave", target=previous_target)
@@ -366,6 +380,7 @@ class RootEventHandler(EventTarget):
             # Update the current target
             event._update_current_target(target)
             target.handle_event(event)
+            # During handling of the event, the target might capture the pointer events
             if pointer_id is not None and pointer_id in EventTarget.pointer_captures:
                 event._retarget(target)
                 event.stop_propagation()
@@ -377,7 +392,7 @@ class RootEventHandler(EventTarget):
 
         # Update the click tracker on all `pointer_down` events
         if event.type == EventType.POINTER_DOWN:
-            tracked_click = RootEventHandler.click_tracker.get(pointer_id)
+            tracked_click = self._click_tracker.get(pointer_id)
             # Check if the `pointer_id` is already tracked, targets
             # the same target and is within the DEBOUNCE time.
             # Bump the count and update the time_stamp if that is the case.
@@ -395,7 +410,7 @@ class RootEventHandler(EventTarget):
                 tracked_click["count"] += 1
                 tracked_click["time_stamp"] = event.time_stamp
             else:
-                RootEventHandler.click_tracker[pointer_id] = {
+                self._click_tracker[pointer_id] = {
                     "count": 1,
                     "time_stamp": event.time_stamp,
                     "target": (event.target and ref(event.target)) or None,
@@ -405,7 +420,7 @@ class RootEventHandler(EventTarget):
         # When the counter for the click is at 2, then a ``double_click`` event
         # is dispatched.
         elif event.type == EventType.POINTER_UP:
-            tracked_click = RootEventHandler.click_tracker.get(pointer_id)
+            tracked_click = self._click_tracker.get(pointer_id)
             if tracked_click and (
                 tracked_click["target"] is not None
                 and tracked_click["target"]() is not None

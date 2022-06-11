@@ -132,7 +132,7 @@ class OpaquePass(BasePass):
             @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            // if (color.a < 1.0) { discard; }
+            if (color.a < 1.0 - alpha_compare_epsilon ) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
             return out;
@@ -249,7 +249,7 @@ class SimpleTransparencyPass(BasePass):
             @location(0) color: vec4<f32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= 0.0) { discard; }
+            if (color.a <= alpha_compare_epsilon) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
@@ -349,7 +349,7 @@ class WeightedTransparencyPass(BasePass):
             @location(1) reveal: f32,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= 0.0) { discard; }
+            if (color.a <= alpha_compare_epsilon) { discard; }
             let premultiplied = color.rgb * color.a;
             let alpha = color.a;  // could take user-specified transmittance into account
             WEIGHT_CODE
@@ -417,7 +417,7 @@ class FrontmostTransparencyPass(BasePass):
             @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= 0.0 || color.a >= 1.0) { discard; }
+            if (color.a <= alpha_compare_epsilon || color.a >= 1.0 - alpha_compare_epsilon) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
