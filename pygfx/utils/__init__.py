@@ -1,3 +1,4 @@
+import os
 import logging
 
 import numpy as np
@@ -7,7 +8,24 @@ from . import cm  # noqa: F401
 
 
 logger = logging.getLogger("pygfx")
-logger.setLevel(logging.WARNING)
+
+
+def _set_log_level():
+    # Set default level
+    logger.setLevel(logging.WARN)
+    # Set user-specified level
+    level = os.getenv("PYGFX_LOG_LEVEL", "")
+    if level:
+        try:
+            if level.isnumeric():
+                logger.setLevel(int(level))
+            else:
+                logger.setLevel(level.upper())
+        except Exception:
+            logger.warn(f"Invalid pygfx log level: {level}")
+
+
+_set_log_level()
 
 
 def array_from_shadertype(shadertype):

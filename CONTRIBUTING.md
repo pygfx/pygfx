@@ -40,7 +40,7 @@ the main GitHub repository: https://github.com/pygfx/pygfx
   Pull requests can always be updated after they are created. Creating them
   early gives maintainers a chance to provide an early review of your code if
   that's something you're looking for.
-  
+
 No matter how you contribute, the maintainers will try their best to read,
 research, and respond to your query as soon as possible. For code changes,
 automated checks and tests will run on GitHub to provide an initial "review"
@@ -56,10 +56,16 @@ Currently, the best way to ask for help from the maintainers is to start a
 
 The pygfx project uses `black` to automatically format the code. Additionally
 `flake8` is used to ensure "clean code". Use these commands:
-    
+
 ```bash
 # Run black to auto-format all code in the current directory
 black .
 # Run flake8 to check the code quality
 flake8 .
 ```
+
+
+## Logging
+
+You can set the `PYGFX_LOG_LEVEL` environment variable to get more
+detailed log messages. Can be an int or any of the standard level names.
