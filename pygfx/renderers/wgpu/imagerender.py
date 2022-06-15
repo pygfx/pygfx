@@ -12,6 +12,7 @@ from ...resources import Texture, TextureView
 vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 
+# todo: make this BaseShader.handle_colormap(texture)
 def handle_colormap(geometry, material, shader):
     if isinstance(material.map, Texture):
         raise TypeError("material.map is a Texture, but must be a TextureView")
@@ -36,7 +37,7 @@ def handle_colormap(geometry, material, shader):
         shader["colormap_format"] = "i32"
     # Channels
     shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-    # Return bindinhs
+    # Return bindings
     return [
         Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT"),
         Binding("t_colormap", "texture/auto", material.map, "FRAGMENT"),

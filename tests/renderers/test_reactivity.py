@@ -1,31 +1,48 @@
+import logging
+
 import numpy as np
 import wgpu
 import pygfx as gfx
+import pytest
 
 
-from pygfx.renderers.wgpu._pipelinebuilder import ensure_pipeline
+gfx.logger.setLevel("NOTSET")  # delegate to root logger, so caplog works
 
-
-renderer = gfx.renderers.WgpuRenderer(
-    gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
-)
+render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
+renderer1 = gfx.renderers.WgpuRenderer(render_tex)
+renderer2 = gfx.renderers.WgpuRenderer(render_tex)
+renderer1.blend_mode = "ordered1"
+renderer2.blend_mode = "weighted"
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
 
-def peek_labels(wobject):
-    result = set()
-    for labels in wobject.tracker._trackable_changed.values():
-        result.update(labels)
-    return set(label.lstrip("!") for label in result)
+class Handler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.records = []
+
+    def emit(self, record):
+        self.records.append(record)
 
 
-def render(wobject):
-    labels = peek_labels(wobject)
+def render(wobject, renderer=renderer1):
+    # Setup logging
+    h = Handler()
+    gfx.logger.addHandler(h)
+    gfx.logger.setLevel("INFO")
+    # Render
     renderer.render(wobject, camera)
-    assert peek_labels(wobject) == set()
-    return labels
+    # Detach logging
+    gfx.logger.removeHandler(h)
+    # Detect changed labels
+    changed = set()
+    for record in h.records:
+        text = record.message
+        _, _, sub = text.partition("shader update:")
+        changed.update(sub.strip(".").replace(",", " ").split())
+    return changed
 
 
 def test_reactivity_mesh1():
@@ -43,19 +60,23 @@ def test_reactivity_mesh1():
 
     # Changing the color should not change anything
     cube.material.color = "red"
-    assert render(cube) == set()
+    changed = render(cube)
+    assert changed == set()
 
     # Changing the render mask requires new render info
     cube.render_mask = "all"
-    assert render(cube) == {"render"}
+    changed = render(cube)
+    assert changed == {"render_info"}
 
     # Changing the side requires a new pipeline
     cube.material.side = "FRONT"
-    assert render(cube) == {"pipeline"}
+    changed = render(cube)
+    assert changed == {"pipeline_info", "render_info", "compose_pipeline"}
 
     # Changing the wireframe requires a new shader
     cube.material.wireframe = True
-    assert render(cube) == {"shader"}
+    changed = render(cube)
+    assert "create" in changed
 
 
 def test_reactivity_mesh2():
@@ -68,12 +89,12 @@ def test_reactivity_mesh2():
         gfx.MeshPhongMaterial(color="#336699"),
     )
 
-    m1 = cube.material
+    m1 = cube.material  # noqa
     m2 = gfx.MeshPhongMaterial(color="#ff6699")
     m3 = gfx.MeshBasicMaterial(color="#11ff99")
 
     p1 = cube.geometry.positions
-    p2 = gfx.Buffer(cube.geometry.positions.data * 0.7)
+    p2 = gfx.Buffer(p1.data * 0.7)
 
     g1 = cube.geometry
     g2 = gfx.Geometry()
@@ -86,19 +107,25 @@ def test_reactivity_mesh2():
 
     # Swap out the material - same type
     cube.material = m2
-    assert render(cube) == {"resources"}
+    changed = render(cube)
+    assert changed == {"resources"}
 
     # Swap out the material - different type
     cube.material = m3
-    assert render(cube) == {"pipeline", "shader", "resources", "render"}
+    changed = render(cube)
+    assert "create" in changed
+    assert "compile_shader" in changed
+    assert "compose_pipeline" in changed
 
     # Swap out the positions
     cube.geometry.positions = p2
-    assert render(cube) == {"resources"}
+    changed = render(cube)
+    assert changed == {"resources"}
 
     # Swap out the whole geometry
     cube.geometry = g2
-    assert render(cube) == {"resources"}
+    changed = render(cube)
+    assert changed == {"resources"}
 
 
 def test_reactivity_mesh3():
@@ -119,16 +146,48 @@ def test_reactivity_mesh3():
 
     # Change to a colormap with the same format, all is ok!
     obj.material.map = tex2
-    assert render(obj) == {"resources"}
+    changed = render(obj)
+    assert changed == {"resources"}
 
     # Change to colormap of different format, need rebuild!
     obj.material.map = tex3
-    assert render(obj) != {"resources"}
+    changed = render(obj)
+    assert changed == {"resources", "compile_shader", "compose_pipeline"}
+
+
+def test_change_blend_mode():
+
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    # Render once
+    renderer1.blend_mode = "ordered1"
+    changed = render(cube, renderer1)
+    assert "create" in changed
+
+    # Render in another renderer
+    renderer1.blend_mode = "ordered2"
+    changed = render(cube, renderer1)
+    assert "created" in changed
+
+
+def test_two_blend_modes():
+
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    # Render once
+    changed = render(cube, renderer1)
+    assert "create" in changed
+
+    # Render in another renderer
+    changed = render(cube, renderer2)
+    assert "created" in changed
 
 
 if __name__ == "__main__":
-    for ob in list(globals().values()):
-        if callable(ob) and ob.__name__.startswith("test_"):
-            print(ob.__name__)
-            ob()
-    print("done")
+    pytest.main(["-x", __file__])

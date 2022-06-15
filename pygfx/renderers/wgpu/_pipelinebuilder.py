@@ -4,7 +4,8 @@
 import wgpu
 
 from ...resources import Buffer, TextureView
-
+from ...utils import logger
+from ._shadercomposer import BaseShader
 from ._utils import to_vertex_format, to_texture_format
 from ._update import update_resource, ALTTEXFORMAT
 from . import registry
@@ -31,7 +32,7 @@ def ensure_pipeline(renderer, wobject):
     except AttributeError:
         pipeline_container_group = PipelineContainerGroup()
         wobject._wgpu_pipeline_container_group = pipeline_container_group
-        levels = {"reset"}
+        levels = {"create"}
     else:
         # Get whether the object has changes
         levels = wobject.tracker.pop_changed()
@@ -220,9 +221,7 @@ class PipelineContainerGroup:
 
     def update(self, wobject, shared, blender, levels):
 
-        print("update", levels)
-
-        if self.render_containers is None or "reset" in levels:
+        if "create" in levels:
             self.compute_containers = []
             self.render_containers = []
 
@@ -237,12 +236,14 @@ class PipelineContainerGroup:
 
             # Call render function
             args = BuilderArgs(wobject=wobject, shared=shared)
-            with wobject.tracker.track_usage("reset"):
+            with wobject.tracker.track_usage("create"):
                 builders = renderfunc(args)
+                if isinstance(builders, BaseShader):
+                    builders = [builders]
 
             # Divide result over two bins, one for compute, and one for render
             for builder in builders:
-                assert isinstance(builder, PipelineBuilder)
+                assert isinstance(builder, BaseShader)
                 if builder.type == "compute":
                     self.compute_containers.append(ComputePipelineContainer(builder))
                 elif builder.type == "render":
@@ -250,15 +251,13 @@ class PipelineContainerGroup:
                 else:
                     raise ValueError(f"PipelineBuilder type {builder.type} is unknown.")
 
-            # Trigger builder.get_shader()
-            levels.add("shader")
-
         for container in self.compute_containers:
             container.update(wobject, shared, blender, levels)
         for container in self.render_containers:
             container.update(wobject, shared, blender, levels)
 
     def get_flat_resources(self):
+        """Get a set of the combined resources of all pipeline containers."""
         flat_resources = set()
         for container in self.compute_containers:
             flat_resources.update(container.flat_resources)
@@ -310,7 +309,7 @@ class PipelineContainer:
         self.builder = builder
 
         # The info that the builder generates
-        self.shader = None
+        self.shader_hash = b""
         self.resources = None
         self.pipeline_info = None
         self.render_info = None
@@ -327,9 +326,12 @@ class PipelineContainer:
         self.wgpu_bind_group_layouts = []
         self.wgpu_bind_groups = []
 
-        # A flat list of all buffers, textures, samplers etc. in use
+        # A flat list of all buffers, textures, samplers etc. in use.
+        # This is to allow fast iteration for updating the resources
+        # (uploading new data to buffers and textures).
         self.flat_resources = []
 
+        # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
 
     def update(self, wobject, shared, blender, levels):
@@ -342,63 +344,69 @@ class PipelineContainer:
 
         try:
             self.update_builder_data(wobject, shared, levels)
-            self.update_wgpu_data(device, blender, blend_mode)
+            self.update_wgpu_data(wobject, device, blender, blend_mode, levels)
         except Exception as err:
             self.broken = True
             raise err
         else:
             self.broken = False
 
+        logger.info(f"{wobject} shader update: {', '.join(sorted(levels))}.")
+
     def update_builder_data(self, wobject, shared, levels):
         # Update the info that applies to all passes
 
         builder_args = BuilderArgs(wobject=wobject, shared=shared)
 
-        if "shader" in levels:
-            with wobject.tracker.track_usage("shader"):
-                self.shader = self.builder.get_shader(builder_args)
-            self._check_shader()
-            levels.update(("resources", "pipeline"))
-            self.wgpu_shaders = {}
-
-        if "pipeline" in levels:
-            with wobject.tracker.track_usage("pipeline"):
-                self.pipeline_info = self.builder.get_pipeline_info(
-                    builder_args, self.shader
-                )
-            self._check_pipeline_info()
-            levels.add("render")
-            self.wgpu_pipelines = {}
-
-        if "render" in levels:
-            with wobject.tracker.track_usage("render"):
-                self.render_info = self.builder.get_render_info(
-                    builder_args, self.shader
-                )
-            self._check_render_info()
+        if "create" in levels:
+            levels.update(("resources", "pipeline_info"))
 
         if "resources" in levels:
             with wobject.tracker.track_usage("!resources"):
-                self.resources = self.builder.get_resources(builder_args, self.shader)
+                self.resources = self.builder.get_resources(builder_args)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
             self._check_resources()
             self.update_bind_groups(shared.device)
 
-    def update_wgpu_data(self, device, blender, blend_mode):
+        if "pipeline_info" in levels:
+            with wobject.tracker.track_usage("pipeline_info"):
+                self.pipeline_info = self.builder.get_pipeline_info(builder_args)
+            self._check_pipeline_info()
+            levels.add("render_info")
+            self.wgpu_pipelines = {}
+
+        if "render_info" in levels:
+            with wobject.tracker.track_usage("render_info"):
+                self.render_info = self.builder.get_render_info(builder_args)
+            self._check_render_info()
+
+    def update_wgpu_data(self, wobject, device, blender, blend_mode, levels):
         # Update the actual wgpu objects
 
+        if self.builder.hash() != self.shader_hash:
+            self.shader_hash = self.builder.hash()
+            self.wgpu_shaders = {}
+
         if self.wgpu_shaders.get(blend_mode, None) is None:
+            levels.add("compile_shader")
             self.wgpu_shaders[blend_mode] = self._compile_shaders(device, blender)
 
         if self.wgpu_pipelines.get(blend_mode, None) is None:
+            levels.add("compose_pipeline")
             shader_modules = self.wgpu_shaders[blend_mode]
             self.wgpu_pipelines[blend_mode] = self._compose_pipelines(
                 device, blender, shader_modules
             )
 
     def update_bind_groups(self, device):
+        """
+        - Calculate new bind_group_layout_descriptors (simple dicts).
+        - When this has changed from our last version, we also update
+          wgpu_bind_group_layouts and reset self.wgpu_pipelines
+        - Calculate new wgpu_bind_groups.
+        """
         binding_groups = self.resources["bindings"]
 
         # Check the bindings structure
@@ -511,7 +519,7 @@ class ComputePipelineContainer(PipelineContainer):
     # methods, not for user code. So its ok to use assertions here.
 
     def _check_shader(self):
-        assert hasattr(self.shader, "generate_wgsl")
+        assert hasattr(self.builder, "generate_wgsl")
 
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
@@ -537,7 +545,7 @@ class ComputePipelineContainer(PipelineContainer):
 
     def _compile_shaders(self, device, blender):
         """Compile the templateds wgsl shader to a wgpu shader module."""
-        wgsl = self.shader.generate_wgsl()
+        wgsl = self.builder.generate_wgsl()
         shader_module = cache.get_shader_module(device, wgsl)
         return {0: shader_module}
 
@@ -585,7 +593,7 @@ class RenderPipelineContainer(PipelineContainer):
         self.vertex_buffer_descriptors = []
 
     def _check_shader(self):
-        assert hasattr(self.shader, "generate_wgsl")
+        assert hasattr(self.builder, "generate_wgsl")
 
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
@@ -593,6 +601,8 @@ class RenderPipelineContainer(PipelineContainer):
 
         expected = {"cull_mode", "primitive_topology"}
         assert set(pipeline_info.keys()) == expected, f"{pipeline_info.keys()}"
+
+        self.update_index_buffer_format()
 
     def _check_render_info(self):
         render_info = self.render_info
@@ -623,11 +633,12 @@ class RenderPipelineContainer(PipelineContainer):
         assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
         assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"].values())
 
-        # Process resources - may invalidate the wgpu pipelines
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
 
     def update_index_buffer_format(self):
+        if not self.resources or not self.pipeline_info:
+            return
         # Set strip_index_format
         index_format = wgpu.IndexFormat.uint32
         index_buffer = self.resources["index_buffer"]
@@ -673,7 +684,7 @@ class RenderPipelineContainer(PipelineContainer):
             if not color_descriptors:
                 continue
 
-            wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
+            wgsl = self.builder.generate_wgsl(**blender.get_shader_kwargs(pass_index))
             shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
 
         return shader_modules

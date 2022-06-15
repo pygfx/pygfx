@@ -1,8 +1,8 @@
 import re
+import hashlib
 
 import jinja2
 import numpy as np
-import wgpu
 
 from ...utils import array_from_shadertype
 from ...resources import Buffer
@@ -251,6 +251,12 @@ class BaseShader:
     def __getitem__(self, key):
         return self.kwargs[key]
 
+    def hash(self):
+        """A hash of the current state of the shader. If the hash changed,
+        it's likely that the shader changed.
+        """
+        return hashlib.sha1(repr(self.kwargs).encode()).digest()
+
     def get_definitions(self):
         """Get the definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
@@ -266,7 +272,7 @@ class BaseShader:
         """Implement this to compose the total (templated) shader. This method is called
         by ``generate_wgsl()``.
         """
-        raise NotImplementedError()
+        return self.get_definitions()
 
     def generate_wgsl(self, **kwargs):
         """Generate the final WGSL with the templating resolved by jinja2.
@@ -505,15 +511,18 @@ class WorldObjectShader(BaseShader):
     def __init__(self, build_args, **kwargs):
         super().__init__(**kwargs)
 
-        self["n_clipping_planes"] = len(build_args.wobject.material.clipping_planes)
-        self["clipping_mode"] = build_args.wobject.material.clipping_mode
-
         # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
         self.kwargs.setdefault("write_pick", True)
         self.kwargs.setdefault("blending_code", "")
 
+        # Init colormap values
         self.kwargs.setdefault("colormap_dim", "")
         self.kwargs.setdefault("colormap_nchannels", 1)
+        self.kwargs.setdefault("colormap_format", "f32")
+
+        # Apply_clip_planes
+        self["n_clipping_planes"] = len(build_args.wobject.material.clipping_planes)
+        self["clipping_mode"] = build_args.wobject.material.clipping_mode
 
     def common_functions(self):
 
@@ -584,7 +593,7 @@ class WorldObjectShader(BaseShader):
                 $$ if colormap_format == 'f32'
                     let color_value = textureSample(t_colormap, s_colormap, texcoord);
                 $$ else
-                    let texcoords_dim = f32(textureDimensions(t_colormap);
+                    let texcoords_dim = f32(textureDimensions(t_colormap));
                     let texcoords_u = i32(texcoord * texcoords_dim % texcoords_dim);
                     let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
                 $$ endif

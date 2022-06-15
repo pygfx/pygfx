@@ -6,7 +6,7 @@ import numpy as np
 
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..linalg.utils import transform_aabb, aabb_to_sphere
-from ..resources import Resource, Buffer
+from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
@@ -138,6 +138,9 @@ class WorldObject(EventTarget, RootTrackable):
         # Set id
         self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
+
+    def __repr__(self):
+        return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
 
     def __del__(self):
         id_provider.release_id(self, self.id)
