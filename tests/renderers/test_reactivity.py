@@ -6,8 +6,6 @@ import pygfx as gfx
 import pytest
 
 
-gfx.logger.setLevel("NOTSET")  # delegate to root logger, so caplog works
-
 render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
 renderer1 = gfx.renderers.WgpuRenderer(render_tex)
 renderer2 = gfx.renderers.WgpuRenderer(render_tex)
@@ -173,7 +171,11 @@ def test_change_blend_mode():
     assert "created" in changed
 
 
-def test_two_blend_modes():
+def test_two_renders_with_same_blend_modes():
+    pass
+
+
+def test_two_renders_with_different_blend_modes():
 
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),

@@ -32,14 +32,14 @@ def ensure_pipeline(renderer, wobject):
     except AttributeError:
         pipeline_container_group = PipelineContainerGroup()
         wobject._wgpu_pipeline_container_group = pipeline_container_group
-        levels = {"create"}
+        changed_labels = {"create"}
     else:
         # Get whether the object has changes
-        levels = wobject.tracker.pop_changed()
+        changed_labels = wobject.tracker.pop_changed()
 
     # Update if necessary
-    if levels:
-        pipeline_container_group.update(wobject, shared, blender, levels)
+    if changed_labels:
+        pipeline_container_group.update(wobject, shared, blender, changed_labels)
 
     # Check if we need to update any resources. The number of resources
     # should typically be small. We could optimize though, e.g. to raise

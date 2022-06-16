@@ -532,5 +532,4 @@ class MeshNormalLinesShader(MeshShader):
 
 @register_wgpu_render_function(Mesh, MeshSliceMaterial)
 class MeshSliceShader(WorldObjectShader):
-    """TODO: Restore this (I accidentally deleted the code).
-    """
+    """TODO: Restore this (I accidentally deleted the code)."""
