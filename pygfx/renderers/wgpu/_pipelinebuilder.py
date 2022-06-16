@@ -17,14 +17,11 @@ visibility_all = (
 )
 
 
-def ensure_pipeline(renderer, wobject):
+def ensure_pipeline(wobject, environment, shared):
     """Update the GPU objects associated with the given wobject. Returns
     quickly if no changes are needed. Only this function is used by the
     renderer.
     """
-
-    shared = renderer._shared
-    blender = renderer._blender
 
     # Get pipeline_container
     try:
@@ -38,8 +35,7 @@ def ensure_pipeline(renderer, wobject):
         changed_labels = wobject.tracker.pop_changed()
 
     # Update if necessary
-    if changed_labels:
-        pipeline_container_group.update(wobject, shared, blender, changed_labels)
+    pipeline_container_group.update(wobject, environment, shared, changed_labels)
 
     # Check if we need to update any resources. The number of resources
     # should typically be small. We could optimize though, e.g. to raise
@@ -219,7 +215,7 @@ class PipelineContainerGroup:
     # todo: clean up per-blend_mode stuff, by keeping track of what blend modes exist
     # todo: the number of indices is defined in the pipeline info
 
-    def update(self, wobject, shared, blender, levels):
+    def update(self, wobject, environment, shared, levels):
 
         if "create" in levels:
             self.compute_containers = []
@@ -252,9 +248,9 @@ class PipelineContainerGroup:
                     raise ValueError(f"PipelineBuilder type {builder.type} is unknown.")
 
         for container in self.compute_containers:
-            container.update(wobject, shared, blender, levels)
+            container.update(wobject, environment, shared, levels)
         for container in self.render_containers:
-            container.update(wobject, shared, blender, levels)
+            container.update(wobject, environment, shared, levels)
 
     def get_flat_resources(self):
         """Get a set of the combined resources of all pipeline containers."""
@@ -334,24 +330,24 @@ class PipelineContainer:
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
 
-    def update(self, wobject, shared, blender, levels):
+    def update(self, wobject, environment, shared, levels):
 
-        device = shared.device
         if isinstance(self, RenderPipelineContainer):
-            blend_mode = blender.__class__.__name__
+            env_hash = environment.hash
         else:
-            blend_mode = ""
+            env_hash = ""
 
         try:
             self.update_builder_data(wobject, shared, levels)
-            self.update_wgpu_data(wobject, device, blender, blend_mode, levels)
+            self.update_wgpu_data(wobject, environment, shared, env_hash, levels)
         except Exception as err:
             self.broken = True
             raise err
         else:
             self.broken = False
 
-        logger.info(f"{wobject} shader update: {', '.join(sorted(levels))}.")
+        if levels:
+            logger.info(f"{wobject} shader update: {', '.join(sorted(levels))}.")
 
     def update_builder_data(self, wobject, shared, levels):
         # Update the info that applies to all passes
@@ -382,22 +378,24 @@ class PipelineContainer:
                 self.render_info = self.builder.get_render_info(builder_args)
             self._check_render_info()
 
-    def update_wgpu_data(self, wobject, device, blender, blend_mode, levels):
+    def update_wgpu_data(self, wobject, environment, shared, env_hash, levels):
         # Update the actual wgpu objects
 
         if self.builder.hash() != self.shader_hash:
             self.shader_hash = self.builder.hash()
             self.wgpu_shaders = {}
 
-        if self.wgpu_shaders.get(blend_mode, None) is None:
+        if self.wgpu_shaders.get(env_hash, None) is None:
             levels.add("compile_shader")
-            self.wgpu_shaders[blend_mode] = self._compile_shaders(device, blender)
+            self.wgpu_shaders[env_hash] = self._compile_shaders(
+                shared.device, environment.blender
+            )
 
-        if self.wgpu_pipelines.get(blend_mode, None) is None:
+        if self.wgpu_pipelines.get(env_hash, None) is None:
             levels.add("compose_pipeline")
-            shader_modules = self.wgpu_shaders[blend_mode]
-            self.wgpu_pipelines[blend_mode] = self._compose_pipelines(
-                device, blender, shader_modules
+            shader_modules = self.wgpu_shaders[env_hash]
+            self.wgpu_pipelines[env_hash] = self._compose_pipelines(
+                shared.device, environment.blender, shader_modules
             )
 
     def update_bind_groups(self, device):
@@ -749,17 +747,17 @@ class RenderPipelineContainer(PipelineContainer):
 
         return pipelines
 
-    def dispatch(self, render_pass, blender, pass_index, render_mask):
+    def dispatch(self, render_pass, environment, pass_index, render_mask):
         """Dispatch the pipeline, doing the actual rendering job."""
         if self.broken:
             return
 
         if not (render_mask & self.render_info["render_mask"]):
             return
-        blend_mode = blender.__class__.__name__
+        env_hash = environment.hash
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[blend_mode][pass_index]
+        pipeline = self.wgpu_pipelines[env_hash][pass_index]
         indices = self.render_info["indices"]
         index_buffer = self.resources["index_buffer"]
         vertex_buffers = self.resources["vertex_buffers"]

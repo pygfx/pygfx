@@ -478,6 +478,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
+        # Get environment
+        from ._environment import get_environment
+
+        environment = get_environment(self, scene)
+
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
         scene.traverse(wobject_list.append, True)
@@ -493,7 +498,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            cpcs, rpcs = ensure_pipeline(self, wobject)
+            cpcs, rpcs = ensure_pipeline(wobject, environment, self._shared)
             compute_pipeline_containers.extend(cpcs)
             render_pipeline_containers.extend(rpcs)
 
@@ -505,6 +510,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
         command_buffers += self._render_recording(
+            environment,
             compute_pipeline_containers,
             render_pipeline_containers,
             physical_viewport,
@@ -550,6 +556,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _render_recording(
         self,
+        environment,
         compute_pipeline_containers,
         render_pipeline_containers,
         physical_viewport,
@@ -597,7 +604,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             for render_pipeline_container in render_pipeline_containers:
                 render_pipeline_container.dispatch(
-                    render_pass, blender, pass_index, render_mask
+                    render_pass, environment, pass_index, render_mask
                 )
 
             render_pass.end()
