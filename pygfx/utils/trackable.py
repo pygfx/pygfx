@@ -71,6 +71,13 @@ global_context = None
 simple_value_types = None.__class__, bool, int, float, str
 
 
+def get_comp_value(value):
+    if isinstance(value, simple_value_types):
+        return value
+    else:
+        return f"id:{id(value)}"
+
+
 class Undefined:
     def __repr__(self):
         return "undefined"
@@ -228,7 +235,7 @@ class Root:
             labels.discard(label)
             if not labels:
                 self._trackable_names.pop(name)
-                self._trackable_values.pop(name, None)
+                self._trackable_values.pop(name)
 
         # Break connections with old stores
         to_remove = []
@@ -255,10 +262,8 @@ class Root:
         name = id, key
 
         self._trackable_names.setdefault(name, set()).add(label)
-        if isinstance(value, simple_value_types):
-            self._trackable_values[name] = value, value
-        else:
-            self._trackable_values.pop(name, None)
+        comp_value = get_comp_value(value)
+        self._trackable_values[name] = comp_value, comp_value
 
     def _track_set(self, name, old_value, new_value):
         # Called when a trackable, that is setup to notify this root,
@@ -295,17 +300,14 @@ class Root:
             dirty_labels_for_this_name.update(labels)
             # If the value has not changed from the previous (since the
             # last reset) we can un-mark this name as changed.
-            try:
-                ref_value, cur_value = self._trackable_values[name]
-            except KeyError:
-                pass
-            else:
-                if new_value == ref_value:
-                    dirty_labels_for_this_name.difference_update(labels)
-                    if not dirty_labels_for_this_name:
-                        self._trackable_changed.pop(name)
-                elif new_value != cur_value:
-                    self._trackable_values[name] = ref_value, new_value
+            comp_value = get_comp_value(new_value)
+            ref_value, cur_value = self._trackable_values[name]
+            if comp_value == ref_value:
+                dirty_labels_for_this_name.difference_update(labels)
+                if not dirty_labels_for_this_name:
+                    self._trackable_changed.pop(name)
+            elif comp_value != cur_value:
+                self._trackable_values[name] = ref_value, comp_value
 
     def _track_set_follow_tree(self, old_value, new_value):
 
@@ -333,12 +335,7 @@ class Root:
                 if value2 is not undefined:
                     # Rename
                     self._trackable_names[name2] = self._trackable_names.pop(name1)
-                    try:
-                        self._trackable_values[name2] = self._trackable_values.pop(
-                            name1
-                        )
-                    except KeyError:
-                        pass
+                    self._trackable_values[name2] = self._trackable_values.pop(name1)
                     try:
                         self._trackable_changed[name2] = self._trackable_changed.pop(
                             name1
