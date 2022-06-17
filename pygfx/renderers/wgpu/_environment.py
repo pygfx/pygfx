@@ -33,6 +33,9 @@ class Environment:
         # becomes inactive.
         self._pipeline_containers = weakref.WeakSet()
 
+        # Something like this
+        # self.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+
     @property
     def hash(self):
         """The full hash for this environment."""
@@ -49,6 +52,7 @@ class Environment:
         # Update
         self.blender = blender
         # Note: when we implement lights, this is where we'd update the uniform(s)
+        # self.uniform_buffer.data[xx] = yy
 
     def register_pipeline_container(self, pipeline_container):
         """Allow pipeline containers to register, so that their
@@ -64,10 +68,12 @@ class Environment:
         if renderer in renderers:
             if renderer_state_hash != self._renderer_state_hash:
                 self._renderers.discard(renderer)
+                renderers.discard(renderer)
 
         if scene in scenes:
             if scene_state_hash != self._scene_state_hash:
                 self._scenes.discard(scene)
+                scenes.discard(renderer)
 
         if not renderers or not scenes:
             self.clear()
@@ -86,8 +92,7 @@ class GlobalEnvironmentManager:
     """A little class to manage the different environments."""
 
     def __init__(self):
-        self.envs = {}  # hash -> Environment
-        self._containers = weakref.WeakSet()
+        self.environments = {}  # hash -> Environment
 
     def get_environment(self, renderer, scene):
         """The main entrypoint. The renderer uses this to obtain an
@@ -99,27 +104,33 @@ class GlobalEnvironmentManager:
         env_hash = (renderer_state_hash, scene_state_hash)
 
         # Re-use or create an environment
-        if env_hash in self.envs:
-            env = self.envs[env_hash]
+        if env_hash in self.environments:
+            env = self.environments[env_hash]
         else:
             env = Environment(renderer_state_hash, scene_state_hash)
-            self.envs[env_hash] = env
+            assert env.hash == env_hash
+            self.environments[env_hash] = env
 
         # Update the environment
         env.update(renderer, scene, **state)
 
-        # Cleanup. We remove all environments of which the associated renderer
-        # or scene no longer exists, or their states have changed
+        # Cleanup
+        self._cleanup(renderer, scene, renderer_state_hash, scene_state_hash)
+
+        return env
+
+    def _cleanup(self, renderer, scene, renderer_state_hash, scene_state_hash):
+        """ " Remove all environments of which the associated renderer
+        or scene no longer exists, or their states have changed.
+        """
         hashes_to_drop = []
-        for env_hash, env in self.envs.items():
+        for env_hash, env in self.environments.items():
             if env.check_inactive(
                 renderer, scene, renderer_state_hash, scene_state_hash
             ):
                 hashes_to_drop.append(env_hash)
         for env_hash in hashes_to_drop:
-            self.envs.pop(env_hash)
-
-        return env
+            self.environments.pop(env_hash)
 
 
 environment_manager = GlobalEnvironmentManager()

@@ -165,13 +165,13 @@ def test_change_blend_mode():
     changed = render(cube, renderer1)
     assert "create" in changed
 
-    # Render in another renderer
+    # Render with another blend mode
     renderer1.blend_mode = "ordered2"
     changed = render(cube, renderer1)
     assert changed == {'compose_pipeline', 'compile_shader'}
 
     # Render in the first again
-    # The fact that it recompiles is an indicatin that the
+    # The fact that it recompiles is an indication that the
     # environment-specific wgpu objects were cleaned up.
     renderer1.blend_mode = "ordered1"
     changed = render(cube, renderer1)
@@ -184,7 +184,20 @@ def test_change_blend_mode():
 
 
 def test_two_renders_with_same_blend_modes():
-    pass
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    # Render once
+    renderer1.blend_mode = "ordered1"
+    changed = render(cube, renderer1)
+    assert "create" in changed
+
+    # Render in another renderer, with same blend mode!
+    renderer2.blend_mode = "ordered1"
+    changed = render(cube, renderer2)
+    assert changed == set()
 
 
 def test_two_renders_with_different_blend_modes():
@@ -195,12 +208,14 @@ def test_two_renders_with_different_blend_modes():
     )
 
     # Render once
+    renderer1.blend_mode = "ordered1"
     changed = render(cube, renderer1)
     assert "create" in changed
 
     # Render in another renderer
+    renderer2.blend_mode = "ordered2"
     changed = render(cube, renderer2)
-    assert "created" in changed
+    assert changed == {'compose_pipeline', 'compile_shader'}
 
 
 if __name__ == "__main__":
