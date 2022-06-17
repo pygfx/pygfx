@@ -22,31 +22,17 @@ from ...objects import (
     WorldObject,
 )
 from ...cameras import Camera
-from ...resources import Buffer, Texture, TextureView
-from ...utils import array_from_shadertype, Color
+from ...resources import Texture, TextureView
+from ...utils import Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
 from ._update import update_buffer, update_texture, update_texture_view
-
+from ._shared import Shared
+from ._environment import get_environment
 
 logger = logging.getLogger("pygfx")
-
-
-# Definition uniform struct with standard info related to transforms,
-# provided to each shader as uniform at slot 0.
-# todo: a combined transform would be nice too, for performance
-# todo: same for ndc_to_world transform (combined inv transforms)
-stdinfo_uniform_type = dict(
-    cam_transform="4x4xf4",
-    cam_transform_inv="4x4xf4",
-    projection_transform="4x4xf4",
-    projection_transform_inv="4x4xf4",
-    physical_size="2xf4",
-    logical_size="2xf4",
-    flipped_winding="i4",  # A bool, really
-)
 
 
 def _get_sort_function(camera: Camera):
@@ -66,37 +52,6 @@ def _get_sort_function(camera: Camera):
     )
 
     return sort_func
-
-
-class SharedData:
-    """An object to store global data to share between multiple wgpu renderers.
-
-    Since renderers don't render simultaneously, they can share certain
-    resources. This safes memory, but more importantly, resources that
-    get used in wobject pipelines should be shared to avoid having to
-    constantly recompose the pipelines of wobjects that are rendered by
-    multiple renderers.
-    """
-
-    def __init__(self, canvas):
-
-        # Create adapter and device objects - there should be just one per canvas.
-        # Having a global device provides the benefit that we can draw any object
-        # anywhere.
-        # We could pass the canvas to request_adapter(), so we get an adapter that is
-        # at least compatible with the first canvas that a renderer is create for.
-        # However, passing the object has been shown to prevent the creation of
-        # a canvas (on Linux + wx), so, we never pass it for now.
-        self.adapter = wgpu.request_adapter(
-            canvas=None, power_preference="high-performance"
-        )
-        self.device = self.adapter.request_device(
-            required_features=[], required_limits={}
-        )
-
-        # Create a uniform buffer for std info
-        self.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
-        self.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
 
 class WgpuRenderer(RootEventHandler, Renderer):
@@ -169,7 +124,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Make sure we have a shared object (the first renderer create it)
         canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
         if WgpuRenderer._shared is None:
-            WgpuRenderer._shared = SharedData(canvas)
+            WgpuRenderer._shared = Shared(canvas)
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
@@ -484,8 +439,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
         # Get environment
-        from ._environment import get_environment
-
         environment = get_environment(self, scene)
 
         # Get the list of objects to render, as they appear in the scene graph
