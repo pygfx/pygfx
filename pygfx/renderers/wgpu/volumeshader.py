@@ -1,8 +1,8 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
-from .imagerender import sampled_value_to_color, handle_colormap
+from ._shader import Binding, WorldObjectShader
+from .image import sampled_value_to_color, handle_colormap
 from ._utils import to_texture_format
 from ...objects import Volume
 from ...materials import VolumeBasicMaterial, VolumeSliceMaterial, VolumeRayMaterial

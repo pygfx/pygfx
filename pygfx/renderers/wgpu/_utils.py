@@ -1,3 +1,7 @@
+"""
+Utils for the wgpu renderer.
+"""
+
 import wgpu
 
 from .. import RenderFunctionRegistry

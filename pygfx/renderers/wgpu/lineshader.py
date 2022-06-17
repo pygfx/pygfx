@@ -1,8 +1,8 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
-from .pointsrender import handle_colormap
+from ._shader import Binding, WorldObjectShader
+from .pointsshader import handle_colormap
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line

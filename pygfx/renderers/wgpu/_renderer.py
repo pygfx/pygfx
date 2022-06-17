@@ -1,3 +1,8 @@
+"""
+The main renderer class. This class wraps a canvas or texture and is
+manages the rendering process.
+"""
+
 import time
 import weakref
 import logging
@@ -22,7 +27,7 @@ from ...utils import array_from_shadertype, Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
-from ._pipelinebuilder import ensure_pipeline
+from ._pipeline import get_pipeline_container_group
 from ._update import update_buffer, update_texture, update_texture_view
 
 
@@ -498,9 +503,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            cpcs, rpcs = ensure_pipeline(wobject, environment, self._shared)
-            compute_pipeline_containers.extend(cpcs)
-            render_pipeline_containers.extend(rpcs)
+            container_group = get_pipeline_container_group(wobject, environment, self._shared)
+            compute_pipeline_containers.extend(container_group.compute_containers)
+            render_pipeline_containers.extend(container_group.render_containers)
 
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
@@ -603,7 +608,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_pass.set_viewport(*physical_viewport)
 
             for render_pipeline_container in render_pipeline_containers:
-                render_pipeline_container.dispatch(
+                render_pipeline_container.draw(
                     render_pass, environment, pass_index, render_mask
                 )
 

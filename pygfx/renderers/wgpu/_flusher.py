@@ -1,3 +1,7 @@
+"""
+The flusher is responsible for rendering the renderers internal image
+to the canvas.
+"""
 import wgpu
 import numpy as np
 

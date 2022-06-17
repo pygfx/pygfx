@@ -1,11 +1,14 @@
 """
+This module implements the PipelineContainer (for compute and render pipelines).
+This object is responsible for creating the native wgpu objects and doing the
+actual dispatching / drawing.
 """
 
 import wgpu
 
 from ...resources import Buffer, TextureView
 from ...utils import logger
-from ._shadercomposer import BaseShader
+from ._shader import BaseShader
 from ._utils import to_vertex_format, to_texture_format
 from ._update import update_resource, ALTTEXFORMAT
 from . import registry
@@ -17,7 +20,7 @@ visibility_all = (
 )
 
 
-def ensure_pipeline(wobject, environment, shared):
+def get_pipeline_container_group(wobject, environment, shared):
     """Update the GPU objects associated with the given wobject. Returns
     quickly if no changes are needed. Only this function is used by the
     renderer.
@@ -34,24 +37,20 @@ def ensure_pipeline(wobject, environment, shared):
         # Get whether the object has changes
         changed_labels = wobject.tracker.pop_changed()
 
-    # Update if necessary
+    # Update if necessary - this part is defined to be fast if there are no changes
     pipeline_container_group.update(wobject, environment, shared, changed_labels)
 
     # Check if we need to update any resources. The number of resources
-    # should typically be small. We could optimize though, e.g. to raise
-    # a flag at the wobject if its resources need an update. Or collect
-    # all resources in a scene, because some may be used by multiple wobjects.
+    # should typically be small.
+    # todo: (in another PR). Keep track of resources that need an update globally, and let the renderer flush that on each draw
     flat_resources = pipeline_container_group.get_flat_resources()
     for kind, resource in flat_resources:
         our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
         if resource.rev > our_version:
             update_resource(shared.device, resource, kind)
 
-    # Return the pipeline container objects
-    return (
-        pipeline_container_group.compute_containers,
-        pipeline_container_group.render_containers,
-    )
+    # Return the pipeline container group
+    return pipeline_container_group
 
 
 class BuilderArgs:
@@ -176,48 +175,21 @@ class Binding:
 
 
 class PipelineContainerGroup:
-    """The purpose of this object is to invoke the appropiate render function
-    to collect the builder objects, wrap these in PipelineContainer objects,
-    and store these.
+    """This is a thin wrapper for a list of compute pipeline containers,
+    and render pipeline containers. The purpose of this object is to
+    obtain the appropiate shader objects and store them.
     """
 
-    # Different levels of updates:
-    #
-    # 1. Compose pipeline info (the render function).
-    # 2. Compile shader (includes final templating).
-    # 3. Build pipeline (the wgpu object).
-    # 4. Record render bundles (we don't use this optimization yet).
-    #
-    # How changes affect these steps:
-    #
-    # * Updating uniforms and parts of buffers and textures:
-    #   no updates needed.
-    # * Resizing buffers and textures (new wgpu object, same bindgroup layout):
-    #   rerecord the render bundle.
-    # * Replacing a buffer or texture with a different layout:
-    #   rebuild pipeline.
-    # * Some material properties affect the rendering:
-    #   recompose.
-    # * Attaching a different material:
-    #   recompose.
-    # * Blend mode changes:
-    #   recompile shader.
-    # * New composition of a scene: probably a new render bundle.
-
     def __init__(self):
-        self.compute_containers = None  # List of container objects, one for each info
+        self.compute_containers = None
         self.render_containers = None
 
-    # todo: keep track of buffer/texture attributes changes
-    # todo: when a buffer is replaced, check whether the layout still matches, and then decide what to do
-    # todo: atlas should be *on* something
-    # todo: lights could be a special uniform, on the scene. with dynamic size.
-    # todo: clean up per-blend_mode stuff, by keeping track of what blend modes exist
-    # todo: the number of indices is defined in the pipeline info
+    def update(self, wobject, environment, shared, changed):
+        """Update the pipeline containers that are wrapped. Creates (and re-creates)
+        the containers if necessary.
+        """
 
-    def update(self, wobject, environment, shared, levels):
-
-        if "create" in levels:
+        if "create" in changed:
             self.compute_containers = []
             self.render_containers = []
 
@@ -245,12 +217,12 @@ class PipelineContainerGroup:
                 elif builder.type == "render":
                     self.render_containers.append(RenderPipelineContainer(builder))
                 else:
-                    raise ValueError(f"PipelineBuilder type {builder.type} is unknown.")
+                    raise ValueError(f"Shader type {builder.type} is unknown.")
 
         for container in self.compute_containers:
-            container.update(wobject, environment, shared, levels)
+            container.update(wobject, environment, shared, changed)
         for container in self.render_containers:
-            container.update(wobject, environment, shared, levels)
+            container.update(wobject, environment, shared, changed)
 
     def get_flat_resources(self):
         """Get a set of the combined resources of all pipeline containers."""
@@ -262,47 +234,14 @@ class PipelineContainerGroup:
         return flat_resources
 
 
-class PipelineBuilder:
-    """Class that render functions return (in a list).
-    Each such object represents the high level representation
-    of a pipeline. It has multiple functions that must be implemented in order
-    to generate information. When something in the world-object (or its sub objects)
-    changes, then the appropriate steps are repeated.
-
-    For type == "compute":
-
-    * get_shader(): should return a (templated) Shader object.
-    * get_pipeline_info(): an empty dict.
-    * get_render_info(): a dict with fields "indices" (3 ints)
-    * get_resources(): a dict with fields:
-      * "bindings": a dict of dicts with binding objects (group_slot -> binding_slot -> binding)
-
-    For type == "render":
-
-    * get_shader(): should return a (templated) Shader object.
-    * get_pipeline_info(): a dict with fields "cull_mode" and "primitive_topology"
-    * get_render_info(): a dict with fields "render_mask" and "indices" (list of 2 or 4 ints).
-    * get_resources(): a dict with fields:
-      * "index_buffer": None or a Buffer object.
-      * "vertex_buffer": a dict of buffer objects.
-      * "bindings": a dict of dicts with binding objects (group_slot -> binding_slot -> binding)
-
-    """
-
-    type = "unspecified"  # must be "compute" or "render"
-
-    def __setattr__(self, name, value):
-        raise AttributeError("Its not allowed to store stuff on the builder object.")
-
-
 class PipelineContainer:
     """The pipeline container stores the wgpu pipeline object as well as intermediate
     steps needed to create it. When an dependency of a certain step changes (which we track)
     then only the steps below it need to be re-run.
     """
 
-    def __init__(self, builder):
-        self.builder = builder
+    def __init__(self, shader):
+        self.shader = shader
 
         # The info that the builder generates
         self.shader_hash = b""
@@ -330,7 +269,17 @@ class PipelineContainer:
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
 
-    def update(self, wobject, environment, shared, levels):
+    def remove_env_hash(self, env_hash):
+        """Called from the environment when it becomes inactive.
+        This allows this object to remove all references to wgpu objects
+        that won't be used, reclaiming memory on both CPU and GPU.
+        """
+        self.wgpu_shaders.pop(env_hash, None)
+        self.wgpu_pipelines.pop(env_hash, None)
+
+    def update(self, wobject, environment, shared, changed):
+        """Make sure that the pipeline is up-to-date.
+        """
 
         if isinstance(self, RenderPipelineContainer):
             env_hash = environment.hash
@@ -338,65 +287,76 @@ class PipelineContainer:
             env_hash = ""
 
         try:
-            self.update_builder_data(wobject, shared, levels)
-            self.update_wgpu_data(wobject, environment, shared, env_hash, levels)
+
+            # Ensure that the information provided by the shader is up-to-date
+            if changed:
+                self.update_shader_data(wobject, shared, changed)
+            # Ensure that the (environment specific) wgpu objects are up-to-date
+            self.update_wgpu_data(wobject, environment, shared, env_hash, changed)
+
         except Exception as err:
             self.broken = True
             raise err
         else:
             self.broken = False
 
-        if levels:
-            logger.info(f"{wobject} shader update: {', '.join(sorted(levels))}.")
+        if changed:
+            logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
-    def update_builder_data(self, wobject, shared, levels):
-        # Update the info that applies to all passes
+    def update_shader_data(self, wobject, shared, changed):
+        """ Update the info that applies to all passes and environments.
+        """
 
         builder_args = BuilderArgs(wobject=wobject, shared=shared)
 
-        if "create" in levels:
-            levels.update(("resources", "pipeline_info"))
+        if "create" in changed:
+            changed.update(("resources", "pipeline_info", "render_info"))
 
-        if "resources" in levels:
+        if "resources" in changed:
             with wobject.tracker.track_usage("!resources"):
-                self.resources = self.builder.get_resources(builder_args)
+                self.resources = self.shader.get_resources(builder_args)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
             self._check_resources()
+            self.update_shader_hash()
             self.update_bind_groups(shared.device)
 
-        if "pipeline_info" in levels:
+        if "pipeline_info" in changed:
             with wobject.tracker.track_usage("pipeline_info"):
-                self.pipeline_info = self.builder.get_pipeline_info(builder_args)
+                self.pipeline_info = self.shader.get_pipeline_info(builder_args)
             self._check_pipeline_info()
-            levels.add("render_info")
+            changed.add("render_info")
             self.wgpu_pipelines = {}
 
-        if "render_info" in levels:
+        if "render_info" in changed:
             with wobject.tracker.track_usage("render_info"):
-                self.render_info = self.builder.get_render_info(builder_args)
+                self.render_info = self.shader.get_render_info(builder_args)
             self._check_render_info()
 
-    def update_wgpu_data(self, wobject, environment, shared, env_hash, levels):
-        # Update the actual wgpu objects
-
-        if self.builder.hash() != self.shader_hash:
-            self.shader_hash = self.builder.hash()
-            self.wgpu_shaders = {}
+    def update_wgpu_data(self, wobject, environment, shared, env_hash, changed):
+        """ Update the actual wgpu objects. """
 
         if self.wgpu_shaders.get(env_hash, None) is None:
-            levels.add("compile_shader")
+            environment.register_pipeline_container(self)  # allows us to clean up
+            changed.add("compile_shader")
             self.wgpu_shaders[env_hash] = self._compile_shaders(
                 shared.device, environment.blender
             )
 
         if self.wgpu_pipelines.get(env_hash, None) is None:
-            levels.add("compose_pipeline")
+            changed.add("compose_pipeline")
             shader_modules = self.wgpu_shaders[env_hash]
             self.wgpu_pipelines[env_hash] = self._compose_pipelines(
                 shared.device, environment.blender, shader_modules
             )
+
+    def update_shader_hash(self):
+        """Update the shader hash, invalidating the wgpu shaders if it changed.
+        """
+        if self.shader.hash() != self.shader_hash:
+            self.shader_hash = self.shader.hash()
+            self.wgpu_shaders = {}
 
     def update_bind_groups(self, device):
         """
@@ -516,9 +476,6 @@ class ComputePipelineContainer(PipelineContainer):
     # These checks are here to validate the output of the builder
     # methods, not for user code. So its ok to use assertions here.
 
-    def _check_shader(self):
-        assert hasattr(self.builder, "generate_wgsl")
-
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
         assert isinstance(pipeline_info, dict)
@@ -543,7 +500,7 @@ class ComputePipelineContainer(PipelineContainer):
 
     def _compile_shaders(self, device, blender):
         """Compile the templateds wgsl shader to a wgpu shader module."""
-        wgsl = self.builder.generate_wgsl()
+        wgsl = self.shader.generate_wgsl()
         shader_module = cache.get_shader_module(device, wgsl)
         return {0: shader_module}
 
@@ -590,9 +547,6 @@ class RenderPipelineContainer(PipelineContainer):
         self.strip_index_format = 0
         self.vertex_buffer_descriptors = []
 
-    def _check_shader(self):
-        assert hasattr(self.builder, "generate_wgsl")
-
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
         assert isinstance(pipeline_info, dict)
@@ -633,6 +587,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
+
 
     def update_index_buffer_format(self):
         if not self.resources or not self.pipeline_info:
@@ -682,7 +637,7 @@ class RenderPipelineContainer(PipelineContainer):
             if not color_descriptors:
                 continue
 
-            wgsl = self.builder.generate_wgsl(**blender.get_shader_kwargs(pass_index))
+            wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
             shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
 
         return shader_modules
@@ -747,8 +702,8 @@ class RenderPipelineContainer(PipelineContainer):
 
         return pipelines
 
-    def dispatch(self, render_pass, environment, pass_index, render_mask):
-        """Dispatch the pipeline, doing the actual rendering job."""
+    def draw(self, render_pass, environment, pass_index, render_mask):
+        """Draw the pipeline, doing the actual rendering job."""
         if self.broken:
             return
 

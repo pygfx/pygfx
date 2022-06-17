@@ -1,3 +1,10 @@
+"""
+Implements the base shader class. The shader is responsible for
+providing the WGSL code, as well as providing the information to connect
+it to the resources (buffers and textures) and some details on the
+pipeline and rendering.
+"""
+
 import re
 import hashlib
 
@@ -269,8 +276,8 @@ class BaseShader:
         return code
 
     def get_code(self):
-        """Implement this to compose the total (templated) shader. This method is called
-        by ``generate_wgsl()``.
+        """Implement this to compose the total (but still templated)
+        shader. This method is called by ``generate_wgsl()``.
         """
         return self.get_definitions()
 
@@ -508,6 +515,8 @@ class WorldObjectShader(BaseShader):
     that can be used in all material-specific renderers.
     """
 
+    type = "unspecified"  # must be "compute" or "render"
+
     def __init__(self, build_args, **kwargs):
         super().__init__(**kwargs)
 
@@ -640,3 +649,41 @@ class WorldObjectShader(BaseShader):
             + colormap_code
             + blending_code
         )
+
+    def get_resources(self):
+        """ A dict describing the buffers and textures used by this shader.
+
+        Fields for a compute shader:
+          * "bindings": a dict of dicts with binding objects
+            (group_slot -> binding_slot -> binding)
+
+        Fields for a render shader:
+          * "index_buffer": None or a Buffer object.
+          * "vertex_buffer": a dict of buffer objects.
+          * "bindings": a dict of dicts with binding objects
+            (group_slot -> binding_slot -> binding)
+        """
+        raise NotImplementedError()
+
+    def get_pipeline_info(self):
+        """ A dict describing pipeline details.
+
+        Fields for a compute shader: empty
+
+        Fields for a render shader:
+          * "cull_mode"
+          * "primitive_topology"
+        """
+        raise NotImplementedError()
+
+    def get_render_info():
+        """A dict describing render details.
+
+        Fields for a compute shader:
+          * "indices" (3 ints)
+
+        Fields for a render shader:
+          * "render_mask"
+          * "indices" (list of 2 or 4 ints).
+        """
+        raise NotImplementedError()
