@@ -456,7 +456,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            container_group = get_pipeline_container_group(wobject, environment, self._shared)
+            container_group = get_pipeline_container_group(
+                wobject, environment, self._shared
+            )
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
 

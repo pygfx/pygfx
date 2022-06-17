@@ -651,7 +651,7 @@ class WorldObjectShader(BaseShader):
         )
 
     def get_resources(self):
-        """ A dict describing the buffers and textures used by this shader.
+        """A dict describing the buffers and textures used by this shader.
 
         Fields for a compute shader:
           * "bindings": a dict of dicts with binding objects
@@ -666,7 +666,7 @@ class WorldObjectShader(BaseShader):
         raise NotImplementedError()
 
     def get_pipeline_info(self):
-        """ A dict describing pipeline details.
+        """A dict describing pipeline details.
 
         Fields for a compute shader: empty
 

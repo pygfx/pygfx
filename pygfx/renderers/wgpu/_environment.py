@@ -35,12 +35,11 @@ class Environment:
 
     @property
     def hash(self):
-        """ The full hash for this environment.
-        """
+        """The full hash for this environment."""
         return self._renderer_state_hash, self._scene_state_hash
 
     def update(self, renderer, scene, blender=None, lights=None):
-        """ Register a renderer and scene to use this environment,
+        """Register a renderer and scene to use this environment,
         and update it with the given state.
         """
         # Register
@@ -52,14 +51,13 @@ class Environment:
         # Note: when we implement lights, this is where we'd update the uniform(s)
 
     def register_pipeline_container(self, pipeline_container):
-        """ Allow pipeline containers to register, so that their
+        """Allow pipeline containers to register, so that their
         env-specific wgpu objects can be removed.
         """
         self._pipeline_containers.add(pipeline_container)
 
     def check_inactive(self, renderer, scene, renderer_state_hash, scene_state_hash):
-        """ So some clean-up for the given renderer and scene,
-        """
+        """So some clean-up for the given renderer and scene,"""
         renderers = set(self._renderers)
         scenes = set(self._scenes)
 
@@ -76,8 +74,7 @@ class Environment:
             return True
 
     def clear(self):
-        """ Remove all wgpu objects associated with this environment.
-        """
+        """Remove all wgpu objects associated with this environment."""
         for pipeline_container in self._pipeline_containers:
             pipeline_container.remove_env_hash(self.hash)
         self._pipeline_containers.clear()
@@ -86,14 +83,14 @@ class Environment:
 
 
 class GlobalEnvironmentManager:
-    """ A little class to manage the different environments.
-    """
+    """A little class to manage the different environments."""
+
     def __init__(self):
         self.envs = {}  # hash -> Environment
         self._containers = weakref.WeakSet()
 
     def get_environment(self, renderer, scene):
-        """ The main entrypoint. The renderer uses this to obtain an
+        """The main entrypoint. The renderer uses this to obtain an
         environment object.
         """
         renderer_state_hash, scene_state_hash, state = get_hash_and_state(
@@ -115,7 +112,9 @@ class GlobalEnvironmentManager:
         # or scene no longer exists, or their states have changed
         hashes_to_drop = []
         for env_hash, env in self.envs.items():
-            if env.check_inactive(renderer, scene, renderer_state_hash, scene_state_hash):
+            if env.check_inactive(
+                renderer, scene, renderer_state_hash, scene_state_hash
+            ):
                 hashes_to_drop.append(env_hash)
         for env_hash in hashes_to_drop:
             self.envs.pop(env_hash)

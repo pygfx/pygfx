@@ -278,8 +278,7 @@ class PipelineContainer:
         self.wgpu_pipelines.pop(env_hash, None)
 
     def update(self, wobject, environment, shared, changed):
-        """Make sure that the pipeline is up-to-date.
-        """
+        """Make sure that the pipeline is up-to-date."""
 
         if isinstance(self, RenderPipelineContainer):
             env_hash = environment.hash
@@ -304,8 +303,7 @@ class PipelineContainer:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
     def update_shader_data(self, wobject, shared, changed):
-        """ Update the info that applies to all passes and environments.
-        """
+        """Update the info that applies to all passes and environments."""
 
         builder_args = BuilderArgs(wobject=wobject, shared=shared)
 
@@ -335,7 +333,7 @@ class PipelineContainer:
             self._check_render_info()
 
     def update_wgpu_data(self, wobject, environment, shared, env_hash, changed):
-        """ Update the actual wgpu objects. """
+        """Update the actual wgpu objects."""
 
         if self.wgpu_shaders.get(env_hash, None) is None:
             environment.register_pipeline_container(self)  # allows us to clean up
@@ -352,8 +350,7 @@ class PipelineContainer:
             )
 
     def update_shader_hash(self):
-        """Update the shader hash, invalidating the wgpu shaders if it changed.
-        """
+        """Update the shader hash, invalidating the wgpu shaders if it changed."""
         if self.shader.hash() != self.shader_hash:
             self.shader_hash = self.shader.hash()
             self.wgpu_shaders = {}
@@ -587,7 +584,6 @@ class RenderPipelineContainer(PipelineContainer):
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
-
 
     def update_index_buffer_format(self):
         if not self.resources or not self.pipeline_info:

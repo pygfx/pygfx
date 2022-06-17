@@ -50,4 +50,3 @@ class Shared:
         # Create a uniform buffer for std info
         self.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
         self.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-
