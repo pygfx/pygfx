@@ -39,6 +39,7 @@ def prepare_for_cleanup():
 
     return renderer1, renderer2, scene1, scene2, env1, env2
 
+
 def test_environment_cleanup_noop():
 
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()

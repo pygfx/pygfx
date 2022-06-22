@@ -5,8 +5,10 @@ related to the environment.
 
 import weakref
 
+from ...utils.trackable import Trackable
 
-class Environment:
+
+class Environment(Trackable):
     """Object that represents the state of the "environment". With
     environment we mean the stuff - other than the wobject itself -
     that affects the rendering, like renderer state, and lights.
@@ -20,6 +22,7 @@ class Environment:
     """
 
     def __init__(self, renderer_state_hash, scene_state_hash):
+        super().__init__()
         # The hash consists of two parts. It does not change.
         self._renderer_state_hash = renderer_state_hash
         self._scene_state_hash = scene_state_hash
@@ -34,7 +37,8 @@ class Environment:
         self._pipeline_containers = weakref.WeakSet()
 
         # Something like this
-        # self.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        # self._store.spot_lights_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        # self._store.directional_lights_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
 
     @property
     def hash(self):

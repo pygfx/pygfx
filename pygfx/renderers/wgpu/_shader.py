@@ -264,7 +264,7 @@ class BaseShader:
         """
         return hashlib.sha1(repr(self.kwargs).encode()).digest()
 
-    def get_definitions(self):
+    def code_definitions(self):
         """Get the definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
@@ -517,7 +517,7 @@ class WorldObjectShader(BaseShader):
 
     type = "unspecified"  # must be "compute" or "render"
 
-    def __init__(self, build_args, **kwargs):
+    def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)
 
         # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
@@ -530,10 +530,10 @@ class WorldObjectShader(BaseShader):
         self.kwargs.setdefault("colormap_format", "f32")
 
         # Apply_clip_planes
-        self["n_clipping_planes"] = len(build_args.wobject.material.clipping_planes)
-        self["clipping_mode"] = build_args.wobject.material.clipping_mode
+        self["n_clipping_planes"] = len(wobject.material.clipping_planes)
+        self["clipping_mode"] = wobject.material.clipping_mode
 
-    def common_functions(self):
+    def code_common(self):
 
         clipping_plane_code = """
         fn check_clipping_planes(world_pos: vec3<f32>) -> bool {
@@ -650,7 +650,7 @@ class WorldObjectShader(BaseShader):
             + blending_code
         )
 
-    def get_resources(self):
+    def get_resources(self, wobject, shared):
         """A dict describing the buffers and textures used by this shader.
 
         Fields for a compute shader:
@@ -663,9 +663,15 @@ class WorldObjectShader(BaseShader):
           * "bindings": a dict of dicts with binding objects
             (group_slot -> binding_slot -> binding)
         """
-        raise NotImplementedError()
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: {},
+            },
+        }
 
-    def get_pipeline_info(self):
+    def get_pipeline_info(self, wobject, shared):
         """A dict describing pipeline details.
 
         Fields for a compute shader: empty
@@ -674,9 +680,12 @@ class WorldObjectShader(BaseShader):
           * "cull_mode"
           * "primitive_topology"
         """
-        raise NotImplementedError()
+        return {
+            "primitive_topology": 0,
+            "cull_mode": 0,
+        }
 
-    def get_render_info():
+    def get_render_info(self, wobject, shared):
         """A dict describing render details.
 
         Fields for a compute shader:
@@ -686,4 +695,7 @@ class WorldObjectShader(BaseShader):
           * "render_mask"
           * "indices" (list of 2 or 4 ints).
         """
-        raise NotImplementedError()
+        return {
+            "indices": (1, 1),
+            "render_mask": 0,
+        }

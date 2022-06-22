@@ -168,14 +168,14 @@ def test_change_blend_mode():
     # Render with another blend mode
     renderer1.blend_mode = "ordered2"
     changed = render(cube, renderer1)
-    assert changed == {'compose_pipeline', 'compile_shader'}
+    assert changed == {"compose_pipeline", "compile_shader"}
 
     # Render in the first again
     # The fact that it recompiles is an indication that the
     # environment-specific wgpu objects were cleaned up.
     renderer1.blend_mode = "ordered1"
     changed = render(cube, renderer1)
-    assert changed == {'compose_pipeline', 'compile_shader'}
+    assert changed == {"compose_pipeline", "compile_shader"}
 
     # Setting the blend_mode to the same current value should not trigger
     renderer1.blend_mode = "ordered1"
@@ -215,7 +215,7 @@ def test_two_renders_with_different_blend_modes():
     # Render in another renderer
     renderer2.blend_mode = "ordered2"
     changed = render(cube, renderer2)
-    assert changed == {'compose_pipeline', 'compile_shader'}
+    assert changed == {"compose_pipeline", "compile_shader"}
 
 
 if __name__ == "__main__":

@@ -53,19 +53,6 @@ def get_pipeline_container_group(wobject, environment, shared):
     return pipeline_container_group
 
 
-class BuilderArgs:
-    """The type of object passed to each pipeline builder method. Contains
-    all the base objects that it might need:
-    * wobject
-    * shared
-    * to come: something like scene or lights?
-    """
-
-    def __init__(self, *, wobject, shared):
-        self.wobject = wobject
-        self.shared = shared
-
-
 class Binding:
     """Simple object to hold together some information about a binding, for internal use.
 
@@ -203,21 +190,20 @@ class PipelineContainerGroup:
                 )
 
             # Call render function
-            args = BuilderArgs(wobject=wobject, shared=shared)
             with wobject.tracker.track_usage("create"):
-                builders = renderfunc(args)
-                if isinstance(builders, BaseShader):
-                    builders = [builders]
+                shaders = renderfunc(wobject)
+                if isinstance(shaders, BaseShader):
+                    shaders = [shaders]
 
             # Divide result over two bins, one for compute, and one for render
-            for builder in builders:
-                assert isinstance(builder, BaseShader)
-                if builder.type == "compute":
-                    self.compute_containers.append(ComputePipelineContainer(builder))
-                elif builder.type == "render":
-                    self.render_containers.append(RenderPipelineContainer(builder))
+            for shader in shaders:
+                assert isinstance(shader, BaseShader)
+                if shader.type == "compute":
+                    self.compute_containers.append(ComputePipelineContainer(shader))
+                elif shader.type == "render":
+                    self.render_containers.append(RenderPipelineContainer(shader))
                 else:
-                    raise ValueError(f"Shader type {builder.type} is unknown.")
+                    raise ValueError(f"Shader type {shader.type} is unknown.")
 
         for container in self.compute_containers:
             container.update(wobject, environment, shared, changed)
@@ -243,7 +229,7 @@ class PipelineContainer:
     def __init__(self, shader):
         self.shader = shader
 
-        # The info that the builder generates
+        # The info that the shader generates
         self.shader_hash = b""
         self.resources = None
         self.pipeline_info = None
@@ -305,14 +291,12 @@ class PipelineContainer:
     def update_shader_data(self, wobject, shared, changed):
         """Update the info that applies to all passes and environments."""
 
-        builder_args = BuilderArgs(wobject=wobject, shared=shared)
-
         if "create" in changed:
             changed.update(("resources", "pipeline_info", "render_info"))
 
         if "resources" in changed:
             with wobject.tracker.track_usage("!resources"):
-                self.resources = self.shader.get_resources(builder_args)
+                self.resources = self.shader.get_resources(wobject, shared)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
@@ -322,14 +306,14 @@ class PipelineContainer:
 
         if "pipeline_info" in changed:
             with wobject.tracker.track_usage("pipeline_info"):
-                self.pipeline_info = self.shader.get_pipeline_info(builder_args)
+                self.pipeline_info = self.shader.get_pipeline_info(wobject, shared)
             self._check_pipeline_info()
             changed.add("render_info")
             self.wgpu_pipelines = {}
 
         if "render_info" in changed:
             with wobject.tracker.track_usage("render_info"):
-                self.render_info = self.shader.get_render_info(builder_args)
+                self.render_info = self.shader.get_render_info(wobject, shared)
             self._check_render_info()
 
     def update_wgpu_data(self, wobject, environment, shared, env_hash, changed):
@@ -470,7 +454,7 @@ class PipelineContainer:
 class ComputePipelineContainer(PipelineContainer):
     """Container for compute pipelines."""
 
-    # These checks are here to validate the output of the builder
+    # These checks are here to validate the output of the shader
     # methods, not for user code. So its ok to use assertions here.
 
     def _check_pipeline_info(self):
@@ -539,8 +523,8 @@ class ComputePipelineContainer(PipelineContainer):
 class RenderPipelineContainer(PipelineContainer):
     """Container for render pipelines."""
 
-    def __init__(self, builder):
-        super().__init__(builder)
+    def __init__(self, shader):
+        super().__init__(shader)
         self.strip_index_format = 0
         self.vertex_buffer_descriptors = []
 

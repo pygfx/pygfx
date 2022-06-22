@@ -5,6 +5,7 @@ A global object shared by all renderers.
 import wgpu
 
 from ...resources import Buffer
+from ...utils.trackable import Trackable
 from ...utils import array_from_shadertype
 
 
@@ -23,7 +24,7 @@ stdinfo_uniform_type = dict(
 )
 
 
-class Shared:
+class Shared(Trackable):
     """An object to store global data to share between multiple wgpu
     renderers. Each renderer updates the data and then passes this down
     to the pipeline containers.
@@ -32,6 +33,7 @@ class Shared:
     """
 
     def __init__(self, canvas):
+        super().__init__()
 
         # Create adapter and device objects - there should be just one per canvas.
         # Having a global device provides the benefit that we can draw any object
@@ -40,13 +42,38 @@ class Shared:
         # at least compatible with the first canvas that a renderer is create for.
         # However, passing the object has been shown to prevent the creation of
         # a canvas (on Linux + wx), so, we never pass it for now.
-        self.adapter = wgpu.request_adapter(
+        self._adapter = wgpu.request_adapter(
             canvas=None, power_preference="high-performance"
         )
-        self.device = self.adapter.request_device(
+        self._device = self.adapter.request_device(
             required_features=[], required_limits={}
         )
 
         # Create a uniform buffer for std info
-        self.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
-        self.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+        # Stored on _store so if we'd ever swap it out for another buffer,
+        # the pipeline automatically update.
+        self._store.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+
+    @property
+    def adapter(self):
+        """The shared WGPU adapter object."""
+        return self._adapter
+
+    @property
+    def device(self):
+        """The shared WGPU device object."""
+        return self._device
+
+    @property
+    def uniform_buffer(self):
+        """The shared uniform buffer in which the renderer puts
+        information about the canvas and camera.
+        """
+        return self._store.uniform_buffer
+
+    @property
+    def glyph_atlas(self):
+        """The shared glyph atlas (a texture view)."""
+        return self._store.glyph_atlas
+        # todo: implement this as part of the text PR
