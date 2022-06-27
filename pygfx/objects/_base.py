@@ -1,6 +1,7 @@
 import random
 import weakref
 import threading
+import enum
 
 import numpy as np
 
@@ -65,6 +66,13 @@ class IdProvider:
 
 
 id_provider = IdProvider()
+
+
+class RenderMask(enum.IntFlag):
+    auto = 0
+    opaque = 1
+    transparent = 2
+    all = 3
 
 
 class WorldObject(EventTarget, RootTrackable):
@@ -204,15 +212,21 @@ class WorldObject(EventTarget, RootTrackable):
 
     @render_mask.setter
     def render_mask(self, value):
-        value = "auto" if value is None else value
-        assert isinstance(value, str), "render_mask should be string"
-        value = value.lower()
-        options = ("opaque", "transparent", "auto", "all")
-        if value not in options:
-            raise ValueError(
-                f"WorldObject.render_mask must be one of {options} not {value!r}"
+        if value is None:
+            self._store.render_mask = RenderMask(0)
+        elif isinstance(value, int):
+            self._store.render_mask = RenderMask(value)
+        elif isinstance(value, str):
+            try:
+                self._store.render_mask = RenderMask._member_map_[value.lower()]
+            except KeyError:
+                opts = set(RenderMask._member_names_)
+                msg = f"WorldObject.render_mask must be one of {opts} not {value!r}"
+                raise ValueError(msg) from None
+        else:
+            raise TypeError(
+                f"WorldObject.render_mask must be int or str, not {type(value)}"
             )
-        self._store.render_mask = value
 
     @property
     def geometry(self):

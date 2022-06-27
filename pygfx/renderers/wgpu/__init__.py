@@ -1,8 +1,11 @@
 # flake8: noqa
 
+from ...objects._base import RenderMask
 from ._utils import registry, register_wgpu_render_function
 from ._shared import stdinfo_uniform_type
 from ._renderer import WgpuRenderer
+from ._pipeline import Binding
+from ._shader import BaseShader, WorldObjectShader
 from . import meshshader
 
 # from . import linerender

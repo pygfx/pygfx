@@ -1,6 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
+from . import register_wgpu_render_function, RenderMask
 from ._shader import WorldObjectShader
 from ._pipeline import Binding
 from .pointsshader import handle_colormap
@@ -94,9 +94,12 @@ class MeshShader(WorldObjectShader):
         if self["color_mode"] == "map":
             bindings.extend(handle_colormap(geometry, material, self))
 
-        bindings1 = {}  # non-auto-generated bindings
+        # Define shader code for binding
+        bindings = {i: binding for i, binding in enumerate(bindings)}
+        self.define_bindings(0, bindings)
 
         # Instanced meshes have an extra storage buffer that we add manually
+        bindings1 = {}  # non-auto-generated bindings
         if self["instanced"]:
             bindings1[0] = Binding(
                 "s_instance_infos",
@@ -105,15 +108,11 @@ class MeshShader(WorldObjectShader):
                 "VERTEX",
             )
 
-        # Define shader code for binding
-        for i, binding in enumerate(bindings):
-            self.define_binding(0, i, binding)
-
         return {
             "index_buffer": None,
             "vertex_buffers": {},
             "bindings": {
-                0: {i: b for i, b in enumerate(bindings)},
+                0: bindings,
                 1: bindings1,
             },
         }
@@ -144,22 +143,24 @@ class MeshShader(WorldObjectShader):
         if self["instanced"]:
             n_instances = wobject.instance_buffer.nitems
 
-        m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
-        render_mask = m[wobject.render_mask]
+        render_mask = wobject.render_mask
         if not render_mask:
-            render_mask = 3
+            render_mask = RenderMask.all
             if material.is_transparent:
-                render_mask = 2
+                render_mask = RenderMask.transparent
             elif self["color_mode"] == "vertex":
                 if self["vertex_color_channels"] in (1, 3):
-                    render_mask = 1
+                    render_mask = RenderMask.opaque
             elif self["color_mode"] == "map":
                 if self["colormap_nchannels"] in (1, 3):
-                    render_mask = 1
+                    render_mask = RenderMask.opaque
             elif self["color_mode"] == "normal":
-                render_mask = 1
+                render_mask = RenderMask.opaque
             elif self["color_mode"] == "uniform":
-                render_mask = 2 if material.color_is_transparent else 1
+                if material.color_is_transparent:
+                    render_mask = RenderMask.transparent
+                else:
+                    render_mask = RenderMask.opaque
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
@@ -560,8 +561,7 @@ class MeshSliceShader(WorldObjectShader):
         )
 
         # Let the shader generate code for our bindings
-        for i, binding in bindings.items():
-            self.define_binding(0, i, binding)
+        self.define_bindings(0, bindings)
 
         return {
             "index_buffer": None,
@@ -583,13 +583,12 @@ class MeshSliceShader(WorldObjectShader):
         n = (wobject.geometry.indices.data.size // 3) * 6
 
         # As long as we don't use alpha for aa in the frag shader, we can use a render_mask of 1 or 2.
-        m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
-        render_mask = m[wobject.render_mask]
+        render_mask = wobject.render_mask
         if not render_mask:
             if material.is_transparent or material.color_is_transparent:
-                render_mask = 2
+                render_mask = RenderMask.transparent
             else:
-                render_mask = 1
+                render_mask = RenderMask.opaque
 
         return {
             "indices": (n, 1),

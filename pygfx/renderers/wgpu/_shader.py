@@ -312,6 +312,11 @@ class BaseShader:
         finally:
             self.kwargs = old_kwargs
 
+    def define_bindings(self, bindgroup, bindings_dict):
+        """Define a collection of bindings organized in a dict."""
+        for index, binding in bindings_dict.items():
+            self.define_binding(bindgroup, index, binding)
+
     def define_binding(self, bindgroup, index, binding):
         """Define a uniform, buffer, sampler, or texture. The produced wgsl
         will be part of the code returned by ``get_definitions()``. The binding

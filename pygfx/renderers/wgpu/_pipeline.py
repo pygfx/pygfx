@@ -60,9 +60,8 @@ class Binding:
     * type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
       The subtype depends on the type:
       BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
-    * resource: Buffer, Texture or TextureView.
+    * resource: the Buffer, Texture or TextureView object.
     * visibility: wgpu.ShaderStage flag
-    * kwargs: could add more specifics in the future.
     """
 
     def __init__(self, name, type, resource, visibility=visibility_render):
