@@ -7,14 +7,14 @@ of geometry or material properties.
 
 It demonstrates:
 * How you can define a new WorldObject and Material.
-* How to define a render function for it.
-* The basic working of the shader class.
+* How to define a shader for it.
 
 """
 
+import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu._shadercomposer import Binding, WorldObjectShader
+from pygfx.renderers.wgpu import Binding, WorldObjectShader, RenderMask
 
 
 # %% Custom object, material, and matching render function
@@ -28,16 +28,51 @@ class TriangleMaterial(gfx.Material):
     pass
 
 
+@gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 class TriangleShader(WorldObjectShader):
+
+    # Mark as render-shader (as opposed to compute-shader
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        # Our only resource is a uniform buffer
+        bindings = {
+            0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+        }
+        self.define_bindings(0, bindings)
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        # We draw triangles, no culling
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        # Since we draw only one triangle we need just 3 vertices.
+        # Our triangle is opaque (render mask 1).
+        return {
+            "indices": (3, 1),
+            "render_mask": RenderMask.opaque,
+        }
+
     def get_code(self):
+        # Here we put together the full (templated) shader code
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
         @stage(vertex)
         fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
@@ -49,7 +84,7 @@ class TriangleShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main() -> FragmentOutput {
@@ -58,27 +93,6 @@ class TriangleShader(WorldObjectShader):
             return out;
         }
         """
-
-
-@gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
-def triangle_render_function(render_info):
-
-    # Create shader object
-    shader = TriangleShader(render_info)
-
-    # Define binding, and make shader create code for it
-    binding = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    shader.define_binding(0, 0, binding)
-
-    # Create dict that the Pygfx renderer needs
-    return [
-        {
-            "render_shader": shader,
-            "primitive_topology": "triangle-list",
-            "indices": range(3),
-            "bindings0": [binding],
-        },
-    ]
 
 
 # %% Setup scene
