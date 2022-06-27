@@ -145,10 +145,10 @@ class MeshShader(WorldObjectShader):
             n_instances = wobject.instance_buffer.nitems
 
         m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
-
         render_mask = m[wobject.render_mask]
         if not render_mask:
-            if material.opacity < 1:
+            render_mask = 3
+            if material.is_transparent:
                 render_mask = 2
             elif self["color_mode"] == "vertex":
                 if self["vertex_color_channels"] in (1, 3):
@@ -159,7 +159,7 @@ class MeshShader(WorldObjectShader):
             elif self["color_mode"] == "normal":
                 render_mask = 1
             elif self["color_mode"] == "uniform":
-                render_mask = 1 if material.color[3] >= 1 else 2
+                render_mask = 2 if material.color_is_transparent else 1
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
@@ -583,8 +583,13 @@ class MeshSliceShader(WorldObjectShader):
         n = (wobject.geometry.indices.data.size // 3) * 6
 
         # As long as we don't use alpha for aa in the frag shader, we can use a render_mask of 1 or 2.
-        is_opaque = material.opacity >= 1 and material.color[3] >= 1
-        render_mask = 1 if is_opaque else 2
+        m = {"auto": 0, "opaque": 1, "transparent": 2, "all": 3}
+        render_mask = m[wobject.render_mask]
+        if not render_mask:
+            if material.is_transparent or material.color_is_transparent:
+                render_mask = 2
+            else:
+                render_mask = 1
 
         return {
             "indices": (n, 1),

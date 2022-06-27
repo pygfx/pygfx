@@ -2,7 +2,7 @@ import gc
 
 import wgpu
 import pygfx as gfx
-from pygfx.renderers.wgpu._environment import Environment, environment_manager
+from pygfx.renderers.wgpu._environment import environment_manager
 
 import pytest
 

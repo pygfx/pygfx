@@ -83,6 +83,14 @@ class Material(Trackable):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_range(0, 1)
+        self._store.is_transparent = value < 1
+
+    @property
+    def is_transparent(self):
+        """Whether this material is (semi) transparent because of its opacity value.
+        If False the object can still appear transparent because of its color.
+        """
+        return self._store.is_transparent
 
     @property
     def clipping_planes(self):
