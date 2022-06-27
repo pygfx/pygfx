@@ -9,45 +9,6 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 from ...resources import Texture, TextureView
 
 
-def handle_colormap(geometry, material, shader):
-    if isinstance(material.map, Texture):
-        raise TypeError("material.map is a Texture, but must be a TextureView")
-    elif not isinstance(material.map, TextureView):
-        raise TypeError("material.map must be a TextureView")
-    elif getattr(geometry, "texcoords", None) is None:
-        raise ValueError("material.map is present, but geometry has no texcoords")
-    # Dimensionality
-    shader["colormap_dim"] = view_dim = material.map.view_dim
-    if view_dim not in ("1d", "2d", "3d"):
-        raise ValueError("Unexpected texture dimension")
-    # Texture dim matches texcoords
-    vert_fmt = to_vertex_format(geometry.texcoords.format)
-    if view_dim == "1d" and "x" not in vert_fmt:
-        pass
-    elif not vert_fmt.endswith("x" + view_dim[0]):
-        raise ValueError(
-            f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
-        )
-    # Sampling type
-    fmt = to_texture_format(material.map.format)
-    if "norm" in fmt or "float" in fmt:
-        shader["colormap_format"] = "f32"
-    elif "uint" in fmt:
-        shader["colormap_format"] = "u32"
-    else:
-        shader["colormap_format"] = "i32"
-    # Channels
-    shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-    # Return bindings
-    return [
-        Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT"),
-        Binding("t_colormap", "texture/auto", material.map, "FRAGMENT"),
-        Binding(
-            "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
-        ),
-    ]
-
-
 @register_wgpu_render_function(Points, PointsMaterial)
 def points_renderer(render_info):
     """Render function capable of rendering Points."""
@@ -90,7 +51,7 @@ def points_renderer(render_info):
         )
     elif material.map is not None:
         shader["color_mode"] = "map"
-        bindings.extend(handle_colormap(geometry, material, shader))
+        bindings.extend(self.define_vertex_colormap(material.map, geometry.texcoords))
 
     if isinstance(material, GaussianPointsMaterial):
         shader["type"] = "gaussian"

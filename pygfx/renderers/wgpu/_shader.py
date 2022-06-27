@@ -12,7 +12,7 @@ import jinja2
 import numpy as np
 
 from ...utils import array_from_shadertype
-from ...resources import Buffer
+from ...resources import Buffer, Texture, TextureView
 from ._utils import to_vertex_format, to_texture_format
 
 
@@ -537,6 +537,83 @@ class WorldObjectShader(BaseShader):
         # Apply_clip_planes
         self["n_clipping_planes"] = len(wobject.material.clipping_planes)
         self["clipping_mode"] = wobject.material.clipping_mode
+
+    def define_vertex_colormap(self, texture_view, texcoords):
+        """Define the given texture view as the colormap to be used to
+        lookup the final color from the per- vertex texcoords.
+        Returns a list of bindings.
+        """
+        from ._pipeline import Binding  # avoid recursive import
+        if isinstance(texture_view, Texture):
+            raise TypeError("texture_view is a Texture, but must be a TextureView")
+        elif not isinstance(texture_view, TextureView):
+            raise TypeError("texture_view must be a TextureView")
+        elif not isinstance(texcoords, Buffer):
+            raise ValueError("texture_view is present, but texcoords must be a buffer")
+        # Dimensionality
+        self["colormap_dim"] = view_dim = texture_view.view_dim
+        if view_dim not in ("1d", "2d", "3d"):
+            raise ValueError("Unexpected texture dimension")
+        # Texture dim matches texcoords
+        vert_fmt = to_vertex_format(texcoords.format)
+        if view_dim == "1d" and "x" not in vert_fmt:
+            pass
+        elif not vert_fmt.endswith("x" + view_dim[0]):
+            raise ValueError(
+                f"texcoords {texcoords.format} does not match texture_view {view_dim}"
+            )
+        # Sampling type
+        fmt = to_texture_format(texture_view.format)
+        if "norm" in fmt or "float" in fmt:
+            self["colormap_format"] = "f32"
+        elif "uint" in fmt:
+            self["colormap_format"] = "u32"
+        else:
+            self["colormap_format"] = "i32"
+        # Channels
+        self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        # Return bindings
+        return [
+            Binding("s_colormap", "sampler/filtering", texture_view, "FRAGMENT"),
+            Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
+            Binding(
+                "s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"
+            ),
+        ]
+
+    def define_img_colormap(self, texture_view):
+        """Define the given texture view as the colormap to be used to
+        lookup the final color from the image date. Returns a list of bindings.
+        """
+        from ._pipeline import Binding  # avoid recursive import
+        if isinstance(texture_view, Texture):
+            raise TypeError("texture_view is a Texture, but must be a TextureView")
+        elif not isinstance(texture_view, TextureView):
+            raise TypeError("texture_view must be a TextureView")
+        # Dimensionality
+        self["colormap_dim"] = view_dim = texture_view.view_dim
+        if texture_view.view_dim not in ("1d", "2d", "3d"):
+            raise ValueError("Unexpected colormap texture dimension")
+        # Texture dim matches image channels
+        if int(view_dim[0]) != self["img_nchannels"]:
+            raise ValueError(
+                f"Image channels {self['img_nchannels']} does not match texture_view {view_dim}"
+            )
+        # Sampling type
+        fmt = to_texture_format(texture_view.format)
+        if "norm" in fmt or "float" in fmt:
+            self["colormap_format"] = "f32"
+        elif "uint" in fmt:
+            self["colormap_format"] = "u32"
+        else:
+            self["colormap_format"] = "i32"
+        # Channels
+        self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        # Return bindings
+        return [
+            Binding("s_colormap", "sampler/filtering", texture_view, "FRAGMENT"),
+            Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
+        ]
 
     def code_common(self):
 

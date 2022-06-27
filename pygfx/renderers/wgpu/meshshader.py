@@ -1,7 +1,6 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from .pointsshader import handle_colormap
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -90,7 +89,7 @@ class MeshShader(WorldObjectShader):
                 )
             )
         if self["color_mode"] == "map":
-            bindings.extend(handle_colormap(geometry, material, self))
+            bindings.extend(self.define_vertex_colormap(material.map, geometry.texcoords))
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

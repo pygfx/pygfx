@@ -2,7 +2,6 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shader import Binding, WorldObjectShader
-from .image import sampled_value_to_color, handle_colormap
 from ._utils import to_texture_format
 from ...objects import Volume
 from ...materials import VolumeBasicMaterial, VolumeSliceMaterial, VolumeRayMaterial
@@ -77,7 +76,7 @@ def volume_renderer(render_info):
 
     # If a colormap is applied ...
     if material.map is not None:
-        bindings.extend(handle_colormap(geometry, material, shader))
+        bindings.extend(self.define_img_colormap(material.map))
 
     # Let the shader generate code for our bindings
     for i, binding in enumerate(bindings):

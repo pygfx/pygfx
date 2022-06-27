@@ -2,7 +2,6 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function
 from ._shader import Binding, WorldObjectShader
-from .pointsshader import handle_colormap
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line
@@ -99,7 +98,7 @@ def line_renderer(render_info):
         )
     elif material.map is not None:
         shader["color_mode"] = "map"
-        bindings.extend(handle_colormap(geometry, material, shader))
+        bindings.extend(self.define_vertex_colormap(material.map))
 
     # Triage over materials
     if isinstance(material, LineArrowMaterial):
@@ -599,7 +598,7 @@ def thin_line_renderer(render_info):
         vertex_buffers[1] = geometry.colors
     elif material.map is not None:
         shader["color_mode"] = "map"
-        bindings.extend(handle_colormap(geometry, material, shader))
+        bindings.extend(self.define_vertex_colormap(material.map))
         # This shader uses vertex buffers
         bindings.pop(-1)
         vertex_buffers[1] = geometry.texcoords
