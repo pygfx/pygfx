@@ -1,8 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, RenderMask
-from ._shader import WorldObjectShader
-from ._pipeline import Binding
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from .pointsshader import handle_colormap
 from ...objects import Mesh, InstancedMesh
 from ...materials import (

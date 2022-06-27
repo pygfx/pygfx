@@ -1,8 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shader import WorldObjectShader
-from ._pipeline import Binding
+from . import register_wgpu_render_function, WorldObjectShader, Binding
 from ._utils import to_texture_format
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial

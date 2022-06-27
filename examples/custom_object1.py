@@ -31,7 +31,7 @@ class TriangleMaterial(gfx.Material):
 @gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 class TriangleShader(WorldObjectShader):
 
-    # Mark as render-shader (as opposed to compute-shader
+    # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
     def get_resources(self, wobject, shared):

@@ -69,3 +69,9 @@ flake8 .
 
 You can set the `PYGFX_LOG_LEVEL` environment variable to get more
 detailed log messages. Can be an int or any of the standard level names.
+
+
+## Internal API's
+
+See https://pygfx.readthedocs.io/en/latest/dev.html for more info
+on using the internal API's for e.g. implementing custom materials.

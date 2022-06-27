@@ -1,5 +1,5 @@
 """
-The main renderer class. This class wraps a canvas or texture and is
+The main renderer class. This class wraps a canvas or texture and it
 manages the rendering process.
 """
 

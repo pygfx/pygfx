@@ -74,6 +74,6 @@ class Shared(Trackable):
 
     @property
     def glyph_atlas(self):
-        """The shared glyph atlas (a texture view)."""
+        """The shared glyph atlas (a texture view). TODO"""
         return self._store.glyph_atlas
         # todo: implement this as part of the text PR
