@@ -1,9 +1,7 @@
-from pygfx.renderers.wgpu import _shadercomposer as shadercomposer
+from pygfx.renderers.wgpu import _shaderbase as shadercomposer
+from pygfx.renderers.wgpu import Binding
 from pytest import raises
 import numpy as np
-
-
-Binding = shadercomposer.Binding
 
 
 def test_templating():
@@ -85,7 +83,7 @@ def test_uniform_definitions():
     struct = dict(foo="f4", bar="i4")
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.get_definitions().strip()
+        shader.code_definitions().strip()
         == """
         struct Struct_zz {
             foo: f32,
@@ -101,7 +99,7 @@ def test_uniform_definitions():
     struct = dict(foo="4xf4", bar="2xi4")
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.get_definitions().strip()
+        shader.code_definitions().strip()
         == """
         struct Struct_zz {
             foo: vec4<f32>,
@@ -117,7 +115,7 @@ def test_uniform_definitions():
     struct = dict(foo="4x4xf4", bar="3x2xi4")
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.get_definitions().strip()
+        shader.code_definitions().strip()
         == """
         struct Struct_zz {
             foo: mat4x4<f32>,

@@ -4,7 +4,12 @@ import wgpu
 import pygfx as gfx
 from pygfx.renderers.wgpu._environment import environment_manager
 
+from testutils import can_use_wgpu_lib
 import pytest
+
+
+if not can_use_wgpu_lib:
+    pytest.skip("Skipping tests that need the wgpu lib", allow_module_level=True)
 
 
 render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
