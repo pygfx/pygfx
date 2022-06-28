@@ -12,8 +12,8 @@ from ._shader import BaseShader, WorldObjectShader
 from . import backgroundshader
 from . import meshshader
 from . import lineshader
+from . import pointsshader
 
-# from . import pointsrender
 # from . import imagerender
 # from . import volumerender
 
