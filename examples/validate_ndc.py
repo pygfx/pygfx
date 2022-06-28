@@ -9,7 +9,7 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 # test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run
-from pygfx.renderers.wgpu._shadercomposer import Binding, WorldObjectShader
+from pygfx.renderers.wgpu import Binding, WorldObjectShader
 import pygfx as gfx
 
 
@@ -21,16 +21,40 @@ class SquareMaterial(gfx.Material):
     pass
 
 
+@gfx.renderers.wgpu.register_wgpu_render_function(Square, SquareMaterial)
 class SquareShader(WorldObjectShader):
+    def get_resources(self, wobject, shared):
+        binding = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
+        self.define_binding(0, 0, binding)
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: {0: binding},
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": "triangle-strip",
+            "cull_mode": 0,
+        }
+
+    def get_render_info(self, wobject, shared):
+        return {
+            "indices": (4, 1),
+            "render_mask": 3,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
         @stage(vertex)
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
@@ -48,7 +72,7 @@ class SquareShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -57,21 +81,6 @@ class SquareShader(WorldObjectShader):
             return out;
         }
         """
-
-
-@gfx.renderers.wgpu.register_wgpu_render_function(Square, SquareMaterial)
-def square_render_function(render_info):
-    shader = SquareShader(render_info)
-    binding = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    shader.define_binding(0, 0, binding)
-    return [
-        {
-            "render_shader": shader,
-            "primitive_topology": "triangle-strip",
-            "indices": range(4),
-            "bindings0": {0: binding},
-        },
-    ]
 
 
 # %% Setup scene

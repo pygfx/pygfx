@@ -94,7 +94,7 @@ class PointsShader(WorldObjectShader):
                 if self["colormap_nchannels"] in (1, 3):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] == "uniform":
-                if material.is_color_transparent:
+                if material.color_is_transparent:
                     render_mask = RenderMask.transparent
                 else:
                     render_mask = RenderMask.opaque

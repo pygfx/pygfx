@@ -636,7 +636,7 @@ class ThinLineShader(WorldObjectShader):
             if wobject.material.is_transparent:
                 render_mask = RenderMask.transparent
             if self["color_mode"] == "uniform":
-                if wobject.material.is_color_transparent:
+                if wobject.material.color_is_transparent:
                     render_mask = RenderMask.transparent
                 else:
                     render_mask = RenderMask.opaque

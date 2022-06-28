@@ -420,8 +420,8 @@ class WorldObject(EventTarget, RootTrackable):
         """Returns a world-space axis-aligned bounding box for this object's
         geometry and all of its children (recursively)."""
         boxes = []
-        if self._geometry:
-            aabb = self._geometry.bounding_box()
+        if self._store.geometry:
+            aabb = self._store.geometry.bounding_box()
             aabb_world = transform_aabb(aabb, self._matrix_world.to_ndarray())
             boxes.append(aabb_world)
         if self._children:

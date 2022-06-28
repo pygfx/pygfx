@@ -9,7 +9,7 @@ class WorldObjectShader(BaseShader):
     functions that can be used in all material-specific renderers.
     """
 
-    type = "unspecified"  # must be "compute" or "render"
+    type = "render"  # must be "compute" or "render"
 
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)

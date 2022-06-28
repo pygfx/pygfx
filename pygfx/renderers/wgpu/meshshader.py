@@ -484,7 +484,7 @@ class MeshNormalLinesShader(MeshShader):
         d["indices"] = wobject.geometry.positions.nitems * 2, d["indices"][1]
         return d
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
