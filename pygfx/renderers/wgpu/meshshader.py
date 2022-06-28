@@ -89,7 +89,9 @@ class MeshShader(WorldObjectShader):
                 )
             )
         if self["color_mode"] == "map":
-            bindings.extend(self.define_vertex_colormap(material.map, geometry.texcoords))
+            bindings.extend(
+                self.define_vertex_colormap(material.map, geometry.texcoords)
+            )
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
