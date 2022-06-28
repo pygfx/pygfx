@@ -46,6 +46,12 @@ class LineMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
+        self._store.color_is_transparent = color.a < 1
+
+    @property
+    def color_is_transparent(self):
+        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
+        return self._store.color_is_transparent
 
     @property
     def aa(self):

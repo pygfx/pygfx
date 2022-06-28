@@ -1,7 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shader import Binding, WorldObjectShader
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line
@@ -42,130 +41,134 @@ renderer_uniform_type = dict(last_i="i4")
 
 
 @register_wgpu_render_function(Line, LineMaterial)
-def line_renderer(render_info):
-    """Render function capable of rendering lines."""
-
-    wobject = render_info.wobject
-    material = wobject.material
-    geometry = wobject.geometry
-    shader = LineShader(
-        render_info,
-        vertex_color_channels=0,
-        aa=material.aa,
-    )
-
-    assert isinstance(material, LineMaterial)
-
-    positions1 = geometry.positions
-
-    # With vertex buffers, if a shader input is vec4, and the vbo has
-    # Nx2, the z and w element will be zero. This works, because for
-    # vertex buffers we provide additional information about the
-    # striding of the data.
-    # With storage buffers (aka SSBO) we just have some bytes that we
-    # read from/write to in the shader. This is more free, but it means
-    # that the data in the buffer must match with what the shader
-    # expects. In addition to that, there's this thing with vec3's which
-    # are padded to 16 bytes. So we either have to require our users
-    # to provide Nx4 data, or read them as an array of f32.
-    # Anyway, extra check here to make sure the data matches!
-    # todo: data.something in here, which means we assume numpy-ish arrays
-    if positions1.data.shape[1] != 3:
-        raise ValueError(
-            "For rendering (thick) lines, the geometry.positions must be Nx3."
-        )
-
-    uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
-    uniform_buffer.data["last_i"] = positions1.nitems - 1
-
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-        Binding("u_renderer", "buffer/uniform", uniform_buffer),
-        Binding("s_positions", "buffer/read_only_storage", positions1, "VERTEX"),
-    ]
-
-    # Per-vertex color, colormap, or a plane color?
-    shader["color_mode"] = "uniform"
-    if material.vertex_colors:
-        shader["color_mode"] = "vertex"
-        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
-        if nchannels not in (1, 2, 3, 4):
-            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        bindings.append(
-            Binding("s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX")
-        )
-    elif material.map is not None:
-        shader["color_mode"] = "map"
-        bindings.extend(self.define_vertex_colormap(material.map))
-
-    # Triage over materials
-    if isinstance(material, LineArrowMaterial):
-        shader["line_type"] = "arrow"
-        n = (positions1.nitems // 2) * 2 * 4
-    elif isinstance(material, LineSegmentMaterial):
-        shader["line_type"] = "segment"
-        n = (positions1.nitems // 2) * 2 * 5
-    else:
-        shader["line_type"] = "line"
-        n = positions1.nitems * 5
-
-    # Let the shader generate code for our bindings
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
-
-    # Determine in what render passes this objects must be rendered
-    suggested_render_mask = 3
-    if material.opacity < 1:
-        suggested_render_mask = 2
-    elif shader["color_mode"] == "uniform":
-        if material.color[3] < 1:
-            suggested_render_mask = 2
-        elif material.aa:
-            suggested_render_mask = 3
-        else:
-            suggested_render_mask = 1
-    elif shader["color_mode"] == "vertex":
-        if shader["vertex_color_channels"] in (2, 4):
-            suggested_render_mask = 3
-        elif material.aa:
-            suggested_render_mask = 3
-        else:
-            suggested_render_mask = 1
-    elif shader["color_mode"] == "map":
-        if shader["colormap_nchannels"] in (2, 4):
-            suggested_render_mask = 3
-        elif material.aa:
-            suggested_render_mask = 3
-        else:
-            suggested_render_mask = 1
-
-    # Done
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "indices": (n, 1),
-            "bindings0": bindings,
-            "target": None,  # default
-        },
-    ]
-
-
 class LineShader(WorldObjectShader):
+
+    type = "render"
+
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["line_type"] = "line"
+
+    def get_resources(self, wobject, shared):
+        material = wobject.material
+        geometry = wobject.geometry
+
+        self["vertex_color_channels"] = 0
+        self["aa"] = material.aa
+
+        positions1 = geometry.positions
+
+        # With vertex buffers, if a shader input is vec4, and the vbo has
+        # Nx2, the z and w element will be zero. This works, because for
+        # vertex buffers we provide additional information about the
+        # striding of the data.
+        # With storage buffers (aka SSBO) we just have some bytes that we
+        # read from/write to in the shader. This is more free, but it means
+        # that the data in the buffer must match with what the shader
+        # expects. In addition to that, there's this thing with vec3's which
+        # are padded to 16 bytes. So we either have to require our users
+        # to provide Nx4 data, or read them as an array of f32.
+        # Anyway, extra check here to make sure the data matches!
+        # todo: data.something in here, which means we assume numpy-ish arrays
+        if positions1.data.shape[1] != 3:
+            raise ValueError(
+                "For rendering (thick) lines, the geometry.positions must be Nx3."
+            )
+
+        uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
+        uniform_buffer.data["last_i"] = positions1.nitems - 1
+
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+            Binding("u_renderer", "buffer/uniform", uniform_buffer),
+            Binding("s_positions", "buffer/read_only_storage", positions1, "VERTEX"),
+        ]
+
+        # Per-vertex color, colormap, or a plane color?
+        self["color_mode"] = "uniform"
+        if material.vertex_colors:
+            self["color_mode"] = "vertex"
+            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+            bindings.append(
+                Binding(
+                    "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
+                )
+            )
+        elif material.map is not None:
+            self["color_mode"] = "map"
+            bindings.extend(self.define_vertex_colormap(material.map))
+
+        bindings = {i: b for i, b in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def _get_n(self, positions):
+        return positions.nitems * 5
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+        # Determine how many vertices are needed
+        n = self._get_n(wobject.geometry.positions)
+        # Determine in what render passes this objects must be rendered
+        render_mask = wobject.render_mask
+        if not render_mask:
+            render_mask = RenderMask.all
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif self["color_mode"] == "uniform":
+                if material.color_is_transparent:
+                    render_mask = RenderMask.transparent
+                elif material.aa:
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "vertex":
+                if self["vertex_color_channels"] in (2, 4):
+                    render_mask = RenderMask.all
+                elif material.aa:
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "map":
+                if self["colormap_nchannels"] in (2, 4):
+                    render_mask = RenderMask.all
+                elif material.aa:
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
+        return {
+            "indices": (n, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.more_definitions()
-            + self.common_functions()
-            + self.helpers()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_more_definitions()
+            + self.code_common()
+            + self.code_helpers()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def more_definitions(self):
+    def code_more_definitions(self):
         return """
 
         let PI: f32 = 3.14159265359;
@@ -188,7 +191,7 @@ class LineShader(WorldObjectShader):
         };
         """
 
-    def helpers(self):
+    def code_helpers(self):
         return """
 
         fn get_point_ndc(index:i32) -> vec4<f32> {
@@ -198,13 +201,8 @@ class LineShader(WorldObjectShader):
         }
         """
 
-    def vertex_shader(self):
-        if self.kwargs["line_type"] == "arrow":
-            core = self.vertex_shader_arrow()
-        elif self.kwargs["line_type"] == "segment":
-            core = self.vertex_shader_segment()
-        else:
-            core = self.vertex_shader_line()
+    def code_vertex(self):
+        core = self.code_vertex_core()
 
         return (
             core
@@ -261,7 +259,7 @@ class LineShader(WorldObjectShader):
         """
         )
 
-    def vertex_shader_line(self):
+    def code_vertex_core(self):
         return """
         fn get_vertex_result(
             index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
@@ -384,117 +382,7 @@ class LineShader(WorldObjectShader):
         }
         """
 
-    def vertex_shader_segment(self):
-        return """
-        fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
-        ) -> VertexFuncOutput {
-            // Similar to the regular line shader, except we only draw segments,
-            // using 5 vertices per node. Four for the segments, and 1 to create
-            // a degenerate triangle for the space in between. So we only draw
-            // caps, no joins.
-
-            let i = index / 5;
-
-            // Sample the current node and either of its neighbours
-            let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let npos2 = get_point_ndc(i);
-            let npos3 = get_point_ndc(i3);
-            // Convert to logical screen coordinates, because that's were the lines work
-            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
-
-            // Get vectors normal to the line segments
-            var na: vec2<f32>;
-            var nb: vec2<f32>;
-            var nc: vec2<f32>;
-            var nd: vec2<f32>;
-
-            // Get vectors normal to the line segments
-            if ((i % 2) == 0) {
-                // A left-cap
-                let v = normalize(ppos3.xy - ppos2.xy);
-                nc = vec2<f32>(v.y, -v.x);
-                nd = -nc;
-                na = nc - v;
-                nb = nd - v;
-            } else {
-                // A right cap
-                let v = normalize(ppos2.xy - ppos3.xy);
-                na = vec2<f32>(v.y, -v.x);
-                nb = -na;
-                nc = na + v;
-                nd = nb + v;
-            }
-
-            // Select the correct vector
-            // Note the replicated vertices to create degenerate triangles
-            var vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
-            let the_vec = vectors[index % 10] * half_thickness;
-            let the_pos = ppos2 + the_vec;
-
-            var out : VertexFuncOutput;
-            out.i = i;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
-            out.thickness_p = half_thickness * 2.0 * l2p;
-            out.vec_from_node_p = the_vec * l2p;
-            return out;
-        }
-        """
-
-    def vertex_shader_arrow(self):
-        return """
-        fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
-        ) -> VertexFuncOutput {
-            // Similar to the normal vertex shader, except we only draw segments,
-            // using 3 vertices per node: 6 per segment. 4 for the arrow, and 2
-            // to create a degenerate triangle for the space in between. So we
-            // only draw caps, no joins.
-
-            let i = index / 3;
-
-            // Sample the current node and either of its neighbours
-            let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let npos2 = get_point_ndc(i);
-            let npos3 = get_point_ndc(i3);
-            // Convert to logical screen coordinates, because that's were the lines work
-            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
-
-            // Get vectors normal to the line segments
-            var na: vec2<f32>;
-            var nb: vec2<f32>;
-
-            // Get vectors normal to the line segments
-            if ((i % 2) == 0) {
-                // A left-cap
-                let v = ppos3.xy - ppos2.xy;
-                na = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
-                nb = v;
-            } else {
-                // A right cap
-                let v = ppos2.xy - ppos3.xy;
-                na = -0.75 * v;
-                nb = normalize(vec2<f32>(-v.y, v.x)) * half_thickness - v;
-            }
-
-            // Select the correct vector
-            // Note the replicated vertices to create degenerate triangles
-            var vectors = array<vec2<f32>,6>(na, na, nb, na, nb, nb);
-            let the_vec = vectors[index % 6];
-            let the_pos = ppos2 + the_vec;
-
-            var out : VertexFuncOutput;
-            out.i = i;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
-            out.thickness_p = half_thickness * 2.0 * l2p;
-            out.vec_from_node_p = vec2<f32>(0.0, 0.0);
-            return out;
-        }
-        """
-
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -561,84 +449,211 @@ class LineShader(WorldObjectShader):
         """
 
 
-@register_wgpu_render_function(Line, LineThinSegmentMaterial)
+@register_wgpu_render_function(Line, LineSegmentMaterial)
+class LineSegmentShader(LineShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["line_type"] = "segment"
+
+    def _get_n(self, positions):
+        return (positions.nitems // 2) * 2 * 5
+
+    def code_vertex_core(self):
+        return """
+        fn get_vertex_result(
+            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
+        ) -> VertexFuncOutput {
+            // Similar to the regular line shader, except we only draw segments,
+            // using 5 vertices per node. Four for the segments, and 1 to create
+            // a degenerate triangle for the space in between. So we only draw
+            // caps, no joins.
+
+            let i = index / 5;
+
+            // Sample the current node and either of its neighbours
+            let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
+            let npos2 = get_point_ndc(i);
+            let npos3 = get_point_ndc(i3);
+            // Convert to logical screen coordinates, because that's were the lines work
+            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
+            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
+
+            // Get vectors normal to the line segments
+            var na: vec2<f32>;
+            var nb: vec2<f32>;
+            var nc: vec2<f32>;
+            var nd: vec2<f32>;
+
+            // Get vectors normal to the line segments
+            if ((i % 2) == 0) {
+                // A left-cap
+                let v = normalize(ppos3.xy - ppos2.xy);
+                nc = vec2<f32>(v.y, -v.x);
+                nd = -nc;
+                na = nc - v;
+                nb = nd - v;
+            } else {
+                // A right cap
+                let v = normalize(ppos2.xy - ppos3.xy);
+                na = vec2<f32>(v.y, -v.x);
+                nb = -na;
+                nc = na + v;
+                nd = nb + v;
+            }
+
+            // Select the correct vector
+            // Note the replicated vertices to create degenerate triangles
+            var vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
+            let the_vec = vectors[index % 10] * half_thickness;
+            let the_pos = ppos2 + the_vec;
+
+            var out : VertexFuncOutput;
+            out.i = i;
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
+            out.thickness_p = half_thickness * 2.0 * l2p;
+            out.vec_from_node_p = the_vec * l2p;
+            return out;
+        }
+        """
+
+
+@register_wgpu_render_function(Line, LineArrowMaterial)
+class LineArrowShader(LineShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["line_type"] = "arrow"
+
+    def _get_n(self, positions):
+        return (positions.nitems // 2) * 2 * 4
+
+    def code_vertex_core(self):
+        return """
+        fn get_vertex_result(
+            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
+        ) -> VertexFuncOutput {
+            // Similar to the normal vertex shader, except we only draw segments,
+            // using 3 vertices per node: 6 per segment. 4 for the arrow, and 2
+            // to create a degenerate triangle for the space in between. So we
+            // only draw caps, no joins.
+
+            let i = index / 3;
+
+            // Sample the current node and either of its neighbours
+            let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
+            let npos2 = get_point_ndc(i);
+            let npos3 = get_point_ndc(i3);
+            // Convert to logical screen coordinates, because that's were the lines work
+            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
+            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
+
+            // Get vectors normal to the line segments
+            var na: vec2<f32>;
+            var nb: vec2<f32>;
+
+            // Get vectors normal to the line segments
+            if ((i % 2) == 0) {
+                // A left-cap
+                let v = ppos3.xy - ppos2.xy;
+                na = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
+                nb = v;
+            } else {
+                // A right cap
+                let v = ppos2.xy - ppos3.xy;
+                na = -0.75 * v;
+                nb = normalize(vec2<f32>(-v.y, v.x)) * half_thickness - v;
+            }
+
+            // Select the correct vector
+            // Note the replicated vertices to create degenerate triangles
+            var vectors = array<vec2<f32>,6>(na, na, nb, na, nb, nb);
+            let the_vec = vectors[index % 6];
+            let the_pos = ppos2 + the_vec;
+
+            var out : VertexFuncOutput;
+            out.i = i;
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
+            out.thickness_p = half_thickness * 2.0 * l2p;
+            out.vec_from_node_p = vec2<f32>(0.0, 0.0);
+            return out;
+        }
+        """
+
+
 @register_wgpu_render_function(Line, LineThinMaterial)
-def thin_line_renderer(render_info):
-    """Render function capable of rendering lines."""
-
-    wobject = render_info.wobject
-    material = wobject.material
-    geometry = wobject.geometry
-    shader = ThinLineShader(
-        render_info,
-        vertex_color_channels=0,
-    )
-
-    positions1 = geometry.positions
-
-    primitive = wgpu.PrimitiveTopology.line_strip
-    if isinstance(material, LineThinSegmentMaterial):
-        primitive = wgpu.PrimitiveTopology.line_list
-
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-    ]
-
-    vertex_buffers = {0: positions1}
-
-    # Per-vertex color, colormap, or a plane color?
-    shader["color_mode"] = "uniform"
-    if material.vertex_colors:
-        shader["color_mode"] = "vertex"
-        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
-        if nchannels not in (1, 2, 3, 4):
-            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        vertex_buffers[1] = geometry.colors
-    elif material.map is not None:
-        shader["color_mode"] = "map"
-        bindings.extend(self.define_vertex_colormap(material.map))
-        # This shader uses vertex buffers
-        bindings.pop(-1)
-        vertex_buffers[1] = geometry.texcoords
-
-    # Determine in what render passes this objects must be rendered
-    # Note: the renderer use alpha for aa, so we are never opaque only.
-    suggested_render_mask = 3
-    if material.opacity < 1:
-        suggested_render_mask = 2
-    elif shader["color_mode"] == "uniform":
-        suggested_render_mask = 3 if material.color[3] >= 1 else 2
-    else:
-        suggested_render_mask = 3
-
-    # Let the shader generate code for our bindings
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
-
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": primitive,
-            "indices": (positions1.nitems, 1),
-            "vertex_buffers": vertex_buffers,
-            "bindings0": bindings,
-        },
-    ]
-
-
 class ThinLineShader(WorldObjectShader):
+
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        material = wobject.material
+        geometry = wobject.geometry
+
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        ]
+
+        vertex_buffers = {0: geometry.positions}
+
+        self["vertex_color_channels"] = 0
+        # Per-vertex color, colormap, or a plane color?
+        self["color_mode"] = "uniform"
+        if material.vertex_colors:
+            self["color_mode"] = "vertex"
+            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+            vertex_buffers[1] = geometry.colors
+        elif material.map is not None:
+            self["color_mode"] = "map"
+            bindings.extend(self.define_vertex_colormap(material.map))
+            # This shader uses vertex buffers
+            bindings.pop(-1)
+            vertex_buffers[1] = geometry.texcoords
+
+        bindings = {i: b for i, b in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        return {
+            "index_buffer": None,
+            "vertex_buffers": vertex_buffers,
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.line_strip,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        render_mask = wobject.render_mask
+        if not render_mask:
+            render_mask = RenderMask.all
+            if wobject.material.is_transparent:
+                render_mask = RenderMask.transparent
+            if self["color_mode"] == "uniform":
+                if wobject.material.is_color_transparent:
+                    render_mask = RenderMask.transparent
+                else:
+                    render_mask = RenderMask.opaque
+        return {
+            "indices": (wobject.geometry.positions.nitems, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -695,7 +710,7 @@ class ThinLineShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -714,3 +729,12 @@ class ThinLineShader(WorldObjectShader):
             return get_fragment_output(varyings.position.z, final_color);
         }
         """
+
+
+@register_wgpu_render_function(Line, LineThinSegmentMaterial)
+class ThinLineSegmentShader(ThinLineShader):
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.line_list,
+            "cull_mode": wgpu.CullMode.none,
+        }

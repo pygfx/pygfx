@@ -9,10 +9,10 @@ from ._pipeline import Binding
 from ._shader import BaseShader, WorldObjectShader
 
 # Import the modules that implement the shaders
-from . import meshshader
 from . import backgroundshader
+from . import meshshader
+from . import lineshader
 
-# from . import linerender
 # from . import pointsrender
 # from . import imagerender
 # from . import volumerender

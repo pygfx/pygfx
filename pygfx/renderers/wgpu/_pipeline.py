@@ -270,19 +270,25 @@ class PipelineContainer:
         else:
             env_hash = ""
 
-        try:
-
-            # Ensure that the information provided by the shader is up-to-date
-            if changed:
+        # Ensure that the information provided by the shader is up-to-date
+        if changed:
+            try:
                 self.update_shader_data(wobject, shared, changed)
-            # Ensure that the (environment specific) wgpu objects are up-to-date
-            self.update_wgpu_data(wobject, environment, shared, env_hash, changed)
+            except Exception as err:
+                self.broken = 1
+                raise err
+            else:
+                self.broken = 0
 
-        except Exception as err:
-            self.broken = True
-            raise err
-        else:
-            self.broken = False
+        # Ensure that the (environment specific) wgpu objects are up-to-date
+        if not self.broken:
+            try:
+                self.update_wgpu_data(wobject, environment, shared, env_hash, changed)
+            except Exception as err:
+                self.broken = 2
+                raise err
+            else:
+                self.broken = False
 
         if changed:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
