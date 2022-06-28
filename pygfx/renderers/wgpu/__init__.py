@@ -13,8 +13,8 @@ from . import backgroundshader
 from . import meshshader
 from . import lineshader
 from . import pointsshader
+from . import imageshader
 
-# from . import imagerender
 # from . import volumerender
 
 """
