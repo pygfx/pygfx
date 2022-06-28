@@ -10,12 +10,12 @@ from ._shader import BaseShader, WorldObjectShader
 
 # Import the modules that implement the shaders
 from . import meshshader
+from . import backgroundshader
 
 # from . import linerender
 # from . import pointsrender
 # from . import imagerender
 # from . import volumerender
-# from . import backgroundrender
 
 """
 Below is the high level model in which the visualization is described.

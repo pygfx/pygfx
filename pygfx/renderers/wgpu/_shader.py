@@ -60,7 +60,6 @@ class WorldObjectShader(BaseShader):
           * "cull_mode"
           * "primitive_topology"
         """
-        raise NotImplementedError()
         return {
             "primitive_topology": 0,
             "cull_mode": 0,
