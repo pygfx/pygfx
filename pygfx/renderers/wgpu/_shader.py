@@ -265,7 +265,7 @@ class BaseShader:
         return hashlib.sha1(repr(self.kwargs).encode()).digest()
 
     def code_definitions(self):
-        """Get the definitions of types and bindings (uniforms, storage
+        """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
         code = (
@@ -283,7 +283,7 @@ class BaseShader:
 
     def generate_wgsl(self, **kwargs):
         """Generate the final WGSL with the templating resolved by jinja2.
-        Also accepts templating variables as kwargs.
+        Also accepts templating variables as kwargs. Used internally.
         """
 
         old_kwargs = self.kwargs
@@ -541,6 +541,7 @@ class WorldObjectShader(BaseShader):
     def define_vertex_colormap(self, texture_view, texcoords):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the per- vertex texcoords.
+        In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
         from ._pipeline import Binding  # avoid recursive import
@@ -583,7 +584,9 @@ class WorldObjectShader(BaseShader):
 
     def define_img_colormap(self, texture_view):
         """Define the given texture view as the colormap to be used to
-        lookup the final color from the image date. Returns a list of bindings.
+        lookup the final color from the image date.
+        In the WGSL the colormap can be sampled using ``sample_colormap()``.
+        Returns a list of bindings.
         """
         from ._pipeline import Binding  # avoid recursive import
         if isinstance(texture_view, Texture):
@@ -616,6 +619,8 @@ class WorldObjectShader(BaseShader):
         ]
 
     def code_common(self):
+        """Get the common WGSL functions.
+        """
 
         clipping_plane_code = """
         fn check_clipping_planes(world_pos: vec3<f32>) -> bool {
@@ -733,7 +738,8 @@ class WorldObjectShader(BaseShader):
         )
 
     def get_resources(self, wobject, shared):
-        """A dict describing the buffers and textures used by this shader.
+        """Subclasses must return a dict describing the buffers and
+        textures used by this shader.
 
         Fields for a compute shader:
           * "bindings": a dict of dicts with binding objects
@@ -754,7 +760,7 @@ class WorldObjectShader(BaseShader):
         }
 
     def get_pipeline_info(self, wobject, shared):
-        """A dict describing pipeline details.
+        """Subclasses must return a dict describing pipeline details.
 
         Fields for a compute shader: empty
 
@@ -768,7 +774,7 @@ class WorldObjectShader(BaseShader):
         }
 
     def get_render_info(self, wobject, shared):
-        """A dict describing render details.
+        """Subclasses must return a dict describing render details.
 
         Fields for a compute shader:
           * "indices" (3 ints)

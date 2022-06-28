@@ -1,0 +1,325 @@
+Writing PyGfx shaders
+=====================
+
+This document explains how to write shaders for PyGfx. This may be useful
+if you want to improve the existing shaders, add new shaders to PyGfx, or
+if you want to implement custom shaders in your own project.
+
+
+The shader class
+----------------
+
+A shader object derives from ``WorldObjectShader``. Its purposes is to
+provide (templated) shader-code (WGSL), set the corresponding template variables, define
+what bindings (buffers and textures) are used, and provide some more details
+of the pipeline and the rendering.
+
+The shader is associated with a WorldObject-material combination using the ``register_wgpu_render_function()``
+decorator. This decorator can be applied to your shader class, but it can also
+be applied to a function that returns multiple shader objects. This can be useful
+if you want multiple "passes", like a compute pass to prepare some data.
+
+The shader must implement a few methods. A typical shader is shown below:
+
+.. code-block:: python
+
+    from pygfx.renderers.wgpu import (
+        register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
+    )
+
+    @register_wgpu_render_function(SomeWorldObject, SomeMaterial)
+    class SomeShader(WorldObjectShader):
+
+        type = "render"  # must be "render" or "compute"
+
+        def get_resources(self, wobject, shared):
+            bindings = {
+                0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+                ...
+            }
+            self.define_bindings(0, bindings)
+            return {
+                "index_buffer": None,
+                "vertex_buffers": {},
+                "bindings": {
+                    0: bindings,
+                },
+            }
+
+        def get_pipeline_info(self, wobject, shared):
+            return {
+                "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+                "cull_mode": wgpu.CullMode.none,
+            }
+
+        def get_render_info(self, wobject, shared):
+            n_vertices = ...
+            n_instances = 1
+            render_mask = wobject.render_mask
+            if not render_mask:
+                render_mask = RenderMask.all
+            return {
+                "indices": (n_vertices, n_instances),
+                "render_mask": render_mask,
+            }
+
+        def get_code(self):
+            return (
+                self.code_definitions()
+                + self.code_common()
+                + self.code_vertex()
+                + self.code_fragment()
+            )
+
+        def code_vertex(self):
+            return """
+            @stage(vertex)
+            fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+                ...
+            }
+            """
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main() -> FragmentOutput {
+               ...
+            }
+            """
+
+
+Remarks:
+
+* In ``get_resources()``, the ``Binding`` object is used to collect all the required information on a binding.
+* The wgsl code to define a group of bindings can be easily generated using ``define_bindings()``.
+* You can also manually define the wgsl code for a binding in cases where this is easier.
+  We recommend using a separate bindgroup for that.
+* By convention, methods that return wgsl code are prefixed with "code".
+* The ``render_mask`` specifies in what passes the object must be drawn. Users
+  can set it on the object, but by default it is "auto" (zero), in which case it must
+  be set by the shader. In the code above it is set to "all" which is a safe option, but if
+  the shader knows that all fragments are opaque or all fragments are transparent,
+  the ``render_mask`` can be set accordingly.
+
+
+WGSL code and templating
+------------------------
+
+The shader code is written in `WGSL <https://www.w3.org/TR/WGSL/>`_. We use `jinja2-templating <https://jinja.palletsprojects.com/>`_
+to allow flexible code generation. Here's an example:
+
+.. code-block:: python
+
+        def get_resources(self, wobject, shared):
+            self["scale"] = 1.2
+            ...
+
+        def code_vertex(self):
+            return """
+            @stage(vertex)
+            fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+                let something = x * {{ scale }};
+            }
+            """
+
+Note that a change to a templating variable requires a recompilation
+of the wgpu shader module, which is an expensive operation. Therefore
+it's better to use uniforms for things that may change often.
+
+
+Varyings
+--------
+
+Variables passed between vertex shader and fragment shader are called "varyings"
+in GPU lingo (because they vary as they are interpolated between
+vertices). In PyGfx, each vertex function has a ``Varyings`` as output,
+and this is the input of every fragment function. You don't have to
+define the ``Varyings`` struct anywhere - PyGfx takes care of that based
+on the attributes that are assigned in the vertex shader. The only catch
+is that the attributes must be set with an explicit type cast:
+
+.. code-block:: python
+
+        def code_vertex(self):
+            return """
+            @stage(vertex)
+            fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
+                ...
+                var varyings: Varyings;
+                varyings.position = vec4<f32>(screen_pos_ndc, ndc_pos.zw);
+                varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+                return varyings;
+            }
+            """
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main(varyings: Varyings) -> FragmentOutput {
+                ...
+                let world_pos = varyings.world_pos;
+                ...
+            }
+            """
+
+FragmentOutput
+--------------
+
+In a somewhat similar way, the output of the fragment shader is
+predefined. Though in this case the output is determined by the blend
+mode and render pass (opaque or transparent), and the details are hidden
+from the shader author. This way, PyGfx can support advanced handling
+of transparency without affecting individual shaders.
+All fragment functions in PyGfx are somewhat like this:
+
+
+.. code-block:: python
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main(varyings: Varyings) -> FragmentOutput {
+                ...
+                var out = get_fragment_output(varyings.position.z, color);
+                return out;
+            }
+            """
+
+Picking
+-------
+
+The output struct in the previous section also has a ``pick`` field that can
+be set with picking info. It is an ``u64`` into which we can pack as many fields
+as needed, using the ``pick_pack()`` function. The material needs to
+implement a corresponding ``_wgpu_get_pick_info()`` method
+to unpack the picking info. See e.g. the picking of a mesh:
+
+.. code-block:: python
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main(varyings: Varyings) -> FragmentOutput {
+                ...
+                var out = get_fragment_output(varyings.position.z, color);
+
+                // The write_pick templating variable is builtin too
+                $$ if write_pick
+                // 20 + 26 + 6 + 6 + 6 = 64
+                out.pick = (
+                    pick_pack(varyings.pick_id, 20) +
+                    pick_pack(varyings.pick_idx, 26) +
+                    pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
+                    pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
+                    pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+                );
+                $$ endif
+
+                return out;
+            }
+            """
+
+
+Clipping planes
+---------------
+
+For common features that apply to all/most objects, wgsl convenience functions
+are available. Take clipping planes. One can call ``apply_clipping_planes()`` to
+discard the fragment if it's outside of the clipping planes. Or use
+``check_clipping_planes()`` to get a boolean.
+
+.. code-block:: python
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main(varyings: Varyings) -> FragmentOutput {
+                ...
+
+                apply_clipping_planes(varyings.world_pos);
+                var out = get_fragment_output(varyings.position.z, color);
+                ...
+                return out;
+            }
+            """
+
+
+Colormapping
+------------
+
+Many materials in PyGfx support colormapping. We distinguis between colormaps
+with image input data, and vertex input data (texture coordinates). The number of
+channels of the input data must match the dimension of the colormap (1D, 2D or 3D).
+
+The base shader class has two corresponding helper functions, and there
+is a wgsl helper function.
+
+For images / volumes:
+
+.. code-block:: python
+
+        def get_resources(self, wobjwect, shared):
+            ...
+            extra_bindings = self.define_img_colormap(material.map)
+            ...
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main(varyings: Varyings) -> FragmentOutput {
+                ...
+                let color = sample_colormap(img_valu);
+                ...
+            }
+            """
+
+For points / lines, meshes, etc.:
+
+.. code-block:: python
+
+        def get_resources(self, wobjwect, shared):
+            ...
+            extra_bindings = self.define_vertex_colormap(material.map, geometry.texcoords)
+            ...
+
+        def code_fragment(self):
+            return """
+            @stage(fragment)
+            fn fs_main(varyings: Varyings) -> FragmentOutput {
+                ...
+                let color = sample_colormap(varyings.texcoord);
+                ...
+            }
+            """
+
+
+Lights and shadows
+------------------
+
+TODO
+
+
+Other functions
+---------------
+
+Other function that can be used in wgsl are:
+
+* ``ndc_to_world_pos(vec4<f32>) -> vec3<f32>``
+
+
+Dev reference docs
+-------------------
+
+.. autofunction:: pygfx.renderers.wgpu.register_wgpu_render_function
+
+.. autoclass:: pygfx.renderers.wgpu.Binding
+    :members:
+    :member-order: bysource
+
+.. autoclass:: pygfx.renderers.wgpu.WorldObjectShader
+    :members:
+    :inherited-members:
+
+.. autoclass:: pygfx.renderers.wgpu.Shared
+    :members:
+    :member-order: bysource
