@@ -1,5 +1,6 @@
-from ._shaderbase import BaseShader
 from ...resources import Buffer, Texture, TextureView
+from ._utils import to_vertex_format, to_texture_format
+from ._shaderbase import BaseShader
 
 
 class WorldObjectShader(BaseShader):

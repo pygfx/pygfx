@@ -675,7 +675,7 @@ def test_to_array():
 @pytest.mark.xfail(reason="todo")
 def test_from_buffer_attribute():
     a = Vector3()
-    attr = BufferAttribute(Float32Array([1, 2, 3, 4, 5, 6]), 3)
+    attr = BufferAttribute(Float32Array([1, 2, 3, 4, 5, 6]), 3)  # noqa: F821
 
     a.from_buffer_attribute(attr, 0)
     assert a.x == 1, "Offset 0: check x"
