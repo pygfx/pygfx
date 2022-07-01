@@ -320,3 +320,93 @@ class MeshSliceMaterial(MeshBasicMaterial):
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
         self.uniform_buffer.update_range(0, 1)
+
+
+class MeshStandardMaterial(MeshBasicMaterial):
+    uniform_type = dict(
+        emissive_color="4xf4",
+        roughness="f4",
+        metalness="f4",
+        flat_shading="i4",
+    )
+
+    def __init__(
+        self,
+        emissive=(0, 0, 0, 0),
+        flat_shading=False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.emissive = emissive
+        self.flat_shading = flat_shading
+
+        self.roughness = 1.0
+        self.metalness = 0.0
+
+        self.light_map = None
+        self.light_map_intensity = 1.0
+
+        self.ao_map = None
+        self.ao_map_intensity = 1.0
+
+        self.emissive_intensity = 1.0
+        self.emissive_map = None
+
+        self.normal_map = None
+        self.normal_scale = (1, 1)
+
+        self.roughness_map = None
+        self.metalness_map = None
+
+        self.alpha_map = None
+
+        self.env_map = None
+        self.env_map_intensity = 1.0
+
+        self.refraction_ratio = 0.98
+
+    @property
+    def emissive(self):
+        """The emissive (light) color of the mesh, as an rgba tuple.
+        This color is added to the final color and is unaffected by lighting.
+        The alpha channel of this color is ignored.
+        """
+        return Color(self.uniform_buffer.data["emissive_color"])
+
+    @emissive.setter
+    def emissive(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def metalness(self):
+        return float(self.uniform_buffer.data["metalness"])
+
+    @metalness.setter
+    def metalness(self, value):
+        self.uniform_buffer.data["metalness"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def roughness(self):
+        return float(self.uniform_buffer.data["roughness"])
+
+    @roughness.setter
+    def roughness(self, value):
+        self.uniform_buffer.data["roughness"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def flat_shading(self):
+        """Whether the mesh is rendered with flat shading.
+        A material that applies lighting per-face (non-interpolated).
+        This gives a "pixelated" look, but can also be usefull if one wants
+        to show the (size of) the triangle faces.
+        """
+        return bool(self.uniform_buffer.data["flat_shading"])
+
+    @flat_shading.setter
+    def flat_shading(self, value: bool):
+        self.uniform_buffer.data["flat_shading"] = value
+        self.uniform_buffer.update_range(0, 1)

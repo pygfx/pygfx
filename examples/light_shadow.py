@@ -9,7 +9,7 @@ scene = gfx.Scene()
 
 cube = gfx.Mesh(
     gfx.box_geometry(20, 20, 20),
-    gfx.MeshPhongMaterial(),
+    gfx.MeshStandardMaterial(),
 )
 cube.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 6, math.pi / 6))
 cube.cast_shadow = True
@@ -17,7 +17,7 @@ scene.add(cube)
 
 cube2 = gfx.Mesh(
     gfx.box_geometry(50, 50, 50),
-    gfx.MeshPhongMaterial(),
+    gfx.MeshStandardMaterial(),
 )
 cube2.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 4, math.pi / 4))
 cube2.position.set(0, -150, 0)
@@ -27,7 +27,7 @@ scene.add(cube2)
 
 cube3 = gfx.Mesh(
     gfx.box_geometry(100, 100, 100),
-    gfx.MeshPhongMaterial(),
+    gfx.MeshStandardMaterial(),
 )
 
 cube3.position.set(0, -250, 0)
@@ -37,7 +37,7 @@ scene.add(cube3)
 
 box = gfx.Mesh(
     gfx.box_geometry(600, 600, 600),
-    gfx.MeshPhongMaterial(color="#808080", side="Back"),
+    gfx.MeshStandardMaterial(color="#808080", side="Back"),
 )
 
 box.rotation.set_from_euler(gfx.linalg.Euler(-math.pi / 2))

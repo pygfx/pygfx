@@ -5,6 +5,7 @@ from ._renderer import stdinfo_uniform_type
 from ._renderer import WgpuRenderer
 from . import meshrender
 from . import meshrender_phong
+from . import meshrender_standard
 from . import linerender
 from . import pointsrender
 from . import imagerender

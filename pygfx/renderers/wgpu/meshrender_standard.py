@@ -4,13 +4,13 @@ from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
 from .pointsrender import handle_colormap
 from ...objects import Mesh, InstancedMesh
-from ...materials import MeshPhongMaterial
+from ...materials import MeshStandardMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
-from .shaderlibs import mesh_vertex_shader, lights, bsdfs, bsdfs_blinn_phong, blinn_phong, shadow
+from .shaderlibs import mesh_vertex_shader, lights, bsdfs, bsdfs_physical, physical_lighting, shadow
 
 
-@register_wgpu_render_function(Mesh, MeshPhongMaterial)
+@register_wgpu_render_function(Mesh, MeshStandardMaterial)
 def mesh_renderer(render_info):
     """Render function capable of rendering meshes."""
     wobject = render_info.wobject
@@ -23,7 +23,7 @@ def mesh_renderer(render_info):
         if material.wireframe
         else wgpu.PrimitiveTopology.triangle_list
     )
-    shader = MeshPhongShader(
+    shader = MeshStandardShader(
         render_info,
         colormap_format="f32",
         instanced=False,
@@ -89,6 +89,14 @@ def mesh_renderer(render_info):
         colormap_dim = shader["colormap_dim"][:-1]
         atype = "f32" if colormap_dim == "1" else f"vec{colormap_dim}<f32>"
         shader["vertex_attributes"].append(("texcoord", atype))
+
+
+    
+    if material.env_map is not None:
+        shader["use_env_map"] = True
+        # Binding("s_env_map", "sampler/filtering", material.env_map, "FRAGMENT"),
+        # Binding("t_env_map", "texture/auto", material.env_map, "FRAGMENT")
+
 
     # Lights states
     shader["num_dir_lights"] = len(render_info.state.directional_lights)
@@ -277,7 +285,7 @@ def mesh_renderer(render_info):
     ]
 
 
-class MeshPhongShader(WorldObjectShader):
+class MeshStandardShader(WorldObjectShader):
     def get_code(self):
         return (
             self.get_definitions()
@@ -285,8 +293,8 @@ class MeshPhongShader(WorldObjectShader):
             + mesh_vertex_shader
             + lights
             + bsdfs
-            + bsdfs_blinn_phong
-            + blinn_phong
+            + bsdfs_physical
+            + physical_lighting
             + shadow
             + self.fragment_shader()
         )
@@ -310,13 +318,32 @@ class MeshPhongShader(WorldObjectShader):
                 let albeido = color_value.rgb;
             $$ endif
 
-            var material: BlinnPhongMaterial;
+            var metalness_factor: f32 = u_material.metalness;
 
-            material.diffuse_color = albeido;
-            material.specular_color = u_material.specular_color.rgb;
-            material.specular_shininess = u_material.shininess;
+            $$ if use_metalness_map is defined
+                let texel_metalness = textureSample( metalness_map, map_sample, varyings.texcoord );
+                metalness_factor *= texel_metalness.b;
+            $$ endif
 
-            material.specular_strength = 1.0;  //TODO: Use specular_map if exists
+            var roughness_factor: f32 = u_material.roughness;
+
+            $$ if use_roughness_map is defined
+                let texel_roughness = textureSample( roughness_map, map_sample, varyings.texcoord );
+                roughness_factor *= texel_roughness.g;
+            $$ endif
+
+            
+            let dxy = max( abs( dpdx( varyings.geometry_normal ) ), abs( dpdy( varyings.geometry_normal ) ) );
+            let geometry_roughness = max( max( dxy.x, dxy.y ), dxy.z );
+            var roughness = max( roughness_factor, 0.0525 );
+            roughness += geometry_roughness;
+            roughness = min( roughness, 1.0 );
+
+            var material: PhysicalMaterial;
+            material.diffuse_color = albeido * ( 1.0 - metalness_factor );
+            material.specular_color = mix( vec3<f32>( 0.04 ), albeido.rgb, metalness_factor );
+            material.roughness = roughness;
+            material.specular_f90 = 1.0;
 
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
@@ -343,6 +370,9 @@ class MeshPhongShader(WorldObjectShader):
             geometry.normal = normal;
             geometry.view_dir = view_dir;
 
+
+            //direct
+
             var i = 0;
             $$ if num_point_lights > 0
                 loop {
@@ -357,7 +387,7 @@ class MeshPhongShader(WorldObjectShader):
                     light.color *= shadow;
                     $$ endif
 
-                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    reflected_light = RE_Direct_Physical( light, geometry, material, reflected_light );
 
                     i += 1;
                 }
@@ -378,7 +408,7 @@ class MeshPhongShader(WorldObjectShader):
                     light.color *= shadow;
                     $$ endif
 
-                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    reflected_light = RE_Direct_Physical( light, geometry, material, reflected_light );
 
                     i += 1;
                 }
@@ -399,16 +429,41 @@ class MeshPhongShader(WorldObjectShader):
                     light.color *= shadow;
                     $$ endif
 
-                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    reflected_light = RE_Direct_Physical( light, geometry, material, reflected_light );
 
                     i += 1;
                 }
             $$ endif
 
+            // indirect diffuse
 
             let ambient_color = u_ambient_light.color.rgb;
-            let irradiance = getAmbientLightIrradiance( ambient_color );
-            reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
+            var irradiance = getAmbientLightIrradiance( ambient_color );
+
+             // TODO: lightmap
+            $$ if use_ao_map is defined
+            let lightMapIrradiance = ( textureSpamle( light_map, light_map_sample, varyings.texcoord )).rgb * light_map_intensity;
+            irradiance += lightMapIrradiance;
+            $$ endif
+
+            reflected_light = RE_IndirectDiffuse_Physical( irradiance, geometry, material, reflected_light );
+            
+            // TODO: IBL
+            // indirect specular
+
+            $$ if use_env_map is defined
+            let radiance = getIBLRadiance( geometry.view_dir, geometry.normal, material.roughness );
+            let iblIrradiance = getIBLIrradiance( geometry.normal );
+            reflected_light = RE_IndirectSpecular_Physical( radiance, iblIrradiance, geometry, material, reflected_light );
+            $$ endif
+
+            // ao
+
+            $$ if use_ao_map is defined
+            let ambientOcclusion = ( textureSpamle( ao_map, ao_map_sample, varyings.texcoord ).r - 1.0 ) * ao_map_intensity + 1.0;
+            reflected_light = reflected_lightRE_AmbientOcclusion_Physical(ambientOcclusion, geometry, material, reflected_light);
+            $$ endif
+
 
             let lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
 
