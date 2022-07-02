@@ -423,8 +423,6 @@ def compose_render_pipeline(shared, blender, wobject, pipeline_info):
         # Compile shader
         shader = pipeline_info["render_shader"]
         wgsl = shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
-        # print("============================================")
-        # print(wgsl)
         shader_module = get_shader_module(shared, wgsl)
 
         pipelines[pass_index] = device.create_render_pipeline(

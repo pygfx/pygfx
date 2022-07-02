@@ -1,3 +1,4 @@
+import math
 from ._base import Material
 from ..resources import TextureView
 from ..utils import unpack_bitfield
@@ -327,6 +328,13 @@ class MeshStandardMaterial(MeshBasicMaterial):
         emissive_color="4xf4",
         roughness="f4",
         metalness="f4",
+        normal_scale="2xf4",
+        light_map_intensity="f4",
+        ao_map_intensity="f4",
+        emissive_intensity="f4",
+        env_map_intensity="f4",
+        env_map_max_mip_level="f4",
+        refraction_ratio="f4",
         flat_shading="i4",
     )
 
@@ -334,14 +342,19 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self,
         emissive=(0, 0, 0, 0),
         flat_shading=False,
+        metalness = 0.0,
+        roughness = 1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.flat_shading = flat_shading
 
-        self.roughness = 1.0
-        self.metalness = 0.0
+        self.roughness = roughness
+        self.metalness = metalness
+
+        self.roughness_map = None
+        self.metalness_map = None
 
         self.light_map = None
         self.light_map_intensity = 1.0
@@ -355,12 +368,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.normal_map = None
         self.normal_scale = (1, 1)
 
-        self.roughness_map = None
-        self.metalness_map = None
-
         self.alpha_map = None
 
-        self.env_map = None
+        self._env_map = None
         self.env_map_intensity = 1.0
 
         self.refraction_ratio = 0.98
@@ -396,6 +406,74 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def roughness(self, value):
         self.uniform_buffer.data["roughness"] = value
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_scale(self):
+        return self.uniform_buffer.data["normal_scale"]
+
+    @normal_scale.setter
+    def normal_scale(self, value):
+        self.uniform_buffer.data["normal_scale"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def light_map_intensity(self):
+        return self.uniform_buffer.data["light_map_intensity"]
+
+    @light_map_intensity.setter
+    def light_map_intensity(self, value):
+        self.uniform_buffer.data["light_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def ao_map_intensity(self):
+        return self.uniform_buffer.data["ao_map_intensity"]
+
+    @ao_map_intensity.setter
+    def ao_map_intensity(self, value):
+        self.uniform_buffer.data["ao_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def emissive_intensity(self):
+        return self.uniform_buffer.data["emissive_intensity"]
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def env_map_intensity(self):
+        return self.uniform_buffer.data["env_map_intensity"]
+
+    @env_map_intensity.setter
+    def env_map_intensity(self, value):
+        self.uniform_buffer.data["env_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def env_map(self):
+        return self._env_map
+
+    @env_map.setter
+    def env_map(self, env_map):
+        self._env_map = env_map
+
+        width, height, _ = env_map.texture.size
+        max_level = math.floor( math.log2( max( width, height ) ) ) + 1
+        self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def refraction_ratio(self):
+        return self.uniform_buffer.data["refraction_ratio"]
+
+    @refraction_ratio.setter
+    def refraction_ratio(self, value):
+        self.uniform_buffer.data["refraction_ratio"] = value
+        self.uniform_buffer.update_range(0, 1)
+
 
     @property
     def flat_shading(self):

@@ -100,9 +100,11 @@ def mesh_renderer(render_info):
 
         shader["RECIPROCAL_PI"] = "0.3183098861837907"
 
-        shader["has_ambient_light"] = render_info.state.ambient_light is not None
         shader["num_dir_lights"] = len(render_info.state.directional_lights)
         shader["num_point_lights"] = len(render_info.state.point_lights)
+        shader["num_spot_lights"] = len(render_info.state.spot_lights)
+
+        shader["has_ambient_light"] = False
 
         ambient_lights_buffer = render_info.state.ambient_lights_uniform_buffer
         if ambient_lights_buffer:

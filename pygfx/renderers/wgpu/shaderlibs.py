@@ -78,13 +78,8 @@ mesh_vertex_shader = """
         varyings.color = in.color;
         $$ endif
 
-        // Set texture coords
-        $$ if colormap_dim == '1d'
-        varyings.texcoord = f32(in.texcoord);
-        $$ elif colormap_dim == '2d'
+        $$ if has_uv is defined:
         varyings.texcoord = vec2<f32>(in.texcoord);
-        $$ elif colormap_dim == '3d'
-        varyings.texcoord = vec3<f32>(in.texcoord);
         $$ endif
 
         // Set the normal
@@ -284,8 +279,29 @@ physical_lighting = """
         multi_scatter: vec3<f32>,
     };
 
+    fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
+        let q0 = dpdx( eye_pos.xyz );
+        let q1 = dpdy( eye_pos.xyz );
+        let st0 = dpdx( uv.xy );
+        let st1 = dpdy( uv.xy );
+
+        let N = surf_norm; //  normalized
+
+        let q1perp = cross( q1, N );
+        let q0perp = cross( N, q0 );
+
+        let T = q1perp * st0.x + q0perp * st1.x;
+        let B = q1perp * st0.y + q0perp * st1.y;
+
+        let det = max( dot( T, T ), dot( B, B ) );
+        let faceDirection = f32(is_front) * 2.0 - 1.0;
+        let scale = faceDirection * inverseSqrt(det);
+
+        return normalize(T * mapN.x * scale + B * mapN.y * scale + N * mapN.z);
+    }
+
     fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
-        let sigma = 3.141592653589793 * level * level / (1.0 + level);
+        let sigma = (3.141592653589793 * level * level) / (1.0 + level);
         let desiredMIPLevel = maxMIPLevelScalar + log2(sigma);
 
         let mip_level = clamp(desiredMIPLevel, 0.0, maxMIPLevelScalar);
@@ -307,7 +323,6 @@ physical_lighting = """
 
         let envMapColor = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
 		return envMapColor;
-
     }
 
     fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32) -> LightScatter {
@@ -336,9 +351,11 @@ physical_lighting = """
 
         let scatter = computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness);
 
-        let total_scattering = scatter.single_scatter + scatter.multi_scatter;
+        //let total_scattering = scatter.single_scatter + scatter.multi_scatter;
 
-        let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
+        //let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
+
+        let diffuse = material.diffuse_color * ( 1.0 - scatter.single_scatter - scatter.multi_scatter);
 
         var out_reflected_light: ReflectedLight = reflected_light;
 

@@ -89,6 +89,7 @@ def mesh_renderer(render_info):
         colormap_dim = shader["colormap_dim"][:-1]
         atype = "f32" if colormap_dim == "1" else f"vec{colormap_dim}<f32>"
         shader["vertex_attributes"].append(("texcoord", atype))
+        shader["has_uv"] = True
 
     # Lights states
     shader["num_dir_lights"] = len(render_info.state.directional_lights)
