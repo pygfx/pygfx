@@ -7,7 +7,14 @@ from ...objects import Mesh, InstancedMesh
 from ...materials import MeshPhongMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
-from .shaderlibs import mesh_vertex_shader, lights, bsdfs, bsdfs_blinn_phong, blinn_phong, shadow
+from .shaderlibs import (
+    mesh_vertex_shader,
+    lights,
+    bsdfs,
+    bsdfs_blinn_phong,
+    blinn_phong,
+    shadow,
+)
 
 
 @register_wgpu_render_function(Mesh, MeshPhongMaterial)

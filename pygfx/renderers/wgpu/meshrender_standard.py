@@ -1,4 +1,3 @@
-import numpy as np
 import wgpu  # only for flags/enums
 from . import register_wgpu_render_function
 from ._shadercomposer import Binding, WorldObjectShader
@@ -6,7 +5,14 @@ from ...objects import Mesh, InstancedMesh
 from ...materials import MeshStandardMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
-from .shaderlibs import mesh_vertex_shader, lights, bsdfs, bsdfs_physical, physical_lighting, shadow
+from .shaderlibs import (
+    mesh_vertex_shader,
+    lights,
+    bsdfs,
+    bsdfs_physical,
+    physical_lighting,
+    shadow,
+)
 
 
 @register_wgpu_render_function(Mesh, MeshStandardMaterial)
@@ -80,8 +86,8 @@ def mesh_renderer(render_info):
         shader["has_uv"] = True
 
         vertex_buffers.append(geometry.texcoords)
-        shader["vertex_attributes"].append(("texcoord", 'vec2<f32>'))
-    
+        shader["vertex_attributes"].append(("texcoord", "vec2<f32>"))
+
         if material.map is not None:
             shader["use_color_map"] = True
             bindings.append(
@@ -91,7 +97,6 @@ def mesh_renderer(render_info):
                 Binding(f"t_color_map", "texture/auto", material.map, "FRAGMENT")
             )
 
-        
         if material.env_map is not None:
             shader["use_env_map"] = True
             bindings.append(
@@ -104,37 +109,71 @@ def mesh_renderer(render_info):
         if material.normal_map is not None:
             shader["use_normal_map"] = True
             bindings.append(
-                Binding(f"s_normal_map", "sampler/filtering", material.normal_map, "FRAGMENT")
+                Binding(
+                    f"s_normal_map",
+                    "sampler/filtering",
+                    material.normal_map,
+                    "FRAGMENT",
+                )
             )
             bindings.append(
-                Binding(f"t_normal_map", "texture/auto", material.normal_map, "FRAGMENT")
+                Binding(
+                    f"t_normal_map", "texture/auto", material.normal_map, "FRAGMENT"
+                )
             )
 
         if material.roughness_map is not None:
             shader["use_roughness_map"] = True
             bindings.append(
-                Binding(f"s_roughness_map", "sampler/filtering", material.roughness_map, "FRAGMENT")
+                Binding(
+                    f"s_roughness_map",
+                    "sampler/filtering",
+                    material.roughness_map,
+                    "FRAGMENT",
+                )
             )
             bindings.append(
-                Binding(f"t_roughness_map", "texture/auto", material.roughness_map, "FRAGMENT")
+                Binding(
+                    f"t_roughness_map",
+                    "texture/auto",
+                    material.roughness_map,
+                    "FRAGMENT",
+                )
             )
-            
+
         if material.metalness_map is not None:
             shader["use_metalness_map"] = True
             bindings.append(
-                Binding(f"s_metalness_map", "sampler/filtering", material.metalness_map, "FRAGMENT")
+                Binding(
+                    f"s_metalness_map",
+                    "sampler/filtering",
+                    material.metalness_map,
+                    "FRAGMENT",
+                )
             )
             bindings.append(
-                Binding(f"t_metalness_map", "texture/auto", material.metalness_map, "FRAGMENT")
+                Binding(
+                    f"t_metalness_map",
+                    "texture/auto",
+                    material.metalness_map,
+                    "FRAGMENT",
+                )
             )
 
         if material.emissive_map is not None:
             shader["use_emissive_map"] = True
             bindings.append(
-                Binding(f"s_emissive_map", "sampler/filtering", material.emissive_map, "FRAGMENT")
+                Binding(
+                    f"s_emissive_map",
+                    "sampler/filtering",
+                    material.emissive_map,
+                    "FRAGMENT",
+                )
             )
             bindings.append(
-                Binding(f"t_emissive_map", "texture/auto", material.emissive_map, "FRAGMENT")
+                Binding(
+                    f"t_emissive_map", "texture/auto", material.emissive_map, "FRAGMENT"
+                )
             )
 
         if material.ao_map is not None:
@@ -380,7 +419,7 @@ class MeshStandardShader(WorldObjectShader):
                 roughness_factor *= texel_roughness.g;
             $$ endif
 
-            
+
             let dxy = max( abs( dpdx( varyings.geometry_normal ) ), abs( dpdy( varyings.geometry_normal ) ) );
             let geometry_roughness = max( max( dxy.x, dxy.y ), dxy.z );
             var roughness = max( roughness_factor, 0.0525 );
@@ -514,7 +553,7 @@ class MeshStandardShader(WorldObjectShader):
             $$ endif
 
             reflected_light = RE_IndirectDiffuse_Physical( irradiance, geometry, material, reflected_light );
-            
+
             // TODO: IBL
             // indirect specular
 

@@ -342,8 +342,8 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self,
         emissive=(0, 0, 0, 0),
         flat_shading=False,
-        metalness = 0.0,
-        roughness = 1.0,
+        metalness=0.0,
+        roughness=1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -461,7 +461,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self._env_map = env_map
 
         width, height, _ = env_map.texture.size
-        max_level = math.floor( math.log2( max( width, height ) ) ) + 1
+        max_level = math.floor(math.log2(max(width, height))) + 1
         self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
         self.uniform_buffer.update_range(0, 1)
 
@@ -473,7 +473,6 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def refraction_ratio(self, value):
         self.uniform_buffer.data["refraction_ratio"] = value
         self.uniform_buffer.update_range(0, 1)
-
 
     @property
     def flat_shading(self):

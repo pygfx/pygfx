@@ -1,7 +1,6 @@
 """
 Functions to update resources.
 """
-import math
 import wgpu
 
 from ._utils import to_texture_format
@@ -85,9 +84,13 @@ def update_texture_view(device, resource):
         fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
 
         if resource.texture._encoding:
-            fmt += f'-{resource._encoding}'
+            fmt += f"-{resource._encoding}"
 
-        mip_level_count = len(resource._mip_range) if resource._mip_range else resource.texture._mip_level_count
+        mip_level_count = (
+            len(resource._mip_range)
+            if resource._mip_range
+            else resource.texture._mip_level_count
+        )
         base_mip_level = resource._mip_range.start if resource._mip_range else 0
         texture_view = resource.texture._wgpu_texture[1].create_view(
             format=fmt,
@@ -114,17 +117,17 @@ def update_texture(device, resource):
         fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
 
     if resource._encoding:
-        fmt += f'-{resource._encoding}'
+        fmt += f"-{resource._encoding}"
 
-    needs_mipmaps = getattr(resource, 'generate_mipmap', False) 
+    needs_mipmaps = getattr(resource, "generate_mipmap", False)
 
-    mip_level_count = get_mip_Level_count( resource ) if needs_mipmaps else 1
+    mip_level_count = get_mip_Level_count(resource) if needs_mipmaps else 1
 
     # Create texture if needed
     if texture is None:  # todo: or needs to be replaced (e.g. resized)
         resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
-        if needs_mipmaps == True:
+        if needs_mipmaps is True:
             # current mipmap generation requires RENDER_ATTACHMENT
             usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             resource._mip_level_count = mip_level_count
@@ -137,8 +140,6 @@ def update_texture(device, resource):
             mip_level_count=mip_level_count,
             sample_count=1,  # msaa?
         )  # todo: let resource specify mip_level_count and sample_count
-
-    
 
     bytes_per_pixel = resource.nbytes // (
         resource.size[0] * resource.size[1] * resource.size[2]
@@ -189,9 +190,12 @@ def update_texture(device, resource):
             # else:
             #     generate_mipmaps(device, texture, fmt, mip_level_count)
 
+
 def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_layer=0):
     mipmap_utils = get_mipmap_utils(device)
-    mipmap_utils.generate_mipmaps(texture_gpu, format, mip_level_count, base_array_layer)
+    mipmap_utils.generate_mipmaps(
+        texture_gpu, format, mip_level_count, base_array_layer
+    )
 
 
 def update_sampler(device, resource):

@@ -11,14 +11,12 @@ from colorsys import hls_to_rgb
 
 
 class Skybox(gfx.WorldObject):
-    
     def __init__(self, material=None):
         super().__init__(material=material)
         self.box = gfx.box_geometry(2, 2, 2)
 
 
 class SkyboxMaterial(gfx.Material):
-    
     def __init__(self, *, map, **kwargs):
         super().__init__(**kwargs)
         self.map = map
@@ -91,7 +89,6 @@ def skybox_render_function(render_info):
 
     vertex_buffers.append(geometry.positions)
     shader["vertex_attributes"].append(("position", "vec3<f32>"))
-    
 
     binding = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
     shader.define_binding(0, 0, binding)
@@ -102,7 +99,7 @@ def skybox_render_function(render_info):
     binding2 = Binding("r_texture", "texture/auto", material.map, "FRAGMENT")
     shader.define_binding(0, 2, binding2)
 
-    binding3 = Binding("r_sampler", "sampler/filtering", material.map,"FRAGMENT")
+    binding3 = Binding("r_sampler", "sampler/filtering", material.map, "FRAGMENT")
     shader.define_binding(0, 3, binding3)
 
     return [
@@ -130,74 +127,70 @@ camera.position.set(0, 400, 400 * 3)
 
 # Lights
 
-scene.add( gfx.AmbientLight( '#222222' ) )
-directional_light = gfx.DirectionalLight( 0xffffff, 1 )
-directional_light.position.set( 1, 1, 1 ).normalize()
-scene.add( directional_light )
-point_light = gfx.PointLight( 0xffffff, 2, 800 )
-scene.add( point_light )
+scene.add(gfx.AmbientLight("#222222"))
+directional_light = gfx.DirectionalLight(0xFFFFFF, 1)
+directional_light.position.set(1, 1, 1).normalize()
+scene.add(directional_light)
+point_light = gfx.PointLight(0xFFFFFF, 2, 800)
+scene.add(point_light)
 
 light_helper = gfx.PointLightHelper(point_light, size=4)
-scene.add( light_helper )
+scene.add(light_helper)
 
 
 env_map_path = Path(__file__).parent / "textures" / "Park2"
-env_map_urls = ['posx.jpg', 'negx.jpg',
-                    'posy.jpg', 'negy.jpg', 
-                    'posz.jpg', 'negz.jpg']
+env_map_urls = ["posx.jpg", "negx.jpg", "posy.jpg", "negy.jpg", "posz.jpg", "negz.jpg"]
 
 
 data = []
 for env_url in env_map_urls:
-    data.append(imageio.imread(env_map_path / env_url, pilmode='RGBA'))
+    data.append(imageio.imread(env_map_path / env_url, pilmode="RGBA"))
 
-env_data = np.stack(data, axis = 0)
+env_data = np.stack(data, axis=0)
 
-tex_size = env_data.shape[1],  env_data.shape[2], 6
+tex_size = env_data.shape[1], env_data.shape[2], 6
 
 tex = gfx.Texture(env_data, dim=2, size=tex_size)
 tex.generate_mipmap = True
-env_map = tex.get_view(view_dim="cube", layer_range=range(6), address_mode = "repeat", filter="linear")
+env_map = tex.get_view(
+    view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
+)
 
 
 cube_width = 400
 numbers_per_side = 5
-sphere_radius = ( cube_width / numbers_per_side ) * 0.8 * 0.5
+sphere_radius = (cube_width / numbers_per_side) * 0.8 * 0.5
 step_size = 1.0 / numbers_per_side
 
-geometry = gfx.sphere_geometry( sphere_radius, 32, 16 )
+geometry = gfx.sphere_geometry(sphere_radius, 32, 16)
 
 index = 0
 alpha = 0.0
-while(alpha<=1.0):
+while alpha <= 1.0:
     beta = 0.0
-    while(beta<=1.0):
+    while beta <= 1.0:
         gamma = 0.0
-        while(gamma<=1.0):
+        while gamma <= 1.0:
             material = gfx.MeshStandardMaterial(
-                color = hls_to_rgb(alpha, 0.5, gamma * 0.5 + 0.1),
-                metalness = beta,
-                roughness = 1.0 - alpha
+                color=hls_to_rgb(alpha, 0.5, gamma * 0.5 + 0.1),
+                metalness=beta,
+                roughness=1.0 - alpha,
             )
 
             if index % 2 != 0:
                 material.env_map = env_map
 
-            mesh = gfx.Mesh( geometry, material )
+            mesh = gfx.Mesh(geometry, material)
 
             mesh.position.x = alpha * 400 - 200
             mesh.position.y = beta * 400 - 200
             mesh.position.z = gamma * 400 - 200
-            scene.add( mesh )
+            scene.add(mesh)
             index += 1
 
             gamma += step_size
         beta += step_size
     alpha += step_size
-
-        
-
-
 
 
 scene2 = gfx.Scene()
@@ -207,15 +200,16 @@ scene2.add(background)
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
+
 def animate():
     timer = time.time() * 0.25
     controller.update_camera(camera)
 
-    point_light.position.x = math.sin( timer * 7 ) * 300
-    point_light.position.y = math.cos( timer * 5 ) * 400
-    point_light.position.z = math.cos( timer * 3 ) * 300
+    point_light.position.x = math.sin(timer * 7) * 300
+    point_light.position.y = math.cos(timer * 5) * 400
+    point_light.position.z = math.cos(timer * 3) * 300
 
-    renderer.render(scene2, camera, flush = False)
+    renderer.render(scene2, camera, flush=False)
     renderer.render(scene, camera)
     renderer.request_draw()
 
@@ -223,6 +217,3 @@ def animate():
 if __name__ == "__main__":
     renderer.request_draw(animate)
     run()
-
-
-

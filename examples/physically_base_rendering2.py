@@ -9,14 +9,12 @@ from pygfx.renderers.wgpu._shadercomposer import Binding, WorldObjectShader
 
 
 class Skybox(gfx.WorldObject):
-    
     def __init__(self, material=None):
         super().__init__(material=material)
         self.box = gfx.box_geometry(2, 2, 2)
 
 
 class SkyboxMaterial(gfx.Material):
-    
     def __init__(self, *, map, **kwargs):
         super().__init__(**kwargs)
         self.map = map
@@ -89,7 +87,6 @@ def skybox_render_function(render_info):
 
     vertex_buffers.append(geometry.positions)
     shader["vertex_attributes"].append(("position", "vec3<f32>"))
-    
 
     binding = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
     shader.define_binding(0, 0, binding)
@@ -100,7 +97,7 @@ def skybox_render_function(render_info):
     binding2 = Binding("r_texture", "texture/auto", material.map, "FRAGMENT")
     shader.define_binding(0, 2, binding2)
 
-    binding3 = Binding("r_sampler", "sampler/filtering", material.map,"FRAGMENT")
+    binding3 = Binding("r_sampler", "sampler/filtering", material.map, "FRAGMENT")
     shader.define_binding(0, 3, binding3)
 
     return [
@@ -119,26 +116,26 @@ def skybox_render_function(render_info):
 
 
 def load_gltf(path):
-
-    def __parse_texture(pil_image, encoding = None):
+    def __parse_texture(pil_image, encoding=None):
         if pil_image is None:
             return None
-        #pil_image = pil_image.convert(mode='RGBA')
+        # pil_image = pil_image.convert(mode='RGBA')
         data = pil_image.tobytes()
         m = memoryview(data)
-        m = m.cast(m.format, shape = (pil_image.size[0], pil_image.size[1], 3))
+        m = m.cast(m.format, shape=(pil_image.size[0], pil_image.size[1], 3))
         tex = gfx.Texture(m, dim=2)
         tex._encoding = encoding
-        view = tex.get_view(address_mode = "repeat", filter="linear")
+        view = tex.get_view(address_mode="repeat", filter="linear")
         return view
-
 
     def __parse_material(pbrmaterial):
         material = gfx.MeshStandardMaterial()
-        material.map = __parse_texture(pbrmaterial.baseColorTexture, encoding = 'srgb')
+        material.map = __parse_texture(pbrmaterial.baseColorTexture, encoding="srgb")
 
         material.emissive = gfx.Color(*pbrmaterial.emissiveFactor)
-        material.emissive_map = __parse_texture(pbrmaterial.emissiveTexture, encoding = 'srgb')
+        material.emissive_map = __parse_texture(
+            pbrmaterial.emissiveTexture, encoding="srgb"
+        )
 
         metallicRoughnessMap = __parse_texture(pbrmaterial.metallicRoughnessTexture)
         if pbrmaterial.roughnessFactor:
@@ -164,10 +161,9 @@ def load_gltf(path):
 
         return material
 
-
     def parse_mesh(mesh):
         visual = mesh.visual
-        visual.uv = visual.uv * np.array([1, -1]) + np.array([0, 1])   # uv.y = 1 - uv.y
+        visual.uv = visual.uv * np.array([1, -1]) + np.array([0, 1])  # uv.y = 1 - uv.y
 
         geometry = gfx.trimesh_geometry(mesh)
         material = __parse_material(visual.material)
@@ -196,29 +192,31 @@ camera = gfx.PerspectiveCamera(45, 640 / 480, 0.25, 20)
 
 # scene.add(light)
 
-camera.position.set(- 1.8, 0.6, 2.7)
+camera.position.set(-1.8, 0.6, 2.7)
 
-gltf_path = Path(__file__).parent / "models" / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
+gltf_path = (
+    Path(__file__).parent / "models" / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
+)
 meshes = load_gltf(gltf_path)
 
 
 env_map_path = Path(__file__).parent / "textures" / "Park2"
-env_map_urls = ['posx.jpg', 'negx.jpg',
-                    'posy.jpg', 'negy.jpg', 
-                    'posz.jpg', 'negz.jpg']
+env_map_urls = ["posx.jpg", "negx.jpg", "posy.jpg", "negy.jpg", "posz.jpg", "negz.jpg"]
 
 
 data = []
 for env_url in env_map_urls:
-    data.append(imageio.imread(env_map_path / env_url, pilmode='RGBA'))
+    data.append(imageio.imread(env_map_path / env_url, pilmode="RGBA"))
 
-env_data = np.stack(data, axis = 0)
+env_data = np.stack(data, axis=0)
 
-tex_size = env_data.shape[1],  env_data.shape[2], 6
+tex_size = env_data.shape[1], env_data.shape[2], 6
 
 tex = gfx.Texture(env_data, dim=2, size=tex_size)
 tex.generate_mipmap = True
-env_map = tex.get_view(view_dim="cube", layer_range=range(6), address_mode = "repeat", filter="linear")
+env_map = tex.get_view(
+    view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
+)
 
 meshes[0].material.env_map = env_map
 
@@ -232,9 +230,10 @@ scene2.add(background)
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
+
 def animate():
     controller.update_camera(camera)
-    renderer.render(scene2, camera, flush = False)
+    renderer.render(scene2, camera, flush=False)
     renderer.render(scene, camera)
     renderer.request_draw()
 
@@ -242,6 +241,3 @@ def animate():
 if __name__ == "__main__":
     renderer.request_draw(animate)
     run()
-
-
-

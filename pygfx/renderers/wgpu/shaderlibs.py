@@ -248,7 +248,7 @@ bsdfs_physical = """
         let V = V_GGX_SmithCorrelated( alpha, dot_nl, dot_nv );
 
         let D = D_GGX( alpha, dot_nh );
-        
+
         return F * ( V * D );
     }
 
@@ -310,7 +310,7 @@ physical_lighting = """
     }
 
     fn getIBLIrradiance( normal: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32) -> vec4<f32> {
-        
+
         let envMapColor = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
 
         return envMapColor;
@@ -322,7 +322,7 @@ physical_lighting = """
         reflectVec = normalize(mix(reflectVec, normal, roughness*roughness));
 
         let envMapColor = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
-		return envMapColor;
+        return envMapColor;
     }
 
     fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32) -> LightScatter {
@@ -332,7 +332,7 @@ physical_lighting = """
         let FssEss = specular_color * fab.x + specular_f90 * fab.y;
 
         let Ess: f32 = fab.x + fab.y;
-	    let Ems: f32 = 1.0 - Ess;
+        let Ems: f32 = 1.0 - Ess;
 
         let Favg = specular_color + ( 1.0 - specular_color ) * 0.047619; // 1/21
         let Fms = FssEss * Favg / ( 1.0 - Ems * Favg );
@@ -344,7 +344,7 @@ physical_lighting = """
         return scatter;
     }
 
-    fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>, 
+    fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>,
             geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ReflectedLight) -> ReflectedLight{
 
         let cosineWeightedIrradiance: vec3<f32> = irradiance * 0.3183098861837907;
@@ -377,7 +377,7 @@ physical_lighting = """
         let irradiance = dot_nl * direct_light.color;
 
         var out_reflected_light: ReflectedLight = reflected_light;
-        
+
         out_reflected_light.direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness );
         out_reflected_light.indirect_diffuse += irradiance * BRDF_Lambert( material.diffuse_color );
 
