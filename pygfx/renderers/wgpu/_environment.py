@@ -65,7 +65,7 @@ class Environment(Trackable):
         self._pipeline_containers.add(pipeline_container)
 
     def check_inactive(self, renderer, scene, renderer_state_hash, scene_state_hash):
-        """So some clean-up for the given renderer and scene,"""
+        """Do some clean-up for the given renderer and scene."""
         renderers = set(self._renderers)
         scenes = set(self._scenes)
 
@@ -124,8 +124,8 @@ class GlobalEnvironmentManager:
         return env
 
     def _cleanup(self, renderer, scene, renderer_state_hash, scene_state_hash):
-        """ " Remove all environments of which the associated renderer
-        or scene no longer exists, or their states have changed.
+        """Remove all environments of which the associated renderer
+        or scene no longer exist, or their states have changed.
         """
         hashes_to_drop = []
         for env_hash, env in self.environments.items():

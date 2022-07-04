@@ -1,7 +1,10 @@
 Writing PyGfx shaders
 =====================
 
-This document explains how to write shaders for PyGfx. This may be useful
+This document explains how to write shaders for PyGfx for the WgpuRenderer. 
+This may be useful if you want to improve the existing shaders, add 
+new shaders to PyGfx, or if you want to implement custom shaders in 
+your own project.
 if you want to improve the existing shaders, add new shaders to PyGfx, or
 if you want to implement custom shaders in your own project.
 
@@ -188,7 +191,7 @@ All fragment functions in PyGfx are somewhat like this:
 Picking
 -------
 
-The output struct in the previous section also has a ``pick`` field that can
+The `output` struct of the fragment shader also has a ``pick`` field that can
 be set with picking info. It is an ``u64`` into which we can pack as many fields
 as needed, using the ``pick_pack()`` function. The material needs to
 implement a corresponding ``_wgpu_get_pick_info()`` method
@@ -203,7 +206,8 @@ to unpack the picking info. See e.g. the picking of a mesh:
                 ...
                 var out = get_fragment_output(varyings.position.z, color);
 
-                // The write_pick templating variable is builtin too
+                // The builtin write_pick templating variable should be used
+                // to ensure picking info is only written in the appropriate render pass
                 $$ if write_pick
                 // 20 + 26 + 6 + 6 + 6 = 64
                 out.pick = (
@@ -247,9 +251,9 @@ discard the fragment if it's outside of the clipping planes. Or use
 Colormapping
 ------------
 
-Many materials in PyGfx support colormapping. We distinguis between colormaps
+Many materials in PyGfx support colormapping. We distinguish between colormaps
 with image input data, and vertex input data (texture coordinates). The number of
-channels of the input data must match the dimension of the colormap (1D, 2D or 3D).
+channels of the input data must match the dimensionality of the colormap (1D, 2D or 3D).
 
 The base shader class has two corresponding helper functions, and there
 is a wgsl helper function.
