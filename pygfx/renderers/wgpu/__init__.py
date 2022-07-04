@@ -24,9 +24,9 @@ transform, and canvas sizes (in a single global uniform). And then there
 is the things defined by the environment (i.e. scene) like lights and
 shadows. Renderer specific state is also part of the environment.
 
-                           UBuffer
+                           Uniform-Buffer
                               ▲
-           UBuffer            │
+       Uniform-Buffer         │
               ▲           ┌───┴────┐      ┌──────────────┐    ┌─────────────┐
               │        ┌──┤Material│      │Environment:  │    │Global:      │
         ┌─────┴─────┐  │  └────────┘      │- blend mode  │    │- glyph atlas│
@@ -35,7 +35,7 @@ shadows. Renderer specific state is also part of the environment.
                        └──┤Geometry│      │- clip planes?│    └──────┬──────┘
                           └───┬────┘      └──────┬───────┘           │
                               │                  │                   ▼
-                              ▼                  ▼                UBuffer
+                              ▼                  ▼              Uniform-Buffer
                             Buffers &        Affects wgsl         and Texture
                             Textures         and pipeline
 
@@ -73,7 +73,7 @@ the final environment-specific objects.
                                             │ WgpuPipeline ◄─────────┤pipeline info│
                                             └───────┬──────┘         └─────────────┘
                                                     │
-                          Ubuffers                  │
+                      Uniform-Buffers               │
                           Buffers   ────────────┐   │
                           Textures              │   │
                              │                  │   │
@@ -104,7 +104,7 @@ environment's hash. The environment includes a system to detect that
 it is no longer used to that all objects related to that environment
 can be cleaned up.
 
-We also want to re-use wgpu objects like pipelines and shadermodules.
+TOOD: We also want to re-use wgpu objects like pipelines and shadermodules.
 If there are a lot of objects in a scene, its likely that many of these
 have the same material.
 

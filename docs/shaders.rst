@@ -38,9 +38,13 @@ The shader must implement a few methods. A typical shader is shown below:
         def get_resources(self, wobject, shared):
             bindings = {
                 0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+                1: Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+                2: Binding("u_material", "buffer/uniform", wobject.material.uniform_buffer),
                 ...
             }
             self.define_bindings(0, bindings)
+            # Result. All fields are mandatory. The "bindings" are grouped as
+            # a dict of dicts. Often only bind-group 0 is used.
             return {
                 "index_buffer": None,
                 "vertex_buffers": {},
@@ -50,6 +54,7 @@ The shader must implement a few methods. A typical shader is shown below:
             }
 
         def get_pipeline_info(self, wobject, shared):
+            # Result. All fields are mandatory.
             return {
                 "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
                 "cull_mode": wgpu.CullMode.none,
@@ -61,12 +66,15 @@ The shader must implement a few methods. A typical shader is shown below:
             render_mask = wobject.render_mask
             if not render_mask:
                 render_mask = RenderMask.all
+            # Result. All fields are mandatory. The RenderMask.all is a safe
+            # value; other values are optimizations.
             return {
                 "indices": (n_vertices, n_instances),
                 "render_mask": render_mask,
             }
 
         def get_code(self):
+            # Return combination of code pieces.
             return (
                 self.code_definitions()
                 + self.code_common()
@@ -105,6 +113,25 @@ Remarks:
   the ``render_mask`` can be set accordingly.
 
 
+Render passes and render_mask
+-----------------------------
+
+When a scene is rendered, it is likely that it's not rendered once, but twice:
+one time for the opaque fragments, and one time for the transparent fragments.
+This depends on the ``renderer.blend_mode``. It can also be set to just
+a single (opaque) pass, or a mode that provides improved handling of transparent
+objects that has more than two passes.
+
+Since the used render targets depend on the blend mode and the render
+pass, the fragment output is abstracted away for shader authors, as
+we'll see further on in this document.
+
+Objects that can have both opaque and transparent fragments, must participate in
+all render passes. However, objects that only have opaque fragments or only transparent
+fragments, can be optimized. This is what the ``render_mask`` in the previous section
+is about. In case of doubt ``RenderMask.all`` is a safe choice.
+
+
 WGSL code and templating
 ------------------------
 
@@ -114,6 +141,7 @@ to allow flexible code generation. Here's an example:
 .. code-block:: python
 
         def get_resources(self, wobject, shared):
+            # Template variables can be set like this
             self["scale"] = 1.2
             ...
 
@@ -164,6 +192,7 @@ is that the attributes must be set with an explicit type cast:
                 ...
             }
             """
+
 
 FragmentOutput
 --------------
@@ -272,7 +301,8 @@ For images / volumes:
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
-                let color = sample_colormap(img_valu);
+                let img_value = textureSample(t_img, s_img, texcoord.xy);
+                let color = sample_colormap(img_value);
                 ...
             }
             """

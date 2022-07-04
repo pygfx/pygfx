@@ -77,10 +77,9 @@ class TriangleShader(WorldObjectShader):
 
     def get_render_info(self, wobject, shared):
         # Since we draw only one triangle we need just 3 vertices.
-        # Our triangle is opaque (render mask 1).
         return {
             "indices": (3, 1),
-            "render_mask": RenderMask.opaque,
+            "render_mask": RenderMask.all,  # Good default
         }
 
     def get_code(self):
@@ -121,7 +120,8 @@ class TriangleShader(WorldObjectShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
-            out.color = vec4<f32>(u_material.color.rgb, u_material.opacity);
+            let a = u_material.color.a * u_material.opacity;
+            out.color = vec4<f32>(u_material.color.rgb, a);
             return out;
         }
         """

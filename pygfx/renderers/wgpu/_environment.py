@@ -154,12 +154,13 @@ def get_hash_and_state(renderer, scene):
 
     lights = []
 
-    def visit(ob):
-        pass
-        # if isinstance(ob, Light):
-        #     lights.append(ob)
-
-    scene.traverse(visit)
+    # todo: when we get lighting ...
+    # def visit(ob):
+    #     pass
+    #     # if isinstance(ob, Light):
+    #     #     lights.append(ob)
+    #
+    # scene.traverse(visit)
 
     state["lights"] = lights
     scene_hash = (len(lights),)

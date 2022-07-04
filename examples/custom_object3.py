@@ -44,8 +44,17 @@ class TriangleMaterial(gfx.Material):
 
     @color.setter
     def color(self, color):
-        self.uniform_buffer.data["color"] = gfx.Color(color)
+        color = gfx.Color(color)
+        self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 99999)
+        self._store.color_is_transparent = color.a < 1
+
+    @property
+    def color_is_transparent(self):
+        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
+        # Note the use of the the _store to make this attribute trackable,
+        # so that when it changes, the shader is updated automatically.
+        return self._store.color_is_transparent
 
 
 @gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
@@ -56,7 +65,8 @@ class TriangleShader(WorldObjectShader):
     def get_resources(self, wobject, shared):
         geometry = wobject.geometry
 
-        # Set templating variable "scale" to 0.2
+        # This is how we set templating variables (dict-like access on the shader).
+        # Look for "{{scale}}" in the WGSL code below.
         self["scale"] = 0.2
 
         # Three uniforms and one storage buffer with positions
@@ -92,9 +102,13 @@ class TriangleShader(WorldObjectShader):
         n = 3 * geometry.positions.nitems
 
         # Define in what passes this object is drawn.
+        # Using RenderMask.all is a good default. The rest is optimization.
         render_mask = wobject.render_mask
         if not render_mask:  # i.e. set to auto
+            render_mask = RenderMask.all
             if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif material.color_is_transparent:
                 render_mask = RenderMask.transparent
             else:
                 render_mask = RenderMask.opaque
@@ -146,7 +160,8 @@ class TriangleShader(WorldObjectShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
-            out.color = vec4<f32>(u_material.color.rgb, u_material.opacity);
+            let a = u_material.color.a * u_material.opacity;
+            out.color = vec4<f32>(u_material.color.rgb, a);
             return out;
         }
         """
