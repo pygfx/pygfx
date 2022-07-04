@@ -1,12 +1,10 @@
 Writing PyGfx shaders
 =====================
 
-This document explains how to write shaders for PyGfx for the WgpuRenderer. 
-This may be useful if you want to improve the existing shaders, add 
-new shaders to PyGfx, or if you want to implement custom shaders in 
-your own project.
-if you want to improve the existing shaders, add new shaders to PyGfx, or
-if you want to implement custom shaders in your own project.
+This document explains how to write shaders for PyGfx for the WgpuRenderer.
+This may be useful if you want to improve the existing shaders, add new
+shaders to PyGfx, or if you want to implement custom shaders in your
+own project.
 
 
 The shader class
@@ -14,7 +12,7 @@ The shader class
 
 A shader object derives from ``WorldObjectShader``. Its purpose is to
 provide (templated) shader-code (WGSL), set the corresponding template variables, define
-what bindings (buffers and textures) are used, and provide some more details
+what bindings (buffers and textures) are used, and provide details
 of the pipeline and the rendering.
 
 The shader is associated with a WorldObject-material combination using the ``register_wgpu_render_function()``
@@ -129,7 +127,7 @@ we'll see further on in this document.
 Objects that can have both opaque and transparent fragments, must participate in
 all render passes. However, objects that only have opaque fragments or only transparent
 fragments, can be optimized. This is what the ``render_mask`` in the previous section
-is about. In case of doubt ``RenderMask.all`` is a safe choice.
+is about. In case of doubt ``RenderMask.all`` is a safe default.
 
 
 WGSL code and templating
@@ -162,7 +160,7 @@ Varyings
 --------
 
 Variables passed between vertex shader and fragment shader are called "varyings"
-in GPU lingo (because they vary as they are interpolated between
+in GPU terminology (because they vary as they are interpolated between
 vertices). In PyGfx, each vertex function has a ``Varyings`` as output,
 and this is the input of every fragment function. You don't have to
 define the ``Varyings`` struct anywhere - PyGfx takes care of that based
@@ -341,8 +339,8 @@ Other function that can be used in wgsl are:
 * ``ndc_to_world_pos(vec4<f32>) -> vec3<f32>``
 
 
-Dev reference docs
--------------------
+Reference docs
+--------------
 
 .. autofunction:: pygfx.renderers.wgpu.register_wgpu_render_function
 

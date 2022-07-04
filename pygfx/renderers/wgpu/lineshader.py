@@ -69,7 +69,6 @@ class LineShader(WorldObjectShader):
         # are padded to 16 bytes. So we either have to require our users
         # to provide Nx4 data, or read them as an array of f32.
         # Anyway, extra check here to make sure the data matches!
-        # todo: data.something in here, which means we assume numpy-ish arrays
         if positions1.data.shape[1] != 3:
             raise ValueError(
                 "For rendering (thick) lines, the geometry.positions must be Nx3."

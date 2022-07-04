@@ -610,8 +610,6 @@ def test_cleanup3():
 def test_cleanup4():
     # Test that removing an ext cleans it up internally
 
-    # todo: no wait, the root should do a small cleanup pass after each track_usage to clean up old ids and break links with unused trackables.
-
     root = MyRootTrackable()
     ext = MyTrackable()
     ext.sub1 = MyTrackable()
