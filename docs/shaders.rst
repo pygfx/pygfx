@@ -34,12 +34,17 @@ The shader must implement a few methods. A typical shader is shown below:
         type = "render"  # must be "render" or "compute"
 
         def get_resources(self, wobject, shared):
-            bindings = {
-                0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
-                1: Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-                2: Binding("u_material", "buffer/uniform", wobject.material.uniform_buffer),
+            # Collect bindings. These must (evetually) be a dict mapping
+            # slot indices to Binding objects. But it's often easier
+            # to collect bindings in a list and then convert to a dict.
+            bindings = [
+                Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+                Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+                Binding("u_material", "buffer/uniform", wobject.material.uniform_buffer),
                 ...
-            }
+            ]
+            bindings = {i:b for i, b in enumerate(bindings)}
+            # Generate the WGSL code for these bindings
             self.define_bindings(0, bindings)
             # Result. All fields are mandatory. The "bindings" are grouped as
             # a dict of dicts. Often only bind-group 0 is used.
@@ -292,6 +297,7 @@ For images / volumes:
         def get_resources(self, wobjwect, shared):
             ...
             extra_bindings = self.define_img_colormap(material.map)
+            bindings.extend(extra_bindings)
             ...
 
         def code_fragment(self):
@@ -312,6 +318,7 @@ For points / lines, meshes, etc.:
         def get_resources(self, wobjwect, shared):
             ...
             extra_bindings = self.define_vertex_colormap(material.map, geometry.texcoords)
+            bindings.extend(extra_bindings)
             ...
 
         def code_fragment(self):
