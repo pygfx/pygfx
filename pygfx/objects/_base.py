@@ -1,14 +1,16 @@
 import random
 import weakref
 import threading
+import enum
 
 import numpy as np
 
-from ._events import EventTarget
 from ..linalg import Vector3, Matrix4, Quaternion
 from ..linalg.utils import transform_aabb, aabb_to_sphere
-from ..resources import Resource, Buffer
+from ..resources import Buffer
 from ..utils import array_from_shadertype
+from ..utils.trackable import RootTrackable
+from ._events import EventTarget
 
 
 class IdProvider:
@@ -66,41 +68,14 @@ class IdProvider:
 id_provider = IdProvider()
 
 
-class ResourceContainer:
-    """Base class for WorldObject, Geometry and Material."""
-
-    def __init__(self):
-        self._resource_parents = weakref.WeakSet()
-        self._rev = 0
-
-    @property
-    def rev(self):
-        """Monotonically increasing integer that gets bumped when any
-        of its buffers or textures are set. (Not when updates are made
-        to these resources themselves).
-        """
-        return self._rev
-
-    # NOTE: we could similarly let bumping of a resource's rev bump a
-    # data_rev here. But it is not clear whether the (minor?) increase
-    # in performance is worth the added complexity.
-
-    def _bump_rev(self):
-        """Bump the rev (and that of any "resource parents"), to trigger a pipeline rebuild."""
-        self._rev += 1
-        for x in self._resource_parents:
-            x._rev += 1
-
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if isinstance(value, ResourceContainer):
-            value._resource_parents.add(self)
-            self._bump_rev()
-        elif isinstance(value, Resource):
-            self._bump_rev()
+class RenderMask(enum.IntFlag):
+    auto = 0
+    opaque = 1
+    transparent = 2
+    all = 3
 
 
-class WorldObject(EventTarget, ResourceContainer):
+class WorldObject(EventTarget, RootTrackable):
     """The base class for objects present in the "world", i.e. the scene graph.
 
     Each WorldObject has geometry to define it's data, and material to define
@@ -172,6 +147,9 @@ class WorldObject(EventTarget, ResourceContainer):
         self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
 
+    def __repr__(self):
+        return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
+
     def __del__(self):
         id_provider.release_id(self, self.id)
 
@@ -181,13 +159,17 @@ class WorldObject(EventTarget, ResourceContainer):
         return self._id
 
     @property
+    def tracker(self):
+        return self._root_tracker
+
+    @property
     def visible(self):
         """Wheter is object is rendered or not. Default True."""
-        return self._visible
+        return self._store.visible
 
     @visible.setter
     def visible(self, visible):
-        self._visible = bool(visible)
+        self._store.visible = bool(visible)
 
     @property
     def render_order(self):
@@ -195,11 +177,11 @@ class WorldObject(EventTarget, ResourceContainer):
         objects to be controlled. Default 0. See ``Renderer.sort_objects``
         for details.
         """
-        return self._render_order
+        return self._store.render_order
 
     @render_order.setter
     def render_order(self, value):
-        self._render_order = float(value)
+        self._store.render_order = float(value)
 
     @property
     def render_mask(self):
@@ -226,39 +208,43 @@ class WorldObject(EventTarget, ResourceContainer):
         invisible. Rendering opaque fragments in the transparent pass
         blends them as if they are transparent with an alpha of 1.
         """
-        return self._render_mask
+        return self._store.render_mask
 
     @render_mask.setter
     def render_mask(self, value):
-        value = "auto" if value is None else value
-        assert isinstance(value, str), "render_mask should be string"
-        value = value.lower()
-        options = ("opaque", "transparent", "auto", "all")
-        if value not in options:
-            raise ValueError(
-                f"WorldObject.render_mask must be one of {options} not {value!r}"
+        if value is None:
+            self._store.render_mask = RenderMask(0)
+        elif isinstance(value, int):
+            self._store.render_mask = RenderMask(value)
+        elif isinstance(value, str):
+            try:
+                self._store.render_mask = RenderMask._member_map_[value.lower()]
+            except KeyError:
+                opts = set(RenderMask._member_names_)
+                msg = f"WorldObject.render_mask must be one of {opts} not {value!r}"
+                raise ValueError(msg) from None
+        else:
+            raise TypeError(
+                f"WorldObject.render_mask must be int or str, not {type(value)}"
             )
-        self._render_mask = value
-        # Trigger a pipeline redraw, because this info is used in that code path
-        self._bump_rev()
 
     @property
     def geometry(self):
         """The object's geometry, the data that defines (the shape of) this object."""
-        return self._geometry
+        return self._store.geometry
 
     @geometry.setter
     def geometry(self, geometry):
-        self._geometry = geometry
+        self._store.geometry = geometry
 
     @property
     def material(self):
         """Wheter is object is rendered or not. Default True."""
-        return self._material
+        return self._store.material
 
     @material.setter
     def material(self, material):
-        self._material = material
+        self._store.material = material
 
     @property
     def parent(self):
@@ -326,7 +312,7 @@ class WorldObject(EventTarget, ResourceContainer):
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
         """
-        if skip_invisible and not self._visible:
+        if skip_invisible and not self.visible:
             return
         callback(self)
         for child in self._children:
@@ -434,8 +420,8 @@ class WorldObject(EventTarget, ResourceContainer):
         """Returns a world-space axis-aligned bounding box for this object's
         geometry and all of its children (recursively)."""
         boxes = []
-        if self._geometry:
-            aabb = self._geometry.bounding_box()
+        if self._store.geometry:
+            aabb = self._store.geometry.bounding_box()
             aabb_world = transform_aabb(aabb, self._matrix_world.to_ndarray())
             boxes.append(aabb_world)
         if self._children:

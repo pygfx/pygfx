@@ -1,54 +1,31 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
-from .imagerender import sampled_value_to_color, handle_colormap
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ._utils import to_texture_format
 from ...objects import Volume
-from ...materials import VolumeBasicMaterial, VolumeSliceMaterial, VolumeRayMaterial
+from ...materials import VolumeSliceMaterial, VolumeRayMaterial
 from ...resources import Texture, TextureView
+from .imageshader import sampled_value_to_color
 
 
 vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 
-@register_wgpu_render_function(Volume, VolumeBasicMaterial)
-def volume_renderer(render_info):
-    """Render function capable of rendering volumes."""
+class BaseVolumeShader(WorldObjectShader):
+    def get_resources(self, wobject, shared):
 
-    wobject = render_info.wobject
-    geometry = wobject.geometry
-    material = wobject.material  # noqa
+        geometry = wobject.geometry
+        material = wobject.material  # noqa
 
-    # The shaders for the volume slice and ray are very different, but their
-    # setup is very similar. This triage captures all diferences.
-    if isinstance(material, VolumeSliceMaterial):
-        shader = VolumeSliceShader(render_info, climcorrection="")
-        topology = wgpu.PrimitiveTopology.triangle_list
-        n = 12
-        cull_mode = wgpu.CullMode.none
-    elif isinstance(material, VolumeRayMaterial):
-        shader = VolumeRayShader(
-            render_info,
-            climcorrection="",
-            mode=material.render_mode,
-        )
-        topology = wgpu.PrimitiveTopology.triangle_list
-        n = 36
-        cull_mode = wgpu.CullMode.front  # the back planes are the ref
-    else:
-        raise RuntimeError(f"Unexpected volume material: {material}")
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        ]
 
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-    ]
-
-    # Collect texture and sampler
-    if geometry.grid is None:
-        raise ValueError("Volume.geometry must have a grid (texture).")
-    else:
+        # Collect texture and sampler
+        if geometry.grid is None:
+            raise ValueError("Volume.geometry must have a grid (texture).")
         if isinstance(geometry.grid, TextureView):
             view = geometry.grid
         elif isinstance(geometry.grid, Texture):
@@ -57,55 +34,43 @@ def volume_renderer(render_info):
             raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
         if view.view_dim.lower() != "3d":
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
+
         # Sampling type
+        self["climcorrection"] = ""
         fmt = to_texture_format(geometry.grid.format)
         if "norm" in fmt or "float" in fmt:
-            shader["img_format"] = "f32"
+            self["img_format"] = "f32"
             if "unorm" in fmt:
-                shader["climcorrection"] = " * 255.0"
+                self["climcorrection"] = " * 255.0"
             elif "snorm" in fmt:
-                shader["climcorrection"] = " * 255.0 - 128.0"
+                self["climcorrection"] = " * 255.0 - 128.0"
         elif "uint" in fmt:
-            shader["img_format"] = "u32"
+            self["img_format"] = "u32"
         else:
-            shader["img_format"] = "i32"
+            self["img_format"] = "i32"
+
         # Channels
-        shader["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-    bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
-    bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
+        bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
+        bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
 
-    # If a colormap is applied ...
-    if material.map is not None:
-        bindings.extend(handle_colormap(geometry, material, shader))
+        # If a colormap is applied ...
+        if material.map is not None:
+            bindings.extend(self.define_img_colormap(material.map))
 
-    # Let the shader generate code for our bindings
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
+        bindings = {i: b for i, b in enumerate(bindings)}
+        self.define_bindings(0, bindings)
 
-    # Get in what passes this needs rendering
-    suggested_render_mask = 3
-    if material.opacity >= 1 and shader["img_nchannels"] in (1, 3):
-        suggested_render_mask = 1
-    elif material.opacity < 1:
-        suggested_render_mask = 2
-
-    # Put it together!
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": topology,
-            "cull_mode": cull_mode,
-            "indices": (range(n), range(1)),
+        return {
+            "index_buffer": None,
             "vertex_buffers": {},
-            "bindings0": bindings,
+            "bindings": {
+                0: bindings,
+            },
         }
-    ]
 
-
-class BaseVolumeShader(WorldObjectShader):
-    def volume_helpers(self):
+    def code_volume_helpers(self):
         return (
             sampled_value_to_color
             + """
@@ -164,17 +129,44 @@ class BaseVolumeShader(WorldObjectShader):
         )
 
 
+@register_wgpu_render_function(Volume, VolumeSliceMaterial)
 class VolumeSliceShader(BaseVolumeShader):
+
+    type = "render"
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+
+        render_mask = wobject.render_mask
+        if not render_mask:
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif self["img_nchannels"] in (1, 3):
+                render_mask = RenderMask.opaque
+            else:
+                render_mask = RenderMask.all
+
+        return {
+            "indices": (12, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.volume_helpers()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_volume_helpers()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -331,7 +323,7 @@ class VolumeSliceShader(BaseVolumeShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
 
         @stage(fragment)
@@ -362,18 +354,49 @@ class VolumeSliceShader(BaseVolumeShader):
         """
 
 
+@register_wgpu_render_function(Volume, VolumeRayMaterial)
 class VolumeRayShader(BaseVolumeShader):
+
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        self["mode"] = wobject.material.render_mode
+        return super().get_resources(wobject, shared)
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.front,  # the back planes are the ref
+        }
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+
+        render_mask = wobject.render_mask
+        if not render_mask:
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif self["img_nchannels"] in (1, 3):
+                render_mask = RenderMask.opaque
+            else:
+                render_mask = RenderMask.all
+
+        return {
+            "indices": (36, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.volume_helpers()
-            + self.render_function()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_volume_helpers()
+            + self.code_render_function()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -427,7 +450,7 @@ class VolumeRayShader(BaseVolumeShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -502,7 +525,7 @@ class VolumeRayShader(BaseVolumeShader):
         }
         """
 
-    def render_function(self):
+    def code_render_function(self):
         # Triage over different render modes. Only one mode so far :)
         f = getattr(self, "render_mode_" + self.kwargs["mode"].lower(), "mip")
 

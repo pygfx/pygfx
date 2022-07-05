@@ -1,8 +1,15 @@
+"""
+Implements the base shader class. The shader is responsible for
+providing the WGSL code, as well as providing the information to connect
+it to the resources (buffers and textures) and some details on the
+pipeline and rendering.
+"""
+
 import re
+import hashlib
 
 import jinja2
 import numpy as np
-import wgpu
 
 from ...utils import array_from_shadertype
 from ...resources import Buffer
@@ -19,39 +26,12 @@ jinja_env = jinja2.Environment(
 )
 
 
-visibility_render = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
-visibility_all = (
-    wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
-)
 varying_types = ["f32", "vec2<f32>", "vec3<f32>", "vec4<f32>"]
 varying_types = (
     varying_types
     + [t.replace("f", "i") for t in varying_types]
     + [t.replace("f", "u") for t in varying_types]
 )
-
-
-class Binding:
-    """Simple object to hold together some information about a binding, for internal use.
-
-    * name: the name in wgsl
-    * type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
-      The subtype: depends on the type:
-      BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
-    * resource: Buffer, Texture or TextureView.
-    * visibility: wgpu.ShaderStage flag
-    * kwargs: could add more specifics in the future.
-    """
-
-    def __init__(self, name, type, resource, visibility=visibility_render, **kwargs):
-        if isinstance(visibility, str):
-            visibility = getattr(wgpu.ShaderStage, visibility)
-        self.name = name
-        self.type = type
-        self.resource = resource
-        self.visibility = visibility
-        for key, val in kwargs.items():
-            setattr(self, key, val)
 
 
 re_varying_getter = re.compile(r"[\s,\(\[]varyings\.(\w+)", re.UNICODE)
@@ -278,8 +258,17 @@ class BaseShader:
     def __getitem__(self, key):
         return self.kwargs[key]
 
-    def get_definitions(self):
-        """Get the definitions of types and bindings (uniforms, storage
+    def hash(self):
+        """A hash of the current state of the shader. If the hash changed,
+        it's likely that the shader changed.
+        """
+        h = hashlib.sha1()
+        h.update(repr(self.kwargs).encode())
+        h.update(self.code_definitions().encode())
+        return h.hexdigest()
+
+    def code_definitions(self):
+        """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
         code = (
@@ -290,14 +279,14 @@ class BaseShader:
         return code
 
     def get_code(self):
-        """Implement this to compose the total (templated) shader. This method is called
-        by ``generate_wgsl()``.
+        """Implement this to compose the total (but still templated)
+        shader. This method is called by ``generate_wgsl()``.
         """
-        raise NotImplementedError()
+        return self.get_definitions()
 
     def generate_wgsl(self, **kwargs):
-        """Generate the final WGSL with the templating resolved by jinja2.
-        Also accepts templating variables as kwargs.
+        """Generate the final WGSL. Calls get_code() and then resolves
+        the templating variables, varyings, and depth output.
         """
 
         old_kwargs = self.kwargs
@@ -325,6 +314,11 @@ class BaseShader:
 
         finally:
             self.kwargs = old_kwargs
+
+    def define_bindings(self, bindgroup, bindings_dict):
+        """Define a collection of bindings organized in a dict."""
+        for index, binding in bindings_dict.items():
+            self.define_binding(bindgroup, index, binding)
 
     def define_binding(self, bindgroup, index, binding):
         """Define a uniform, buffer, sampler, or texture. The produced wgsl
@@ -522,138 +516,3 @@ class BaseShader:
         var {binding.name}: texture_{texture.view_dim}<{format}>;
         """.rstrip()
         self._binding_codes[binding.name] = code
-
-
-class WorldObjectShader(BaseShader):
-    """A base shader for world objects. This class implements common functions
-    that can be used in all material-specific renderers.
-    """
-
-    def __init__(self, render_info, **kwargs):
-        super().__init__(**kwargs)
-
-        self["n_clipping_planes"] = len(render_info.wobject.material.clipping_planes)
-        self["clipping_mode"] = render_info.wobject.material.clipping_mode
-
-        # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
-        self.kwargs.setdefault("write_pick", True)
-        self.kwargs.setdefault("blending_code", "")
-        self.kwargs.setdefault("colormap_dim", "")
-        self.kwargs.setdefault("colormap_nchannels", 1)
-
-    def common_functions(self):
-
-        clipping_plane_code = """
-        fn check_clipping_planes(world_pos: vec3<f32>) -> bool {
-            var clipped: bool = {{ 'false' if clipping_mode == 'ANY' else 'true' }};
-            for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
-                let plane = u_material.clipping_planes[i];
-                let plane_clipped = dot( world_pos, plane.xyz ) < plane.w;
-                clipped = clipped {{ '||' if clipping_mode == 'ANY' else '&&' }} plane_clipped;
-            }
-            return !clipped;
-        }
-        fn apply_clipping_planes(world_pos: vec3<f32>) {
-            if (!(check_clipping_planes(world_pos))) { discard; }
-        }
-        """
-
-        if not self["n_clipping_planes"]:
-            clipping_plane_code = """
-            fn check_clipping_planes(world_pos: vec3<f32>) -> bool { return true; }
-            fn apply_clipping_planes(world_pos: vec3<f32>) { }
-            """
-
-        world_pos_code = """
-        fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
-            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
-            let world_pos = ndc_to_world * ndc_pos;
-            return world_pos.xyz / world_pos.w;
-        }
-        """
-
-        picking_code = """
-        var<private> p_pick_bits_used : i32 = 0;
-
-        fn pick_pack(value: u32, bits: i32) -> vec4<u32> {
-            // Utility to pack multiple values into a rgba16uint (64 bits available).
-            // Note that we store in a vec4<u32> but this gets written to a 4xu16.
-            // See #212 for details.
-            //
-            // Clip the given value
-            let v = min(value, u32(exp2(f32(bits))));
-            // Determine bit-shift for each component
-            let shift = vec4<i32>(
-                p_pick_bits_used, p_pick_bits_used - 16, p_pick_bits_used - 32, p_pick_bits_used - 48,
-            );
-            // Prepare for next pack
-            p_pick_bits_used = p_pick_bits_used + bits;
-            // Apply the shift for each component
-            let vv = vec4<u32>(v);
-            let selector1 = vec4<bool>(shift[0] < 0, shift[1] < 0, shift[2] < 0, shift[3] < 0);
-            let pick_new = select( vv << vec4<u32>(shift) , vv >> vec4<u32>(-shift) , selector1 );
-            // Mask the components
-            let mask = vec4<u32>(65535u);
-            let selector2 = vec4<bool>( abs(shift[0]) < 32, abs(shift[1]) < 32, abs(shift[2]) < 32, abs(shift[3]) < 32 );
-            return select( vec4<u32>(0u) , pick_new & mask , selector2 );
-        }
-        """
-
-        typemap = {"1d": "f32", "2d": "vec2<f32>", "3d": "vec3<f32>"}
-        self["colormap_coord_type"] = typemap.get(self["colormap_dim"], "f32")
-        colormap_code = """
-        fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
-            // Sample in the colormap. We get a vec4 color, but not all channels may be used.
-            $$ if not colormap_dim
-                let color_value = vec4<f32>(0.0);
-            $$ elif colormap_dim == '1d'
-                $$ if colormap_format == 'f32'
-                    let color_value = textureSample(t_colormap, s_colormap, texcoord);
-                $$ else
-                    let texcoords_dim = f32(textureDimensions(t_colormap);
-                    let texcoords_u = i32(texcoord * texcoords_dim % texcoords_dim);
-                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
-                $$ endif
-            $$ elif colormap_dim == '2d'
-                $$ if colormap_format == 'f32'
-                    let color_value = textureSample(t_colormap, s_colormap, texcoord.xy);
-                $$ else
-                    let texcoords_dim = vec2<f32>(textureDimensions(t_colormap));
-                    let texcoords_u = vec2<i32>(texcoord.xy * texcoords_dim % texcoords_dim);
-                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
-                $$ endif
-            $$ elif colormap_dim == '3d'
-                $$ if colormap_format == 'f32'
-                    let color_value = textureSample(t_colormap, s_colormap, texcoord.xyz);
-                $$ else
-                    let texcoords_dim = vec3<f32>(textureDimensions(t_colormap));
-                    let texcoords_u = vec3<i32>(texcoord.xyz * texcoords_dim % texcoords_dim);
-                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
-                $$ endif
-            $$ endif
-            // Depending on the number of channels we make grayscale, rgb, etc.
-            $$ if colormap_nchannels == 1
-                let color = vec4<f32>(color_value.rrr, 1.0);
-            $$ elif colormap_nchannels == 2
-                let color = vec4<f32>(color_value.rrr, color_value.g);
-            $$ elif colormap_nchannels == 3
-                let color = vec4<f32>(color_value.rgb, 1.0);
-            $$ else
-                let color = vec4<f32>(color_value.rgb, color_value.a);
-            $$ endif
-            return color;
-        }
-        """
-
-        blending_code = """
-        let alpha_compare_epsilon : f32 = 1e-6;
-        {{ blending_code }}
-        """
-
-        return (
-            clipping_plane_code
-            + world_pos_code
-            + picking_code
-            + colormap_code
-            + blending_code
-        )

@@ -1,5 +1,7 @@
 from typing import Tuple
 
+from ..cameras import Camera
+from ..utils.viewport import Viewport
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 from ._base import Controller, get_screen_vectors_in_world_cords
 
@@ -93,8 +95,8 @@ class OrbitController(Controller):
     def pan_start(
         self,
         pos: Tuple[float, float],
-        viewport: "Viewport",
-        camera: "Camera",
+        viewport: Viewport,
+        camera: Camera,
     ) -> Controller:
         """Start a panning operation based (2D) screen coordinates."""
         scene_size = viewport.logical_size
@@ -148,8 +150,8 @@ class OrbitController(Controller):
     def rotate_start(
         self,
         pos: Tuple[float, float],
-        viewport: "Viewport",
-        camera: "Camera",
+        viewport: Viewport,
+        camera: Camera,
     ) -> Controller:
         """Start a rotation operation based (2D) screen coordinates."""
         self._rotate_info = {"last": pos}

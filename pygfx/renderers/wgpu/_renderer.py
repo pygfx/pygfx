@@ -1,3 +1,8 @@
+"""
+The main renderer class. This class wraps a canvas or texture and it
+manages the rendering process.
+"""
+
 import time
 import weakref
 import logging
@@ -17,38 +22,23 @@ from ...objects import (
     WorldObject,
 )
 from ...cameras import Camera
-from ...resources import Buffer, Texture, TextureView
-from ...utils import array_from_shadertype, Color
+from ...resources import Texture, TextureView
+from ...utils import Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
-from ._pipelinebuilder import ensure_pipeline
+from ._pipeline import get_pipeline_container_group
 from ._update import update_buffer, update_texture, update_texture_view
-
+from ._shared import Shared
+from ._environment import get_environment
 
 logger = logging.getLogger("pygfx")
-
-
-# Definition uniform struct with standard info related to transforms,
-# provided to each shader as uniform at slot 0.
-# todo: a combined transform would be nice too, for performance
-# todo: same for ndc_to_world transform (combined inv transforms)
-stdinfo_uniform_type = dict(
-    cam_transform="4x4xf4",
-    cam_transform_inv="4x4xf4",
-    projection_transform="4x4xf4",
-    projection_transform_inv="4x4xf4",
-    physical_size="2xf4",
-    logical_size="2xf4",
-    flipped_winding="i4",  # A bool, really
-)
 
 
 def _get_sort_function(camera: Camera):
     """Given a scene object, get a function to sort wobject-tuples"""
 
-    def sort_func(wobject_tuple: WorldObject):
-        wobject = wobject_tuple[0]
+    def sort_func(wobject: WorldObject):
         z = (
             Vector3()
             .set_from_matrix_position(wobject.matrix_world)
@@ -62,40 +52,6 @@ def _get_sort_function(camera: Camera):
     )
 
     return sort_func
-
-
-class SharedData:
-    """An object to store global data to share between multiple wgpu renderers.
-
-    Since renderers don't render simultaneously, they can share certain
-    resources. This safes memory, but more importantly, resources that
-    get used in wobject pipelines should be shared to avoid having to
-    constantly recompose the pipelines of wobjects that are rendered by
-    multiple renderers.
-    """
-
-    def __init__(self, canvas):
-
-        # Create adapter and device objects - there should be just one per canvas.
-        # Having a global device provides the benefit that we can draw any object
-        # anywhere.
-        # We could pass the canvas to request_adapter(), so we get an adapter that is
-        # at least compatible with the first canvas that a renderer is create for.
-        # However, passing the object has been shown to prevent the creation of
-        # a canvas (on Linux + wx), so, we never pass it for now.
-        self.adapter = wgpu.request_adapter(
-            canvas=None, power_preference="high-performance"
-        )
-        self.device = self.adapter.request_device(
-            required_features=[], required_limits={}
-        )
-
-        # Create a uniform buffer for std info
-        self.stdinfo_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
-        self.stdinfo_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-
-        # A cache for shader objects
-        self.shader_cache = {}
 
 
 class WgpuRenderer(RootEventHandler, Renderer):
@@ -168,7 +124,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Make sure we have a shared object (the first renderer create it)
         canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
         if WgpuRenderer._shared is None:
-            WgpuRenderer._shared = SharedData(canvas)
+            WgpuRenderer._shared = Shared(canvas)
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
@@ -482,35 +438,43 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 
+        # Get environment
+        environment = get_environment(self, scene)
+
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
         scene.traverse(wobject_list.append, True)
 
-        # Ensure each wobject has pipeline info, and filter objects that we cannot render
-        wobject_tuples = []
-        any_has_changed = False
+        # Sort objects
+        if self.sort_objects:
+            sort_func = _get_sort_function(camera)
+            wobject_list.sort(key=sort_func)
+
+        # Collect all pipeline container objects
+        compute_pipeline_containers = []
+        render_pipeline_containers = []
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            wobject_pipeline, has_changed = ensure_pipeline(self, wobject)
-            if wobject_pipeline:
-                any_has_changed |= has_changed
-                wobject_tuples.append((wobject, wobject_pipeline))
+            container_group = get_pipeline_container_group(
+                wobject, environment, self._shared
+            )
+            compute_pipeline_containers.extend(container_group.compute_containers)
+            render_pipeline_containers.extend(container_group.render_containers)
 
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
         # when the wobject's children, visibile, render_order, or render_pass changes.
 
-        # Sort objects
-        if self.sort_objects:
-            sort_func = _get_sort_function(camera)
-            wobject_tuples.sort(key=sort_func)
-
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
         command_buffers += self._render_recording(
-            wobject_tuples, physical_viewport, clear_color
+            environment,
+            compute_pipeline_containers,
+            render_pipeline_containers,
+            physical_viewport,
+            clear_color,
         )
         command_buffers += self._blender.perform_combine_pass(self._shared.device)
         command_buffers
@@ -552,7 +516,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _render_recording(
         self,
-        wobject_tuples,
+        environment,
+        compute_pipeline_containers,
+        render_pipeline_containers,
         physical_viewport,
         clear_color,
     ):
@@ -570,14 +536,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         compute_pass = command_encoder.begin_compute_pass()
 
-        for wobject, wobject_pipeline in wobject_tuples:
-            for pinfo in wobject_pipeline.get("compute_pipelines", ()):
-                compute_pass.set_pipeline(pinfo["pipeline"])
-                for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                    compute_pass.set_bind_group(
-                        bind_group_id, bind_group, [], 0, 999999
-                    )
-                compute_pass.dispatch_workgroups(*pinfo["index_args"])
+        for compute_pipeline_container in compute_pipeline_containers:
+            compute_pipeline_container.dispatch(compute_pass)
 
         compute_pass.end()
 
@@ -602,27 +562,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
             render_pass.set_viewport(*physical_viewport)
 
-            for wobject, wobject_pipeline in wobject_tuples:
-                if not (render_mask & wobject_pipeline["render_mask"]):
-                    continue
-                for pinfo in wobject_pipeline["render_pipelines"]:
-                    render_pass.set_pipeline(pinfo["pipelines"][pass_index])
-                    for slot, vbuffer in pinfo["vertex_buffers"].items():
-                        render_pass.set_vertex_buffer(
-                            slot,
-                            vbuffer._wgpu_buffer[1],
-                            vbuffer.vertex_byte_range[0],
-                            vbuffer.vertex_byte_range[1],
-                        )
-                    for bind_group_id, bind_group in enumerate(pinfo["bind_groups"]):
-                        render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
-                    # Draw with or without index buffer
-                    if pinfo["index_buffer"] is not None:
-                        ibuffer = pinfo["index_buffer"]
-                        render_pass.set_index_buffer(ibuffer, 0, ibuffer.size)
-                        render_pass.draw_indexed(*pinfo["index_args"])
-                    else:
-                        render_pass.draw(*pinfo["index_args"])
+            for render_pipeline_container in render_pipeline_containers:
+                render_pipeline_container.draw(
+                    render_pass, environment, pass_index, render_mask
+                )
 
             render_pass.end()
 
@@ -630,7 +573,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
         # Update the stdinfo buffer's data
-        stdinfo_data = self._shared.stdinfo_buffer.data
+        stdinfo_data = self._shared.uniform_buffer.data
         stdinfo_data["cam_transform"].flat = camera.matrix_world_inverse.elements
         stdinfo_data["cam_transform_inv"].flat = camera.matrix_world.elements
         stdinfo_data["projection_transform"].flat = camera.projection_matrix.elements
@@ -642,8 +585,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["logical_size"] = logical_size
         stdinfo_data["flipped_winding"] = camera.flips_winding
         # Upload to GPU
-        self._shared.stdinfo_buffer.update_range(0, 1)
-        update_buffer(self._shared.device, self._shared.stdinfo_buffer)
+        self._shared.uniform_buffer.update_range(0, 1)
+        update_buffer(self._shared.device, self._shared.uniform_buffer)
 
     # Picking
 

@@ -5,8 +5,7 @@ This example draws multiple triangles. This is more or a full-fledged object.
 
 It demonstrates:
 * How you can define a new WorldObject and Material.
-* How to define a render function for it.
-* The basic working of the shader class.
+* How to define a shader for it.
 * The use of uniforms for material properties.
 * The implementation of the camera transforms in the shader.
 * How geometry (vertex data) can be used in the shader.
@@ -15,9 +14,10 @@ It demonstrates:
 """
 
 import numpy as np
+import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu._shadercomposer import Binding, WorldObjectShader
+from pygfx.renderers.wgpu import Binding, WorldObjectShader, RenderMask
 
 
 # %% Custom object, material, and matching render function
@@ -44,20 +44,89 @@ class TriangleMaterial(gfx.Material):
 
     @color.setter
     def color(self, color):
-        self.uniform_buffer.data["color"] = gfx.Color(color)
+        color = gfx.Color(color)
+        self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 99999)
+        self._store.color_is_transparent = color.a < 1
+
+    @property
+    def color_is_transparent(self):
+        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
+        # Note the use of the the _store to make this attribute trackable,
+        # so that when it changes, the shader is updated automatically.
+        return self._store.color_is_transparent
 
 
+@gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 class TriangleShader(WorldObjectShader):
+
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        geometry = wobject.geometry
+
+        # This is how we set templating variables (dict-like access on the shader).
+        # Look for "{{scale}}" in the WGSL code below.
+        self["scale"] = 0.2
+
+        # Three uniforms and one storage buffer with positions
+        bindings = {
+            0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            1: Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            2: Binding("u_material", "buffer/uniform", wobject.material.uniform_buffer),
+            3: Binding(
+                "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+            ),
+        }
+        self.define_bindings(0, bindings)
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        # We draw triangles, no culling
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+        geometry = wobject.geometry
+
+        # Determine number of vertices
+        n = 3 * geometry.positions.nitems
+
+        # Define in what passes this object is drawn.
+        # Using RenderMask.all is a good default. The rest is optimization.
+        render_mask = wobject.render_mask
+        if not render_mask:  # i.e. set to auto
+            render_mask = RenderMask.all
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif material.color_is_transparent:
+                render_mask = RenderMask.transparent
+            else:
+                render_mask = RenderMask.opaque
+
+        return {
+            "indices": (n, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
         @stage(vertex)
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
@@ -86,58 +155,16 @@ class TriangleShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
-            let a = u_material.opacity * u_material.color.a;
-            out.color = vec4<f32>(u_material.color.rgb, 1.0);
+            let a = u_material.color.a * u_material.opacity;
+            out.color = vec4<f32>(u_material.color.rgb, a);
             return out;
         }
         """
-
-
-# Tell pygfx to use this render function for a Triangle with TriangleMaterial.
-@gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
-def triangle_render_function(render_info):
-    wobject = render_info.wobject
-    material = wobject.material
-    geometry = wobject.geometry
-
-    # Create shader object, see the templating variable `scale`
-    shader = TriangleShader(render_info, scale=0.5)
-    shader.scale = 0.2
-
-    # Define bindings, and make shader create code for them
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-        Binding(
-            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-        ),
-    ]
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
-
-    # Define in what passes this object is drawn
-    # (as a bit mask, 1: opaque, 2: transparent, 3: both).
-    if material.opacity < 1:
-        suggested_render_mask = 2
-    else:
-        suggested_render_mask = 1 if material.color[3] >= 1 else 2
-
-    # Create dict that the Pygfx renderer needs
-    return [
-        {
-            "render_shader": shader,
-            "primitive_topology": "triangle-list",
-            "indices": range(3 * geometry.positions.nitems),
-            "bindings0": bindings,
-            "suggested_render_mask": suggested_render_mask,
-        },
-    ]
 
 
 # %% Setup scene

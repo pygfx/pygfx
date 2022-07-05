@@ -44,10 +44,14 @@ class LineMaterial(Material):
     @color.setter
     def color(self, color):
         color = Color(color)
-        if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
-            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
+        self._store.color_is_transparent = color.a < 1
+
+    @property
+    def color_is_transparent(self):
+        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
+        return self._store.color_is_transparent
 
     @property
     def aa(self):
@@ -71,7 +75,6 @@ class LineMaterial(Material):
         value = bool(value)
         if value != self._vertex_colors:
             self._vertex_colors = value
-            self._bump_rev()
 
     @property
     def thickness(self):

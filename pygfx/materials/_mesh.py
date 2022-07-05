@@ -27,7 +27,7 @@ class MeshBasicMaterial(Material):
         super().__init__(**kwargs)
 
         self.color = color
-        self._vertex_colors = bool(vertex_colors)
+        self.vertex_colors = bool(vertex_colors)
         self.map = map
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
@@ -57,22 +57,23 @@ class MeshBasicMaterial(Material):
     @color.setter
     def color(self, color):
         color = Color(color)
-        if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
-            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
+        self._store.color_is_transparent = color.a < 1
+
+    @property
+    def color_is_transparent(self):
+        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
+        return self._store.color_is_transparent
 
     @property
     def vertex_colors(self):
         """Whether to use the vertex colors provided in the geometry."""
-        return self._vertex_colors
+        return self._store.vertex_colors
 
     @vertex_colors.setter
     def vertex_colors(self, value):
-        value = bool(value)
-        if value != self._vertex_colors:
-            self._vertex_colors = value
-            self._bump_rev()
+        self._store.vertex_colors = bool(value)
 
     @property
     def map(self):
@@ -80,12 +81,12 @@ class MeshBasicMaterial(Material):
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of columns in the geometry's texcoords.
         """
-        return self._map
+        return self._store.map
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, TextureView)
-        self._map = map
+        self._store.map = map
 
     @property
     def side(self):
@@ -97,28 +98,25 @@ class MeshBasicMaterial(Material):
         Counter-clockwise (CCW) winding is assumed. If this is not the case,
         adjust your geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
         """
-        return self._side
+        return self._store.side
 
     @side.setter
     def side(self, value):
         side = str(value).upper()
         if side in ("FRONT", "BACK", "BOTH"):
-            self._side = side
+            self._store.side = side
         else:
             raise ValueError(f"Unexpected side: '{value}'")
-        self._bump_rev()
 
     @property
     def wireframe(self):
         """Render geometry as a wireframe. Default is False (i.e. render as polygons)."""
-        return self.uniform_buffer.data["wireframe"] > 0
+        return self._store.wireframe
 
     @wireframe.setter
     def wireframe(self, value):
         is_wiremode = bool(value)
-        was_wiremode = self.uniform_buffer.data["wireframe"] > 0
-        if was_wiremode == is_wiremode:
-            return
+        self._store.wireframe = is_wiremode
         # Set uniform
         # We use a trick to make negative values indicate no-wireframe mode
         thickness = self.wireframe_thickness
@@ -126,9 +124,7 @@ class MeshBasicMaterial(Material):
             self.uniform_buffer.data["wireframe"] = thickness
         else:
             self.uniform_buffer.data["wireframe"] = -thickness
-        # Trigger a pipleine rebuild if the mode changes
         self.uniform_buffer.update_range(0, 1)
-        self._bump_rev()
 
     @property
     def wireframe_thickness(self):

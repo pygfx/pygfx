@@ -12,6 +12,7 @@ Contents
 
    Guide <guide.rst>
    Reference <reference.rst>
+   Writing shaders <shaders.rst>
 
 
 Indices and tables

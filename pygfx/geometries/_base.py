@@ -1,11 +1,11 @@
 import numpy as np
 
-from ..objects._base import ResourceContainer
+from ..utils.trackable import Trackable
 from ..resources import Resource, Buffer, Texture
 from ..linalg.utils import aabb_to_sphere
 
 
-class Geometry(ResourceContainer):
+class Geometry(Trackable):
     """A Geomerty object is a container for geometry data of a WorldObject.
 
     A geometry object contains the data that defines (the shape of) the
@@ -98,6 +98,23 @@ class Geometry(ResourceContainer):
 
             # Store
             setattr(self, name, resource)
+
+    def __setattr__(self, key, new_value):
+        if not key.startswith("_"):
+            if isinstance(new_value, Trackable) or key in self._store:
+                return setattr(self._store, key, new_value)
+        object.__setattr__(self, key, new_value)
+
+    def __getattribute__(self, key):
+        if not key.startswith("_"):
+            if key in self._store:
+                return getattr(self._store, key)
+        return object.__getattribute__(self, key)
+
+    def __dir__(self):
+        x = object.__dir__(self)
+        x.extend(dict.keys(self._store))
+        return x
 
     def bounding_box(self):
         """Compute the axis-aligned bounding box based on either positions

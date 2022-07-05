@@ -1,7 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ._utils import to_texture_format
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
@@ -9,66 +8,75 @@ from ...resources import Texture, TextureView
 
 
 @register_wgpu_render_function(Background, BackgroundMaterial)
-def background_renderer(render_info):
-
-    wobject = render_info.wobject
-    material = wobject.material
-    shader = BackgroundShader(render_info, texture_dim="")
-
-    bindings = {}
-
-    # Uniforms
-    bindings[0] = Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform)
-    bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-    bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
-
-    if isinstance(material, BackgroundImageMaterial) and material.map is not None:
-        if isinstance(material.map, Texture):
-            raise TypeError("material.map is a Texture, but must be a TextureView")
-        elif not isinstance(material.map, TextureView):
-            raise TypeError("material.map must be a TextureView")
-        bindings[3] = Binding(
-            "r_sampler", "sampler/filtering", material.map, "FRAGMENT"
-        )
-        bindings[4] = Binding("r_tex", "texture/auto", material.map, "FRAGMENT")
-        # Select shader
-        if material.map.view_dim == "cube":
-            shader["texture_dim"] = "cube"
-        elif material.map.view_dim == "2d":
-            shader["texture_dim"] = "2d"
-        else:
-            raise ValueError(
-                "BackgroundImageMaterial should have map with texture view 2d or cube."
-            )
-        # Channels
-        fmt = to_texture_format(material.map.format)
-        shader["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-
-    # Let the shader generate code for our bindings
-    for i, binding in bindings.items():
-        shader.define_binding(0, i, binding)
-
-    return [
-        {
-            "suggested_render_mask": 1,
-            "render_shader": shader,
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "indices": 4,
-            "bindings0": bindings,
-        }
-    ]
-
-
 class BackgroundShader(WorldObjectShader):
+
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        material = wobject.material
+
+        bindings = {}
+
+        # Uniforms
+        bindings[0] = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
+        bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
+        bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
+
+        if isinstance(material, BackgroundImageMaterial) and material.map is not None:
+            if isinstance(material.map, Texture):
+                raise TypeError("material.map is a Texture, but must be a TextureView")
+            elif not isinstance(material.map, TextureView):
+                raise TypeError("material.map must be a TextureView")
+            bindings[3] = Binding(
+                "r_sampler", "sampler/filtering", material.map, "FRAGMENT"
+            )
+            bindings[4] = Binding("r_tex", "texture/auto", material.map, "FRAGMENT")
+            # Select texture dimension
+            if material.map.view_dim == "cube":
+                self["texture_dim"] = "cube"
+            elif material.map.view_dim == "2d":
+                self["texture_dim"] = "2d"
+            else:
+                raise ValueError(
+                    "BackgroundImageMaterial should have map with texture view 2d or cube."
+                )
+            # Channels
+            fmt = to_texture_format(material.map.format)
+            self["texture_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+        else:
+            self["texture_dim"] = ""
+
+        self.define_bindings(0, bindings)
+
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        return {
+            "indices": (4, 1),
+            "render_mask": RenderMask.opaque,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -107,7 +115,7 @@ class BackgroundShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {

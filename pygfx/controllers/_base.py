@@ -3,6 +3,7 @@ from typing import Tuple, Union
 from ..linalg import Vector3
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
+from ..cameras import Camera
 
 
 class Controller:
@@ -20,7 +21,7 @@ class Controller:
     def load_state(self, state=None):
         raise NotImplementedError()
 
-    def update_camera(self, camera: "Camera") -> "Controller":
+    def update_camera(self, camera: Camera) -> "Controller":
         """Update the transform of the camera with the internal transform."""
         rot, pos, zoom = self.get_view()
         camera.rotation.copy(rot)
@@ -29,7 +30,7 @@ class Controller:
         return self
 
     def add_default_event_handlers(
-        self, viewport: Union[Viewport, Renderer], camera: "Camera"
+        self, viewport: Union[Viewport, Renderer], camera: Camera
     ):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
         Needs either a viewport or renderer, pus the camera.
@@ -45,7 +46,7 @@ class Controller:
 
 
 def get_screen_vectors_in_world_cords(
-    center_world: Vector3, scene_size: Tuple[float, float], camera: "Camera"
+    center_world: Vector3, scene_size: Tuple[float, float], camera: Camera
 ) -> Tuple[Vector3, Vector3]:
     """Given a reference center location (in 3D world coordinates)
     Get the vectors corresponding to the x and y direction in screen coordinates.

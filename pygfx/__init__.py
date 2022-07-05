@@ -15,7 +15,7 @@ from .renderers import *
 from .utils.color import Color
 from .utils.show import show
 from .utils.viewport import Viewport
-from .utils import cm
+from .utils import cm, logger
 
 
 __version__ = "0.1.9"

@@ -1,131 +1,11 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
-from ._utils import to_vertex_format, to_texture_format
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...objects import Points
 from ...materials import PointsMaterial, GaussianPointsMaterial
-from ...resources import Texture, TextureView
-
-
-def handle_colormap(geometry, material, shader):
-    if isinstance(material.map, Texture):
-        raise TypeError("material.map is a Texture, but must be a TextureView")
-    elif not isinstance(material.map, TextureView):
-        raise TypeError("material.map must be a TextureView")
-    elif getattr(geometry, "texcoords", None) is None:
-        raise ValueError("material.map is present, but geometry has no texcoords")
-    # Dimensionality
-    shader["colormap_dim"] = view_dim = material.map.view_dim
-    if view_dim not in ("1d", "2d", "3d"):
-        raise ValueError("Unexpected texture dimension")
-    # Texture dim matches texcoords
-    vert_fmt = to_vertex_format(geometry.texcoords.format)
-    if view_dim == "1d" and "x" not in vert_fmt:
-        pass
-    elif not vert_fmt.endswith("x" + view_dim[0]):
-        raise ValueError(
-            f"geometry.texcoords {geometry.texcoords.format} does not match material.map {view_dim}"
-        )
-    # Sampling type
-    fmt = to_texture_format(material.map.format)
-    if "norm" in fmt or "float" in fmt:
-        shader["colormap_format"] = "f32"
-    elif "uint" in fmt:
-        shader["colormap_format"] = "u32"
-    else:
-        shader["colormap_format"] = "i32"
-    # Channels
-    shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-    # Return bindings
-    return [
-        Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT"),
-        Binding("t_colormap", "texture/auto", material.map, "FRAGMENT"),
-        Binding(
-            "s_texcoords", "buffer/read_only_storage", geometry.texcoords, "VERTEX"
-        ),
-    ]
 
 
 @register_wgpu_render_function(Points, PointsMaterial)
-def points_renderer(render_info):
-    """Render function capable of rendering Points."""
-
-    wobject = render_info.wobject
-    geometry = wobject.geometry
-    material = wobject.material
-    shader = PointsShader(
-        render_info,
-        type="circle",
-        per_vertex_sizes=False,
-        vertex_color_channels=0,
-    )
-    n = geometry.positions.nitems * 6
-
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-        Binding(
-            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-        ),
-    ]
-
-    if material.vertex_sizes:
-        shader["per_vertex_sizes"] = True
-        bindings.append(
-            Binding("s_sizes", "buffer/read_only_storage", geometry.sizes, "VERTEX")
-        )
-
-    # Per-vertex color, colormap, or a plane color?
-    shader["color_mode"] = "uniform"
-    if material.vertex_colors:
-        shader["color_mode"] = "vertex"
-        shader["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
-        if nchannels not in (1, 2, 3, 4):
-            raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-        bindings.append(
-            Binding("s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX")
-        )
-    elif material.map is not None:
-        shader["color_mode"] = "map"
-        bindings.extend(handle_colormap(geometry, material, shader))
-
-    if isinstance(material, GaussianPointsMaterial):
-        shader["type"] = "gaussian"
-
-    # Let the shader generate code for our bindings
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
-
-    # Determine in what render passes this objects must be rendered
-    suggested_render_mask = 3
-    if material.opacity < 1:
-        suggested_render_mask = 2
-    elif shader["color_mode"] == "vertex":
-        if shader["vertex_color_channels"] in (1, 3):
-            suggested_render_mask = 1
-    elif shader["color_mode"] == "map":
-        if shader["colormap_nchannels"] in (1, 3):
-            suggested_render_mask = 1
-    elif shader["color_mode"] == "uniform":
-        suggested_render_mask = 1 if material.color[3] >= 1 else 2
-    else:
-        raise RuntimeError(f"Unexpected color mode {shader['color_mode']}")
-
-    # Put it together!
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
-            "indices": (range(n), range(1)),
-            "vertex_buffers": {},
-            "bindings0": bindings,
-        }
-    ]
-
-
 class PointsShader(WorldObjectShader):
 
     # Notes:
@@ -135,15 +15,106 @@ class PointsShader(WorldObjectShader):
     # An alternative is to use instancing. Could be worth testing both approaches
     # for performance ...
 
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        geometry = wobject.geometry
+        material = wobject.material
+
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+            Binding(
+                "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+            ),
+        ]
+
+        self["per_vertex_sizes"] = False
+        if material.vertex_sizes:
+            self["per_vertex_sizes"] = True
+            bindings.append(
+                Binding("s_sizes", "buffer/read_only_storage", geometry.sizes, "VERTEX")
+            )
+
+        # Per-vertex color, colormap, or a plane color?
+        self["color_mode"] = "uniform"
+        self["vertex_color_channels"] = 0
+        if material.vertex_colors:
+            self["color_mode"] = "vertex"
+            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+            bindings.append(
+                Binding(
+                    "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
+                )
+            )
+        elif material.map is not None:
+            self["color_mode"] = "map"
+            bindings.extend(
+                self.define_vertex_colormap(material.map, geometry.texcoords)
+            )
+
+        self["shape"] = "circle"
+        if isinstance(material, GaussianPointsMaterial):
+            self["shape"] = "gaussian"
+
+        bindings = {i: b for i, b in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+
+        n = wobject.geometry.positions.nitems * 6
+
+        render_mask = wobject.render_mask
+        if not render_mask:
+            render_mask = RenderMask.all
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif self["color_mode"] == "vertex":
+                if self["vertex_color_channels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "map":
+                if self["colormap_nchannels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "uniform":
+                if material.color_is_transparent:
+                    render_mask = RenderMask.transparent
+                else:
+                    render_mask = RenderMask.opaque
+            else:
+                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
+
+        return {
+            "indices": (n, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -217,7 +188,7 @@ class PointsShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         # Also see See https://github.com/vispy/vispy/blob/master/vispy/visuals/markers.py
         return """
 
@@ -242,7 +213,7 @@ class PointsShader(WorldObjectShader):
                 let color = u_material.color;
             $$ endif
 
-            $$ if type == 'circle'
+            $$ if shape == 'circle'
                 if (d <= size - 0.5 * aa_width) {
                     final_color = color;
                 } else if (d <= size + 0.5 * aa_width) {
@@ -252,7 +223,7 @@ class PointsShader(WorldObjectShader):
                 } else {
                     discard;
                 }
-            $$ elif type == "gaussian"
+            $$ elif shape == "gaussian"
                 if (d <= size) {
                     let sigma = size / 3.0;
                     let t = d / sigma;

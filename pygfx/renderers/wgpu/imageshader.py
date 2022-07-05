@@ -1,7 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ._utils import to_texture_format
 from ...objects import Image
 from ...materials import ImageBasicMaterial
@@ -9,118 +8,6 @@ from ...resources import Texture, TextureView
 
 
 vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
-
-
-def handle_colormap(geometry, material, shader):
-    if isinstance(material.map, Texture):
-        raise TypeError("material.map is a Texture, but must be a TextureView")
-    elif not isinstance(material.map, TextureView):
-        raise TypeError("material.map must be a TextureView")
-    # Dimensionality
-    shader["colormap_dim"] = view_dim = material.map.view_dim
-    if material.map.view_dim not in ("1d", "2d", "3d"):
-        raise ValueError("Unexpected colormap texture dimension")
-    # Texture dim matches image channels
-    if int(view_dim[0]) != shader["img_nchannels"]:
-        raise ValueError(
-            f"Image channels {shader['img_nchannels']} does not match material.map {view_dim}"
-        )
-    # Sampling type
-    fmt = to_texture_format(material.map.format)
-    if "norm" in fmt or "float" in fmt:
-        shader["colormap_format"] = "f32"
-    elif "uint" in fmt:
-        shader["colormap_format"] = "u32"
-    else:
-        shader["colormap_format"] = "i32"
-    # Channels
-    shader["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-    # Return bindinhs
-    return [
-        Binding("s_colormap", "sampler/filtering", material.map, "FRAGMENT"),
-        Binding("t_colormap", "texture/auto", material.map, "FRAGMENT"),
-    ]
-
-
-@register_wgpu_render_function(Image, ImageBasicMaterial)
-def image_renderer(render_info):
-    """Render function capable of rendering images."""
-
-    wobject = render_info.wobject
-    geometry = wobject.geometry
-    material = wobject.material  # noqa
-    shader = ImageShader(render_info, climcorrection="")
-
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-    ]
-
-    topology = wgpu.PrimitiveTopology.triangle_strip
-    n = 4
-
-    # Collect texture and sampler
-    if geometry.grid is None:
-        raise ValueError("Image.geometry must have a grid (texture).")
-    else:
-        if isinstance(geometry.grid, TextureView):
-            view = geometry.grid
-        elif isinstance(geometry.grid, Texture):
-            view = geometry.grid.get_view(filter="linear")
-        else:
-            raise TypeError("Image.geometry.grid must be a Texture or TextureView")
-        if view.view_dim.lower() != "2d":
-            raise TypeError("Image.geometry.grid must a 2D texture (view)")
-        # Sampling type
-        fmt = to_texture_format(geometry.grid.format)
-        if "norm" in fmt or "float" in fmt:
-            shader["img_format"] = "f32"
-            if "unorm" in fmt:
-                shader["climcorrection"] = " * 255.0"
-            elif "snorm" in fmt:
-                shader["climcorrection"] = " * 255.0 - 128.0"
-        elif "uint" in fmt:
-            shader["img_format"] = "u32"
-        else:
-            shader["img_format"] = "i32"
-        # Channels
-        shader["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-
-    bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
-    bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
-
-    # If a colormap is applied ...
-    if material.map is not None:
-        bindings.extend(handle_colormap(geometry, material, shader))
-
-    # Let the shader generate code for our bindings
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
-
-    # Get in what passes this needs rendering
-    suggested_render_mask = 3
-    if material.opacity < 1:
-        suggested_render_mask = 2
-    if material.map is not None:
-        if shader["colormap_nchannels"] in (1, 3):
-            suggested_render_mask = 1
-    else:
-        if shader["img_nchannels"] in (1, 3):
-            suggested_render_mask = 1
-
-    # Put it together!
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": topology,
-            "indices": (range(n), range(1)),
-            "vertex_buffers": {},
-            "bindings0": bindings,
-        }
-    ]
-
 
 sampled_value_to_color = """
         fn sampled_value_to_color(value_rgba: vec4<f32>) -> vec4<f32> {
@@ -163,7 +50,7 @@ sampled_value_to_color = """
 
 
 class BaseImageShader(WorldObjectShader):
-    def image_helpers(self):
+    def code_image_helpers(self):
         return (
             sampled_value_to_color
             + """
@@ -210,17 +97,104 @@ class BaseImageShader(WorldObjectShader):
         )
 
 
+@register_wgpu_render_function(Image, ImageBasicMaterial)
 class ImageShader(BaseImageShader):
+
+    type = "render"
+
+    def get_resources(self, wobject, shared):
+        geometry = wobject.geometry
+        material = wobject.material  # noqa
+
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        ]
+
+        self["climcorrection"] = ""
+
+        # Collect texture and sampler
+        if geometry.grid is None:
+            raise ValueError("Image.geometry must have a grid (texture).")
+        else:
+            if isinstance(geometry.grid, TextureView):
+                view = geometry.grid
+            elif isinstance(geometry.grid, Texture):
+                view = geometry.grid.get_view(filter="linear")
+            else:
+                raise TypeError("Image.geometry.grid must be a Texture or TextureView")
+            if view.view_dim.lower() != "2d":
+                raise TypeError("Image.geometry.grid must a 2D texture (view)")
+            # Sampling type
+            fmt = to_texture_format(geometry.grid.format)
+            if "norm" in fmt or "float" in fmt:
+                self["img_format"] = "f32"
+                if "unorm" in fmt:
+                    self["climcorrection"] = " * 255.0"
+                elif "snorm" in fmt:
+                    self["climcorrection"] = " * 255.0 - 128.0"
+            elif "uint" in fmt:
+                self["img_format"] = "u32"
+            else:
+                self["img_format"] = "i32"
+            # Channels
+            self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+
+        bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
+        bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
+
+        # If a colormap is applied ...
+        if material.map is not None:
+            bindings.extend(self.define_img_colormap(material.map))
+
+        bindings = {i: b for i, b in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        return {
+            "index_buffer": None,
+            "vertex_buffers": {},
+            "bindings": {
+                0: bindings,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+
+        render_mask = wobject.render_mask
+        if not render_mask:
+            render_mask = RenderMask.all
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif material.map is not None:
+                if self["colormap_nchannels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+            else:
+                if self["img_nchannels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+
+        return {
+            "indices": (4, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.image_helpers()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_image_helpers()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -250,7 +224,7 @@ class ImageShader(BaseImageShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
 
         @stage(fragment)

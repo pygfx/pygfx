@@ -20,7 +20,7 @@ class InstancedMesh(Mesh):
             ]
         )
         instance_infos = np.zeros(count, dtype)
-        self.instance_infos = Buffer(instance_infos, nitems=count)
+        self._store.instance_buffer = Buffer(instance_infos, nitems=count)
         # Set ids
         self._idmap = {}
         for instance_index in range(count):
@@ -33,14 +33,18 @@ class InstancedMesh(Mesh):
 
     def __del__(self):
         super().__del__()
-        instance_infos = self.instance_infos.data
+        instance_infos = self._store["instance_buffer"].data
         for i in range(len(instance_infos)):
             id_provider.release_id(self, instance_infos[i]["id"])
+
+    @property
+    def instance_buffer(self):
+        return self._store.instance_buffer
 
     def set_matrix_at(self, index: int, matrix):
         """set the matrix for the instance at the given index."""
         matrix = np.array(matrix).reshape(4, 4)
-        self.instance_infos.data["matrix"][index] = matrix
+        self._store["instance_buffer"].data["matrix"][index] = matrix
 
     def _wgpu_get_pick_info(self, pick_value):
         info = self.material._wgpu_get_pick_info(pick_value)

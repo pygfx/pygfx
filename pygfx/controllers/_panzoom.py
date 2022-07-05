@@ -1,5 +1,7 @@
 from typing import Tuple
 
+from ..cameras import Camera
+from ..utils.viewport import Viewport
 from ..linalg import Vector3, Matrix4, Quaternion
 from ._base import Controller, get_screen_vectors_in_world_cords
 
@@ -74,8 +76,8 @@ class PanZoomController(Controller):
     def pan_start(
         self,
         pos: Tuple[float, float],
-        viewport: "Viewport",
-        camera: "Camera",
+        viewport: Viewport,
+        camera: Camera,
     ) -> Controller:
         # Using this function may be a bit overkill. We can also simply
         # get the ortho cameras world_size (camera.visible_world_size).
@@ -111,8 +113,8 @@ class PanZoomController(Controller):
         self,
         multiplier: float,
         pos: Tuple[float, float],
-        viewport: "Viewport",
-        camera: "Camera",
+        viewport: Viewport,
+        camera: Camera,
     ) -> Controller:
 
         x, y, w, h = viewport.rect

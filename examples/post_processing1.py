@@ -18,7 +18,7 @@ import numpy as np
 import imageio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu._shadercomposer import Binding
+from pygfx.renderers.wgpu import Binding
 
 
 raise RuntimeError("Post-processing needs to be redesigned")

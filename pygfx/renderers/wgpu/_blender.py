@@ -1,3 +1,9 @@
+"""
+Defines the classes for the different render passes and the blender
+objects that contain them. A blender becomes part of the environment
+object.
+"""
+
 import wgpu  # only for flags/enums
 
 from ._flusher import FULL_QUAD_SHADER, _create_pipeline

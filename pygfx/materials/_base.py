@@ -1,9 +1,9 @@
-from ..objects._base import ResourceContainer
+from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
 
 
-class Material(ResourceContainer):
+class Material(Trackable):
     """The base class for all materials.
     Materials define how an object is rendered, subject to certain properties.
     """
@@ -22,7 +22,7 @@ class Material(ResourceContainer):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
 
         # Create matching uniform buffer
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
@@ -51,7 +51,7 @@ class Material(ResourceContainer):
         self.uniform_type[key] = f"{new_length}*{subtype}"
         # Recreate buffer
         data = self.uniform_buffer.data
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
         # Copy data
         for k in data.dtype.names:
             if k != key:
@@ -67,6 +67,10 @@ class Material(ResourceContainer):
         return {}
 
     @property
+    def uniform_buffer(self):
+        return self._store.uniform_buffer
+
+    @property
     def opacity(self):
         """The opacity (a.k.a. alpha value) applied to this material, expressed
         as a value between 0 and 1. If the material contains any
@@ -77,10 +81,16 @@ class Material(ResourceContainer):
     @opacity.setter
     def opacity(self, value):
         value = min(max(float(value), 0), 1)
-        if (value == 1) != (self.uniform_buffer.data["opacity"] == 1):
-            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["opacity"] = value
         self.uniform_buffer.update_range(0, 1)
+        self._store.is_transparent = value < 1
+
+    @property
+    def is_transparent(self):
+        """Whether this material is (semi) transparent because of its opacity value.
+        If False the object can still appear transparent because of its color.
+        """
+        return self._store.is_transparent
 
     @property
     def clipping_planes(self):
@@ -137,4 +147,3 @@ class Material(ResourceContainer):
             self._clipping_mode = mode
         else:
             raise ValueError(f"Unexpected clipping_mode: {value}")
-        self._bump_rev()
