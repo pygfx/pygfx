@@ -4,8 +4,13 @@ related to the environment.
 """
 
 import weakref
+import numpy as np
 
 from ...utils.trackable import Trackable
+from ...objects import Light, PointLight, DirectionalLight, SpotLight, AmbientLight
+from ...resources import Buffer
+from ...utils import array_from_shadertype, Color
+from ...linalg import Matrix4, Vector3
 
 
 class Environment(Trackable):
@@ -20,6 +25,8 @@ class Environment(Trackable):
     of the hash, but the color of the lights do not matter for the
     pipeline.
     """
+
+    _tmp_vector = Vector3()
 
     def __init__(self, renderer_state_hash, scene_state_hash):
         super().__init__()
@@ -36,9 +43,25 @@ class Environment(Trackable):
         # becomes inactive.
         self._pipeline_containers = weakref.WeakSet()
 
-        # Something like this
-        # self._store.spot_lights_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
-        # self._store.directional_lights_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        # Lights
+        # seems don't need _store?
+        self.ambient_lights_buffer = Buffer(array_from_shadertype(AmbientLight().uniform_type))
+
+        # TODO: Get the light numbers in some other way, not hash?
+        self.point_lights_num, self.dir_lights_num, self.spot_lights_num = scene_state_hash
+
+        self.point_lights_buffer = None
+        if self.point_lights_num>0:
+            self.point_lights_buffer = Buffer(array_from_shadertype(PointLight().uniform_type, self.point_lights_num))
+
+        self.directional_lights_buffer = None
+        if self.dir_lights_num>0:
+            self.directional_lights_buffer = Buffer(array_from_shadertype(DirectionalLight().uniform_type, self.dir_lights_num))
+
+        self.spot_lights_buffer = None
+        if self.spot_lights_num>0:
+            self.spot_lights_buffer = Buffer(array_from_shadertype(SpotLight().uniform_type, self.spot_lights_num))
+
 
     @property
     def hash(self):
@@ -57,6 +80,60 @@ class Environment(Trackable):
         self.blender = blender
         # Note: when we implement lights, this is where we'd update the uniform(s)
         # self.uniform_buffer.data[xx] = yy
+        if lights:
+            self._setup_lights(lights)
+
+    def _setup_lights(self, lights):
+
+        ambient_lights_buffer = self.ambient_lights_buffer
+        if not np.all(
+            ambient_lights_buffer.data["color"][:3] == lights["ambient"]
+        ):
+            ambient_lights_buffer.data["color"].flat = lights["ambient"]
+            ambient_lights_buffer.update_range(0, 1)
+
+        # TODO: Use light attributes directly to setup final scene lights_buffer?
+
+        # directional lights
+        if self.dir_lights_num>0:
+            dir_lights_buffer = self.directional_lights_buffer
+            directional_lights = lights["directional_lights"]
+            for i, light in enumerate(directional_lights):
+                direction = self._tmp_vector.sub_vectors(
+                    light.target.get_world_position(), light.get_world_position()
+                ).normalize()
+                light.uniform_buffer.data["direction"].flat = direction.to_array()
+
+                if dir_lights_buffer.data[i] != light.uniform_buffer.data:
+                    dir_lights_buffer.data[i] = light.uniform_buffer.data
+                    dir_lights_buffer.update_range(i, 1)
+                    light.uniform_buffer._pending_uploads = []
+
+        # point lights
+        if self.point_lights_num>0:
+            point_lights_buffer = self.point_lights_buffer
+            point_lights = lights["point_lights"]
+            for i, light in enumerate(point_lights):
+                if point_lights_buffer.data[i] != light.uniform_buffer.data:
+                    point_lights_buffer.data[i] = light.uniform_buffer.data
+                    point_lights_buffer.update_range(i, 1)
+                    light.uniform_buffer._pending_uploads = []
+
+        # spot lights
+        if self.spot_lights_num>0:
+            spot_lights_buffer = self.spot_lights_buffer
+            spot_lights = lights["spot_lights"]
+            for i, light in enumerate(spot_lights):
+                direction = self._tmp_vector.sub_vectors(
+                    light.target.get_world_position(), light.get_world_position()
+                ).normalize()
+                light.uniform_buffer.data["direction"].flat = direction.to_array()
+                
+                if spot_lights_buffer.data[i] != light.uniform_buffer.data:
+                    spot_lights_buffer.data[i] = light.uniform_buffer.data
+                    spot_lights_buffer.update_range(i, 1)
+                    light.uniform_buffer._pending_uploads = []
+
 
     def register_pipeline_container(self, pipeline_container):
         """Allow pipeline containers to register, so that their
@@ -152,17 +229,32 @@ def get_hash_and_state(renderer, scene):
 
     # For scene
 
-    lights = []
+    point_lights = []
+    directional_lights = []
+    spot_lights = []
+    ambient_color = [0, 0, 0]
 
-    # todo: when we get lighting ...
-    # def visit(ob):
-    #     pass
-    #     # if isinstance(ob, Light):
-    #     #     lights.append(ob)
-    #
-    # scene.traverse(visit)
+    def visit(ob):
+        if isinstance(ob, PointLight):
+            point_lights.append(ob)
+        elif isinstance(ob, DirectionalLight):
+            directional_lights.append(ob)
+        elif isinstance(ob, SpotLight):
+            spot_lights.append(ob)
+        elif isinstance(ob, AmbientLight):
+            ambient_color[0] += ob.uniform_buffer.data["color"][0]
+            ambient_color[1] += ob.uniform_buffer.data["color"][1]
+            ambient_color[2] += ob.uniform_buffer.data["color"][2]
 
-    state["lights"] = lights
-    scene_hash = (len(lights),)
+    scene.traverse(visit, True)
+
+    state["lights"] = {
+        "point_lights": point_lights,
+        "directional_lights": directional_lights,
+        "spot_lights": spot_lights,
+        "ambient": ambient_color
+    }
+
+    scene_hash = (len(point_lights), len(directional_lights), len(spot_lights),)
 
     return renderer_hash, scene_hash, state

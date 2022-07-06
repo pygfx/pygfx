@@ -28,7 +28,7 @@ class SquareShader(WorldObjectShader):
         self.define_binding(0, 0, binding)
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
+            "vertex_buffers": [],
             "bindings": {
                 0: {0: binding},
             },

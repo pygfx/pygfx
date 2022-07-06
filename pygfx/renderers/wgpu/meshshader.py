@@ -47,7 +47,7 @@ class MeshShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["vertex_color_channels"] = 0
 
-    def get_resources(self, wobject, shared):
+    def get_resources(self, wobject, environment, shared):
 
         geometry = wobject.geometry
         material = wobject.material
@@ -109,7 +109,7 @@ class MeshShader(WorldObjectShader):
 
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
+            "vertex_buffers": [],
             "bindings": {
                 0: bindings,
                 1: bindings1,
@@ -459,11 +459,11 @@ class MeshNormalShader(MeshShader):
         self["colormap_dim"] = ""  # disable texture if there happens to be one
 
 
-@register_wgpu_render_function(Mesh, MeshPhongMaterial)
-class MeshPhongShader(MeshShader):
-    def __init__(self, wobject):
-        super().__init__(wobject)
-        self["lighting"] = "phong"
+# @register_wgpu_render_function(Mesh, MeshPhongMaterial)
+# class MeshPhongShader(MeshShader):
+#     def __init__(self, wobject):
+#         super().__init__(wobject)
+#         self["lighting"] = "phong"
 
 
 @register_wgpu_render_function(Mesh, MeshNormalLinesMaterial)
@@ -564,7 +564,7 @@ class MeshSliceShader(WorldObjectShader):
 
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
+            "vertex_buffers": [],
             "bindings": {
                 0: bindings,
             },

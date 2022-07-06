@@ -45,7 +45,7 @@ class WorldObjectShader(BaseShader):
         """
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
+            "vertex_buffers": [],
             "bindings": {
                 0: {},
             },
@@ -277,6 +277,13 @@ class WorldObjectShader(BaseShader):
             let mask = vec4<u32>(65535u);
             let selector2 = vec4<bool>( abs(shift[0]) < 32, abs(shift[1]) < 32, abs(shift[2]) < 32, abs(shift[3]) < 32 );
             return select( vec4<u32>(0u) , pick_new & mask , selector2 );
+        }
+        """
+
+    def _code_is_orthographic(self):
+        return """
+        fn is_orthographic() -> bool {
+            return u_stdinfo.projection_transform[2][3] == 0.0;
         }
         """
 

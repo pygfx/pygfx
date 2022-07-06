@@ -64,13 +64,15 @@ class Binding:
     * visibility: wgpu.ShaderStage flag
     """
 
-    def __init__(self, name, type, resource, visibility=visibility_render):
+    def __init__(self, name, type, resource, visibility=visibility_render, structname=None):
         if isinstance(visibility, str):
             visibility = getattr(wgpu.ShaderStage, visibility)
         self.name = name
         self.type = type
         self.resource = resource
         self.visibility = visibility
+
+        self.structname = structname
 
     def get_bind_group_descriptors(self, slot):
         resource = self.resource
@@ -254,6 +256,8 @@ class PipelineContainer:
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
 
+        self.env_scene_hash = ""
+
     def remove_env_hash(self, env_hash):
         """Called from the environment when it becomes inactive.
         This allows this object to remove all references to wgpu objects
@@ -267,13 +271,18 @@ class PipelineContainer:
 
         if isinstance(self, RenderPipelineContainer):
             env_hash = environment.hash
+
+            # scene_hash has changed, need to collect resources again and rebuild shader
+            if self.env_scene_hash != environment._scene_state_hash:
+                self.env_scene_hash = environment._scene_state_hash
+                changed.update(("resources", "pipeline_info", "render_info"))
         else:
             env_hash = ""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
             try:
-                self.update_shader_data(wobject, shared, changed)
+                self.update_shader_data(wobject, environment, shared, changed)
             except Exception as err:
                 self.broken = 1
                 raise err
@@ -293,7 +302,7 @@ class PipelineContainer:
         if changed:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
-    def update_shader_data(self, wobject, shared, changed):
+    def update_shader_data(self, wobject, environment, shared, changed):
         """Update the info that applies to all passes and environments."""
 
         if "create" in changed:
@@ -301,7 +310,7 @@ class PipelineContainer:
 
         if "resources" in changed:
             with wobject.tracker.track_usage("!resources"):
-                self.resources = self.shader.get_resources(wobject, shared)
+                self.resources = self.shader.get_resources(wobject, environment, shared)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
@@ -417,7 +426,12 @@ class PipelineContainer:
             buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
-        for buffer in resources.get("vertex_buffers", {}).values():
+        buffer = resources.get("instance_buffers", None)
+        if buffer is not None:
+            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
+            pipeline_resources.append(("buffer", buffer))
+
+        for buffer in resources.get("vertex_buffers", []):
             buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
@@ -564,12 +578,15 @@ class RenderPipelineContainer(PipelineContainer):
         assert isinstance(resources, dict)
 
         expected = {"index_buffer", "vertex_buffers", "bindings"}
-        assert set(resources.keys()) == expected, f"{resources.keys()}"
+        expected2 = {"index_buffer", "vertex_buffers", "instance_buffer", "bindings"}
+        # instance_buffer is optional
+        assert set(resources.keys()) == expected or set(resources.keys()) == expected2, f"{resources.keys()}"
 
         assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
-        assert isinstance(resources["vertex_buffers"], dict)
-        assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
-        assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"].values())
+        assert isinstance(resources["vertex_buffers"], list)
+        # assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
+        assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"])
+        assert isinstance(resources.get("instance_buffer", None), (None.__class__, Buffer))
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
@@ -583,6 +600,7 @@ class RenderPipelineContainer(PipelineContainer):
         if index_buffer is not None:
             index_format = to_vertex_format(index_buffer.format)
             index_format = index_format.split("x")[0].replace("s", "u")
+            self.pipeline_info["index_format"] = index_format
         strip_index_format = 0
         if "strip" in self.pipeline_info["primitive_topology"]:
             strip_index_format = index_format
@@ -594,7 +612,7 @@ class RenderPipelineContainer(PipelineContainer):
     def update_vertex_buffer_descriptors(self):
         # todo: we can probably expose multiple attributes per buffer using a BufferView
         vertex_buffer_descriptors = []
-        for slot, buffer in self.resources["vertex_buffers"].items():
+        for slot, buffer in enumerate(self.resources["vertex_buffers"]):
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
                 "step_mode": wgpu.VertexStepMode.vertex,  # vertex or instance
@@ -607,6 +625,43 @@ class RenderPipelineContainer(PipelineContainer):
                 ],
             }
             vertex_buffer_descriptors.append(vbo_des)
+
+        instance_buffer = self.resources.get("instance_buffers", None)
+        if instance_buffer is not None:
+            ibo_des = {
+                "array_stride": instance_buffer.nbytes // instance_buffer.nitems,
+                "step_mode": wgpu.VertexStepMode.instance,  # vertex or instance
+                "attributes": [
+                    {
+                        "format": "float32x4",
+                        "offset": 0,
+                        "shader_location": slot + 1,
+                    },
+                    {
+                        "format": "float32x4",
+                        "offset": 16,
+                        "shader_location": slot + 2,
+                    },
+                    {
+                        "format": "float32x4",
+                        "offset": 32,
+                        "shader_location": slot + 3,
+                    },
+                    {
+                        "format": "float32x4",
+                        "offset": 48,
+                        "shader_location": slot + 4,
+                    },
+                    {
+                        "format": "uint32",
+                        "offset": 64,
+                        "shader_location": slot + 5,
+                    },
+                ],
+            }
+            self.resources["vertex_buffers"].append(instance_buffer)
+            vertex_buffer_descriptors.append(ibo_des)
+
         # Trigger a pipeline rebuild?
         if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
             self.vertex_buffer_descriptors = vertex_buffer_descriptors
@@ -623,6 +678,8 @@ class RenderPipelineContainer(PipelineContainer):
                 continue
 
             wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
+            # print("==============================================")
+            # print(wgsl)
             shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
 
         return shader_modules
@@ -705,7 +762,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         # Set pipeline and resources
         render_pass.set_pipeline(pipeline)
-        for slot, vbuffer in vertex_buffers.items():
+        for slot, vbuffer in enumerate(vertex_buffers):
             render_pass.set_vertex_buffer(
                 slot,
                 vbuffer._wgpu_buffer[1],
@@ -719,7 +776,8 @@ class RenderPipelineContainer(PipelineContainer):
         # draw_indexed(count_v, count_i, first_vertex, base_vertex, first_instance)
         # draw(count_vertex, count_instance, first_vertex, first_instance)
         if index_buffer is not None:
-            render_pass.set_index_buffer(index_buffer, 0, index_buffer.size)
+            index_format = self.pipeline_info["index_format"]
+            render_pass.set_index_buffer(index_buffer._wgpu_buffer[1], index_format)  # todo: uint32 or uint16
             if len(indices) == 4:
                 base_vertex = 0  # A value added to each index before reading [...]
                 indices = list(indices)

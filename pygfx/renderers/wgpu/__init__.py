@@ -11,6 +11,7 @@ from ._shader import BaseShader, WorldObjectShader
 # Import the modules that implement the shaders
 from . import backgroundshader
 from . import meshshader
+from . import meshshader_phong
 from . import pointsshader
 from . import lineshader
 from . import imageshader

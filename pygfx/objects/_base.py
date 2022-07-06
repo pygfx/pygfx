@@ -147,6 +147,9 @@ class WorldObject(EventTarget, RootTrackable):
         self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
 
+        self.cast_shadow = False
+        self.receive_shadow = False
+
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
 
@@ -245,6 +248,24 @@ class WorldObject(EventTarget, RootTrackable):
     @material.setter
     def material(self, material):
         self._store.material = material
+
+    # @property
+    # def cast_shadow(self):
+    #     """Whether this object casts shadows. Default False."""
+    #     return self._store.cast_shadow
+
+    # @cast_shadow.setter
+    # def cast_shadow(self, value):
+    #     self._store.cast_shadow = bool(value)
+
+    @property
+    def receive_shadow(self):
+        """Whether this object receive shadows. Default False."""
+        return self._store.receive_shadow
+
+    @receive_shadow.setter
+    def receive_shadow(self, value):
+        self._store.receive_shadow = bool(value)
 
     @property
     def parent(self):

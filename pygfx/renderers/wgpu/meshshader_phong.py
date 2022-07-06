@@ -1,0 +1,313 @@
+import wgpu  # only for flags/enums
+
+from . import register_wgpu_render_function, WorldObjectShader, Binding
+from .meshshader import MeshShader
+from ...objects import Mesh, InstancedMesh
+from ...materials import MeshPhongMaterial
+from ...resources import Buffer
+from ...utils import normals_from_vertices
+from .shaderlibs import mesh_vertex_shader, lights, bsdfs, blinn_phong, shadow
+
+
+
+@register_wgpu_render_function(Mesh, MeshPhongMaterial)
+class MeshPhongShader(MeshShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["lighting"] = "phong"
+
+    def get_resources(self, wobject, environment, shared):
+
+        geometry = wobject.geometry
+        material = wobject.material
+
+        # indexbuffer
+        # vertex_buffers
+        # list of list of dicts
+
+        # We're assuming the presence of an index buffer for now
+        assert getattr(geometry, "indices", None)
+
+        index_buffer = geometry.indices
+
+        vertex_buffers = []
+
+        # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
+        if getattr(geometry, "normals", None) is not None:
+            normal_buffer = geometry.normals
+        else:
+            normal_data = normals_from_vertices(
+                geometry.positions.data, geometry.indices.data
+            )
+            normal_buffer = Buffer(normal_data)
+
+        # turple(attribute_name, attribute_wgsl_type) TODO remove it
+        vertex_attributes_desc = []
+
+        vertex_buffers.append(geometry.positions)
+        vertex_attributes_desc.append(("position", "vec3<f32>"))
+
+        vertex_buffers.append(normal_buffer)
+        vertex_attributes_desc.append(("normal", "vec3<f32>"))
+        
+        # Init bindings
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        ]
+
+        bindings1 = []  # non-auto-generated bindings
+
+        if material.vertex_colors:
+            self["use_vertex_colors"] = True
+            vertex_buffers.append(geometry.colors)
+            vertex_attributes_desc.append(("color", "vec3<f32>"))
+
+         # We need uv to use the maps, so if uv not exist, ignore all maps
+        if geometry.texcoords is not None:
+            vertex_buffers.append(geometry.texcoords)
+
+            #TODO get uv type from texcoords.dtype
+            vertex_attributes_desc.append(("texcoords", "vec2<f32>"))
+
+            if material.map is not None and not material.vertex_colors:
+                self["use_color_map"] = True
+                bindings.append(
+                    Binding(f"s_color_map", "sampler/filtering", material.map, "FRAGMENT")
+                )
+                bindings.append(
+                    Binding(f"t_color_map", "texture/auto", material.map, "FRAGMENT")
+                )
+
+
+        # Lights states
+        self["num_dir_lights"] = environment.dir_lights_num
+        self["num_point_lights"] = environment.point_lights_num
+        self["num_spot_lights"] = environment.spot_lights_num
+
+        ambient_lights_buffer = environment.ambient_lights_buffer
+        if ambient_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_ambient_light",
+                    "buffer/uniform",
+                    ambient_lights_buffer,
+                    structname="AmbientLight",
+                ),
+            )
+
+        directional_lights_buffer = environment.directional_lights_buffer
+        if directional_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_directional_lights",
+                    "buffer/uniform",
+                    directional_lights_buffer,
+                    structname="DirectionalLight",
+                ),
+            )
+
+        point_lights_buffer = environment.point_lights_buffer
+        if point_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_point_lights",
+                    "buffer/uniform",
+                    point_lights_buffer,
+                    structname="PointLight",
+                ),
+            )
+
+        spot_lights_buffer = environment.spot_lights_buffer
+        if spot_lights_buffer:
+            bindings.append(
+                Binding(
+                    f"u_spot_lights",
+                    "buffer/uniform",
+                    spot_lights_buffer,
+                    structname="SpotLight",
+                ),
+            )
+
+        self["has_shadow"] = False
+
+        # Define shader code for vertex buffer
+
+        self.define_vertex_buffer(vertex_attributes_desc, instanced = self["instanced"])
+
+        # Define shader code for binding
+        bindings = {i: binding for i, binding in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        # Instanced meshes have an extra storage buffer that we add manually
+        bindings1 = {}  # non-auto-generated bindings
+
+        return {
+            "index_buffer": index_buffer,
+            "vertex_buffers": vertex_buffers,
+            "instance_buffer": wobject.instance_infos if self["instanced"] else None,
+            "bindings": {
+                0: bindings,
+                1: bindings1,
+            },
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        material = wobject.material
+
+        topology = (
+            wgpu.PrimitiveTopology.line_list
+            if material.wireframe
+            else wgpu.PrimitiveTopology.triangle_list
+        )
+
+        if material.side == "FRONT":
+            cull_mode = wgpu.CullMode.back
+        elif material.side == "BACK":
+            cull_mode = wgpu.CullMode.front
+        else:  # material.side == "BOTH"
+            cull_mode = wgpu.CullMode.none
+
+        return {
+            "primitive_topology": topology,
+            "cull_mode": cull_mode,
+        }
+
+    def get_code(self):
+        return (
+            self.code_definitions()
+            + self.code_common()
+            + mesh_vertex_shader
+            + lights
+            + bsdfs
+            + blinn_phong
+            + shadow
+            + self.code_fragment()
+        )
+
+    def code_common(self):
+        """Get the WGSL functions builtin by PyGfx."""
+
+        # Just a placeholder
+        blending_code = """
+        let alpha_compare_epsilon : f32 = 1e-6;
+        {{ blending_code }}
+        """
+
+        return (
+            self._code_is_orthographic()
+            + self._code_lighting()
+            + self._code_clipping_planes()
+            + self._code_picking()
+            + self._code_misc()
+            + blending_code
+        )
+
+    
+    def code_fragment(self):
+        return """
+        @stage(fragment)
+        fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+            $$ if color_mode == 'vertex'
+                let color_value = varyings.color;
+                let albeido = color_value.rgb;
+            $$ elif color_mode == 'map'
+                let color_value = sample_colormap(varyings.texcoord);
+                let albeido = color_value.rgb;  // no more colormap
+            $$ elif color_mode == 'normal'
+                let albeido = normalize(varyings.normal.xyz) * 0.5 + 0.5;
+                let color_value = vec4<f32>(albeido, 1.0);
+            $$ else
+                let color_value = u_material.color;
+                let albeido = color_value.rgb;
+            $$ endif
+            var i: i32 = 0;
+            var material: BlinnPhongMaterial;
+            material.diffuse_color = albeido;
+            material.specular_color = u_material.specular_color.rgb;
+            material.specular_shininess = u_material.shininess;
+            material.specular_strength = 1.0;  //TODO: Use specular_map if exists
+            var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
+            let view_dir = select(
+                normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
+                ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
+                is_orthographic()
+            );
+            var normal = varyings.normal;
+            if (u_material.flat_shading != 0 ) {
+                let u = dpdx(varyings.world_pos);
+                let v = dpdy(varyings.world_pos);
+                normal = normalize(cross(u, v));
+                normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
+            }
+            normal = select(-normal, normal, is_front);  // do we really need this?
+            var geometry: GeometricContext;
+            geometry.position = varyings.world_pos;
+            geometry.normal = normal;
+            geometry.view_dir = view_dir;
+            var i = 0;
+            $$ if num_point_lights > 0
+                loop {
+                    if (i >= {{ num_point_lights }}) { break; }
+                    let point_light = u_point_lights[i];
+                    var light = getPointLightInfo(point_light, geometry);
+                    $$ if has_shadow
+                    let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, u_shadow_point_light[i].light_view_proj_matrix, geometry.position, light.direction, u_shadow_point_light[i].bias);
+                    light.color *= shadow;
+                    $$ endif
+                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    i += 1;
+                }
+            $$ endif
+            $$ if num_spot_lights > 0
+                i = 0;
+                loop {
+                    if (i >= {{ num_spot_lights }}) { break; }
+                    let spot_light = u_spot_lights[i];
+                    var light = getSpotLightInfo(spot_light, geometry);
+                    $$ if has_shadow
+                    let coords = u_shadow_spot_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                    let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, u_shadow_spot_light[i].bias);
+                    light.color *= shadow;
+                    $$ endif
+                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    i += 1;
+                }
+            $$ endif
+            $$ if num_dir_lights > 0
+                i = 0;
+                loop {
+                    if (i >= {{ num_dir_lights }}) { break; }
+                    let dir_light = u_directional_lights[i];
+                    var light = getDirectionalLightInfo(dir_light, geometry);
+                    $$ if has_shadow
+                    let coords = u_shadow_dir_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                    let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, u_shadow_dir_light[i].bias);
+                    light.color *= shadow;
+                    $$ endif
+                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    i += 1;
+                }
+            $$ endif
+            let ambient_color = u_ambient_light.color.rgb;
+            let irradiance = getAmbientLightIrradiance( ambient_color );
+            reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
+            let lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
+            let final_color = vec4<f32>(lit_color, color_value.a * u_material.opacity);
+            // Wrap up
+            apply_clipping_planes(varyings.world_pos);
+            var out = get_fragment_output(varyings.position.z, final_color);
+            $$ if write_pick
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            out.pick = (
+                pick_pack(varyings.pick_id, 20) +
+                pick_pack(varyings.pick_idx, 26) +
+                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+            );
+            $$ endif
+            return out;
+        }
+        """
