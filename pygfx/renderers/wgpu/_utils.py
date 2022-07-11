@@ -86,3 +86,95 @@ def to_texture_format(format):
             raise ValueError(f"Unexpected tuple size in texture format '{format}'")
     else:
         raise ValueError(f"Unexpected length of texture format '{format}'")
+
+
+def generate_uniform_struct(dtype_struct, structname):
+    code = f"""
+        struct {structname} {{
+    """.rstrip()
+
+    # Obtain names of fields that are arrays. This is encoded as an empty field with a
+    # name that has the array-fields-names separated with double underscores.
+    array_names = []
+    for fieldname in dtype_struct.fields.keys():
+        if fieldname.startswith("__") and fieldname.endswith("__"):
+            array_names.extend(fieldname.replace("__", " ").split())
+
+    # Process fields
+    for fieldname, (dtype, offset) in dtype_struct.fields.items():
+        if fieldname.startswith("__"):
+            continue
+        # Resolve primitive type
+        primitive_type = dtype.base.name
+        primitive_type = primitive_type.replace("float", "f")
+        primitive_type = primitive_type.replace("uint", "u")
+        primitive_type = primitive_type.replace("int", "i")
+        # Resolve actual type (only scalar, vec, mat)
+        shape = dtype.shape
+        # Detect array
+        length = -1
+        if fieldname in array_names:
+            length = shape[0]
+            shape = shape[1:]
+        # Obtain base type
+        if shape == () or shape == (1,):
+            # A scalar
+            wgsl_type = align_type = primitive_type
+        elif len(shape) == 1:
+            # A vector
+            n = shape[0]
+            if n < 2 or n > 4:
+                raise TypeError(f"Type {dtype} looks like an unsupported vec{n}.")
+            wgsl_type = align_type = f"vec{n}<{primitive_type}>"
+        elif len(shape) == 2:
+            # A matNxM is Matrix of N columns and M rows
+            n, m = shape[1], shape[0]
+            if n < 2 or n > 4 or m < 2 or m > 4:
+                raise TypeError(
+                    f"Type {dtype} looks like an unsupported mat{n}x{m}."
+                )
+            align_type = f"vec{m}<primitive_type>"
+            wgsl_type = f"mat{n}x{m}<{primitive_type}>"
+        else:
+            raise TypeError(f"Unsupported type {dtype}")
+        # If an array, wrap it
+        if length == 0:
+            wgsl_type = align_type = None  # zero-length; dont use
+        elif length > 0:
+            wgsl_type = f"array<{wgsl_type},{length}>"
+        else:
+            pass  # not an array
+
+        # Check alignment (https://www.w3.org/TR/WGSL/#alignment-and-size)
+        if not wgsl_type:
+            continue
+        elif align_type == primitive_type:
+            alignment = 4
+        elif align_type.startswith("vec"):
+            c = int(align_type.split("<")[0][-1])
+            alignment = 8 if c < 3 else 16
+        else:
+            raise TypeError(f"Cannot establish alignment of wgsl type: {wgsl_type}")
+        if offset % alignment != 0:
+            # If this happens, our array_from_shadertype() has failed.
+            raise TypeError(
+                f"Struct alignment error: {structname}.{fieldname} alignment must be {alignment}"
+            )
+
+        code += f"\n            {fieldname}: {wgsl_type},"
+
+    code += "\n        };"
+
+    return code
+
+    # uniform_type_name = (
+    #     f"array<{structname}, {binding.resource.data.shape[0]}>" # array of struct
+    #     if isinstance(resource, Buffer) and resource.data.shape  # Buffer.items > 1
+    #     else structname
+    # )
+
+    # code = f"""
+    # @group({bindgroup}) @binding({index})
+    # var<uniform> {binding.name}: {uniform_type_name};
+    # """.rstrip()
+    # self._binding_codes[binding.name] = code

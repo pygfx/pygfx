@@ -1,8 +1,8 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, WorldObjectShader, Binding
+from . import register_wgpu_render_function, Binding
 from .meshshader import MeshShader
-from ...objects import Mesh, InstancedMesh
+from ...objects import Mesh
 from ...materials import MeshPhongMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
@@ -16,7 +16,7 @@ class MeshPhongShader(MeshShader):
         super().__init__(wobject)
         self["lighting"] = "phong"
 
-    def get_resources(self, wobject, environment, shared):
+    def get_resources(self, wobject, shared):
 
         geometry = wobject.geometry
         material = wobject.material
@@ -57,8 +57,6 @@ class MeshPhongShader(MeshShader):
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
         ]
 
-        bindings1 = []  # non-auto-generated bindings
-
         if material.vertex_colors:
             self["use_vertex_colors"] = True
             vertex_buffers.append(geometry.colors)
@@ -80,57 +78,7 @@ class MeshPhongShader(MeshShader):
                     Binding(f"t_color_map", "texture/auto", material.map, "FRAGMENT")
                 )
 
-
-        # Lights states
-        self["num_dir_lights"] = environment.dir_lights_num
-        self["num_point_lights"] = environment.point_lights_num
-        self["num_spot_lights"] = environment.spot_lights_num
-
-        ambient_lights_buffer = environment.ambient_lights_buffer
-        if ambient_lights_buffer:
-            bindings.append(
-                Binding(
-                    f"u_ambient_light",
-                    "buffer/uniform",
-                    ambient_lights_buffer,
-                    structname="AmbientLight",
-                ),
-            )
-
-        directional_lights_buffer = environment.directional_lights_buffer
-        if directional_lights_buffer:
-            bindings.append(
-                Binding(
-                    f"u_directional_lights",
-                    "buffer/uniform",
-                    directional_lights_buffer,
-                    structname="DirectionalLight",
-                ),
-            )
-
-        point_lights_buffer = environment.point_lights_buffer
-        if point_lights_buffer:
-            bindings.append(
-                Binding(
-                    f"u_point_lights",
-                    "buffer/uniform",
-                    point_lights_buffer,
-                    structname="PointLight",
-                ),
-            )
-
-        spot_lights_buffer = environment.spot_lights_buffer
-        if spot_lights_buffer:
-            bindings.append(
-                Binding(
-                    f"u_spot_lights",
-                    "buffer/uniform",
-                    spot_lights_buffer,
-                    structname="SpotLight",
-                ),
-            )
-
-        self["has_shadow"] = False
+        self["use_light"] = True
 
         # Define shader code for vertex buffer
 
@@ -140,16 +88,12 @@ class MeshPhongShader(MeshShader):
         bindings = {i: binding for i, binding in enumerate(bindings)}
         self.define_bindings(0, bindings)
 
-        # Instanced meshes have an extra storage buffer that we add manually
-        bindings1 = {}  # non-auto-generated bindings
-
         return {
             "index_buffer": index_buffer,
             "vertex_buffers": vertex_buffers,
             "instance_buffer": wobject.instance_infos if self["instanced"] else None,
             "bindings": {
-                0: bindings,
-                1: bindings1,
+                0: bindings
             },
         }
 
@@ -179,12 +123,15 @@ class MeshPhongShader(MeshShader):
             self.code_definitions()
             + self.code_common()
             + mesh_vertex_shader
+            + self._code_lighting()
             + lights
             + bsdfs
             + blinn_phong
             + shadow
             + self.code_fragment()
         )
+
+
 
     def code_common(self):
         """Get the WGSL functions builtin by PyGfx."""
@@ -197,7 +144,6 @@ class MeshPhongShader(MeshShader):
 
         return (
             self._code_is_orthographic()
-            + self._code_lighting()
             + self._code_clipping_planes()
             + self._code_picking()
             + self._code_misc()

@@ -287,18 +287,23 @@ class WorldObjectShader(BaseShader):
         }
         """
 
-    def _code_lighting(self):
-        return """
-        """
-
     def _code_misc(self):
         # Small functions
         return """
-
         fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
             let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
             let world_pos = ndc_to_world * ndc_pos;
             return world_pos.xyz / world_pos.w;
         }
-
         """
+
+    def _code_lighting(self):
+        # use f_string
+        lighting= """
+        $$ if use_light is defined
+        {{ light_structs }}
+
+        {{ light_vars }}
+        $$ endif
+        """
+        return lighting

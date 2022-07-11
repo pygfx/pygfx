@@ -5,12 +5,16 @@ related to the environment.
 
 import weakref
 import numpy as np
+import wgpu
 
 from ...utils.trackable import Trackable
-from ...objects import Light, PointLight, DirectionalLight, SpotLight, AmbientLight
+from ...objects import PointLight, DirectionalLight, SpotLight, AmbientLight, DirectionalLightShadow
 from ...resources import Buffer
-from ...utils import array_from_shadertype, Color
-from ...linalg import Matrix4, Vector3
+from ...utils import array_from_shadertype
+from ...linalg import Vector3
+from ._pipeline import Binding
+from ._update import update_buffer, update_sampler, update_texture, update_texture_view
+from ._utils import generate_uniform_struct
 
 
 class Environment(Trackable):
@@ -28,11 +32,20 @@ class Environment(Trackable):
 
     _tmp_vector = Vector3()
 
-    def __init__(self, renderer_state_hash, scene_state_hash):
+    _ambient_uniform_type = AmbientLight().uniform_type
+    _point_uniform_type = PointLight().uniform_type
+    _dir_uniform_type = DirectionalLight().uniform_type
+    _spot_uniform_type = SpotLight().uniform_type
+
+    _dir_shadow_uniform_type = DirectionalLightShadow().uniform_type
+
+    def __init__(self, renderer_state_hash, scene_state_hash, shared):
         super().__init__()
         # The hash consists of two parts. It does not change.
         self._renderer_state_hash = renderer_state_hash
         self._scene_state_hash = scene_state_hash
+
+        self.shared = shared
         # Keep track of all renders and scenes that make use of this
         # environment, so that we can detect that the env has become
         # inactive.
@@ -43,25 +56,187 @@ class Environment(Trackable):
         # becomes inactive.
         self._pipeline_containers = weakref.WeakSet()
 
-        # Lights
-        # seems don't need _store?
-        self.ambient_lights_buffer = Buffer(array_from_shadertype(AmbientLight().uniform_type))
+        self.wgpu_bind_group = None
 
-        # TODO: Get the light numbers in some other way, not hash?
+        # self.resources = None
+        self.shadow_map_size = (1024, 1024)
+
+        # Lights
+        self.has_shadow = False
+        self.ambient_lights_buffer = Buffer(array_from_shadertype(self._ambient_uniform_type))
+
+        # TODO: Get the light numbers from some other way, not hash?
         self.point_lights_num, self.dir_lights_num, self.spot_lights_num = scene_state_hash
+
+        self.bindings = []
+        self.bindings.append(Binding("u_ambient_light", "buffer/uniform", self.ambient_lights_buffer, structname="AmbientLight"))
+
+
+        self.directional_lights_buffer = None
+        self.directional_lights_shadow_texture = None
+        self.directional_shadows_uniform_buffer = None
+        if self.dir_lights_num>0:
+            self.directional_lights_buffer = Buffer(array_from_shadertype(self._dir_uniform_type, self.dir_lights_num))
+            self.bindings.append(Binding("u_directional_lights", "buffer/uniform", self.directional_lights_buffer, structname="DirectionalLight"))
+
+            self.directional_lights_shadow_texture = self.shared.device.create_texture(
+                # shadow map size is same for all lights. TODO: make this configurable
+                size=(
+                    self.shadow_map_size[0],
+                    self.shadow_map_size[1],
+                    self.dir_lights_num,
+                ),
+                usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+                | wgpu.TextureUsage.TEXTURE_BINDING,
+                format="depth32float",
+            )
+
+            self.directional_shadows_uniform_buffer = Buffer(array_from_shadertype(self._dir_shadow_uniform_type, self.dir_lights_num))
+            self.bindings.append(
+                Binding(
+                    "u_shadow_map_dir_light", 
+                    "shadow_texture/2d-array", 
+                    self.directional_lights_shadow_texture.create_view(
+                        dimension="2d-array"
+                    )
+                )
+            )
+
+            self.bindings.append(
+                Binding(
+                    f"u_shadow_dir_light",
+                    "buffer/uniform",
+                    self.directional_shadows_uniform_buffer,
+                )
+            )
+
 
         self.point_lights_buffer = None
         if self.point_lights_num>0:
-            self.point_lights_buffer = Buffer(array_from_shadertype(PointLight().uniform_type, self.point_lights_num))
+            self.point_lights_buffer = Buffer(array_from_shadertype(self._point_uniform_type, self.point_lights_num))
+            self.bindings.append(Binding("u_point_lights", "buffer/uniform", self.point_lights_buffer, structname="PointLight"))
 
-        self.directional_lights_buffer = None
-        if self.dir_lights_num>0:
-            self.directional_lights_buffer = Buffer(array_from_shadertype(DirectionalLight().uniform_type, self.dir_lights_num))
 
         self.spot_lights_buffer = None
         if self.spot_lights_num>0:
-            self.spot_lights_buffer = Buffer(array_from_shadertype(SpotLight().uniform_type, self.spot_lights_num))
+            self.spot_lights_buffer = Buffer(array_from_shadertype(self._spot_uniform_type, self.spot_lights_num))
+            self.bindings.append(Binding("u_spot_lights", "buffer/uniform", self.spot_lights_buffer, structname="SpotLight"))
 
+
+        #if self.has_shadows:
+        self.shadow_sampler = self.shared.device.create_sampler(
+            mag_filter=wgpu.FilterMode.linear,
+            min_filter=wgpu.FilterMode.linear,
+            compare=wgpu.CompareFunction.less_equal,
+        )
+
+        self.bindings.append(
+            Binding(
+                f"u_shadow_sampler",
+                "shadow_sampler/comparison",
+                self.shadow_sampler,
+            )
+        )
+
+        if self.bindings:
+            self._collect_resources()
+
+    
+    def _collect_resources(self):
+        bg_descriptor = []
+        bg_layout_descriptor = []
+        #resources = []
+
+        for index, binding in enumerate(self.bindings):
+            # Only uniform buffer for now. maybe have more types later?
+            #resources.append(("buffer", binding.resource))
+            if binding.type.startswith("buffer/"):
+                binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+                update_buffer(self.shared.device, binding.resource)
+            # elif binding.type.startswith("shadow_sampler/"):
+            #     update_sampler(self.shared.device, binding.resource)
+            # elif binding.type.startswith("shadow_texture/"):
+            #     update_texture_view(self.shared.device, binding.resource)
+
+            binding_des, binding_layout_des = binding.get_bind_group_descriptors(index)
+
+            bg_descriptor.append(binding_des)
+            bg_layout_descriptor.append(binding_layout_des)
+
+        bind_group_layout = self.shared.device.create_bind_group_layout(
+                entries=bg_layout_descriptor
+            )
+
+        bind_group = self.shared.device.create_bind_group(layout=bind_group_layout, entries=bg_descriptor)
+        self.wgpu_bind_group = (bind_group_layout, bind_group)
+
+
+    def get_light_structs_code(self):
+        light_struct = []
+        for binding in self.bindings:
+            if binding.type.startswith("buffer/"):
+                struct_code = generate_uniform_struct(binding.resource.data.dtype, binding.structname)
+                light_struct.append(struct_code)
+
+        return "\n".join(light_struct)
+
+    def _define_shadow_texture(self, bind_group_index, index, binding):
+        texture_view = binding.resource  # wgpu.TextureView
+
+        dim = "2d"
+        if texture_view.size[2] == 1:
+            dim = "2d"
+        elif texture_view.size[2] == 6:
+            dim = "cube"
+
+        code = f"""
+        @group({ bind_group_index }) @binding({index})
+        var {binding.name}: texture_depth_{dim}_array;
+        """.rstrip()
+        return code
+
+    def _define_shadow_sampler(self, bind_group_index, index, binding):
+        code = f"""
+        @group({ bind_group_index }) @binding({index})
+        var {binding.name}: sampler_comparison;
+        """.rstrip()
+        return code
+
+    def get_light_vars_code(self, bind_group_index):
+        codes = []
+        for slot, binding in enumerate(self.bindings):
+            if binding.type.startswith("buffer/"):
+                uniform_type = (
+                f"array<{binding.structname}, {binding.resource.data.shape[0]}>" # array of struct
+                    if isinstance(binding.resource, Buffer) and binding.resource.data.shape  # Buffer.items > 1
+                    else binding.structname
+                )
+                
+                code = f"""
+            @group({bind_group_index}) @binding({slot})
+            var<uniform> {binding.name}: {uniform_type};
+            """.rstrip()
+                codes.append(code)
+            elif binding.type.startswith("shadow_texture/"):
+                code = self._define_shadow_texture(bind_group_index, slot, binding)
+                codes.append(code)
+            elif binding.type.startswith("shadow_sampler/"):
+                code = self._define_shadow_sampler(bind_group_index, slot, binding)
+                codes.append(code)
+
+
+        return "\n".join(codes)
+
+    def get_shader_kwargs(self, bind_group_index=1):
+        args ={
+            "num_dir_lights": self.dir_lights_num,
+            "num_spot_lights": self.spot_lights_num,
+            "num_point_lights": self.point_lights_num,
+            "has_shadow": self.has_shadow,
+            "light_structs": self.get_light_structs_code(),
+            "light_vars": self.get_light_vars_code(bind_group_index),
+        }
+        return args
 
     @property
     def hash(self):
@@ -85,6 +260,8 @@ class Environment(Trackable):
 
     def _setup_lights(self, lights):
 
+        device = self.shared.device
+
         ambient_lights_buffer = self.ambient_lights_buffer
         if not np.all(
             ambient_lights_buffer.data["color"][:3] == lights["ambient"]
@@ -92,11 +269,16 @@ class Environment(Trackable):
             ambient_lights_buffer.data["color"].flat = lights["ambient"]
             ambient_lights_buffer.update_range(0, 1)
 
+        # We only need to update buffers once before each draw
+        # so put the updated action here instead of in the wobject's pipeline container 
+        update_buffer(device, ambient_lights_buffer)
+
         # TODO: Use light attributes directly to setup final scene lights_buffer?
 
         # directional lights
         if self.dir_lights_num>0:
             dir_lights_buffer = self.directional_lights_buffer
+            dir_shadows_buffer = self.directional_shadows_uniform_buffer
             directional_lights = lights["directional_lights"]
             for i, light in enumerate(directional_lights):
                 direction = self._tmp_vector.sub_vectors(
@@ -109,6 +291,26 @@ class Environment(Trackable):
                     dir_lights_buffer.update_range(i, 1)
                     light.uniform_buffer._pending_uploads = []
 
+                if light.cast_shadow:
+                    self.has_shadow=True
+                    light.shadow.update_matrix(light)
+                    if dir_shadows_buffer.data[i] != light.shadow.uniform_buffer.data:
+                        dir_shadows_buffer.data[i] = light.shadow.uniform_buffer.data
+                        dir_shadows_buffer.update_range(i, 1)
+
+                    if light.shadow._map is None or light.shadow._map_index != i:
+
+                        light.shadow._map = (
+                            self.directional_lights_shadow_texture.create_view(
+                                base_array_layer=i
+                            )
+                        )
+                        light.shadow._map_index = i
+
+
+            update_buffer(device, dir_lights_buffer)
+            update_buffer(device, dir_shadows_buffer)
+
         # point lights
         if self.point_lights_num>0:
             point_lights_buffer = self.point_lights_buffer
@@ -118,6 +320,8 @@ class Environment(Trackable):
                     point_lights_buffer.data[i] = light.uniform_buffer.data
                     point_lights_buffer.update_range(i, 1)
                     light.uniform_buffer._pending_uploads = []
+
+            update_buffer(device, point_lights_buffer)
 
         # spot lights
         if self.spot_lights_num>0:
@@ -133,6 +337,8 @@ class Environment(Trackable):
                     spot_lights_buffer.data[i] = light.uniform_buffer.data
                     spot_lights_buffer.update_range(i, 1)
                     light.uniform_buffer._pending_uploads = []
+
+            update_buffer(device, spot_lights_buffer)
 
 
     def register_pipeline_container(self, pipeline_container):
@@ -188,7 +394,7 @@ class GlobalEnvironmentManager:
         if env_hash in self.environments:
             env = self.environments[env_hash]
         else:
-            env = Environment(renderer_state_hash, scene_state_hash)
+            env = Environment(renderer_state_hash, scene_state_hash, renderer._shared)
             assert env.hash == env_hash
             self.environments[env_hash] = env
 

@@ -47,7 +47,7 @@ class MeshShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["vertex_color_channels"] = 0
 
-    def get_resources(self, wobject, environment, shared):
+    def get_resources(self, wobject, shared):
 
         geometry = wobject.geometry
         material = wobject.material

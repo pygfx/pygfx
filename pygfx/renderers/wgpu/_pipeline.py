@@ -158,6 +158,32 @@ class Binding:
                     "view_dimension": dim,
                 },
             }
+        
+        # shadow_texture's resource is internal wgpu.GPUTextureView
+        elif self.type.startswith("shadow_texture/"):
+            assert isinstance(resource, wgpu.GPUTextureView)
+            binding = {"binding": slot, "resource": resource}
+
+            binding_layout= {
+                "binding": slot,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.depth,
+                    "view_dimension": subtype,
+                    "multisampled": False,
+                },
+            }
+        
+        # shadow_sampler's resource is internal wgpu.GPUSampler
+        elif self.type.startswith("shadow_sampler/"):
+            assert isinstance(resource, wgpu.GPUSampler)
+            binding = {"binding": slot, "resource": resource}
+
+            binding_layout = {
+                "binding": slot,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.comparison},
+            }
 
         return binding, binding_layout
 
@@ -273,16 +299,16 @@ class PipelineContainer:
             env_hash = environment.hash
 
             # scene_hash has changed, need to collect resources again and rebuild shader
-            if self.env_scene_hash != environment._scene_state_hash:
-                self.env_scene_hash = environment._scene_state_hash
-                changed.update(("resources", "pipeline_info", "render_info"))
+            # if self.env_scene_hash != environment._scene_state_hash:
+            #     self.env_scene_hash = environment._scene_state_hash
+            #     changed.update(("resources", "pipeline_info", "render_info"))
         else:
             env_hash = ""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
             try:
-                self.update_shader_data(wobject, environment, shared, changed)
+                self.update_shader_data(wobject, shared, changed)
             except Exception as err:
                 self.broken = 1
                 raise err
@@ -292,6 +318,7 @@ class PipelineContainer:
         # Ensure that the (environment specific) wgpu objects are up-to-date
         if not self.broken:
             try:
+                # self.update_environment_data(environment, shared)
                 self.update_wgpu_data(wobject, environment, shared, env_hash, changed)
             except Exception as err:
                 self.broken = 2
@@ -302,7 +329,7 @@ class PipelineContainer:
         if changed:
             logger.info(f"{wobject} shader update: {', '.join(sorted(changed))}.")
 
-    def update_shader_data(self, wobject, environment, shared, changed):
+    def update_shader_data(self, wobject, shared, changed):
         """Update the info that applies to all passes and environments."""
 
         if "create" in changed:
@@ -310,7 +337,7 @@ class PipelineContainer:
 
         if "resources" in changed:
             with wobject.tracker.track_usage("!resources"):
-                self.resources = self.shader.get_resources(wobject, environment, shared)
+                self.resources = self.shader.get_resources(wobject, shared)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
@@ -330,21 +357,42 @@ class PipelineContainer:
                 self.render_info = self.shader.get_render_info(wobject, shared)
             self._check_render_info()
 
+
+    # def update_environment_data(self, environment, shared):
+    #     if self.shader["use_lighting"]:
+    #         for kind, resource in environment.resources:
+    #             update_resource(shared.device, resource, kind)
+
+
     def update_wgpu_data(self, wobject, environment, shared, env_hash, changed):
         """Update the actual wgpu objects."""
 
         if self.wgpu_shaders.get(env_hash, None) is None:
+            
+            # We need add light uniform definitions to wgsl 
+            # bindgroup_index = len(self.wgpu_bind_groups)
+            # for binding_index, binding in enumerate(environment.bindings):
+            #     self.shader.define_binding(bindgroup_index, binding_index, binding)
+
+            # self.update_shader_hash()
+
+            # add environment bindgroups
+            # if environment.wgpu_bind_group:
+            #     bind_group_layout, bind_group = self.wgpu_bind_group
+            #     self.wgpu_bind_group_layouts.append(bind_group_layout)
+            #     self.wgpu_bind_groups.append(bind_group)
+
             environment.register_pipeline_container(self)  # allows us to clean up
             changed.add("compile_shader")
             self.wgpu_shaders[env_hash] = self._compile_shaders(
-                shared.device, environment.blender
+                shared.device, environment
             )
 
         if self.wgpu_pipelines.get(env_hash, None) is None:
             changed.add("compose_pipeline")
             shader_modules = self.wgpu_shaders[env_hash]
             self.wgpu_pipelines[env_hash] = self._compose_pipelines(
-                shared.device, environment.blender, shader_modules
+                shared.device, environment, shader_modules
             )
 
     def update_shader_hash(self):
@@ -498,13 +546,13 @@ class ComputePipelineContainer(PipelineContainer):
         assert isinstance(resources, dict)
         assert set(resources.keys()) == {"bindings"}, f"{resources.keys()}"
 
-    def _compile_shaders(self, device, blender):
+    def _compile_shaders(self, device, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
         wgsl = self.shader.generate_wgsl()
         shader_module = cache.get_shader_module(device, wgsl)
         return {0: shader_module}
 
-    def _compose_pipelines(self, device, blender, shader_modules):
+    def _compose_pipelines(self, device, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -667,24 +715,25 @@ class RenderPipelineContainer(PipelineContainer):
             self.vertex_buffer_descriptors = vertex_buffer_descriptors
             self.wgpu_pipelines = {}
 
-    def _compile_shaders(self, device, blender):
+    def _compile_shaders(self, device, env):
         """Compile the templated shader to a list of wgpu shader modules
         (one for each pass of the blender).
         """
+        blender = env.blender
+
         shader_modules = {}
         for pass_index in range(blender.get_pass_count()):
             color_descriptors = blender.get_color_descriptors(pass_index)
             if not color_descriptors:
                 continue
-
-            wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
-            # print("==============================================")
-            # print(wgsl)
+            
+            env_bind_group_index = len(self.wgpu_bind_groups)
+            wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index), **env.get_shader_kwargs(env_bind_group_index))
             shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
 
         return shader_modules
 
-    def _compose_pipelines(self, device, blender, shader_modules):
+    def _compose_pipelines(self, device, env, shader_modules):
         """Create a list of wgpu pipeline objects from the shader, bind group
         layouts and other pipeline info (one for each pass of the blender).
         """
@@ -698,12 +747,17 @@ class RenderPipelineContainer(PipelineContainer):
         cull_mode = self.pipeline_info["cull_mode"]
 
         # Create pipeline layout object from list of layouts
+        env_bind_group_layout, _ = env.wgpu_bind_group
+
+        bind_group_layouts=[*self.wgpu_bind_group_layouts, env_bind_group_layout]
+
         pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=self.wgpu_bind_group_layouts
+            bind_group_layouts=bind_group_layouts
         )
 
         # Instantiate the pipeline objects
         pipelines = {}
+        blender = env.blender
         for pass_index in range(blender.get_pass_count()):
             color_descriptors = blender.get_color_descriptors(pass_index)
             depth_descriptor = blender.get_depth_descriptor(pass_index)
@@ -762,6 +816,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         # Set pipeline and resources
         render_pass.set_pipeline(pipeline)
+
         for slot, vbuffer in enumerate(vertex_buffers):
             render_pass.set_vertex_buffer(
                 slot,
@@ -769,8 +824,13 @@ class RenderPipelineContainer(PipelineContainer):
                 vbuffer.vertex_byte_range[0],
                 vbuffer.vertex_byte_range[1],
             )
+
         for bind_group_id, bind_group in enumerate(bind_groups):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
+
+        env_bind_group_id = len(bind_groups)
+        _, env_bind_group = environment.wgpu_bind_group
+        render_pass.set_bind_group(env_bind_group_id, env_bind_group, [], 0, 99)
 
         # Draw!
         # draw_indexed(count_v, count_i, first_vertex, base_vertex, first_instance)

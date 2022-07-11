@@ -213,6 +213,7 @@ class LightShadow:
     def __init__(self, camera: Camera) -> None:
         self.camera = camera
 
+        # used for pcf filtering
         # self.radius = 1
         # self.map_size = [1024, 1024]
 

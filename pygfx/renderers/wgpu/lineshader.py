@@ -49,7 +49,7 @@ class LineShader(WorldObjectShader):
         super().__init__(wobject)
         self["line_type"] = "line"
 
-    def get_resources(self, wobject, environment, shared):
+    def get_resources(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
 
@@ -583,7 +583,7 @@ class ThinLineShader(WorldObjectShader):
 
     type = "render"
 
-    def get_resources(self, wobject, environment, shared):
+    def get_resources(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
 
