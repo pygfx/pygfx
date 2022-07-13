@@ -16,6 +16,9 @@ class Light(WorldObject):
 
     uniform_type = dict(
         color="4xf4",
+        cast_shadow='i4',
+        light_view_proj_matrix="4x4xf4",
+        shadow_bias="f4",
     )
 
     def __init__(self, color=(1, 1, 1, 1), intensity=1):
@@ -26,7 +29,7 @@ class Light(WorldObject):
         self.color = color
         self.intensity = intensity
 
-        self._cast_shadow = False
+        # for internal use
         self._light_shadow = None
 
     @property
@@ -47,6 +50,14 @@ class Light(WorldObject):
         self._intensity = value
         self.__update_buffer_color()
 
+    @property
+    def cast_shadow(self):
+        return bool(self.uniform_buffer.data["cast_shadow"])
+
+    @intensity.setter
+    def cast_shadow(self, value: bool):
+        self.uniform_buffer.data["cast_shadow"] = bool(value)
+
     def __update_buffer_color(self):
         # artist friendly color scaling, reference threejs
         scale_factor = self._intensity * math.pi
@@ -62,6 +73,7 @@ class PointLight(Light):
     uniform_type = dict(
         distance="f4",
         decay="f4",
+        light_view_proj_matrix="6*4x4xf4"
     )
 
     def __init__(self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1):
@@ -203,12 +215,11 @@ _look_target = Vector3()
 _proj_screen_matrix = Matrix4()
 
 
+shadow_uniform_type =dict(
+    light_view_proj_matrix="4x4xf4"
+)
+
 class LightShadow:
-    uniform_type = dict(
-        light_view_proj_matrix="4x4xf4",
-        bias="f4",
-        # radius="i4",
-    )
 
     def __init__(self, camera: Camera) -> None:
         self.camera = camera
@@ -221,17 +232,25 @@ class LightShadow:
         self._map = None
         self._map_index = 0
 
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
-        self.uniform_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
+        self.bias = 0
 
-    @property
-    def bias(self):
-        return float(self.uniform_buffer.data["bias"])
+        self.matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+        self.matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
 
-    @bias.setter
-    def bias(self, value):
-        self.uniform_buffer.data["bias"] = value
-        self.uniform_buffer.update_range(0, 1)
+    # @property
+    # def bias(self):
+    #     return float(self.uniform_buffer.data["bias"])
+
+    # @bias.setter
+    # def bias(self, value):
+    #     self.uniform_buffer.data["bias"] = value
+    #     self.uniform_buffer.update_range(0, 1)
+
+    def update_uniform_buffers(self, light: Light):
+        light.uniform_buffer.data["shadow_bias"] = self.bias
+        self.update_matrix(light)
+        light.uniform_buffer.update_range(0, 1)
+
 
     def update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
@@ -244,16 +263,18 @@ class LightShadow:
             shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
         )
 
-        self.uniform_buffer.data[
+        self.matrix_buffer.data["light_view_proj_matrix"].flat = _proj_screen_matrix.elements
+        self.matrix_buffer.update_range(0, 1)
+
+        light.uniform_buffer.data[
             "light_view_proj_matrix"
         ].flat = _proj_screen_matrix.elements
-        self.uniform_buffer.update_range(0, 1)
 
 
 class DirectionalLightShadow(LightShadow):
     def __init__(self) -> None:
         # OrthographicCamera for directional light
-        super().__init__(OrthographicCamera(1000, 1000, 0, 500))
+        super().__init__(OrthographicCamera(100, 100, -500, 500))
 
 
 class SpotLightShadow(LightShadow):
@@ -280,10 +301,10 @@ class SpotLightShadow(LightShadow):
 
 class PointLightShadow(LightShadow):
 
-    uniform_type = dict(
-        light_view_proj_matrix="6*4x4xf4",
-        bias="f4",
-    )
+    # uniform_type = dict(
+    #     light_view_proj_matrix="6*4x4xf4",
+    #     bias="f4",
+    # )
 
     _cube_directions = [
         Vector3(1, 0, 0),
@@ -306,12 +327,12 @@ class PointLightShadow(LightShadow):
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
 
-        self.vp_matrix_buffers = []
+        self.matrix_buffer = []
 
         for _ in range(6):
-            buffer = Buffer(array_from_shadertype(LightShadow.uniform_type))
+            buffer = Buffer(array_from_shadertype(shadow_uniform_type))
             buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
-            self.vp_matrix_buffers.append(buffer)
+            self.matrix_buffer.append(buffer)
 
     def update_matrix(self, light: Light) -> None:
         camera = self.camera
@@ -337,12 +358,11 @@ class PointLightShadow(LightShadow):
                 camera.projection_matrix, camera.matrix_world_inverse
             )
 
-            self.uniform_buffer.data[f"light_view_proj_matrix"][
+            light.uniform_buffer.data[f"light_view_proj_matrix"][
                 i
             ].flat = _proj_screen_matrix.elements
-            self.uniform_buffer.update_range(i, 1)
 
-            self.vp_matrix_buffers[i].data[
+            self.matrix_buffer[i].data[
                 "light_view_proj_matrix"
             ].flat = _proj_screen_matrix.elements
-            self.vp_matrix_buffers[i].update_range(0, 1)
+            self.matrix_buffer[i].update_range(0, 1)

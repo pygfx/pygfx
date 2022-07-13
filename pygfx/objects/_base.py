@@ -249,15 +249,6 @@ class WorldObject(EventTarget, RootTrackable):
     def material(self, material):
         self._store.material = material
 
-    # @property
-    # def cast_shadow(self):
-    #     """Whether this object casts shadows. Default False."""
-    #     return self._store.cast_shadow
-
-    # @cast_shadow.setter
-    # def cast_shadow(self, value):
-    #     self._store.cast_shadow = bool(value)
-
     @property
     def receive_shadow(self):
         """Whether this object receive shadows. Default False."""

@@ -58,8 +58,8 @@ light.cast_shadow = True
 
 h1 = gfx.PointLightHelper(light, 5)
 
-# scene.add(light)
-# scene.add(h1)
+scene.add(light)
+scene.add(h1)
 
 light2 = gfx.DirectionalLight("#aaaaaa")
 light2.position.x = -150

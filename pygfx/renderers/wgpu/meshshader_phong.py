@@ -6,7 +6,7 @@ from ...objects import Mesh
 from ...materials import MeshPhongMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
-from .shaderlibs import mesh_vertex_shader, lights, bsdfs, blinn_phong, shadow
+from ._shaderlibs import mesh_vertex_shader, lights, bsdfs, blinn_phong, shadow
 
 
 
@@ -80,6 +80,9 @@ class MeshPhongShader(MeshShader):
 
         self["use_light"] = True
 
+        # TODO: Whether it should be defined as uniform so that it can be changed without recompiling?
+        self["receive_shadow"] = wobject.receive_shadow
+
         # Define shader code for vertex buffer
 
         self.define_vertex_buffer(vertex_attributes_desc, instanced = self["instanced"])
@@ -123,7 +126,6 @@ class MeshPhongShader(MeshShader):
             self.code_definitions()
             + self.code_common()
             + mesh_vertex_shader
-            + self._code_lighting()
             + lights
             + bsdfs
             + blinn_phong
@@ -144,6 +146,7 @@ class MeshPhongShader(MeshShader):
 
         return (
             self._code_is_orthographic()
+            + self._code_lighting()
             + self._code_clipping_planes()
             + self._code_picking()
             + self._code_misc()
@@ -198,10 +201,14 @@ class MeshPhongShader(MeshShader):
                     if (i >= {{ num_point_lights }}) { break; }
                     let point_light = u_point_lights[i];
                     var light = getPointLightInfo(point_light, geometry);
-                    $$ if has_shadow
-                    let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, u_shadow_point_light[i].light_view_proj_matrix, geometry.position, light.direction, u_shadow_point_light[i].bias);
-                    light.color *= shadow;
+
+                    $$ if receive_shadow
+                    if (point_light.cast_shadow != 0){
+                        let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, point_light.light_view_proj_matrix, geometry.position, light.direction, point_light.shadow_bias);
+                        light.color *= shadow;
+                    }
                     $$ endif
+
                     reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
                     i += 1;
                 }
@@ -212,11 +219,16 @@ class MeshPhongShader(MeshShader):
                     if (i >= {{ num_spot_lights }}) { break; }
                     let spot_light = u_spot_lights[i];
                     var light = getSpotLightInfo(spot_light, geometry);
-                    $$ if has_shadow
-                    let coords = u_shadow_spot_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
-                    let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, u_shadow_spot_light[i].bias);
-                    light.color *= shadow;
+
+                    $$ if receive_shadow
+                    if (spot_light.cast_shadow != 0){
+                        let coords = spot_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                        let bias = spot_light.shadow_bias;
+                        let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, bias);
+                        light.color *= shadow;
+                    }
                     $$ endif
+                    
                     reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
                     i += 1;
                 }
@@ -227,11 +239,16 @@ class MeshPhongShader(MeshShader):
                     if (i >= {{ num_dir_lights }}) { break; }
                     let dir_light = u_directional_lights[i];
                     var light = getDirectionalLightInfo(dir_light, geometry);
-                    $$ if has_shadow
-                    let coords = u_shadow_dir_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
-                    let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, u_shadow_dir_light[i].bias);
-                    light.color *= shadow;
+                    
+                    $$ if receive_shadow
+                    if (dir_light.cast_shadow != 0) {
+                        let coords = dir_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                        let bias = dir_light.shadow_bias;
+                        let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, bias);
+                        light.color *= shadow;
+                    }
                     $$ endif
+
                     reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
                     i += 1;
                 }

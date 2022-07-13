@@ -282,8 +282,6 @@ class PipelineContainer:
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
 
-        self.env_scene_hash = ""
-
     def remove_env_hash(self, env_hash):
         """Called from the environment when it becomes inactive.
         This allows this object to remove all references to wgpu objects
@@ -297,11 +295,6 @@ class PipelineContainer:
 
         if isinstance(self, RenderPipelineContainer):
             env_hash = environment.hash
-
-            # scene_hash has changed, need to collect resources again and rebuild shader
-            # if self.env_scene_hash != environment._scene_state_hash:
-            #     self.env_scene_hash = environment._scene_state_hash
-            #     changed.update(("resources", "pipeline_info", "render_info"))
         else:
             env_hash = ""
 
@@ -357,30 +350,10 @@ class PipelineContainer:
                 self.render_info = self.shader.get_render_info(wobject, shared)
             self._check_render_info()
 
-
-    # def update_environment_data(self, environment, shared):
-    #     if self.shader["use_lighting"]:
-    #         for kind, resource in environment.resources:
-    #             update_resource(shared.device, resource, kind)
-
-
     def update_wgpu_data(self, wobject, environment, shared, env_hash, changed):
         """Update the actual wgpu objects."""
 
         if self.wgpu_shaders.get(env_hash, None) is None:
-            
-            # We need add light uniform definitions to wgsl 
-            # bindgroup_index = len(self.wgpu_bind_groups)
-            # for binding_index, binding in enumerate(environment.bindings):
-            #     self.shader.define_binding(bindgroup_index, binding_index, binding)
-
-            # self.update_shader_hash()
-
-            # add environment bindgroups
-            # if environment.wgpu_bind_group:
-            #     bind_group_layout, bind_group = self.wgpu_bind_group
-            #     self.wgpu_bind_group_layouts.append(bind_group_layout)
-            #     self.wgpu_bind_groups.append(bind_group)
 
             environment.register_pipeline_container(self)  # allows us to clean up
             changed.add("compile_shader")
@@ -595,6 +568,8 @@ class RenderPipelineContainer(PipelineContainer):
         self.strip_index_format = 0
         self.vertex_buffer_descriptors = []
 
+        self.shadow_pipeline = None
+
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
         assert isinstance(pipeline_info, dict)
@@ -663,7 +638,7 @@ class RenderPipelineContainer(PipelineContainer):
         for slot, buffer in enumerate(self.resources["vertex_buffers"]):
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
-                "step_mode": wgpu.VertexStepMode.vertex,  # vertex or instance
+                "step_mode": wgpu.VertexStepMode.vertex,  # vertex
                 "attributes": [
                     {
                         "format": to_vertex_format(buffer.format),
@@ -678,7 +653,7 @@ class RenderPipelineContainer(PipelineContainer):
         if instance_buffer is not None:
             ibo_des = {
                 "array_stride": instance_buffer.nbytes // instance_buffer.nitems,
-                "step_mode": wgpu.VertexStepMode.instance,  # vertex or instance
+                "step_mode": wgpu.VertexStepMode.instance,  # instance
                 "attributes": [
                     {
                         "format": "float32x4",
@@ -714,6 +689,12 @@ class RenderPipelineContainer(PipelineContainer):
         if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
             self.vertex_buffer_descriptors = vertex_buffer_descriptors
             self.wgpu_pipelines = {}
+            self.shadow_pipeline = None
+
+    def update_shadow_pipeline(self):
+        if self.shadow_pipeline is None:
+            pass
+
 
     def _compile_shaders(self, device, env):
         """Compile the templated shader to a list of wgpu shader modules
