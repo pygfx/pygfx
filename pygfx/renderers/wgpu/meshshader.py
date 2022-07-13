@@ -4,7 +4,6 @@ from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderM
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
-    MeshPhongMaterial,
     MeshFlatMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,

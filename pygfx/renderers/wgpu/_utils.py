@@ -130,9 +130,7 @@ def generate_uniform_struct(dtype_struct, structname):
             # A matNxM is Matrix of N columns and M rows
             n, m = shape[1], shape[0]
             if n < 2 or n > 4 or m < 2 or m > 4:
-                raise TypeError(
-                    f"Type {dtype} looks like an unsupported mat{n}x{m}."
-                )
+                raise TypeError(f"Type {dtype} looks like an unsupported mat{n}x{m}.")
             align_type = f"vec{m}<primitive_type>"
             wgsl_type = f"mat{n}x{m}<{primitive_type}>"
         else:

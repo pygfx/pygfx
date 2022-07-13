@@ -64,7 +64,9 @@ class Binding:
     * visibility: wgpu.ShaderStage flag
     """
 
-    def __init__(self, name, type, resource, visibility=visibility_render, structname=None):
+    def __init__(
+        self, name, type, resource, visibility=visibility_render, structname=None
+    ):
         if isinstance(visibility, str):
             visibility = getattr(wgpu.ShaderStage, visibility)
         self.name = name
@@ -158,13 +160,13 @@ class Binding:
                     "view_dimension": dim,
                 },
             }
-        
+
         # shadow_texture's resource is internal wgpu.GPUTextureView
         elif self.type.startswith("shadow_texture/"):
             assert isinstance(resource, wgpu.GPUTextureView)
             binding = {"binding": slot, "resource": resource}
 
-            binding_layout= {
+            binding_layout = {
                 "binding": slot,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
@@ -173,7 +175,7 @@ class Binding:
                     "multisampled": False,
                 },
             }
-        
+
         # shadow_sampler's resource is internal wgpu.GPUSampler
         elif self.type.startswith("shadow_sampler/"):
             assert isinstance(resource, wgpu.GPUSampler)
@@ -603,13 +605,17 @@ class RenderPipelineContainer(PipelineContainer):
         expected = {"index_buffer", "vertex_buffers", "bindings"}
         expected2 = {"index_buffer", "vertex_buffers", "instance_buffer", "bindings"}
         # instance_buffer is optional
-        assert set(resources.keys()) == expected or set(resources.keys()) == expected2, f"{resources.keys()}"
+        assert (
+            set(resources.keys()) == expected or set(resources.keys()) == expected2
+        ), f"{resources.keys()}"
 
         assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
         assert isinstance(resources["vertex_buffers"], list)
         # assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
         assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"])
-        assert isinstance(resources.get("instance_buffer", None), (None.__class__, Buffer))
+        assert isinstance(
+            resources.get("instance_buffer", None), (None.__class__, Buffer)
+        )
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
@@ -695,7 +701,6 @@ class RenderPipelineContainer(PipelineContainer):
         if self.shadow_pipeline is None:
             pass
 
-
     def _compile_shaders(self, device, env):
         """Compile the templated shader to a list of wgpu shader modules
         (one for each pass of the blender).
@@ -707,9 +712,12 @@ class RenderPipelineContainer(PipelineContainer):
             color_descriptors = blender.get_color_descriptors(pass_index)
             if not color_descriptors:
                 continue
-            
+
             env_bind_group_index = len(self.wgpu_bind_groups)
-            wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index), **env.get_shader_kwargs(env_bind_group_index))
+            wgsl = self.shader.generate_wgsl(
+                **blender.get_shader_kwargs(pass_index),
+                **env.get_shader_kwargs(env_bind_group_index),
+            )
             shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
 
         return shader_modules
@@ -730,7 +738,7 @@ class RenderPipelineContainer(PipelineContainer):
         # Create pipeline layout object from list of layouts
         env_bind_group_layout, _ = env.wgpu_bind_group
 
-        bind_group_layouts=[*self.wgpu_bind_group_layouts, env_bind_group_layout]
+        bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
 
         pipeline_layout = device.create_pipeline_layout(
             bind_group_layouts=bind_group_layouts
@@ -818,7 +826,9 @@ class RenderPipelineContainer(PipelineContainer):
         # draw(count_vertex, count_instance, first_vertex, first_instance)
         if index_buffer is not None:
             index_format = self.pipeline_info["index_format"]
-            render_pass.set_index_buffer(index_buffer._wgpu_buffer[1], index_format)  # todo: uint32 or uint16
+            render_pass.set_index_buffer(
+                index_buffer._wgpu_buffer[1], index_format
+            )  # todo: uint32 or uint16
             if len(indices) == 4:
                 base_vertex = 0  # A value added to each index before reading [...]
                 indices = list(indices)

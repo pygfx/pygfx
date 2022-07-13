@@ -126,7 +126,6 @@ def init_scene():
     scene.add(spot_light1, spot_light2, spot_light3)
     scene.add(light_helper1, light_helper2, light_helper3)
 
-
     # light2 = gfx.DirectionalLight("#aaaaaa")
     # light2.position.set(0, 1, 0)
     # light2.cast_shadow = True

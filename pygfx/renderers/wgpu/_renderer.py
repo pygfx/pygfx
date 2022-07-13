@@ -549,7 +549,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # ----- render pipelines
 
         # -- process shadow maps
-        lights = environment.lights["point_lights"]+environment.lights["spot_lights"]+environment.lights["directional_lights"]
+        lights = (
+            environment.lights["point_lights"]
+            + environment.lights["spot_lights"]
+            + environment.lights["directional_lights"]
+        )
         self._shadow_util.render_shadow_maps(lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):

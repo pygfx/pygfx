@@ -299,7 +299,7 @@ class WorldObjectShader(BaseShader):
 
     def _code_lighting(self):
         # use f_string
-        lighting= """
+        lighting = """
         $$ if use_light is defined
         {{ light_structs }}
 

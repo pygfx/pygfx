@@ -3,21 +3,22 @@ import wgpu  # only for flags/enums
 from . import register_wgpu_render_function, Binding
 from .meshshader import MeshShader
 from ...objects import Mesh
-from ...materials import MeshPhongMaterial
+from ...materials import MeshStandardMaterial
 from ...resources import Buffer
 from ...utils import normals_from_vertices
+
 from ._shaderlibs import (
     mesh_vertex_shader,
     lights,
     bsdfs,
-    bsdfs_blinn_phong,
-    blinn_phong_lighting,
+    bsdfs_physical,
+    physical_lighting,
     shadow,
 )
 
 
-@register_wgpu_render_function(Mesh, MeshPhongMaterial)
-class MeshPhongShader(MeshShader):
+@register_wgpu_render_function(Mesh, MeshStandardMaterial)
+class MeshStandardShader(MeshShader):
     def __init__(self, wobject):
         super().__init__(wobject)
 
@@ -87,9 +88,103 @@ class MeshPhongShader(MeshShader):
                     Binding(f"t_color_map", "texture/auto", material.map, "FRAGMENT")
                 )
 
+            if material.env_map is not None:
+                self["use_env_map"] = True
+                bindings.append(
+                    Binding(
+                        f"s_env_map", "sampler/filtering", material.env_map, "FRAGMENT"
+                    )
+                )
+                bindings.append(
+                    Binding(f"t_env_map", "texture/auto", material.env_map, "FRAGMENT")
+                )
+
+            if material.normal_map is not None:
+                self["use_normal_map"] = True
+                bindings.append(
+                    Binding(
+                        f"s_normal_map",
+                        "sampler/filtering",
+                        material.normal_map,
+                        "FRAGMENT",
+                    )
+                )
+                bindings.append(
+                    Binding(
+                        f"t_normal_map", "texture/auto", material.normal_map, "FRAGMENT"
+                    )
+                )
+
+            if material.roughness_map is not None:
+                self["use_roughness_map"] = True
+                bindings.append(
+                    Binding(
+                        f"s_roughness_map",
+                        "sampler/filtering",
+                        material.roughness_map,
+                        "FRAGMENT",
+                    )
+                )
+                bindings.append(
+                    Binding(
+                        f"t_roughness_map",
+                        "texture/auto",
+                        material.roughness_map,
+                        "FRAGMENT",
+                    )
+                )
+
+            if material.metalness_map is not None:
+                self["use_metalness_map"] = True
+                bindings.append(
+                    Binding(
+                        f"s_metalness_map",
+                        "sampler/filtering",
+                        material.metalness_map,
+                        "FRAGMENT",
+                    )
+                )
+                bindings.append(
+                    Binding(
+                        f"t_metalness_map",
+                        "texture/auto",
+                        material.metalness_map,
+                        "FRAGMENT",
+                    )
+                )
+
+            if material.emissive_map is not None:
+                self["use_emissive_map"] = True
+                bindings.append(
+                    Binding(
+                        f"s_emissive_map",
+                        "sampler/filtering",
+                        material.emissive_map,
+                        "FRAGMENT",
+                    )
+                )
+                bindings.append(
+                    Binding(
+                        f"t_emissive_map",
+                        "texture/auto",
+                        material.emissive_map,
+                        "FRAGMENT",
+                    )
+                )
+
+            if material.ao_map is not None:
+                self["use_ao_map"] = True
+                bindings.append(
+                    Binding(
+                        f"s_ao_map", "sampler/filtering", material.ao_map, "FRAGMENT"
+                    )
+                )
+                bindings.append(
+                    Binding(f"t_ao_map", "texture/auto", material.ao_map, "FRAGMENT")
+                )
+
         self["use_light"] = True
 
-        # TODO: Whether it should be defined as uniform so that it can be changed without recompiling?
         self["receive_shadow"] = wobject.receive_shadow
 
         # Define shader code for vertex buffer
@@ -129,16 +224,17 @@ class MeshPhongShader(MeshShader):
         }
 
     def get_code(self):
+
         return (
             self.code_definitions()
             + self.code_common()
             + mesh_vertex_shader
             + lights
             + bsdfs
-            + bsdfs_blinn_phong
-            + blinn_phong_lighting
+            + bsdfs_physical
+            + physical_lighting
             + shadow
-            + self.code_fragment()
+            + self.fragment_shader()
         )
 
     def code_common(self):
@@ -159,7 +255,7 @@ class MeshPhongShader(MeshShader):
             + blending_code
         )
 
-    def code_fragment(self):
+    def fragment_shader(self):
         return """
         @stage(fragment)
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
@@ -175,11 +271,26 @@ class MeshPhongShader(MeshShader):
             $$ endif
             let albeido = color_value.rgb;
 
-            var material: BlinnPhongMaterial;
-            material.diffuse_color = albeido;
-            material.specular_color = u_material.specular_color.rgb;
-            material.specular_shininess = u_material.shininess;
-            material.specular_strength = 1.0;  //TODO: Use specular_map if exists
+            var metalness_factor: f32 = u_material.metalness;
+            $$ if use_metalness_map is defined
+                let texel_metalness = textureSample( t_metalness_map, s_metalness_map, varyings.texcoord );
+                metalness_factor *= texel_metalness.b;
+            $$ endif
+            var roughness_factor: f32 = u_material.roughness;
+            $$ if use_roughness_map is defined
+                let texel_roughness = textureSample( t_roughness_map, s_roughness_map, varyings.texcoord );
+                roughness_factor *= texel_roughness.g;
+            $$ endif
+            let dxy = max( abs( dpdx( varyings.geometry_normal ) ), abs( dpdy( varyings.geometry_normal ) ) );
+            let geometry_roughness = max( max( dxy.x, dxy.y ), dxy.z );
+            var roughness = max( roughness_factor, 0.0525 );
+            roughness += geometry_roughness;
+            roughness = min( roughness, 1.0 );
+            var material: PhysicalMaterial;
+            material.diffuse_color = albeido * ( 1.0 - metalness_factor );
+            material.specular_color = mix( vec3<f32>( 0.04 ), albeido.rgb, metalness_factor );
+            material.roughness = roughness;
+            material.specular_f90 = 1.0;
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
             let view_dir = select(
                 normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
@@ -193,11 +304,18 @@ class MeshPhongShader(MeshShader):
                 normal = normalize(cross(u, v));
                 normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
             }
-            normal = select(-normal, normal, is_front);  // do we really need this?
+            normal = select(-normal, normal, is_front);
+            $$ if use_normal_map is defined
+                var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
+                normal_map = normal_map * 2.0 - 1.0;
+                let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );   // normal_scale
+                normal = perturbNormal2Arb(view_dir, normal, normal_map_scale, varyings.texcoord, is_front);
+            $$ endif
             var geometry: GeometricContext;
             geometry.position = varyings.world_pos;
             geometry.normal = normal;
             geometry.view_dir = view_dir;
+            //direct
             var i = 0;
             $$ if num_point_lights > 0
                 loop {
@@ -206,12 +324,10 @@ class MeshPhongShader(MeshShader):
                     var light = getPointLightInfo(point_light, geometry);
                     if (! light.visible) { continue; }
                     $$ if receive_shadow
-                    if (point_light.cast_shadow != 0){
-                        let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, point_light.light_view_proj_matrix, geometry.position, light.direction, point_light.shadow_bias);
-                        light.color *= shadow;
-                    }
+                    let shadow = get_cube_shadow(u_shadow_map_point_light, u_shadow_sampler, i, u_shadow_point_light[i].light_view_proj_matrix, geometry.position, light.direction, u_shadow_point_light[i].bias);
+                    light.color *= shadow;
                     $$ endif
-                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    reflected_light = RE_Direct_Physical( light, geometry, material, reflected_light );
                     continuing {
                         i += 1;
                     }
@@ -225,14 +341,11 @@ class MeshPhongShader(MeshShader):
                     var light = getSpotLightInfo(spot_light, geometry);
                     if (! light.visible) { continue; }
                     $$ if receive_shadow
-                    if (spot_light.cast_shadow != 0){
-                        let coords = spot_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
-                        let bias = spot_light.shadow_bias;
-                        let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, bias);
-                        light.color *= shadow;
-                    }
+                    let coords = u_shadow_spot_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                    let shadow = get_shadow(u_shadow_map_spot_light, u_shadow_sampler, i, coords, u_shadow_spot_light[i].bias);
+                    light.color *= shadow;
                     $$ endif
-                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    reflected_light = RE_Direct_Physical( light, geometry, material, reflected_light );
                     continuing {
                         i += 1;
                     }
@@ -246,23 +359,47 @@ class MeshPhongShader(MeshShader):
                     var light = getDirectionalLightInfo(dir_light, geometry);
                     if (! light.visible) { continue; }
                     $$ if receive_shadow
-                    if (dir_light.cast_shadow != 0) {
-                        let coords = dir_light.light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
-                        let bias = dir_light.shadow_bias;
-                        let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, bias);
-                        light.color *= shadow;
-                    }
+                    let coords = u_shadow_dir_light[i].light_view_proj_matrix * vec4<f32>(geometry.position,1.0);
+                    let shadow = get_shadow(u_shadow_map_dir_light, u_shadow_sampler, i, coords, u_shadow_dir_light[i].bias);
+                    light.color *= shadow;
                     $$ endif
-                    reflected_light = RE_Direct_BlinnPhong( light, geometry, material, reflected_light );
+                    reflected_light = RE_Direct_Physical( light, geometry, material, reflected_light );
                     continuing {
                         i += 1;
                     }
                 }
             $$ endif
+            // indirect diffuse
             let ambient_color = u_ambient_light.color.rgb;
-            let irradiance = getAmbientLightIrradiance( ambient_color );
-            reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
-            let lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
+            var irradiance = getAmbientLightIrradiance( ambient_color );
+             // TODO: lightmap
+            $$ if use_light_map is defined
+            let lightMapIrradiance = ( textureSample( t_light_map, s_light_map, varyings.texcoord )).rgb * u_material.light_map_intensity;
+            irradiance += lightMapIrradiance;
+            $$ endif
+            reflected_light = RE_IndirectDiffuse_Physical( irradiance, geometry, material, reflected_light );
+            // TODO: IBL
+            // indirect specular
+            $$ if use_env_map is defined
+            //material.roughness = 0.0;
+            let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
+            let radiance = getIBLRadiance( geometry.view_dir, geometry.normal, material.roughness, t_env_map, s_env_map, mip_level_r );
+            let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
+            let iblIrradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
+            reflected_light = RE_IndirectSpecular_Physical( radiance.rgb, iblIrradiance.rgb, geometry, material, reflected_light );
+            $$ endif
+            // ao
+            $$ if use_ao_map is defined
+            let ao_map_intensity = u_material.ao_map_intensity;
+            let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord ).r - 1.0 ) * ao_map_intensity + 1.0;
+            reflected_light = RE_AmbientOcclusion_Physical(ambientOcclusion, geometry, material, reflected_light);
+            $$ endif
+            var lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+            var emissive_color = u_material.emissive_color.rgb * u_material.emissive_intensity;
+            $$ if use_emissive_map is defined
+            emissive_color *= textureSample( t_emissive_map, s_emissive_map, varyings.texcoord).rgb;
+            $$ endif
+            lit_color += emissive_color;
             let final_color = vec4<f32>(lit_color, color_value.a * u_material.opacity);
             // Wrap up
             apply_clipping_planes(varyings.world_pos);

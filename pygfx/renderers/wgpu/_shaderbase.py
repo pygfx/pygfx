@@ -276,13 +276,9 @@ class BaseShader:
         """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
-        code = (
-            self._vertex_attribute_code
-            + '\n'
-            "\n".join(self._typedefs.values())
-            + '\n'
-            + "\n".join(self._binding_codes.values())
-        )
+        code = self._vertex_attribute_code + "\n" "\n".join(
+            self._typedefs.values()
+        ) + "\n" + "\n".join(self._binding_codes.values())
         return code
 
     def get_code(self):
@@ -322,11 +318,10 @@ class BaseShader:
         finally:
             self.kwargs = old_kwargs
 
-
-    #TODO:  auto generate from geometry attributes
+    # TODO:  auto generate from geometry attributes
     #       now, vertex_buffers is a vertex attributes descriptor turple(name, type),
     #       we can auto generate from geometry directly.
-    def define_vertex_buffer(self, vertex_attributes, instanced = False):
+    def define_vertex_buffer(self, vertex_attributes, instanced=False):
         code = """
         struct VertexInput {
             @builtin(vertex_index) vertex_index : u32,
@@ -352,7 +347,7 @@ class BaseShader:
                 @location({{ vertex_attributes|length + 4 }}) id: u32,
             };
             """
-        
+
         self._vertex_attribute_code = code
 
     def define_bindings(self, bindgroup, bindings_dict):
@@ -394,7 +389,6 @@ class BaseShader:
         else:
             raise TypeError(f"Unsupported struct type {resource.__class__.__name__}")
 
-
         # Get struct name
         struct_hash = str(dtype_struct)
 
@@ -423,7 +417,7 @@ class BaseShader:
             self._typedefs[structname] = struct_code
 
         uniform_type_name = (
-            f"array<{structname}, {binding.resource.data.shape[0]}>" # array of struct
+            f"array<{structname}, {binding.resource.data.shape[0]}>"  # array of struct
             if isinstance(resource, Buffer) and resource.data.shape  # Buffer.items > 1
             else structname
         )

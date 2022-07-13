@@ -16,7 +16,7 @@ class Light(WorldObject):
 
     uniform_type = dict(
         color="4xf4",
-        cast_shadow='i4',
+        cast_shadow="i4",
         light_view_proj_matrix="4x4xf4",
         shadow_bias="f4",
     )
@@ -54,7 +54,7 @@ class Light(WorldObject):
     def cast_shadow(self):
         return bool(self.uniform_buffer.data["cast_shadow"])
 
-    @intensity.setter
+    @cast_shadow.setter
     def cast_shadow(self, value: bool):
         self.uniform_buffer.data["cast_shadow"] = bool(value)
 
@@ -70,11 +70,7 @@ class Light(WorldObject):
 class PointLight(Light):
     """A light that gets emitted from a single point in all directions."""
 
-    uniform_type = dict(
-        distance="f4",
-        decay="f4",
-        light_view_proj_matrix="6*4x4xf4"
-    )
+    uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
 
     def __init__(self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1):
         super().__init__(color, intensity)
@@ -215,12 +211,10 @@ _look_target = Vector3()
 _proj_screen_matrix = Matrix4()
 
 
-shadow_uniform_type =dict(
-    light_view_proj_matrix="4x4xf4"
-)
+shadow_uniform_type = dict(light_view_proj_matrix="4x4xf4")
+
 
 class LightShadow:
-
     def __init__(self, camera: Camera) -> None:
         self.camera = camera
 
@@ -251,7 +245,6 @@ class LightShadow:
         self.update_matrix(light)
         light.uniform_buffer.update_range(0, 1)
 
-
     def update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
         shadow_camera.position.set_from_matrix_position(light.matrix_world)
@@ -263,7 +256,9 @@ class LightShadow:
             shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
         )
 
-        self.matrix_buffer.data["light_view_proj_matrix"].flat = _proj_screen_matrix.elements
+        self.matrix_buffer.data[
+            "light_view_proj_matrix"
+        ].flat = _proj_screen_matrix.elements
         self.matrix_buffer.update_range(0, 1)
 
         light.uniform_buffer.data[

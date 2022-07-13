@@ -33,7 +33,6 @@ class ShadowUtil:
             entries=binding_layout
         )
 
-
     def get_shadow_pipeline(self, wobject):
 
         # shadow pipeline only depends on the object's geometry info (Vertex Buffer)
@@ -47,25 +46,27 @@ class ShadowUtil:
         hash = (array_stride, vertex_format)
 
         if hash not in self.pipelines:
-            self.pipelines[hash] = self._create_shadow_pipeline(array_stride, vertex_format)
+            self.pipelines[hash] = self._create_shadow_pipeline(
+                array_stride, vertex_format
+            )
 
         return self.pipelines[hash]
-    
-
 
     def _create_shadow_pipeline(self, array_stride, vertex_format):
 
-        vertex_buffer_descriptor = [{
-            "array_stride": array_stride,
-            "step_mode": wgpu.VertexStepMode.vertex,  # vertex
-            "attributes": [
-                {
-                    "format": vertex_format,
-                    "offset": 0,
-                    "shader_location": 0,
-                }
-            ],
-        }]
+        vertex_buffer_descriptor = [
+            {
+                "array_stride": array_stride,
+                "step_mode": wgpu.VertexStepMode.vertex,  # vertex
+                "attributes": [
+                    {
+                        "format": vertex_format,
+                        "offset": 0,
+                        "shader_location": 0,
+                    }
+                ],
+            }
+        ]
 
         program = self.device.create_shader_module(code=shadow_vertex_shader)
         pipeline = self.device.create_render_pipeline(
@@ -90,10 +91,9 @@ class ShadowUtil:
 
         return pipeline
 
-    
     def render_shadow_maps(self, lights, wobjects, command_encoder):
         """Render the shadow map for the given lights and wobjects."""
-        
+
         for light in lights:
             if light.cast_shadow:
 
@@ -107,7 +107,7 @@ class ShadowUtil:
                     shadow_maps = [light.shadow._map]
                 else:
                     shadow_maps = light.shadow._map
-                
+
                 for i, shadow_map in enumerate(shadow_maps):
                     shadow_pass = command_encoder.begin_render_pass(
                         color_attachments=[],
@@ -187,17 +187,23 @@ class ShadowUtil:
                                     setattr(wobject, "__shadow_bind_group", bg)
 
                                 shadow_pass.set_bind_group(
-                                    1, getattr(wobject, "__shadow_bind_group"), [], 0, 99
+                                    1,
+                                    getattr(wobject, "__shadow_bind_group"),
+                                    [],
+                                    0,
+                                    99,
                                 )
 
                                 ibuffer = wobject.geometry.indices
 
                                 n = wobject.geometry.indices.data.size
-                                n_instance = 1 # not support instanced meshes yet
+                                n_instance = 1  # not support instanced meshes yet
 
                                 if ibuffer is not None:
                                     index_format = to_vertex_format(ibuffer.format)
-                                    index_format = index_format.split("x")[0].replace("s", "u")
+                                    index_format = index_format.split("x")[0].replace(
+                                        "s", "u"
+                                    )
                                     shadow_pass.set_index_buffer(
                                         ibuffer._wgpu_buffer[1], index_format
                                     )

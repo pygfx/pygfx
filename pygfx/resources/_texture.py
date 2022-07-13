@@ -33,6 +33,10 @@ class Texture(Resource):
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
 
+        # maybe srgb encoding
+        self._encoding = None
+        self._mip_level_count = 1
+
         # Backends-specific attributes for internal use
         self._wgpu_usage = 0
 
@@ -290,7 +294,7 @@ class TextureView(Resource):
         self._format = format
         self._view_dim = view_dim
         self._aspect = aspect
-        self._mip_range = mip_range or range(1)
+        self._mip_range = mip_range
         self._layer_range = layer_range or range(1)
         self._is_default_view = all(
             x is None for x in [format, view_dim, aspect, mip_range, layer_range]

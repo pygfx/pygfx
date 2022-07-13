@@ -12,6 +12,7 @@ from ._shader import BaseShader, WorldObjectShader
 from . import backgroundshader
 from . import meshshader
 from . import meshshader_phong
+from . import meshshader_standard
 from . import pointsshader
 from . import lineshader
 from . import imageshader
