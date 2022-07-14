@@ -67,7 +67,7 @@ light2.position.y = 100
 light2.position.z = 100
 light2.cast_shadow = True
 
-h2 = gfx.DirectionalLightHelper(light2, 100)
+h2 = gfx.DirectionalLightShadowHelper(light2, 100)
 
 scene.add(light2)
 scene.add(h2)

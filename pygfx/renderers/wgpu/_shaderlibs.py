@@ -374,6 +374,9 @@ shadow = """
         let proj_coords = shadow_coords.xyz / shadow_coords.w;
         let flip_correction = vec2<f32>(0.5, -0.5);
         let light_local = proj_coords.xy * flip_correction + vec2<f32>(0.5, 0.5);
+        if (light_local.x < 0.0 || light_local.x > 1.0 || light_local.y < 0.0 || light_local.y > 1.0) {
+            return 1.0;
+        }
         var depth:f32 = proj_coords.z - bias;
         depth = clamp(depth, 0.0, 1.0);
         var shadow: f32 = 0.0;
@@ -382,7 +385,7 @@ shadow = """
         //        shadow += textureSampleCompareLevel(t_shadow, u_shadow_sampler, light_local, layer_index, depth, vec2<i32>(i, j));
         //    }
         // }
-        // use for loop when wgpu-core is updated
+        // use for loop?
         // PCF
         shadow += textureSampleCompareLevel(t_shadow, u_shadow_sampler, light_local, layer_index, depth, vec2<i32>(0, 0));
         shadow += textureSampleCompareLevel(t_shadow, u_shadow_sampler, light_local, layer_index, depth, vec2<i32>(1, 0));

@@ -57,6 +57,8 @@ class OrthographicCamera(Camera):
         self.visible_world_size = width, height
 
     def update_projection_matrix(self):
+        # update visible_world_size from width and height first
+        self.set_view_size(1, 1)
         w, h = self.visible_world_size
         bottom = -0.5 * h
         top = +0.5 * h

@@ -11,6 +11,7 @@ from .. import (
     Line,
     WorldObject,
     LineThinSegmentMaterial,
+    LineThinMaterial,
 )
 
 
@@ -99,6 +100,71 @@ class DirectionalLightHelper(WorldObject):
         super().update_matrix_world(force, update_children, update_parents)
 
 
+class DirectionalLightShadowHelper(WorldObject):
+    def __init__(self, light, size=None, color=None):
+        super().__init__()
+
+        self.light = light
+        self.light.update_matrix_world()
+
+        self.color = color
+
+        self._matrix = self.light.matrix_world
+        self.matrix_auto_update = False
+
+        if size is None:
+            half_w = light.shadow.camera.width / 2
+            half_h = light.shadow.camera.height / 2
+        else:
+            half_w = size / 2
+            half_h = size / 2
+
+        geometry = Geometry(
+            positions=[
+                [-half_w, half_h, 0],
+                [half_w, half_h, 0],
+                [half_w, -half_h, 0],
+                [-half_w, -half_h, 0],
+                [-half_w, half_h, 0],
+            ]
+        )
+        self._material = LineThinMaterial()
+
+        self.light_plane = Line(geometry, self._material)
+        self.add(self.light_plane)
+
+        self.target_line = Line(
+            Geometry(positions=[[0, 0, 0], [0, 0, 1]]), self._material
+        )
+        self.add(self.target_line)
+
+        self.update()
+
+    def update(self):
+        if self.color:
+            self._material.color = self.color
+        else:
+            self._material.color = self.light.color
+
+        _tmp_vector.set_from_matrix_position(self.light.target.matrix_world)
+        _tmp_vector2.set_from_matrix_position(self.light.matrix_world)
+        _tmp_vector3.sub_vectors(_tmp_vector, _tmp_vector2)
+
+        _update_matrix_world = self.update_matrix_world
+        self.update_matrix_world = lambda *args, **kwargs: None
+        self.light_plane.look_at(_tmp_vector)
+        self.target_line.look_at(_tmp_vector)
+        self.target_line.scale.z = _tmp_vector3.length()
+        self.update_matrix_world = _update_matrix_world
+
+    def update_matrix_world(
+        self, force=False, update_children=True, update_parents=False
+    ):
+        self.update()
+        self._matrix_world_dirty = True
+        super().update_matrix_world(force, update_children, update_parents)
+
+
 class SpotLightHelper(WorldObject):
     def __init__(self, light, color=None):
         super().__init__()
@@ -167,3 +233,5 @@ class SpotLightHelper(WorldObject):
 
 
 _tmp_vector = Vector3()
+_tmp_vector2 = Vector3()
+_tmp_vector3 = Vector3()

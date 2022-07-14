@@ -98,10 +98,10 @@ class ShadowUtil:
             if light.cast_shadow:
 
                 if isinstance(light, PointLight):
-                    for buffer in light.shadow.matrix_buffer:
+                    for buffer in light.shadow._matrix_buffer:
                         update_buffer(self.device, buffer)
                 else:
-                    update_buffer(self.device, light.shadow.matrix_buffer)
+                    update_buffer(self.device, light.shadow._matrix_buffer)
 
                 if not isinstance(light.shadow._map, list):
                     shadow_maps = [light.shadow._map]
@@ -124,9 +124,9 @@ class ShadowUtil:
                     if not hasattr(light.shadow, f"__shadow_bind_group_{i}"):
 
                         buffer = (
-                            light.shadow.matrix_buffer[i]._wgpu_buffer[1]
+                            light.shadow._matrix_buffer[i]._wgpu_buffer[1]
                             if isinstance(light, PointLight)
-                            else light.shadow.matrix_buffer._wgpu_buffer[1]
+                            else light.shadow._matrix_buffer._wgpu_buffer[1]
                         )
 
                         setattr(

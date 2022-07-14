@@ -218,27 +218,25 @@ class LightShadow:
     def __init__(self, camera: Camera) -> None:
         self.camera = camera
 
-        # used for pcf filtering
+        # TODO: 'radius' represents the shadow sampling radius,
+        # which is used for PCF to blur and smooth shadow edges.
+        # But it seems difficult to be used as a uniform in shader internal.
+        # Changing this value will cause the shader to recompile.
+        # Shadows with different radius in one scene are also difficult to handle.
+        # now, it is a fixed value in shader.
         # self.radius = 1
+
         # self.map_size = [1024, 1024]
 
-        # used for internal rendering shadow map
+        # used for internal shadow map rendering, should not be used by user
         self._map = None
         self._map_index = 0
 
+        # Shadow map bias, Very tiny adjustments here may help reduce artifacts in shadows
         self.bias = 0
 
-        self.matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
-        self.matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
-
-    # @property
-    # def bias(self):
-    #     return float(self.uniform_buffer.data["bias"])
-
-    # @bias.setter
-    # def bias(self, value):
-    #     self.uniform_buffer.data["bias"] = value
-    #     self.uniform_buffer.update_range(0, 1)
+        self._matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+        self._matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
 
     def update_uniform_buffers(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self.bias
@@ -256,10 +254,10 @@ class LightShadow:
             shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
         )
 
-        self.matrix_buffer.data[
+        self._matrix_buffer.data[
             "light_view_proj_matrix"
         ].flat = _proj_screen_matrix.elements
-        self.matrix_buffer.update_range(0, 1)
+        self._matrix_buffer.update_range(0, 1)
 
         light.uniform_buffer.data[
             "light_view_proj_matrix"
@@ -296,11 +294,6 @@ class SpotLightShadow(LightShadow):
 
 class PointLightShadow(LightShadow):
 
-    # uniform_type = dict(
-    #     light_view_proj_matrix="6*4x4xf4",
-    #     bias="f4",
-    # )
-
     _cube_directions = [
         Vector3(1, 0, 0),
         Vector3(-1, 0, 0),
@@ -322,12 +315,12 @@ class PointLightShadow(LightShadow):
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
 
-        self.matrix_buffer = []
+        self._matrix_buffer = []
 
         for _ in range(6):
             buffer = Buffer(array_from_shadertype(shadow_uniform_type))
             buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
-            self.matrix_buffer.append(buffer)
+            self._matrix_buffer.append(buffer)
 
     def update_matrix(self, light: Light) -> None:
         camera = self.camera
@@ -357,7 +350,7 @@ class PointLightShadow(LightShadow):
                 i
             ].flat = _proj_screen_matrix.elements
 
-            self.matrix_buffer[i].data[
+            self._matrix_buffer[i].data[
                 "light_view_proj_matrix"
             ].flat = _proj_screen_matrix.elements
-            self.matrix_buffer[i].update_range(0, 1)
+            self._matrix_buffer[i].update_range(0, 1)
