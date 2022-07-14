@@ -40,7 +40,7 @@ mesh_vertex_shader = """
         varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
         varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
-        // Per-vertex colors
+        // Per-vertex colors TODO: use unified color format to remove this?
         $$ if vertex_color_channels == 1
         let cvalue = in.color;
         varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
@@ -53,8 +53,15 @@ mesh_vertex_shader = """
         varyings.color = in.color;
         $$ endif
 
-        $$ if has_uv is defined:
+        $$ if has_uv is defined
+        $$ if uv_size == 1
+        varyings.texcoord = f32(in.texcoord);
+        $$ elif uv_size == 2
         varyings.texcoord = vec2<f32>(in.texcoord);
+        $$ elif uv_size == 3
+        varyings.texcoord = vec3<f32>(in.texcoord);
+        $$ endif
+
         $$ endif
 
         // Set the normal

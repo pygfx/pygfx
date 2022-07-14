@@ -122,11 +122,10 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
 
         pipeline = self.get_mipmap_pipeline(format)
 
-        commandEncoder: "wgpu.GPUCommandEncoder" = self.device.create_command_encoder()
-        # bindGroupLayout = pipeline.getBindGroupLayout( 0 ); # @TODO: Consider making this static.
-        bindGroupLayout = pipeline.get_bind_group_layout(0)
+        command_encoder: "wgpu.GPUCommandEncoder" = self.device.create_command_encoder()
+        bind_group_layout = pipeline.get_bind_group_layout(0)
 
-        srcView = texture_gpu.create_view(
+        src_view = texture_gpu.create_view(
             base_mip_level=0,
             mip_level_count=1,
             dimension="2d",
@@ -135,40 +134,42 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
 
         for i in range(1, mip_level_count):
 
-            dstView = texture_gpu.create_view(
+            dst_view = texture_gpu.create_view(
                 base_mip_level=i,
                 mip_level_count=1,
                 dimension="2d",
                 base_array_layer=base_array_layer,
             )
 
-            passEncoder: "wgpu.GPURenderPassEncoder" = commandEncoder.begin_render_pass(
-                color_attachments=[
-                    {
-                        "view": dstView,
-                        "load_op": wgpu.LoadOp.clear,
-                        "store_op": wgpu.StoreOp.store,
-                        "clear_value": [0, 0, 0, 0],
-                    }
-                ]
+            pass_encoder: "wgpu.GPURenderPassEncoder" = (
+                command_encoder.begin_render_pass(
+                    color_attachments=[
+                        {
+                            "view": dst_view,
+                            "load_op": wgpu.LoadOp.clear,
+                            "store_op": wgpu.StoreOp.store,
+                            "clear_value": [0, 0, 0, 0],
+                        }
+                    ]
+                )
             )
 
-            bindGroup = self.device.create_bind_group(
-                layout=bindGroupLayout,
+            bind_group = self.device.create_bind_group(
+                layout=bind_group_layout,
                 entries=[
                     {"binding": 0, "resource": self.sampler},
-                    {"binding": 1, "resource": srcView},
+                    {"binding": 1, "resource": src_view},
                 ],
             )
 
-            passEncoder.set_pipeline(pipeline)
-            passEncoder.set_bind_group(0, bindGroup, [], 0, 99)
-            passEncoder.draw(4, 1, 0, 0)
-            passEncoder.end()
+            pass_encoder.set_pipeline(pipeline)
+            pass_encoder.set_bind_group(0, bind_group, [], 0, 99)
+            pass_encoder.draw(4, 1, 0, 0)
+            pass_encoder.end()
 
-            srcView = dstView
+            src_view = dst_view
 
-        self.device.queue.submit([commandEncoder.finish()])
+        self.device.queue.submit([command_encoder.finish()])
 
 
 _cache = WeakKeyDictionary()
@@ -183,7 +184,7 @@ def get_mipmap_utils(device) -> MipmapUtils:
     return _cache.get(device)
 
 
-def get_mip_Level_count(texture):
+def get_mip_level_count(texture):
     if isinstance(texture, TextureView):
         texture = texture.texture
     width, height, _ = texture.size

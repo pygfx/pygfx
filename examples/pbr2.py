@@ -36,14 +36,13 @@ class SkyboxShader(WorldObjectShader):
         # We're assuming the presence of an index buffer for now
         assert getattr(geometry, "indices", None)
 
-        vertex_buffers = []
-        vertex_attributes_desc = []
+        vertex_attributes = {}
+
         index_buffer = geometry.indices
 
-        vertex_buffers.append(geometry.positions)
-        vertex_attributes_desc.append(("position", "vec3<f32>"))
+        vertex_attributes["position"] = geometry.positions
 
-        self.define_vertex_buffer(vertex_attributes_desc)
+        self.define_vertex_buffer(vertex_attributes)
 
         bindings = []
         bindings.append(Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer))
@@ -59,12 +58,14 @@ class SkyboxShader(WorldObjectShader):
 
         return {
             "index_buffer": index_buffer,
-            "vertex_buffers": vertex_buffers,
+            "vertex_buffers": list(vertex_attributes.values()),
             "bindings": {0: bindings},
         }
 
     def get_pipeline_info(self, wobject, shared):
-        # We draw triangles, no culling
+
+        # we don't need depth test and write for skybox, but now pygfx seems not exposing this ability
+
         return {
             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "cull_mode": wgpu.CullMode.none,

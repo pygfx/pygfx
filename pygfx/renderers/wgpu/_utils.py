@@ -88,6 +88,25 @@ def to_texture_format(format):
         raise ValueError(f"Unexpected length of texture format '{format}'")
 
 
+def to_wgsl_vertex_type(format):
+    primitives = {
+        "i1": "i8",
+        "u1": "u8",
+        "i2": "i16",
+        "u2": "u16",
+        "i4": "i32",
+        "u4": "u32",
+        "f2": "f16",
+        "f4": "f32",
+    }
+
+    primitive = primitives[format[-2:]]
+    if len(format) == 2:
+        return primitive
+    elif len(format) == 4 and format[1] == "x":  # e.g. 3xf4
+        return f"vec{format[0]}<{primitive}>"
+
+
 def generate_uniform_struct(dtype_struct, structname):
     code = f"""
         struct {structname} {{
@@ -131,7 +150,7 @@ def generate_uniform_struct(dtype_struct, structname):
             n, m = shape[1], shape[0]
             if n < 2 or n > 4 or m < 2 or m > 4:
                 raise TypeError(f"Type {dtype} looks like an unsupported mat{n}x{m}.")
-            align_type = f"vec{m}<primitive_type>"
+            align_type = f"vec{m}<{primitive_type}>"
             wgsl_type = f"mat{n}x{m}<{primitive_type}>"
         else:
             raise TypeError(f"Unsupported type {dtype}")

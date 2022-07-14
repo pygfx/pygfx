@@ -139,6 +139,10 @@ Helper objects
     :members:
     :member-order: bysource
 
+.. autoclass:: pygfx.DirectionalLightShadowHelper
+    :members:
+    :member-order: bysource
+
 Geometries
 ----------
 

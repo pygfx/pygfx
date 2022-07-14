@@ -36,7 +36,9 @@ class MeshStandardShader(MeshShader):
 
         index_buffer = geometry.indices
 
-        vertex_buffers = []
+        vertex_attributes = {}
+
+        vertex_attributes["position"] = geometry.positions
 
         # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
         if getattr(geometry, "normals", None) is not None:
@@ -47,14 +49,7 @@ class MeshStandardShader(MeshShader):
             )
             normal_buffer = Buffer(normal_data)
 
-        # turple(attribute_name, attribute_wgsl_type) TODO remove it
-        vertex_attributes_desc = []
-
-        vertex_buffers.append(geometry.positions)
-        vertex_attributes_desc.append(("position", "vec3<f32>"))
-
-        vertex_buffers.append(normal_buffer)
-        vertex_attributes_desc.append(("normal", "vec3<f32>"))
+        vertex_attributes["normal"] = normal_buffer
 
         # Init bindings
         bindings = [
@@ -65,18 +60,24 @@ class MeshStandardShader(MeshShader):
 
         if material.vertex_colors:
             self["use_vertex_colors"] = True
-            vertex_buffers.append(geometry.colors)
-            vertex_attributes_desc.append(("color", "vec3<f32>"))
-
+            vertex_attributes["color"] = geometry.colors
         # We need uv to use the maps, so if uv not exist, ignore all maps
         if geometry.texcoords is not None:
             self["has_uv"] = True
 
-            vertex_buffers.append(geometry.texcoords)
+            vertex_attributes["texcoord"] = geometry.texcoords
 
-            # TODO get uv type from texcoords.dtype
-            vertex_attributes_desc.append(("texcoord", "vec2<f32>"))
+            # uv is always 2d( nx2 shape array) in MeshStandardMaterial, it used for all texture maps.
+            assert len(geometry.texcoords.data.shape) == 2
+            uv_size = geometry.texcoords.data.shape[1]
+            assert uv_size == 2, "uv needs to be 2d for MeshStandardMaterial"
+            self["uv_size"] = uv_size
 
+            # Ensure all the maps data are float32 fomat, so we can use textureSampler.
+            # Although maps data can be in many different formats in the upper API,
+            # we should automatically convert it to float32 format before transfer to GPU.
+            # so that we can have a unified logic in the shader, and more importantly,
+            # we can use the standard built-in texture sampling process.
             if material.map is not None and not material.vertex_colors:
                 self["use_color_map"] = True
                 bindings.append(
@@ -189,7 +190,7 @@ class MeshStandardShader(MeshShader):
 
         # Define shader code for vertex buffer
 
-        self.define_vertex_buffer(vertex_attributes_desc, instanced=self["instanced"])
+        self.define_vertex_buffer(vertex_attributes, instanced=self["instanced"])
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -197,7 +198,7 @@ class MeshStandardShader(MeshShader):
 
         return {
             "index_buffer": index_buffer,
-            "vertex_buffers": vertex_buffers,
+            "vertex_buffers": list(vertex_attributes.values()),
             "instance_buffer": wobject.instance_infos if self["instanced"] else None,
             "bindings": {0: bindings},
         }

@@ -35,7 +35,9 @@ class MeshPhongShader(MeshShader):
 
         index_buffer = geometry.indices
 
-        vertex_buffers = []
+        vertex_attributes = {}
+
+        vertex_attributes["position"] = geometry.positions
 
         # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
         if getattr(geometry, "normals", None) is not None:
@@ -46,14 +48,7 @@ class MeshPhongShader(MeshShader):
             )
             normal_buffer = Buffer(normal_data)
 
-        # turple(attribute_name, attribute_wgsl_type) TODO remove it
-        vertex_attributes_desc = []
-
-        vertex_buffers.append(geometry.positions)
-        vertex_attributes_desc.append(("position", "vec3<f32>"))
-
-        vertex_buffers.append(normal_buffer)
-        vertex_attributes_desc.append(("normal", "vec3<f32>"))
+        vertex_attributes["normal"] = normal_buffer
 
         # Init bindings
         bindings = [
@@ -64,20 +59,30 @@ class MeshPhongShader(MeshShader):
 
         if material.vertex_colors:
             self["use_vertex_colors"] = True
-            vertex_buffers.append(geometry.colors)
-            vertex_attributes_desc.append(("color", "vec3<f32>"))
+            vertex_attributes["color"] = geometry.colors
 
         # We need uv to use the maps, so if uv not exist, ignore all maps
         if geometry.texcoords is not None:
             self["has_uv"] = True
 
-            vertex_buffers.append(geometry.texcoords)
+            vertex_attributes["texcoord"] = geometry.texcoords
 
-            # TODO get uv type from texcoords.dtype
-            vertex_attributes_desc.append(("texcoord", "vec2<f32>"))
+            # for legacy meshphong compatibility, uv_size can be 1, 2 or 3 for different map channel numbers
 
+            if len(geometry.texcoords.data.shape) == 1:
+                uv_size = 1
+            else:
+                uv_size = geometry.texcoords.data.shape[1]
+
+            self["uv_size"] = uv_size
+
+            # TODO: Our colormap supports various formats, not just float32.
+            # And it is transmitted to GPU according to the original data format.
+            # we should automatically convert it to float32 format before transfer to GPU
+            # Also see MeshStandardMaterial shader
             if material.map is not None and not material.vertex_colors:
                 self["use_color_map"] = True
+
                 bindings.append(
                     Binding(
                         f"s_color_map", "sampler/filtering", material.map, "FRAGMENT"
@@ -94,7 +99,7 @@ class MeshPhongShader(MeshShader):
 
         # Define shader code for vertex buffer
 
-        self.define_vertex_buffer(vertex_attributes_desc, instanced=self["instanced"])
+        self.define_vertex_buffer(vertex_attributes, instanced=self["instanced"])
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -102,7 +107,7 @@ class MeshPhongShader(MeshShader):
 
         return {
             "index_buffer": index_buffer,
-            "vertex_buffers": vertex_buffers,
+            "vertex_buffers": list(vertex_attributes.values()),
             "instance_buffer": wobject.instance_infos if self["instanced"] else None,
             "bindings": {0: bindings},
         }

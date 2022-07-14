@@ -5,7 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format
-from ._mipmap_util import get_mipmap_utils, get_mip_Level_count
+from ._mipmap_util import get_mipmap_utils, get_mip_level_count
 
 
 # Alternative texture formats that we support by padding channels as needed.
@@ -123,7 +123,7 @@ def update_texture(device, resource):
 
     needs_mipmaps = getattr(resource, "generate_mipmap", False)
 
-    mip_level_count = get_mip_Level_count(resource) if needs_mipmaps else 1
+    mip_level_count = get_mip_level_count(resource) if needs_mipmaps else 1
 
     # Create texture if needed
     if texture is None:  # todo: or needs to be replaced (e.g. resized)

@@ -267,7 +267,7 @@ class LightShadow:
 class DirectionalLightShadow(LightShadow):
     def __init__(self) -> None:
         # OrthographicCamera for directional light
-        super().__init__(OrthographicCamera(100, 100, -500, 500))
+        super().__init__(OrthographicCamera(1000, 1000, -500, 500))
 
 
 class SpotLightShadow(LightShadow):

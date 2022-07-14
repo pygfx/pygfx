@@ -13,7 +13,12 @@ import numpy as np
 
 from ...utils import array_from_shadertype
 from ...resources import Buffer
-from ._utils import to_vertex_format, to_texture_format, generate_uniform_struct
+from ._utils import (
+    to_vertex_format,
+    to_texture_format,
+    generate_uniform_struct,
+    to_wgsl_vertex_type,
+)
 
 
 jinja_env = jinja2.Environment(
@@ -321,7 +326,8 @@ class BaseShader:
     # TODO:  auto generate from geometry attributes
     #       now, vertex_buffers is a vertex attributes descriptor turple(name, type),
     #       we can auto generate from geometry directly.
-    def define_vertex_buffer(self, vertex_attributes, instanced=False):
+    def define_vertex_buffer(self, vertex_attributes: dict, instanced=False):
+
         code = """
         struct VertexInput {
             @builtin(vertex_index) vertex_index : u32,
@@ -331,9 +337,13 @@ class BaseShader:
             @builtin(instance_index) instance_index : u32,
             """
 
-        for slot, attr in enumerate(vertex_attributes):
+        for slot, attr in enumerate(vertex_attributes.items()):
+
+            name, buffer = attr
+            wgsl_type = to_wgsl_vertex_type(buffer.format)
+
             code += f"""
-            @location({slot}) {attr[0]} : {attr[1]},
+            @location({slot}) {name} : {wgsl_type},
             """
         code += "};"
 
