@@ -24,8 +24,6 @@ class Light(WorldObject):
     def __init__(self, color=(1, 1, 1, 1), intensity=1):
         super().__init__()
         self._intensity = intensity
-        self._color = color
-
         self.color = color
         self.intensity = intensity
 
@@ -60,9 +58,9 @@ class Light(WorldObject):
 
     def __update_buffer_color(self):
         # artist friendly color scaling, reference threejs
+        # TODO: physically correct lights
         scale_factor = self._intensity * math.pi
-
-        color = Color(self._color).multiply_scalar(scale_factor)
+        color = self._color.multiply_scalar(scale_factor)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
 
