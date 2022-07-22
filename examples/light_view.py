@@ -1,3 +1,7 @@
+"""
+Lighting effect demonstration examples with adjustable parameters
+"""
+
 # run_example = false
 
 import math

@@ -1,3 +1,8 @@
+"""
+This example shows the lighting rendering affect of materials with different metalness and roughness.
+Every second sphere has an IBL environment map on it.
+"""
+
 import numpy as np
 import imageio
 import time

@@ -1,3 +1,10 @@
+"""
+This example demonstrates directional light shadows and their helper.
+The cubes within the view frustum of the shadow camera have complete shadows,
+the cubes at the edge of the view frustum of the camera have partial shadows,
+while the cubes outside the view frustum of the camera will not cast shadows.
+"""
+
 import math
 
 from wgpu.gui.auto import WgpuCanvas, run

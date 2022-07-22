@@ -1,3 +1,8 @@
+"""
+Simple light example.
+This example shows a cube with MeshPhongMaterial illuminated by a point light and a directional light.
+"""
+
 import time
 import math
 

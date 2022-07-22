@@ -1,3 +1,7 @@
+"""
+Spotlights and shadows examnple
+"""
+
 import time
 import math
 import random

@@ -49,11 +49,11 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
         # We'll need a new pipeline for every texture format used.
         self.pipelines = {}
 
-        self.mipmapVertexShaderModule = device.create_shader_module(
+        self.mipmap_vertex_shader_module = device.create_shader_module(
             code=mipmap_vertex_source
         )
 
-        self.mipmapFragmentShaderModule = device.create_shader_module(
+        self.mipmap_fragment_shader_module = device.create_shader_module(
             code=mipmap_fragment_source
         )
 
@@ -66,12 +66,12 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
             pipeline = self.device.create_render_pipeline(
                 layout=self._create_pipeline_layout(),
                 vertex={
-                    "module": self.mipmapVertexShaderModule,
+                    "module": self.mipmap_vertex_shader_module,
                     "entry_point": "main",
                     "buffers": [],
                 },
                 fragment={
-                    "module": self.mipmapFragmentShaderModule,
+                    "module": self.mipmap_fragment_shader_module,
                     "entry_point": "main",
                     "targets": [{"format": format}],
                 },

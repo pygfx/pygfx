@@ -1,3 +1,7 @@
+"""
+Spotlights example.
+"""
+
 import time
 import math
 import random

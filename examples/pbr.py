@@ -1,3 +1,8 @@
+"""
+This example shows a complete PBR rendering effect.
+The cubemap of skybox is also the environment cubemap of the helmet.
+"""
+
 import numpy as np
 import imageio
 import trimesh

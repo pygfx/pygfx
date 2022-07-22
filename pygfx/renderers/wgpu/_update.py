@@ -5,7 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format
-from ._mipmap_util import get_mipmap_utils, get_mip_level_count
+from ._mipmaputil import get_mipmap_utils, get_mip_level_count
 
 
 # Alternative texture formats that we support by padding channels as needed.
