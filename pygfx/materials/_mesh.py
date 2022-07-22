@@ -404,7 +404,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def emissive_map(self):
         """The emissive map color is modulated by the emissive color and the emissive intensity.
         If you have an emissive map, be sure to set the emissive color to something other than black.
-         Default is None.
+        Default is None.
         """
         return self._store.emissive_map
 
