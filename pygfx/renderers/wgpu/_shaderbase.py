@@ -256,9 +256,6 @@ class BaseShader:
         self._uniform_struct_names = {}  # dtype -> name
         self._vertex_attribute_code = ""
 
-        self._temp_typedefs = {}
-        self._temp_binding_codes = {}
-
     def __setitem__(self, key, value):
         if hasattr(self.__class__, key):
             msg = f"Templating variable {key} causes name clash with class attribute."

@@ -697,10 +697,6 @@ class RenderPipelineContainer(PipelineContainer):
             self.wgpu_pipelines = {}
             self.shadow_pipeline = None
 
-    def update_shadow_pipeline(self):
-        if self.shadow_pipeline is None:
-            pass
-
     def _compile_shaders(self, device, env):
         """Compile the templated shader to a list of wgpu shader modules
         (one for each pass of the blender).
@@ -825,10 +821,8 @@ class RenderPipelineContainer(PipelineContainer):
         # draw_indexed(count_v, count_i, first_vertex, base_vertex, first_instance)
         # draw(count_vertex, count_instance, first_vertex, first_instance)
         if index_buffer is not None:
-            index_format = self.pipeline_info["index_format"]
-            render_pass.set_index_buffer(
-                index_buffer._wgpu_buffer[1], index_format
-            )  # todo: uint32 or uint16
+            index_format = self.pipeline_info["index_format"]  # uint32 or uint16
+            render_pass.set_index_buffer(index_buffer._wgpu_buffer[1], index_format)
             if len(indices) == 4:
                 base_vertex = 0  # A value added to each index before reading [...]
                 indices = list(indices)
