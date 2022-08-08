@@ -42,6 +42,8 @@ class OrthographicCamera(Camera):
 
     def set_view_size(self, width, height):
         self._view_aspect = width / height
+
+    def update_projection_matrix(self):
         # The reference view plane is scaled with the zoom factor
         width = self.width / self.zoom
         height = self.height / self.zoom
@@ -53,17 +55,11 @@ class OrthographicCamera(Camera):
             width *= self._view_aspect / aspect
         else:
             height *= aspect / self._view_aspect
-        # Store the size if the visible view plane in world coordinates
-        self.visible_world_size = width, height
 
-    def update_projection_matrix(self):
-        # update visible_world_size from width and height first
-        self.set_view_size(1, 1)
-        w, h = self.visible_world_size
-        bottom = -0.5 * h
-        top = +0.5 * h
-        left = -0.5 * w
-        right = +0.5 * w
+        bottom = -0.5 * height
+        top = +0.5 * height
+        left = -0.5 * width
+        right = +0.5 * width
         # Set matrices
         # The linalg ortho projection puts xyz in the range -1..1, but
         # in the coordinate system of wgpu (and this lib) the depth is
