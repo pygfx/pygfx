@@ -213,11 +213,18 @@ shadow_uniform_type = dict(light_view_proj_matrix="4x4xf4")
 
 
 class LightShadow:
-    def __init__(self, camera: Camera) -> None:
+    """
+    A shadow map for a light.
+    This is usually created automatically by a light,
+    and can be accessed through the light's shadow property.
 
-        # The light's view of the world.
-        # This is used to generate a depth map of the scene;
-        # objects behind other objects from the light's perspective will be in shadow.
+    Parameters:
+        camera: The light's view of the world.
+        This is used to generate a depth map of the scene;
+        objects behind other objects from the light's perspective will be in shadow.
+    """
+
+    def __init__(self, camera: Camera) -> None:
         self.camera = camera
 
         # TODO: 'radius' represents the shadow sampling radius,
