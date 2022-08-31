@@ -19,6 +19,8 @@ class PanZoomController(Controller):
     ) -> None:
         super().__init__()
         self.rotation = Quaternion()
+        self.target = Vector3()
+        self.up = Vector3()
         if eye is None:
             eye = Vector3(0, 0, 0)
         if target is None:
@@ -63,8 +65,8 @@ class PanZoomController(Controller):
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
-        self.target = target
-        self.up = up
+        self.target.copy(target)
+        self.up.copy(up)
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         return self
 
@@ -163,3 +165,20 @@ class PanZoomController(Controller):
             f = 2 ** (-event.dy * 0.0015)
             self.zoom_to_point(f, xy, viewport, camera)
             viewport.renderer.request_draw()
+
+    def show_object(self, camera, target):
+        target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
+        self.look_at(camera.position, target_pos, camera.up)
+        bsphere = target.get_world_bounding_sphere()
+        if bsphere is not None:
+            radius = bsphere[3]
+            center_world_coord = Vector3(0, 0, 0).unproject(camera)
+            right_world_coord = Vector3(1, 0, 0).unproject(camera)
+            top_world_coord = Vector3(0, 1, 0).unproject(camera)
+
+            min_distance = min(
+                right_world_coord.distance_to(center_world_coord),
+                top_world_coord.distance_to(center_world_coord),
+            )
+            self.zoom_value = min_distance / radius * self.zoom_value
+            # TODO: make this work for perspective camera

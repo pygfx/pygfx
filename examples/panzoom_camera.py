@@ -38,6 +38,8 @@ def on_key_down(event):
         controller.save_state()
     elif event.key == "l":
         controller.load_state()
+    elif event.key == "r":
+        controller.show_object(camera, plane)
 
 
 renderer.add_event_handler(on_key_down, "key_down")
