@@ -237,8 +237,8 @@ class OrbitController(Controller):
         if self.zoom_changes_distance:
             self.zoom_value = self._initial_distance / self.distance
         else:
-            # TODO: implement for Ortho camera
-            pass
+            # TODO: implement for orthographic camera
+            raise NotImplementedError
 
 
 class OrbitOrthoController(OrbitController):

@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from ..cameras import Camera
+from ..cameras import Camera, OrthographicCamera
 from ..utils.viewport import Viewport
 from ..linalg import Vector3, Matrix4, Quaternion
 from ._base import Controller, get_screen_vectors_in_world_cords
@@ -167,6 +167,10 @@ class PanZoomController(Controller):
             viewport.renderer.request_draw()
 
     def show_object(self, camera, target):
+        # TODO: implement for perspective camera
+        if not isinstance(camera, OrthographicCamera):
+            raise NotImplementedError
+
         target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
         self.look_at(camera.position, target_pos, camera.up)
         bsphere = target.get_world_bounding_sphere()
@@ -181,4 +185,3 @@ class PanZoomController(Controller):
                 top_world_coord.distance_to(center_world_coord),
             )
             self.zoom_value = min_distance / radius * self.zoom_value
-            # TODO: make this work for perspective camera
