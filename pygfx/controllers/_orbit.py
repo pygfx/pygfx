@@ -22,6 +22,8 @@ class OrbitController(Controller):
     ) -> None:
         super().__init__()
         self.rotation = Quaternion()
+        self.target = Vector3()
+        self.up = Vector3()
         if eye is None:
             eye = Vector3(50.0, 50.0, 50.0)
         if target is None:
@@ -81,8 +83,8 @@ class OrbitController(Controller):
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
-        self.target = target
-        self.up = up
+        self.target.copy(target)
+        self.up.copy(up)
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         self._update_up_quats()
         return self
@@ -181,6 +183,17 @@ class OrbitController(Controller):
         return self
 
     def get_view(self) -> Tuple[Vector3, Vector3, float]:
+        """
+        Returns view parameters with which a camera can be updated.
+
+        Returns:
+            rotation: Vector3
+                Rotation of camera
+            position: Vector3
+                Position of camera
+            zoom: float
+                Zoom value for camera
+        """
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )
@@ -217,6 +230,15 @@ class OrbitController(Controller):
             f = 2 ** (-d * 0.0015)
             self.zoom(f)
             viewport.renderer.request_draw()
+
+    def show_object(self, camera, target):
+        target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
+        self.look_at(camera.position, target_pos, camera.up)
+        if self.zoom_changes_distance:
+            self.zoom_value = self._initial_distance / self.distance
+        else:
+            # TODO: implement for orthographic camera
+            raise NotImplementedError
 
 
 class OrbitOrthoController(OrbitController):

@@ -9,7 +9,18 @@ from ..cameras import Camera
 class Controller:
     """Base camera controller."""
 
-    def get_view(self):
+    def get_view(self) -> Tuple[Vector3, Vector3, float]:
+        """
+        Returns view parameters with which a camera can be updated.
+
+        Returns:
+            rotation: Vector3
+                Rotation of camera
+            position: Vector3
+                Position of camera
+            zoom: float
+                Zoom value for camera
+        """
         raise NotImplementedError()
 
     def handle_event(self, event, viewport, camera):
@@ -19,6 +30,9 @@ class Controller:
         raise NotImplementedError()
 
     def load_state(self, state=None):
+        raise NotImplementedError()
+
+    def show_object(self, camera, target):
         raise NotImplementedError()
 
     def update_camera(self, camera: Camera) -> "Controller":
