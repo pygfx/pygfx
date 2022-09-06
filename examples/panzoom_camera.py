@@ -45,12 +45,13 @@ def on_key_down(event):
 renderer.add_event_handler(on_key_down, "key_down")
 
 
-def animate():
+def render_scene():
     controller.update_camera(camera)
     renderer.render(scene, camera)
-    canvas.request_draw()
+    # NOTE: The controller requests new draws automatically
+    # so there is no need for an animation loop
 
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas.request_draw(render_scene)
     run()
