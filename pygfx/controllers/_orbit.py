@@ -216,14 +216,14 @@ class OrbitController(Controller):
                 self.rotate_stop()
             elif event.button == 2:
                 self.pan_stop()
-            viewport.renderer.request_draw()
         elif type == "pointer_move":
             xy = event.x, event.y
             if 1 in event.buttons:
                 self.rotate_move(xy),
+                viewport.renderer.request_draw()
             if 2 in event.buttons:
                 self.pan_move(xy),
-            viewport.renderer.request_draw()
+                viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             d = event.dy or event.dx

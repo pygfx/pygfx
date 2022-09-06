@@ -154,7 +154,6 @@ class PanZoomController(Controller):
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
-                viewport.renderer.request_draw()
         elif type == "pointer_move":
             if 1 in event.buttons:
                 xy = event.x, event.y
