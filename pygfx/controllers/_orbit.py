@@ -258,7 +258,13 @@ class OrbitOrthoController(OrbitController):
         up: Vector3 = None,
         *,
         min_zoom: float = 0.0001,
+        auto_update: bool = True,
     ):
         super().__init__(
-            eye, target, up, zoom_changes_distance=False, min_zoom=min_zoom
+            eye,
+            target,
+            up,
+            zoom_changes_distance=False,
+            min_zoom=min_zoom,
+            auto_update=auto_update,
         )
