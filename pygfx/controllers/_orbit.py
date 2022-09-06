@@ -19,6 +19,7 @@ class OrbitController(Controller):
         *,
         zoom_changes_distance=True,
         min_zoom: float = 0.0001,
+        auto_update: bool = True,
     ) -> None:
         super().__init__()
         self.rotation = Quaternion()
@@ -33,6 +34,7 @@ class OrbitController(Controller):
         self.zoom_changes_distance = bool(zoom_changes_distance)
         self.zoom_value = 1
         self.min_zoom = min_zoom
+        self.auto_update = auto_update
 
         # State info used during a pan or rotate operation
         self._pan_info = None
@@ -220,16 +222,19 @@ class OrbitController(Controller):
             xy = event.x, event.y
             if 1 in event.buttons:
                 self.rotate_move(xy),
-                viewport.renderer.request_draw()
+                if self.auto_update:
+                    viewport.renderer.request_draw()
             if 2 in event.buttons:
                 self.pan_move(xy),
-                viewport.renderer.request_draw()
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             d = event.dy or event.dx
             f = 2 ** (-d * 0.0015)
             self.zoom(f)
-            viewport.renderer.request_draw()
+            if self.auto_update:
+                viewport.renderer.request_draw()
 
     def show_object(self, camera, target):
         target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
