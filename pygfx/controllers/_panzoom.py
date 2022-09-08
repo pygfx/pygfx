@@ -16,6 +16,7 @@ class PanZoomController(Controller):
         up: Vector3 = None,
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
+        auto_update: bool = True,
     ) -> None:
         super().__init__()
         self.rotation = Quaternion()
@@ -29,6 +30,7 @@ class PanZoomController(Controller):
             up = Vector3(0.0, 1.0, 0.0)
         self.zoom_value = zoom
         self.min_zoom = min_zoom
+        self.auto_update = True
 
         # State info used during a pan or rotate operation
         self._pan_info = None
@@ -154,17 +156,18 @@ class PanZoomController(Controller):
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
-                viewport.renderer.request_draw()
         elif type == "pointer_move":
             if 1 in event.buttons:
                 xy = event.x, event.y
                 self.pan_move(xy)
-                viewport.renderer.request_draw()
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             f = 2 ** (-event.dy * 0.0015)
             self.zoom_to_point(f, xy, viewport, camera)
-            viewport.renderer.request_draw()
+            if self.auto_update:
+                viewport.renderer.request_draw()
 
     def show_object(self, camera, target):
         # TODO: implement for perspective camera
