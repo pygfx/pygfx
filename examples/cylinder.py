@@ -51,6 +51,8 @@ camera.position.set(0, -65, 50)
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
+scene.add(gfx.AmbientLight())
+scene.add(gfx.DirectionalCameraLight(camera=camera))
 
 def animate():
     controller.update_camera(camera)

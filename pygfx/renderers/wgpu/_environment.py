@@ -16,7 +16,6 @@ from ...objects import (
 )
 from ...resources import Buffer
 from ...utils import array_from_shadertype
-from ...linalg import Vector3
 from ._pipeline import Binding
 from ._update import update_buffer
 from ._utils import generate_uniform_struct
@@ -34,8 +33,6 @@ class Environment(Trackable):
     of the hash, but the color of the lights do not matter for the
     pipeline.
     """
-
-    _tmp_vector = Vector3()
 
     _ambient_uniform_type = AmbientLight().uniform_type
     _point_uniform_type = PointLight().uniform_type
@@ -349,11 +346,7 @@ class Environment(Trackable):
             dir_lights_buffer = self.directional_lights_buffer
             directional_lights = lights["directional_lights"]
             for i, light in enumerate(directional_lights):
-                direction = self._tmp_vector.sub_vectors(
-                    light.target.get_world_position(), light.get_world_position()
-                ).normalize()
-                light.uniform_buffer.data["direction"].flat = direction.to_array()
-
+                light.update_uniform_buffer()
                 if light.cast_shadow:
                     light.shadow.update_uniform_buffers(light)
 
@@ -378,7 +371,7 @@ class Environment(Trackable):
             point_lights_buffer = self.point_lights_buffer
             point_lights = lights["point_lights"]
             for i, light in enumerate(point_lights):
-
+                light.update_uniform_buffer()
                 if light.cast_shadow:
                     light.shadow.update_uniform_buffers(light)
 
@@ -405,11 +398,7 @@ class Environment(Trackable):
             spot_lights_buffer = self.spot_lights_buffer
             spot_lights = lights["spot_lights"]
             for i, light in enumerate(spot_lights):
-                direction = self._tmp_vector.sub_vectors(
-                    light.target.get_world_position(), light.get_world_position()
-                ).normalize()
-                light.uniform_buffer.data["direction"].flat = direction.to_array()
-
+                light.update_uniform_buffer()
                 if light.cast_shadow:
                     light.shadow.update_uniform_buffers(light)
 

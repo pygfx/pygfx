@@ -4,7 +4,7 @@ import wgpu
 
 from ._base import WorldObject
 from ..utils.color import Color
-from ..linalg import Matrix4, Vector3
+from ..linalg import Matrix4, Vector3, Vector4
 from ..cameras import Camera
 from ..resources import Buffer
 from ..cameras import OrthographicCamera, PerspectiveCamera
@@ -29,6 +29,9 @@ class Light(WorldObject):
 
         # for internal use
         self._light_shadow = None
+
+    def update_uniform_buffer(self):
+        pass
 
     @property
     def color(self):
@@ -104,13 +107,46 @@ class DirectionalLight(Light):
         direction="4xf4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1):
+    def __init__(self, color=(1, 1, 1, 1), intensity=1, target=None, position=(0, 1, 0)):
         super().__init__(color, intensity)
-        # self.direction = direction
-        self.target = WorldObject()
-        self.position.set(0, 1, 0)  # default direction
-
+        self.target = target or WorldObject()
+        self.position.set(*position)
         self.shadow = DirectionalLightShadow()
+
+    @property
+    def target(self):
+        """The light points from its position to its target.
+        """
+        return self._target
+
+    @target.setter
+    def target(self, target):
+        assert isinstance(target, WorldObject)
+        self._target = target
+
+    def update_uniform_buffer(self):
+        direction = Vector3().sub_vectors(
+            self.target.get_world_position(), self.get_world_position()
+        ).normalize()
+        self.uniform_buffer.data["direction"].flat = direction.to_array()
+
+
+class DirectionalCameraLight(DirectionalLight):
+    """A directional light following a camera's view direction.
+    """
+
+    def __init__(self, color=(1, 1, 1, 1), intensity=1, camera=None):
+        super().__init__(color, intensity)
+        assert camera, "A camera must be given"
+        self.camera = camera
+
+    def update_uniform_buffer(self):
+        v1 = Vector4(0, 0, 0, 1)
+        v2 = Vector4(0, 0, -1, 1)
+        v1.apply_matrix4(self.camera.matrix_world)
+        v2.apply_matrix4(self.camera.matrix_world)
+        direction = Vector3(v2.x-v1.x, v2.y-v1.y, v2.z-v1.z).normalize()
+        self.uniform_buffer.data["direction"].flat = direction.to_array()
 
 
 class SpotLight(Light):
@@ -147,6 +183,12 @@ class SpotLight(Light):
         self.penumbra = penumbra
 
         self.shadow = SpotLightShadow()
+
+    def update_uniform_buffer(self):
+        direction = Vector3().sub_vectors(
+            self.target.get_world_position(), self.get_world_position()
+        ).normalize()
+        self.uniform_buffer.data["direction"].flat = direction.to_array()
 
     @property
     def distance(self):
