@@ -13,7 +13,7 @@ from .. import (
     OrbitController,
     Light,
     AmbientLight,
-    DirectionalCameraLight,
+    DirectionalLight,
 )
 
 
@@ -37,14 +37,15 @@ def show(object: WorldObject, up=None):
 
     camera = PerspectiveCamera(70, 16 / 9)
     look_at = camera.show_object(object)
+    scene.add(camera)
 
     # Add lights if there are none
     for ob in scene.children:
         if isinstance(ob, Light):
             break
     else:
+        camera.add(DirectionalLight())
         scene.add(AmbientLight())
-        scene.add(DirectionalCameraLight(camera=camera))
 
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)

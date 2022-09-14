@@ -101,7 +101,10 @@ class PointLight(Light):
 
 
 class DirectionalLight(Light):
-    """A light that gets emitted in a specific direction."""
+    """A light that gets emitted in a direction, specified
+    by its position and a target. If attached to a camera, the camera view
+    direction is followed.
+    """
 
     uniform_type = dict(
         direction="4xf4",
@@ -115,7 +118,8 @@ class DirectionalLight(Light):
 
     @property
     def target(self):
-        """The light points from its position to its target.
+        """The light points from its position to its target. Note that if the
+        light's parent is a camera, it follows the camera direction instead.
         """
         return self._target
 
@@ -125,27 +129,13 @@ class DirectionalLight(Light):
         self._target = target
 
     def update_uniform_buffer(self):
-        direction = Vector3().sub_vectors(
-            self.target.get_world_position(), self.get_world_position()
-        ).normalize()
-        self.uniform_buffer.data["direction"].flat = direction.to_array()
-
-
-class DirectionalCameraLight(DirectionalLight):
-    """A directional light following a camera's view direction.
-    """
-
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, camera=None):
-        super().__init__(color, intensity)
-        assert camera, "A camera must be given"
-        self.camera = camera
-
-    def update_uniform_buffer(self):
-        v1 = Vector4(0, 0, 0, 1)
-        v2 = Vector4(0, 0, -1, 1)
-        v1.apply_matrix4(self.camera.matrix_world)
-        v2.apply_matrix4(self.camera.matrix_world)
-        direction = Vector3(v2.x-v1.x, v2.y-v1.y, v2.z-v1.z).normalize()
+        pos1 = self.get_world_position()
+        if isinstance(self.parent, Camera):
+            p2 = self.position.clone().add(Vector3(0, 0, -1))
+            pos2 = p2.apply_matrix4(self.parent.matrix_world)
+        else:
+            pos2 = self.target.get_world_position()
+        direction = Vector3().sub_vectors(pos2, pos1).normalize()
         self.uniform_buffer.data["direction"].flat = direction.to_array()
 
 
