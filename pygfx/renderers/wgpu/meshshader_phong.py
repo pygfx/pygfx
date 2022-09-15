@@ -67,7 +67,7 @@ class MeshPhongShader(MeshShader):
 
             vertex_attributes["texcoord"] = geometry.texcoords
 
-            # for legacy meshphong compatibility, uv_size can be 1, 2 or 3 for different map channel numbers
+            # uv_size can be 1, 2 or 3 for different map channel numbers
 
             if len(geometry.texcoords.data.shape) == 1:
                 uv_size = 1
