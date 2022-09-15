@@ -655,7 +655,7 @@ class RenderPipelineContainer(PipelineContainer):
             }
             vertex_buffer_descriptors.append(vbo_des)
 
-        instance_buffer = self.resources.get("instance_buffers", None)
+        instance_buffer = self.resources.get("instance_buffer", None)
         if instance_buffer is not None:
             ibo_des = {
                 "array_stride": instance_buffer.nbytes // instance_buffer.nitems,
