@@ -325,9 +325,11 @@ class Environment(Trackable):
         self.lights = lights
 
         if lights:
-            self._setup_lights(lights)
+            self._update_light_buffers(lights)
 
-    def _setup_lights(self, lights):
+    def _update_light_buffers(self, lights):
+        """ Update the contents of the uniform buffers for the lights, and create texture views if needed.
+        """
 
         device = self.shared.device
 
