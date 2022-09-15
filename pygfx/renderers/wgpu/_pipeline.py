@@ -449,7 +449,7 @@ class PipelineContainer:
             buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
-        buffer = resources.get("instance_buffers", None)
+        buffer = resources.get("instance_buffer", None)
         if buffer is not None:
             buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
