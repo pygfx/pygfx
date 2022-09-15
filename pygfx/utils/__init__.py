@@ -34,7 +34,7 @@ def array_from_shadertype(shadertype, items=None):
         shadertype: dict
             A dict containing the shadertype.
         items: None or int
-            If itmes is not None, array has a shape of (items, ),
+            If items is not None, array has a shape of (items, ),
             Indicates that the corresponding "Buffer" is an array of struct.
     """
 
