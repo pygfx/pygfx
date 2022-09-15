@@ -39,13 +39,13 @@ class Environment(Trackable):
     _dir_uniform_type = DirectionalLight().uniform_type
     _spot_uniform_type = SpotLight().uniform_type
 
-    def __init__(self, renderer_state_hash, scene_state_hash, shared):
+    def __init__(self, renderer_state_hash, scene_state_hash, device):
         super().__init__()
         # The hash consists of two parts. It does not change.
         self._renderer_state_hash = renderer_state_hash
         self._scene_state_hash = scene_state_hash
 
-        self.shared = shared
+        self.device = device
         # Keep track of all renders and scenes that make use of this
         # environment, so that we can detect that the env has become
         # inactive.
@@ -100,7 +100,7 @@ class Environment(Trackable):
                 )
             )
 
-            self.directional_lights_shadow_texture = self.shared.device.create_texture(
+            self.directional_lights_shadow_texture = self.device.create_texture(
                 # shadow map size is same for all lights. TODO: make this configurable
                 size=(
                     self.shadow_map_size[0],
@@ -137,7 +137,7 @@ class Environment(Trackable):
                 )
             )
 
-            self.point_lights_shadow_texture = self.shared.device.create_texture(
+            self.point_lights_shadow_texture = self.device.create_texture(
                 size=(
                     self.shadow_map_size[0],
                     self.shadow_map_size[1],
@@ -173,7 +173,7 @@ class Environment(Trackable):
                 )
             )
 
-            self.spot_lights_shadow_texture = self.shared.device.create_texture(
+            self.spot_lights_shadow_texture = self.device.create_texture(
                 size=(
                     self.shadow_map_size[0],
                     self.shadow_map_size[1],
@@ -194,7 +194,7 @@ class Environment(Trackable):
 
         # if self.has_shadows:
         if self.dir_lights_num + self.point_lights_num + self.spot_lights_num > 0:
-            self.shadow_sampler = self.shared.device.create_sampler(
+            self.shadow_sampler = self.device.create_sampler(
                 mag_filter=wgpu.FilterMode.linear,
                 min_filter=wgpu.FilterMode.linear,
                 compare=wgpu.CompareFunction.less_equal,
@@ -220,18 +220,18 @@ class Environment(Trackable):
 
             if binding.type.startswith("buffer/"):
                 binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-                update_buffer(self.shared.device, binding.resource)
+                update_buffer(self.device, binding.resource)
 
             binding_des, binding_layout_des = binding.get_bind_group_descriptors(index)
 
             bg_descriptor.append(binding_des)
             bg_layout_descriptor.append(binding_layout_des)
 
-        bind_group_layout = self.shared.device.create_bind_group_layout(
+        bind_group_layout = self.device.create_bind_group_layout(
             entries=bg_layout_descriptor
         )
 
-        bind_group = self.shared.device.create_bind_group(
+        bind_group = self.device.create_bind_group(
             layout=bind_group_layout, entries=bg_descriptor
         )
         self.wgpu_bind_group = (bind_group_layout, bind_group)
@@ -331,7 +331,7 @@ class Environment(Trackable):
         """ Update the contents of the uniform buffers for the lights, and create texture views if needed.
         """
 
-        device = self.shared.device
+        device = self.device
 
         ambient_lights_buffer = self.ambient_lights_buffer
         if not np.all(ambient_lights_buffer.data["color"][:3] == lights["ambient"]):

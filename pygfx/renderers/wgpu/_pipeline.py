@@ -614,7 +614,7 @@ class RenderPipelineContainer(PipelineContainer):
         # assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
         assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"])
         if "instance_buffer" in resources:
-            assert isinstance(resources["instance_buffer"], Buffer)
+            assert isinstance(resources["instance_buffer"], (None.__class__, Buffer))
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
