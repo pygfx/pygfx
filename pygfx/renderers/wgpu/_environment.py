@@ -471,7 +471,7 @@ class GlobalEnvironmentManager:
         if env_hash in self.environments:
             env = self.environments[env_hash]
         else:
-            env = Environment(renderer_state_hash, scene_state_hash, renderer._shared)
+            env = Environment(renderer_state_hash, scene_state_hash, renderer.device)
             assert env.hash == env_hash
             self.environments[env_hash] = env
 
