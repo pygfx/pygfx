@@ -116,6 +116,9 @@ ob4 = WobjectClass(
 scene.add(ob4)
 ob4.position.x = +6
 
+scene.add(gfx.AmbientLight())
+scene.add(gfx.DirectionalLight(0.7, position=(0, 0, 1)))
+
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))

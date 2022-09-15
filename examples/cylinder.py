@@ -54,6 +54,7 @@ controller.add_default_event_handlers(renderer, camera)
 scene.add(gfx.AmbientLight())
 scene.add(camera.add(gfx.DirectionalLight()))
 
+
 def animate():
     controller.update_camera(camera)
     renderer.render(scene, camera)
