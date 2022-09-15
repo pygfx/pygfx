@@ -603,7 +603,7 @@ class RenderPipelineContainer(PipelineContainer):
         assert isinstance(resources, dict)
 
         expected = {"index_buffer", "vertex_buffers", "bindings"}
-        expected2 = {"index_buffer", "vertex_buffers", "instance_buffer", "bindings"}
+        expected2 = expected | {"instance_buffer"}
         # instance_buffer is optional
         assert (
             set(resources.keys()) == expected or set(resources.keys()) == expected2
