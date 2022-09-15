@@ -4,7 +4,7 @@ import wgpu
 
 from ._base import WorldObject
 from ..utils.color import Color
-from ..linalg import Matrix4, Vector3, Vector4
+from ..linalg import Matrix4, Vector3
 from ..cameras import Camera
 from ..resources import Buffer
 from ..cameras import OrthographicCamera, PerspectiveCamera
@@ -110,7 +110,9 @@ class DirectionalLight(Light):
         direction="4xf4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, target=None, position=(0, 1, 0)):
+    def __init__(
+        self, color=(1, 1, 1, 1), intensity=1, target=None, position=(0, 1, 0)
+    ):
         super().__init__(color, intensity)
         self.target = target or WorldObject()
         self.position.set(*position)
@@ -175,9 +177,11 @@ class SpotLight(Light):
         self.shadow = SpotLightShadow()
 
     def update_uniform_buffer(self):
-        direction = Vector3().sub_vectors(
-            self.target.get_world_position(), self.get_world_position()
-        ).normalize()
+        direction = (
+            Vector3()
+            .sub_vectors(self.target.get_world_position(), self.get_world_position())
+            .normalize()
+        )
         self.uniform_buffer.data["direction"].flat = direction.to_array()
 
     @property
