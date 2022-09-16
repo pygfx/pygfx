@@ -212,7 +212,6 @@ class Environment(Trackable):
                 )
             )
 
-
     def _collect_resources(self):
         bg_descriptor = []
         bg_layout_descriptor = []
