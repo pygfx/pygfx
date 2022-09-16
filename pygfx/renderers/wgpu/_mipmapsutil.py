@@ -171,10 +171,14 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
         self.device.queue.submit([command_encoder.finish()])
 
 
+_the_mipmap_util = None
+
+
 def get_mipmaps_util(device):
-    if not hasattr(device, "mipmaps_util"):
-        device.mipmaps_util = MipmapsUtil(device)
-    return device.mipmaps_util
+    global _the_mipmap_util
+    if not _the_mipmap_util:
+        _the_mipmap_util = MipmapsUtil(device)
+    return _the_mipmap_util
 
 
 def get_mip_level_count(texture):
