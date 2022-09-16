@@ -62,6 +62,7 @@ class Binding:
       BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
     * resource: the Buffer, Texture or TextureView object.
     * visibility: wgpu.ShaderStage flag
+    * structname: the custom wgsl struct name, if any. otherwise will auto-generate.
     """
 
     def __init__(
@@ -313,7 +314,6 @@ class PipelineContainer:
         # Ensure that the (environment specific) wgpu objects are up-to-date
         if not self.broken:
             try:
-                # self.update_environment_data(environment, shared)
                 self.update_wgpu_data(wobject, environment, shared, env_hash, changed)
             except Exception as err:
                 self.broken = 2
@@ -627,8 +627,7 @@ class RenderPipelineContainer(PipelineContainer):
         index_buffer = self.resources["index_buffer"]
         if index_buffer is not None:
             index_format = to_vertex_format(index_buffer.format)
-            index_format = index_format.split("x")[0].replace("s", "u")
-            self.pipeline_info["index_format"] = index_format
+            self.index_format = index_format.split("x")[0].replace("s", "u")
         strip_index_format = 0
         if "strip" in self.pipeline_info["primitive_topology"]:
             strip_index_format = index_format
@@ -820,7 +819,7 @@ class RenderPipelineContainer(PipelineContainer):
         # draw_indexed(count_v, count_i, first_vertex, base_vertex, first_instance)
         # draw(count_vertex, count_instance, first_vertex, first_instance)
         if index_buffer is not None:
-            index_format = self.pipeline_info["index_format"]  # uint32 or uint16
+            index_format = self.index_format  # uint32 or uint16
             render_pass.set_index_buffer(index_buffer._wgpu_buffer[1], index_format)
             if len(indices) == 4:
                 base_vertex = 0  # A value added to each index before reading [...]
