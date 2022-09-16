@@ -287,6 +287,7 @@ class WorldObject(EventTarget, RootTrackable):
             except ValueError:
                 pass
         for obj in objects:
+            assert isinstance(obj, WorldObject)
             # orphan if needed
             if obj._parent_ref is not None:
                 obj._parent_ref().remove(obj)

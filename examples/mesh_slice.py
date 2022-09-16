@@ -16,10 +16,31 @@ material2 = gfx.MeshSliceMaterial(thickness=8, color=(1, 1, 0, 1), plane=(0, 0, 
 obj1 = gfx.Mesh(geometry, material1)
 obj2 = gfx.Mesh(geometry, material2)
 scene.add(obj1)
+obj2.cast_shadow = True  # It's actually the mesh slice casting a shadow
 scene.add(obj2)
 
+container = gfx.Mesh(
+    gfx.box_geometry(10, 10, 10),
+    gfx.MeshPhongMaterial(),
+)
+container.receive_shadow = True
+scene.add(container)
+
 camera = gfx.PerspectiveCamera(70, 2)
-camera.position.z = 4
+camera.position.set(0, 4, 4)
+camera.look_at(gfx.linalg.Vector3(0, 0, 0))
+
+scene.add(gfx.AmbientLight(0.15))
+
+light1 = gfx.PointLight()
+light1.position.set(0, 0, 4)
+light1.cast_shadow = True
+light2 = gfx.PointLight()
+light2.position.set(0, 4, 0)
+light2.cast_shadow = True
+scene.add(light1)
+scene.add(light2)
+light2.visible = False  # todo: shader breaks with two point lights if an object recveives shadows.
 
 
 def animate():

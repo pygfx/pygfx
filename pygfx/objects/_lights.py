@@ -21,11 +21,12 @@ class Light(WorldObject):
         shadow_bias="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1):
+    def __init__(self, color=(1, 1, 1, 1), intensity=1, position=None):
         super().__init__()
         self._intensity = intensity
         self.color = color
         self.intensity = intensity
+        self.position.set(*(position or (0, 0, 0)))
 
         # for internal use
         self.shadow = None
@@ -73,8 +74,8 @@ class PointLight(Light):
 
     uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1):
-        super().__init__(color, intensity)
+    def __init__(self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1, position=None):
+        super().__init__(color, intensity, position)
 
         self.distance = distance
         self.decay = decay
@@ -111,11 +112,10 @@ class DirectionalLight(Light):
     )
 
     def __init__(
-        self, color=(1, 1, 1, 1), intensity=1, target=None, position=(0, 1, 0)
+        self, color=(1, 1, 1, 1), intensity=1, target=None, position=None
     ):
-        super().__init__(color, intensity)
+        super().__init__(color, intensity, position)
         self.target = target or WorldObject()
-        self.position.set(*position)
         self.shadow = DirectionalLightShadow()
 
     @property
@@ -162,8 +162,9 @@ class SpotLight(Light):
         angle=math.pi / 2,
         penumbra=0,
         decay=0,
+        position=None,
     ):
-        super().__init__(color, intensity)
+        super().__init__(color, intensity, position)
 
         self.distance = distance
         self._angle = angle

@@ -4,6 +4,11 @@ from ._utils import to_vertex_format
 
 from ...objects import PointLight
 
+# todo: idea:
+# the shader and a corresponding binding layout for vertex data can also be defined
+# on the Shader object. That way, line and point objects can also casts shadows :)
+
+
 shadow_vertex_shader = """
     struct Matrix4x4 {
         matrix : mat4x4<f32>
@@ -168,6 +173,9 @@ class ShadowUtil:
                                 )
 
                                 if not hasattr(wobject, f"__shadow_bind_group"):
+                                    # Note that here we assume that the wobject's transform matrix
+                                    # is the first item in its uniform buffer. This is a likely
+                                    # assumption because items are sorted by size.
                                     bg = self.device.create_bind_group(
                                         layout=self.bind_group_layout,
                                         entries=[
