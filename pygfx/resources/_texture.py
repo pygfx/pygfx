@@ -23,7 +23,7 @@ class Texture(Resource):
             (e.g. from ``wgpu.TextureFormat``).
     """
 
-    def __init__(self, data=None, *, dim, size=None, format=None):
+    def __init__(self, data=None, *, dim, size=None, format=None, encoding="linear"):
         super().__init__()
         self._rev = 0
         # The dim specifies the texture dimension
@@ -33,8 +33,9 @@ class Texture(Resource):
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
 
-        # maybe srgb encoding
-        self._encoding = None
+        assert encoding in ("linear", "srgb")
+        self._encoding = encoding
+
         self._mip_level_count = 1
 
         # Backends-specific attributes for internal use
@@ -118,6 +119,13 @@ class Texture(Resource):
             return self._store.format
         else:
             raise ValueError("Texture has no data nor format.")
+
+    @property
+    def encoding(self):
+        """The encoding of the texture.
+        'linear' or 'srgb'
+        """
+        return self._encoding
 
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.

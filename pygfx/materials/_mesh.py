@@ -527,7 +527,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         """The environment map. To ensure a physically correct rendering,
         you should only add cube environment maps which were prefilterd.
         We provide a built-in mipmap generation process by setting
-        the "generate_mipmap" property of texture to True.
+        the "generate_mipmaps" property of texture to True.
         Default is None."""
         return self._env_map
 

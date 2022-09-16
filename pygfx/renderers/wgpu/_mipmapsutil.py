@@ -1,11 +1,9 @@
 import math
 import wgpu
-from weakref import WeakKeyDictionary
 from ...resources._texture import TextureView
 
-
-class MipmapUtils:
-    def __init__(self, device: "wgpu.GPUDevice") -> None:
+class MipmapsUtil:
+    def __init__(self, device) -> None:
         self.device = device
 
         mipmap_vertex_source = """
@@ -44,16 +42,16 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
     return textureSample( img, imgSampler, vTex );
 }
 """
-        self.sampler = device.create_sampler(min_filter="linear")
+        self.sampler = self.device.create_sampler(min_filter="linear")
 
         # We'll need a new pipeline for every texture format used.
         self.pipelines = {}
 
-        self.mipmap_vertex_shader_module = device.create_shader_module(
+        self.mipmap_vertex_shader_module = self.device.create_shader_module(
             code=mipmap_vertex_source
         )
 
-        self.mipmap_fragment_shader_module = device.create_shader_module(
+        self.mipmap_fragment_shader_module = self.device.create_shader_module(
             code=mipmap_fragment_source
         )
 
@@ -171,18 +169,10 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
 
         self.device.queue.submit([command_encoder.finish()])
 
-
-_cache = WeakKeyDictionary()
-
-
-def get_mipmap_utils(device) -> MipmapUtils:
-
-    if _cache.get(device) is None:
-        utils = MipmapUtils(device)
-        _cache.setdefault(device, utils)
-
-    return _cache.get(device)
-
+def get_mipmaps_util(device):
+    if not hasattr(device, "mipmaps_util"):
+        device.mipmaps_util = MipmapsUtil(device)
+    return device.mipmaps_util
 
 def get_mip_level_count(texture):
     if isinstance(texture, TextureView):

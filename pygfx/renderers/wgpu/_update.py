@@ -5,7 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format
-from ._mipmaputil import get_mipmap_utils, get_mip_level_count
+from ._mipmapsutil import get_mipmaps_util, get_mip_level_count
 
 
 # Alternative texture formats that we support by padding channels as needed.
@@ -84,8 +84,8 @@ def update_texture_view(device, resource):
         fmt = to_texture_format(resource.format)
         fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
 
-        if resource.texture._encoding:
-            fmt += f"-{resource._encoding}"
+        if resource.texture.encoding == "srgb":
+            fmt += f"-{resource.texture.encoding}"
 
         mip_level_count = (
             len(resource._mip_range)
@@ -118,10 +118,10 @@ def update_texture(device, resource):
         fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
 
     # maybe srgb
-    if resource._encoding:
-        fmt += f"-{resource._encoding}"
+    if resource.encoding == "srgb":
+        fmt += f"-{resource.encoding}"
 
-    needs_mipmaps = getattr(resource, "generate_mipmap", False)
+    needs_mipmaps = getattr(resource, "generate_mipmaps", False)
 
     mip_level_count = get_mip_level_count(resource) if needs_mipmaps else 1
 
@@ -186,17 +186,11 @@ def update_texture(device, resource):
 
         if needs_mipmaps:
             generate_mipmaps(device, texture, fmt, mip_level_count, offset[2])
-            # depth = resource.size[2]
-            # if depth > 1:
-            #     for i in range(depth):
-            #         generate_mipmaps(device, texture, fmt, mip_level_count, offset[2])
-            # else:
-            #     generate_mipmaps(device, texture, fmt, mip_level_count)
 
 
 def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_layer=0):
-    mipmap_utils = get_mipmap_utils(device)
-    mipmap_utils.generate_mipmaps(
+    mipmaps_util = get_mipmaps_util(device)
+    mipmaps_util.generate_mipmaps(
         texture_gpu, format, mip_level_count, base_array_layer
     )
 

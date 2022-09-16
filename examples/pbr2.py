@@ -2,6 +2,7 @@
 This example shows the lighting rendering affect of materials with different metalness and roughness.
 Every second sphere has an IBL environment map on it.
 """
+# run_example = false
 
 import numpy as np
 import imageio
@@ -162,7 +163,7 @@ env_data = np.stack(data, axis=0)
 tex_size = env_data.shape[1], env_data.shape[2], 6
 
 tex = gfx.Texture(env_data, dim=2, size=tex_size)
-tex.generate_mipmap = True
+tex.generate_mipmaps = True
 env_map = tex.get_view(
     view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
 )

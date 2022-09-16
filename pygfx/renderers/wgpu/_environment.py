@@ -62,20 +62,26 @@ class Environment(Trackable):
         # TODO: make this configurable
         self.shadow_map_size = (1024, 1024)
 
+        self.bindings = []
+
         # Lights
-        # self.has_shadow = False
+        self._setup_light_resources()
+
+        if self.bindings:
+            self._collect_resources()
+
+    def _setup_light_resources(self):
+
         self.ambient_lights_buffer = Buffer(
             array_from_shadertype(self._ambient_uniform_type)
         )
 
-        # TODO: Get the light numbers from some other way, not hash?
         (
             self.point_lights_num,
             self.dir_lights_num,
             self.spot_lights_num,
-        ) = scene_state_hash
+        ) = self._scene_state_hash
 
-        self.bindings = []
         self.bindings.append(
             Binding(
                 "u_ambient_light",
@@ -101,7 +107,6 @@ class Environment(Trackable):
             )
 
             self.directional_lights_shadow_texture = self.device.create_texture(
-                # shadow map size is same for all lights. TODO: make this configurable
                 size=(
                     self.shadow_map_size[0],
                     self.shadow_map_size[1],
@@ -192,7 +197,6 @@ class Environment(Trackable):
                 )
             )
 
-        # if self.has_shadows:
         if self.dir_lights_num + self.point_lights_num + self.spot_lights_num > 0:
             self.shadow_sampler = self.device.create_sampler(
                 mag_filter=wgpu.FilterMode.linear,
@@ -208,13 +212,10 @@ class Environment(Trackable):
                 )
             )
 
-        if self.bindings:
-            self._collect_resources()
 
     def _collect_resources(self):
         bg_descriptor = []
         bg_layout_descriptor = []
-        # resources = []
 
         for index, binding in enumerate(self.bindings):
 
@@ -299,7 +300,6 @@ class Environment(Trackable):
             "num_dir_lights": self.dir_lights_num,
             "num_spot_lights": self.spot_lights_num,
             "num_point_lights": self.point_lights_num,
-            # "has_shadow": self.has_shadow,
             "light_structs": self.get_light_structs_code(),
             "light_vars": self.get_light_vars_code(bind_group_index),
         }
@@ -320,8 +320,6 @@ class Environment(Trackable):
 
         # Update
         self.blender = blender
-        # Note: when we implement lights, this is where we'd update the uniform(s)
-        # self.uniform_buffer.data[xx] = yy
         self.lights = lights
 
         if lights:
@@ -351,14 +349,14 @@ class Environment(Trackable):
                 if light.cast_shadow:
                     light.shadow.update_uniform_buffers(light)
 
-                    if light.shadow._map is None or light.shadow._map_index != i:
+                    if light.shadow.map is None or light.shadow.map_index != i:
 
-                        light.shadow._map = (
+                        light.shadow.map = (
                             self.directional_lights_shadow_texture.create_view(
                                 base_array_layer=i
                             )
                         )
-                        light.shadow._map_index = i
+                        light.shadow.map_index = i
 
                 if dir_lights_buffer.data[i] != light.uniform_buffer.data:
                     dir_lights_buffer.data[i] = light.uniform_buffer.data
@@ -376,16 +374,16 @@ class Environment(Trackable):
                 if light.cast_shadow:
                     light.shadow.update_uniform_buffers(light)
 
-                    if light.shadow._map is None or light.shadow._map_index != i:
-                        light.shadow._map = []
+                    if light.shadow.map is None or light.shadow.map_index != i:
+                        light.shadow.map = []
                         for face in range(6):
-                            light.shadow._map.append(
+                            light.shadow.map.append(
                                 self.point_lights_shadow_texture.create_view(
                                     base_array_layer=i * 6 + face
                                 )
                             )
 
-                        light.shadow._map_index = i
+                        light.shadow.map_index = i
 
                 if point_lights_buffer.data[i] != light.uniform_buffer.data:
                     point_lights_buffer.data[i] = light.uniform_buffer.data
@@ -403,12 +401,12 @@ class Environment(Trackable):
                 if light.cast_shadow:
                     light.shadow.update_uniform_buffers(light)
 
-                    if light.shadow._map is None or light.shadow._map_index != i:
+                    if light.shadow.map is None or light.shadow.map_index != i:
 
-                        light.shadow._map = self.spot_lights_shadow_texture.create_view(
+                        light.shadow.map = self.spot_lights_shadow_texture.create_view(
                             base_array_layer=i
                         )
-                        light.shadow._map_index = i
+                        light.shadow.map_index = i
 
                 if spot_lights_buffer.data[i] != light.uniform_buffer.data:
                     spot_lights_buffer.data[i] = light.uniform_buffer.data

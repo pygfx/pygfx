@@ -127,15 +127,14 @@ class SkyboxShader(WorldObjectShader):
 
 
 def load_gltf(path):
-    def __parse_texture(pil_image, encoding=None):
+    def __parse_texture(pil_image, encoding="linear"):
         if pil_image is None:
             return None
         # pil_image = pil_image.convert(mode='RGBA')
         data = pil_image.tobytes()
         m = memoryview(data)
         m = m.cast(m.format, shape=(pil_image.size[0], pil_image.size[1], 3))
-        tex = gfx.Texture(m, dim=2)
-        tex._encoding = encoding
+        tex = gfx.Texture(m, dim=2, encoding=encoding)
         view = tex.get_view(address_mode="repeat", filter="linear")
         return view
 
@@ -224,7 +223,7 @@ env_data = np.stack(data, axis=0)
 tex_size = env_data.shape[1], env_data.shape[2], 6
 
 tex = gfx.Texture(env_data, dim=2, size=tex_size)
-tex.generate_mipmap = True
+tex.generate_mipmaps = True
 env_map = tex.get_view(
     view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
 )

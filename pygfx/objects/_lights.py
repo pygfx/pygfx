@@ -28,7 +28,7 @@ class Light(WorldObject):
         self.intensity = intensity
 
         # for internal use
-        self._light_shadow = None
+        self.shadow = None
 
     def update_uniform_buffer(self):
         pass
@@ -274,14 +274,14 @@ class LightShadow:
         # self.map_size = [1024, 1024]
 
         # used for internal shadow map rendering, should not be used by user
-        self._map = None
-        self._map_index = 0
+        self.map = None
+        self.map_index = 0
 
         # Shadow map bias, Very tiny adjustments here may help reduce artifacts in shadows
         self.bias = 0
 
-        self._matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
-        self._matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
+        self.matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+        self.matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
 
     def update_uniform_buffers(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self.bias
@@ -299,10 +299,10 @@ class LightShadow:
             shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
         )
 
-        self._matrix_buffer.data[
+        self.matrix_buffer.data[
             "light_view_proj_matrix"
         ].flat = _proj_screen_matrix.elements
-        self._matrix_buffer.update_range(0, 1)
+        self.matrix_buffer.update_range(0, 1)
 
         light.uniform_buffer.data[
             "light_view_proj_matrix"
@@ -360,12 +360,12 @@ class PointLightShadow(LightShadow):
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
 
-        self._matrix_buffer = []
+        self.matrix_buffer = []
 
         for _ in range(6):
             buffer = Buffer(array_from_shadertype(shadow_uniform_type))
             buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
-            self._matrix_buffer.append(buffer)
+            self.matrix_buffer.append(buffer)
 
     def update_matrix(self, light: Light) -> None:
         camera = self.camera
@@ -395,7 +395,7 @@ class PointLightShadow(LightShadow):
                 i
             ].flat = _proj_screen_matrix.elements
 
-            self._matrix_buffer[i].data[
+            self.matrix_buffer[i].data[
                 "light_view_proj_matrix"
             ].flat = _proj_screen_matrix.elements
-            self._matrix_buffer[i].update_range(0, 1)
+            self.matrix_buffer[i].update_range(0, 1)
