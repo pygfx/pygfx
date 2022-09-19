@@ -248,17 +248,10 @@ class Environment(Trackable):
         return "\n".join(light_struct)
 
     def _define_shadow_texture(self, bind_group_index, index, binding):
-        texture_view = binding.resource  # wgpu.TextureView
-
-        dim = "2d"
-        if texture_view.size[2] == 1:
-            dim = "2d"
-        elif texture_view.size[2] == 6:
-            dim = "cube"
-
+        dim = binding.type.split("/")[-1].replace("-", "_")
         code = f"""
         @group({ bind_group_index }) @binding({index})
-        var {binding.name}: texture_depth_{dim}_array;
+        var {binding.name}: texture_depth_{dim};
         """.rstrip()
         return code
 
