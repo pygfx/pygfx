@@ -232,13 +232,14 @@ class ImageShader(BaseImageShader):
             let sizef = vec2<f32>(textureDimensions(t_img));
             let value = sample_im(varyings.texcoord.xy, sizef);
             let color = sampled_value_to_color(value);
-            let albeido = color.rgb;
 
-            let final_color = vec4<f32>(albeido, color.a * u_material.opacity);
+            let physical_color = srgb2physical(color.rgb);
+            let opacity = color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

@@ -144,7 +144,9 @@ class BackgroundShader(WorldObjectShader):
             $$ endif
 
             // Make physical color with combined alpha
-            final_color = vec4<f32>(srgb2physical(final_color.rgb), final_color.a * u_material.opacity);
+            let physical_color = srgb2physical(final_color.rgb);
+            let opacity = final_color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // We can apply clipping planes, but maybe a background should not be clipped?
             // apply_clipping_planes(in.world_pos);
@@ -157,8 +159,8 @@ class BackgroundShader(WorldObjectShader):
             // A fragment of the background could be transparent, but it should still be
             // written in the opaque pass in order for it to really be background.
             // So we fool the blender into thinking this fragment is opaque, even if its not.
-            var out = get_fragment_output(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
-            out.color = final_color;
+            var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
+            out.color = vec4<f32>(out_color);
             return out;
         }
         """

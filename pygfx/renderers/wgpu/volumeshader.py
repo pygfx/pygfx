@@ -332,11 +332,14 @@ class VolumeSliceShader(BaseVolumeShader):
             let value = sample_vol(varyings.texcoord.xyz, sizef);
             let color = sampled_value_to_color(value);
             let albeido = color.rgb;
-            let final_color = vec4<f32>(albeido, color.a * u_material.opacity);
+
+            let physical_color = srgb2physical(albeido);
+            let opacity = color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
@@ -593,12 +596,13 @@ class VolumeRayShader(BaseVolumeShader):
 
             // Colormapping
             let color = sampled_value_to_color(the_value);
-            let albeido = color.rgb;
-            let color = vec4<f32>(albeido, color.a * u_material.opacity);
+            let physical_color = srgb2physical(color.rgb);
+            let opacity = color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Produce result
             var out: RenderOutput;
-            out.color = color;
+            out.color = out_color;
             out.coord = the_coord;
             return out;
         }
