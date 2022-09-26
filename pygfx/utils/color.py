@@ -35,7 +35,7 @@ def _float_from_css_value(v, i):
 
 
 class Color:
-    """An object representing a color.
+    """An object representing a color (in sRGB space).
 
     Internally the color is stored using 4 32-bit floats (rgba).
     It can be instantiated in a variety of ways. E.g. by providing
