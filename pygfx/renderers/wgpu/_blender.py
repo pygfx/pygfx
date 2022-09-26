@@ -458,7 +458,8 @@ class BaseFragmentBlender:
 
         usg = wgpu.TextureUsage
 
-        # The color texture is rgba8 unorm - not srgb, that's only for the last step.
+        # The color texture is in srgb, because in the shaders we work with physical
+        # values, but we want to store as srgb to make effective use of the available bits.
         self._texture_info["color"] = (
             wgpu.TextureFormat.rgba8unorm_srgb,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
