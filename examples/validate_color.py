@@ -11,10 +11,12 @@ colors1 = ["#ff0000", "#770000", "#00ff00", "#007700", "#0000ff", "#000077"]
 colors2 = ["#000000", "#333333", "#666666", "#999999", "#cccccc", "#ffffff"]
 
 canvas = WgpuCanvas()
-renderer = gfx.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas, gamma_correction=1.0)
 camera = gfx.OrthographicCamera(6, 2)
 camera.position.set(2.5, 1, 0)
 scene = gfx.Scene()
+
+scene.add(gfx.Background(None, gfx.BackgroundMaterial(0.0, 1.0, 0.0, 1.0)))
 
 plane = gfx.plane_geometry()
 for i, color in enumerate(colors1):

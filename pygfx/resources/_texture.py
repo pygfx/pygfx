@@ -23,7 +23,9 @@ class Texture(Resource):
             (e.g. from ``wgpu.TextureFormat``).
     """
 
-    def __init__(self, data=None, *, dim, size=None, format=None):
+    def __init__(
+        self, data=None, *, dim, size=None, format=None, gamma_correction=0.45
+    ):
         super().__init__()
         self._rev = 0
         # The dim specifies the texture dimension
@@ -35,6 +37,8 @@ class Texture(Resource):
 
         # Backends-specific attributes for internal use
         self._wgpu_usage = 0
+
+        self.gamma_correction = gamma_correction
 
         self._store.format = None if format is None else str(format)
 
@@ -61,6 +65,15 @@ class Texture(Resource):
     def rev(self):
         """An integer that is increased when update_range() is called."""
         return self._rev
+
+    @property
+    def gamma_correction(self):
+        """ """
+        return self._gamma_correction
+
+    @gamma_correction.setter
+    def gamma_correction(self, value):
+        self._gamma_correction = float(value)
 
     def get_view(self, **kwargs):
         """Get a new view on the this texture."""

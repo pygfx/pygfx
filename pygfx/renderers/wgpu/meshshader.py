@@ -330,12 +330,15 @@ class MeshShader(WorldObjectShader):
                 let albeido = color_value.rgb;
             $$ endif
 
+            // Move to physical colorspace (linear photon count) so we can do math
+            let albeido_p = srgb2physical(albeido);
+
             // Lighting
             $$ if lighting
                 let world_pos = varyings.world_pos;
-                let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, albeido);
+                let lit_color_p = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, albeido_p);
             $$ else
-                let lit_color = albeido;
+                let lit_color_p = albeido_p;
             $$ endif
 
             $$ if wireframe
@@ -345,7 +348,7 @@ class MeshShader(WorldObjectShader):
                 }
             $$ endif
 
-            let final_color = vec4<f32>(lit_color, color_value.a * u_material.opacity);
+            let final_color = vec4<f32>(lit_color_p, color_value.a * u_material.opacity);
 
             // Wrap up
 

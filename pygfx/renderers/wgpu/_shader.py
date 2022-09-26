@@ -294,4 +294,8 @@ class WorldObjectShader(BaseShader):
             return world_pos.xyz / world_pos.w;
         }
 
+        fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
+            return pow(color, vec3<f32>(2.2));
+        }
+
         """

@@ -95,8 +95,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             property for details.
         sort_objects (bool): Whether to sort world objects before rendering. Default False.
         enable_events (bool): Whether to enable user interaction events. Default True.
-        prefer_srgb (bool): Whether the srgb colorspace is preferred for the output texture.
-            Default False.
         gamma_correction (float): The gamma correction to apply in the final render stage.
             Typically a number between 0.0 and 2.0. Default 1.0 (no correction).
 
@@ -115,7 +113,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blend_mode="default",
         sort_objects=False,
         enable_events=True,
-        prefer_srgb=False,
         gamma_correction=1.0,
         **kwargs,
     ):
@@ -141,16 +138,15 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._renders_since_last_flush = 0
 
         # Get target format
+        self.gamma_correction = gamma_correction
+        self._gamma_correction_srgb = 1.0
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             self._canvas_context = self._target.get_context()
-            # Select output format. Here we assume that the srgb or non-srgb variant is also available.
+            # Select output format. We currenly don't have a way of knowing
+            # what formats are available, so if not srgb, we gamma-correct in shader.
             fmt = self._canvas_context.get_preferred_format(self._shared.adapter)
-            if fmt.endswith("-srgb"):
-                if not prefer_srgb:
-                    fmt = fmt[:-5]
-            else:
-                if prefer_srgb:
-                    fmt = fmt + "-srgb"
+            if not fmt.endswith("srgb"):
+                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
             self._target_tex_format = fmt
             # Also configure the canvas
             self._canvas_context.configure(
@@ -170,7 +166,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Prepare object that performs the final render step into a texture
         self._flusher = RenderFlusher(self._shared.device)
-        self.gamma_correction = gamma_correction
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -339,7 +334,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @gamma_correction.setter
     def gamma_correction(self, value):
-        self._gamma_correction = float(value)
+        self._gamma_correction = 1.0 if value is None else float(value)
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             self._target.request_draw()
 
@@ -540,7 +535,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             None,
             raw_texture_view,
             self._target_tex_format,
-            self.gamma_correction,
+            self._gamma_correction * self._gamma_correction_srgb,
         )
         self.device.queue.submit(command_buffers)
 

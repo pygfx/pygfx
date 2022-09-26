@@ -142,7 +142,9 @@ class BackgroundShader(WorldObjectShader):
                     + u_material.color_top_right * f.x * f.y
                 );
             $$ endif
-            final_color.a = final_color.a * u_material.opacity;
+
+            // Make physical color with combined alpha
+            final_color = vec4<f32>(srgb2physical(final_color.rgb), final_color.a * u_material.opacity);
 
             // We can apply clipping planes, but maybe a background should not be clipped?
             // apply_clipping_planes(in.world_pos);
