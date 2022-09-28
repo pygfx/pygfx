@@ -31,25 +31,20 @@ for i, color in enumerate(colors2):
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
-# def show_mpl():
-#
-#     import matplotlib.pyplot as plt
-#     from matplotlib.patches import Rectangle
-#
-#     fig, ax = plt.subplots()
-#     ax.set_facecolor("k")
-#     plt.xlim([0, 6])
-#     plt.ylim([-1, 3])
-#
-#     for i, color in enumerate(colors1):
-#         ax.add_patch(Rectangle((i, 0), 1, 1, facecolor=color))
-#     for i, color in enumerate(colors2):
-#         ax.add_patch(Rectangle((i, 1), 1, 1, facecolor=color))
-#
-#     fig.show()
+# # Code to show the same scene in MPL
+# import matplotlib.pyplot as plt
+# from matplotlib.patches import Rectangle
+# fig, ax = plt.subplots()
+# ax.set_facecolor("k")
+# plt.xlim([0, 6])
+# plt.ylim([-1, 3])
+# for i, color in enumerate(colors1):
+#     ax.add_patch(Rectangle((i, 0), 1, 1, facecolor=color))
+# for i, color in enumerate(colors2):
+#     ax.add_patch(Rectangle((i, 1), 1, 1, facecolor=color))
+# fig.show()
 
 
 if __name__ == "__main__":
     print(__doc__)
-    # show_mpl()
     run()
