@@ -16,8 +16,6 @@ camera = gfx.OrthographicCamera(6, 2)
 camera.position.set(2.5, 1, 0)
 scene = gfx.Scene()
 
-# scene.add(gfx.Background(None, gfx.BackgroundMaterial(0.0, 1.0, 0.0, 1.0)))
-
 plane = gfx.plane_geometry()
 for i, color in enumerate(colors1):
     m = gfx.Mesh(plane, gfx.MeshBasicMaterial(color=color))
@@ -33,22 +31,22 @@ for i, color in enumerate(colors2):
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
-def show_mpl():
-
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle
-
-    fig, ax = plt.subplots()
-    ax.set_facecolor("k")
-    plt.xlim([0, 6])
-    plt.ylim([-1, 3])
-
-    for i, color in enumerate(colors1):
-        ax.add_patch(Rectangle((i, 0), 1, 1, facecolor=color))
-    for i, color in enumerate(colors2):
-        ax.add_patch(Rectangle((i, 1), 1, 1, facecolor=color))
-
-    fig.show()
+# def show_mpl():
+#
+#     import matplotlib.pyplot as plt
+#     from matplotlib.patches import Rectangle
+#
+#     fig, ax = plt.subplots()
+#     ax.set_facecolor("k")
+#     plt.xlim([0, 6])
+#     plt.ylim([-1, 3])
+#
+#     for i, color in enumerate(colors1):
+#         ax.add_patch(Rectangle((i, 0), 1, 1, facecolor=color))
+#     for i, color in enumerate(colors2):
+#         ax.add_patch(Rectangle((i, 1), 1, 1, facecolor=color))
+#
+#     fig.show()
 
 
 if __name__ == "__main__":
