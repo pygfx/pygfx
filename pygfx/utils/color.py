@@ -190,6 +190,13 @@ class Color:
             else:
                 self._set_from_str(color_int)
 
+    def physical2srgb(self):
+        """Interpret the current color as a physical color and convert it to
+        an sRGB color.
+        """
+        s = 1 / 2.2
+        return Color(self.r**s, self.g**s, self.b**s, self.a)
+
     @property
     def rgba(self):
         """The RGBA tuple (values between 0 and 1)."""
