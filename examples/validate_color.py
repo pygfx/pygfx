@@ -16,7 +16,7 @@ camera = gfx.OrthographicCamera(6, 2)
 camera.position.set(2.5, 1, 0)
 scene = gfx.Scene()
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial(0.0, 1.0, 0.0, 1.0)))
+# scene.add(gfx.Background(None, gfx.BackgroundMaterial(0.0, 1.0, 0.0, 1.0)))
 
 plane = gfx.plane_geometry()
 for i, color in enumerate(colors1):

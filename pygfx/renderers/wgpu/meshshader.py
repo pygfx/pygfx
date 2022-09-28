@@ -35,6 +35,7 @@ class MeshShader(WorldObjectShader):
         self["lighting"] = ""
 
         # Per-vertex color, colormap, or a plane color?
+        self["colorspace"] = "srgb"
         if material.vertex_colors:
             self["color_mode"] = "vertex"
             self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
@@ -43,6 +44,7 @@ class MeshShader(WorldObjectShader):
         elif material.map is not None:
             self["color_mode"] = "map"
             self["vertex_color_channels"] = 0
+            self["colorspace"] = material.map.colorspace
         else:
             self["color_mode"] = "uniform"
             self["vertex_color_channels"] = 0
@@ -331,7 +333,11 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Move to physical colorspace (linear photon count) so we can do math
-            let physical_albeido = srgb2physical(albeido);
+            $$ if colorspace == 'srgb'
+                let physical_albeido = srgb2physical(albeido);
+            $$ else
+                let physical_albeido = albeido;
+            $$ endif
             let opacity = color_value.a * u_material.opacity;
 
             // Lighting

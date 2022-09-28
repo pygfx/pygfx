@@ -21,10 +21,18 @@ class Texture(Resource):
             set from the data. This must be a pygfx format specifier, e.g. "3xf4",
             but can also be a format specific to the render backend if necessary
             (e.g. from ``wgpu.TextureFormat``).
+        colorspace (str): If this data is used as color, it is interpreted to be
+            in this colormap. Can be "srgb" or "physical". Default "srgb".
     """
 
     def __init__(
-        self, data=None, *, dim, size=None, format=None, gamma_correction=0.45
+        self,
+        data=None,
+        *,
+        dim,
+        size=None,
+        format=None,
+        colorspace="srgb",
     ):
         super().__init__()
         self._rev = 0
@@ -38,9 +46,10 @@ class Texture(Resource):
         # Backends-specific attributes for internal use
         self._wgpu_usage = 0
 
-        self.gamma_correction = gamma_correction
-
         self._store.format = None if format is None else str(format)
+
+        self._colorspace = (colorspace or "srgb").lower()
+        assert self._colorspace in ("srgb", "physical")
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -67,13 +76,11 @@ class Texture(Resource):
         return self._rev
 
     @property
-    def gamma_correction(self):
-        """ """
-        return self._gamma_correction
-
-    @gamma_correction.setter
-    def gamma_correction(self, value):
-        self._gamma_correction = float(value)
+    def colorspace(self):
+        """If this data is used as color, it is interpreted to be in this colormap.
+        Can be "srgb" or "physical". Default "srgb".
+        """
+        return self._colorspace
 
     def get_view(self, **kwargs):
         """Get a new view on the this texture."""
