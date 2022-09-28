@@ -322,6 +322,11 @@ class TextureView(Resource):
         return self._rev
 
     @property
+    def colorspace(self):
+        """Proxy for the texture's colorspace property."""
+        return self._texture.colorspace
+
+    @property
     def texture(self):
         """The Texture object holding the data for this texture view."""
         return self._texture
