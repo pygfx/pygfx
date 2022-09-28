@@ -22,7 +22,7 @@ class Texture(Resource):
             but can also be a format specific to the render backend if necessary
             (e.g. from ``wgpu.TextureFormat``).
         colorspace (str): If this data is used as color, it is interpreted to be
-            in this colormap. Can be "srgb" or "physical". Default "srgb".
+            in this colorspace. Can be "srgb" or "physical". Default "srgb".
     """
 
     def __init__(
@@ -77,7 +77,7 @@ class Texture(Resource):
 
     @property
     def colorspace(self):
-        """If this data is used as color, it is interpreted to be in this colormap.
+        """If this data is used as color, it is interpreted to be in this colorspace.
         Can be "srgb" or "physical". Default "srgb".
         """
         return self._colorspace
