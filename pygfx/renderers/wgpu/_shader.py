@@ -295,7 +295,13 @@ class WorldObjectShader(BaseShader):
         }
 
         fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-            return pow(color, vec3<f32>(2.2));
+            // In Python, the below reads as
+            // c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+            let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
+            let t = color / 12.92;
+            return select(f, t, color <= vec3<f32>(0.04045));
+            // Simplified version with about 0.5% avg error
+            // return pow(color, vec3<f32>(2.2));
         }
 
         """

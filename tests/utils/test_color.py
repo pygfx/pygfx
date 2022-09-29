@@ -204,7 +204,7 @@ def test_color_named():
 
 
 def test_color_colorspaces():
-    assert Color.from_physical(0.5).hex == "#bababa"
+    assert Color.from_physical(0.5).hex == "#bcbcbc"
 
 
 if __name__ == "__main__":
