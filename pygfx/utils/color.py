@@ -190,13 +190,6 @@ class Color:
             else:
                 self._set_from_str(color_int)
 
-    def physical2srgb(self):
-        """Interpret the current color as a physical color and convert it to
-        an sRGB color.
-        """
-        s = 1 / 2.2
-        return Color(self.r**s, self.g**s, self.b**s, self.a)
-
     @property
     def rgba(self):
         """The RGBA tuple (values between 0 and 1)."""
@@ -261,6 +254,14 @@ class Color:
             return f"rgb({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)})"
         else:
             return f"rgba({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)},{a:0.3f})"
+
+    @classmethod
+    def from_physical(self, *args):
+        """Get a color object from a physical color tuple in physical colorspace.
+        """
+        s = 1 / 2.2
+        tmp = Color(*args)
+        return Color(tmp.r**s, tmp.g**s, tmp.b**s, tmp.a)
 
 
 NAMED_COLORS = {
