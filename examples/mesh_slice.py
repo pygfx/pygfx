@@ -40,7 +40,9 @@ light2.position.set(0, 4, 0)
 light2.cast_shadow = True
 scene.add(light1)
 scene.add(light2)
-light2.visible = False  # todo: shader breaks with two point lights if an object recveives shadows.
+light2.visible = (
+    False  # todo: shader breaks with two point lights if an object recveives shadows.
+)
 
 
 def animate():

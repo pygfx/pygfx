@@ -1,15 +1,24 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
+from . import (
+    register_wgpu_render_function,
+    WorldObjectShader,
+    Binding,
+    RenderMask,
+    shaderlib,
+)
+from ._utils import to_texture_format
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
+    MeshPhongMaterial,
     MeshFlatMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
+    MeshStandardMaterial,
 )
-from ...resources import Buffer
+from ...resources import Buffer, TextureView
 from ...utils import normals_from_vertices
 
 
@@ -32,6 +41,7 @@ class MeshShader(WorldObjectShader):
 
         # Lighting off in the base class
         self["lighting"] = ""
+        self["receive_shadow"] = wobject.receive_shadow
 
         # Per-vertex color, colormap, or a plane color?
         if material.vertex_colors:
@@ -50,10 +60,6 @@ class MeshShader(WorldObjectShader):
 
         geometry = wobject.geometry
         material = wobject.material
-
-        # indexbuffer
-        # vertex_buffers
-        # list of list of dicts
 
         # We're assuming the presence of an index buffer for now
         assert getattr(geometry, "indices", None)
@@ -171,7 +177,7 @@ class MeshShader(WorldObjectShader):
         return (
             self.code_definitions()
             + self.code_common()
-            + self.code_helpers()
+            + self.code_lighting()
             + self.code_vertex()
             + self.code_fragment()
         )
@@ -270,11 +276,7 @@ class MeshShader(WorldObjectShader):
             let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
             let world_normal = normalize(world_pos_n - world_pos).xyz;
             varyings.normal = vec3<f32>(world_normal);
-
-            // Vectors for lighting, all in world coordinates
-            let view_vec = normalize(ndc_to_world_pos(vec4<f32>(0.0, 0.0, 1.0, 1.0)));
-            varyings.view = vec3<f32>(view_vec);
-            varyings.light = vec3<f32>(view_vec);
+            varyings.geometry_normal = vec3<f32>(raw_normal);
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
@@ -332,7 +334,12 @@ class MeshShader(WorldObjectShader):
             // Lighting
             $$ if lighting
                 let world_pos = varyings.world_pos;
-                let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, albeido);
+                let view = select(
+                    normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos),
+                    ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
+                    is_orthographic()
+                );
+                let lit_color = lighting_{{ lighting }}(is_front, varyings, view, albeido);
             $$ else
                 let lit_color = albeido;
             $$ endif
@@ -367,55 +374,147 @@ class MeshShader(WorldObjectShader):
 
         """
 
-    def code_helpers(self):
-        return """
+    def code_lighting(self):
+        return ""
 
-        $$ if lighting
-        fn lighting_phong(
-            is_front: bool,
-            world_pos: vec3<f32>,
-            normal: vec3<f32>,
-            light: vec3<f32>,
-            view: vec3<f32>,
-            albeido: vec3<f32>,
-        ) -> vec3<f32> {
-            let light_color = vec3<f32>(1.0, 1.0, 1.0);
 
-            // Light parameters
-            let ambient_factor = 0.1;
-            let diffuse_factor = 0.7;
-            let specular_factor = 0.3;
-            let shininess = u_material.shininess;
+@register_wgpu_render_function(Mesh, MeshNormalMaterial)
+class MeshNormalShader(MeshShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["color_mode"] = "normal"
+        self["colormap_dim"] = ""  # disable texture if there happens to be one
 
-            // Base vectors
-            var normal: vec3<f32> = normalize(normal);
-            let view = normalize(view);
-            let light = normalize(light);
 
-            // Maybe flip the normal - otherwise backfacing faces are not lit
-            // See pygfx/issues/#105 for details
-            normal = select(normal, -normal, is_front);
+@register_wgpu_render_function(Mesh, MeshPhongMaterial)
+class MeshPhongShader(MeshShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["lighting"] = "phong"
 
-            // Ambient
-            let ambient_color = light_color * ambient_factor;
+    def code_lighting(self):
+        # return shaderlib.lighting_phong_simple()  # the quick 'n dirty way
+        code = ""
+        if self["receive_shadow"]:
+            code += shaderlib.shadow()
+        code += shaderlib.lighting_phong()
+        return code
 
-            // Diffuse (blinn-phong reflection model)
-            let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
-            let diffuse_color = diffuse_factor * light_color * lambert_term;
 
-            // Specular
-            let halfway = normalize(light + view);  // halfway vector
-            var specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
-            specular_term = select(0.0, specular_term, shininess > 0.0);
-            let specular_color = specular_factor * specular_term * light_color;
+@register_wgpu_render_function(Mesh, MeshStandardMaterial)
+class MeshStandardShader(MeshShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["lighting"] = "pbr"
 
-            // Emissive color is additive and unaffected by lights
-            let emissive_color = u_material.emissive_color.rgb;
+    def get_resources(self, wobject, shared):
 
-            // Put together
-            return albeido * (ambient_color + diffuse_color) + specular_color + emissive_color;
-        }
+        result = super().get_resources(wobject, shared)
 
+        geometry = wobject.geometry
+        material = wobject.material
+
+        bindings = []
+
+        # We need uv to use the maps, so if uv not exist, ignore all maps
+        if geometry.texcoords is not None:
+
+            # Texcoords must always be nx2 since it used for all texture maps.
+            if not (
+                geometry.texcoords.data.ndim == 2
+                and geometry.texcoords.data.shape[1] == 2
+            ):
+                raise ValueError("For standard material, the texcoords must be Nx2")
+
+            # Ensure all the maps data are float32 fomat, so we can use textureSampler.
+            def check_texture(t, view_dim="2d"):
+                assert isinstance(t, TextureView)
+                assert t.view_dim in view_dim
+                fmt = to_texture_format(t.format)
+                assert "norm" in fmt or "float" in fmt
+
+            F = "FRAGMENT"  # noqa: N806
+            sampler = "sampler/filtering"
+            texture = "texture/auto"
+
+            if material.env_map is not None:
+                check_texture(material.env_map, "cube")
+                self["use_env_map"] = True
+                bindings.append(Binding("s_env_map", sampler, material.env_map, F))
+                bindings.append(Binding("t_env_map", texture, material.env_map, F))
+
+            if material.normal_map is not None:
+                check_texture(material.normal_map)
+                self["use_normal_map"] = True
+                bindings.append(
+                    Binding("s_normal_map", sampler, material.normal_map, F)
+                )
+                bindings.append(
+                    Binding("t_normal_map", texture, material.normal_map, F)
+                )
+
+            if material.roughness_map is not None:
+                check_texture(material.roughness_map)
+                self["use_roughness_map"] = True
+                bindings.append(
+                    Binding("s_roughness_map", sampler, material.roughness_map, F)
+                )
+                bindings.append(
+                    Binding("t_roughness_map", texture, material.roughness_map, F)
+                )
+
+            if material.metalness_map is not None:
+                check_texture(material.metalness_map)
+                self["use_metalness_map"] = True
+                bindings.append(
+                    Binding("s_metalness_map", sampler, material.metalness_map, F)
+                )
+                bindings.append(
+                    Binding("t_metalness_map", texture, material.metalness_map, F)
+                )
+
+            if material.emissive_map is not None:
+                check_texture(material.emissive_map)
+                self["use_emissive_map"] = True
+                bindings.append(
+                    Binding("s_emissive_map", sampler, material.emissive_map, F)
+                )
+                bindings.append(
+                    Binding("t_emissive_map", texture, material.emissive_map, F)
+                )
+
+            if material.ao_map is not None:
+                check_texture(material.ao_map)
+                self["use_ao_map"] = True
+                bindings.append(Binding("s_ao_map", sampler, material.ao_map, F))
+                bindings.append(Binding("t_ao_map", texture, material.ao_map, F))
+
+        # Define shader code for binding
+        bindings = {i: binding for i, binding in enumerate(bindings)}
+        self.define_bindings(2, bindings)
+
+        # Update result
+        result["bindings"][2] = bindings
+        return result
+
+    def code_lighting(self):
+        code = ""
+        if self["receive_shadow"]:
+            code += shaderlib.shadow()
+        code += shaderlib.lighting_pbr()
+        return code
+
+
+@register_wgpu_render_function(Mesh, MeshFlatMaterial)
+class MeshFlatShader(MeshShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["lighting"] = "flat"
+
+    def code_lighting(self):
+        return (
+            shaderlib.lighting_phong()
+            + """
         fn lighting_flat(
             is_front: bool,
             world_pos: vec3<f32>,
@@ -438,31 +537,8 @@ class MeshShader(WorldObjectShader):
             // The rest is the same as phong
             return lighting_phong(is_front, world_pos, normal, light, view, albeido);
         }
-        $$ endif
-
         """
-
-
-@register_wgpu_render_function(Mesh, MeshFlatMaterial)
-class MeshFlatShader(MeshShader):
-    def __init__(self, wobject):
-        super().__init__(wobject)
-        self["lighting"] = "flat"
-
-
-@register_wgpu_render_function(Mesh, MeshNormalMaterial)
-class MeshNormalShader(MeshShader):
-    def __init__(self, wobject):
-        super().__init__(wobject)
-        self["color_mode"] = "normal"
-        self["colormap_dim"] = ""  # disable texture if there happens to be one
-
-
-# @register_wgpu_render_function(Mesh, MeshPhongMaterial)
-# class MeshPhongShader(MeshShader):
-#     def __init__(self, wobject):
-#         super().__init__(wobject)
-#         self["lighting"] = "phong"
+        )
 
 
 @register_wgpu_render_function(Mesh, MeshNormalLinesMaterial)

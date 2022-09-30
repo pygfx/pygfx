@@ -25,6 +25,7 @@ class WireframeMaterial(gfx.Material):
         self.uniform_buffer.data["thickness"] = thickness
         self.uniform_buffer.update_range(0, 1)
 
+
 @gfx.renderers.wgpu.register_wgpu_render_function(gfx.WorldObject, WireframeMaterial)
 class WireframeShader(WorldObjectShader):
 
@@ -53,7 +54,9 @@ class WireframeShader(WorldObjectShader):
             if none_indexed_positions is None:
                 none_indexed_positions = face_pos
             else:
-                none_indexed_positions = np.concatenate((none_indexed_positions, geometry.positions.data[face]))
+                none_indexed_positions = np.concatenate(
+                    (none_indexed_positions, geometry.positions.data[face])
+                )
 
         vertex_attributes["position"] = Buffer(none_indexed_positions)
         # centers = np.zeros_like(geometry.positions.data)
@@ -67,7 +70,7 @@ class WireframeShader(WorldObjectShader):
         self.define_vertex_buffer(vertex_attributes, instanced=self["instanced"])
 
         return {
-            "index_buffer": None, # none-indexed geometry
+            "index_buffer": None,  # none-indexed geometry
             "vertex_buffers": list(vertex_attributes.values()),
             "instance_buffer": wobject.instance_infos if self["instanced"] else None,
             "bindings": {
@@ -171,7 +174,7 @@ camera.position.z = 10
 
 g = gfx.sphere_geometry(1, 16)
 
-mesh1 = gfx.Mesh(g, WireframeMaterial(thickness=0.3))
+mesh1 = gfx.Mesh(g, WireframeMaterial(thickness=3))
 mesh1.position.x = -3
 
 mesh2 = gfx.Mesh(g, WireframeMaterial())
@@ -181,7 +184,8 @@ mesh3 = gfx.Mesh(g, gfx.MeshPhongMaterial(wireframe=True))
 mesh3.position.x = 3
 
 scene = gfx.Scene()
-scene.add(gfx.DirectionalLight())
+scene.add(camera.add(gfx.DirectionalLight(0.7)))
+
 scene.add(gfx.AmbientLight())
 
 scene.add(mesh1)

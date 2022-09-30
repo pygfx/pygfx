@@ -23,6 +23,9 @@ class WorldObjectShader(BaseShader):
         self.kwargs.setdefault("colormap_nchannels", 1)
         self.kwargs.setdefault("colormap_format", "f32")
 
+        # Init lighting
+        self.kwargs.setdefault("lighting", "")
+
         # Apply_clip_planes
         self["n_clipping_planes"] = len(wobject.material.clipping_planes)
         self["clipping_mode"] = wobject.material.clipping_mode
@@ -221,13 +224,30 @@ class WorldObjectShader(BaseShader):
         {{ blending_code }}
         """
 
+        # ortho
+        ortho = """
+        fn is_orthographic() -> bool {
+            return u_stdinfo.projection_transform[2][3] == 0.0;
+        }
+        """
+
+        # Light
+        lighting = """
+        $$ if lighting
+        {{ light_structs }}
+
+        {{ light_vars }}
+        $$ endif
+        """
+
         return (
             self._code_colormap()
-            + self._code_lighting()
             + self._code_clipping_planes()
             + self._code_picking()
             + self._code_misc()
             + blending_code
+            + ortho
+            + lighting
         )
 
     def _code_clipping_planes(self):
@@ -280,13 +300,6 @@ class WorldObjectShader(BaseShader):
         }
         """
 
-    def _code_is_orthographic(self):
-        return """
-        fn is_orthographic() -> bool {
-            return u_stdinfo.projection_transform[2][3] == 0.0;
-        }
-        """
-
     def _code_misc(self):
         # Small functions
         return """
@@ -296,14 +309,3 @@ class WorldObjectShader(BaseShader):
             return world_pos.xyz / world_pos.w;
         }
         """
-
-    def _code_lighting(self):
-        # use f_string
-        lighting = """
-        $$ if use_light is defined
-        {{ light_structs }}
-
-        {{ light_vars }}
-        $$ endif
-        """
-        return lighting

@@ -455,6 +455,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @property
     def normal_scale(self):
         """How much the normal map affects the material. Typical ranges are 0-1. Default is (1,1)."""
+        # todo: how does this work? From the shader code it looks as if this is to scale the x and y component with respect to the normals z component
         return self.uniform_buffer.data["normal_scale"]
 
     @normal_scale.setter

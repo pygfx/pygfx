@@ -74,7 +74,9 @@ class PointLight(Light):
 
     uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1, position=None):
+    def __init__(
+        self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1, position=None
+    ):
         super().__init__(color, intensity, position)
 
         self.distance = distance
@@ -111,9 +113,7 @@ class DirectionalLight(Light):
         direction="4xf4",
     )
 
-    def __init__(
-        self, color=(1, 1, 1, 1), intensity=1, target=None, position=None
-    ):
+    def __init__(self, color=(1, 1, 1, 1), intensity=1, target=None, position=None):
         super().__init__(color, intensity, position)
         self.target = target or WorldObject()
         self.shadow = DirectionalLightShadow()

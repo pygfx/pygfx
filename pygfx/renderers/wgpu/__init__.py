@@ -7,12 +7,11 @@ from ._shared import Shared, stdinfo_uniform_type
 from ._renderer import WgpuRenderer
 from ._pipeline import Binding
 from ._shader import BaseShader, WorldObjectShader
+from ._shaderlibs import shaderlib
 
 # Import the modules that implement the shaders
 from . import backgroundshader
 from . import meshshader
-from . import meshshader_phong
-from . import meshshader_standard
 from . import pointsshader
 from . import lineshader
 from . import imageshader
