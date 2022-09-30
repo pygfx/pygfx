@@ -13,12 +13,13 @@ scene = gfx.Scene()
 
 geometry = gfx.torus_knot_geometry(1, 0.3, 64, 10)
 geometry.texcoords.data[:, 0] *= 10  # stretch the texture
-material = gfx.MeshFlatMaterial(color=(1, 0, 1, 1))
+material = gfx.MeshPhongMaterial(color=(1, 0, 1, 1), flat_shading=True)
 obj = gfx.Mesh(geometry, material)
 scene.add(obj)
 
 camera = gfx.PerspectiveCamera(70, 1)
 camera.position.z = 4
+scene.add(camera.add(gfx.DirectionalLight()))
 
 
 def animate():

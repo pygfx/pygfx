@@ -12,7 +12,6 @@ from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
     MeshPhongMaterial,
-    MeshFlatMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
@@ -38,6 +37,7 @@ class MeshShader(WorldObjectShader):
 
         # Is this a wireframe mesh?
         self["wireframe"] = material.wireframe
+        self["flat_shading"] = material.flat_shading
 
         # Lighting off in the base class
         self["lighting"] = ""
@@ -339,7 +339,15 @@ class MeshShader(WorldObjectShader):
                     ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
                     is_orthographic()
                 );
-                let lit_color = lighting_{{ lighting }}(is_front, varyings, view, albeido);
+                // Get normal
+                var normal = vec3<f32>(varyings.normal);
+                $$ if flat_shading
+                let u = dpdx(varyings.world_pos);
+                let v = dpdy(varyings.world_pos);
+                normal = normalize(cross(u, v));
+                normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
+                $$ endif
+                let lit_color = lighting_{{ lighting }}(is_front, varyings, normal, view, albeido);
             $$ else
                 let lit_color = albeido;
             $$ endif
@@ -503,42 +511,6 @@ class MeshStandardShader(MeshShader):
             code += shaderlib.shadow()
         code += shaderlib.lighting_pbr()
         return code
-
-
-@register_wgpu_render_function(Mesh, MeshFlatMaterial)
-class MeshFlatShader(MeshShader):
-    def __init__(self, wobject):
-        super().__init__(wobject)
-        self["lighting"] = "flat"
-
-    def code_lighting(self):
-        return (
-            shaderlib.lighting_phong()
-            + """
-        fn lighting_flat(
-            is_front: bool,
-            world_pos: vec3<f32>,
-            normal: vec3<f32>,
-            light: vec3<f32>,
-            view: vec3<f32>,
-            albeido: vec3<f32>,
-        ) -> vec3<f32> {
-
-            let u = dpdx(world_pos);
-            let v = dpdy(world_pos);
-            var normal = normalize(cross(u, v));
-
-            // The normal calculated above may not be oriented correctly.
-            // We have two flags: is_front and u_stdinfo.flipped_winding.
-            // Note that lighting_phong() also applies the is_front flag.
-            // Below code means: flip the normal if the XOR of these two flags is true.
-            normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
-
-            // The rest is the same as phong
-            return lighting_phong(is_front, world_pos, normal, light, view, albeido);
-        }
-        """
-        )
 
 
 @register_wgpu_render_function(Mesh, MeshNormalLinesMaterial)

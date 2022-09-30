@@ -317,6 +317,7 @@ class Shaderlib:
         fn lighting_phong(
             is_front: bool,
             varyings: Varyings,
+            normal: vec3<f32>,
             view_dir: vec3<f32>,
             albeido: vec3<f32>,
         ) -> vec3<f32> {
@@ -329,13 +330,9 @@ class Shaderlib:
             let shininess = u_material.shininess;
 
             // Base vectors
-            var normal: vec3<f32> = normalize(varyings.normal);
             let view = normalize(view_dir);
             let light = view;
-
-            // Maybe flip the normal - otherwise backfacing faces are not lit
-            // See pygfx/issues/#105 for details
-            normal = select(-normal, normal, is_front);
+            var normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details
 
             // Ambient
             let ambient_color = light_color * ambient_factor;
@@ -430,6 +427,7 @@ class Shaderlib:
         fn lighting_phong(
             is_front: bool,
             varyings: Varyings,
+            normal: vec3<f32>,
             view_dir: vec3<f32>,
             albeido: vec3<f32>,
         ) -> vec3<f32> {
@@ -441,12 +439,9 @@ class Shaderlib:
             material.specular_strength = 1.0;  //TODO: Use specular_map if exists
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
-            var normal = vec3<f32>(varyings.normal);
-            normal = select(-normal, normal, is_front);  // do we really need this?
-
             var geometry: GeometricContext;
             geometry.position = varyings.world_pos;
-            geometry.normal = normal;
+            geometry.normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details;
             geometry.view_dir = view_dir;
             var i = 0;
             $$ if num_point_lights > 0
@@ -528,6 +523,7 @@ class Shaderlib:
         fn lighting_pbr(
             is_front: bool,
             varyings: Varyings,
+            normal: vec3<f32>,
             view_dir: vec3<f32>,
             albeido: vec3<f32>,
         ) -> vec3<f32> {
@@ -556,16 +552,7 @@ class Shaderlib:
             material.roughness = min( roughness_factor + geometry_roughness, 1.0 );
             material.specular_f90 = 1.0;
 
-            // Get normal
-            var normal = vec3<f32>(varyings.normal);
-            // TODO: implement / review flat shading
-            if (u_material.flat_shading != 0 ) {
-                let u = dpdx(varyings.world_pos);
-                let v = dpdy(varyings.world_pos);
-                normal = normalize(cross(u, v));
-                normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);  //?
-            }
-            normal = select(-normal, normal, is_front);
+            var normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details;
             $$ if use_normal_map is defined
                 var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
                 normal_map = normal_map * 2.0 - 1.0;

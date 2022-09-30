@@ -22,6 +22,7 @@ class MeshBasicMaterial(Material):
         map=None,
         wireframe=False,
         wireframe_thickness=1,
+        flat_shading=False,
         side="BOTH",
         **kwargs,
     ):
@@ -32,6 +33,7 @@ class MeshBasicMaterial(Material):
         self.map = map
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
+        self.flat_shading = flat_shading
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -141,6 +143,19 @@ class MeshBasicMaterial(Material):
             self.uniform_buffer.data["wireframe"] = -value
         self.uniform_buffer.update_range(0, 1)
 
+    @property
+    def flat_shading(self):
+        """Whether the mesh is rendered with flat shading.
+        A material that applies lighting per-face (non-interpolated).
+        This gives a "pixelated" look, but can also be usefull if one wants
+        to show the (size of) the triangle faces.
+        """
+        return self._store.flat_shading
+
+    @flat_shading.setter
+    def flat_shading(self, value: bool):
+        self._store.flat_shading = bool(value)
+
 
 # todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.
 
@@ -184,7 +199,6 @@ class MeshPhongMaterial(MeshBasicMaterial):
         emissive_color="4xf4",
         specular_color="4xf4",
         shininess="f4",
-        flat_shading="i4",
     )
 
     def __init__(
@@ -192,14 +206,12 @@ class MeshPhongMaterial(MeshBasicMaterial):
         shininess=30,
         emissive="#000000",
         specular="#111111",
-        flat_shading=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.shininess = shininess
         self.specular = specular
-        self.flat_shading = flat_shading
 
     @property
     def emissive(self):
@@ -240,29 +252,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         self.uniform_buffer.data["shininess"] = value
         self.uniform_buffer.update_range(0, 1)
 
-    @property
-    def flat_shading(self):
-        """Whether the mesh is rendered with flat shading.
-        A material that applies lighting per-face (non-interpolated).
-        This gives a "pixelated" look, but can also be usefull if one wants
-        to show the (size of) the triangle faces.
-        """
-        return bool(self.uniform_buffer.data["flat_shading"])
-
-    @flat_shading.setter
-    def flat_shading(self, value: bool):
-        self.uniform_buffer.data["flat_shading"] = value
-        self.uniform_buffer.update_range(0, 1)
-
     # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
-
-
-class MeshFlatMaterial(MeshPhongMaterial):
-    """A material that applies lighting per-face (non-interpolated).
-    This gives a "pixelated" look, but can also be usefull if one wants
-    to show the (size of) the triangle faces. The shading and
-    reflectance model is the same as for ``MeshPhongMaterial``.
-    """
 
 
 # todo: MeshToonMaterial(MeshBasicMaterial):
@@ -336,20 +326,17 @@ class MeshStandardMaterial(MeshBasicMaterial):
         emissive_intensity="f4",
         env_map_intensity="f4",
         env_map_max_mip_level="f4",
-        flat_shading="i4",
     )
 
     def __init__(
         self,
         emissive=(0, 0, 0, 0),
-        flat_shading=False,
         metalness=0.0,
         roughness=1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.emissive = emissive
-        self.flat_shading = flat_shading
 
         self.roughness = roughness
         self.metalness = metalness
@@ -539,18 +526,4 @@ class MeshStandardMaterial(MeshBasicMaterial):
         width, height, _ = env_map.texture.size
         max_level = math.floor(math.log2(max(width, height))) + 1
         self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
-        self.uniform_buffer.update_range(0, 1)
-
-    @property
-    def flat_shading(self):
-        """Whether the mesh is rendered with flat shading.
-        A material that applies lighting per-face (non-interpolated).
-        This gives a "pixelated" look, but can also be usefull if one wants
-        to show the (size of) the triangle faces.
-        """
-        return bool(self.uniform_buffer.data["flat_shading"])
-
-    @flat_shading.setter
-    def flat_shading(self, value: bool):
-        self.uniform_buffer.data["flat_shading"] = value
         self.uniform_buffer.update_range(0, 1)
