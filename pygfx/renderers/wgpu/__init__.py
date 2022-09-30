@@ -7,7 +7,7 @@ from ._shared import Shared, stdinfo_uniform_type
 from ._renderer import WgpuRenderer
 from ._pipeline import Binding
 from ._shader import BaseShader, WorldObjectShader
-from ._shaderlibs import shaderlib
+from ._shaderlib import shaderlib
 
 # Import the modules that implement the shaders
 from . import backgroundshader
