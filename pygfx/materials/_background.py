@@ -130,8 +130,9 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
 
     @property
     def up(self):
-        """A Vector3 defining what way is up. The given vector is "rounded"
-        to the closest vector that is fully in one dimension.
+        """A Vector3 defining what way is up. Can be set to e.g. the
+        controller's up vector. The given vector is "rounded" to the
+        closest vector that is fully in one dimension.
         """
         return self._up
 
