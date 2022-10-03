@@ -1,5 +1,5 @@
 """
-A material for drawing geometry by depth
+A custom material for drawing geometry by depth
 """
 
 import wgpu
@@ -26,18 +26,14 @@ class DepthShader(MeshShader):
             0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             1: Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
         }
+        bindings[2] = Binding(
+            "s_positions", "buffer/read_only_storage", geometry.positions
+        )
         self.define_bindings(0, bindings)
-
-        vertex_attributes = {}
-
-        vertex_attributes["position"] = geometry.positions
-
-        self.define_vertex_buffer(vertex_attributes, instanced=self["instanced"])
 
         return {
             "index_buffer": geometry.indices,
-            "vertex_buffers": list(vertex_attributes.values()),
-            "instance_buffer": wobject.instance_infos if self["instanced"] else None,
+            "vertex_buffers": [],
             "bindings": {
                 0: bindings,
             },
@@ -52,46 +48,48 @@ class DepthShader(MeshShader):
 
     def get_render_info(self, wobject, shared):
         geometry = wobject.geometry
-
         n = geometry.indices.data.size
-        n_instances = 1
-        if self["instanced"]:
-            n_instances = wobject.instance_buffer.nitems
-
         return {
-            "indices": (n, n_instances),
+            "indices": (n, 1),
             "render_mask": 3,
         }
 
     def get_code(self):
         # Here we put together the full (templated) shader code
-        return self.code_definitions() + self.code_vertex() + self.code_fragment()
+        return (
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
+        )
 
     def code_vertex(self):
         return """
-        struct VertexIn {
-            @location(0) position: vec3<f32>,
+        struct VertexInput {
+            @builtin(vertex_index) vertex_index : u32,
         };
 
         @stage(vertex)
-        fn vs_main(in: VertexIn) -> @builtin(position) vec4<f32> {
-            let u_mvp = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
-            let pos = u_mvp * vec4<f32>( in.position, 1.0 );
+        fn vs_main(in: VertexInput) -> Varyings {
 
-            return pos;
+            let index = i32(in.vertex_index);
+            let position = load_s_positions(index);
+
+            let u_mvp = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
+            let pos = u_mvp * vec4<f32>(position, 1.0);
+
+            var varyings: Varyings;
+            varyings.position = vec4<f32>(pos);
+            return varyings;
         }
         """
 
     def code_fragment(self):
         return """
-        struct FragmentOutput {
-            @location(0) color: vec4<f32>,
-            @location(1) pick: vec4<u32>,
-        };
         @stage(fragment)
-        fn fs_main(@builtin(position) position :vec4<f32>) -> FragmentOutput {
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
-            let depth = 1.0 - position.z; // Invert depth  TODO: logarithmic depth
+            let depth = 1.0 - varyings.position.z; // Invert depth  TODO: logarithmic depth
             out.color = vec4<f32>(depth);
             return out;
         }

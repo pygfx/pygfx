@@ -17,7 +17,6 @@ from ._utils import (
     to_vertex_format,
     to_texture_format,
     generate_uniform_struct,
-    to_wgsl_vertex_type,
 )
 
 
@@ -319,43 +318,6 @@ class BaseShader:
 
         finally:
             self.kwargs = old_kwargs
-
-    # TODO:  auto generate from geometry attributes
-    #       now, vertex_buffers is a vertex attributes descriptor turple(name, type),
-    #       we can auto generate from geometry directly.
-    def define_vertex_buffer(self, vertex_attributes: dict, instanced=False):
-
-        code = """
-        struct VertexInput {
-            @builtin(vertex_index) vertex_index : u32,
-        """
-        if instanced:
-            code += """
-            @builtin(instance_index) instance_index : u32,
-            """
-
-        for slot, attr in enumerate(vertex_attributes.items()):
-
-            name, buffer = attr
-            wgsl_type = to_wgsl_vertex_type(buffer.format)
-
-            code += f"""
-            @location({slot}) {name} : {wgsl_type},
-            """
-        code += "};"
-
-        if instanced:
-            code += """
-            struct InstanceInfo {
-                @location({{ vertex_attributes|length }}) transform0: vec4<f32>,
-                @location({{ vertex_attributes|length + 1 }}) transform1: vec4<f32>,
-                @location({{ vertex_attributes|length + 2 }}) transform2: vec4<f32>,
-                @location({{ vertex_attributes|length + 3 }}) transform3: vec4<f32>,
-                @location({{ vertex_attributes|length + 4 }}) id: u32,
-            };
-            """
-
-        self._vertex_attribute_code = code
 
     def define_bindings(self, bindgroup, bindings_dict):
         """Define a collection of bindings organized in a dict."""

@@ -32,17 +32,15 @@ camera.look_at(gfx.linalg.Vector3(0, 0, 0))
 
 scene.add(gfx.AmbientLight(0.15))
 
-light1 = gfx.PointLight()
+light1 = gfx.PointLight(0.5)
 light1.position.set(0, 0, 4)
 light1.cast_shadow = True
-light2 = gfx.PointLight()
+light2 = gfx.PointLight(0.5)
 light2.position.set(0, 4, 0)
 light2.cast_shadow = True
 scene.add(light1)
 scene.add(light2)
-light2.visible = (
-    False  # todo: shader breaks with two point lights if an object recveives shadows.
-)
+light2.visible = True
 
 
 def animate():

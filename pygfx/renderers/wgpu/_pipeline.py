@@ -449,11 +449,6 @@ class PipelineContainer:
             buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
-        buffer = resources.get("instance_buffer", None)
-        if buffer is not None:
-            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
-            pipeline_resources.append(("buffer", buffer))
-
         for buffer in resources.get("vertex_buffers", []):
             buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
@@ -603,18 +598,11 @@ class RenderPipelineContainer(PipelineContainer):
         assert isinstance(resources, dict)
 
         expected = {"index_buffer", "vertex_buffers", "bindings"}
-        expected2 = expected | {"instance_buffer"}
-        # instance_buffer is optional
-        assert (
-            set(resources.keys()) == expected or set(resources.keys()) == expected2
-        ), f"{resources.keys()}"
-
+        assert set(resources.keys()) == expected, f"{resources.keys()}"
         assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
         assert isinstance(resources["vertex_buffers"], list)
         # assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
         assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"])
-        if "instance_buffer" in resources:
-            assert isinstance(resources["instance_buffer"], (None.__class__, Buffer))
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
@@ -652,42 +640,6 @@ class RenderPipelineContainer(PipelineContainer):
                 ],
             }
             vertex_buffer_descriptors.append(vbo_des)
-
-        instance_buffer = self.resources.get("instance_buffer", None)
-        if instance_buffer is not None:
-            ibo_des = {
-                "array_stride": instance_buffer.nbytes // instance_buffer.nitems,
-                "step_mode": wgpu.VertexStepMode.instance,  # instance
-                "attributes": [
-                    {
-                        "format": "float32x4",
-                        "offset": 0,
-                        "shader_location": slot + 1,
-                    },
-                    {
-                        "format": "float32x4",
-                        "offset": 16,
-                        "shader_location": slot + 2,
-                    },
-                    {
-                        "format": "float32x4",
-                        "offset": 32,
-                        "shader_location": slot + 3,
-                    },
-                    {
-                        "format": "float32x4",
-                        "offset": 48,
-                        "shader_location": slot + 4,
-                    },
-                    {
-                        "format": "uint32",
-                        "offset": 64,
-                        "shader_location": slot + 5,
-                    },
-                ],
-            }
-            self.resources["vertex_buffers"].append(instance_buffer)
-            vertex_buffer_descriptors.append(ibo_des)
 
         # Trigger a pipeline rebuild?
         if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
