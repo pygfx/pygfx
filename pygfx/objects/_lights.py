@@ -12,7 +12,14 @@ from ..utils import array_from_shadertype
 
 
 class Light(WorldObject):
-    """A light object."""
+    """The base light object.
+
+    Parameters:
+        color (Color): The base color of the light.
+        intensity (float): The light intensity.
+        cast_shadow (bool): Whether the light can cast shadows. Default False.
+        position (3-tuple): The position of the light source. Default (0, 0, 0).
+    """
 
     uniform_type = dict(
         color="4xf4",
@@ -21,21 +28,30 @@ class Light(WorldObject):
         shadow_bias="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, position=None):
+    def __init__(
+        self, color="#ffffff", intensity=1, *, cast_shadow=False, position=(0, 0, 0)
+    ):
         super().__init__()
         self._intensity = intensity
         self.color = color
         self.intensity = intensity
+        self.cast_shadow = cast_shadow
         self.position.set(*(position or (0, 0, 0)))
 
         # for internal use
-        self.shadow = None
+        self._shadow = None
 
     def update_uniform_buffer(self):
         pass
 
     @property
+    def shadow(self):
+        """The shadow object for this light. Intended for internal use."""
+        return self._shadow
+
+    @property
     def color(self):
+        """The color of the light."""
         return self._color
 
     @color.setter
@@ -45,6 +61,7 @@ class Light(WorldObject):
 
     @property
     def intensity(self):
+        """The light intensity as a float."""
         return self._intensity
 
     @intensity.setter
@@ -54,6 +71,10 @@ class Light(WorldObject):
 
     @property
     def cast_shadow(self):
+        """Whether or not this light will casts shadows on objects.
+        Note that shadows are only cast on objects that have receive_shadow
+        set to True.
+        """
         return bool(self.uniform_buffer.data["cast_shadow"])
 
     @cast_shadow.setter
@@ -70,22 +91,44 @@ class Light(WorldObject):
 
 
 class PointLight(Light):
-    """A light that gets emitted from a single point in all directions."""
+    """A light that gets emitted from a single point in all directions.
+
+    Parameters:
+        color (Color): The base color of the light.
+        intensity (float): The light intensity.
+        cast_shadow (bool): Whether the light can cast shadows. Default False.
+        position (3-tuple): The position of the light source. Default (0, 0, 0).
+        distance (float): TODO There is only one value where distance and decay
+            are physically correct. Do we actually need these properties?
+        decay (float): TODO
+    """
 
     uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
 
     def __init__(
-        self, color=(1, 1, 1, 1), intensity=1, distance=0, decay=1, position=None
+        self,
+        color="#ffffff",
+        intensity=1,
+        *,
+        cast_shadow=False,
+        distance=0,
+        decay=1,
+        position=None,
     ):
-        super().__init__(color, intensity, position)
-
+        super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
         self.distance = distance
         self.decay = decay
-
-        self.shadow = PointLightShadow()
+        self._shadow = PointLightShadow()
 
     @property
     def distance(self):
+        """
+        From TheeJS
+
+        Default mode — When distance is zero, light does not attenuate. When distance is non-zero, light will attenuate linearly from maximum intensity at the light's position down to zero at this distance from the light.
+
+        Physically correct mode — When distance is zero, light will attenuate according to inverse-square law to infinite distance. When distance is non-zero, light will attenuate according to inverse-square law until near the distance cutoff, where it will then attenuate quickly and smoothly to 0. Inherently, cutoffs are not physically correct.
+        """
         return float(self.uniform_buffer.data["distance"])
 
     @distance.setter
@@ -95,6 +138,13 @@ class PointLight(Light):
 
     @property
     def decay(self):
+        """
+        From ThreeJS
+
+        The amount the light dims along the distance of the light
+        In physically correct mode, decay = 2 leads to physically realistic light falloff.
+        Default is 1.
+        """
         return float(self.uniform_buffer.data["decay"])
 
     @decay.setter
@@ -104,24 +154,42 @@ class PointLight(Light):
 
 
 class DirectionalLight(Light):
-    """A light that gets emitted in a direction, specified
-    by its position and a target. If attached to a camera, the camera view
+    """A light that gets emitted in a direction, specified by its
+    position and a target. If attached to a camera, the camera view
     direction is followed.
+
+    Parameters:
+        color (Color): The base color of the light.
+        intensity (float): The light intensity.
+        cast_shadow (bool): Whether the light can cast shadows. Default False.
+        position (3-tuple): The position of the light source. Default (0, 0, 0).
+        target (WorldObject): The object to direct the light at.
     """
 
     uniform_type = dict(
         direction="4xf4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), intensity=1, target=None, position=None):
-        super().__init__(color, intensity, position)
+    def __init__(
+        self,
+        color="#dddddd",
+        intensity=1,
+        *,
+        cast_shadow=False,
+        position=None,
+        target=None,
+    ):
+        super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
         self.target = target or WorldObject()
-        self.shadow = DirectionalLightShadow()
+        self._shadow = DirectionalLightShadow()
 
     @property
     def target(self):
-        """The light points from its position to its target. Note that if the
-        light's parent is a camera, it follows the camera direction instead.
+        """The object to direct the light at. The light direction is
+        from its position to its target.
+
+        However, if the light's parent is a camera, it follows the
+        camera direction instead (thus ignoring the target).
         """
         return self._target
 
@@ -142,8 +210,17 @@ class DirectionalLight(Light):
 
 
 class SpotLight(Light):
-    """This light gets emitted from a single point in one direction,
+    """A light that gets emitted from a single point in one direction,
     along a cone that increases in size the further from the light it gets.
+
+    Parameters:
+        color (Color): The base color of the light.
+        intensity (float): The light intensity.
+        cast_shadow (bool): Whether the light can cast shadows. Default False.
+        position (3-tuple): The position of the light source. Default (0, 0, 0).
+        angle (float): The maximum extent of the spotlight, in radians. Default Math.PI/3.
+        penumbra (float): Percent of the spotlight cone that is attenuated due
+            to penumbra. Takes values between zero and 1. Default is zero.
     """
 
     uniform_type = dict(
@@ -156,15 +233,17 @@ class SpotLight(Light):
 
     def __init__(
         self,
-        color=(1, 1, 1, 1),
+        color="#ffffff",
         intensity=1,
+        *,
+        cast_shadow=False,
         distance=0,
-        angle=math.pi / 2,
+        angle=math.pi / 3,
         penumbra=0,
         decay=0,
         position=None,
     ):
-        super().__init__(color, intensity, position)
+        super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
 
         self.distance = distance
         self._angle = angle
@@ -175,7 +254,7 @@ class SpotLight(Light):
         self.angle = angle
         self.penumbra = penumbra
 
-        self.shadow = SpotLightShadow()
+        self._shadow = SpotLightShadow()
 
     def update_uniform_buffer(self):
         direction = (
@@ -187,7 +266,9 @@ class SpotLight(Light):
 
     @property
     def distance(self):
-        """Maximum range of the light. Default is 0 (no limit)."""
+        """Maximum range of the light. Default is 0 (no limit).
+        TODO: same here, for physically correct lights there is only one valid value.
+        """
         return float(self.uniform_buffer.data["distance"])
 
     @distance.setter
@@ -197,7 +278,9 @@ class SpotLight(Light):
 
     @property
     def angle(self):
-        """Maximum angle of light dispersion from its direction whose upper bound is Math.PI/2."""
+        """The maximum extent of the spotlight, in radians, from its
+        direction. Should be no more than Math.PI/2.
+        """
         return self._angle
 
     @angle.setter
@@ -212,7 +295,8 @@ class SpotLight(Light):
     @property
     def penumbra(self):
         """Percent of the spotlight cone that is attenuated due to penumbra.
-        Takes values between zero and 1. Default is zero."""
+        Takes values between zero and 1.
+        """
         return self._penumbra
 
     @penumbra.setter
@@ -234,7 +318,12 @@ class SpotLight(Light):
 
 
 class AmbientLight(Light):
-    """This light globally illuminates all objects in the scene equally."""
+    """A light that globally illuminates all objects in the scene equally.
+
+    Parameters:
+        color (Color): The base color of the light.
+        intensity (float): The light intensity.
+    """
 
     def __init__(self, color="#111111", intensity=1):
         super().__init__(color, intensity)
@@ -256,9 +345,9 @@ class LightShadow:
     and can be accessed through the light's shadow property.
 
     Parameters:
-        camera: The light's view of the world.
-        This is used to generate a depth map of the scene;
-        objects behind other objects from the light's perspective will be in shadow.
+        camera: The light's view of the world. This is used to generate
+            a depth map of the scene; objects behind other objects from
+            the light's perspective will be in shadow.
     """
 
     def __init__(self, camera: Camera) -> None:
@@ -311,12 +400,16 @@ class LightShadow:
 
 
 class DirectionalLightShadow(LightShadow):
+    """A shadow for a directional light source."""
+
     def __init__(self) -> None:
         # OrthographicCamera for directional light
         super().__init__(OrthographicCamera(1000, 1000, -500, 500))
 
 
 class SpotLightShadow(LightShadow):
+    """A shadow for a spot light source."""
+
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
         self.focus = 1
@@ -339,6 +432,7 @@ class SpotLightShadow(LightShadow):
 
 
 class PointLightShadow(LightShadow):
+    """A shadow for a point light source."""
 
     _cube_directions = [
         Vector3(1, 0, 0),
