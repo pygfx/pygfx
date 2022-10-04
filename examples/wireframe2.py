@@ -29,6 +29,8 @@ scene.add(obj2)
 camera = gfx.PerspectiveCamera(70, 1)
 camera.position.z = 4
 
+scene.add(gfx.AmbientLight(0.2), camera.add(gfx.DirectionalLight(0.8)))
+
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))

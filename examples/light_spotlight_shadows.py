@@ -108,7 +108,7 @@ def init_scene():
     ambient = gfx.AmbientLight("#111111")
 
     def create_spot_light(color) -> gfx.SpotLight:
-        light = gfx.SpotLight(color, 2, 50, 0.3, 0.2, 2)
+        light = gfx.SpotLight(color, 2, distance=50, angle=0.3, penumbra=0.2, decay=2)
         light.cast_shadow = True
         return light
 

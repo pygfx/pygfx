@@ -143,7 +143,7 @@ scene.add(gfx.AmbientLight("#222222"))
 directional_light = gfx.DirectionalLight(0xFFFFFF, 1)
 directional_light.position.set(1, 1, 1).normalize()
 scene.add(directional_light)
-point_light = gfx.PointLight(0xFFFFFF, 2, 800)
+point_light = gfx.PointLight(0xFFFFFF, 2, distance=800)
 scene.add(point_light)
 
 light_helper = gfx.PointLightHelper(point_light, size=4)

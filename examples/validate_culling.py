@@ -39,6 +39,8 @@ scene.add(obj1, obj2)
 
 camera = gfx.OrthographicCamera(6, 4)
 
+scene.add(gfx.AmbientLight(0.2), camera.add(gfx.DirectionalLight(0.8)))
+
 
 def animate():
     # Render top row

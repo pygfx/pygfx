@@ -35,6 +35,8 @@ scene1.add(cube1)
 camera1 = gfx.PerspectiveCamera(70, 16 / 9)
 camera1.position.z = 300
 
+scene1.add(gfx.AmbientLight(), camera1.add(gfx.DirectionalLight()))
+
 
 # Then create the actual scene, in the visible canvas
 
@@ -48,6 +50,8 @@ scene2.add(cube2)
 
 camera2 = gfx.PerspectiveCamera(70, 16 / 9)
 camera2.position.z = 400
+
+scene2.add(gfx.AmbientLight(), camera2.add(gfx.DirectionalLight()))
 
 
 def animate():

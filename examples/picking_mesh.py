@@ -31,6 +31,8 @@ scene.add(torus)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
+scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
+
 
 def distort_geometry(event):
     info = event.pick_info
