@@ -365,10 +365,6 @@ class LightShadow:
         # self._radius = 1
         # self._map_size = [1024, 1024]
 
-        # used for internal shadow map rendering, should not be used by user
-        self._gfx_map = None
-        self._gfx_map_index = 0
-
         self.bias = 0
 
         self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))

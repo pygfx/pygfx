@@ -234,9 +234,7 @@ class WorldObjectShader(BaseShader):
         # Light
         lighting = """
         $$ if lighting
-        {{ light_structs }}
-
-        {{ light_vars }}
+        {{ light_definitions }}
         $$ endif
         """
 

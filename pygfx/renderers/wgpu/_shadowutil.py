@@ -108,10 +108,10 @@ class ShadowUtil:
                 else:
                     update_buffer(self.device, light.shadow._gfx_matrix_buffer)
 
-                if not isinstance(light.shadow._gfx_map, list):
-                    shadow_maps = [light.shadow._gfx_map]
+                if not isinstance(light.shadow._wgpu_tex_view, list):
+                    shadow_maps = [light.shadow._wgpu_tex_view]
                 else:
-                    shadow_maps = light.shadow._gfx_map
+                    shadow_maps = light.shadow._wgpu_tex_view
 
                 for i, shadow_map in enumerate(shadow_maps):
                     shadow_pass = command_encoder.begin_render_pass(
