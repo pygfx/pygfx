@@ -16,6 +16,8 @@ from .. import (
 
 
 class PointLightHelper(Mesh):
+    """Helper class to visualize a point light using a sphere (by default)."""
+
     def __init__(self, light, size=1, geometry=None, color=None):
         if geometry is None:
             geometry = sphere_geometry(size)

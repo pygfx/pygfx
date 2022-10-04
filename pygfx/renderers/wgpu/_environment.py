@@ -330,25 +330,30 @@ class Environment(Trackable):
         # We only need to update buffers once before each draw
         update_buffer(device, ambient_lights_buffer)
 
-        # TODO: Use light attributes directly to setup final lights_buffer?
+        # We update the uniform buffers of the lights below. These buffers
+        # are not actually used directly but copied to the environment's buffer.
+        # Seems like a detour, but kindof the simplest solution still.
 
         # directional lights
         if self.dir_lights_num > 0:
             dir_lights_buffer = self.directional_lights_buffer
             directional_lights = lights["directional_lights"]
             for i, light in enumerate(directional_lights):
-                light.update_uniform_buffer()
+                light._gfx_update_uniform_buffer()
                 if light.cast_shadow:
-                    light.shadow.update_uniform_buffers(light)
+                    light.shadow._gfx_update_uniform_buffer(light)
 
-                    if light.shadow.map is None or light.shadow.map_index != i:
+                    if (
+                        light.shadow._gfx_map is None
+                        or light.shadow._gfx_map_index != i
+                    ):
 
-                        light.shadow.map = (
+                        light.shadow._gfx_map = (
                             self.directional_lights_shadow_texture.create_view(
                                 base_array_layer=i
                             )
                         )
-                        light.shadow.map_index = i
+                        light.shadow._gfx_map_index = i
 
                 if dir_lights_buffer.data[i] != light.uniform_buffer.data:
                     dir_lights_buffer.data[i] = light.uniform_buffer.data
@@ -362,20 +367,23 @@ class Environment(Trackable):
             point_lights_buffer = self.point_lights_buffer
             point_lights = lights["point_lights"]
             for i, light in enumerate(point_lights):
-                light.update_uniform_buffer()
+                light._gfx_update_uniform_buffer()
                 if light.cast_shadow:
-                    light.shadow.update_uniform_buffers(light)
+                    light.shadow._gfx_update_uniform_buffer(light)
 
-                    if light.shadow.map is None or light.shadow.map_index != i:
-                        light.shadow.map = []
+                    if (
+                        light.shadow._gfx_map is None
+                        or light.shadow._gfx_map_index != i
+                    ):
+                        light.shadow._gfx_map = []
                         for face in range(6):
-                            light.shadow.map.append(
+                            light.shadow._gfx_map.append(
                                 self.point_lights_shadow_texture.create_view(
                                     base_array_layer=i * 6 + face
                                 )
                             )
 
-                        light.shadow.map_index = i
+                        light.shadow._gfx_map_index = i
 
                 if point_lights_buffer.data[i] != light.uniform_buffer.data:
                     point_lights_buffer.data[i] = light.uniform_buffer.data
@@ -389,17 +397,19 @@ class Environment(Trackable):
             spot_lights_buffer = self.spot_lights_buffer
             spot_lights = lights["spot_lights"]
             for i, light in enumerate(spot_lights):
-                light.update_uniform_buffer()
+                light._gfx_update_uniform_buffer()
                 if light.cast_shadow:
-                    light.shadow.update_uniform_buffers(light)
-
-                    if light.shadow.map is None or light.shadow.map_index != i:
-
-                        light.shadow.map = self.spot_lights_shadow_texture.create_view(
-                            base_array_layer=i
+                    light.shadow._gfx_update_uniform_buffer(light)
+                    if (
+                        light.shadow._gfx_map is None
+                        or light.shadow._gfx_map_index != i
+                    ):
+                        light.shadow._gfx_map = (
+                            self.spot_lights_shadow_texture.create_view(
+                                base_array_layer=i
+                            )
                         )
-                        light.shadow.map_index = i
-
+                        light.shadow._gfx_map_index = i
                 if spot_lights_buffer.data[i] != light.uniform_buffer.data:
                     spot_lights_buffer.data[i] = light.uniform_buffer.data
                     spot_lights_buffer.update_range(i, 1)

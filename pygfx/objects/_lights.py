@@ -21,6 +21,9 @@ class Light(WorldObject):
         position (3-tuple): The position of the light source. Default (0, 0, 0).
     """
 
+    # Note that for lights and shadows, the uniform data is stored on the environment.
+    # We can use the uniform_buffer as usual though. We'll just copy it over.
+
     uniform_type = dict(
         color="4xf4",
         cast_shadow="i4",
@@ -41,12 +44,13 @@ class Light(WorldObject):
         # for internal use
         self._shadow = None
 
-    def update_uniform_buffer(self):
+    def _gfx_update_uniform_buffer(self):
+        # _gfx prefix means that its not a public method, but other parts in pygfx can use it.
         pass
 
     @property
     def shadow(self):
-        """The shadow object for this light. Intended for internal use."""
+        """The shadow object for this light."""
         return self._shadow
 
     @property
@@ -198,7 +202,7 @@ class DirectionalLight(Light):
         assert isinstance(target, WorldObject)
         self._target = target
 
-    def update_uniform_buffer(self):
+    def _gfx_update_uniform_buffer(self):
         pos1 = self.get_world_position()
         if isinstance(self.parent, Camera):
             p2 = self.position.clone().add(Vector3(0, 0, -1))
@@ -256,7 +260,7 @@ class SpotLight(Light):
 
         self._shadow = SpotLightShadow()
 
-    def update_uniform_buffer(self):
+    def _gfx_update_uniform_buffer(self):
         direction = (
             Vector3()
             .sub_vectors(self.target.get_world_position(), self.get_world_position())
@@ -340,9 +344,8 @@ shadow_uniform_type = dict(light_view_proj_matrix="4x4xf4")
 
 class LightShadow:
     """
-    A shadow map for a light.
-    This is usually created automatically by a light,
-    and can be accessed through the light's shadow property.
+    A shadow map for a light. This is usually created automatically by
+    a light, and can be accessed through the light's shadow property.
 
     Parameters:
         camera: The light's view of the world. This is used to generate
@@ -351,7 +354,7 @@ class LightShadow:
     """
 
     def __init__(self, camera: Camera) -> None:
-        self.camera = camera
+        self._camera = camera
 
         # TODO: 'radius' represents the shadow sampling radius,
         # which is used for PCF to blur and smooth shadow edges.
@@ -359,26 +362,38 @@ class LightShadow:
         # Changing this value will cause the shader to recompile.
         # Shadows with different radius in one scene are also difficult to handle.
         # now, it is a fixed value in shader.
-        # self.radius = 1
-
-        # self.map_size = [1024, 1024]
+        # self._radius = 1
+        # self._map_size = [1024, 1024]
 
         # used for internal shadow map rendering, should not be used by user
-        self.map = None
-        self.map_index = 0
+        self._gfx_map = None
+        self._gfx_map_index = 0
 
-        # Shadow map bias, Very tiny adjustments here may help reduce artifacts in shadows
         self.bias = 0
 
-        self.matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
-        self.matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
+        self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+        self._gfx_matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
 
-    def update_uniform_buffers(self, light: Light):
-        light.uniform_buffer.data["shadow_bias"] = self.bias
-        self.update_matrix(light)
+    @property
+    def camera(self):
+        """The camera that defines the POV for determining the depth map of the scene."""
+        return self._camera
+
+    @property
+    def bias(self):
+        """Shadow map bias. Very tiny adjustments here may help reduce artifacts in shadows."""
+        return self._bias
+
+    @bias.setter
+    def bias(self, value):
+        self._bias = float(value)
+
+    def _gfx_update_uniform_buffer(self, light: Light):
+        light.uniform_buffer.data["shadow_bias"] = self._bias
+        self._update_matrix(light)
         light.uniform_buffer.update_range(0, 1)
 
-    def update_matrix(self, light: Light) -> None:
+    def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
         shadow_camera.position.set_from_matrix_position(light.matrix_world)
         _look_target.set_from_matrix_position(light.target.matrix_world)
@@ -389,10 +404,10 @@ class LightShadow:
             shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
         )
 
-        self.matrix_buffer.data[
+        self._gfx_matrix_buffer.data[
             "light_view_proj_matrix"
         ].flat = _proj_screen_matrix.elements
-        self.matrix_buffer.update_range(0, 1)
+        self._gfx_matrix_buffer.update_range(0, 1)
 
         light.uniform_buffer.data[
             "light_view_proj_matrix"
@@ -412,12 +427,12 @@ class SpotLightShadow(LightShadow):
 
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
-        self.focus = 1
+        self._focus = 1
 
-    def update_matrix(self, light):
+    def _update_matrix(self, light):
         camera = self.camera
 
-        fov = 180 / math.pi * 2 * light.angle * self.focus
+        fov = 180 / math.pi * 2 * light.angle * self._focus
 
         aspect = 1
         far = light.distance or camera.far
@@ -428,7 +443,7 @@ class SpotLightShadow(LightShadow):
             camera.far = far
             camera.update_projection_matrix()
 
-        super().update_matrix(light)
+        super()._update_matrix(light)
 
 
 class PointLightShadow(LightShadow):
@@ -455,14 +470,14 @@ class PointLightShadow(LightShadow):
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
 
-        self.matrix_buffer = []
+        self._gfx_matrix_buffer = []
 
         for _ in range(6):
             buffer = Buffer(array_from_shadertype(shadow_uniform_type))
             buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
-            self.matrix_buffer.append(buffer)
+            self._gfx_matrix_buffer.append(buffer)
 
-    def update_matrix(self, light: Light) -> None:
+    def _update_matrix(self, light: Light) -> None:
         camera = self.camera
 
         far = light.distance or camera.far
@@ -490,7 +505,7 @@ class PointLightShadow(LightShadow):
                 i
             ].flat = _proj_screen_matrix.elements
 
-            self.matrix_buffer[i].data[
+            self._gfx_matrix_buffer[i].data[
                 "light_view_proj_matrix"
             ].flat = _proj_screen_matrix.elements
-            self.matrix_buffer[i].update_range(0, 1)
+            self._gfx_matrix_buffer[i].update_range(0, 1)
