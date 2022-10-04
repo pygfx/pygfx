@@ -449,7 +449,7 @@ class PipelineContainer:
             buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
-        for buffer in resources.get("vertex_buffers", []):
+        for buffer in resources.get("vertex_buffers", {}).values():
             buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
@@ -600,9 +600,9 @@ class RenderPipelineContainer(PipelineContainer):
         expected = {"index_buffer", "vertex_buffers", "bindings"}
         assert set(resources.keys()) == expected, f"{resources.keys()}"
         assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
-        assert isinstance(resources["vertex_buffers"], list)
-        # assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
-        assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"])
+        assert isinstance(resources["vertex_buffers"], dict)
+        assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
+        assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"].values())
 
         self.update_index_buffer_format()
         self.update_vertex_buffer_descriptors()
@@ -627,7 +627,7 @@ class RenderPipelineContainer(PipelineContainer):
     def update_vertex_buffer_descriptors(self):
         # todo: we can probably expose multiple attributes per buffer using a BufferView
         vertex_buffer_descriptors = []
-        for slot, buffer in enumerate(self.resources["vertex_buffers"]):
+        for slot, buffer in self.resources["vertex_buffers"].items():
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
                 "step_mode": wgpu.VertexStepMode.vertex,  # vertex
@@ -752,7 +752,7 @@ class RenderPipelineContainer(PipelineContainer):
         # Set pipeline and resources
         render_pass.set_pipeline(pipeline)
 
-        for slot, vbuffer in enumerate(vertex_buffers):
+        for slot, vbuffer in vertex_buffers.items():
             render_pass.set_vertex_buffer(
                 slot,
                 vbuffer._wgpu_buffer[1],

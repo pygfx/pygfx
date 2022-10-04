@@ -50,7 +50,7 @@ The shader must implement a few methods. A typical shader is shown below:
             # a dict of dicts. Often only bind-group 0 is used.
             return {
                 "index_buffer": None,
-                "vertex_buffers": [],
+                "vertex_buffers": {},
                 "bindings": {
                     0: bindings,
                 },

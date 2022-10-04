@@ -114,7 +114,7 @@ class MeshShader(WorldObjectShader):
 
         return {
             "index_buffer": None,
-            "vertex_buffers": [],
+            "vertex_buffers": {},
             "bindings": {
                 0: bindings,
                 1: bindings1,
@@ -611,7 +611,7 @@ class MeshSliceShader(WorldObjectShader):
 
         return {
             "index_buffer": None,
-            "vertex_buffers": [],
+            "vertex_buffers": {},
             "bindings": {
                 0: bindings,
             },

@@ -33,7 +33,7 @@ class DepthShader(MeshShader):
 
         return {
             "index_buffer": geometry.indices,
-            "vertex_buffers": [],
+            "vertex_buffers": {},
             "bindings": {
                 0: bindings,
             },
