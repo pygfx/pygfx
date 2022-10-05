@@ -104,6 +104,11 @@ class Color:
     def __iter__(self):
         return self.rgba.__iter__()
 
+    def __eq__(self, other):
+        if not isinstance(other, Color):
+            other = Color(other)
+        return all(self._val[i] == other._val[i] for i in range(4))
+
     @property
     def __array_interface__(self):
         # Numpy can wrap our memory in an array without copying

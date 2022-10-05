@@ -23,20 +23,13 @@ light = gfx.DirectionalLight("#0040ff")
 light.position.x = 15
 light.position.y = 20
 
-light_sp = gfx.sphere_geometry(1)
-
-h1 = gfx.DirectionalLightHelper(light, 10)
-
-scene.add(light)
-scene.add(h1)
+scene.add(light.add(gfx.DirectionalLightHelper(10)))
 
 light2 = gfx.PointLight("#ffaa00")
 light2.position.x = -15
 light2.position.y = 20
 
-h2 = gfx.PointLightHelper(light2)
-scene.add(light2)
-scene.add(h2)
+scene.add(light2.add(gfx.PointLightHelper()))
 
 scene.add(gfx.AmbientLight())
 

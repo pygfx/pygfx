@@ -108,14 +108,13 @@ def init_scene():
     spot_light2.position.set(0, 40, 35)
     spot_light3.position.set(-15, 40, 45)
 
-    light_helper1 = gfx.SpotLightHelper(spot_light1)
-    light_helper2 = gfx.SpotLightHelper(spot_light2)
-    light_helper3 = gfx.SpotLightHelper(spot_light3)
+    spot_light1.add(gfx.SpotLightHelper())
+    spot_light2.add(gfx.SpotLightHelper())
+    spot_light3.add(gfx.SpotLightHelper())
 
     scene.add(floor)
     scene.add(ambient)
     scene.add(spot_light1, spot_light2, spot_light3)
-    scene.add(light_helper1, light_helper2, light_helper3)
 
     tweens = [Tween(spot_light1), Tween(spot_light2), Tween(spot_light3)]
 

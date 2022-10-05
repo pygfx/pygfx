@@ -8,5 +8,4 @@ from ._lights import (
     PointLightHelper,
     DirectionalLightHelper,
     SpotLightHelper,
-    DirectionalLightShadowHelper,
 )

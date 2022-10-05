@@ -1,6 +1,8 @@
 import math
 
-from pygfx.linalg.vector3 import Vector3
+import numpy as np
+
+from ..objects import Light
 
 from .. import (
     sphere_geometry,
@@ -8,176 +10,151 @@ from .. import (
     MeshBasicMaterial,
     Geometry,
     LineArrowMaterial,
+    LineSegmentMaterial,
     Line,
-    WorldObject,
-    LineThinSegmentMaterial,
-    LineThinMaterial,
 )
 
 
 class PointLightHelper(Mesh):
-    """Helper class to visualize a point light using a sphere (by default)."""
+    """Helper class to visualize a point light using a sphere (by default).
+    The helper object should be a parent of the light object.
+    """
 
-    def __init__(self, light, size=1, geometry=None, color=None):
+    def __init__(self, size=1, geometry=None, color=None):
+        assert isinstance(size, (int, float))
         if geometry is None:
             geometry = sphere_geometry(size)
-
-        material = MeshBasicMaterial()
-
+        self._color = color
+        material = MeshBasicMaterial(color="#fff")
         super().__init__(geometry, material)
 
-        self.light = light
-        self.light.update_matrix_world()
+    def update_matrix_world(self, *args, **kwargs):
+        super().update_matrix_world(*args, **kwargs)
+        self._update()
 
-        self.color = color
-
-        self._matrix = self.light.matrix_world
-        self.matrix_auto_update = False
-
-        self.update()
-
-    def update(self):
-        if self.color:
-            self.material.color = self.color
-        else:
-            self.material.color = self.light.color
-
-    def update_matrix_world(
-        self, force=False, update_children=True, update_parents=False
-    ):
-        self.update()
-        self._matrix_world_dirty = True
-        super().update_matrix_world(force, update_children, update_parents)
+    def _update(self):
+        if self._color is None and isinstance(self.parent, Light):
+            color = self.parent.color
+            if color != self.material.color:
+                self.material.color = color
 
 
-class DirectionalLightHelper(WorldObject):
-    def __init__(self, light, length=None, color=None):
-        super().__init__()
+class DirectionalLightHelper(Line):
+    """Helper class to visualize a directional light. It shows arrows eminating
+    from the light's position. If show_shadow_extent is True, it also shows
+    the vector to the target and the extent of the shadowmap.
+    The helper object should be a parent of the light object.
+    """
 
-        self.light = light
-        self.light.update_matrix_world()
+    def __init__(self, ray_length=1, color=None, show_shadow_extent=False):
+        self._color = color
 
-        self.color = color
-        self._matrix = self.light.matrix_world
-        self.matrix_auto_update = False
-
-        self.lines = Line(
-            Geometry(
-                positions=[
-                    [1, 0, 0],
-                    [1, 0, 1],
-                    [-1, 0, 0],
-                    [-1, 0, 1],
-                    [0, 1, 0],
-                    [0, 1, 1],
-                    [0, -1, 0],
-                    [0, -1, 1],
-                ]
-            ),
-            LineArrowMaterial(color=light.color.hex),
+        super().__init__(
+            Geometry(positions=np.zeros((8, 3), np.float32)),
+            LineArrowMaterial(color="#fff", thickness=5),
         )
-        length = length or 1
-        self.lines.scale.set(length / 5, length / 5, length)
-        self.add(self.lines)
-        self.update()
 
-    def update(self):
-        if self.color:
-            self.lines.material.color = self.color
-        else:
-            self.lines.material.color = self.light.color
-
-        _tmp_vector.set_from_matrix_position(self.light.target.matrix_world)
-
-        _update_matrix_world = self.update_matrix_world
-        self.update_matrix_world = lambda *args, **kwargs: None
-        self.lines.look_at(_tmp_vector)
-        self.update_matrix_world = _update_matrix_world
-
-    def update_matrix_world(
-        self, force=False, update_children=True, update_parents=False
-    ):
-        self.update()
-        self._matrix_world_dirty = True
-        super().update_matrix_world(force, update_children, update_parents)
-
-
-class DirectionalLightShadowHelper(WorldObject):
-    def __init__(self, light, size=None, color=None):
-        super().__init__()
-
-        self.light = light
-        self.light.update_matrix_world()
-
-        self.color = color
-
-        self._matrix = self.light.matrix_world
-        self.matrix_auto_update = False
-
-        if size is None:
-            half_w = light.shadow.camera.width / 2
-            half_h = light.shadow.camera.height / 2
-        else:
-            half_w = size / 2
-            half_h = size / 2
-
-        geometry = Geometry(
-            positions=[
-                [-half_w, half_h, 0],
-                [half_w, half_h, 0],
-                [half_w, -half_h, 0],
-                [-half_w, -half_h, 0],
-                [-half_w, half_h, 0],
-            ]
+        self._shadow_helper = Line(
+            Geometry(positions=np.zeros((14, 3), np.float32)), LineSegmentMaterial()
         )
-        self._material = LineThinMaterial()
+        self.add(self._shadow_helper)
 
-        self.light_plane = Line(geometry, self._material)
-        self.add(self.light_plane)
+        self.ray_length = ray_length
+        self.show_shadow_extent = show_shadow_extent
 
-        self.target_line = Line(
-            Geometry(positions=[[0, 0, 0], [0, 0, 1]]), self._material
+    @property
+    def ray_length(self):
+        """The length of the arrows indicating light rays."""
+        return self._ray_length
+
+    @ray_length.setter
+    def ray_length(self, value):
+        self._ray_length = float(value)
+
+        # Update geometry
+        length = self._ray_length
+        len5 = length / 5
+        positions = np.array(
+            [
+                [len5, 0, 0],
+                [len5, 0, -length],
+                [-len5, 0, 0],
+                [-len5, 0, -length],
+                [0, len5, 0],
+                [0, len5, -length],
+                [0, -len5, 0],
+                [0, -len5, -length],
+            ],
+            np.float32,
         )
-        self.add(self.target_line)
+        self.geometry.positions.data[:] = positions
+        self.geometry.positions.update_range(0, 8)
 
-        self.update()
+    @property
+    def show_shadow_extent(self):
+        """Whether to also show the extent of the shadowmap."""
+        return self._show_shadow_extent
 
-    def update(self):
-        if self.color:
-            self._material.color = self.color
-        else:
-            self._material.color = self.light.color
+    @show_shadow_extent.setter
+    def show_shadow_extent(self, value):
+        self._show_shadow_extent = bool(value)
+        self._shadow_helper.visible = self._show_shadow_extent
 
-        _tmp_vector.set_from_matrix_position(self.light.target.matrix_world)
-        _tmp_vector2.set_from_matrix_position(self.light.matrix_world)
-        _tmp_vector3.sub_vectors(_tmp_vector, _tmp_vector2)
+    def update_matrix_world(self, *args, **kwargs):
+        super().update_matrix_world(*args, **kwargs)
+        self._update()
 
-        _update_matrix_world = self.update_matrix_world
-        self.update_matrix_world = lambda *args, **kwargs: None
-        self.light_plane.look_at(_tmp_vector)
-        self.target_line.look_at(_tmp_vector)
-        self.target_line.scale.z = _tmp_vector3.length()
-        self.update_matrix_world = _update_matrix_world
+    def _update(self):
+        if not isinstance(self.parent, Light):
+            return
 
-    def update_matrix_world(
-        self, force=False, update_children=True, update_parents=False
-    ):
-        self.update()
-        self._matrix_world_dirty = True
-        super().update_matrix_world(force, update_children, update_parents)
+        if self._color is None:
+            color = self.parent.color
+            if color != self.material.color:
+                self.material.color = color
+                self._shadow_helper.material.color = color
+
+        half_w = self.parent.shadow.camera.width / 2
+        half_h = self.parent.shadow.camera.height / 2
+        cur_size = np.abs(self._shadow_helper.geometry.positions.data[0])
+        ref_size = (half_w, half_h, 0)
+
+        if not np.isclose(cur_size, ref_size).all():
+            positions = np.array(
+                [
+                    # Square
+                    [-half_w, half_h, 0],
+                    [half_w, half_h, 0],
+                    [half_w, half_h, 0],
+                    [half_w, -half_h, 0],
+                    [half_w, -half_h, 0],
+                    [-half_w, -half_h, 0],
+                    [-half_w, -half_h, 0],
+                    [-half_w, half_h, 0],
+                    # Diagonals
+                    [-half_w, -half_h, 0],
+                    [half_w, half_h, 0],
+                    [half_w, -half_h, 0],
+                    [-half_w, half_h, 0],
+                ],
+                np.float32,
+            )
+            self._shadow_helper.geometry.positions.data[:12] = positions
+            self._shadow_helper.geometry.positions.update_range(0, 12)
+
+        lastval = -self.parent._gfx_distance_to_target
+        if not np.isclose(lastval, self._shadow_helper.geometry.positions.data[13, 2]):
+            self._shadow_helper.geometry.positions.data[13] = (0, 0, lastval)
+            self._shadow_helper.geometry.positions.update_range(13, 14)
 
 
-class SpotLightHelper(WorldObject):
-    def __init__(self, light, color=None):
-        super().__init__()
+class SpotLightHelper(Line):
+    """Helper class to visualize a spot light.
+    The helper object should be a parent of the light object.
+    """
 
-        self.light = light
-        self.light.update_matrix_world()
-
-        self.color = color
-
-        self._matrix = self.light.matrix_world
-        self.matrix_auto_update = False
+    def __init__(self, color=None):
+        self._color = color
 
         positions = [
             [0, 0, 0],
@@ -199,41 +176,25 @@ class SpotLightHelper(WorldObject):
             positions.append([math.cos(p1), math.sin(p1), -1])
             positions.append([math.cos(p2), math.sin(p2), -1])
 
-        geometry = Geometry(positions=positions)
+        super().__init__(
+            Geometry(positions=positions),
+            LineSegmentMaterial(thickness=1.0),
+        )
 
-        material = LineThinSegmentMaterial(thickness=1.0)
+    def update_matrix_world(self, *args, **kwargs):
+        super().update_matrix_world(*args, **kwargs)
+        self._update()
 
-        self.cone = Line(geometry, material)
+    def _update(self):
+        if not isinstance(self.parent, Light):
+            return
+        light = self.parent
 
-        self.add(self.cone)
-        self.update()
+        if self._color is None:
+            color = light.color
+            if color != self.material.color:
+                self.material.color = color
 
-    def update(self):
-        cone_length = self.light.distance if self.light.distance else 1000
-        cone_width = cone_length * math.tan(self.light.angle)
-
-        self.cone.scale.set(cone_width, cone_width, cone_length)
-
-        _tmp_vector.set_from_matrix_position(self.light.target.matrix_world)
-
-        _update_matrix_world = self.update_matrix_world
-        self.update_matrix_world = lambda *args, **kwargs: None
-        self.cone.look_at(_tmp_vector)
-        self.update_matrix_world = _update_matrix_world
-
-        if self.color:
-            self.cone.material.color = self.color
-        else:
-            self.cone.material.color = self.light.color
-
-    def update_matrix_world(
-        self, force=False, update_children=True, update_parents=False
-    ):
-        self.update()
-        self._matrix_world_dirty = True
-        super().update_matrix_world(force, update_children, update_parents)
-
-
-_tmp_vector = Vector3()
-_tmp_vector2 = Vector3()
-_tmp_vector3 = Vector3()
+        cone_length = light.distance or 1000
+        cone_width = cone_length * math.tan(light.angle)
+        self.scale.set(cone_width, cone_width, cone_length)

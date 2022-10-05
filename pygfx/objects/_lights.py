@@ -11,6 +11,14 @@ from ..cameras import OrthographicCamera, PerspectiveCamera
 from ..utils import array_from_shadertype
 
 
+def get_pos_from_camera_parent_or_target(light):
+    if isinstance(light.parent, Camera):
+        p = light.position.clone().add(Vector3(0, 0, -1))
+        return p.apply_matrix4(light.parent.matrix_world)
+    else:
+        return light.target.get_world_position()
+
+
 class Light(WorldObject):
     """The base light object.
 
@@ -186,6 +194,7 @@ class DirectionalLight(Light):
         super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
         self.target = target or WorldObject()
         self._shadow = DirectionalLightShadow()
+        self._gfx_distance_to_target = 0
 
     @property
     def target(self):
@@ -204,13 +213,12 @@ class DirectionalLight(Light):
 
     def _gfx_update_uniform_buffer(self):
         pos1 = self.get_world_position()
-        if isinstance(self.parent, Camera):
-            p2 = self.position.clone().add(Vector3(0, 0, -1))
-            pos2 = p2.apply_matrix4(self.parent.matrix_world)
-        else:
-            pos2 = self.target.get_world_position()
-        direction = Vector3().sub_vectors(pos2, pos1).normalize()
+        pos2 = get_pos_from_camera_parent_or_target(self)
+        origin_to_target = Vector3().sub_vectors(pos2, pos1)
+        self._gfx_distance_to_target = origin_to_target.length()
+        direction = origin_to_target.normalize()
         self.uniform_buffer.data["direction"].flat = direction.to_array()
+        self.look_at(pos2)
 
 
 class SpotLight(Light):
@@ -261,12 +269,13 @@ class SpotLight(Light):
         self._shadow = SpotLightShadow()
 
     def _gfx_update_uniform_buffer(self):
-        direction = (
-            Vector3()
-            .sub_vectors(self.target.get_world_position(), self.get_world_position())
-            .normalize()
-        )
+        pos1 = self.get_world_position()
+        pos2 = get_pos_from_camera_parent_or_target(self)
+        origin_to_target = Vector3().sub_vectors(pos2, pos1)
+        self._gfx_distance_to_target = origin_to_target.length()
+        direction = origin_to_target.normalize()
         self.uniform_buffer.data["direction"].flat = direction.to_array()
+        self.look_at(pos2)
 
     @property
     def distance(self):
@@ -355,6 +364,7 @@ class LightShadow:
 
     def __init__(self, camera: Camera) -> None:
         self._camera = camera
+        self._camera.maintain_aspect = False
 
         # TODO: 'radius' represents the shadow sampling radius,
         # which is used for PCF to blur and smooth shadow edges.
@@ -392,7 +402,7 @@ class LightShadow:
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
         shadow_camera.position.set_from_matrix_position(light.matrix_world)
-        _look_target.set_from_matrix_position(light.target.matrix_world)
+        _look_target.copy(get_pos_from_camera_parent_or_target(light))
         shadow_camera.look_at(_look_target)
         shadow_camera.update_matrix_world()
 
@@ -416,6 +426,11 @@ class DirectionalLightShadow(LightShadow):
     def __init__(self) -> None:
         # OrthographicCamera for directional light
         super().__init__(OrthographicCamera(1000, 1000, -500, 500))
+
+    def _update_matrix(self, light):
+        camera = self.camera
+        camera.update_projection_matrix()
+        super()._update_matrix(light)
 
 
 class SpotLightShadow(LightShadow):

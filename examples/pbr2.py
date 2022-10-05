@@ -145,9 +145,7 @@ directional_light.position.set(1, 1, 1).normalize()
 scene.add(directional_light)
 point_light = gfx.PointLight(0xFFFFFF, 2, distance=800)
 scene.add(point_light)
-
-light_helper = gfx.PointLightHelper(point_light, size=4)
-scene.add(light_helper)
+point_light.add(gfx.PointLightHelper(4))
 
 
 env_map_path = Path(__file__).parent / "textures" / "Park2"

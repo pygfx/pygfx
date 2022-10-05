@@ -60,11 +60,7 @@ light.position.x = 15
 light.position.y = 20
 
 light.cast_shadow = True
-
-h1 = gfx.PointLightHelper(light, 5)
-
-scene.add(light)
-scene.add(h1)
+scene.add(light.add(gfx.PointLightHelper(5)))
 
 light2 = gfx.DirectionalLight("#aaaaaa")
 light2.position.x = -150
@@ -72,10 +68,7 @@ light2.position.y = 100
 light2.position.z = 100
 light2.cast_shadow = True
 
-h2 = gfx.DirectionalLightShadowHelper(light2, 100)
-
-scene.add(light2)
-scene.add(h2)
+scene.add(light2.add(gfx.DirectionalLightHelper(100)))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.x = 100
