@@ -73,9 +73,9 @@ detailed log messages. Can be an int or any of the standard level names.
 
 ## Attributes
 
-We distinguish four kinds of attribues:
+We distinguish four kinds of attributes:
 
-* Public attibutes by the user: should in most cases be ``@property``'s.
+* Public attibutes for the user: should in most cases be ``@property``'s.
 * Private attributes: prefixed with "_" as usual.
-* Attributes used by other parts of pygfx but not intended for the user: prefix with "_gfx_".
-* Attributes set by the wgpu backend on objects that are not even aware of that attribute: prefix with "_wgpu_".
+* Attributes used by other parts of pygfx but not intended for the user: prefixed with "_gfx_".
+* Attributes to store wgpu-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".

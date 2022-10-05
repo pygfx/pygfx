@@ -78,30 +78,20 @@ def update_texture_view(device, resource):
         texture_view = resource.texture._wgpu_texture[1].create_view()
     else:
         dim = resource._view_dim
-        if resource._mip_range:
-            assert resource._mip_range.step == 1
-        assert resource._layer_range.step == 1
         fmt = to_texture_format(resource.format)
         fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
 
         if resource.texture.encoding == "srgb":
             fmt += f"-{resource.texture.encoding}"
 
-        mip_level_count = (
-            len(resource._mip_range)
-            if resource._mip_range
-            else resource.texture._mip_level_count
-        )
-        base_mip_level = resource._mip_range.start if resource._mip_range else 0
-
         texture_view = resource.texture._wgpu_texture[1].create_view(
             format=fmt,
             dimension=f"{dim}d" if isinstance(dim, int) else dim,
             aspect=resource._aspect,
-            base_mip_level=base_mip_level,
-            mip_level_count=mip_level_count,
-            base_array_layer=resource._layer_range.start,
-            array_layer_count=len(resource._layer_range),
+            base_mip_level=resource.mip_range.start,
+            mip_level_count=len(resource.mip_range),
+            base_array_layer=resource.layer_range.start,
+            array_layer_count=len(resource.layer_range),
         )
     resource._wgpu_texture_view = resource.rev, texture_view
 

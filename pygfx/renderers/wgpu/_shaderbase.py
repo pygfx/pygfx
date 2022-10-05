@@ -253,7 +253,6 @@ class BaseShader:
         self._typedefs = {}
         self._binding_codes = {}
         self._uniform_struct_names = {}  # dtype -> name
-        self._vertex_attribute_code = ""
 
     def __setitem__(self, key, value):
         if hasattr(self.__class__, key):
@@ -277,9 +276,10 @@ class BaseShader:
         """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
-        code = self._vertex_attribute_code + "\n" "\n".join(
-            self._typedefs.values()
-        ) + "\n" + "\n".join(self._binding_codes.values())
+        code = ""
+        code += "\n".join(self._typedefs.values())
+        code += "\n"
+        code += "\n".join(self._binding_codes.values())
         return code
 
     def get_code(self):

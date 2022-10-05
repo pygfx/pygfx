@@ -44,8 +44,8 @@ def show(object: WorldObject, up=None):
         if isinstance(ob, Light):
             break
     else:
-        camera.add(DirectionalLight())
-        scene.add(AmbientLight())
+        camera.add(DirectionalLight(0.8))
+        scene.add(AmbientLight(0.2))
 
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)

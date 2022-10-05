@@ -250,8 +250,18 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.material = material
 
     @property
+    def cast_shadow(self):
+        """Whether this object casts shadows, i.e. whether it is rendered into
+        a shadow map. Default False."""
+        return self._cast_shadow  # does not affect any shaders
+
+    @cast_shadow.setter
+    def cast_shadow(self, value):
+        self._cast_shadow = bool(value)
+
+    @property
     def receive_shadow(self):
-        """Whether this object receive shadows. Default False."""
+        """Whether this object receives shadows. Default False."""
         return self._store.receive_shadow
 
     @receive_shadow.setter

@@ -565,8 +565,6 @@ class RenderPipelineContainer(PipelineContainer):
         self.strip_index_format = 0
         self.vertex_buffer_descriptors = []
 
-        self.shadow_pipeline = None
-
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
         assert isinstance(pipeline_info, dict)
@@ -645,7 +643,6 @@ class RenderPipelineContainer(PipelineContainer):
         if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
             self.vertex_buffer_descriptors = vertex_buffer_descriptors
             self.wgpu_pipelines = {}
-            self.shadow_pipeline = None
 
     def _compile_shaders(self, device, env):
         """Compile the templated shader to a list of wgpu shader modules
@@ -683,9 +680,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         # Create pipeline layout object from list of layouts
         env_bind_group_layout, _ = env.wgpu_bind_group
-
         bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
-
         pipeline_layout = device.create_pipeline_layout(
             bind_group_layouts=bind_group_layouts
         )

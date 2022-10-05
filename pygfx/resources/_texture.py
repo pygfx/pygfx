@@ -302,8 +302,20 @@ class TextureView(Resource):
         self._format = format
         self._view_dim = view_dim
         self._aspect = aspect
-        self._mip_range = mip_range
-        self._layer_range = layer_range or range(1)
+        # The ranges
+        if mip_range:
+            assert isinstance(mip_range, range)
+            assert mip_range.step == 1
+            self._mip_range = mip_range
+        else:
+            self._mip_range = range(texture._mip_level_count)
+        if layer_range:
+            assert isinstance(layer_range, range)
+            assert layer_range.step == 1
+            self._layer_range = layer_range
+        else:
+            self._layer_range = range(texture.size[2])
+
         self._is_default_view = all(
             x is None for x in [format, view_dim, aspect, mip_range, layer_range]
         )
@@ -327,6 +339,20 @@ class TextureView(Resource):
     def view_dim(self):
         """The dimensionality of this view: "1d", "2d" or "3d"."""
         return self._view_dim or f"{self.texture.dim}d"
+
+    @property
+    def mip_range(self):
+        """The range of mip levels to view, as a range object.
+        The step is always 1.
+        """
+        return self._mip_range
+
+    @property
+    def layer_range(self):
+        """The range of array layers to view, as a range object.
+        The step is always 1.
+        """
+        return self._layer_range
 
     @property
     def address_mode(self):

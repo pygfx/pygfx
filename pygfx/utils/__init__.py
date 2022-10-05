@@ -28,18 +28,18 @@ def _set_log_level():
 _set_log_level()
 
 
-def array_from_shadertype(shadertype, items=None):
+def array_from_shadertype(shadertype, count=None):
     """Get a numpy array object from a dict shadertype.
     params:
         shadertype: dict
             A dict containing the shadertype.
-        items: None or int
-            If items is not None, array has a shape of (items, ),
+        count: None or int
+            If count is not None, array has a shape of (count, ),
             Indicates that the corresponding "Buffer" is an array of struct.
     """
 
     assert isinstance(shadertype, dict)
-    assert items is None or items > 0
+    assert count is None or count > 0
 
     primitives = {
         "i4": "int32",
@@ -93,8 +93,8 @@ def array_from_shadertype(shadertype, items=None):
     dtype_fields.append(("__padding", "uint8", (padding,)))
 
     # Create a scalar of this type
-    if items is not None:
-        uniform_data = np.zeros((items,), dtype=dtype_fields)
+    if count is not None:
+        uniform_data = np.zeros((count,), dtype=dtype_fields)
     else:
         uniform_data = np.zeros((), dtype=dtype_fields)
 

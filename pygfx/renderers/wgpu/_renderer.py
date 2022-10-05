@@ -32,7 +32,6 @@ from ._update import update_buffer, update_texture, update_texture_view
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
-from ._mipmapsutil import MipmapsUtil
 
 logger = logging.getLogger("pygfx")
 
@@ -164,8 +163,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         )
 
         self._shadow_util = ShadowUtil(self._shared.device)
-
-        self._mipmaps_util = MipmapsUtil(self._shared.device)
 
         if enable_events:
             self.enable_events()

@@ -52,7 +52,7 @@ class MeshBasicMaterial(Material):
 
     @property
     def color(self):
-        """The uniform color of the mesh, as an rgba tuple.
+        """The uniform color of the mesh.
         This value is ignored if a texture map is used.
         """
         return Color(self.uniform_buffer.data["color"])
@@ -204,8 +204,8 @@ class MeshPhongMaterial(MeshBasicMaterial):
     def __init__(
         self,
         shininess=30,
-        emissive="#000000",
-        specular="#111111",
+        emissive="#000",
+        specular="#111",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -308,13 +308,16 @@ class MeshSliceMaterial(MeshBasicMaterial):
 
 
 class MeshStandardMaterial(MeshBasicMaterial):
-    """A standard physically based material, using Metallic-Roughness workflow."""
+    """A standard physically based material, applying PBR (Physically based rendering)
+    using the Metallic-Roughness workflow.
+    """
 
-    # Physically based rendering (PBR) has recently become the standard in many 3D applications,
-    # it use a physically correct model instead of using approximations for the way in which light interacts with a surface.
-    # Technical details of the approach can be found is this paper from Disney:
-    # "https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf",
-    # by Brent Burley.
+    # Physically based rendering (PBR) has recently become the standard
+    # in many 3D applications, it use a physically correct model instead
+    # of using approximations for the way in which light interacts with
+    # a surface. Technical details of the approach can be found is this
+    # paper from Disney (by Brent Burley):
+    # https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
     uniform_type = dict(
         emissive_color="4xf4",
@@ -330,14 +333,13 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     def __init__(
         self,
-        emissive=(0, 0, 0, 0),
+        emissive="#000",
         metalness=0.0,
         roughness=1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.emissive = emissive
-
         self.roughness = roughness
         self.metalness = metalness
 
@@ -350,24 +352,22 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.ao_map = None
         self.ao_map_intensity = 1.0
 
-        self.emissive_intensity = 1.0
         self.emissive_map = None
+        self.emissive_intensity = 1.0
 
         self.normal_map = None
         self.normal_scale = (1, 1)
 
-        self.alpha_map = None
-
-        self._env_map = None
+        self.env_map = None
         self.env_map_intensity = 1.0
 
-        # TODO: more advanced properties
+        # Note: there are more advanced properties to add, e.g. displacement_map, alpha_map
 
     @property
     def emissive(self):
-        """The emissive (light) color of the mesh, as an rgba tuple.
-        This color is added to the final color and is unaffected by lighting.
-        The alpha channel of this color is ignored.
+        """The emissive (light) color of the mesh. This color is added
+        to the final color and is unaffected by lighting. The alpha
+        channel of this color is ignored.
         """
         return Color(self.uniform_buffer.data["emissive_color"])
 
@@ -389,8 +389,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def emissive_map(self):
-        """The emissive map color is modulated by the emissive color and the emissive intensity.
-        If you have an emissive map, be sure to set the emissive color to something other than black.
+        """The emissive map color is modulated by the emissive color
+        and the emissive intensity. If you have an emissive map, be
+        sure to set the emissive color to something other than black.
         Default is None.
         """
         return self._store.emissive_map
@@ -401,8 +402,12 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def metalness(self):
-        """How much the material is like a metal. Non-metallic materials such as wood or stone use 0.0, metallic use 1.0, with nothing (usually) in between.
-        Default is 0.0. A value between 0.0 and 1.0 could be used for a rusty metal look. If metalness_map is also provided, both values are multiplied."""
+        """How much the material looks like a metal. Non-metallic materials
+        such as wood or stone use 0.0, metal use 1.0, with nothing
+        (usually) in between. Default is 0.0. A value between 0.0 and
+        1.0 could be used for a rusty metal look. If metalness_map is
+        also provided, both values are multiplied.
+        """
         return float(self.uniform_buffer.data["metalness"])
 
     @metalness.setter
@@ -421,8 +426,10 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def roughness(self):
-        """How rough the material is. 0.0 means a smooth mirror reflection, 1.0 means fully diffuse. Default is 1.0.
-        If roughness_map is also provided, both values are multiplied."""
+        """How rough the material is. 0.0 means a smooth mirror
+        reflection, 1.0 means fully diffuse. Default is 1.0.
+        If roughness_map is also provided, both values are multiplied.
+        """
         return float(self.uniform_buffer.data["roughness"])
 
     @roughness.setter
@@ -441,8 +448,10 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def normal_scale(self):
-        """How much the normal map affects the material. Typical ranges are 0-1. Default is (1,1)."""
-        # todo: how does this work? From the shader code it looks as if this is to scale the x and y component with respect to the normals z component
+        """How much the normal map affects the material. This 2-tuple
+        is multiplied with the normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
         return self.uniform_buffer.data["normal_scale"]
 
     @normal_scale.setter
@@ -452,9 +461,10 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def normal_map(self):
-        """The texture to create a normal map.
-        The RGB values affect the surface normal for each pixel fragment and change the way the color is lit.
-        Normal maps do not change the actual shape of the surface, only the lighting.
+        """The texture to create a normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
         """
         return self._store.normal_map
 
@@ -512,18 +522,22 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def env_map(self):
-        """The environment map. To ensure a physically correct rendering,
-        you should only add cube environment maps which were prefilterd.
-        We provide a built-in mipmap generation process by setting
-        the "generate_mipmaps" property of texture to True.
-        Default is None."""
+        """The environment map. This makes the surroundings of the
+        object be reflected on its surface. To ensure a physically
+        correct rendering, you should only add cube environment maps
+        which were prefilterd. We provide a built-in mipmap generation
+        process by setting the "generate_mipmaps" property of texture
+        to True. Default is None.
+        """
         return self._env_map
 
     @env_map.setter
     def env_map(self, env_map):
         self._env_map = env_map
-
-        width, height, _ = env_map.texture.size
-        max_level = math.floor(math.log2(max(width, height))) + 1
-        self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
+        if env_map is None:
+            self.uniform_buffer.data["env_map_max_mip_level"] = 0
+        else:
+            width, height, _ = env_map.texture.size
+            max_level = math.floor(math.log2(max(width, height))) + 1
+            self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
         self.uniform_buffer.update_range(0, 1)
