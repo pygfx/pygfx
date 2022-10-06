@@ -40,14 +40,13 @@ class Light(WorldObject):
     )
 
     def __init__(
-        self, color="#ffffff", intensity=1, *, cast_shadow=False, position=(0, 0, 0)
+        self, color="#ffffff", intensity=1, *, cast_shadow=False, **kwargs
     ):
-        super().__init__()
+        super().__init__( **kwargs)
         self._intensity = intensity
         self.color = color
         self.intensity = intensity
         self.cast_shadow = cast_shadow
-        self.position.set(*(position or (0, 0, 0)))
 
         # for internal use
         self._shadow = None
@@ -69,7 +68,7 @@ class Light(WorldObject):
     @color.setter
     def color(self, color):
         self._color = Color(color)
-        self.__update_buffer_color()
+        self._update_buffer_color()
 
     @property
     def intensity(self):
@@ -79,7 +78,7 @@ class Light(WorldObject):
     @intensity.setter
     def intensity(self, value):
         self._intensity = value
-        self.__update_buffer_color()
+        self._update_buffer_color()
 
     @property
     def cast_shadow(self):
@@ -93,7 +92,7 @@ class Light(WorldObject):
     def cast_shadow(self, value: bool):
         self.uniform_buffer.data["cast_shadow"] = bool(value)
 
-    def __update_buffer_color(self):
+    def _update_buffer_color(self):
         # artist friendly color scaling, reference threejs
         # TODO: physically correct lights
         scale_factor = self._intensity * math.pi
@@ -125,9 +124,9 @@ class PointLight(Light):
         cast_shadow=False,
         distance=0,
         decay=1,
-        position=None,
+         **kwargs,
     ):
-        super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
+        super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
         self.distance = distance
         self.decay = decay
         self._shadow = PointLightShadow()
@@ -188,10 +187,10 @@ class DirectionalLight(Light):
         intensity=1,
         *,
         cast_shadow=False,
-        position=None,
         target=None,
+        **kwargs
     ):
-        super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
+        super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
         self.target = target or WorldObject()
         self._shadow = DirectionalLightShadow()
         self._gfx_distance_to_target = 0
@@ -253,9 +252,9 @@ class SpotLight(Light):
         angle=math.pi / 3,
         penumbra=0,
         decay=0,
-        position=None,
+        **kwargs
     ):
-        super().__init__(color, intensity, cast_shadow=cast_shadow, position=position)
+        super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
 
         self.distance = distance
         self._angle = angle

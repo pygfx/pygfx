@@ -110,6 +110,7 @@ class WorldObject(EventTarget, RootTrackable):
         visible=True,
         render_order=0,
         render_mask="auto",
+        position=None,
     ):
         super().__init__()
 
@@ -125,7 +126,7 @@ class WorldObject(EventTarget, RootTrackable):
         self._parent_ref = None
         self._children = []
 
-        self.position = Vector3()
+        self.position = Vector3() if position is None else position
         self.rotation = Quaternion()
         self.scale = Vector3(1, 1, 1)
         self._transform_hash = ()
