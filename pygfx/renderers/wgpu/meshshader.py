@@ -35,6 +35,7 @@ class MeshShader(WorldObjectShader):
         self["lighting"] = ""
 
         # Per-vertex color, colormap, or a plane color?
+        self["colorspace"] = "srgb"
         if material.vertex_colors:
             self["color_mode"] = "vertex"
             self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
@@ -43,6 +44,7 @@ class MeshShader(WorldObjectShader):
         elif material.map is not None:
             self["color_mode"] = "map"
             self["vertex_color_channels"] = 0
+            self["colorspace"] = material.map.colorspace
         else:
             self["color_mode"] = "uniform"
             self["vertex_color_channels"] = 0
@@ -330,12 +332,20 @@ class MeshShader(WorldObjectShader):
                 let albeido = color_value.rgb;
             $$ endif
 
+            // Move to physical colorspace (linear photon count) so we can do math
+            $$ if colorspace == 'srgb'
+                let physical_albeido = srgb2physical(albeido);
+            $$ else
+                let physical_albeido = albeido;
+            $$ endif
+            let opacity = color_value.a * u_material.opacity;
+
             // Lighting
             $$ if lighting
                 let world_pos = varyings.world_pos;
-                let lit_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, albeido);
+                let physical_color = lighting_{{ lighting }}(is_front, varyings.world_pos, varyings.normal, varyings.light, varyings.view, physical_albeido);
             $$ else
-                let lit_color = albeido;
+                let physical_color = physical_albeido;
             $$ endif
 
             $$ if wireframe
@@ -345,12 +355,12 @@ class MeshShader(WorldObjectShader):
                 }
             $$ endif
 
-            let final_color = vec4<f32>(lit_color, color_value.a * u_material.opacity);
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
 
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
@@ -758,11 +768,12 @@ class MeshSliceShader(WorldObjectShader):
             // Making this < 1 would affect the suggested_render_mask.
             let alpha = 1.0;
             // Set color
-            let color = u_material.color;
-            let final_color = vec4<f32>(color.rgb, min(1.0, color.a) * alpha);
+            let physical_color = srgb2physical(u_material.color.rgb);
+            let opacity = min(1.0, u_material.color.a) * alpha;
+            let out_color = vec4<f32>(physical_color, opacity);
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
             out.pick = (

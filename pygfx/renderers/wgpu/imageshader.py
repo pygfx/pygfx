@@ -126,6 +126,7 @@ class ImageShader(BaseImageShader):
                 raise TypeError("Image.geometry.grid must be a Texture or TextureView")
             if view.view_dim.lower() != "2d":
                 raise TypeError("Image.geometry.grid must a 2D texture (view)")
+            self["colorspace"] = geometry.grid.colorspace
             # Sampling type
             fmt = to_texture_format(geometry.grid.format)
             if "norm" in fmt or "float" in fmt:
@@ -147,6 +148,7 @@ class ImageShader(BaseImageShader):
         # If a colormap is applied ...
         if material.map is not None:
             bindings.extend(self.define_img_colormap(material.map))
+            self["colorspace"] = material.map.colorspace
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -232,13 +234,19 @@ class ImageShader(BaseImageShader):
             let sizef = vec2<f32>(textureDimensions(t_img));
             let value = sample_im(varyings.texcoord.xy, sizef);
             let color = sampled_value_to_color(value);
-            let albeido = color.rgb;
 
-            let final_color = vec4<f32>(albeido, color.a * u_material.opacity);
+            // Move to physical colorspace (linear photon count) so we can do math
+            $$ if colorspace == 'srgb'
+                let physical_color = srgb2physical(color.rgb);
+            $$ else
+                let physical_color = color.rgb;
+            $$ endif
+            let opacity = color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

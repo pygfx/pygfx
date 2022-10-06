@@ -65,6 +65,10 @@ class Image(WorldObject):
     The geometry for this object consists only of `geometry.grid`: a
     texture with the 2D data.
 
+    If no colormap is applied to the material, the data are interpreted as
+    colors in sRGB space. To use physical space instead, set the texture's
+    colorspace property to "physical".
+
     The picking info of an Image (the result of ``renderer.get_pick_info()``)
     will for most materials include ``index`` (tuple of 2 int),
     and ``pixel_coord`` (tuple of float subpixel coordinates).

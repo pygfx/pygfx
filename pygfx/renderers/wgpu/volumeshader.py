@@ -35,6 +35,8 @@ class BaseVolumeShader(WorldObjectShader):
         if view.view_dim.lower() != "3d":
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
 
+        self["colorspace"] = geometry.grid.colorspace
+
         # Sampling type
         self["climcorrection"] = ""
         fmt = to_texture_format(geometry.grid.format)
@@ -58,6 +60,7 @@ class BaseVolumeShader(WorldObjectShader):
         # If a colormap is applied ...
         if material.map is not None:
             bindings.extend(self.define_img_colormap(material.map))
+            self["colorspace"] = material.map.colorspace
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -331,12 +334,19 @@ class VolumeSliceShader(BaseVolumeShader):
             let sizef = vec3<f32>(textureDimensions(t_img));
             let value = sample_vol(varyings.texcoord.xyz, sizef);
             let color = sampled_value_to_color(value);
-            let albeido = color.rgb;
-            let final_color = vec4<f32>(albeido, color.a * u_material.opacity);
+
+            // Move to physical colorspace (linear photon count) so we can do math
+            $$ if colorspace == 'srgb'
+                let physical_color = srgb2physical(color.rgb);
+            $$ else
+                let physical_color = color.rgb;
+            $$ endif
+            let opacity = color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
@@ -593,12 +603,18 @@ class VolumeRayShader(BaseVolumeShader):
 
             // Colormapping
             let color = sampled_value_to_color(the_value);
-            let albeido = color.rgb;
-            let color = vec4<f32>(albeido, color.a * u_material.opacity);
+            // Move to physical colorspace (linear photon count) so we can do math
+            $$ if colorspace == 'srgb'
+                let physical_color = srgb2physical(color.rgb);
+            $$ else
+                let physical_color = color.rgb;
+            $$ endif
+            let opacity = color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Produce result
             var out: RenderOutput;
-            out.color = color;
+            out.color = out_color;
             out.coord = the_coord;
             return out;
         }
