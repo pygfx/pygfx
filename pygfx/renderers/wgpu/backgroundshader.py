@@ -83,7 +83,6 @@ class BackgroundShader(WorldObjectShader):
             @builtin(vertex_index) index : u32,
         };
 
-
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
             var varyings: Varyings;
@@ -104,7 +103,9 @@ class BackgroundShader(WorldObjectShader):
                 // Store positions and the view direction in the world
                 varyings.position = vec4<f32>(ndc_pos1);
                 varyings.world_pos = vec3<f32>(wpos1);
-                varyings.texcoord = vec3<f32>(wpos2.xyz - wpos1.xyz);
+                let d = wpos2.xyz - wpos1.xyz;
+                let index = u_material.tex_index.xyz;
+                varyings.texcoord = vec3<f32>(d[index.x], -u_material.yscale * d[index.y], d[index.z]);
             $$ else
                 // Store positions and the view direction in the world
                 varyings.position = vec4<f32>(pos, 0.9999999, 1.0);
