@@ -35,7 +35,7 @@ def _float_from_css_value(v, i):
 
 
 class Color:
-    """An object representing a color.
+    """An object representing a color (in sRGB space).
 
     Internally the color is stored using 4 32-bit floats (rgba).
     It can be instantiated in a variety of ways. E.g. by providing
@@ -279,6 +279,24 @@ class Color:
         color._val[1] += color.g
         color._val[2] += color.b
         return color
+
+    @classmethod
+    def from_physical(cls, *args):
+        """Get a color object from a physical color tuple in physical colorspace."""
+        t = Color(*args)
+        return Color(_physical2srgb(t.r), _physical2srgb(t.g), _physical2srgb(t.b), t.a)
+
+
+def _srgb2physical(c):
+    # The simplified version has a maximum error less than 1%, but that's still
+    # two steps in the range 0..255.
+    # return c ** 2.2
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def _physical2srgb(c):
+    # return c ** (1 / 2.2)
+    return c * 12.92 if c <= 0.0031308 else c ** (1 / 2.4) * 1.055 - 0.055
 
 
 NAMED_COLORS = {

@@ -81,9 +81,6 @@ def update_texture_view(device, resource):
         fmt = to_texture_format(resource.format)
         fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
 
-        if resource.texture.encoding == "srgb":
-            fmt += f"-{resource.texture.encoding}"
-
         texture_view = resource.texture._wgpu_texture[1].create_view(
             format=fmt,
             dimension=f"{dim}d" if isinstance(dim, int) else dim,
@@ -106,10 +103,6 @@ def update_texture(device, resource):
     pixel_padding = None
     if fmt in ALTTEXFORMAT:
         fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
-
-    # maybe srgb
-    if resource.encoding == "srgb":
-        fmt += f"-{resource.encoding}"
 
     needs_mipmaps = getattr(resource, "generate_mipmaps", False)
 

@@ -92,14 +92,22 @@ class RenderFlusher:
         self._device = device
         self._pipelines = {}
 
-        dtype = [("size", "float32", (2,)), ("sigma", "float32"), ("support", "int32")]
+        dtype = [
+            ("size", "float32", (2,)),
+            ("sigma", "float32"),
+            ("support", "int32"),
+            ("gamma", "float32"),
+            ("_padding", "float32"),
+        ]
         self._uniform_data = np.zeros((), dtype=dtype)
         self._uniform_buffer = self._device.create_buffer(
             size=self._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-    def render(self, src_color_tex, src_depth_tex, dst_color_tex, dst_format):
+    def render(
+        self, src_color_tex, src_depth_tex, dst_color_tex, dst_format, gamma=1.0
+    ):
         """Render the (internal) result of the renderer into a texture."""
         # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
         assert src_depth_tex is None
@@ -115,10 +123,10 @@ class RenderFlusher:
             )
             self._pipelines[dst_format] = hash, bind_group, render_pipeline
 
-        self._update_uniforms(src_color_tex, dst_color_tex)
+        self._update_uniforms(src_color_tex, dst_color_tex, gamma)
         return self._render(dst_color_tex, dst_format)
 
-    def _update_uniforms(self, src_color_tex, dst_color_tex):
+    def _update_uniforms(self, src_color_tex, dst_color_tex, gamma):
         # Get factor between texture sizes
         factor_x = src_color_tex.size[0] / dst_color_tex.size[0]
         factor_y = src_color_tex.size[1] / dst_color_tex.size[1]
@@ -137,6 +145,7 @@ class RenderFlusher:
         self._uniform_data["size"] = src_color_tex.size[:2]
         self._uniform_data["sigma"] = sigma
         self._uniform_data["support"] = support
+        self._uniform_data["gamma"] = gamma
 
     def _render(self, dst_color_tex, dst_format):
         device = self._device
@@ -179,6 +188,7 @@ class RenderFlusher:
                 size: vec2<f32>,
                 sigma: f32,
                 support: i32,
+                gamma: f32,
             };
             @group(0) @binding(0)
             var<uniform> u_render: Render;
@@ -216,7 +226,8 @@ class RenderFlusher:
                     weight = weight + w;
                 }
             }
-            out.color = val / weight;
+            let gamma3 = vec3<f32>(u_render.gamma);
+            out.color = vec4<f32>(pow(val.rgb / weight, gamma3), val.a / weight);
         """
 
         wgsl = FULL_QUAD_SHADER

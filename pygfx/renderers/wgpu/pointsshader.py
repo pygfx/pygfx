@@ -236,11 +236,13 @@ class PointsShader(WorldObjectShader):
                 invalid_point_type;
             $$ endif
 
-            final_color.a = final_color.a * u_material.opacity;
+            let physical_color = srgb2physical(final_color.rgb);
+            let opacity = final_color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, final_color);
+            var out = get_fragment_output(varyings.position.z, out_color);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

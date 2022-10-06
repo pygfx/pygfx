@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from ..cameras import Camera
+from ..cameras import Camera, OrthographicCamera
 from ..utils.viewport import Viewport
 from ..linalg import Vector3, Matrix4, Quaternion
 from ._base import Controller, get_screen_vectors_in_world_cords
@@ -16,9 +16,12 @@ class PanZoomController(Controller):
         up: Vector3 = None,
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
+        auto_update: bool = True,
     ) -> None:
         super().__init__()
         self.rotation = Quaternion()
+        self.target = Vector3()
+        self.up = Vector3()
         if eye is None:
             eye = Vector3(0, 0, 0)
         if target is None:
@@ -27,6 +30,7 @@ class PanZoomController(Controller):
             up = Vector3(0.0, 1.0, 0.0)
         self.zoom_value = zoom
         self.min_zoom = min_zoom
+        self.auto_update = True
 
         # State info used during a pan or rotate operation
         self._pan_info = None
@@ -63,8 +67,8 @@ class PanZoomController(Controller):
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
-        self.target = target
-        self.up = up
+        self.target.copy(target)
+        self.up.copy(up)
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         return self
 
@@ -152,14 +156,35 @@ class PanZoomController(Controller):
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
-                viewport.renderer.request_draw()
         elif type == "pointer_move":
             if 1 in event.buttons:
                 xy = event.x, event.y
                 self.pan_move(xy)
-                viewport.renderer.request_draw()
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             f = 2 ** (-event.dy * 0.0015)
             self.zoom_to_point(f, xy, viewport, camera)
-            viewport.renderer.request_draw()
+            if self.auto_update:
+                viewport.renderer.request_draw()
+
+    def show_object(self, camera, target):
+        # TODO: implement for perspective camera
+        if not isinstance(camera, OrthographicCamera):
+            raise NotImplementedError
+
+        target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
+        self.look_at(camera.position, target_pos, camera.up)
+        bsphere = target.get_world_bounding_sphere()
+        if bsphere is not None:
+            radius = bsphere[3]
+            center_world_coord = Vector3(0, 0, 0).unproject(camera)
+            right_world_coord = Vector3(1, 0, 0).unproject(camera)
+            top_world_coord = Vector3(0, 1, 0).unproject(camera)
+
+            min_distance = min(
+                right_world_coord.distance_to(center_world_coord),
+                top_world_coord.distance_to(center_world_coord),
+            )
+            self.zoom_value = min_distance / radius * self.zoom_value

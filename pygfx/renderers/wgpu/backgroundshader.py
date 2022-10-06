@@ -83,7 +83,6 @@ class BackgroundShader(WorldObjectShader):
             @builtin(vertex_index) index : u32,
         };
 
-
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
             var varyings: Varyings;
@@ -104,7 +103,9 @@ class BackgroundShader(WorldObjectShader):
                 // Store positions and the view direction in the world
                 varyings.position = vec4<f32>(ndc_pos1);
                 varyings.world_pos = vec3<f32>(wpos1);
-                varyings.texcoord = vec3<f32>(wpos2.xyz - wpos1.xyz);
+                let d = wpos2.xyz - wpos1.xyz;
+                let index = u_material.tex_index.xyz;
+                varyings.texcoord = vec3<f32>(d[index.x], -u_material.yscale * d[index.y], d[index.z]);
             $$ else
                 // Store positions and the view direction in the world
                 varyings.position = vec4<f32>(pos, 0.9999999, 1.0);
@@ -142,7 +143,11 @@ class BackgroundShader(WorldObjectShader):
                     + u_material.color_top_right * f.x * f.y
                 );
             $$ endif
-            final_color.a = final_color.a * u_material.opacity;
+
+            // Make physical color with combined alpha
+            let physical_color = srgb2physical(final_color.rgb);
+            let opacity = final_color.a * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
 
             // We can apply clipping planes, but maybe a background should not be clipped?
             // apply_clipping_planes(in.world_pos);
@@ -155,8 +160,8 @@ class BackgroundShader(WorldObjectShader):
             // A fragment of the background could be transparent, but it should still be
             // written in the opaque pass in order for it to really be background.
             // So we fool the blender into thinking this fragment is opaque, even if its not.
-            var out = get_fragment_output(varyings.position.z, vec4<f32>(final_color.rgb, 1.0));
-            out.color = final_color;
+            var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
+            out.color = vec4<f32>(out_color);
             return out;
         }
         """

@@ -21,9 +21,19 @@ class Texture(Resource):
             set from the data. This must be a pygfx format specifier, e.g. "3xf4",
             but can also be a format specific to the render backend if necessary
             (e.g. from ``wgpu.TextureFormat``).
+        colorspace (str): If this data is used as color, it is interpreted to be
+            in this colorspace. Can be "srgb" or "physical". Default "srgb".
     """
 
-    def __init__(self, data=None, *, dim, size=None, format=None, encoding="linear"):
+    def __init__(
+        self,
+        data=None,
+        *,
+        dim,
+        size=None,
+        format=None,
+        colorspace="srgb",
+    ):
         super().__init__()
         self._rev = 0
         # The dim specifies the texture dimension
@@ -32,16 +42,15 @@ class Texture(Resource):
         # The actual data (optional)
         self._data = None
         self._pending_uploads = []  # list of (offset, size) tuples
-
-        assert encoding in ("linear", "srgb")
-        self._encoding = encoding
-
         self._mip_level_count = 1
 
         # Backends-specific attributes for internal use
         self._wgpu_usage = 0
 
         self._store.format = None if format is None else str(format)
+
+        self._colorspace = (colorspace or "srgb").lower()
+        assert self._colorspace in ("srgb", "physical")
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -66,6 +75,13 @@ class Texture(Resource):
     def rev(self):
         """An integer that is increased when update_range() is called."""
         return self._rev
+
+    @property
+    def colorspace(self):
+        """If this data is used as color, it is interpreted to be in this colorspace.
+        Can be "srgb" or "physical". Default "srgb".
+        """
+        return self._colorspace
 
     def get_view(self, **kwargs):
         """Get a new view on the this texture."""
@@ -119,13 +135,6 @@ class Texture(Resource):
             return self._store.format
         else:
             raise ValueError("Texture has no data nor format.")
-
-    @property
-    def encoding(self):
-        """The encoding of the texture.
-        'linear' or 'srgb'
-        """
-        return self._encoding
 
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
@@ -324,6 +333,11 @@ class TextureView(Resource):
     def rev(self):
         # This is not actually increased anywhere, but it's added for consistency
         return self._rev
+
+    @property
+    def colorspace(self):
+        """Proxy for the texture's colorspace property."""
+        return self._texture.colorspace
 
     @property
     def texture(self):

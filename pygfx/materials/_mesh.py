@@ -83,6 +83,10 @@ class MeshBasicMaterial(Material):
         """The texture map specifying the color for each texture coordinate.
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of columns in the geometry's texcoords.
+
+        The colors in the map are assumed to be in sRGB space. To use
+        physical space instead, set the texture's colorspace property
+        to "physical".
         """
         return self._store.map
 

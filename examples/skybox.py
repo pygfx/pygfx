@@ -26,7 +26,7 @@ tex = gfx.Texture(im, dim=2, size=tex_size)
 view = tex.get_view(view_dim="cube", layer_range=range(6))
 
 # And the background image with the cube texture
-background = gfx.Background(None, gfx.BackgroundImageMaterial(map=view))
+background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=view))
 scene.add(background)
 
 # Let's add some cubes to make the scene less boring
@@ -40,8 +40,6 @@ for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
 
 
 camera = gfx.PerspectiveCamera(70)
-camera.scale.y = -1
-camera.position.z = 0
 
 scene.add(gfx.AmbientLight(0.4), gfx.DirectionalLight(0.6, position=(0, -100, 0)))
 

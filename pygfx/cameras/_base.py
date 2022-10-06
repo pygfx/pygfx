@@ -47,7 +47,7 @@ class Camera(WorldObject):
         Parameters:
             target: WorldObject
                 The object to look at
-            view_dir: 3-tuple of float
+            view_dir: 3-tuple of float or Vector3
                 Look at the object in this direction
             distance_weight: float
                 The camera distance to the object's world position is
@@ -57,6 +57,11 @@ class Camera(WorldObject):
             pos: Vector3
                 The world coordinate the camera is looking at
         """
+        if not isinstance(view_dir, Vector3):
+            view_dir = Vector3(*view_dir)
+        else:
+            view_dir = view_dir.clone()
+
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
             pos, distance = Vector3(*bsphere[:3]), bsphere[3]
@@ -67,7 +72,7 @@ class Camera(WorldObject):
             distance = 100
         distance *= distance_weight
         self.position.copy(pos).add_scaled_vector(
-            Vector3(*view_dir).normalize().negate(), distance
+            view_dir.normalize().negate(), distance
         )
         self.look_at(pos)
         return pos

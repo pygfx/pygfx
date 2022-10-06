@@ -209,6 +209,21 @@ it's dimension should match the number of channels in the data. Again,
 both direct and colormapped colors can be 1-4 values.
 
 
+Colorspaces
+===========
+
+All colors in PyGfx are interpreted as sRGB by default. This is the same
+how webbrowsers interpret colors. Internally, all calculations are performed
+in the physical colorspace (sometimes called Linear sRGB) so that these
+calculations are physically correct.
+
+If you create a texture with color data that is already in
+physical/linear colorspace, you can set the Texture's ``colorspace``
+argument to "physical".
+
+Similarly you can use ``Color.from_physical()`` to convert a physical color to sRGB.
+
+
 Using Pygfx in Jupyter
 ----------------------
 

@@ -6,7 +6,6 @@ import imageio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
@@ -33,7 +32,6 @@ points = gfx.Points(
 points.position.z = 1  # move points in front of the image
 scene.add(points)
 
-near, far = -400, 700
 camera = gfx.OrthographicCamera(512, 512)
 camera.position.set(256, 256, 0)
 camera.scale.y = -1

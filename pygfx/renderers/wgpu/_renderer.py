@@ -92,6 +92,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
             See the corresponding property for details.
         show_fps (bool): Whether to display the frames per second. Beware that
             depending on the GUI toolkit, the canvas may impose a frame rate limit.
+        blend_mode (str): The method for handling transparency. See the blend_mode
+            property for details.
+        sort_objects (bool): Whether to sort world objects before rendering. Default False.
+        enable_events (bool): Whether to enable user interaction events. Default True.
+        gamma_correction (float): The gamma correction to apply in the final render stage.
+            Typically a number between 0.0 and 2.0. Default 1.0 (no correction).
+
     """
 
     _shared = None
@@ -107,6 +114,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blend_mode="default",
         sort_objects=False,
         enable_events=True,
+        gamma_correction=1.0,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -131,11 +139,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._renders_since_last_flush = 0
 
         # Get target format
+        self.gamma_correction = gamma_correction
+        self._gamma_correction_srgb = 1.0
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             self._canvas_context = self._target.get_context()
-            self._target_tex_format = self._canvas_context.get_preferred_format(
-                self._shared.adapter
-            )
+            # Select output format. We currenly don't have a way of knowing
+            # what formats are available, so if not srgb, we gamma-correct in shader.
+            fmt = self._canvas_context.get_preferred_format(self._shared.adapter)
+            if not fmt.endswith("srgb"):
+                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
+            self._target_tex_format = fmt
             # Also configure the canvas
             self._canvas_context.configure(
                 device=self._shared.device,
@@ -316,6 +329,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @sort_objects.setter
     def sort_objects(self, value):
         self._sort_objects = bool(value)
+
+    @property
+    def gamma_correction(self):
+        """The gamma correction applied in the final composition step."""
+        return self._gamma_correction
+
+    @gamma_correction.setter
+    def gamma_correction(self, value):
+        self._gamma_correction = 1.0 if value is None else float(value)
+        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+            self._target.request_draw()
 
     def _set_wobject_pipelines(self):
         # Each WorldObject has associated with it a wobject_pipeline:
@@ -515,6 +539,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             None,
             raw_texture_view,
             self._target_tex_format,
+            self._gamma_correction * self._gamma_correction_srgb,
         )
         self.device.queue.submit(command_buffers)
 

@@ -222,6 +222,10 @@ def test_color_compare():
     assert "#f00" != c3
 
 
+def test_color_colorspaces():
+    assert Color.from_physical(0.5).hex == "#bcbcbc"
+
+
 if __name__ == "__main__":
     test_color_basics()
     test_color_tuples()
@@ -234,3 +238,4 @@ if __name__ == "__main__":
     test_color_min_max()
     test_color_named()
     test_color_compare()
+    test_color_colorspaces()

@@ -130,11 +130,12 @@ def load_gltf(path):
     def __parse_texture(pil_image, encoding="linear"):
         if pil_image is None:
             return None
+        # todo: drop encoding arg
         # pil_image = pil_image.convert(mode='RGBA')
         data = pil_image.tobytes()
         m = memoryview(data)
         m = m.cast(m.format, shape=(pil_image.size[0], pil_image.size[1], 3))
-        tex = gfx.Texture(m, dim=2, encoding=encoding)
+        tex = gfx.Texture(m, dim=2)
         view = tex.get_view(address_mode="repeat", filter="linear")
         return view
 

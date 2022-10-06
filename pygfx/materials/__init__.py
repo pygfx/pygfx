@@ -24,7 +24,11 @@ from ._volume import (
     VolumeRayMaterial,
     VolumeMipMaterial,
 )
-from ._background import BackgroundMaterial, BackgroundImageMaterial
+from ._background import (
+    BackgroundMaterial,
+    BackgroundImageMaterial,
+    BackgroundSkyboxMaterial,
+)
 
 
 # Define __all__ for e.g. Sphinx
