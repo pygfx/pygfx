@@ -41,10 +41,12 @@ def show(object: WorldObject, up=None):
 
     # Add lights if there are none
     light_count = 0
+
     def check_light(ob):
         nonlocal light_count
         if isinstance(ob, Light):
             light_count += 1
+
     scene.traverse(check_light, False)
     if not light_count:
         camera.add(DirectionalLight(0.8))

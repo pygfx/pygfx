@@ -126,7 +126,10 @@ class WorldObject(EventTarget, RootTrackable):
         self._parent_ref = None
         self._children = []
 
-        self.position = Vector3() if position is None else position
+        position = (0, 0, 0) if position is None else position
+        self.position = (
+            Vector3(*position) if isinstance(position, (tuple, list)) else position
+        )
         self.rotation = Quaternion()
         self.scale = Vector3(1, 1, 1)
         self._transform_hash = ()

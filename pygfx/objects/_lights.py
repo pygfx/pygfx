@@ -39,10 +39,8 @@ class Light(WorldObject):
         shadow_bias="f4",
     )
 
-    def __init__(
-        self, color="#ffffff", intensity=1, *, cast_shadow=False, **kwargs
-    ):
-        super().__init__( **kwargs)
+    def __init__(self, color="#ffffff", intensity=1, *, cast_shadow=False, **kwargs):
+        super().__init__(**kwargs)
         self._intensity = intensity
         self.color = color
         self.intensity = intensity
@@ -124,7 +122,7 @@ class PointLight(Light):
         cast_shadow=False,
         distance=0,
         decay=1,
-         **kwargs,
+        **kwargs,
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
         self.distance = distance
@@ -182,13 +180,7 @@ class DirectionalLight(Light):
     )
 
     def __init__(
-        self,
-        color="#dddddd",
-        intensity=1,
-        *,
-        cast_shadow=False,
-        target=None,
-        **kwargs
+        self, color="#dddddd", intensity=1, *, cast_shadow=False, target=None, **kwargs
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
         self.target = target or WorldObject()
@@ -252,7 +244,7 @@ class SpotLight(Light):
         angle=math.pi / 3,
         penumbra=0,
         decay=0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
 
