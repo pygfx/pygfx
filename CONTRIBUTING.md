@@ -78,4 +78,4 @@ We distinguish four kinds of attributes:
 * Public attibutes for the user: should in most cases be ``@property``'s.
 * Private attributes: prefixed with "_" as usual.
 * Attributes used by other parts of pygfx but not intended for the user: prefixed with "_gfx_".
-* Attributes to store wgpu-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".
+* Attributes to store WgpuRenderer-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".
