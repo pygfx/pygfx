@@ -33,7 +33,6 @@ point_light = gfx.PointLight(0xFFFFFF, 2, distance=800)
 scene.add(point_light)
 point_light.add(gfx.PointLightHelper(4))
 
-
 # Read cube image and turn it into a 3D image (a 4d array)
 env_img = imageio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]

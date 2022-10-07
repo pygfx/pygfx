@@ -9,6 +9,9 @@
 # as soon as reasonably possible. For clarity it helps to add a "_srgb"
 # suffix to colors not yet converted. Most colors on a uniform can also
 # be considered srgb.
+#
+# That pi scale factor for the lights is related to artist-friendly colors or something.
+# Please let me know if you know more about this :)
 
 
 class Shaderlib:
@@ -50,7 +53,7 @@ class Shaderlib:
         $$ if num_dir_lights > 0
         fn getDirectionalLightInfo( directional_light: DirectionalLight, geometry: GeometricContext ) -> IncidentLight {
             var light: IncidentLight;
-            light.color = srgb2physical(directional_light.color.rgb);
+            light.color = srgb2physical(directional_light.color.rgb) * directional_light.intensity * 3.14159;
             light.direction = -directional_light.direction.xyz;
             light.visible = true;
             return light;
@@ -62,7 +65,7 @@ class Shaderlib:
             let i_vector = point_light.world_transform[3].xyz - geometry.position;
             light.direction = normalize(i_vector);
             let light_distance = length(i_vector);
-            light.color = srgb2physical(point_light.color.rgb);
+            light.color = srgb2physical(point_light.color.rgb) * point_light.intensity * 3.14159;
             light.color *= getDistanceAttenuation( light_distance, point_light.distance, point_light.decay );
             light.visible = any(light.color != vec3<f32>(0.0));
             return light;
@@ -77,7 +80,8 @@ class Shaderlib:
             let spot_attenuation = getSpotAttenuation(spot_light.cone_cos, spot_light.penumbra_cos, angle_cos);
             if ( spot_attenuation > 0.0 ) {
                 let light_distance = length( i_vector );
-                light.color = srgb2physical(spot_light.color.rgb) * spot_attenuation;
+                light.color = srgb2physical(spot_light.color.rgb) * spot_light.intensity * 3.14159;
+                light.color *= spot_attenuation;
                 light.color *= getDistanceAttenuation( light_distance, spot_light.distance, spot_light.decay );
                 light.visible = any(light.color != vec3<f32>(0.0));
             } else {

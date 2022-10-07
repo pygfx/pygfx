@@ -34,6 +34,7 @@ class Light(WorldObject):
 
     uniform_type = dict(
         color="4xf4",
+        intensity="f4",
         cast_shadow="i4",
         light_view_proj_matrix="4x4xf4",
         shadow_bias="f4",
@@ -41,7 +42,6 @@ class Light(WorldObject):
 
     def __init__(self, color="#ffffff", intensity=1, *, cast_shadow=False, **kwargs):
         super().__init__(**kwargs)
-        self._intensity = intensity
         self.color = color
         self.intensity = intensity
         self.cast_shadow = cast_shadow
@@ -60,23 +60,29 @@ class Light(WorldObject):
 
     @property
     def color(self):
-        """The color of the light."""
-        return self._color
+        """The color of the light, in the srgb colorspace."""
+        return Color(self.uniform_buffer.data["color"])
 
     @color.setter
     def color(self, color):
-        self._color = Color(color)
-        self._update_buffer_color()
+        self.uniform_buffer.data["color"] = Color(color)
+        self.uniform_buffer.update_range(0, 1)
 
     @property
     def intensity(self):
-        """The light intensity as a float."""
-        return self._intensity
+        """The light intensity as a float. The intensity scales the
+        color in the physical colorspace, as if scaling the number of
+        photons. Note that an intensity of 0.5 is not equivalent to
+        halving the color value. This is because the srgb color is
+        perceptually linear, while intensity is physically linear.
+        Values over 1.0 make perfect sense - it's just a brighter light.
+        """
+        return float(self.uniform_buffer.data["intensity"])
 
     @intensity.setter
     def intensity(self, value):
-        self._intensity = value
-        self._update_buffer_color()
+        self.uniform_buffer.data["intensity"] = float(value)
+        self.uniform_buffer.update_range(0, 1)
 
     @property
     def cast_shadow(self):
@@ -89,14 +95,6 @@ class Light(WorldObject):
     @cast_shadow.setter
     def cast_shadow(self, value: bool):
         self.uniform_buffer.data["cast_shadow"] = bool(value)
-
-    def _update_buffer_color(self):
-        # artist friendly color scaling, reference threejs
-        # TODO: physically correct lights
-        scale_factor = self._intensity * math.pi
-        color = self._color.multiply_scalar(scale_factor)
-        self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
 
 
 class PointLight(Light):
