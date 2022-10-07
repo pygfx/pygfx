@@ -369,9 +369,10 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def emissive(self):
-        """The emissive (light) color of the mesh. This color is added
-        to the final color and is unaffected by lighting. The alpha
-        channel of this color is ignored.
+        """The emissive color of the mesh. I.e. the color that the
+        object emits even when not lit by a light source. This color
+        is added to the final color and unaffected by lighting. The
+        alpha channel is ignored.
         """
         return Color(self.uniform_buffer.data["emissive_color"])
 
@@ -382,27 +383,35 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.uniform_buffer.update_range(0, 1)
 
     @property
-    def emissive_intensity(self):
-        """Intensity of the emissive light. Modulates the emissive color. Default is 1."""
-        return self.uniform_buffer.data["emissive_intensity"]
-
-    @emissive_intensity.setter
-    def emissive_intensity(self, value):
-        self.uniform_buffer.data["emissive_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
-
-    @property
     def emissive_map(self):
         """The emissive map color is modulated by the emissive color
         and the emissive intensity. If you have an emissive map, be
         sure to set the emissive color to something other than black.
-        Default is None.
+        Note that both emissive color and emissive map are considered
+        in srgb colorspace. Default None.
         """
         return self._store.emissive_map
 
     @emissive_map.setter
     def emissive_map(self, value):
         self._store.emissive_map = value
+
+    @property
+    def emissive_intensity(self):
+        """Intensity of the emissive light. Modulates the emissive color
+        and emissive map. Default is 1.
+
+        Note that the intensity is applied in the physical colorspace.
+        You can think of it as scaling the number of photons. Therefore
+        using an intensity of 0.5 is not the same as halving the
+        emissive color, which is in srgb space.
+        """
+        return self.uniform_buffer.data["emissive_intensity"]
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
 
     @property
     def metalness(self):
@@ -456,7 +465,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         is multiplied with the normal_map's xy components (z is
         unaffected). Typical ranges are 0-1. Default is (1,1).
         """
-        return self.uniform_buffer.data["normal_scale"]
+        return tuple(self.uniform_buffer.data["normal_scale"])
 
     @normal_scale.setter
     def normal_scale(self, value):
@@ -478,7 +487,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def light_map(self):
-        """The light map. Default is None."""
+        """The light map to define pre-baked lighting (in srgb). Default is None."""
         return self._store.light_map
 
     @light_map.setter
@@ -487,8 +496,10 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def light_map_intensity(self):
-        """Intensity of the baked light. Default is 1.0."""
-        return self.uniform_buffer.data["light_map_intensity"]
+        """Intensity of the baked light. Scaling occurs in the physical
+        color space. Default is 1.0.
+        """
+        return float(self.uniform_buffer.data["light_map_intensity"])
 
     @light_map_intensity.setter
     def light_map_intensity(self, value):
@@ -507,7 +518,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @property
     def ao_map_intensity(self):
         """Intensity of the ambient occlusion effect. Default is 1.0 Zero is no occlusion effect."""
-        return self.uniform_buffer.data["ao_map_intensity"]
+        return float(self.uniform_buffer.data["ao_map_intensity"])
 
     @ao_map_intensity.setter
     def ao_map_intensity(self, value):
@@ -515,23 +526,13 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.uniform_buffer.update_range(0, 1)
 
     @property
-    def env_map_intensity(self):
-        """Scales the effect of the environment map by multiplying its color."""
-        return self.uniform_buffer.data["env_map_intensity"]
-
-    @env_map_intensity.setter
-    def env_map_intensity(self, value):
-        self.uniform_buffer.data["env_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
-
-    @property
     def env_map(self):
-        """The environment map. This makes the surroundings of the
-        object be reflected on its surface. To ensure a physically
-        correct rendering, you should only add cube environment maps
-        which were prefilterd. We provide a built-in mipmap generation
-        process by setting the "generate_mipmaps" property of texture
-        to True. Default is None.
+        """The environment map (in srgb colorspace). This makes the
+        surroundings of the object be reflected on its surface. To
+        ensure a physically correct rendering, you should only add cube
+        environment maps which were prefilterd. We provide a built-in
+        mipmap generation process by setting the "generate_mipmaps"
+        property of texture to True. Default is None.
         """
         return self._env_map
 
@@ -544,4 +545,16 @@ class MeshStandardMaterial(MeshBasicMaterial):
             width, height, _ = env_map.texture.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def env_map_intensity(self):
+        """Scales the effect of the environment map by multiplying its color.
+        Note that this scaling occurs in the physical color space.
+        """
+        return float(self.uniform_buffer.data["env_map_intensity"])
+
+    @env_map_intensity.setter
+    def env_map_intensity(self, value):
+        self.uniform_buffer.data["env_map_intensity"] = value
         self.uniform_buffer.update_range(0, 1)

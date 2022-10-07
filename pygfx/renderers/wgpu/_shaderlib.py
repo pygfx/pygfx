@@ -1,3 +1,16 @@
+# Some guidelines:
+#
+# Put code in logical blocks using methods. That way they can be reused
+# and also show up in the "source structure" of most IDE's.
+#
+# Colors should be converted to the physical colorspace in the fragment
+# shader (because you generally want to interolate in srgb). Other than
+# that, the color should be turned to physical using srgb2physical()
+# as soon as reasonably possible. For clarity it helps to add a "_srgb"
+# suffix to colors not yet converted. Most colors on a uniform can also
+# be considered srgb.
+
+
 class Shaderlib:
     def light_deps_basic(self):
         return """
@@ -37,7 +50,7 @@ class Shaderlib:
         $$ if num_dir_lights > 0
         fn getDirectionalLightInfo( directional_light: DirectionalLight, geometry: GeometricContext ) -> IncidentLight {
             var light: IncidentLight;
-            light.color = directional_light.color.rgb;
+            light.color = srgb2physical(directional_light.color.rgb);
             light.direction = -directional_light.direction.xyz;
             light.visible = true;
             return light;
@@ -49,7 +62,7 @@ class Shaderlib:
             let i_vector = point_light.world_transform[3].xyz - geometry.position;
             light.direction = normalize(i_vector);
             let light_distance = length(i_vector);
-            light.color = point_light.color.rgb;
+            light.color = srgb2physical(point_light.color.rgb);
             light.color *= getDistanceAttenuation( light_distance, point_light.distance, point_light.decay );
             light.visible = any(light.color != vec3<f32>(0.0));
             return light;
@@ -64,7 +77,7 @@ class Shaderlib:
             let spot_attenuation = getSpotAttenuation(spot_light.cone_cos, spot_light.penumbra_cos, angle_cos);
             if ( spot_attenuation > 0.0 ) {
                 let light_distance = length( i_vector );
-                light.color = spot_light.color.rgb * spot_attenuation;
+                light.color = srgb2physical(spot_light.color.rgb) * spot_attenuation;
                 light.color *= getDistanceAttenuation( light_distance, spot_light.distance, spot_light.decay );
                 light.visible = any(light.color != vec3<f32>(0.0));
             } else {
@@ -109,15 +122,15 @@ class Shaderlib:
             let mip_level = clamp(desiredMIPLevel, 0.0, maxMIPLevelScalar);
             return mip_level;
         }
-        fn getIBLIrradiance( normal: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32) -> vec4<f32> {
-            let envMapColor = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
-            return envMapColor;
+        fn getIBLIrradiance( normal: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32) -> vec3<f32> {
+            let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
+            return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
         }
-        fn getIBLRadiance( view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec4<f32> {
+        fn getIBLRadiance( view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec3<f32> {
             var reflectVec = reflect( - view_dir, normal );
             reflectVec = normalize(mix(reflectVec, normal, roughness*roughness));
-            let envMapColor = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
-            return envMapColor;
+            let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
+            return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
         }
         fn computeMultiscattering(normal: vec3<f32>, view_dir: vec3<f32>, specular_color: vec3<f32>, specular_f90: f32, roughness: f32) -> LightScatter {
             let fab = DFGApprox( normal, view_dir, roughness );
@@ -321,7 +334,7 @@ class Shaderlib:
             view_dir: vec3<f32>,
             albeido: vec3<f32>,
         ) -> vec3<f32> {
-            let light_color = vec3<f32>(1.0, 1.0, 1.0);
+            let light_color = srgb2physical(vec3<f32>(1.0, 1.0, 1.0));
 
             // Light parameters
             let ambient_factor = 0.1;
@@ -348,7 +361,7 @@ class Shaderlib:
             let specular_color = specular_factor * specular_term * light_color;
 
             // Emissive color is additive and unaffected by lights
-            let emissive_color = u_material.emissive_color.rgb;
+            let emissive_color = srgb2physical(u_material.emissive_color.rgb);
 
             // Put together
             return albeido * (ambient_color + diffuse_color) + specular_color + emissive_color;
@@ -432,9 +445,13 @@ class Shaderlib:
             albeido: vec3<f32>,
         ) -> vec3<f32> {
 
+            // Colors incoming via uniforms
+            let specular_color = srgb2physical(u_material.specular_color.rgb);
+            let ambient_color = srgb2physical(u_ambient_light.color.rgb);
+
             var material: BlinnPhongMaterial;
             material.diffuse_color = albeido;
-            material.specular_color = u_material.specular_color.rgb;
+            material.specular_color = specular_color;
             material.specular_shininess = u_material.shininess;
             material.specular_strength = 1.0;  //TODO: Use specular_map if exists
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
@@ -504,7 +521,6 @@ class Shaderlib:
                     }
                 }
             $$ endif
-            let ambient_color = u_ambient_light.color.rgb;
             let irradiance = getAmbientLightIrradiance( ambient_color );
             reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
             return reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
@@ -531,15 +547,13 @@ class Shaderlib:
             // Metalness
             var metalness_factor: f32 = u_material.metalness;
             $$ if use_metalness_map is defined
-                let texel_metalness = textureSample( t_metalness_map, s_metalness_map, varyings.texcoord );
-                metalness_factor *= texel_metalness.b;
+                metalness_factor *= textureSample( t_metalness_map, s_metalness_map, varyings.texcoord ).b;
             $$ endif
 
             // Roughness
             var roughness_factor: f32 = u_material.roughness;
             $$ if use_roughness_map is defined
-                let texel_roughness = textureSample( t_roughness_map, s_roughness_map, varyings.texcoord );
-                roughness_factor *= texel_roughness.g;
+                roughness_factor *= textureSample( t_roughness_map, s_roughness_map, varyings.texcoord ).g;
             $$ endif
             roughness_factor = max( roughness_factor, 0.0525 );
             let dxy = max( abs( dpdx( varyings.geometry_normal ) ), abs( dpdy( varyings.geometry_normal ) ) );
@@ -552,6 +566,7 @@ class Shaderlib:
             material.roughness = min( roughness_factor + geometry_roughness, 1.0 );
             material.specular_f90 = 1.0;
 
+            // Get the normal
             var normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details;
             $$ if use_normal_map is defined
                 var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
@@ -560,14 +575,16 @@ class Shaderlib:
                 normal = perturbNormal2Arb(view_dir, normal, normal_map_scale, varyings.texcoord, is_front);
             $$ endif
 
-            var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
-
+            // Define geometry
             var geometry: GeometricContext;
             geometry.position = varyings.world_pos;
             geometry.normal = normal;
             geometry.view_dir = view_dir;
 
-            // Direct
+            // Init the reflected light. Defines diffuse and specular, both direct and indirect
+            var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
+
+            // Direct light from light sources
             var i = 0;
             $$ if num_point_lights > 0
                 i = 0;
@@ -623,37 +640,46 @@ class Shaderlib:
                 }
             $$ endif
 
-            // Indirect diffuse
-            let ambient_color = u_ambient_light.color.rgb;
+            // The rest is for indirect light
+
+            let ambient_color = srgb2physical(u_ambient_light.color.rgb);
             var irradiance = getAmbientLightIrradiance( ambient_color );
-             // TODO: lightmap
+
+            // Light map (pre-backed lighting)
             $$ if use_light_map is defined
-            let lightMapIrradiance = ( textureSample( t_light_map, s_light_map, varyings.texcoord )).rgb * u_material.light_map_intensity;
-            irradiance += lightMapIrradiance;
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord )).rgb );
+            irradiance += light_map_color * u_material.light_map_intensity;
             $$ endif
+
+            // Process irradiance
             reflected_light = RE_IndirectDiffuse_Physical( irradiance, geometry, material, reflected_light );
-            // TODO: IBL
-            // indirect specular
+
+            // Environment map (srgb2physical and intensity is handled in the getter functions)
             $$ if use_env_map is defined
-            //material.roughness = 0.0;
             let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
-            let radiance = getIBLRadiance( geometry.view_dir, geometry.normal, material.roughness, t_env_map, s_env_map, mip_level_r );
+            let ibl_radiance = getIBLRadiance( geometry.view_dir, geometry.normal, material.roughness, t_env_map, s_env_map, mip_level_r );
             let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
-            let iblIrradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
-            reflected_light = RE_IndirectSpecular_Physical( radiance.rgb, iblIrradiance.rgb, geometry, material, reflected_light );
+            let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
+            reflected_light = RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, geometry, material, reflected_light);
             $$ endif
-            // ao
+
+            // Ambient occlusion
             $$ if use_ao_map is defined
             let ao_map_intensity = u_material.ao_map_intensity;
             let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord ).r - 1.0 ) * ao_map_intensity + 1.0;
             reflected_light = RE_AmbientOcclusion_Physical(ambientOcclusion, geometry, material, reflected_light);
             $$ endif
+
+            // Combine direct and indirect light
             var lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
-            var emissive_color = u_material.emissive_color.rgb * u_material.emissive_intensity;
+
+            // Add emissive color
+            var emissive_color = srgb2physical(u_material.emissive_color.rgb);
             $$ if use_emissive_map is defined
-            emissive_color *= textureSample( t_emissive_map, s_emissive_map, varyings.texcoord).rgb;
+            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
             $$ endif
-            lit_color += emissive_color;
+            lit_color += emissive_color * u_material.emissive_intensity;
+
             return lit_color;
         }
         """

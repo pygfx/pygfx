@@ -4,12 +4,14 @@ Every second sphere has an IBL environment map on it.
 """
 # run_example = false
 
-import imageio
 import time
 import math
-import pygfx as gfx
 from colorsys import hls_to_rgb
+
+import imageio
+import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
+
 
 # Init
 canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")

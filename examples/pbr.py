@@ -13,39 +13,25 @@ from wgpu.gui.auto import WgpuCanvas, run
 
 
 def load_gltf(path):
-    def __parse_texture(pil_image, encoding="linear"):
+    def __parse_texture(pil_image):
         if pil_image is None:
             return None
-        # todo: drop encoding arg
-        # pil_image = pil_image.convert(mode='RGBA')
-        data = pil_image.tobytes()
-        m = memoryview(data)
+        m = memoryview(pil_image.tobytes())
         m = m.cast(m.format, shape=(pil_image.size[0], pil_image.size[1], 3))
         tex = gfx.Texture(m, dim=2)
-        view = tex.get_view(address_mode="repeat", filter="linear")
-        return view
+        return tex.get_view(address_mode="repeat", filter="linear")
 
     def __parse_material(pbrmaterial):
         material = gfx.MeshStandardMaterial()
-        material.map = __parse_texture(pbrmaterial.baseColorTexture, encoding="srgb")
+        material.map = __parse_texture(pbrmaterial.baseColorTexture)
 
         material.emissive = gfx.Color(*pbrmaterial.emissiveFactor)
-        material.emissive_map = __parse_texture(
-            pbrmaterial.emissiveTexture, encoding="srgb"
-        )
+        material.emissive_map = __parse_texture(pbrmaterial.emissiveTexture)
 
         metallic_roughness_map = __parse_texture(pbrmaterial.metallicRoughnessTexture)
-        if pbrmaterial.roughnessFactor:
-            material.roughness = pbrmaterial.roughnessFactor
-        else:
-            material.roughness = 1.0
+        material.roughness = pbrmaterial.roughnessFactor or 1.0
+        material.metalness = pbrmaterial.metallicFactor or 1.0
         material.roughness_map = metallic_roughness_map
-
-        if pbrmaterial.metallicFactor:
-            material.metalness = pbrmaterial.metallicFactor
-        else:
-            material.metalness = 1.0
-
         material.metalness_map = metallic_roughness_map
 
         material.normal_map = __parse_texture(pbrmaterial.normalTexture)
@@ -55,17 +41,15 @@ def load_gltf(path):
         material.ao_map_intensity = 1.0
 
         material.side = "FRONT"
-
         return material
 
     def parse_mesh(mesh):
         visual = mesh.visual
         visual.uv = visual.uv * np.array([1, -1]) + np.array([0, 1])  # uv.y = 1 - uv.y
-
-        geometry = gfx.trimesh_geometry(mesh)
-        material = __parse_material(visual.material)
-
-        return gfx.Mesh(geometry, material)
+        return gfx.Mesh(
+            gfx.trimesh_geometry(mesh),
+            __parse_material(visual.material),
+        )
 
     helmet = trimesh.load(path)
     for node_name in helmet.graph.nodes_geometry:
@@ -112,7 +96,8 @@ gltf_path = (
 )
 meshes = load_gltf(gltf_path)
 scene.add(*meshes)
-meshes[0].material.env_map = env_view
+m = meshes[0]  # this example has just one mesh
+m.material.env_map = env_view
 
 # Add extra light more or less where the sun seems to be in the skybox
 scene.add(gfx.SpotLight(color="#444", position=(-500, 1000, -1000)))
