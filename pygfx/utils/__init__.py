@@ -6,7 +6,6 @@ import numpy as np
 from .color import Color  # noqa: F401
 from . import cm  # noqa: F401
 
-
 logger = logging.getLogger("pygfx")
 
 
