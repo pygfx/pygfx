@@ -59,7 +59,7 @@ class Environment(Trackable):
         # becomes inactive.
         self._pipeline_containers = weakref.WeakSet()
 
-        # TODO: make this configurable. Would probably have to be a global setting.
+        # Note: we could make this configurable. Would probably have to be a global setting.
         self.shadow_map_size = (1024, 1024)
 
         # List of binding objects

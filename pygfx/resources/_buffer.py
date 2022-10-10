@@ -164,7 +164,7 @@ class Buffer(Resource):
         # Limit and apply
         self._pending_uploads.append((offset, size))
         self._rev += 1
-        # todo: this can be smarter, we have logic for chunking in the morph tool
+        # note: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):
         """Return subdata as a contiguous array."""

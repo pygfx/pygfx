@@ -86,8 +86,6 @@ class RenderFlusher:
     Utility to flush (render) the current state of a renderer into a texture.
     """
 
-    # todo: Once we also have the depth here, we can support things like fog
-
     def __init__(self, device):
         self._device = device
         self._pipelines = {}

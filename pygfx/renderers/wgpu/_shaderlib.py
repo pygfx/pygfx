@@ -457,7 +457,7 @@ class Shaderlib:
             material.diffuse_color = albeido;
             material.specular_color = specular_color;
             material.specular_shininess = u_material.shininess;
-            material.specular_strength = 1.0;  //TODO: Use specular_map if exists
+            material.specular_strength = 1.0;   //  We could provide a specular map
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
             var geometry: GeometricContext;

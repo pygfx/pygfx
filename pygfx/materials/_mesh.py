@@ -161,9 +161,6 @@ class MeshBasicMaterial(Material):
         self._store.flat_shading = bool(value)
 
 
-# todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.
-
-
 class MeshPhongMaterial(MeshBasicMaterial):
     """A material affected by light, diffuse and with specular
     highlights. This material uses the Blinn-Phong reflectance model.

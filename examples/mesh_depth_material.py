@@ -89,7 +89,7 @@ class DepthShader(MeshShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
-            let depth = 1.0 - varyings.position.z; // Invert depth  TODO: logarithmic depth
+            let depth = 1.0 - varyings.position.z; // Invert depth - could also do logarithmic depth
             out.color = vec4<f32>(depth);
             return out;
         }

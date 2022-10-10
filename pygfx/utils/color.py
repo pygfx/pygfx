@@ -14,7 +14,6 @@
 # * Color.lerpHSL(color, t) same as lerp but interpolate in HSL space.
 # * Color.lighter(factor) and Color.darker(factort)
 
-# todo Color.__eq__
 # todo: Support "rgb(100%, 50%, 0%)"
 
 
