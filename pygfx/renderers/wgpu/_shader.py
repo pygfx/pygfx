@@ -166,6 +166,9 @@ class WorldObjectShader(BaseShader):
         ]
 
     def _code_colormap(self):
+        if not self["colormap_dim"]:
+            return ""
+
         typemap = {"1d": "f32", "2d": "vec2<f32>", "3d": "vec3<f32>"}
         self["colormap_coord_type"] = typemap.get(self["colormap_dim"], "f32")
 
@@ -216,36 +219,59 @@ class WorldObjectShader(BaseShader):
     # ----- WGSL lib
 
     def code_common(self):
-        """Get the WGSL functions builtin by PyGfx."""
+        """Get the WGSL functions that are pygfx-builtin. These are functions
+        that re used by (about) every WorldObject. More advanced functions, e.g.
+        for lighting calculations, should be loaded from the shaderlib.
+        """
 
-        # Just a placeholder
         blending_code = """
         let alpha_compare_epsilon : f32 = 1e-6;
         {{ blending_code }}
         """
 
-        # ortho
         ortho = """
         fn is_orthographic() -> bool {
             return u_stdinfo.projection_transform[2][3] == 0.0;
         }
         """
 
-        # Light
         lighting = """
         $$ if lighting
         {{ light_definitions }}
         $$ endif
         """
 
+        ndc_to_world_pos = """
+        fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
+            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
+            let world_pos = ndc_to_world * ndc_pos;
+            return world_pos.xyz / world_pos.w;
+        }
+        """
+
+        srgb2physical = """
+        fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
+            // In Python, the below reads as
+            // c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+            let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
+            let t = color / 12.92;
+            return select(f, t, color <= vec3<f32>(0.04045));
+            // Simplified version with about 0.5% avg error
+            // return pow(color, vec3<f32>(2.2));
+        }
+
+        """
+
         return (
-            self._code_colormap()
-            + self._code_clipping_planes()
-            + self._code_picking()
-            + self._code_misc()
+            ""
             + blending_code
             + ortho
+            + ndc_to_world_pos
+            + srgb2physical
             + lighting
+            + self._code_colormap()
+            + self._code_clipping_planes()
+            + self._code_picking()
         )
 
     def _code_clipping_planes(self):
@@ -296,25 +322,4 @@ class WorldObjectShader(BaseShader):
             let selector2 = vec4<bool>( abs(shift[0]) < 32, abs(shift[1]) < 32, abs(shift[2]) < 32, abs(shift[3]) < 32 );
             return select( vec4<u32>(0u) , pick_new & mask , selector2 );
         }
-        """
-
-    def _code_misc(self):
-        # Small functions
-        return """
-        fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
-            let ndc_to_world = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv;
-            let world_pos = ndc_to_world * ndc_pos;
-            return world_pos.xyz / world_pos.w;
-        }
-
-        fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-            // In Python, the below reads as
-            // c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-            let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
-            let t = color / 12.92;
-            return select(f, t, color <= vec3<f32>(0.04045));
-            // Simplified version with about 0.5% avg error
-            // return pow(color, vec3<f32>(2.2));
-        }
-
         """
