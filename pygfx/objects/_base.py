@@ -84,6 +84,15 @@ class WorldObject(EventTarget, RootTrackable):
 
     This is considered a base class. Use Group to collect multiple world objects
     into a single empty world object.
+
+    Parameters:
+        geometry (Geometry): the data defining the shape of the object.
+        material (Material): the object defining the appearence of the object.
+        visible (bool): whether the object is visible.
+        render_order (int): the render order (when applicable for the renderer's blend mode).
+        render_mask (str): determines the render passes that the object is rendered in.
+           It's recommended to let the renderer decide, using "auto".
+        position (Vector): The position of the light source. Default (0, 0, 0).
     """
 
     # The uniform type describes the structured info for this object, which represents

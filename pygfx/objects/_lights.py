@@ -26,7 +26,6 @@ class Light(WorldObject):
         color (Color): The base color of the light.
         intensity (float): The light intensity.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        position (3-tuple): The position of the light source. Default (0, 0, 0).
     """
 
     # Note that for lights and shadows, the uniform data is stored on the environment.
@@ -104,7 +103,6 @@ class PointLight(Light):
         color (Color): The base color of the light.
         intensity (float): The light intensity.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        position (3-tuple): The position of the light source. Default (0, 0, 0).
         distance (float): TODO There is only one value where distance and decay
             are physically correct. Do we actually need these properties?
         decay (float): TODO
@@ -119,7 +117,7 @@ class PointLight(Light):
         *,
         cast_shadow=False,
         distance=0,
-        decay=1,
+        decay=2,
         **kwargs,
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
@@ -130,11 +128,7 @@ class PointLight(Light):
     @property
     def distance(self):
         """
-        From TheeJS
-
-        Default mode — When distance is zero, light does not attenuate. When distance is non-zero, light will attenuate linearly from maximum intensity at the light's position down to zero at this distance from the light.
-
-        Physically correct mode — When distance is zero, light will attenuate according to inverse-square law to infinite distance. When distance is non-zero, light will attenuate according to inverse-square law until near the distance cutoff, where it will then attenuate quickly and smoothly to 0. Inherently, cutoffs are not physically correct.
+        When distance is zero, light will attenuate according to inverse-square law to infinite distance. When distance is non-zero, light will attenuate according to inverse-square law until near the distance cutoff, where it will then attenuate quickly and smoothly to 0. Inherently, cutoffs are not physically correct.
         """
         return float(self.uniform_buffer.data["distance"])
 
@@ -146,11 +140,9 @@ class PointLight(Light):
     @property
     def decay(self):
         """
-        From ThreeJS
-
         The amount the light dims along the distance of the light
         In physically correct mode, decay = 2 leads to physically realistic light falloff.
-        Default is 1.
+        Default is 2.
         """
         return float(self.uniform_buffer.data["decay"])
 
@@ -169,7 +161,6 @@ class DirectionalLight(Light):
         color (Color): The base color of the light.
         intensity (float): The light intensity.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        position (3-tuple): The position of the light source. Default (0, 0, 0).
         target (WorldObject): The object to direct the light at.
     """
 
@@ -218,7 +209,6 @@ class SpotLight(Light):
         color (Color): The base color of the light.
         intensity (float): The light intensity.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        position (3-tuple): The position of the light source. Default (0, 0, 0).
         angle (float): The maximum extent of the spotlight, in radians. Default Math.PI/3.
         penumbra (float): Percent of the spotlight cone that is attenuated due
             to penumbra. Takes values between zero and 1. Default is zero.
