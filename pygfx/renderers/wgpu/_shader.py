@@ -224,6 +224,13 @@ class WorldObjectShader(BaseShader):
         for lighting calculations, should be loaded from the shaderlib.
         """
 
+        math = """
+        let PI = 3.1;
+        let RECIPROCAL_PI = 0.3183098861837907;
+        fn pow2(x:f32) -> f32 { return x*x; }
+        fn pow4(x:f32) -> f32 { let x2 = x * x; return x2*x2; }
+        """
+
         blending_code = """
         let alpha_compare_epsilon : f32 = 1e-6;
         {{ blending_code }}
@@ -264,6 +271,7 @@ class WorldObjectShader(BaseShader):
 
         return (
             ""
+            + math
             + blending_code
             + ortho
             + ndc_to_world_pos

@@ -19,19 +19,19 @@ cube = gfx.Mesh(
 cube.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 6, math.pi / 6))
 scene.add(cube)
 
-light = gfx.DirectionalLight("#0040ff")
+light = gfx.DirectionalLight("#0040ff", 3)
 light.position.x = 15
 light.position.y = 20
 
 scene.add(light.add(gfx.DirectionalLightHelper(10)))
 
-light2 = gfx.PointLight("#ffaa00")
+light2 = gfx.PointLight("#ffaa00", 200, decay=2)  # 200 candela
 light2.position.x = -15
 light2.position.y = 20
 
 scene.add(light2.add(gfx.PointLightHelper()))
 
-scene.add(gfx.AmbientLight())
+scene.add(gfx.AmbientLight("#111", 4))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 60

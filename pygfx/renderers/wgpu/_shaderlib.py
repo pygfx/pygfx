@@ -10,25 +10,35 @@
 # suffix to colors not yet converted. Most colors on a uniform can also
 # be considered srgb.
 #
-# That pi scale factor for the lights is related to artist-friendly colors or something.
-# Please let me know if you know more about this :)
+# The function names are left camelCase, many come from ThreeJS and this makes it
+# easy to look them up. In general, the variables are snake_case.
+#
+# The PI and RECIPROCAL scale factors for the lights is a complex story
+# related to artist-friendly colors, historic design choices, and
+# undoing the PI factor in other places. We just try follow whay ThreeJS
+# is doing here.
 
 
 class Shaderlib:
     def light_deps_basic(self):
         return """
-        fn getDistanceAttenuation(light_distance: f32, cutoff_distance: f32, decay_exponent: f32) -> f32 {
-            if ( cutoff_distance > 0.0 && decay_exponent > 0.0 ) {
-                return pow( clamp( - light_distance / cutoff_distance + 1.0, 0.0, 1.0), decay_exponent );
-            }
-            return 1.0;
-        }
-        fn smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
+        // TODO smoothstep and saturate probably exists when Naga gets updated
+        fn _smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
             let t = clamp( ( x - low ) / ( high - low ), 0.0, 1.0 );
             return t * t * ( 3.0 - 2.0 * t );
         }
-        fn getSpotAttenuation( coneCosine: f32, penumbraCosine: f32, angleCosine: f32 ) -> f32 {
-            return smoothstep( coneCosine, penumbraCosine, angleCosine );
+        fn _saturate( x: f32) -> f32 {
+            return clamp(x, 0.0, 1.0);
+        }
+        fn getDistanceAttenuation(light_distance: f32, cutoff_distance: f32, decay_exponent: f32) -> f32 {
+            var distance_falloff: f32 = 1.0 / max( pow( light_distance, decay_exponent ), 0.01 );
+            if ( cutoff_distance > 0.0 ) {
+                distance_falloff *= pow2( _saturate( 1.0 - pow4( light_distance / cutoff_distance ) ) );
+            }
+            return distance_falloff;
+        }
+        fn getSpotAttenuation( cone_cosine: f32, penumbra_cosine: f32, angle_cosine: f32 ) -> f32 {
+            return _smoothstep( cone_cosine, penumbra_cosine, angle_cosine );
         }
         fn getAmbientLightIrradiance( ambientlight_color: vec3<f32> ) -> vec3<f32> {
             let irradiance = ambientlight_color;
@@ -53,7 +63,7 @@ class Shaderlib:
         $$ if num_dir_lights > 0
         fn getDirectionalLightInfo( directional_light: DirectionalLight, geometry: GeometricContext ) -> IncidentLight {
             var light: IncidentLight;
-            light.color = srgb2physical(directional_light.color.rgb) * directional_light.intensity * 3.14159;
+            light.color = srgb2physical(directional_light.color.rgb) * directional_light.intensity;
             light.direction = -directional_light.direction.xyz;
             light.visible = true;
             return light;
@@ -65,7 +75,7 @@ class Shaderlib:
             let i_vector = point_light.world_transform[3].xyz - geometry.position;
             light.direction = normalize(i_vector);
             let light_distance = length(i_vector);
-            light.color = srgb2physical(point_light.color.rgb) * point_light.intensity * 3.14159;
+            light.color = srgb2physical(point_light.color.rgb) * point_light.intensity;
             light.color *= getDistanceAttenuation( light_distance, point_light.distance, point_light.decay );
             light.visible = any(light.color != vec3<f32>(0.0));
             return light;
@@ -80,7 +90,7 @@ class Shaderlib:
             let spot_attenuation = getSpotAttenuation(spot_light.cone_cos, spot_light.penumbra_cos, angle_cos);
             if ( spot_attenuation > 0.0 ) {
                 let light_distance = length( i_vector );
-                light.color = srgb2physical(spot_light.color.rgb) * spot_light.intensity * 3.14159;
+                light.color = srgb2physical(spot_light.color.rgb) * spot_light.intensity;
                 light.color *= spot_attenuation;
                 light.color *= getDistanceAttenuation( light_distance, spot_light.distance, spot_light.decay );
                 light.visible = any(light.color != vec3<f32>(0.0));
@@ -128,7 +138,7 @@ class Shaderlib:
         }
         fn getIBLIrradiance( normal: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32) -> vec3<f32> {
             let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
-            return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
+            return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity * PI;
         }
         fn getIBLRadiance( view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec3<f32> {
             var reflectVec = reflect( - view_dir, normal );
@@ -150,7 +160,7 @@ class Shaderlib:
         }
         fn RE_IndirectSpecular_Physical(radiance: vec3<f32>, irradiance: vec3<f32>,
                 geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ReflectedLight) -> ReflectedLight{
-            let cosineWeightedIrradiance: vec3<f32> = irradiance * 0.3183098861837907;
+            let cosineWeightedIrradiance: vec3<f32> = irradiance * RECIPROCAL_PI;
             let scatter = computeMultiscattering( geometry.normal, geometry.view_dir, material.specular_color, material.specular_f90, material.roughness);
             //let total_scattering = scatter.single_scatter + scatter.multi_scatter;
             //let diffuse = material.diffuse_color * ( 1.0 - max( max( total_scattering.r, total_scattering.g ), total_scattering.b ) );
@@ -189,7 +199,7 @@ class Shaderlib:
         # Bidirectional scattering distribution function
         return """
         fn BRDF_Lambert(diffuse_color: vec3<f32>) -> vec3<f32> {
-            return 0.3183098861837907 * diffuse_color;  //  1/pi = 0.3183098861837907
+            return RECIPROCAL_PI * diffuse_color;
         }
         fn F_Schlick(f0: vec3<f32>, f90: f32, dot_vh: f32,) -> vec3<f32> {
             // Optimized variant (presented by Epic at SIGGRAPH '13)
@@ -211,7 +221,7 @@ class Shaderlib:
         fn D_GGX(alpha: f32, dot_nh: f32) -> f32 {
             let a2 = pow( alpha, 2.0 );
             let denom = pow(dot_nh, 2.0) * (a2 - 1.0) + 1.0;
-            return 0.3183098861837907 * a2/pow(denom, 2.0);
+            return RECIPROCAL_PI * a2/pow(denom, 2.0);
         }
         fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: vec3<f32>, f90: f32, roughness: f32) -> vec3<f32> {
             let alpha = pow( roughness, 2.0 );
@@ -385,7 +395,7 @@ class Shaderlib:
             return 0.25;
         }
         fn D_BlinnPhong(shininess: f32, dot_nh: f32) -> f32 {
-            return 0.3183098861837907 * ( shininess * 0.5 + 1.0 ) * pow( dot_nh, shininess );
+            return RECIPROCAL_PI * ( shininess * 0.5 + 1.0 ) * pow( dot_nh, shininess );
         }
         fn BRDF_BlinnPhong(
             light_dir: vec3<f32>,
@@ -451,7 +461,7 @@ class Shaderlib:
 
             // Colors incoming via uniforms
             let specular_color = srgb2physical(u_material.specular_color.rgb);
-            let ambient_color = srgb2physical(u_ambient_light.color.rgb);
+            let ambient_color = u_ambient_light.color.rgb; // the one exception that is already physical
 
             var material: BlinnPhongMaterial;
             material.diffuse_color = albeido;
@@ -646,13 +656,14 @@ class Shaderlib:
 
             // The rest is for indirect light
 
-            let ambient_color = srgb2physical(u_ambient_light.color.rgb);
+            let ambient_color = u_ambient_light.color.rgb;  // the one exception that is already physical
             var irradiance = getAmbientLightIrradiance( ambient_color );
 
             // Light map (pre-backed lighting)
             $$ if use_light_map is defined
             let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord )).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
+            // Note that if we implement light map for MeshBasicMaterial, we must multiply the intensity with the reciprocal PI.
             $$ endif
 
             // Process irradiance

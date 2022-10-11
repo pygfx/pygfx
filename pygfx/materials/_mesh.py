@@ -17,7 +17,7 @@ class MeshBasicMaterial(Material):
 
     def __init__(
         self,
-        color=(1, 1, 1, 1),
+        color="#fff",
         vertex_colors=False,
         map=None,
         wireframe=False,
@@ -206,7 +206,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         self,
         shininess=30,
         emissive="#000",
-        specular="#111",
+        specular="#494949",  #  as physical: #111, the default in ThreeJS
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -230,8 +230,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     @property
     def specular(self):
-        """The specular (highlight) color of the mesh.
-        Default is a Color set to #111111 (very dark grey)"""
+        """The specular (highlight) color of the mesh."""
 
         return Color(self.uniform_buffer.data["specular_color"])
 

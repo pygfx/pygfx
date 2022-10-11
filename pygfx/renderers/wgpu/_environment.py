@@ -512,9 +512,10 @@ def get_hash_and_state(renderer, scene):
         elif isinstance(ob, SpotLight):
             spot_lights.append(ob)
         elif isinstance(ob, AmbientLight):
-            ambient_color[0] += ob.uniform_buffer.data["color"][0]
-            ambient_color[1] += ob.uniform_buffer.data["color"][1]
-            ambient_color[2] += ob.uniform_buffer.data["color"][2]
+            r, g, b = ob.color.to_physical()
+            ambient_color[0] += r * ob.intensity
+            ambient_color[1] += g * ob.intensity
+            ambient_color[2] += b * ob.intensity
 
     scene.traverse(visit, True)
 

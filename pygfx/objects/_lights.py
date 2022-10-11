@@ -69,12 +69,17 @@ class Light(WorldObject):
 
     @property
     def intensity(self):
-        """The light intensity as a float. The intensity scales the
-        color in the physical colorspace, as if scaling the number of
-        photons. Note that an intensity of 0.5 is not equivalent to
-        halving the color value. This is because the srgb color is
-        perceptually linear, while intensity is physically linear.
-        Values over 1.0 make perfect sense - it's just a brighter light.
+        """The light intensity as a float, default 1.0. The units of
+        intensity depend on the type of light. For point and spot lights
+        it represents the luminous intensity of the light measured in
+        candela (cd).
+
+        The intensity scales the color in the physical colorspace, as
+        if scaling the number of photons. Note that an intensity of 0.5
+        is not equivalent to halving the color value. This is because
+        the srgb color is perceptually linear, while intensity is
+        physically linear. Values over 1.0 make perfect sense - it's
+        just a brighter light.
         """
         return float(self.uniform_buffer.data["intensity"])
 
@@ -96,6 +101,18 @@ class Light(WorldObject):
         self.uniform_buffer.data["cast_shadow"] = bool(value)
 
 
+class AmbientLight(Light):
+    """A light that globally illuminates all objects in the scene equally.
+
+    Parameters:
+        color (Color): The base color of the light.
+        intensity (float): The light intensity.
+    """
+
+    def __init__(self, color="#ffffff", intensity=0.2):
+        super().__init__(color, intensity)
+
+
 class PointLight(Light):
     """A light that gets emitted from a single point in all directions.
 
@@ -103,9 +120,10 @@ class PointLight(Light):
         color (Color): The base color of the light.
         intensity (float): The light intensity.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        distance (float): TODO There is only one value where distance and decay
-            are physically correct. Do we actually need these properties?
-        decay (float): TODO
+        distance (float): The max distance that the light shines.
+            Default is 0 which means it shines infinitely far.
+        decay (float): The amount the light dims along the distance of the light.
+            Default 0, no decay. A decay of 2 is physically correct.
     """
 
     uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
@@ -117,7 +135,7 @@ class PointLight(Light):
         *,
         cast_shadow=False,
         distance=0,
-        decay=2,
+        decay=0,
         **kwargs,
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
@@ -126,9 +144,26 @@ class PointLight(Light):
         self._shadow = PointLightShadow()
 
     @property
-    def distance(self):
+    def power(self):
+        """The light's power. I.e. the luminous power of the light measured in lumens (lm).
+        Changing the power will also change the light's intensity.
         """
-        When distance is zero, light will attenuate according to inverse-square law to infinite distance. When distance is non-zero, light will attenuate according to inverse-square law until near the distance cutoff, where it will then attenuate quickly and smoothly to 0. Inherently, cutoffs are not physically correct.
+        # compute the light's luminous power (in lumens) from its intensity (in candela)
+        # for an isotropic light source, luminous power (lm) = 4 π luminous intensity (cd)
+        return self.intensity * 4 * math.PI
+
+    @power.setter
+    def power(self, power):
+        # set the light's intensity (in candela) from the desired luminous power (in lumens)
+        self.intensity = power / (4 * math.PI)
+
+    @property
+    def distance(self):
+        """When distance is zero, light will attenuate according to
+        inverse-square law to infinite distance. When distance is
+        non-zero, light will attenuate the same way until near the
+        distance cutoff, where it will then attenuate quickly and
+        smoothly to 0. Inherently, cutoffs are not physically correct.
         """
         return float(self.uniform_buffer.data["distance"])
 
@@ -139,10 +174,9 @@ class PointLight(Light):
 
     @property
     def decay(self):
-        """
-        The amount the light dims along the distance of the light
-        In physically correct mode, decay = 2 leads to physically realistic light falloff.
-        Default is 2.
+        """The amount the light dims along the distance of the light.
+        A decay of 2 leads to physically realistic light falloff.
+        Default is 0, which means the light does not decay.
         """
         return float(self.uniform_buffer.data["decay"])
 
@@ -169,7 +203,7 @@ class DirectionalLight(Light):
     )
 
     def __init__(
-        self, color="#dddddd", intensity=1, *, cast_shadow=False, target=None, **kwargs
+        self, color="#ffffff", intensity=3, *, cast_shadow=False, target=None, **kwargs
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
         self.target = target or WorldObject()
@@ -209,6 +243,10 @@ class SpotLight(Light):
         color (Color): The base color of the light.
         intensity (float): The light intensity.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
+        distance (float): The max distance that the light shines.
+            Default is 0 which means it shines infinitely far.
+        decay (float): The amount the light dims along the distance of the light.
+            Default 0, no decay. A decay of 2 is physically correct.
         angle (float): The maximum extent of the spotlight, in radians. Default Math.PI/3.
         penumbra (float): Percent of the spotlight cone that is attenuated due
             to penumbra. Takes values between zero and 1. Default is zero.
@@ -229,9 +267,9 @@ class SpotLight(Light):
         *,
         cast_shadow=False,
         distance=0,
+        decay=0,
         angle=math.pi / 3,
         penumbra=0,
-        decay=0,
         **kwargs,
     ):
         super().__init__(color, intensity, cast_shadow=cast_shadow, **kwargs)
@@ -257,9 +295,26 @@ class SpotLight(Light):
         self.look_at(pos2)
 
     @property
+    def power(self):
+        """The light's power. I.e. the luminous power of the light measured in lumens (lm).
+        Changing the power will also change the light's intensity.
+        """
+        # compute the light's luminous power (in lumens) from its intensity (in candela)
+        # by convention for a spotlight, luminous power (lm) = π * luminous intensity (cd)
+        return self.intensity * math.PI
+
+    @power.setter
+    def power(self, power):
+        # set the light's intensity (in candela) from the desired luminous power (in lumens)
+        self.intensity = power / math.PI
+
+    @property
     def distance(self):
-        """Maximum range of the light. Default is 0 (no limit).
-        TODO: same here, for physically correct lights there is only one valid value.
+        """When distance is zero, light will attenuate according to
+        inverse-square law to infinite distance. When distance is
+        non-zero, light will attenuate the same way until near the
+        distance cutoff, where it will then attenuate quickly and
+        smoothly to 0. Inherently, cutoffs are not physically correct.
         """
         return float(self.uniform_buffer.data["distance"])
 
@@ -300,25 +355,16 @@ class SpotLight(Light):
 
     @property
     def decay(self):
-        """The amount the light dims along the distance of the light."""
+        """The amount the light dims along the distance of the light.
+        A decay of 2 leads to physically realistic light falloff.
+        Default is 0, which means the light does not decay.
+        """
         return float(self.uniform_buffer.data["decay"])
 
     @decay.setter
     def decay(self, value):
         self.uniform_buffer.data["decay"] = value
         self.uniform_buffer.update_range(0, 1)
-
-
-class AmbientLight(Light):
-    """A light that globally illuminates all objects in the scene equally.
-
-    Parameters:
-        color (Color): The base color of the light.
-        intensity (float): The light intensity.
-    """
-
-    def __init__(self, color="#111111", intensity=1):
-        super().__init__(color, intensity)
 
 
 # shadows

@@ -285,6 +285,10 @@ class Color:
         t = Color(*args)
         return Color(_physical2srgb(t.r), _physical2srgb(t.g), _physical2srgb(t.b), t.a)
 
+    def to_physical(self):
+        """Return a 3-tuple indicating the color in physical colorspace."""
+        return _srgb2physical(self.r), _srgb2physical(self.g), _srgb2physical(self.b)
+
 
 def _srgb2physical(c):
     # The simplified version has a maximum error less than 1%, but that's still

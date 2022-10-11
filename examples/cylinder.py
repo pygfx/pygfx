@@ -27,7 +27,7 @@ cylinders = [
     ),
     (
         (-50, 0, 0),
-        (0.35, 0, 0, 1),
+        (0, 0, 0.65, 1),
         gfx.cylinder_geometry(
             20, 12, radial_segments=3, height_segments=4, height=10, open_ended=True
         ),
@@ -53,7 +53,7 @@ controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
 scene.add(gfx.AmbientLight())
-light = gfx.PointLight(position=(0, 70, 0))
+light = gfx.PointLight("#fff", 3, position=(0, 70, 0))
 light.cast_shadow = True
 scene.add(light)
 
