@@ -28,7 +28,7 @@ camera.scale.y = -1
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
 
-colors = np.vstack([[0., 0., 1., 1.]] * len(xx)).astype(np.float32)
+colors = np.vstack([[0.0, 0.0, 1.0, 1.0]] * len(xx)).astype(np.float32)
 
 points = gfx.Points(
     gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)], colors=colors),
@@ -39,18 +39,22 @@ scene.add(points)
 
 
 def event_handler(event):
-    print(f"Canvas click coordinates: {event.x, event.y}\n"
-          f"Click position in coordinate system of image, i.e. data coordinates of click event: {event.pick_info['index']}\n"
-          f"Other `pick_info`: {event.pick_info}")
+    print(
+        f"Canvas click coordinates: {event.x, event.y}\n"
+        f"Click position in coordinate system of image, i.e. data coordinates of click event: {event.pick_info['index']}\n"
+        f"Other `pick_info`: {event.pick_info}"
+    )
 
     # reset colors to blue
-    points.geometry.colors.data[:] = np.vstack([[0., 0., 1., 1.]] * len(xx)).astype(np.float32)
+    points.geometry.colors.data[:] = np.vstack([[0.0, 0.0, 1.0, 1.0]] * len(xx)).astype(
+        np.float32
+    )
 
     # set the color of the 3 closest points to red
     positions = points.geometry.positions.data
     event_position = np.array([*event.pick_info["index"], 0])
     closest = np.linalg.norm(positions - event_position, axis=1).argsort()
-    points.geometry.colors.data[closest[:3]] = np.array([1., 0., 0., 1.])
+    points.geometry.colors.data[closest[:3]] = np.array([1.0, 0.0, 0.0, 1.0])
 
     points.geometry.colors.update_range()
     renderer.request_draw()
