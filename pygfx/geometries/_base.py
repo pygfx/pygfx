@@ -135,7 +135,7 @@ class Geometry(Trackable):
             if self._aabb_rev == self.grid.rev:
                 return self._aabb
             # account for multi-channel image data
-            grid_shape = self.grid.data.shape[: self.grid.dim]
+            grid_shape = self.grid.texture.data.shape[: self.grid.dim]
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape], dtype="f8")
             # convert to local image space by aligning
