@@ -12,7 +12,6 @@ renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
 
-# todo: crank this to 1M when wgpu allows it :D
 x = np.linspace(0, 100, 10_000, dtype=np.float32)
 y = np.sin(x) * 30 + np.random.normal(0, 5, len(x)).astype(np.float32)
 

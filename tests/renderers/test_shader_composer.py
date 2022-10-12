@@ -1,5 +1,7 @@
 from pygfx.renderers.wgpu import _shaderbase as shadercomposer
 from pygfx.renderers.wgpu import Binding
+from pygfx.utils import array_from_shadertype
+from pygfx import Buffer
 from pytest import raises
 import numpy as np
 
@@ -85,45 +87,77 @@ def test_uniform_definitions():
     assert (
         shader.code_definitions().strip()
         == """
-        struct Struct_zz {
+        struct Struct_u_1 {
             foo: f32,
             bar: i32,
         };
 
         @group(0) @binding(0)
-        var<uniform> zz: Struct_zz;
+        var<uniform> zz: Struct_u_1;
     """.strip()
     )
 
     # Test vec
     struct = dict(foo="4xf4", bar="2xi4")
+    shader._uniform_struct_names.clear()
+    shader._typedefs.clear()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.code_definitions().strip()
         == """
-        struct Struct_zz {
+        struct Struct_u_1 {
             foo: vec4<f32>,
             bar: vec2<i32>,
         };
 
         @group(0) @binding(0)
-        var<uniform> zz: Struct_zz;
+        var<uniform> zz: Struct_u_1;
     """.strip()
     )
 
     # Test mat
     struct = dict(foo="4x4xf4", bar="3x2xi4")
+    shader._uniform_struct_names.clear()
+    shader._typedefs.clear()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.code_definitions().strip()
         == """
-        struct Struct_zz {
+        struct Struct_u_1 {
             foo: mat4x4<f32>,
             bar: mat3x2<i32>,
         };
 
         @group(0) @binding(0)
-        var<uniform> zz: Struct_zz;
+        var<uniform> zz: Struct_u_1;
+    """.strip()
+    )
+
+    # Test array
+    struct = dict(foo="4x4xf4", bar="3x2xi4")
+    shader._uniform_struct_names.clear()
+    shader._typedefs.clear()
+
+    shader.define_binding(
+        0,
+        0,
+        Binding(
+            "zz",
+            "buffer/uniform",
+            Buffer(array_from_shadertype(struct, 3)),
+            structname="Struct_Foo",
+        ),
+    )
+    assert (
+        shader.code_definitions().strip()
+        == """
+        struct Struct_Foo {
+            foo: mat4x4<f32>,
+            bar: mat3x2<i32>,
+        };
+
+        @group(0) @binding(0)
+        var<uniform> zz: array<Struct_Foo, 3>;
     """.strip()
     )
 

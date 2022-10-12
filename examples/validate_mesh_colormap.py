@@ -100,6 +100,10 @@ scene.add(ob4)
 ob4.position.x = +6
 
 
+scene.add(gfx.AmbientLight(1, 0.2))
+scene.add(gfx.DirectionalLight(1, 2, position=(0, 0, 1)))
+
+
 # Rotate the object a bit
 
 rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 0.1))

@@ -14,7 +14,6 @@
 # * Color.lerpHSL(color, t) same as lerp but interpolate in HSL space.
 # * Color.lighter(factor) and Color.darker(factort)
 
-# todo Color.__eq__
 # todo: Support "rgb(100%, 50%, 0%)"
 
 
@@ -103,6 +102,11 @@ class Color:
 
     def __iter__(self):
         return self.rgba.__iter__()
+
+    def __eq__(self, other):
+        if not isinstance(other, Color):
+            other = Color(other)
+        return all(self._val[i] == other._val[i] for i in range(4))
 
     @property
     def __array_interface__(self):
@@ -255,11 +259,35 @@ class Color:
         else:
             return f"rgba({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)},{a:0.3f})"
 
+    def multiply_scalar(self, factor):
+        """Multiply the color by a scalar. The alpha channel is ignored.
+        Note: The components can be greater than 1.0, which is meaningful.
+        """
+        color = Color(self)
+        color._val[0] *= factor
+        color._val[1] *= factor
+        color._val[2] *= factor
+        return color
+
+    def add_color(self, color):
+        """Add another color to this one. The alpha channel is ignored.
+        Note: The components can be greater than 1.0, which is meaningful.
+        """
+        color = Color(self)
+        color._val[0] += color.r
+        color._val[1] += color.g
+        color._val[2] += color.b
+        return color
+
     @classmethod
     def from_physical(cls, *args):
         """Get a color object from a physical color tuple in physical colorspace."""
         t = Color(*args)
         return Color(_physical2srgb(t.r), _physical2srgb(t.g), _physical2srgb(t.b), t.a)
+
+    def to_physical(self):
+        """Return a 3-tuple indicating the color in physical colorspace."""
+        return _srgb2physical(self.r), _srgb2physical(self.g), _srgb2physical(self.b)
 
 
 def _srgb2physical(c):

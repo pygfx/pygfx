@@ -31,6 +31,7 @@ from ._pipeline import get_pipeline_container_group
 from ._update import update_buffer, update_texture, update_texture_view
 from ._shared import Shared
 from ._environment import get_environment
+from ._shadowutil import ShadowUtil
 
 logger = logging.getLogger("pygfx")
 
@@ -173,6 +174,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
+
+        self._shadow_util = ShadowUtil(self._shared.device)
 
         if enable_events:
             self.enable_events()
@@ -495,6 +498,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         command_buffers = []
         command_buffers += self._render_recording(
             environment,
+            wobject_list,
             compute_pipeline_containers,
             render_pipeline_containers,
             physical_viewport,
@@ -542,6 +546,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def _render_recording(
         self,
         environment,
+        wobject_list,
         compute_pipeline_containers,
         render_pipeline_containers,
         physical_viewport,
@@ -567,6 +572,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         compute_pass.end()
 
         # ----- render pipelines
+
+        # -- process shadow maps
+        lights = (
+            environment.lights["point_lights"]
+            + environment.lights["spot_lights"]
+            + environment.lights["directional_lights"]
+        )
+        self._shadow_util.render_shadow_maps(lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):
 

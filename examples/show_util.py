@@ -6,7 +6,7 @@ import pygfx as gfx
 
 cube = gfx.Mesh(
     gfx.box_geometry(100, 100, 100),
-    gfx.MeshPhongMaterial(),
+    gfx.MeshPhongMaterial(color="red"),
 )
 
 if __name__ == "__main__":

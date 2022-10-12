@@ -27,7 +27,7 @@ cylinders = [
     ),
     (
         (-50, 0, 0),
-        (0.35, 0, 0, 1),
+        (0, 0, 0.65, 1),
         gfx.cylinder_geometry(
             20, 12, radial_segments=3, height_segments=4, height=10, open_ended=True
         ),
@@ -44,12 +44,26 @@ for pos, color, geometry in cylinders:
     material = gfx.MeshNormalLinesMaterial(color=color)
     wobject = gfx.Mesh(geometry, material)
     wobject.position.set(*pos)
+    wobject.cast_shadow = True
     scene.add(wobject)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.set(0, -65, 50)
+camera.position.set(0, 50, 50)
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
+
+scene.add(gfx.AmbientLight())
+light = gfx.PointLight(position=(0, 70, 0))
+light.cast_shadow = True
+scene.add(light)
+
+ground = gfx.Mesh(
+    gfx.box_geometry(1000, 1, 1000),
+    gfx.MeshPhongMaterial(),
+)
+ground.position.y = -40
+ground.receive_shadow = True
+scene.add(ground)
 
 
 def animate():

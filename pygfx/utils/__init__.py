@@ -6,7 +6,6 @@ import numpy as np
 from .color import Color  # noqa: F401
 from . import cm  # noqa: F401
 
-
 logger = logging.getLogger("pygfx")
 
 
@@ -28,9 +27,18 @@ def _set_log_level():
 _set_log_level()
 
 
-def array_from_shadertype(shadertype):
-    """Get a numpy array object from a dict shadertype."""
+def array_from_shadertype(shadertype, count=None):
+    """Get a numpy array object from a dict shadertype.
+    params:
+        shadertype: dict
+            A dict containing the shadertype.
+        count: None or int
+            If count is not None, array has a shape of (count, ),
+            Indicates that the corresponding "Buffer" is an array of struct.
+    """
+
     assert isinstance(shadertype, dict)
+    assert count is None or count > 0
 
     primitives = {
         "i4": "int32",
@@ -84,7 +92,11 @@ def array_from_shadertype(shadertype):
     dtype_fields.append(("__padding", "uint8", (padding,)))
 
     # Create a scalar of this type
-    uniform_data = np.zeros((), dtype=dtype_fields)
+    if count is not None:
+        uniform_data = np.zeros((count,), dtype=dtype_fields)
+    else:
+        uniform_data = np.zeros((), dtype=dtype_fields)
+
     return uniform_data
 
 

@@ -203,6 +203,25 @@ def test_color_named():
         Color(key)
 
 
+def test_color_compare():
+
+    c1 = Color("#f00")
+    c2 = Color("#ff0000")
+    c3 = Color("#333")
+
+    assert c1 == c2
+    assert c2 == c1
+    assert c1 != c3
+    assert c3 != c2
+
+    assert c1 == "red"
+    assert c3 == 0.2
+    assert "#f00" == c1
+
+    assert c3 != "#f00"
+    assert "#f00" != c3
+
+
 def test_color_colorspaces():
     assert Color.from_physical(0.5).hex == "#bcbcbc"
 
@@ -217,4 +236,6 @@ if __name__ == "__main__":
     test_color_hex()
     test_color_css()
     test_color_min_max()
+    test_color_named()
+    test_color_compare()
     test_color_colorspaces()

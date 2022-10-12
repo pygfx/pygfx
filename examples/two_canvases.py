@@ -36,6 +36,8 @@ scene.add(line)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
+scene.add(camera.add(gfx.DirectionalLight()))
+
 # Define animation functions. Each renders the scene into its own canvas.
 
 

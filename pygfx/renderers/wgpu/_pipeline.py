@@ -62,15 +62,20 @@ class Binding:
       BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
     * resource: the Buffer, Texture or TextureView object.
     * visibility: wgpu.ShaderStage flag
+    * structname: the custom wgsl struct name, if any. otherwise will auto-generate.
     """
 
-    def __init__(self, name, type, resource, visibility=visibility_render):
+    def __init__(
+        self, name, type, resource, visibility=visibility_render, structname=None
+    ):
         if isinstance(visibility, str):
             visibility = getattr(wgpu.ShaderStage, visibility)
         self.name = name
         self.type = type
         self.resource = resource
         self.visibility = visibility
+
+        self.structname = structname
 
     def get_bind_group_descriptors(self, slot):
         resource = self.resource
@@ -155,6 +160,32 @@ class Binding:
                     "format": fmt,
                     "view_dimension": dim,
                 },
+            }
+
+        # shadow_texture's resource is internal wgpu.GPUTextureView
+        elif self.type.startswith("shadow_texture/"):
+            assert isinstance(resource, wgpu.GPUTextureView)
+            binding = {"binding": slot, "resource": resource}
+
+            binding_layout = {
+                "binding": slot,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.depth,
+                    "view_dimension": subtype,
+                    "multisampled": False,
+                },
+            }
+
+        # shadow_sampler's resource is internal wgpu.GPUSampler
+        elif self.type.startswith("shadow_sampler/"):
+            assert isinstance(resource, wgpu.GPUSampler)
+            binding = {"binding": slot, "resource": resource}
+
+            binding_layout = {
+                "binding": slot,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.comparison},
             }
 
         return binding, binding_layout
@@ -325,17 +356,18 @@ class PipelineContainer:
         """Update the actual wgpu objects."""
 
         if self.wgpu_shaders.get(env_hash, None) is None:
+
             environment.register_pipeline_container(self)  # allows us to clean up
             changed.add("compile_shader")
             self.wgpu_shaders[env_hash] = self._compile_shaders(
-                shared.device, environment.blender
+                shared.device, environment
             )
 
         if self.wgpu_pipelines.get(env_hash, None) is None:
             changed.add("compose_pipeline")
             shader_modules = self.wgpu_shaders[env_hash]
             self.wgpu_pipelines[env_hash] = self._compose_pipelines(
-                shared.device, environment.blender, shader_modules
+                shared.device, environment, shader_modules
             )
 
     def update_shader_hash(self):
@@ -484,13 +516,13 @@ class ComputePipelineContainer(PipelineContainer):
         assert isinstance(resources, dict)
         assert set(resources.keys()) == {"bindings"}, f"{resources.keys()}"
 
-    def _compile_shaders(self, device, blender):
+    def _compile_shaders(self, device, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
         wgsl = self.shader.generate_wgsl()
         shader_module = cache.get_shader_module(device, wgsl)
         return {0: shader_module}
 
-    def _compose_pipelines(self, device, blender, shader_modules):
+    def _compose_pipelines(self, device, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -565,7 +597,6 @@ class RenderPipelineContainer(PipelineContainer):
 
         expected = {"index_buffer", "vertex_buffers", "bindings"}
         assert set(resources.keys()) == expected, f"{resources.keys()}"
-
         assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
         assert isinstance(resources["vertex_buffers"], dict)
         assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
@@ -582,7 +613,7 @@ class RenderPipelineContainer(PipelineContainer):
         index_buffer = self.resources["index_buffer"]
         if index_buffer is not None:
             index_format = to_vertex_format(index_buffer.format)
-            index_format = index_format.split("x")[0].replace("s", "u")
+            self.index_format = index_format.split("x")[0].replace("s", "u")
         strip_index_format = 0
         if "strip" in self.pipeline_info["primitive_topology"]:
             strip_index_format = index_format
@@ -597,7 +628,7 @@ class RenderPipelineContainer(PipelineContainer):
         for slot, buffer in self.resources["vertex_buffers"].items():
             vbo_des = {
                 "array_stride": buffer.nbytes // buffer.nitems,
-                "step_mode": wgpu.VertexStepMode.vertex,  # vertex or instance
+                "step_mode": wgpu.VertexStepMode.vertex,  # vertex
                 "attributes": [
                     {
                         "format": to_vertex_format(buffer.format),
@@ -607,27 +638,34 @@ class RenderPipelineContainer(PipelineContainer):
                 ],
             }
             vertex_buffer_descriptors.append(vbo_des)
+
         # Trigger a pipeline rebuild?
         if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
             self.vertex_buffer_descriptors = vertex_buffer_descriptors
             self.wgpu_pipelines = {}
 
-    def _compile_shaders(self, device, blender):
+    def _compile_shaders(self, device, env):
         """Compile the templated shader to a list of wgpu shader modules
         (one for each pass of the blender).
         """
+        blender = env.blender
+
         shader_modules = {}
         for pass_index in range(blender.get_pass_count()):
             color_descriptors = blender.get_color_descriptors(pass_index)
             if not color_descriptors:
                 continue
 
-            wgsl = self.shader.generate_wgsl(**blender.get_shader_kwargs(pass_index))
+            env_bind_group_index = len(self.wgpu_bind_groups)
+            wgsl = self.shader.generate_wgsl(
+                **blender.get_shader_kwargs(pass_index),
+                **env.get_shader_kwargs(env_bind_group_index),
+            )
             shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
 
         return shader_modules
 
-    def _compose_pipelines(self, device, blender, shader_modules):
+    def _compose_pipelines(self, device, env, shader_modules):
         """Create a list of wgpu pipeline objects from the shader, bind group
         layouts and other pipeline info (one for each pass of the blender).
         """
@@ -641,12 +679,15 @@ class RenderPipelineContainer(PipelineContainer):
         cull_mode = self.pipeline_info["cull_mode"]
 
         # Create pipeline layout object from list of layouts
+        env_bind_group_layout, _ = env.wgpu_bind_group
+        bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
         pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=self.wgpu_bind_group_layouts
+            bind_group_layouts=bind_group_layouts
         )
 
         # Instantiate the pipeline objects
         pipelines = {}
+        blender = env.blender
         for pass_index in range(blender.get_pass_count()):
             color_descriptors = blender.get_color_descriptors(pass_index)
             depth_descriptor = blender.get_depth_descriptor(pass_index)
@@ -705,6 +746,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         # Set pipeline and resources
         render_pass.set_pipeline(pipeline)
+
         for slot, vbuffer in vertex_buffers.items():
             render_pass.set_vertex_buffer(
                 slot,
@@ -712,14 +754,20 @@ class RenderPipelineContainer(PipelineContainer):
                 vbuffer.vertex_byte_range[0],
                 vbuffer.vertex_byte_range[1],
             )
+
         for bind_group_id, bind_group in enumerate(bind_groups):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
+
+        env_bind_group_id = len(bind_groups)
+        _, env_bind_group = environment.wgpu_bind_group
+        render_pass.set_bind_group(env_bind_group_id, env_bind_group, [], 0, 99)
 
         # Draw!
         # draw_indexed(count_v, count_i, first_vertex, base_vertex, first_instance)
         # draw(count_vertex, count_instance, first_vertex, first_instance)
         if index_buffer is not None:
-            render_pass.set_index_buffer(index_buffer, 0, index_buffer.size)
+            index_format = self.index_format  # uint32 or uint16
+            render_pass.set_index_buffer(index_buffer._wgpu_buffer[1], index_format)
             if len(indices) == 4:
                 base_vertex = 0  # A value added to each index before reading [...]
                 indices = list(indices)
