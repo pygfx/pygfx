@@ -18,9 +18,8 @@ scene.add(cube)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
-# scene.add(gfx.AmbientLight())
-# scene.add(gfx.DirectionalLight("#fff", 1, position=(0, 0, 10)))
-scene.add(gfx.SpotLight("#fff", 10000, distance=0, decay=2, position=(0, 0, 200)))
+scene.add(gfx.AmbientLight())
+scene.add(gfx.DirectionalLight())
 
 
 def animate():

@@ -231,7 +231,10 @@ class DirectionalLight(Light):
         pos2 = get_pos_from_camera_parent_or_target(self)
         origin_to_target = Vector3().sub_vectors(pos2, pos1)
         self._gfx_distance_to_target = origin_to_target.length()
-        direction = origin_to_target.normalize()
+        if self._gfx_distance_to_target > 0:
+            direction = origin_to_target.normalize()
+        else:
+            direction = Vector3(0, 0, -1)  # ill-defined direction -> look neg z-axis
         self.uniform_buffer.data["direction"].flat = direction.to_array()
         self.look_at(pos2)
 
@@ -293,7 +296,10 @@ class SpotLight(Light):
         pos2 = get_pos_from_camera_parent_or_target(self)
         origin_to_target = Vector3().sub_vectors(pos2, pos1)
         self._gfx_distance_to_target = origin_to_target.length()
-        direction = origin_to_target.normalize()
+        if self._gfx_distance_to_target > 0:
+            direction = origin_to_target.normalize()
+        else:
+            direction = Vector3(0, 0, -1)  # ill-defined direction -> look neg z-axis
         self.uniform_buffer.data["direction"].flat = direction.to_array()
         self.look_at(pos2)
 
