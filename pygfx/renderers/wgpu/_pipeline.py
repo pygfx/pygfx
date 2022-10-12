@@ -449,10 +449,6 @@ class PipelineContainer:
             buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
             pipeline_resources.append(("buffer", buffer))
 
-        for buffer in resources.get("vertex_buffers", {}).values():
-            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
-            pipeline_resources.append(("buffer", buffer))
-
         for group_dict in resources.get("bindings", {}).values():
             for binding in group_dict.values():
                 resource = binding.resource
@@ -563,7 +559,6 @@ class RenderPipelineContainer(PipelineContainer):
     def __init__(self, shader):
         super().__init__(shader)
         self.strip_index_format = 0
-        self.vertex_buffer_descriptors = []
 
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
@@ -595,15 +590,11 @@ class RenderPipelineContainer(PipelineContainer):
         resources = self.resources
         assert isinstance(resources, dict)
 
-        expected = {"index_buffer", "vertex_buffers", "bindings"}
+        expected = {"index_buffer", "bindings"}
         assert set(resources.keys()) == expected, f"{resources.keys()}"
         assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
-        assert isinstance(resources["vertex_buffers"], dict)
-        assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
-        assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"].values())
 
         self.update_index_buffer_format()
-        self.update_vertex_buffer_descriptors()
 
     def update_index_buffer_format(self):
         if not self.resources or not self.pipeline_info:
@@ -620,28 +611,6 @@ class RenderPipelineContainer(PipelineContainer):
         # Trigger a pipeline rebuild?
         if self.strip_index_format != strip_index_format:
             self.strip_index_format = strip_index_format
-            self.wgpu_pipelines = {}
-
-    def update_vertex_buffer_descriptors(self):
-        # todo: we can probably expose multiple attributes per buffer using a BufferView
-        vertex_buffer_descriptors = []
-        for slot, buffer in self.resources["vertex_buffers"].items():
-            vbo_des = {
-                "array_stride": buffer.nbytes // buffer.nitems,
-                "step_mode": wgpu.VertexStepMode.vertex,  # vertex
-                "attributes": [
-                    {
-                        "format": to_vertex_format(buffer.format),
-                        "offset": 0,
-                        "shader_location": slot,
-                    }
-                ],
-            }
-            vertex_buffer_descriptors.append(vbo_des)
-
-        # Trigger a pipeline rebuild?
-        if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
-            self.vertex_buffer_descriptors = vertex_buffer_descriptors
             self.wgpu_pipelines = {}
 
     def _compile_shaders(self, device, env):
@@ -674,7 +643,6 @@ class RenderPipelineContainer(PipelineContainer):
         # todo: cache vertex descriptors
 
         strip_index_format = self.strip_index_format
-        vertex_buffer_descriptors = self.vertex_buffer_descriptors
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
 
@@ -701,7 +669,7 @@ class RenderPipelineContainer(PipelineContainer):
                 vertex={
                     "module": shader_module,
                     "entry_point": "vs_main",
-                    "buffers": vertex_buffer_descriptors,
+                    "buffers": [],
                 },
                 primitive={
                     "topology": primitive_topology,
@@ -741,19 +709,10 @@ class RenderPipelineContainer(PipelineContainer):
         pipeline = self.wgpu_pipelines[env_hash][pass_index]
         indices = self.render_info["indices"]
         index_buffer = self.resources["index_buffer"]
-        vertex_buffers = self.resources["vertex_buffers"]
         bind_groups = self.wgpu_bind_groups
 
         # Set pipeline and resources
         render_pass.set_pipeline(pipeline)
-
-        for slot, vbuffer in vertex_buffers.items():
-            render_pass.set_vertex_buffer(
-                slot,
-                vbuffer._wgpu_buffer[1],
-                vbuffer.vertex_byte_range[0],
-                vbuffer.vertex_byte_range[1],
-            )
 
         for bind_group_id, bind_group in enumerate(bind_groups):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)

@@ -155,7 +155,6 @@ class ImageShader(BaseImageShader):
 
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
             "bindings": {
                 0: bindings,
             },

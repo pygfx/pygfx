@@ -42,13 +42,11 @@ class WorldObjectShader(BaseShader):
 
         Fields for a render shader:
           * "index_buffer": None or a Buffer object.
-          * "vertex_buffer": a dict of buffer objects.
           * "bindings": a dict of dicts with binding objects
             (group_slot -> binding_slot -> binding)
         """
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
             "bindings": {
                 0: {},
             },

@@ -67,7 +67,6 @@ class BaseVolumeShader(WorldObjectShader):
 
         return {
             "index_buffer": None,
-            "vertex_buffers": {},
             "bindings": {
                 0: bindings,
             },
