@@ -24,7 +24,7 @@ floor.receive_shadow = True
 
 scene.add(floor)
 
-ambient = gfx.AmbientLight("#111111")
+ambient = gfx.AmbientLight("#fff", 0.1)
 scene.add(ambient)
 
 light = gfx.DirectionalLight("#aaaaaa")
@@ -36,7 +36,7 @@ light.shadow.camera.width = 100
 light.shadow.camera.height = 100
 light.shadow.camera.update_projection_matrix()
 
-scene.add(light.add(gfx.DirectionalLightHelper(100, show_shadow_extent=True)))
+scene.add(light.add(gfx.DirectionalLightHelper(30, show_shadow_extent=True)))
 
 box = gfx.box_geometry(20, 20, 20)
 material = gfx.MeshPhongMaterial()

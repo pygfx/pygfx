@@ -53,7 +53,7 @@ controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
 scene.add(gfx.AmbientLight())
-light = gfx.PointLight("#fff", 3, position=(0, 70, 0))
+light = gfx.PointLight(position=(0, 70, 0))
 light.cast_shadow = True
 scene.add(light)
 

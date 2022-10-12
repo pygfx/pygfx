@@ -100,8 +100,8 @@ scene.add(ob4)
 ob4.position.x = +6
 
 
-scene.add(gfx.AmbientLight())
-scene.add(gfx.DirectionalLight(0.7, position=(0, 0, 1)))
+scene.add(gfx.AmbientLight(1, 0.2))
+scene.add(gfx.DirectionalLight(1, 2, position=(0, 0, 1)))
 
 
 # Rotate the object a bit

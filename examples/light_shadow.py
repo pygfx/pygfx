@@ -51,11 +51,11 @@ box.receive_shadow = True
 box.cast_shadow = False
 scene.add(box)
 
-ambient = gfx.AmbientLight("#111111")
+ambient = gfx.AmbientLight()
 
 scene.add(ambient)
 
-light = gfx.PointLight("#4040ff")
+light = gfx.PointLight("#4040ff", 500000, decay=2)
 light.position.x = 15
 light.position.y = 20
 

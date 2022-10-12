@@ -25,11 +25,11 @@ controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
 # Lights
-scene.add(gfx.AmbientLight("#222222"))
-directional_light = gfx.DirectionalLight(0xFFFFFF, 1)
+scene.add(gfx.AmbientLight("#fff", 0.2))
+directional_light = gfx.DirectionalLight("#fff", 3)
 directional_light.position.set(1, 1, 1).normalize()
 scene.add(directional_light)
-point_light = gfx.PointLight(0xFFFFFF, 2, distance=800)
+point_light = gfx.PointLight("#fff", 3)
 scene.add(point_light)
 point_light.add(gfx.PointLightHelper(4))
 

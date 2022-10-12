@@ -274,7 +274,7 @@ class LightViewer(QtWidgets.QWidget):
         scene.add(directional_light)
 
         # Ambient light
-        self.ambient_light = gfx.AmbientLight("#202020")
+        self.ambient_light = gfx.AmbientLight()
         scene.add(self.ambient_light)
 
         camera = gfx.PerspectiveCamera(70, 16 / 9)
