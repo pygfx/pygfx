@@ -13,8 +13,8 @@ camera = gfx.NDCCamera()
 triangle = gfx.Mesh(
     gfx.Geometry(
         indices=[(0, 1, 2)],
-        positions=[(0.0, -0.5, 0), (0.5, 0.5, 0), (-0.5, 0.7, 0)],
-        colors=[(0.0, -0.5, 0.5, 1), (0.5, 0.5, 0.5, 1), (-0.5, 0.7, 0.5, 1)],
+        positions=[(0.0, -0.5, 0), (0.5, 0.5, 0), (-0.5, 0.75, 0)],
+        colors=[(1, 1, 0, 1), (1, 0, 1, 1), (0, 1, 1, 1)],
     ),
     gfx.MeshBasicMaterial(vertex_colors=True),
 )
