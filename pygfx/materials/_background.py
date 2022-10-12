@@ -2,10 +2,6 @@ from ._base import Material
 from ..utils import Color
 from ..linalg import Vector3
 
-# todo: in ThreeJS you can simply set a CubeTexture as the scene.background
-# we could do that, and the scene could use these objects automatically.
-# Or just leave it like this. I kinda like it.
-
 
 class BackgroundMaterial(Material):
     """A background material that draws the background is a uniform color

@@ -15,7 +15,7 @@ if not can_use_wgpu_lib:
 render_tex = gfx.Texture(dim=2, size=(10, 10, 1), format=wgpu.TextureFormat.rgba8unorm)
 
 
-def test_environment_reuse():
+def test_environment_reuse1():
     renderer1 = gfx.renderers.WgpuRenderer(render_tex)
     renderer2 = gfx.renderers.WgpuRenderer(render_tex)
     scene1 = gfx.Scene()
@@ -24,6 +24,44 @@ def test_environment_reuse():
     env1 = environment_manager.get_environment(renderer1, scene1)
     env2 = environment_manager.get_environment(renderer2, scene2)
     assert env1 is env2
+
+
+def test_environment_reuse2():
+    renderer1 = gfx.renderers.WgpuRenderer(render_tex)
+
+    scene1 = gfx.Scene()
+
+    scene2 = gfx.Scene()
+    scene2.add(gfx.AmbientLight())
+    scene2.add(gfx.DirectionalLight())
+
+    scene3 = gfx.Scene()
+    scene3.add(gfx.AmbientLight())
+    scene3.add(gfx.DirectionalLight())
+
+    scene4 = gfx.Scene()
+    scene4.add(gfx.AmbientLight())
+    scene4.add(gfx.AmbientLight())
+    scene4.add(gfx.DirectionalLight())
+
+    scene5 = gfx.Scene()
+    scene5.add(gfx.AmbientLight())
+    scene5.add(gfx.AmbientLight())
+    scene5.add(gfx.DirectionalLight())
+    scene5.add(gfx.DirectionalLight())
+
+    env1 = environment_manager.get_environment(renderer1, scene1)
+    env2 = environment_manager.get_environment(renderer1, scene2)
+    env3 = environment_manager.get_environment(renderer1, scene3)
+    env4 = environment_manager.get_environment(renderer1, scene4)
+    env5 = environment_manager.get_environment(renderer1, scene5)
+
+    assert env1 is not env2, "env1 and env2 have different number of lights"
+    assert env2 is env3, "env2 and env3 have same number of lights"
+    assert (
+        env2 is env4
+    ), "env2 and env4 have same number of lights, ambient lights dont count"
+    assert env2 is not env5, "env2 and env5 have different number of lights"
 
 
 def prepare_for_cleanup():

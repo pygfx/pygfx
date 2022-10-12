@@ -20,10 +20,13 @@ scene.add(cube)
 
 scene.add(gfx.GridHelper())
 
+
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 4
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(viewport, camera)
+
+scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
 gizmo = gfx.TransformGizmo(cube)
 gizmo.add_default_event_handlers(viewport, camera)

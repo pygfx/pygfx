@@ -90,7 +90,7 @@ ob2.position.x = -2
 
 texcoords3 = geometry.positions.data * 0.4 + 0.5
 
-cmap3 = imageio.volread("imageio:stent.npz").astype(np.float32) / 2000
+cmap3 = imageio.volread("imageio:stent.npz").astype(np.float32) / 1000
 tex3 = gfx.Texture(cmap3, dim=3).get_view()
 
 ob3 = WobjectClass(
@@ -115,6 +115,9 @@ ob4 = WobjectClass(
 )
 scene.add(ob4)
 ob4.position.x = +6
+
+scene.add(gfx.AmbientLight())
+scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
 
 
 def animate():

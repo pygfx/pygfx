@@ -25,6 +25,7 @@ cube1 = gfx.Mesh(geometry1, material1)
 scene1.add(cube1)
 
 camera1 = gfx.OrthographicCamera(300, 300)
+scene1.add(camera1.add(gfx.DirectionalLight()))
 
 # Compose another scene, a 2D overlay
 

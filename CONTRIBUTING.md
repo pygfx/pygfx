@@ -69,3 +69,13 @@ flake8 .
 
 You can set the `PYGFX_LOG_LEVEL` environment variable to get more
 detailed log messages. Can be an int or any of the standard level names.
+
+
+## Attributes
+
+We distinguish four kinds of attributes:
+
+* Public attibutes for the user: should in most cases be ``@property``'s.
+* Private attributes: prefixed with "_" as usual.
+* Attributes used by other parts of pygfx but not intended for the user: prefixed with "_gfx_".
+* Attributes to store WgpuRenderer-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".

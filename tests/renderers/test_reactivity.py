@@ -143,7 +143,8 @@ def test_reactivity_mesh3():
     cmap3 = np.array([(1,), (0,), (0,), (1,)], np.int32)
     tex3 = gfx.Texture(cmap3, dim=1).get_view(filter="linear")
 
-    obj = gfx.Mesh(geometry, gfx.MeshPhongMaterial(map=tex1))
+    # only float32 color map is supported in MeshPhongMaterial for now
+    obj = gfx.Mesh(geometry, gfx.MeshBasicMaterial(map=tex1))
 
     # Render once
     render(obj)
@@ -155,6 +156,8 @@ def test_reactivity_mesh3():
 
     # Change to colormap of different format, need rebuild!
     obj.material.map = tex3
+    print("uv", geometry.texcoords.data.shape)
+    print("map", obj.material.map.view_dim)
     changed = render(obj)
     assert changed == {"resources", "compile_shader", "compose_pipeline"}
 

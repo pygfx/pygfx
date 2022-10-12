@@ -169,9 +169,6 @@ class LineShader(WorldObjectShader):
 
     def code_more_definitions(self):
         return """
-
-        let PI: f32 = 3.14159265359;
-
         struct VertexInput {
             @builtin(vertex_index) index : u32,
         };

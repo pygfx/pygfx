@@ -41,6 +41,8 @@ for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
 
 camera = gfx.PerspectiveCamera(70)
 
+scene.add(gfx.AmbientLight(0.4), gfx.DirectionalLight(0.6, position=(0, -100, 0)))
+
 
 def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.01, 0.02))

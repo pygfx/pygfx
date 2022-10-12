@@ -5,6 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format
+from ._mipmapsutil import get_mipmaps_util, get_mip_level_count
 
 
 # Alternative texture formats that we support by padding channels as needed.
@@ -77,18 +78,17 @@ def update_texture_view(device, resource):
         texture_view = resource.texture._wgpu_texture[1].create_view()
     else:
         dim = resource._view_dim
-        assert resource._mip_range.step == 1
-        assert resource._layer_range.step == 1
         fmt = to_texture_format(resource.format)
         fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
+
         texture_view = resource.texture._wgpu_texture[1].create_view(
             format=fmt,
             dimension=f"{dim}d" if isinstance(dim, int) else dim,
             aspect=resource._aspect,
-            base_mip_level=resource._mip_range.start,
-            mip_level_count=len(resource._mip_range),
-            base_array_layer=resource._layer_range.start,
-            array_layer_count=len(resource._layer_range),
+            base_mip_level=resource.mip_range.start,
+            mip_level_count=len(resource.mip_range),
+            base_array_layer=resource.layer_range.start,
+            array_layer_count=len(resource.layer_range),
         )
     resource._wgpu_texture_view = resource.rev, texture_view
 
@@ -104,15 +104,26 @@ def update_texture(device, resource):
     if fmt in ALTTEXFORMAT:
         fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
 
+    needs_mipmaps = getattr(resource, "generate_mipmaps", False)
+
+    mip_level_count = get_mip_level_count(resource) if needs_mipmaps else 1
+
     # Create texture if needed
     if texture is None:  # todo: or needs to be replaced (e.g. resized)
         resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
+
+        usage = resource._wgpu_usage
+        if needs_mipmaps is True:
+            # current mipmap generation requires RENDER_ATTACHMENT
+            usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
+            resource._mip_level_count = mip_level_count
+
         texture = device.create_texture(
             size=resource.size,
-            usage=resource._wgpu_usage,
+            usage=usage,
             dimension=f"{resource.dim}d",
-            format=getattr(wgpu.TextureFormat, fmt),
-            mip_level_count=1,
+            format=fmt,
+            mip_level_count=mip_level_count,
             sample_count=1,  # msaa?
         )  # todo: let resource specify mip_level_count and sample_count
 
@@ -155,6 +166,16 @@ def update_texture(device, resource):
             {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
             size,
         )
+
+        if needs_mipmaps:
+            generate_mipmaps(device, texture, fmt, mip_level_count, offset[2])
+
+
+def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_layer=0):
+    mipmaps_util = get_mipmaps_util(device)
+    mipmaps_util.generate_mipmaps(
+        texture_gpu, format, mip_level_count, base_array_layer
+    )
 
 
 def update_sampler(device, resource):
