@@ -1,3 +1,4 @@
+import math
 from ._base import Material
 from ..resources import TextureView
 from ..utils import unpack_bitfield
@@ -16,11 +17,12 @@ class MeshBasicMaterial(Material):
 
     def __init__(
         self,
-        color=(1, 1, 1, 1),
+        color="#fff",
         vertex_colors=False,
         map=None,
         wireframe=False,
         wireframe_thickness=1,
+        flat_shading=False,
         side="BOTH",
         **kwargs,
     ):
@@ -31,6 +33,7 @@ class MeshBasicMaterial(Material):
         self.map = map
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
+        self.flat_shading = flat_shading
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -144,8 +147,18 @@ class MeshBasicMaterial(Material):
             self.uniform_buffer.data["wireframe"] = -value
         self.uniform_buffer.update_range(0, 1)
 
+    @property
+    def flat_shading(self):
+        """Whether the mesh is rendered with flat shading.
+        A material that applies lighting per-face (non-interpolated).
+        This gives a "pixelated" look, but can also be usefull if one wants
+        to show the (size of) the triangle faces.
+        """
+        return self._store.flat_shading
 
-# todo: MeshLambertMaterial? In ThreeJS this material uses Gouroud shading with the Lambertian light model.
+    @flat_shading.setter
+    def flat_shading(self, value: bool):
+        self._store.flat_shading = bool(value)
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
@@ -185,25 +198,46 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
     uniform_type = dict(
         emissive_color="4xf4",
+        specular_color="4xf4",
         shininess="f4",
     )
 
-    def __init__(self, shininess=30, emissive=(0, 0, 0, 0), **kwargs):
+    def __init__(
+        self,
+        shininess=30,
+        emissive="#000",
+        specular="#494949",  # as physical: #111, the default in ThreeJS
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.shininess = shininess
+        self.specular = specular
 
     @property
     def emissive(self):
-        """The emissive (light) color of the mesh, as an rgba tuple.
+        """The emissive (light) color of the mesh.
         This color is added to the final color and is unaffected by lighting.
         The alpha channel of this color is ignored.
         """
-        return self.uniform_buffer.data["emissive_color"]
+        return Color(self.uniform_buffer.data["emissive_color"])
 
     @emissive.setter
     def emissive(self, color):
+        color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def specular(self):
+        """The specular (highlight) color of the mesh."""
+
+        return Color(self.uniform_buffer.data["specular_color"])
+
+    @specular.setter
+    def specular(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["specular_color"] = color
         self.uniform_buffer.update_range(0, 1)
 
     @property
@@ -218,17 +252,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         self.uniform_buffer.data["shininess"] = value
         self.uniform_buffer.update_range(0, 1)
 
-
-class MeshFlatMaterial(MeshPhongMaterial):
-    """A material that applies lighting per-face (non-interpolated).
-    This gives a "pixelated" look, but can also be usefull if one wants
-    to show the (size of) the triangle faces. The shading and
-    reflectance model is the same as for ``MeshPhongMaterial``.
-    """
-
-
-# todo: MeshStandardMaterial(MeshBasicMaterial):
-# A standard physically based material, using Metallic-Roughness workflow.
+    # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
 
 
 # todo: MeshToonMaterial(MeshBasicMaterial):
@@ -280,4 +304,253 @@ class MeshSliceMaterial(MeshBasicMaterial):
     @thickness.setter
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
+        self.uniform_buffer.update_range(0, 1)
+
+
+class MeshStandardMaterial(MeshBasicMaterial):
+    """A standard physically based material, applying PBR (Physically based rendering)
+    using the Metallic-Roughness workflow.
+    """
+
+    # Physically based rendering (PBR) has recently become the standard
+    # in many 3D applications, it use a physically correct model instead
+    # of using approximations for the way in which light interacts with
+    # a surface. Technical details of the approach can be found is this
+    # paper from Disney (by Brent Burley):
+    # https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
+
+    uniform_type = dict(
+        emissive_color="4xf4",
+        roughness="f4",
+        metalness="f4",
+        normal_scale="2xf4",
+        light_map_intensity="f4",
+        ao_map_intensity="f4",
+        emissive_intensity="f4",
+        env_map_intensity="f4",
+        env_map_max_mip_level="f4",
+    )
+
+    def __init__(
+        self,
+        emissive="#000",
+        metalness=0.0,
+        roughness=1.0,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.emissive = emissive
+        self.roughness = roughness
+        self.metalness = metalness
+
+        self.roughness_map = None
+        self.metalness_map = None
+
+        self.light_map = None
+        self.light_map_intensity = 1.0
+
+        self.ao_map = None
+        self.ao_map_intensity = 1.0
+
+        self.emissive_map = None
+        self.emissive_intensity = 1.0
+
+        self.normal_map = None
+        self.normal_scale = (1, 1)
+
+        self.env_map = None
+        self.env_map_intensity = 1.0
+
+        # Note: there are more advanced properties to add, e.g. displacement_map, alpha_map
+
+    @property
+    def emissive(self):
+        """The emissive color of the mesh. I.e. the color that the
+        object emits even when not lit by a light source. This color
+        is added to the final color and unaffected by lighting. The
+        alpha channel is ignored.
+        """
+        return Color(self.uniform_buffer.data["emissive_color"])
+
+    @emissive.setter
+    def emissive(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def emissive_map(self):
+        """The emissive map color is modulated by the emissive color
+        and the emissive intensity. If you have an emissive map, be
+        sure to set the emissive color to something other than black.
+        Note that both emissive color and emissive map are considered
+        in srgb colorspace. Default None.
+        """
+        return self._store.emissive_map
+
+    @emissive_map.setter
+    def emissive_map(self, value):
+        self._store.emissive_map = value
+
+    @property
+    def emissive_intensity(self):
+        """Intensity of the emissive light. Modulates the emissive color
+        and emissive map. Default is 1.
+
+        Note that the intensity is applied in the physical colorspace.
+        You can think of it as scaling the number of photons. Therefore
+        using an intensity of 0.5 is not the same as halving the
+        emissive color, which is in srgb space.
+        """
+        return self.uniform_buffer.data["emissive_intensity"]
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def metalness(self):
+        """How much the material looks like a metal. Non-metallic materials
+        such as wood or stone use 0.0, metal use 1.0, with nothing
+        (usually) in between. Default is 0.0. A value between 0.0 and
+        1.0 could be used for a rusty metal look. If metalness_map is
+        also provided, both values are multiplied.
+        """
+        return float(self.uniform_buffer.data["metalness"])
+
+    @metalness.setter
+    def metalness(self, value):
+        self.uniform_buffer.data["metalness"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def metalness_map(self):
+        """The blue channel of this texture is used to alter the metalness of the material."""
+        return self._store.metalness_map
+
+    @metalness_map.setter
+    def metalness_map(self, value):
+        self._store.metalness_map = value
+
+    @property
+    def roughness(self):
+        """How rough the material is. 0.0 means a smooth mirror
+        reflection, 1.0 means fully diffuse. Default is 1.0.
+        If roughness_map is also provided, both values are multiplied.
+        """
+        return float(self.uniform_buffer.data["roughness"])
+
+    @roughness.setter
+    def roughness(self, value):
+        self.uniform_buffer.data["roughness"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def roughness_map(self):
+        """The green channel of this texture is used to alter the roughness of the material."""
+        return self._store.roughness_map
+
+    @roughness_map.setter
+    def roughness_map(self, value):
+        self._store.roughness_map = value
+
+    @property
+    def normal_scale(self):
+        """How much the normal map affects the material. This 2-tuple
+        is multiplied with the normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["normal_scale"])
+
+    @normal_scale.setter
+    def normal_scale(self, value):
+        self.uniform_buffer.data["normal_scale"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_map(self):
+        """The texture to create a normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.normal_map
+
+    @normal_map.setter
+    def normal_map(self, value):
+        self._store.normal_map = value
+
+    @property
+    def light_map(self):
+        """The light map to define pre-baked lighting (in srgb). Default is None."""
+        return self._store.light_map
+
+    @light_map.setter
+    def light_map(self, value):
+        self._store.light_map = value
+
+    @property
+    def light_map_intensity(self):
+        """Intensity of the baked light. Scaling occurs in the physical
+        color space. Default is 1.0.
+        """
+        return float(self.uniform_buffer.data["light_map_intensity"])
+
+    @light_map_intensity.setter
+    def light_map_intensity(self, value):
+        self.uniform_buffer.data["light_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def ao_map(self):
+        """The red channel of this texture is used as the ambient occlusion map. Default is None."""
+        return self._store.ao_map
+
+    @ao_map.setter
+    def ao_map(self, value):
+        self._store.ao_map = value
+
+    @property
+    def ao_map_intensity(self):
+        """Intensity of the ambient occlusion effect. Default is 1.0 Zero is no occlusion effect."""
+        return float(self.uniform_buffer.data["ao_map_intensity"])
+
+    @ao_map_intensity.setter
+    def ao_map_intensity(self, value):
+        self.uniform_buffer.data["ao_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def env_map(self):
+        """The environment map (in srgb colorspace). This makes the
+        surroundings of the object be reflected on its surface. To
+        ensure a physically correct rendering, you should only add cube
+        environment maps which were prefilterd. We provide a built-in
+        mipmap generation process by setting the "generate_mipmaps"
+        property of texture to True. Default is None.
+        """
+        return self._env_map
+
+    @env_map.setter
+    def env_map(self, env_map):
+        self._env_map = env_map
+        if env_map is None:
+            self.uniform_buffer.data["env_map_max_mip_level"] = 0
+        else:
+            width, height, _ = env_map.texture.size
+            max_level = math.floor(math.log2(max(width, height))) + 1
+            self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def env_map_intensity(self):
+        """Scales the effect of the environment map by multiplying its color.
+        Note that this scaling occurs in the physical color space.
+        """
+        return float(self.uniform_buffer.data["env_map_intensity"])
+
+    @env_map_intensity.setter
+    def env_map_intensity(self, value):
+        self.uniform_buffer.data["env_map_intensity"] = value
         self.uniform_buffer.update_range(0, 1)

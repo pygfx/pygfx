@@ -84,6 +84,15 @@ class WorldObject(EventTarget, RootTrackable):
 
     This is considered a base class. Use Group to collect multiple world objects
     into a single empty world object.
+
+    Parameters:
+        geometry (Geometry): the data defining the shape of the object.
+        material (Material): the object defining the appearence of the object.
+        visible (bool): whether the object is visible.
+        render_order (int): the render order (when applicable for the renderer's blend mode).
+        render_mask (str): determines the render passes that the object is rendered in.
+           It's recommended to let the renderer decide, using "auto".
+        position (Vector): The position of the light source. Default (0, 0, 0).
     """
 
     # The uniform type describes the structured info for this object, which represents
@@ -110,6 +119,7 @@ class WorldObject(EventTarget, RootTrackable):
         visible=True,
         render_order=0,
         render_mask="auto",
+        position=None,
     ):
         super().__init__()
 
@@ -125,7 +135,10 @@ class WorldObject(EventTarget, RootTrackable):
         self._parent_ref = None
         self._children = []
 
-        self.position = Vector3()
+        position = (0, 0, 0) if position is None else position
+        self.position = (
+            Vector3(*position) if isinstance(position, (tuple, list)) else position
+        )
         self.rotation = Quaternion()
         self.scale = Vector3(1, 1, 1)
         self._transform_hash = ()
@@ -146,6 +159,9 @@ class WorldObject(EventTarget, RootTrackable):
         # Set id
         self._id = id_provider.claim_id(self)
         self.uniform_buffer.data["id"] = self._id
+
+        self.cast_shadow = False
+        self.receive_shadow = False
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
@@ -247,6 +263,25 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.material = material
 
     @property
+    def cast_shadow(self):
+        """Whether this object casts shadows, i.e. whether it is rendered into
+        a shadow map. Default False."""
+        return self._cast_shadow  # does not affect any shaders
+
+    @cast_shadow.setter
+    def cast_shadow(self, value):
+        self._cast_shadow = bool(value)
+
+    @property
+    def receive_shadow(self):
+        """Whether this object receives shadows. Default False."""
+        return self._store.receive_shadow
+
+    @receive_shadow.setter
+    def receive_shadow(self, value):
+        self._store.receive_shadow = bool(value)
+
+    @property
     def parent(self):
         """Object's parent in the scene graph (read-only).
         An object can have at most one parent.
@@ -275,6 +310,7 @@ class WorldObject(EventTarget, RootTrackable):
             except ValueError:
                 pass
         for obj in objects:
+            assert isinstance(obj, WorldObject)
             # orphan if needed
             if obj._parent_ref is not None:
                 obj._parent_ref().remove(obj)

@@ -26,8 +26,6 @@ tex = gfx.Texture(vol, dim=3)
 view = tex.get_view(filter="linear")
 material = gfx.MeshBasicMaterial(map=view)
 
-# TODO: also add a mesh slice for each plane
-
 planes = []
 texcoords = {
     0: [[0.5, 0, 0], [0.5, 1, 0], [0.5, 0, 1], [0.5, 1, 1]],

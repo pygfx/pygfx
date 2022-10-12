@@ -32,13 +32,15 @@ spheres = [
     ((-15, 0, 7.5), (1, 1, 0.75, 1), gfx.sphere_geometry(5, height_segments=8)),
 ]
 for pos, color, geometry in spheres:
-    material = gfx.MeshFlatMaterial(color=color)
+    material = gfx.MeshPhongMaterial(color=color, flat_shading=True)
     wobject = gfx.Mesh(geometry, material)
     wobject.position.set(*pos)
     scene.add(wobject)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(6, 16, -22)
+scene.add(gfx.AmbientLight())
+scene.add(camera.add(gfx.DirectionalLight()))
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 

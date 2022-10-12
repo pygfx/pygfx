@@ -111,7 +111,7 @@ class Material(Trackable):
         for plane in planes:
             if isinstance(plane, (tuple, list)) and len(plane) == 4:
                 planes2.append(plane)
-            # todo?: elif isinstance(plane, pga3.Plane):
+            # maybe someday elif isinstance(plane, linalg.Plane):
             else:
                 # Error
                 if isinstance(plane, (int, float)) and len(planes) == 4:

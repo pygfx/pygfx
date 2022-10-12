@@ -13,7 +13,11 @@ import numpy as np
 
 from ...utils import array_from_shadertype
 from ...resources import Buffer
-from ._utils import to_vertex_format, to_texture_format
+from ._utils import (
+    to_vertex_format,
+    to_texture_format,
+    generate_uniform_struct,
+)
 
 
 jinja_env = jinja2.Environment(
@@ -248,6 +252,7 @@ class BaseShader:
         self.kwargs = kwargs
         self._typedefs = {}
         self._binding_codes = {}
+        self._uniform_struct_names = {}  # dtype -> name
 
     def __setitem__(self, key, value):
         if hasattr(self.__class__, key):
@@ -271,18 +276,17 @@ class BaseShader:
         """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
-        code = (
-            "\n".join(self._typedefs.values())
-            + "\n"
-            + "\n".join(self._binding_codes.values())
-        )
+        code = ""
+        code += "\n".join(self._typedefs.values())
+        code += "\n"
+        code += "\n".join(self._binding_codes.values())
         return code
 
     def get_code(self):
         """Implement this to compose the total (but still templated)
         shader. This method is called by ``generate_wgsl()``.
         """
-        return self.get_definitions()
+        return self.code_definitions()
 
     def generate_wgsl(self, **kwargs):
         """Generate the final WGSL. Calls get_code() and then resolves
@@ -340,11 +344,6 @@ class BaseShader:
 
     def _define_uniform(self, bindgroup, index, binding):
 
-        structname = "Struct_" + binding.name
-        code = f"""
-        struct {structname} {{
-        """.rstrip()
-
         resource = binding.resource
         if isinstance(resource, dict):
             dtype_struct = array_from_shadertype(resource).dtype
@@ -359,82 +358,42 @@ class BaseShader:
         else:
             raise TypeError(f"Unsupported struct type {resource.__class__.__name__}")
 
-        # Obtain names of fields that are arrays. This is encoded as an empty field with a
-        # name that has the array-fields-names separated with double underscores.
-        array_names = []
-        for fieldname in dtype_struct.fields.keys():
-            if fieldname.startswith("__") and fieldname.endswith("__"):
-                array_names.extend(fieldname.replace("__", " ").split())
+        # Get struct name
+        struct_hash = str(dtype_struct)
 
-        # Process fields
-        for fieldname, (dtype, offset) in dtype_struct.fields.items():
-            if fieldname.startswith("__"):
-                continue
-            # Resolve primitive type
-            primitive_type = dtype.base.name
-            primitive_type = primitive_type.replace("float", "f")
-            primitive_type = primitive_type.replace("uint", "u")
-            primitive_type = primitive_type.replace("int", "i")
-            # Resolve actual type (only scalar, vec, mat)
-            shape = dtype.shape
-            # Detect array
-            length = -1
-            if fieldname in array_names:
-                length = shape[0]
-                shape = shape[1:]
-            # Obtain base type
-            if shape == () or shape == (1,):
-                # A scalar
-                wgsl_type = align_type = primitive_type
-            elif len(shape) == 1:
-                # A vector
-                n = shape[0]
-                if n < 2 or n > 4:
-                    raise TypeError(f"Type {dtype} looks like an unsupported vec{n}.")
-                wgsl_type = align_type = f"vec{n}<{primitive_type}>"
-            elif len(shape) == 2:
-                # A matNxM is Matrix of N columns and M rows
-                n, m = shape[1], shape[0]
-                if n < 2 or n > 4 or m < 2 or m > 4:
-                    raise TypeError(
-                        f"Type {dtype} looks like an unsupported mat{n}x{m}."
-                    )
-                align_type = f"vec{m}<primitive_type>"
-                wgsl_type = f"mat{n}x{m}<{primitive_type}>"
+        try:
+            structname = self._uniform_struct_names[struct_hash]
+            if binding.structname is not None:
+                # Do we need to ensure that a dtype corresponds to only one struct?
+                assert (
+                    structname == binding.structname
+                ), "dtype[{struct_hash}] has been defined as struct[{structname}]"
+        except KeyError:
+            # sometimes, we need a meaningful alias for the struct name.
+            if binding.structname is not None:
+                structname = binding.structname
+                assert (
+                    structname not in self._uniform_struct_names.values()
+                ), "structname has been used for another dtype"
             else:
-                raise TypeError(f"Unsupported type {dtype}")
-            # If an array, wrap it
-            if length == 0:
-                wgsl_type = align_type = None  # zero-length; dont use
-            elif length > 0:
-                wgsl_type = f"array<{wgsl_type},{length}>"
-            else:
-                pass  # not an array
+                # auto generate struct name
+                structname = f"Struct_u_{len(self._uniform_struct_names)+1}"
 
-            # Check alignment (https://www.w3.org/TR/WGSL/#alignment-and-size)
-            if not wgsl_type:
-                continue
-            elif align_type == primitive_type:
-                alignment = 4
-            elif align_type.startswith("vec"):
-                c = int(align_type.split("<")[0][-1])
-                alignment = 8 if c < 3 else 16
-            else:
-                raise TypeError(f"Cannot establish alignment of wgsl type: {wgsl_type}")
-            if offset % alignment != 0:
-                # If this happens, our array_from_shadertype() has failed.
-                raise TypeError(
-                    f"Struct alignment error: {binding.name}.{fieldname} alignment must be {alignment}"
-                )
+            self._uniform_struct_names[struct_hash] = structname
 
-            code += f"\n            {fieldname}: {wgsl_type},"
+        if structname not in self._typedefs:
+            struct_code = generate_uniform_struct(dtype_struct, structname)
+            self._typedefs[structname] = struct_code
 
-        code += "\n        };"
-        self._typedefs[structname] = code
+        uniform_type_name = (
+            f"array<{structname}, {binding.resource.data.shape[0]}>"  # array of struct
+            if isinstance(resource, Buffer) and resource.data.shape  # Buffer.items > 1
+            else structname
+        )
 
         code = f"""
         @group({bindgroup}) @binding({index})
-        var<uniform> {binding.name}: {structname};
+        var<uniform> {binding.name}: {uniform_type_name};
         """.rstrip()
         self._binding_codes[binding.name] = code
 

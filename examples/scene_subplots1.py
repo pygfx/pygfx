@@ -27,6 +27,7 @@ scene1.add(cube1)
 
 camera1 = gfx.PerspectiveCamera(70, 16 / 9)
 camera1.position.z = 400
+scene1.add(camera1.add(gfx.DirectionalLight()))
 
 # Compose another scene
 

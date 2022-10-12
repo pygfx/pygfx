@@ -24,6 +24,7 @@ controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
 scene = gfx.Scene()
+scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
 geometry = gfx.box_geometry(40, 40, 40)
 default_material = gfx.MeshPhongMaterial()

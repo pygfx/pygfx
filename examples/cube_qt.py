@@ -21,6 +21,9 @@ cube = gfx.Mesh(
 )
 scene.add(cube)
 
+scene.add(gfx.AmbientLight())
+scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
+
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 

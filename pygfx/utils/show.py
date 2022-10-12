@@ -11,6 +11,9 @@ from .. import (
     Scene,
     PerspectiveCamera,
     OrbitController,
+    Light,
+    AmbientLight,
+    DirectionalLight,
 )
 
 
@@ -34,6 +37,20 @@ def show(object: WorldObject, up=None):
 
     camera = PerspectiveCamera(70, 16 / 9)
     look_at = camera.show_object(object)
+    scene.add(camera)
+
+    # Add lights if there are none
+    light_count = 0
+
+    def check_light(ob):
+        nonlocal light_count
+        if isinstance(ob, Light):
+            light_count += 1
+
+    scene.traverse(check_light, False)
+    if not light_count:
+        camera.add(DirectionalLight(0.8))
+        scene.add(AmbientLight(0.2))
 
     canvas = WgpuCanvas()
     renderer = WgpuRenderer(canvas)

@@ -29,6 +29,8 @@ scene.add(background)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 10
 
+scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
+
 
 def animate():
     for polyhedron in polyhedrons:
