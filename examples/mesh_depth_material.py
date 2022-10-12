@@ -19,7 +19,7 @@ class DepthShader(MeshShader):
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
 
         bindings = {
@@ -27,15 +27,15 @@ class DepthShader(MeshShader):
             1: Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
         }
         bindings[2] = Binding(
+            "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
+        )
+        bindings[3] = Binding(
             "s_positions", "buffer/read_only_storage", geometry.positions
         )
         self.define_bindings(0, bindings)
 
         return {
-            "index_buffer": geometry.indices,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):
@@ -71,9 +71,13 @@ class DepthShader(MeshShader):
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
-            let index = i32(in.vertex_index);
-            let position = load_s_positions(index);
+            let vertex_index = i32(in.vertex_index);
+            let face_index = vertex_index / 3;
+            var sub_index = vertex_index % 3;
+            let ii = load_s_indices(face_index);
+            let i0 = i32(ii[sub_index]);
 
+            let position = load_s_positions(i0);
             let u_mvp = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
             let pos = u_mvp * vec4<f32>(position, 1.0);
 

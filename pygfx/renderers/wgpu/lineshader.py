@@ -49,7 +49,7 @@ class LineShader(WorldObjectShader):
         super().__init__(wobject)
         self["line_type"] = "line"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
 
@@ -105,10 +105,7 @@ class LineShader(WorldObjectShader):
         self.define_bindings(0, bindings)
 
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):
@@ -581,7 +578,7 @@ class ThinLineShader(WorldObjectShader):
 
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
 
@@ -615,10 +612,7 @@ class ThinLineShader(WorldObjectShader):
         self.define_bindings(0, bindings)
 
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):

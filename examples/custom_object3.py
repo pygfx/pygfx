@@ -62,7 +62,7 @@ class TriangleShader(WorldObjectShader):
 
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
 
         # This is how we set templating variables (dict-like access on the shader).
@@ -80,10 +80,7 @@ class TriangleShader(WorldObjectShader):
         }
         self.define_bindings(0, bindings)
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):

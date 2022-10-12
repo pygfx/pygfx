@@ -84,7 +84,7 @@ def test_reactivity_mesh1():
 
 
 def test_reactivity_mesh2():
-    # Test swapping resources
+    # Test swapping bindings
 
     # Prepare
 
@@ -112,7 +112,7 @@ def test_reactivity_mesh2():
     # Swap out the material - same type
     cube.material = m2
     changed = render(cube)
-    assert changed == {"resources"}
+    assert changed == {"bindings"}
 
     # Swap out the material - different type
     cube.material = m3
@@ -124,12 +124,12 @@ def test_reactivity_mesh2():
     # Swap out the positions
     cube.geometry.positions = p2
     changed = render(cube)
-    assert changed == {"resources"}
+    assert changed == {"bindings"}
 
     # Swap out the whole geometry
     cube.geometry = g2
     changed = render(cube)
-    assert changed == {"resources"}
+    assert changed == {"bindings"}
 
 
 def test_reactivity_mesh3():
@@ -152,14 +152,14 @@ def test_reactivity_mesh3():
     # Change to a colormap with the same format, all is ok!
     obj.material.map = tex2
     changed = render(obj)
-    assert changed == {"resources"}
+    assert changed == {"bindings"}
 
     # Change to colormap of different format, need rebuild!
     obj.material.map = tex3
     print("uv", geometry.texcoords.data.shape)
     print("map", obj.material.map.view_dim)
     changed = render(obj)
-    assert changed == {"resources", "compile_shader", "compose_pipeline"}
+    assert changed == {"bindings", "compile_shader", "compose_pipeline"}
 
 
 def test_change_blend_mode():

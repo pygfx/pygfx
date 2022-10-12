@@ -32,24 +32,15 @@ class WorldObjectShader(BaseShader):
 
     # ----- What subclasses must implement
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         """Subclasses must return a dict describing the buffers and
         textures used by this shader.
 
-        Fields for a compute shader:
-          * "bindings": a dict of dicts with binding objects
-            (group_slot -> binding_slot -> binding)
-
-        Fields for a render shader:
-          * "index_buffer": None or a Buffer object.
-          * "bindings": a dict of dicts with binding objects
-            (group_slot -> binding_slot -> binding)
+        The result must be a dict of dicts with binding objects
+        (group_slot -> binding_slot -> binding)
         """
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: {},
-            },
+            0: {},
         }
 
     def get_pipeline_info(self, wobject, shared):

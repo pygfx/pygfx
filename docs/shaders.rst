@@ -33,10 +33,10 @@ The shader must implement a few methods. A typical shader is shown below:
 
         type = "render"  # must be "render" or "compute"
 
-        def get_resources(self, wobject, shared):
-            # Collect bindings. These must (evetually) be a dict mapping
-            # slot indices to Binding objects. But it's often easier
-            # to collect bindings in a list and then convert to a dict.
+        def get_binding(self, wobject, shared):
+            # Collect bindings. We must return a dict mapping slot
+            # indices to Binding objects. But it's sometimes easier to
+            # collect bindings in a list and then convert to a dict.
             bindings = [
                 Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
                 Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
@@ -46,13 +46,10 @@ The shader must implement a few methods. A typical shader is shown below:
             bindings = {i:b for i, b in enumerate(bindings)}
             # Generate the WGSL code for these bindings
             self.define_bindings(0, bindings)
-            # Result. All fields are mandatory. The "bindings" are grouped as
-            # a dict of dicts. Often only bind-group 0 is used.
+            # The "bindings" are grouped as a dict of dicts. Often only
+            # bind-group 0 is used.
             return {
-                "index_buffer": None,
-                "bindings": {
-                    0: bindings,
-                },
+                0: bindings,
             }
 
         def get_pipeline_info(self, wobject, shared):
@@ -103,7 +100,7 @@ The shader must implement a few methods. A typical shader is shown below:
 
 Remarks:
 
-* In ``get_resources()``, the ``Binding`` object is used to collect all the required information on a binding.
+* In ``get_bindings()``, the ``Binding`` object is used to collect all the required information on a binding.
 * The wgsl code to define a group of bindings can be easily generated using ``define_bindings()``.
 * You can also manually define the wgsl code for a binding in cases where this is easier.
   We recommend using a separate bindgroup for that.
@@ -142,7 +139,7 @@ to allow flexible code generation. Here's an example:
 
 .. code-block:: python
 
-        def get_resources(self, wobject, shared):
+        def get_bindings(self, wobject, shared):
             # Template variables can be set like this
             self["scale"] = 1.2
             ...
@@ -293,7 +290,7 @@ For images / volumes:
 
 .. code-block:: python
 
-        def get_resources(self, wobjwect, shared):
+        def get_bindings(self, wobjwect, shared):
             ...
             extra_bindings = self.define_img_colormap(material.map)
             bindings.extend(extra_bindings)
@@ -314,7 +311,7 @@ For points / lines, meshes, etc.:
 
 .. code-block:: python
 
-        def get_resources(self, wobjwect, shared):
+        def get_bindings(self, wobjwect, shared):
             ...
             extra_bindings = self.define_vertex_colormap(material.map, geometry.texcoords)
             bindings.extend(extra_bindings)

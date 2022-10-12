@@ -12,7 +12,7 @@ vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 
 class BaseVolumeShader(WorldObjectShader):
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
 
         geometry = wobject.geometry
         material = wobject.material  # noqa
@@ -66,10 +66,7 @@ class BaseVolumeShader(WorldObjectShader):
         self.define_bindings(0, bindings)
 
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def code_volume_helpers(self):
@@ -368,9 +365,9 @@ class VolumeRayShader(BaseVolumeShader):
 
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         self["mode"] = wobject.material.render_mode
-        return super().get_resources(wobject, shared)
+        return super().get_bindings(wobject, shared)
 
     def get_pipeline_info(self, wobject, shared):
         return {

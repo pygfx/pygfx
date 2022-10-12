@@ -52,7 +52,7 @@ class TriangleShader(WorldObjectShader):
 
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         # We now use three uniform buffers
         bindings = {
             0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
@@ -61,10 +61,7 @@ class TriangleShader(WorldObjectShader):
         }
         self.define_bindings(0, bindings)
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):

@@ -102,7 +102,7 @@ class ImageShader(BaseImageShader):
 
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
         material = wobject.material  # noqa
 
@@ -154,10 +154,7 @@ class ImageShader(BaseImageShader):
         self.define_bindings(0, bindings)
 
         return {
-            "index_buffer": None,
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):
