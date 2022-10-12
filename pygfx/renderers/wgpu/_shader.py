@@ -225,7 +225,7 @@ class WorldObjectShader(BaseShader):
         """
 
         math = """
-        let PI = 3.1;
+        let PI = 3.141592653589793;
         let RECIPROCAL_PI = 0.3183098861837907;
         fn pow2(x:f32) -> f32 { return x*x; }
         fn pow4(x:f32) -> f32 { let x2 = x * x; return x2*x2; }

@@ -105,8 +105,8 @@ class AmbientLight(Light):
     """A light that globally illuminates all objects in the scene equally.
 
     Parameters:
-        color (Color): The base color of the light.
-        intensity (float): The light intensity.
+        color (Color): The base color of the light. Default white.
+        intensity (float): The light intensity. Default 0.2, corresponding to a dimly lit scene.
     """
 
     def __init__(self, color="#ffffff", intensity=0.2):
@@ -117,13 +117,14 @@ class PointLight(Light):
     """A light that gets emitted from a single point in all directions.
 
     Parameters:
-        color (Color): The base color of the light.
-        intensity (float): The light intensity.
+        color (Color): The base color of the light. Default white.
+        intensity (float): The light intensity. Default 3, resulting in a well lit scene.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        distance (float): The max distance that the light shines.
+        distance (float): The maximum distance that the light shines.
             Default is 0 which means it shines infinitely far.
         decay (float): The amount the light dims along the distance of the light.
-            Default 0, no decay. A decay of 2 is physically correct.
+            Default 0, no decay. A decay of 2 is physically correct. Note that you
+            probably need to increase the intensity (a lot) when setting this to nonzero.
     """
 
     uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
@@ -131,7 +132,7 @@ class PointLight(Light):
     def __init__(
         self,
         color="#ffffff",
-        intensity=1,
+        intensity=3,
         *,
         cast_shadow=False,
         distance=0,
@@ -192,8 +193,8 @@ class DirectionalLight(Light):
     direction is followed.
 
     Parameters:
-        color (Color): The base color of the light.
-        intensity (float): The light intensity.
+        color (Color): The base color of the light. Default white.
+        intensity (float): The light intensity. Default 3, resulting in a well lit scene.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
         target (WorldObject): The object to direct the light at.
     """
@@ -237,16 +238,18 @@ class DirectionalLight(Light):
 
 class SpotLight(Light):
     """A light that gets emitted from a single point in one direction,
-    along a cone that increases in size the further from the light it gets.
+    along a cone that increases in size the further from the light it
+    gets. If attached to a camera, the camera view direction is followed.
 
     Parameters:
-        color (Color): The base color of the light.
-        intensity (float): The light intensity.
+        color (Color): The base color of the light. Default white.
+        intensity (float): The light intensity. Default 3, resulting in a well lit scene.
         cast_shadow (bool): Whether the light can cast shadows. Default False.
-        distance (float): The max distance that the light shines.
+        distance (float): The maximum distance that the light shines.
             Default is 0 which means it shines infinitely far.
         decay (float): The amount the light dims along the distance of the light.
-            Default 0, no decay. A decay of 2 is physically correct.
+            Default 0, no decay. A decay of 2 is physically correct. Note that you
+            probably need to increase the intensity (a lot) when setting this to nonzero.
         angle (float): The maximum extent of the spotlight, in radians. Default Math.PI/3.
         penumbra (float): Percent of the spotlight cone that is attenuated due
             to penumbra. Takes values between zero and 1. Default is zero.
@@ -263,7 +266,7 @@ class SpotLight(Light):
     def __init__(
         self,
         color="#ffffff",
-        intensity=1,
+        intensity=3,
         *,
         cast_shadow=False,
         distance=0,

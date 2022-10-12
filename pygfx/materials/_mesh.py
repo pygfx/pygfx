@@ -206,7 +206,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
         self,
         shininess=30,
         emissive="#000",
-        specular="#494949",  #  as physical: #111, the default in ThreeJS
+        specular="#494949",  # as physical: #111, the default in ThreeJS
         **kwargs,
     ):
         super().__init__(**kwargs)
