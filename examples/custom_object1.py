@@ -34,18 +34,14 @@ class TriangleShader(WorldObjectShader):
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
-    def get_resources(self, wobject, shared):
-        # Our only resource is a uniform buffer
+    def get_bindings(self, wobject, shared):
+        # Our only binding is a uniform buffer
         bindings = {
             0: Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
         }
         self.define_bindings(0, bindings)
         return {
-            "index_buffer": None,
-            "vertex_buffers": {},
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):

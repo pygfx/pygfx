@@ -23,15 +23,11 @@ class SquareMaterial(gfx.Material):
 
 @gfx.renderers.wgpu.register_wgpu_render_function(Square, SquareMaterial)
 class SquareShader(WorldObjectShader):
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         binding = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
         self.define_binding(0, 0, binding)
         return {
-            "index_buffer": None,
-            "vertex_buffers": {},
-            "bindings": {
-                0: {0: binding},
-            },
+            0: {0: binding},
         }
 
     def get_pipeline_info(self, wobject, shared):

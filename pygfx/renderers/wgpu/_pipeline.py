@@ -9,7 +9,7 @@ import wgpu
 from ...resources import Buffer, TextureView
 from ...utils import logger
 from ._shader import BaseShader
-from ._utils import to_vertex_format, to_texture_format
+from ._utils import to_texture_format
 from ._update import update_resource, ALTTEXFORMAT
 from . import registry
 
@@ -56,13 +56,26 @@ def get_pipeline_container_group(wobject, environment, shared):
 class Binding:
     """Simple object to hold together some information about a binding, for internal use.
 
-    * name: the name in wgsl
-    * type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
-      The subtype depends on the type:
-      BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
-    * resource: the Buffer, Texture or TextureView object.
-    * visibility: wgpu.ShaderStage flag
-    * structname: the custom wgsl struct name, if any. otherwise will auto-generate.
+    Parameters:
+        name: the name in wgsl
+        type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
+            The subtype depends on the type:
+            BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
+        resource: the Buffer, Texture or TextureView object.
+        visibility: wgpu.ShaderStage flag
+        structname: the custom wgsl struct name, if any. otherwise will auto-generate.
+
+    Some tips on terminology:
+
+    * A "binding" is a generic term for an object that defines how a
+        resource (buffer or texture) is bound to a shader. In this subpackage it
+        likely means a Binding object like this.
+    * This binding can be represented with a binding_descriptor and
+        binding_layout_desciptor. These are dicts to be passed to wgpu.
+    * A list of these binding_layout_desciptor's can be passed to create_bind_group_layout.
+    * A list of these binding_layout's can be passed to create_bind_group.
+    * Multiple bind_group_layout's can be combined into a pipeline_layout.
+
     """
 
     def __init__(
@@ -78,6 +91,10 @@ class Binding:
         self.structname = structname
 
     def get_bind_group_descriptors(self, slot):
+        """Get the descriptors (dicts) for creating a binding_descriptor
+        and binding_layout_descriptor. A list of these descriptors are
+        combined into a bind_group and bind_group_layout.
+        """
         resource = self.resource
         subtype = self.type.partition("/")[2]
 
@@ -261,7 +278,7 @@ class PipelineContainer:
 
         # The info that the shader generates
         self.shader_hash = b""
-        self.resources = None
+        self.bindings_dicts = None  # dict of dict of bindings
         self.pipeline_info = None
         self.render_info = None
 
@@ -284,6 +301,15 @@ class PipelineContainer:
 
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
+
+    def _check_bindings(self):
+        assert isinstance(self.bindings_dicts, dict), "bindings_dicts must be a dict"
+        for key1, bindings_dict in self.bindings_dicts.items():
+            assert isinstance(key1, int), f"bindings slot must be int, not {key1}"
+            assert isinstance(bindings_dict, dict), "bindings_dict must be a dict"
+            for key2, b in bindings_dict.items():
+                assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
+                assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
     def remove_env_hash(self, env_hash):
         """Called from the environment when it becomes inactive.
@@ -328,15 +354,15 @@ class PipelineContainer:
         """Update the info that applies to all passes and environments."""
 
         if "create" in changed:
-            changed.update(("resources", "pipeline_info", "render_info"))
+            changed.update(("bindings", "pipeline_info", "render_info"))
 
-        if "resources" in changed:
-            with wobject.tracker.track_usage("!resources"):
-                self.resources = self.shader.get_resources(wobject, shared)
+        if "bindings" in changed:
+            with wobject.tracker.track_usage("!bindings"):
+                self.bindings_dicts = self.shader.get_bindings(wobject, shared)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
-            self._check_resources()
+            self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups(shared.device)
 
@@ -383,24 +409,23 @@ class PipelineContainer:
           wgpu_bind_group_layouts and reset self.wgpu_pipelines
         - Calculate new wgpu_bind_groups.
         """
-        binding_groups = self.resources["bindings"]
 
         # Check the bindings structure
-        for i, group in binding_groups.items():
+        for i, bindings_dict in self.bindings_dicts.items():
             assert isinstance(i, int)
-            assert isinstance(group, dict)
-            for j, b in group.items():
+            assert isinstance(bindings_dict, dict)
+            for j, b in bindings_dict.items():
                 assert isinstance(j, int)
                 assert isinstance(b, Binding)
 
-        # Create two new dicts that correspond closely to the bindings
-        # in the resources. Except this turns the dicts into lists.
+        # Create two new dicts that correspond closely to the bindings.
+        # Except this turns the dicts into lists.
         # These are the descriptors to create the wgpu bind groups and
         # bind group layouts.
         bg_descriptors = []
         bg_layout_descriptors = []
-        for group_id in sorted(binding_groups.keys()):
-            bindings_dict = binding_groups[group_id]
+        for group_id in sorted(self.bindings_dicts.keys()):
+            bindings_dict = self.bindings_dicts[group_id]
             while len(bg_descriptors) <= group_id:
                 bg_descriptors.append([])
                 bg_layout_descriptors.append([])
@@ -441,20 +466,10 @@ class PipelineContainer:
 
     def collect_flat_resources(self):
         """Collect a list of all used resources, and also set their usage."""
-        resources = self.resources
         pipeline_resources = []  # List, because order matters
 
-        buffer = resources.get("index_buffer", None)
-        if buffer is not None:
-            buffer._wgpu_usage |= wgpu.BufferUsage.INDEX | wgpu.BufferUsage.STORAGE
-            pipeline_resources.append(("buffer", buffer))
-
-        for buffer in resources.get("vertex_buffers", {}).values():
-            buffer._wgpu_usage |= wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE
-            pipeline_resources.append(("buffer", buffer))
-
-        for group_dict in resources.get("bindings", {}).values():
-            for binding in group_dict.values():
+        for bindings_dict in self.bindings_dicts.values():
+            for binding in bindings_dict.values():
                 resource = binding.resource
                 if binding.type.startswith("buffer/"):
                     assert isinstance(resource, Buffer)
@@ -511,11 +526,6 @@ class ComputePipelineContainer(PipelineContainer):
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
 
-    def _check_resources(self):
-        resources = self.resources
-        assert isinstance(resources, dict)
-        assert set(resources.keys()) == {"bindings"}, f"{resources.keys()}"
-
     def _compile_shaders(self, device, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
         wgsl = self.shader.generate_wgsl()
@@ -548,7 +558,7 @@ class ComputePipelineContainer(PipelineContainer):
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 
-        # Set pipeline and resources
+        # Set pipeline and bindings
         compute_pass.set_pipeline(pipeline)
         for bind_group_id, bind_group in enumerate(bind_groups):
             compute_pass.set_bind_group(bind_group_id, bind_group, [], 0, 999999)
@@ -563,7 +573,6 @@ class RenderPipelineContainer(PipelineContainer):
     def __init__(self, shader):
         super().__init__(shader)
         self.strip_index_format = 0
-        self.vertex_buffer_descriptors = []
 
     def _check_pipeline_info(self):
         pipeline_info = self.pipeline_info
@@ -571,8 +580,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         expected = {"cull_mode", "primitive_topology"}
         assert set(pipeline_info.keys()) == expected, f"{pipeline_info.keys()}"
-
-        self.update_index_buffer_format()
+        self.update_strip_index_format()
 
     def _check_render_info(self):
         render_info = self.render_info
@@ -591,57 +599,17 @@ class RenderPipelineContainer(PipelineContainer):
         render_mask = render_info["render_mask"]
         assert isinstance(render_mask, int) and render_mask in (1, 2, 3)
 
-    def _check_resources(self):
-        resources = self.resources
-        assert isinstance(resources, dict)
-
-        expected = {"index_buffer", "vertex_buffers", "bindings"}
-        assert set(resources.keys()) == expected, f"{resources.keys()}"
-        assert isinstance(resources["index_buffer"], (None.__class__, Buffer))
-        assert isinstance(resources["vertex_buffers"], dict)
-        assert all(isinstance(slot, int) for slot in resources["vertex_buffers"].keys())
-        assert all(isinstance(b, Buffer) for b in resources["vertex_buffers"].values())
-
-        self.update_index_buffer_format()
-        self.update_vertex_buffer_descriptors()
-
-    def update_index_buffer_format(self):
-        if not self.resources or not self.pipeline_info:
+    def update_strip_index_format(self):
+        if not self.bindings_dicts or not self.pipeline_info:
             return
         # Set strip_index_format
         index_format = wgpu.IndexFormat.uint32
-        index_buffer = self.resources["index_buffer"]
-        if index_buffer is not None:
-            index_format = to_vertex_format(index_buffer.format)
-            self.index_format = index_format.split("x")[0].replace("s", "u")
         strip_index_format = 0
         if "strip" in self.pipeline_info["primitive_topology"]:
             strip_index_format = index_format
         # Trigger a pipeline rebuild?
         if self.strip_index_format != strip_index_format:
             self.strip_index_format = strip_index_format
-            self.wgpu_pipelines = {}
-
-    def update_vertex_buffer_descriptors(self):
-        # todo: we can probably expose multiple attributes per buffer using a BufferView
-        vertex_buffer_descriptors = []
-        for slot, buffer in self.resources["vertex_buffers"].items():
-            vbo_des = {
-                "array_stride": buffer.nbytes // buffer.nitems,
-                "step_mode": wgpu.VertexStepMode.vertex,  # vertex
-                "attributes": [
-                    {
-                        "format": to_vertex_format(buffer.format),
-                        "offset": 0,
-                        "shader_location": slot,
-                    }
-                ],
-            }
-            vertex_buffer_descriptors.append(vbo_des)
-
-        # Trigger a pipeline rebuild?
-        if vertex_buffer_descriptors != self.vertex_buffer_descriptors:
-            self.vertex_buffer_descriptors = vertex_buffer_descriptors
             self.wgpu_pipelines = {}
 
     def _compile_shaders(self, device, env):
@@ -674,7 +642,6 @@ class RenderPipelineContainer(PipelineContainer):
         # todo: cache vertex descriptors
 
         strip_index_format = self.strip_index_format
-        vertex_buffer_descriptors = self.vertex_buffer_descriptors
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
 
@@ -701,7 +668,7 @@ class RenderPipelineContainer(PipelineContainer):
                 vertex={
                     "module": shader_module,
                     "entry_point": "vs_main",
-                    "buffers": vertex_buffer_descriptors,
+                    "buffers": [],
                 },
                 primitive={
                     "topology": primitive_topology,
@@ -740,20 +707,10 @@ class RenderPipelineContainer(PipelineContainer):
         # Collect what's needed
         pipeline = self.wgpu_pipelines[env_hash][pass_index]
         indices = self.render_info["indices"]
-        index_buffer = self.resources["index_buffer"]
-        vertex_buffers = self.resources["vertex_buffers"]
         bind_groups = self.wgpu_bind_groups
 
-        # Set pipeline and resources
+        # Set pipeline and bindings
         render_pass.set_pipeline(pipeline)
-
-        for slot, vbuffer in vertex_buffers.items():
-            render_pass.set_vertex_buffer(
-                slot,
-                vbuffer._wgpu_buffer[1],
-                vbuffer.vertex_byte_range[0],
-                vbuffer.vertex_byte_range[1],
-            )
 
         for bind_group_id, bind_group in enumerate(bind_groups):
             render_pass.set_bind_group(bind_group_id, bind_group, [], 0, 99)
@@ -763,18 +720,8 @@ class RenderPipelineContainer(PipelineContainer):
         render_pass.set_bind_group(env_bind_group_id, env_bind_group, [], 0, 99)
 
         # Draw!
-        # draw_indexed(count_v, count_i, first_vertex, base_vertex, first_instance)
         # draw(count_vertex, count_instance, first_vertex, first_instance)
-        if index_buffer is not None:
-            index_format = self.index_format  # uint32 or uint16
-            render_pass.set_index_buffer(index_buffer._wgpu_buffer[1], index_format)
-            if len(indices) == 4:
-                base_vertex = 0  # A value added to each index before reading [...]
-                indices = list(indices)
-                indices.insert(-1, base_vertex)
-            render_pass.draw_indexed(*indices)
-        else:
-            render_pass.draw(*indices)
+        render_pass.draw(*indices)
 
 
 class Cache:

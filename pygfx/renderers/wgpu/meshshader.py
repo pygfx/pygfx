@@ -58,7 +58,7 @@ class MeshShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["vertex_color_channels"] = 0
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
 
         geometry = wobject.geometry
         material = wobject.material
@@ -115,12 +115,8 @@ class MeshShader(WorldObjectShader):
             )
 
         return {
-            "index_buffer": None,
-            "vertex_buffers": {},
-            "bindings": {
-                0: bindings,
-                1: bindings1,
-            },
+            0: bindings,
+            1: bindings1,
         }
 
     def get_pipeline_info(self, wobject, shared):
@@ -425,9 +421,9 @@ class MeshStandardShader(MeshShader):
         super().__init__(wobject)
         self["lighting"] = "pbr"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
 
-        result = super().get_resources(wobject, shared)
+        result = super().get_bindings(wobject, shared)
 
         geometry = wobject.geometry
         material = wobject.material
@@ -512,7 +508,7 @@ class MeshStandardShader(MeshShader):
         self.define_bindings(2, bindings)
 
         # Update result
-        result["bindings"][2] = bindings
+        result[2] = bindings
         return result
 
     def code_lighting(self):
@@ -588,7 +584,7 @@ class MeshSliceShader(WorldObjectShader):
 
     type = "render"
 
-    def get_resources(self, wobject, shared):
+    def get_bindings(self, wobject, shared):
         # It would technically be possible to implement colormapping or
         # per-vertex colors, but its a tricky dance to get the per-vertex
         # data (e.g. texcoords) into a varying. And because the visual
@@ -620,11 +616,7 @@ class MeshSliceShader(WorldObjectShader):
         self.define_bindings(0, bindings)
 
         return {
-            "index_buffer": None,
-            "vertex_buffers": {},
-            "bindings": {
-                0: bindings,
-            },
+            0: bindings,
         }
 
     def get_pipeline_info(self, wobject, shared):
