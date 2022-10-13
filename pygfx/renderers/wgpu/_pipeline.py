@@ -63,6 +63,17 @@ class Binding:
     * resource: the Buffer, Texture or TextureView object.
     * visibility: wgpu.ShaderStage flag
     * structname: the custom wgsl struct name, if any. otherwise will auto-generate.
+
+    Some tips on terminology:
+    * A "binding" is a generic term for an object that defines how a
+      resource (buffer or texture) is bound to a shader. In this subpackage it
+      likely means a Binding object like this.
+    * This binding can be represented with a binding_descriptor and
+      binding_layout_desciptor. These are dicts to be passed to wgpu.
+    * A list of these binding_layout_desciptor's can be passed to create_bind_group_layout.
+    * A list of these binding_layout's can be passed to create_bind_group.
+    * Multiple bind_group_layout's can be combined into a pipeline_layout.
+
     """
 
     def __init__(
@@ -78,6 +89,10 @@ class Binding:
         self.structname = structname
 
     def get_bind_group_descriptors(self, slot):
+        """Get the descriptors (dicts) for creating a binding_descriptor
+        and binding_layout_descriptor. A list of these descriptors are
+        combined into a bind_group and bind_group_layout.
+        """
         resource = self.resource
         subtype = self.type.partition("/")[2]
 
@@ -261,7 +276,7 @@ class PipelineContainer:
 
         # The info that the shader generates
         self.shader_hash = b""
-        self.bindingss = None  # dict of dict of bindins, so multi-plural
+        self.bindings_dicts = None  # dict of dict of bindings
         self.pipeline_info = None
         self.render_info = None
 
@@ -284,6 +299,15 @@ class PipelineContainer:
 
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
+
+    def _check_bindings(self):
+        assert isinstance(self.bindings_dicts, dict), "bindings_dicts must be a dict"
+        for key1, bindings_dict in self.bindings_dicts.items():
+            assert isinstance(key1, int), f"bindings slot must be int, not {key1}"
+            assert isinstance(bindings_dict, dict), "bindings_dict must be a dict"
+            for key2, b in bindings_dict.items():
+                assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
+                assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
     def remove_env_hash(self, env_hash):
         """Called from the environment when it becomes inactive.
@@ -332,7 +356,7 @@ class PipelineContainer:
 
         if "bindings" in changed:
             with wobject.tracker.track_usage("!bindings"):
-                self.bindingss = self.shader.get_bindings(wobject, shared)
+                self.bindings_dicts = self.shader.get_bindings(wobject, shared)
             self.flat_resources = self.collect_flat_resources()
             for kind, resource in self.flat_resources:
                 update_resource(shared.device, resource, kind)
@@ -385,10 +409,10 @@ class PipelineContainer:
         """
 
         # Check the bindings structure
-        for i, group in self.bindingss.items():
+        for i, bindings_dict in self.bindings_dicts.items():
             assert isinstance(i, int)
-            assert isinstance(group, dict)
-            for j, b in group.items():
+            assert isinstance(bindings_dict, dict)
+            for j, b in bindings_dict.items():
                 assert isinstance(j, int)
                 assert isinstance(b, Binding)
 
@@ -398,8 +422,8 @@ class PipelineContainer:
         # bind group layouts.
         bg_descriptors = []
         bg_layout_descriptors = []
-        for group_id in sorted(self.bindingss.keys()):
-            bindings_dict = self.bindingss[group_id]
+        for group_id in sorted(self.bindings_dicts.keys()):
+            bindings_dict = self.bindings_dicts[group_id]
             while len(bg_descriptors) <= group_id:
                 bg_descriptors.append([])
                 bg_layout_descriptors.append([])
@@ -442,8 +466,8 @@ class PipelineContainer:
         """Collect a list of all used resources, and also set their usage."""
         pipeline_resources = []  # List, because order matters
 
-        for group_dict in self.bindingss.values():
-            for binding in group_dict.values():
+        for bindings_dict in self.bindings_dicts.values():
+            for binding in bindings_dict.values():
                 resource = binding.resource
                 if binding.type.startswith("buffer/"):
                     assert isinstance(resource, Buffer)
@@ -499,17 +523,6 @@ class ComputePipelineContainer(PipelineContainer):
         assert isinstance(indices, (tuple, list))
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
-
-    def _check_bindings(self):
-        assert isinstance(self.bindingss, dict), "bindingss must be a dict"
-        for key1, val1 in self.bindingss.items():
-            assert isinstance(key1, int), f"bindings slot must be int, not {key1}"
-            assert isinstance(val1, dict), "bindings must be a dict"
-            for key2, val2 in val1.items():
-                assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
-                assert isinstance(
-                    val2, Binding
-                ), f"bindings must be Binding objects, not {val2}"
 
     def _compile_shaders(self, device, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
@@ -584,19 +597,8 @@ class RenderPipelineContainer(PipelineContainer):
         render_mask = render_info["render_mask"]
         assert isinstance(render_mask, int) and render_mask in (1, 2, 3)
 
-    def _check_bindings(self):
-        assert isinstance(self.bindingss, dict), "bindingss must be a dict"
-        for key1, val1 in self.bindingss.items():
-            assert isinstance(key1, int), f"bindings slot must be int, not {key1}"
-            assert isinstance(val1, dict), "bindings must be a dict"
-            for key2, val2 in val1.items():
-                assert isinstance(key2, int), f"bind group slot must be int, not {key2}"
-                assert isinstance(
-                    val2, Binding
-                ), f"bindings must be Binding objects, not {val2}"
-
     def update_strip_index_format(self):
-        if not self.bindingss or not self.pipeline_info:
+        if not self.bindings_dicts or not self.pipeline_info:
             return
         # Set strip_index_format
         index_format = wgpu.IndexFormat.uint32
