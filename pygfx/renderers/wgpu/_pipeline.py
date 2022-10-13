@@ -56,20 +56,22 @@ def get_pipeline_container_group(wobject, environment, shared):
 class Binding:
     """Simple object to hold together some information about a binding, for internal use.
 
-    * name: the name in wgsl
-    * type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
-      The subtype depends on the type:
-      BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
-    * resource: the Buffer, Texture or TextureView object.
-    * visibility: wgpu.ShaderStage flag
-    * structname: the custom wgsl struct name, if any. otherwise will auto-generate.
+    Parameters:
+        name: the name in wgsl
+        type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
+            The subtype depends on the type:
+            BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
+        resource: the Buffer, Texture or TextureView object.
+        visibility: wgpu.ShaderStage flag
+        structname: the custom wgsl struct name, if any. otherwise will auto-generate.
 
     Some tips on terminology:
+
     * A "binding" is a generic term for an object that defines how a
-      resource (buffer or texture) is bound to a shader. In this subpackage it
-      likely means a Binding object like this.
+        resource (buffer or texture) is bound to a shader. In this subpackage it
+        likely means a Binding object like this.
     * This binding can be represented with a binding_descriptor and
-      binding_layout_desciptor. These are dicts to be passed to wgpu.
+        binding_layout_desciptor. These are dicts to be passed to wgpu.
     * A list of these binding_layout_desciptor's can be passed to create_bind_group_layout.
     * A list of these binding_layout's can be passed to create_bind_group.
     * Multiple bind_group_layout's can be combined into a pipeline_layout.
