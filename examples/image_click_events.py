@@ -55,8 +55,9 @@ def event_handler(event):
     event_position = np.array([*event.pick_info["index"], 0])
     closest = np.linalg.norm(positions - event_position, axis=1).argsort()
     points.geometry.colors.data[closest[:3]] = np.array([1.0, 0.0, 0.0, 1.0])
-
-    points.geometry.colors.update_range()
+    for idx in closest[:3].tolist():
+        # only mark the changed points for synchronization to the GPU
+        points.geometry.colors.update_range(idx, size=1)
     renderer.request_draw()
 
 
