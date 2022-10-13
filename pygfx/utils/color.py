@@ -2,22 +2,21 @@
 
 # Possible improvements:
 #
-# * Support for HSL colorspace:
-#   * Accept CSS compatible "hsl(...)" and "hsla(...)"
-#   * Color.hsl property
-#   * Color.from_hsl() classmethod
-# * Support for HSV color space?
+# Colorspaces
 # * Support for HSLuv, a colorspace with uniform brightness https://www.hsluv.org/
-# * Color.__add__ another color or a scalar.
-# * Color.__mul__ another color or a scalar.
+#
+# CSS:
+# * Support "rgb(100%, 50%, 0%)"
+# * Support "hsl(...)" and "hsla(...)"
+#
+# Other:
 # * Color.lerp(color, t) linear interpolate towards other color.
-# * Color.lerpHSL(color, t) same as lerp but interpolate in HSL space.
-# * Color.lighter(factor) and Color.darker(factort)
-
-# todo: Support "rgb(100%, 50%, 0%)"
+# * Color.lerpHSL(color, t) same as lerp but interpolate in HSL / HSLuv space.
+# * Color.lighter(factor) and Color.darker(factor)
 
 
 import ctypes
+import colorsys
 
 
 F4 = ctypes.c_float * 4
@@ -34,7 +33,7 @@ def _float_from_css_value(v, i):
 
 
 class Color:
-    """An object representing a color (in sRGB space).
+    """An object representing a color (in the sRGB colorspace).
 
     Internally the color is stored using 4 32-bit floats (rgba).
     It can be instantiated in a variety of ways. E.g. by providing
@@ -94,6 +93,14 @@ class Color:
         f = lambda v: f"{v:0.4f}".rstrip("0").ljust(3, "0")  # noqa: stfu
         return f"Color({f(self.r)}, {f(self.g)}, {f(self.b)}, {f(self.a)})"
 
+    @property
+    def __array_interface__(self):
+        # Numpy can wrap our memory in an array without copying
+        readonly = True
+        ptr = ctypes.addressof(self._val)
+        x = dict(version=3, shape=(4,), typestr="<f4", data=(ptr, readonly))
+        return x
+
     def __len__(self):
         return 4
 
@@ -108,21 +115,32 @@ class Color:
             other = Color(other)
         return all(self._val[i] == other._val[i] for i in range(4))
 
-    @property
-    def __array_interface__(self):
-        # Numpy can wrap our memory in an array without copying
-        readonly = True
-        ptr = ctypes.addressof(self._val)
-        x = dict(version=3, shape=(4,), typestr="<f4", data=(ptr, readonly))
-        return x
+    def __add__(self, other):
+        return Color(
+            self.r + other.r,
+            self.g + other.g,
+            self.b + other.b,
+            self.a,
+        )
+
+    def __mul__(self, factor):
+        if not isinstance(factor, (float, int)):
+            raise TypeError("Can only multiple a color with a scalar.")
+        return Color(
+            self.r * factor,
+            self.g * factor,
+            self.b * factor,
+            self.a,
+        )
+
+    def __truediv__(self, factor):
+        if not isinstance(factor, (float, int)):
+            raise TypeError("Can only multiple a color with a scalar.")
+        return self.__mul__(1 / factor)
 
     def _set_from_rgba(self, r, g, b, a):
-        self._val = F4(
-            max(0.0, min(1.0, float(r))),
-            max(0.0, min(1.0, float(g))),
-            max(0.0, min(1.0, float(b))),
-            max(0.0, min(1.0, float(a))),
-        )
+        a = max(0.0, min(1.0, float(a)))
+        self._val = F4(float(r), float(g), float(b), a)
 
     def _set_from_tuple(self, color):
         color = tuple(float(c) for c in color)
@@ -221,7 +239,7 @@ class Color:
 
     @property
     def a(self):
-        """The alpha (transparency) value."""
+        """The alpha (transparency) value, between 0 and 1."""
         return self._val[3]
 
     @property
@@ -233,20 +251,26 @@ class Color:
 
     @property
     def hex(self):
-        """The CSS hex string, e.g. "#00ff00". The alpha channel is ignored."""
-        r = int(self.r * 255 + 0.5)
-        b = int(self.b * 255 + 0.5)
-        g = int(self.g * 255 + 0.5)
+        """The CSS hex string, e.g. "#00ff00". The alpha channel is ignored.
+        Values are clipped to 00 an ff.
+        """
+        c = self.clip()
+        r = int(c.r * 255 + 0.5)
+        b = int(c.b * 255 + 0.5)
+        g = int(c.g * 255 + 0.5)
         i = (r << 16) + (g << 8) + b
         return "#" + hex(i)[2:].rjust(6, "0")
 
     @property
     def hexa(self):
-        """The hex string including alpha, e.g. "#00ff00ff"."""
-        r = int(self.r * 255 + 0.5)
-        b = int(self.b * 255 + 0.5)
-        g = int(self.g * 255 + 0.5)
-        a = int(self.a * 255 + 0.5)
+        """The hex string including alpha, e.g. "#00ff00ff".
+        Values are clipped to 00 an ff.
+        """
+        c = self.clip()
+        r = int(c.r * 255 + 0.5)
+        b = int(c.b * 255 + 0.5)
+        g = int(c.g * 255 + 0.5)
+        a = int(c.a * 255 + 0.5)
         i = (r << 24) + (g << 16) + (b << 8) + a
         return "#" + hex(i)[2:].rjust(8, "0")
 
@@ -259,35 +283,58 @@ class Color:
         else:
             return f"rgba({int(255*r+0.5)},{int(255*g+0.5)},{int(255*b+0.5)},{a:0.3f})"
 
-    def multiply_scalar(self, factor):
-        """Multiply the color by a scalar. The alpha channel is ignored.
-        Note: The components can be greater than 1.0, which is meaningful.
-        """
-        color = Color(self)
-        color._val[0] *= factor
-        color._val[1] *= factor
-        color._val[2] *= factor
-        return color
-
-    def add_color(self, color):
-        """Add another color to this one. The alpha channel is ignored.
-        Note: The components can be greater than 1.0, which is meaningful.
-        """
-        color = Color(self)
-        color._val[0] += color.r
-        color._val[1] += color.g
-        color._val[2] += color.b
-        return color
+    def clip(self):
+        """Return a new Color with the values clipped between 0 and 1."""
+        return Color(max(0.0, min(1.0, x)) for x in self.rgba)
 
     @classmethod
-    def from_physical(cls, *args):
-        """Get a color object from a physical color tuple in physical colorspace."""
-        t = Color(*args)
-        return Color(_physical2srgb(t.r), _physical2srgb(t.g), _physical2srgb(t.b), t.a)
+    def from_physical(cls, r, g, b, a=1):
+        """Create a Color object from a color in the physical colorspace.
+
+        With the physical colorspace we mean what is sometimes called
+        Linear-sRGB. It has the same gamut as sRGB, but where sRGB is
+        linear w.r.t. human perception, Linear-sRGB is linear w.r.t.
+        lumen and photon counts. Calculations on colors in PyGfx's shaders
+        are done in the physical colorspace.
+        """
+        return Color(_physical2srgb(r), _physical2srgb(g), _physical2srgb(b), a)
 
     def to_physical(self):
-        """Return a 3-tuple indicating the color in physical colorspace."""
+        """Get the color represented in the physical colorspace, as 3 floats."""
         return _srgb2physical(self.r), _srgb2physical(self.g), _srgb2physical(self.b)
+
+    @classmethod
+    def from_hsv(cls, hue, saturation, value):
+        """Create a Color object from an a color in the HSV (a.k.a. HSB) colorspace.
+
+        HSV stands for hue, saturation, value (aka brightness). The hue
+        component indicates the color tone. Values go from red (0) to
+        green (0.333) to blue (0.666) and back to red (1). The
+        satutation indicates vividness, with 0 meaning gray and 1
+        meaning the primary color. The value/brightness indicates goes
+        from 0 (black) to 1 (white).
+        """
+        return Color(colorsys.hsv_to_rgb(hue, saturation, value))
+
+    def to_hsv(self):
+        """Get the color represented in the HSV colorspace, as 3 floats."""
+        return colorsys.rgb_to_hsv(*self.rgb)
+
+    @classmethod
+    def from_hsl(cls, hue, saturation, lightness):
+        """Create a Color object from an a color in the HSL colorspace.
+
+        The HSL colorspace is similar to the HSV colorspace, except the
+        "value" is replaced with "lightness". This lightness scales the
+        color differently, e.g. a lightness of 1 always represents full
+        white.
+        """
+        return Color(colorsys.hls_to_rgb(hue, lightness, saturation))
+
+    def to_hsl(self):
+        """Get the color represented in the HSL colorspace, as 3 floats."""
+        hue, lightness, saturation = colorsys.rgb_to_hls(*self.rgb)
+        return hue, saturation, lightness
 
 
 def _srgb2physical(c):

@@ -184,10 +184,20 @@ def test_color_css():
 
 def test_color_min_max():
 
-    assert Color(1.1, 1.2, 1.3).rgb == (1, 1, 1)
-    assert Color(-0.1, -0.2, -0.3).rgb == (0, 0, 0)
+    assert np.allclose(Color(1.1, 1.2, 1.3).rgb, (1.1, 1.2, 1.3))
+    assert Color(1.1, 1.2, 1.3).clip().rgb == (1, 1, 1)
+    assert Color(1.1, 1.2, 1.3).hex == "#ffffff"
+    assert Color(1.1, 1.2, 1.3, 1.4).a == 1
 
-    assert Color("rgb(260, 270, 280)").css == "rgb(255,255,255)"
+    assert np.allclose(Color(-0.1, -0.2, -0.3).rgb, (-0.1, -0.2, -0.3))
+    assert Color(-0.1, -0.2, -0.3).clip().rgb == (0, 0, 0)
+    assert Color(-0.1, -0.2, -0.3).hex == "#000000"
+    assert Color(-0.1, -0.2, -0.3, -0.4).a == 0
+
+    assert Color("rgb(260, 270, 280)").css == "rgb(260,270,280)"
+    assert Color("rgba(260, 270, 280, 2)").css == "rgb(260,270,280)"
+    assert Color("rgba(260, 270, 280, 2)").a == 1
+    assert Color("rgb(260, 270, 280)").clip().css == "rgb(255,255,255)"
 
 
 def test_color_named():
@@ -222,8 +232,31 @@ def test_color_compare():
     assert "#f00" != c3
 
 
+def test_color_combine():
+
+    c = Color("rgb(20, 30, 200)") * 2
+    assert c.css == "rgb(40,60,400)"
+    c = Color("rgb(20, 30, 200)") / 2
+    assert c.css == "rgb(10,15,100)"
+
+    c = Color("#234") + Color("#333")
+    assert c.hex == "#556677"
+
+    c = Color("rgba(1,2,3,0.5)") + Color("rgb(10,20,30)")
+    assert c.css == "rgba(11,22,33,0.500)"
+
+
 def test_color_colorspaces():
-    assert Color.from_physical(0.5).hex == "#bcbcbc"
+    assert Color.from_physical(0.0, 0.5, 1.0).hex == "#00bcff"
+    assert np.allclose(
+        Color.from_physical(0.0, 0.5, 1.0).to_physical(), (0.0, 0.5, 1.0)
+    )
+
+    assert Color.from_hsv(0.333333, 1, 0.5).hex == "#008000"
+    assert np.allclose(Color.from_hsv(0.333333, 1, 0.5).to_hsv(), (0.333333, 1, 0.5))
+
+    assert Color.from_hsl(0.333333, 1, 0.5).hex == "#00ff00"
+    assert np.allclose(Color.from_hsl(0.333333, 1, 0.5).to_hsl(), (0.333333, 1, 0.5))
 
 
 if __name__ == "__main__":
@@ -238,4 +271,5 @@ if __name__ == "__main__":
     test_color_min_max()
     test_color_named()
     test_color_compare()
+    test_color_combine()
     test_color_colorspaces()
