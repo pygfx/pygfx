@@ -76,25 +76,18 @@ class MeshShader(WorldObjectShader):
             normal_buffer = Buffer(normal_data)
 
         # Init bindings
+        rbuffer = "buffer/read_only_storage"
         bindings = [
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
-            Binding(
-                "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
-            ),
-            Binding(
-                "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-            ),
-            Binding("s_normals", "buffer/read_only_storage", normal_buffer, "VERTEX"),
+            Binding("s_indices", rbuffer, geometry.indices, "VERTEX"),
+            Binding("s_positions", rbuffer, geometry.positions, "VERTEX"),
+            Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
         if self["color_mode"] == "vertex":
-            bindings.append(
-                Binding(
-                    "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
-                )
-            )
+            bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         if self["color_mode"] == "map":
             bindings.extend(
                 self.define_vertex_colormap(material.map, geometry.texcoords)
@@ -108,10 +101,7 @@ class MeshShader(WorldObjectShader):
         bindings1 = {}  # non-auto-generated bindings
         if self["instanced"]:
             bindings1[0] = Binding(
-                "s_instance_infos",
-                "buffer/read_only_storage",
-                wobject.instance_buffer,
-                "VERTEX",
+                "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
             )
 
         return {
@@ -605,12 +595,9 @@ class MeshSliceShader(WorldObjectShader):
         assert getattr(geometry, "indices", None)
 
         # Init storage buffer bindings
-        bindings[3] = Binding(
-            "s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"
-        )
-        bindings[4] = Binding(
-            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-        )
+        rbuffer = "buffer/read_only_storage"
+        bindings[3] = Binding("s_indices", rbuffer, geometry.indices, "VERTEX")
+        bindings[4] = Binding("s_positions", rbuffer, geometry.positions, "VERTEX")
 
         # Let the shader generate code for our bindings
         self.define_bindings(0, bindings)
