@@ -317,7 +317,7 @@ class TextureView(Resource):
             assert mip_range.step == 1
             self._mip_range = mip_range
         else:
-            self._mip_range = range(texture._mip_level_count)
+            self._mip_range = None  # None means all mip levels in the texture are used
         if layer_range:
             assert isinstance(layer_range, range)
             assert layer_range.step == 1
@@ -359,7 +359,9 @@ class TextureView(Resource):
         """The range of mip levels to view, as a range object.
         The step is always 1.
         """
-        return self._mip_range
+        return self._mip_range or range(
+            self.texture._mip_level_count
+        )  # "texture._mip_level_count" may be updated in auto mipmap generation
 
     @property
     def layer_range(self):
