@@ -77,12 +77,13 @@ class LineShader(WorldObjectShader):
         uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
         uniform_buffer.data["last_i"] = positions1.nitems - 1
 
+        rbuffer = "buffer/read_only_storage"
         bindings = [
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
             Binding("u_renderer", "buffer/uniform", uniform_buffer),
-            Binding("s_positions", "buffer/read_only_storage", positions1, "VERTEX"),
+            Binding("s_positions", rbuffer, positions1, "VERTEX"),
         ]
 
         # Per-vertex color, colormap, or a plane color?
@@ -92,11 +93,7 @@ class LineShader(WorldObjectShader):
             self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-            bindings.append(
-                Binding(
-                    "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
-                )
-            )
+            bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif material.map is not None:
             self["color_mode"] = "map"
             bindings.extend(self.define_vertex_colormap(material.map))
@@ -582,13 +579,12 @@ class ThinLineShader(WorldObjectShader):
         material = wobject.material
         geometry = wobject.geometry
 
+        rbuffer = "buffer/read_only_storage"
         bindings = [
             Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
-            Binding(
-                "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-            ),
+            Binding("s_positions", rbuffer, geometry.positions, "VERTEX"),
         ]
 
         # Per-vertex color, colormap, or a plane color?
@@ -599,11 +595,7 @@ class ThinLineShader(WorldObjectShader):
             self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
-            bindings.append(
-                Binding(
-                    "s_colors", "buffer/read_only_storage", geometry.colors, "VERTEX"
-                )
-            )
+            bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif material.map is not None:
             self["color_mode"] = "map"
             bindings.extend(self.define_vertex_colormap(material.map))
