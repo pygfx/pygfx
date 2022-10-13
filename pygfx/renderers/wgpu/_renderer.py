@@ -431,15 +431,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Update the render targets
         self._blender.ensure_target_size(device, physical_size)
 
-        # todo: 11-04-2022 - remove viewport arg and this backwards compat logic in the next release
+        # todo: 13-10-2022 - remove viewport arg alltogether in a few months
         if viewport is not None:
-            if not hasattr(self, "_warned_for_viewport_arg"):
-                self._warned_for_viewport_arg = True
-                logger.warning(
-                    "render(viewport=xx) is deprecated, use rect=xx instead."
-                )
-            if not rect:
-                rect = viewport
+            raise RuntimeError(
+                "render(viewport=xx) is deprecated, use rect=xx instead."
+            )
 
         # Get viewport in physical pixels
         if not rect:
