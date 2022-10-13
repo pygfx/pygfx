@@ -376,7 +376,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         camera: Camera,
         *,
         rect=None,
-        viewport=None,
         clear_color=None,
         flush=True,
     ):
@@ -430,12 +429,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Update the render targets
         self._blender.ensure_target_size(device, physical_size)
-
-        # todo: 13-10-2022 - remove viewport arg alltogether in a few months
-        if viewport is not None:
-            raise RuntimeError(
-                "render(viewport=xx) is deprecated, use rect=xx instead."
-            )
 
         # Get viewport in physical pixels
         if not rect:
