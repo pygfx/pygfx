@@ -50,6 +50,10 @@ class Buffer(Resource):
         # Get nbytes
         if data is not None:
             mem = memoryview(data)
+            if not mem.c_contiguous:
+                raise ValueError(
+                    "Buffer data must be c_contiguous. Use e.g. np.ascontiguousarray() on your data."
+                )
             if mem.format == "d":
                 raise ValueError("Float64 data is not supported, use float32 instead.")
             # if not mem.contiguous or mem.format == "d":
