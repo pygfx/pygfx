@@ -21,7 +21,7 @@ scene.add(axes)
 grid = gfx.GridHelper(size=100, thickness=4)
 scene.add(grid)
 
-box = gfx.BoxHelper(size=100, thickness=4)
+box = gfx.BoxHelper(size=100, thickness=4, color="red")
 scene.add(box)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)

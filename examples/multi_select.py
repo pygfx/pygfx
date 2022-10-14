@@ -1,10 +1,10 @@
 """
-Example showing events and clicking on meshes.
+Example demonstrating multi object selection using mouse events.
 
-Clicking on a cube will select it. Hovering the mouse over a cube
-will show a hover color. Double-clicking a cube will select all
-the items from that group (because the group has a double-click
-event handler).
+Hovering the mouse over a cube will highlight it with a bounding box.
+Clicking on a cube will select it. Double-clicking a cube will select
+all the items from that group (because the group has a double-click
+event handler). Holding shift will add to the selection.
 """
 
 from functools import partial
@@ -31,7 +31,10 @@ default_material = gfx.MeshPhongMaterial()
 selected_material = gfx.MeshPhongMaterial(color="#FF0000")
 hover_material = gfx.MeshPhongMaterial(color="#FFAA00")
 
-selected_obj = None
+outline = gfx.BoxHelper(thickness=3, color="#fa0")
+scene.add(outline)
+
+selected_objects = []
 
 
 def set_material(material, obj):
@@ -52,30 +55,27 @@ def select(event):
     event.stop_propagation()
 
     # clear selection
-    global selected_obj
-    if selected_obj:
-        selected_obj.traverse(partial(set_material, default_material))
-        selected_obj = None
+    if selected_objects and "Shift" not in event.modifiers:
+        while selected_objects:
+            ob = selected_objects.pop()
+            ob.traverse(partial(set_material, default_material))
 
     # if the background was clicked, we're done
     if isinstance(obj, gfx.Renderer):
         return
 
     # set selection (group or mesh)
-    selected_obj = obj
-    selected_obj.traverse(partial(set_material, selected_material))
+    selected_objects.append(obj)
+    obj.traverse(partial(set_material, selected_material))
 
 
 def hover(event):
     obj = event.target
-
-    if obj.material is selected_material:
-        return
-
-    obj.material = {
-        "pointer_leave": default_material,
-        "pointer_enter": hover_material,
-    }[event.type]
+    if event.type == "pointer_enter":
+        obj.add(outline)
+        outline.set_transform_by_object(obj, "local", scale=1.1)
+    elif outline.parent:
+        outline.parent.remove(outline)
 
 
 def random_rotation():
