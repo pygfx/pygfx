@@ -1,6 +1,7 @@
 """
 This example shows how to load a gltf file.
 """
+# run_example = false - because it depends on external files
 
 from pathlib import Path
 
