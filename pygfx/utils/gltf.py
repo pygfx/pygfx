@@ -48,7 +48,7 @@ def _parse_material(pbrmaterial):
 
     if pbrmaterial.emissiveFactor is not None:
         material.emissive = gfx.Color(*pbrmaterial.emissiveFactor)
-    
+
     if pbrmaterial.emissiveTexture is not None:
         material.emissive_map = _parse_texture(pbrmaterial.emissiveTexture)
 
@@ -59,7 +59,7 @@ def _parse_material(pbrmaterial):
 
     if pbrmaterial.roughnessFactor is not None:
         material.roughness = pbrmaterial.roughnessFactor
-    
+
     if pbrmaterial.metallicFactor is not None:
         material.metalness = pbrmaterial.metallicFactor
 
