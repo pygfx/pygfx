@@ -26,14 +26,11 @@ class TextMaterial(Material):
     def screen_space(self):
         """Whether the text is applied in screen space (in contrast to model space)."""
         # todo: maybe make different materials for these cases instead
-        return self._screen_space
+        return self._store.screen_space
 
     @screen_space.setter
     def screen_space(self, value):
-        value = bool(value)
-        if value != self._screen_space:
-            self._bump_rev()
-        self._screen_space = value
+        self._store.screen_space = bool(value)
 
     @property
     def color(self):
@@ -43,10 +40,13 @@ class TextMaterial(Material):
     @color.setter
     def color(self, color):
         color = Color(color)
-        # todo: need this?
-        if (color[3] >= 1) != (self.uniform_buffer.data["color"][3] >= 1):
-            self._bump_rev()  # rebuild pipeline if this becomes opaque/transparent
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
+        self._store.color_is_transparent = color.a < 1
+
+    @property
+    def color_is_transparent(self):
+        """Whether the color is (semi) transparent (i.e. not fully opaque)."""
+        return self._store.color_is_transparent
 
     # todo: with SDF the weight may be dynamic? @property def weight(self)

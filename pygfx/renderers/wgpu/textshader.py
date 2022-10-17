@@ -1,7 +1,6 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function
-from ._shadercomposer import Binding, WorldObjectShader
+from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...objects import Text
 from ...materials import TextMaterial
 from ...utils.text import atlas
@@ -10,65 +9,70 @@ from ...utils.text import atlas
 
 
 @register_wgpu_render_function(Text, TextMaterial)
-def text_renderer(render_info):
-    """Render function capable of rendering text."""
-
-    wobject = render_info.wobject
-    geometry = wobject.geometry
-    material = wobject.material
-    shader = TextShader(
-        render_info,
-        screen_space=material.screen_space,
-    )
-    n = geometry.positions.nitems * 6
-
-    bindings = [
-        Binding("u_stdinfo", "buffer/uniform", render_info.stdinfo_uniform),
-        Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
-        Binding("u_material", "buffer/uniform", material.uniform_buffer),
-        Binding("s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX"),
-        Binding(
-            "s_coverages", "buffer/read_only_storage", geometry.coverages, "VERTEX"
-        ),
-        Binding(
-            "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
-        ),
-    ]
-
-    view = atlas.texture_view
-    bindings.append(Binding("s_atlas", "sampler/filtering", view, "FRAGMENT"))
-    bindings.append(Binding("t_atlas", "texture/auto", view, "FRAGMENT"))
-
-    # Let the shader generate code for our bindings
-    for i, binding in enumerate(bindings):
-        shader.define_binding(0, i, binding)
-
-    # Determine in what render passes this objects must be rendered
-    suggested_render_mask = 3  # todo: needs work
-
-    # Put it together!
-    return [
-        {
-            "suggested_render_mask": suggested_render_mask,
-            "render_shader": shader,
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
-            "indices": (range(n), range(1)),
-            "vertex_buffers": {},
-            "bindings0": bindings,
-        }
-    ]
-
-
 class TextShader(WorldObjectShader):
+
+    type = "render"
+
+    def get_bindings(self, wobject, shared):
+
+        geometry = wobject.geometry
+        material = wobject.material
+
+        self["screen_space"] = material.screen_space
+
+        sbuffer = "buffer/read_only_storage"
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+            Binding("s_indices", sbuffer, geometry.indices, "VERTEX"),
+            Binding("s_coverages", sbuffer, geometry.coverages, "VERTEX"),
+            Binding("s_positions", sbuffer, geometry.positions, "VERTEX"),
+        ]
+
+        view = atlas.texture_view
+        bindings.append(Binding("s_atlas", "sampler/filtering", view, "FRAGMENT"))
+        bindings.append(Binding("t_atlas", "texture/auto", view, "FRAGMENT"))
+
+        # Let the shader generate code for our bindings
+        bindings = {i: b for i, b in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        return {
+            0: bindings,
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.none,
+        }
+
+    def get_render_info(self, wobject, shared):
+        material = wobject.material
+        n = wobject.geometry.positions.nitems * 6
+        render_mask = wobject.render_mask
+        if not render_mask:
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif material.color_is_transparent:
+                render_mask = RenderMask.transparent
+            else:
+                render_mask = RenderMask.all
+        return {
+            "indices": (n, 1),
+            "render_mask": render_mask,
+        }
+
     def get_code(self):
         return (
-            self.get_definitions()
-            + self.common_functions()
-            + self.vertex_shader()
-            + self.fragment_shader()
+            self.code_definitions()
+            + self.code_common()
+            + self.code_vertex()
+            + self.code_fragment()
         )
 
-    def vertex_shader(self):
+    def code_vertex(self):
         return """
 
         struct VertexInput {
@@ -141,7 +145,7 @@ class TextShader(WorldObjectShader):
         }
         """
 
-    def fragment_shader(self):
+    def code_fragment(self):
         return """
 
         @stage(fragment)
