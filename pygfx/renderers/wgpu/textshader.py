@@ -3,9 +3,11 @@ import wgpu  # only for flags/enums
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...objects import Text
 from ...materials import TextMaterial
-from ...utils.text import atlas
+from ...utils.text import glyph_atlas
 
 # from ...resources import Texture, TextureView
+
+GLYPH_SIZE = glyph_atlas.glyph_size
 
 
 @register_wgpu_render_function(Text, TextMaterial)
@@ -30,7 +32,7 @@ class TextShader(WorldObjectShader):
             Binding("s_positions", sbuffer, geometry.positions, "VERTEX"),
         ]
 
-        view = atlas.texture_view
+        view = shared.glyph_atlas_texture_view
         bindings.append(Binding("s_atlas", "sampler/filtering", view, "FRAGMENT"))
         bindings.append(Binding("t_atlas", "texture/auto", view, "FRAGMENT"))
 
@@ -209,5 +211,5 @@ class TextShader(WorldObjectShader):
             return out;
         }
         """.replace(
-            "GLYPH_SIZE", str(atlas.glyph_size)
+            "GLYPH_SIZE", str(GLYPH_SIZE)
         )

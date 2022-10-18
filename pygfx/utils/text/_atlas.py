@@ -5,7 +5,6 @@ import numpy as np
 from ...resources import Texture
 
 
-# todo: how to invalidate the pipeline of objects that use the atlas when the texture is changed?
 # todo: TextItems should release glyphs when disposed.
 
 
@@ -25,7 +24,7 @@ class GlyphAtlas:
         # Init array
         self._slots_shape = 0, 0
         self._array = np.zeros((0, 0), np.uint8)
-        self._ensure_capacity(10)  # todo: more
+        self._ensure_capacity(400)
 
     @property
     def glyph_size(self):
@@ -158,8 +157,10 @@ class PyGfxGlyphAtlas(GlyphAtlas):
     """A textured pygfx-specific subclass of the GlyphAtlas."""
 
     @property
-    def texture_view(self):
-        """The texture view for the atlas."""
+    def _gfx_texture_view(self):
+        """The texture view for the atlas. The Shared object exposes this object
+        in a trackable way.
+        """
         return self._texture_view
 
     def _set_new_array(self, *args):
@@ -173,4 +174,4 @@ class PyGfxGlyphAtlas(GlyphAtlas):
         self._texture.update_range((gs * row, gs * col, 0), (gs, gs, 1))
 
 
-atlas = PyGfxGlyphAtlas()
+glyph_atlas = PyGfxGlyphAtlas()

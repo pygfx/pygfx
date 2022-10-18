@@ -2,7 +2,7 @@ import numpy as np
 from pytest import raises
 
 from pygfx.utils.text._atlas import GlyphAtlas
-from pygfx.utils.text import atlas as global_atlas
+from pygfx.utils.text import glyph_atlas as global_atlas
 
 
 def glyphgen(size):

@@ -1,7 +1,7 @@
 import freetype
 import numpy as np
 
-from ._atlas import atlas
+from ._atlas import glyph_atlas
 
 
 font_cache = {}
@@ -17,6 +17,7 @@ def shape_text_and_generate_glyph(text, font_filename):
     # The purpose of this function is to perform the shaping and glyph generation.
     # These are (now) combined because the glyph generation needs to apply
     # corrections to the positions created by the shaping step.
+    #
     # The result is:
     # * An array of indices of the glyphs into the atlas.
     # * An array of 2D positions in unit font space. These can be multiplied with
@@ -55,7 +56,7 @@ def shape_text_and_generate_glyph(text, font_filename):
     face = freetype.Face(font_filename)
 
     # Set size to match the atlas, a bit less because some glyphs actually become larger
-    reference_size = atlas.glyph_size - 4
+    reference_size = glyph_atlas.glyph_size - 4
     face.set_pixel_sizes(reference_size, reference_size)
     # scale = face.size.x_scale  # == y_scale
 
@@ -84,36 +85,6 @@ def shape_text_and_generate_glyph(text, font_filename):
 
     # === Glyph generation
 
-    def generate_glyph(glyph_index):
-        # The only gets called for glyphs that are not in the atlas yet.
-        gs = atlas.glyph_size
-        # Load the glyph bitmap
-        face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
-        try:
-            1 / 0  # don't use SDF just yet
-            face.glyph.render(freetype.FT_RENDER_MODE_SDF)
-        except Exception:  # Freetype refuses SDF for spaces ?
-            face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
-        bitmap = face.glyph.bitmap
-        # Put in an array of the right size
-        glyph = np.zeros((gs, gs), np.uint8)
-        a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
-        if a.shape[0] > gs or a.shape[1] > gs:
-            name = face.get_glyph_name(glyph_index).decode()
-            print(
-                f"Warning: glyph {glyph_index} ({name}) was cropped from {a.shape[1]}x{a.shape[0]} to {gs}x{gs}."
-            )
-            a = a[:gs, :gs]
-        glyph[: a.shape[0], : a.shape[1]] = a
-        # Extract other info
-        info = {
-            "advance": face.glyph.linearHoriAdvance / 65536,
-            # "advance": face.glyph.advance.x / 64,  -> less precize
-            "offset": (face.glyph.bitmap_left, face.glyph.bitmap_top),
-            "coverage": (a.shape[1], a.shape[0]),
-        }
-        return glyph, info
-
     # Prepare
     altas_indices = np.zeros((len(glyph_indices),), np.uint32)
     coverage = np.zeros((len(glyph_indices), 2), np.float32)
@@ -123,9 +94,9 @@ def shape_text_and_generate_glyph(text, font_filename):
     for i, glyph_index in enumerate(glyph_indices):
         # Get hash and glyph info
         glyph_hash = (font_index, glyph_index)
-        info = atlas.get_glyph_info(glyph_hash)
+        info = glyph_atlas.get_glyph_info(glyph_hash)
         if not info:
-            info = atlas.set_glyph(glyph_hash, *generate_glyph(glyph_index))
+            info = glyph_atlas.set_glyph(glyph_hash, *generate_glyph(face, glyph_index))
         # Apply geometry
         altas_indices[i] = info["index"]
         coverage[i] = info["coverage"]
@@ -137,3 +108,34 @@ def shape_text_and_generate_glyph(text, font_filename):
     coverage /= reference_size
 
     return altas_indices, positions, coverage
+
+
+def generate_glyph(face, glyph_index):
+    # This only gets called for glyphs that are not in the atlas yet.
+    gs = glyph_atlas.glyph_size
+    # Load the glyph bitmap
+    face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
+    try:
+        1 / 0  # don't use SDF just yet
+        face.glyph.render(freetype.FT_RENDER_MODE_SDF)
+    except Exception:  # Freetype refuses SDF for spaces ?
+        face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
+    bitmap = face.glyph.bitmap
+    # Put in an array of the right size
+    glyph = np.zeros((gs, gs), np.uint8)
+    a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
+    if a.shape[0] > gs or a.shape[1] > gs:
+        name = face.get_glyph_name(glyph_index).decode()
+        print(
+            f"Warning: glyph {glyph_index} ({name}) was cropped from {a.shape[1]}x{a.shape[0]} to {gs}x{gs}."
+        )
+        a = a[:gs, :gs]
+    glyph[: a.shape[0], : a.shape[1]] = a
+    # Extract other info
+    info = {
+        "advance": face.glyph.linearHoriAdvance / 65536,
+        # "advance": face.glyph.advance.x / 64,  -> less precize
+        "offset": (face.glyph.bitmap_left, face.glyph.bitmap_top),
+        "coverage": (a.shape[1], a.shape[0]),
+    }
+    return glyph, info
