@@ -1,11 +1,11 @@
 """
-Module implementing the listen and detection of fonts.
+Module implementing the listing and detection of fonts.
 
 Mostly a stub for now.
 
 * Visvis uses a combo of fc-match and manual matching
   https://github.com/almarklein/visvis/blob/master/text/text_freetype.py#L326
-* Vipsy uses a mix of gdi32 on Windows, quartz on MacOS, fontconfig on Linux.
+* Vispy uses a mix of gdi32 on Windows, quartz on MacOS, fontconfig on Linux.
     https://github.com/vispy/vispy/blob/main/vispy/util/fonts/_win32.py
     https://github.com/vispy/vispy/blob/main/vispy/util/fonts/_freetype.py
 * Matplotlib uses a platform agnostic approach that searches for fonts in known

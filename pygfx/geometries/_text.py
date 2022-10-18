@@ -8,7 +8,7 @@ with specific font properties.
 The TextGeometry object has a few text properties that affect the positioning
 of the text.
 
-The text_geometry() function is the user-frienfly API to generate text geometry.
+The text_geometry() function is the user-friendly API to generate text geometry.
 
 For details about the text rendering process, see pygfx/utils/text/README.md
 """
@@ -115,7 +115,7 @@ class TextGeometry(Geometry):
         self.positions = Buffer(np.concatenate(positions_arrays, 0))
 
         # Set props
-        # todo: each of the below line invokes the positioning algotrithm :/
+        # todo: each of the below line invokes the positioning algorithm :/
         self.max_width = max_width
         self.line_height = line_height
         self.text_align = text_align
@@ -138,7 +138,7 @@ class TextGeometry(Geometry):
     @property
     def line_height(self):
         """The height of a line of text, used to set the distance between
-        linces. Represented as a factor of the font size. Default 1.2.
+        lines. Represented as a factor of the font size. Default 1.2.
         """
         return self._line_height
 
@@ -160,9 +160,12 @@ class TextGeometry(Geometry):
         if align is None:
             align = "left"  # todo: or does center make more sense in a viz lib?
         elif isinstance(align, int):
-            align = {-1: "left", 0: "center", 1: "right"}[align]
+            try:
+                align = {-1: "left", 0: "center", 1: "right"}[align]
+            except KeyError:
+                raise ValueError("Align as an int must be -1, 0 or 1.")
         elif not isinstance(align, str):
-            raise TypeError("Align must be a string.")
+            raise TypeError("Align must be a None, str or int.")
         align = align.lower()
         if align not in alignments:
             raise ValueError(f"Align must be one of {alignments}")
