@@ -116,11 +116,11 @@ def generate_glyph(face, glyph_index):
     # Load the glyph bitmap
     face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
     try:
-        1 / 0  # don't use SDF just yet
         face.glyph.render(freetype.FT_RENDER_MODE_SDF)
     except Exception:  # Freetype refuses SDF for spaces ?
         face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
     bitmap = face.glyph.bitmap
+
     # Put in an array of the right size
     glyph = np.zeros((gs, gs), np.uint8)
     a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)

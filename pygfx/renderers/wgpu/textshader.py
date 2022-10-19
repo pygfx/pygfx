@@ -85,7 +85,7 @@ class TextShader(WorldObjectShader):
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
-            let size = 22.0;  // todo: where to get the size?
+            let size = 222.0;  // todo: where to get the size?
 
             let raw_index = i32(in.vertex_index);
             let index = raw_index / 6;
@@ -150,6 +150,11 @@ class TextShader(WorldObjectShader):
     def code_fragment(self):
         return """
 
+        fn _sdf_smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
+            let t = clamp( ( x - low ) / ( high - low ), 0.0, 1.0 );
+            return t * t * ( 3.0 - 2.0 * t );
+        }
+
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
@@ -179,19 +184,42 @@ class TextShader(WorldObjectShader):
             let texcoord_f = (vec2<f32>(left_top) + localcoord) / vec2<f32>(atlas_size);
             let texcoord_i = left_top + vec2<i32>(localcoord + 0.5);
 
-            // Sample value
-            // TODO: This is an SDF
-            // TODO: gamma correction
-            let value = textureSample(t_atlas, s_atlas, texcoord_f).r;
-            // textureLoad(t_atlas, let_texcoord_i, 0);
+            // Sample distance. A value of 0.5 represents the edge of the glyph,
+            // with positive values representing the inside.
+            let atlas_value = textureSample(t_atlas, s_atlas, texcoord_f).r;
 
+            // Convert to a more useful measure, where the border is at 0.0,
+            // the inside is negative, and scaled by ...
+            let distance = (0.5 - atlas_value) * 128.0;
+
+            // Determine cutoff, we can tweak the glyph thickness here.
+            // But we need a more explicit sense of size/scale to do this right.
+            let cut_off = 0.0;//(u_material.thickness - 1.0);
+
+            // This would be a hard transition
+            // let alpha = select(0.0, 1.0, distance < cut_off);
+
+            // We use smoothstep to include alpha blending
+            // TODO: softness should scale with size
+            let softness = 2.0;
+            let alpha = _sdf_smoothstep(cut_off - softness, cut_off + softness, -distance);
+
+            // Outline
+            //let outline_thickness = 4.0;
+            //let outline_softness = 2.0;
+            //let outline_color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+            //let outline = _sdf_smoothstep(outline_thickness - outline_softness, outline_thickness + outline_softness, -distance);
+
+            // Early exit
+            if (alpha <= 0.0) { discard; }
+
+            // Compose the final color
             var color: vec4<f32> = u_material.color;
-            color.a = color.a * u_material.opacity * value;
-
-            if color.a <= 0.0 { discard; }
+            color.a = color.a * u_material.opacity * alpha;
 
             // Debug
-            color = vec4<f32>(mix(vec3<f32>(0.2, 0.0, 0.0), color.rgb, value), 1.0);
+            //color = vec4<f32>(vec3<f32>(atlas_value), 1.0);
+            //color = vec4<f32>(mix(vec3<f32>(0.2, 0.0, 0.0), color.rgb, distance), 1.0);
             //color.g = varyings.pointcoord.y / varyings.size;
 
             // Wrap up

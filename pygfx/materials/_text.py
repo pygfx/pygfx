@@ -7,14 +7,16 @@ class TextMaterial(Material):
 
     uniform_type = dict(
         color="4xf4",
+        thickness="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), screen_space=True, **kwargs):
+    def __init__(self, color=(1, 1, 1, 1), thickness=1.0, screen_space=True, **kwargs):
         super().__init__(**kwargs)
 
         self._screen_space = None
         self.screen_space = screen_space
         self.color = color
+        self.thickness = thickness
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -48,5 +50,17 @@ class TextMaterial(Material):
     def color_is_transparent(self):
         """Whether the color is (semi) transparent (i.e. not fully opaque)."""
         return self._store.color_is_transparent
+
+    @property
+    def thickness(self):
+        """A value indicating the relative thickness of the glyphs. Could
+        be seen as a boldness scale factor. Default 1.
+        """
+        return self.uniform_buffer.data["thickness"]
+
+    @thickness.setter
+    def thickness(self, value):
+        self.uniform_buffer.data["thickness"] = float(value)
+        self.uniform_buffer.update_range(0, 1)
 
     # todo: with SDF the weight may be dynamic? @property def weight(self)
