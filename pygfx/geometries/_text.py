@@ -25,6 +25,7 @@ def text_geometry(
     text=None,
     markdown=None,
     family=None,
+    font_size=12,
     max_width=None,
     line_height=None,
     text_align=None,
@@ -36,12 +37,18 @@ def text_geometry(
     if text:
         if not isinstance(text, str):
             raise TypeError("Text must be a Unicode string.")
-        items.append(TextItem(text, family))
+        # todo: replace with regex search on last-space-in-series-of-spaces, and newlines
+        for piece in text.split():
+            items.append(TextItem(piece, family))
     if markdown:
         raise NotImplementedError()
 
     return TextGeometry(
-        items, max_width=max_width, line_height=line_height, text_align=text_align
+        items,
+        font_size=font_size,
+        max_width=max_width,
+        line_height=line_height,
+        text_align=text_align,
     )
 
 
@@ -61,9 +68,13 @@ class TextItem:
         font_filename = find_font(font_props)
 
         # === Shaping - generate indices and positions
-        indices, positions, coverages = shape_text_and_generate_glyph(
-            text, font_filename
-        )
+        (
+            indices,
+            positions,
+            coverages,
+            space_width,
+            full_width,
+        ) = shape_text_and_generate_glyph(text, font_filename)
 
         # or ..
         # glyph_indices, positions = shape_text(text, font_props, font_filename)
@@ -76,16 +87,44 @@ class TextItem:
         #     positions[i] = i * font_props.size, 0, 0
 
         # Store stuff for the geometry to use
-        self.props = font_props
-        self.indices = indices
-        self.positions = positions
-        self.coverages = coverages
+        self._props = font_props
+        self._indices = indices
+        self._positions = positions
+        self._coverages = coverages
+        self._width = full_width
+        self._margin = space_width / 2
+
+    @property
+    def props(self):
+        self._props
+
+    @property
+    def indices(self):
+        return self._indices
+
+    @property
+    def positions(self):
+        return self._positions
+
+    @property
+    def coverages(self):
+        return self._coverages
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def margin(self):
+        return self._margin
 
 
 class TextGeometry(Geometry):
     """Produce renderable geometry from a list of TextItem objects."""
 
-    def __init__(self, text_items, max_width=0, line_height=1.2, text_align="left"):
+    def __init__(
+        self, text_items, font_size=12, max_width=0, line_height=1.2, text_align="left"
+    ):
         super().__init__()
 
         # Check incoming items
@@ -96,8 +135,8 @@ class TextGeometry(Geometry):
 
         # Compose the items in a single geometry
         indices_arrays = []
-        coverages_arrays = []
         positions_arrays = []
+        coverages_arrays = []
         glyph_count = 0
         for item in self._text_items:
             assert item.indices.dtype == np.uint32
@@ -111,14 +150,31 @@ class TextGeometry(Geometry):
 
         # Store
         self.indices = Buffer(np.concatenate(indices_arrays, 0))
-        self.coverages = Buffer(np.concatenate(coverages_arrays, 0))
         self.positions = Buffer(np.concatenate(positions_arrays, 0))
+        self.sizes = Buffer(np.zeros_like(self.positions.data))
+        self.coverages = Buffer(np.concatenate(coverages_arrays, 0))
 
         # Set props
         # todo: each of the below line invokes the positioning algorithm :/
+        self.font_size = font_size
         self.max_width = max_width
         self.line_height = line_height
         self.text_align = text_align
+
+    @property
+    def font_size(self):
+        """The size of the text. For text rendered in screen space, the
+        size is in logical pixels. For text rendered in world space,
+        the size represents world units. Note that the font_size is an
+        indicative size - most glyphs are smaller, and some may be
+        larger. Also note that some pieces of the text may have a
+        different size due to formatting.
+        """
+        return self._font_size
+
+    @font_size.setter
+    def font_size(self, value):
+        self._font_size = float(value)
 
     @property
     def max_width(self):
@@ -179,10 +235,16 @@ class TextGeometry(Geometry):
         # Note, could render the text in a curve or something.
         # todo: perhaps use a hook for custom positioning effects?
 
+        font_size = self._font_size
+
+        x_offset = 0
         for item in self._text_items:
-            positions = item.positions.copy()
-            # todo: tweak positions
-            if not (positions == item.positions).all():
-                i1, i2 = item.offset, item.offset + positions.shape[0]
-                self.positions.data[i1:i2] = positions
-                self.positions.update_range(i1, i2)
+            if x_offset > 0:
+                x_offset += item.margin * font_size
+            positions = item.positions * font_size + np.array([x_offset, 0])
+            i1, i2 = item.offset, item.offset + positions.shape[0]
+            self.positions.data[i1:i2] = positions
+            self.positions.update_range(i1, i2)
+            self.sizes.data[i1:i2] = font_size
+            self.sizes.update_range(i1, i2)
+            x_offset += item.width * font_size + item.margin * font_size

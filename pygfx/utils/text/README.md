@@ -10,7 +10,7 @@ This is a high-level overview of the steps of our text rendering process.
 
 ### Entrypoint & itemisation
 
-We provide the user with an API to produce text. This can be plain text, Markdown, Html, Math, musical notes, etc. In addition, the user may provide certain font properties (TODO: which ones?). This is the API entry point. 
+We provide the user with an API to produce text. This can be plain text, Markdown, Html, Math, musical notes, etc. In addition, the user may provide certain font properties (TODO: which ones?). This is the API entry point.
 
 Depending on the situation, the text is then cut in pieces. E.g. if the input is markdown `"hello *world*"`  this is separated into two parts: one with regular text and one with the bold text. Each part can even use different scripts and have a different font-famly.
 
@@ -37,6 +37,29 @@ Each glyph is now read from the font file (using its glyph-index) and a represen
 From an API point of view, this step exchanges ...
 
 TODO: not sure yet if these should be two steps or one
+
+
+### Sizing
+
+The glyphs are stored in the atlas with a fixed square `glyph_size` per
+glyph. The SDF glyphs are rendered to fit in this square at a certain
+(pixel) font size, which is slightly smaller. The factor between the
+two is used to correct the final size (by the geometry TODO still true?)
+
+The TextGeometry has a `font_size` property. For text rendered in screen
+space, this is the font size in logical pixels. For text rendered in
+world space, the size is expressed in world units. Note that the
+font_size is an indicative size - most glyphs are smaller, and some may
+be larger.
+
+A FontProps object also has a size property. This can be relative or
+absolute. The geometry resolves its own `font_size` and the TextItem's
+`size` prop into the final positions.
+
+In the shader, the positioning is already correct. However, it does not
+some sizing info to relate certain material properties, and handle
+antialiasing.
+
 
 ### Positioning
 

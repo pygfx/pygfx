@@ -10,7 +10,7 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 obj = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum!"),
+    gfx.text_geometry(text="Lorem ipsum!", font_size=100),
     gfx.TextMaterial(color="cyan"),
 )
 scene.add(obj)

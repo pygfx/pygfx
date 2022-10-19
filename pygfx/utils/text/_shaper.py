@@ -56,9 +56,9 @@ def shape_text_and_generate_glyph(text, font_filename):
     face = freetype.Face(font_filename)
 
     # Set size to match the atlas, a bit less because some glyphs actually become larger
-    reference_size = glyph_atlas.glyph_size - 4
+    # todo: set reference size *a lot* lower and check if rendering still works as expected - to test that our scaling is ok
+    reference_size = glyph_atlas.glyph_size - 6
     face.set_pixel_sizes(reference_size, reference_size)
-    # scale = face.size.x_scale  # == y_scale
 
     # === Shaping
 
@@ -79,6 +79,11 @@ def shape_text_and_generate_glyph(text, font_filename):
         positions[i] = pen_x, 0
         pen_x += advances[i]
         prev = c
+
+    # It looks like by calling set_pixel_sizes(), the metrics we use
+    # (advances and kerning) are expressed in pixels too. If these would
+    # be e.g. points, then we'd convert here.
+    positions_in_pixels = positions
 
     # todo: use the line_gap as the reference line_height
     line_gap = face.height
@@ -103,11 +108,20 @@ def shape_text_and_generate_glyph(text, font_filename):
         bitmap_offsets[i] = info["offset"]
 
     # Finalize by making everything unit font size
-    # todo: I'm not 100% sure if bitmap_offsets (in pixels) can be added to positions (in font size)
-    positions = (positions + bitmap_offsets) / reference_size
-    coverage /= reference_size
+    positions = (positions_in_pixels + bitmap_offsets) / reference_size
+    coverage /= reference_size  # todo: should coverage be scaled like this?
+    full_width = pen_x / reference_size
+    space_width = get_advance_for_space(face) / reference_size
 
-    return altas_indices, positions, coverage
+    # todo: I think we can encode coverage using an uint8
+
+    return altas_indices, positions, coverage, space_width, full_width
+
+
+def get_advance_for_space(face):
+    glyph_index = face.get_char_index(" ")
+    advance = face.get_advance(glyph_index, freetype.FT_LOAD_DEFAULT)
+    return advance / 65536 if advance > 65536 * 10 else advance
 
 
 def generate_glyph(face, glyph_index):
