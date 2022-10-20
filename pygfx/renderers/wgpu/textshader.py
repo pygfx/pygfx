@@ -22,6 +22,7 @@ class TextShader(WorldObjectShader):
         material = wobject.material
 
         self["screen_space"] = material.screen_space
+        self["aa"] = material.aa
 
         sbuffer = "buffer/read_only_storage"
         bindings = [
@@ -223,16 +224,18 @@ class TextShader(WorldObjectShader):
             // But we need a more explicit sense of size/scale to do this right.
             let cut_off = 0.0;//(u_material.thickness - 1.0);
 
-            // This would be a hard transition
-            // let alpha = select(0.0, 1.0, distance < cut_off);
-
-            // We use smoothstep to include alpha blending.
-            // The smoothness is calculated from the scale of one atlas-pixel in screen space.
-            // High smoothness values also result in lower alpha to prevent artifacts under high angles.
-            let max_softness = f32(GLYPH_SIZE);
-            let softness = clamp(0.0, max_softness, 5.0 / varyings.atlas_pixel_scale);
-            let softener = 1.0 - max(softness / max_softness - 0.5, 0.0);
-            let alpha = softener * _sdf_smoothstep(cut_off - softness, cut_off + softness, -distance);
+            $$ if aa
+                // We use smoothstep to include alpha blending.
+                // The smoothness is calculated from the scale of one atlas-pixel in screen space.
+                // High smoothness values also result in lower alpha to prevent artifacts under high angles.
+                let max_softness = f32(GLYPH_SIZE);
+                let softness = clamp(0.0, max_softness, 5.0 / varyings.atlas_pixel_scale);
+                let softener = 1.0 - max(softness / max_softness - 0.5, 0.0);
+                let alpha = softener * _sdf_smoothstep(cut_off - softness, cut_off + softness, -distance);
+            $$ else
+                // Do a hard transition
+                let alpha = select(0.0, 1.0, distance < cut_off);
+            $$ endif
 
             // Outline
             //let outline_thickness = 4.0;

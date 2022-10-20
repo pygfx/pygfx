@@ -11,7 +11,7 @@ scene = gfx.Scene()
 
 obj = gfx.Text(
     gfx.text_geometry(text="Lorem ipsum!", font_size=100),
-    gfx.TextMaterial(color="cyan", screen_space=True),
+    gfx.TextMaterial(color="cyan", screen_space=True, aa=True),
 )
 scene.add(obj)
 

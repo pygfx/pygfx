@@ -10,19 +10,32 @@ class TextMaterial(Material):
         thickness="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), thickness=1.0, screen_space=True, **kwargs):
+    def __init__(self, color=(1, 1, 1, 1), thickness=1.0, screen_space=True, aa=True, **kwargs):
         super().__init__(**kwargs)
 
         self._screen_space = None
         self.screen_space = screen_space
         self.color = color
         self.thickness = thickness
+        self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
         # todo: map glyph index to characters (can use wobject._wgpu_get_pick_info)
         _ = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
         return {}
+
+    @property
+    def aa(self):
+        """Whether or not the glyphs should be anti-aliased. Aliasing
+        gives prettier results, but may affect performance for very large
+        texts. Default True.
+        """
+        return self._store.aa
+
+    @aa.setter
+    def aa(self, aa):
+        self._store.aa = bool(aa)
 
     @property
     def screen_space(self):
