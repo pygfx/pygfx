@@ -586,8 +586,10 @@ class RenderPipelineContainer(PipelineContainer):
         render_info = self.render_info
         assert isinstance(render_info, dict)
 
-        expected = {"indices", "render_mask"}
-        assert set(render_info.keys()) == expected, f"{render_info.keys()}"
+        # expected = {"indices", "render_mask"}
+        # assert set(render_info.keys()) == expected, f"{render_info.keys()}"
+        assert "indices" in set(render_info.keys()), f"{render_info.keys()}"
+        assert "render_mask" in set(render_info.keys()), f"{render_info.keys()}"
 
         indices = render_info["indices"]
         assert isinstance(indices, (tuple, list))
@@ -645,6 +647,13 @@ class RenderPipelineContainer(PipelineContainer):
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
 
+        # We should be able to control the depth-write and depth_test of individual objects in the scene more flexibly.
+        # So when render_info specifies this setting, we use it to override the default setting of "blender".
+        # todo: make stencil test also the same
+        # todo: more depth test and stencil test options
+        depth_write = self.render_info.get("depth_write", True)
+        depth_test = self.render_info.get("depth_test", True)
+
         # Create pipeline layout object from list of layouts
         env_bind_group_layout, _ = env.wgpu_bind_group
         bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
@@ -658,6 +667,12 @@ class RenderPipelineContainer(PipelineContainer):
         for pass_index in range(blender.get_pass_count()):
             color_descriptors = blender.get_color_descriptors(pass_index)
             depth_descriptor = blender.get_depth_descriptor(pass_index)
+            if not depth_write:
+                depth_descriptor["depth_write_enabled"] = False
+            if not depth_test:
+                # todo: more depth test options
+                depth_descriptor["depth_compare"] = wgpu.CompareFunction.always
+
             if not color_descriptors:
                 continue
 

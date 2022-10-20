@@ -158,3 +158,20 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
         self.uniform_buffer.data["tex_index"] = best_index + (0,)  # pad to vec4
         self.uniform_buffer.data["yscale"] = best_scale
         self.uniform_buffer.update_range(0, 1)
+
+
+class SkyboxMaterial(Material):
+    """A cube image background, resulting in a skybox."""
+
+    def __init__(self, *, map, **kwargs):
+        super().__init__(**kwargs)
+        self.map = map
+
+    @property
+    def map(self):
+        """The cube texture map"""
+        return self._map
+
+    @map.setter
+    def map(self, map):
+        self._map = map

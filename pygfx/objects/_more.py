@@ -1,5 +1,6 @@
 from ._base import WorldObject
 from ..utils import unpack_bitfield
+from ..geometries import box_geometry
 
 
 class Group(WorldObject):
@@ -14,6 +15,31 @@ class Scene(Group):
     fog, and environment map. Camera's and lights can also be part of a scene.
     """
 
+    def __init__(self, background=None, environment=None):
+        super().__init__()
+        self._background = background
+        self._environment = environment
+
+    @property
+    def background(self):
+        """The background of the scene."""
+        return self._background
+
+    @background.setter
+    def background(self, background):
+        self._background = background
+
+    @property
+    def environment(self):
+        """The environment of the scene.
+        If not null, this texture is set as the environment map for all physical materials in the scene.
+        """
+        return self._environment
+
+    @environment.setter
+    def environment(self, environment):
+        self._environment = environment
+
 
 class Background(WorldObject):
     """An object representing a scene background.
@@ -24,6 +50,14 @@ class Background(WorldObject):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
         super().__init__(None, material, **kwargs)
+
+
+class Skybox(WorldObject):
+    """A skybox is a WorldObject that is rendered as the background of a scene."""
+
+    def __init__(self, material=None):
+        super().__init__(material=material)
+        self.box = box_geometry(1, 1, 1)
 
 
 class Line(WorldObject):

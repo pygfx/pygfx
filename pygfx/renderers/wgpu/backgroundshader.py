@@ -2,8 +2,8 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ._utils import to_texture_format
-from ...objects import Background
-from ...materials import BackgroundMaterial, BackgroundImageMaterial
+from ...objects import Background, Skybox
+from ...materials import BackgroundMaterial, BackgroundImageMaterial, SkyboxMaterial
 from ...resources import Texture, TextureView
 
 
@@ -161,3 +161,113 @@ class BackgroundShader(WorldObjectShader):
             return out;
         }
         """
+
+
+@register_wgpu_render_function(Skybox, SkyboxMaterial)
+class SkyboxShader(WorldObjectShader):
+
+    # Mark as render-shader (as opposed to compute-shader)
+    type = "render"
+
+    def get_bindings(self, wobject, shared):
+
+        material = wobject.material
+        geometry = wobject.box
+
+        bindings = []
+        bindings.append(Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer))
+        bindings.append(Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer))
+        bindings.append(Binding("r_texture", "texture/auto", material.map, "FRAGMENT"))
+        bindings.append(
+            Binding("r_sampler", "sampler/filtering", material.map, "FRAGMENT")
+        )
+        bindings.append(
+            Binding("s_indices", "buffer/read_only_storage", geometry.indices, "VERTEX")
+        )
+        bindings.append(
+            Binding(
+                "s_positions", "buffer/read_only_storage", geometry.positions, "VERTEX"
+            )
+        )
+
+        # Define shader code for binding
+        bindings = {i: binding for i, binding in enumerate(bindings)}
+        self.define_bindings(0, bindings)
+
+        return {
+            0: bindings,
+        }
+
+    def get_pipeline_info(self, wobject, shared):
+
+        # we don't need depth test and write for skybox, but now pygfx seems not exposing this ability
+
+        return {
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
+            "cull_mode": wgpu.CullMode.front,
+        }
+
+    def get_render_info(self, wobject, shared):
+        geometry = wobject.box
+
+        n = geometry.indices.data.size
+        n_instances = 1
+
+        return {
+            "indices": (n, n_instances),
+            "render_mask": RenderMask.opaque,
+            "depth_write": False,
+            "depth_test": False,
+        }
+
+    def get_code(self):
+        return (
+            self.code_definitions()
+            + self.code_common()
+            + self.vertex_shader()
+            + self.fragment_shader()
+        )
+
+    def vertex_shader(self):
+        return """
+        struct SkyOutput {
+            @builtin(position) position: vec4<f32>,
+            @location(0) uv: vec3<f32>,
+        };
+
+        @stage(vertex)
+        fn vs_main(@builtin(vertex_index) index: u32) -> SkyOutput {
+
+            let vertex_index = i32(index);
+
+            let face_index = vertex_index / 3;
+            var sub_index = vertex_index % 3;
+            let ii = load_s_indices(face_index);
+            let i0 = i32(ii[sub_index]);
+
+            let pos = load_s_positions(i0);
+
+            var result: SkyOutput;
+            result.uv = vec3<f32>(-pos.x, pos.yz);
+            var view_matrix = u_stdinfo.cam_transform;
+            view_matrix[3] = vec4<f32>(0.0, 0.0, 0.0, 1.0); // Remove translation
+            let u_mvpNoscale = u_stdinfo.projection_transform * view_matrix * u_wobject.world_transform;
+            result.position = u_mvpNoscale * vec4<f32>( pos, 1.0 );
+
+            result.position.z = 0.0;
+
+            return result;
+        }
+    """
+
+    def fragment_shader(self):
+        return """
+        @stage(fragment)
+        fn fs_main(vertex: SkyOutput) -> FragmentOutput {
+            var color = textureSample(r_texture, r_sampler, vertex.uv);
+            color = vec4<f32>(srgb2physical(color.rgb), color.a);
+            var out: FragmentOutput;
+            out.color = color;
+            return out;
+        }
+    """
