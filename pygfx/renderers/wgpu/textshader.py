@@ -139,6 +139,10 @@ class TextShader(WorldObjectShader):
                 let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
                 let delta_ndc = vertex_pos / screen_factor;
 
+                // Pixel scale is easy
+
+                let atlas_pixel_scale = font_size / f32(GLYPH_SIZE);
+
             $$ else
 
                 // We take the glyph positions as model pos, move to world and then NDC.
@@ -148,11 +152,27 @@ class TextShader(WorldObjectShader):
                 let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
                 let delta_ndc = vec2<f32>(0.0, 0.0);
 
+                // For the pixel scale, we first project a second point that is
+                // offset diagonally from the current vertex. The two points are
+                // mapped to screen coords and the smallest distance is used for scale.
+
+                let one_atlas_pixel = vec2<f32>(font_size / f32(GLYPH_SIZE));
+
+                let raw_pos2 = vec4<f32>(vertex_pos + one_atlas_pixel, 0.0, 1.0);
+                let world_pos2 = u_wobject.world_transform * raw_pos2;
+                let ndc_pos2 = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos2;
+
+                let screen_pos1 = (ndc_pos.xy / ndc_pos.w) * screen_factor;
+                let screen_pos2 = (ndc_pos2.xy / ndc_pos2.w) * screen_factor;
+                let screen_diff = abs(screen_pos1 - screen_pos2);
+                let atlas_pixel_scale = min(screen_diff.x, screen_diff.y);
+
             $$ endif
 
             var varyings: Varyings;
             varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+            varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
             varyings.glyph_texcoord = vec2<f32>(glyph_texcoord);
             varyings.glyph_index = i32(glyph_index);
 
@@ -206,10 +226,13 @@ class TextShader(WorldObjectShader):
             // This would be a hard transition
             // let alpha = select(0.0, 1.0, distance < cut_off);
 
-            // We use smoothstep to include alpha blending
-            // TODO: softness should scale with size
-            let softness = 2.0;
-            let alpha = _sdf_smoothstep(cut_off - softness, cut_off + softness, -distance);
+            // We use smoothstep to include alpha blending.
+            // The smoothness is calculated from the scale of one atlas-pixel in screen space.
+            // High smoothness values also result in lower alpha to prevent artifacts under high angles.
+            let max_softness = f32(GLYPH_SIZE);
+            let softness = clamp(0.0, max_softness, 5.0 / varyings.atlas_pixel_scale);
+            let softener = 1.0 - max(softness / max_softness - 0.5, 0.0);
+            let alpha = softener * _sdf_smoothstep(cut_off - softness, cut_off + softness, -distance);
 
             // Outline
             //let outline_thickness = 4.0;

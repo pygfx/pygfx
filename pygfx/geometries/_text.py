@@ -143,7 +143,7 @@ class TextGeometry(Geometry):
         # Store
         self.indices = Buffer(np.concatenate(indices_arrays, 0))
         self.positions = Buffer(np.concatenate(positions_arrays, 0))
-        self.sizes = Buffer(np.zeros_like(self.positions.data))
+        self.sizes = Buffer(np.zeros((self.positions.nitems,), np.float32))
 
         # Set props
         # todo: each of the below line invokes the positioning algorithm :/
