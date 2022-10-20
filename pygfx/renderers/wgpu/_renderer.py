@@ -194,6 +194,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             # Also enable the texture for render and display usage
             if isinstance(target, TextureView):
                 texture = target.texture
+            else:
+                texture = target
             texture._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             texture._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
