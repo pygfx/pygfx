@@ -163,7 +163,7 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
 class SkyboxMaterial(Material):
     """A cube image background, resulting in a skybox."""
 
-    def __init__(self, *, map, **kwargs):
+    def __init__(self, *, map=None, **kwargs):
         super().__init__(**kwargs)
         self.map = map
 
