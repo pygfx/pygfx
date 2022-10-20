@@ -221,40 +221,52 @@ class TextShader(WorldObjectShader):
             // the inside is negative, and values represent distances in atlas-pixels.
             let distance = (0.5 - atlas_value) * 128.0;
 
-            // Determine cutoff, we can tweak the glyph thickness here.
-            // Default thickness is 1. With log2(1) == 1, default cutoff is 0.
-            let cut_off = - varyings.font_size * 0.1 * log2(clamp(0.1, 10.0, u_material.thickness));
+            // Load tickness factors
+            let extra_thickness = u_material.extra_thickness * f32(REF_GLYPH_SIZE);
+            let outline_thickness = u_material.outline_thickness * f32(REF_GLYPH_SIZE);
+
+            // Calculate cut-off's
+            let cut_off = 0.0 + extra_thickness + outline_thickness;
+            let outline_cutoff = cut_off - outline_thickness;
+
+            // Init opacity value to get the shape of the glyph
+            var alpha = 1.0;
+
+            // The softness is calculated from the scale of one atlas-pixel in screen space.
+            let max_softness = f32(GLYPH_SIZE);
+            let softness = clamp(0.0, max_softness, 5.0 / varyings.atlas_pixel_scale);
 
             $$ if aa
                 // We use smoothstep to include alpha blending.
-                // The smoothness is calculated from the scale of one atlas-pixel in screen space.
-                // High smoothness values also result in lower alpha to prevent artifacts under high angles.
-                let max_softness = f32(GLYPH_SIZE);
-                let softness = clamp(0.0, max_softness, 5.0 / varyings.atlas_pixel_scale);
+                // Now we can calculate to what extent we're outside of the glyph, and thus the alpha.
+                let outside_ness = _sdf_smoothstep(cut_off - softness, cut_off + softness, distance);
+                alpha = (1.0 - outside_ness);
+                // High softness values also result in lower alpha to prevent artifacts under high angles.
                 let softener = 1.0 - max(softness / max_softness - 0.5, 0.0);
-                let alpha = softener * _sdf_smoothstep(cut_off - softness, cut_off + softness, -distance);
+                alpha *= softener;
+                // Outline
+                let outline = _sdf_smoothstep(outline_cutoff - softness, outline_cutoff + softness, distance);
             $$ else
                 // Do a hard transition
-                let alpha = select(0.0, 1.0, distance < cut_off);
+                alpha = select(0.0, 1.0, distance < cut_off);
+                let outline = select(0.0, 1.0, distance < outline_cutoff);
             $$ endif
-
-            // Outline
-            //let outline_thickness = 4.0;
-            //let outline_softness = 2.0;
-            //let outline_color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-            //let outline = _sdf_smoothstep(outline_thickness - outline_softness, outline_thickness + outline_softness, -distance);
 
             // Early exit
             if (alpha <= 0.0) { discard; }
 
-            // Compose the final color
-            let color_srgb = u_material.color;
-            let color = srgb2physical(color_srgb.rgb);
-            let opacity = color_srgb.a * u_material.opacity * alpha;
+            // Get final color
+            let base_srgb = u_material.color;
+            let outline_srgb = u_material.outline_color;
+            let color = mix(srgb2physical(base_srgb.rgb), srgb2physical(outline_srgb.rgb), outline);
+            let color_alpha = mix(base_srgb.a, outline_srgb.a, outline);
+
+            // Compose the output color
+            let opacity = color_alpha * u_material.opacity * alpha;
             var color_out = vec4<f32>(color, opacity);
 
             // Debug
-            //color_out = vec4<f32>(atlas_value, 1.0, 0.0, 1.0);
+            //color_out = vec4<f32>(atlas_value, 0.0, 0.0, 1.0);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);

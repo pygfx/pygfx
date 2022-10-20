@@ -166,6 +166,7 @@ class TextGeometry(Geometry):
     @font_size.setter
     def font_size(self, value):
         self._font_size = float(value)
+        self._position()
 
     @property
     def max_width(self):

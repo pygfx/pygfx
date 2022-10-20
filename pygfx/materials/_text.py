@@ -7,18 +7,30 @@ class TextMaterial(Material):
 
     uniform_type = dict(
         color="4xf4",
-        thickness="f4",
+        extra_thickness="f4",
+        outline_thickness="f4",
+        outline_color="4xf4",
     )
 
     def __init__(
-        self, color=(1, 1, 1, 1), thickness=1.0, screen_space=True, aa=True, **kwargs
+        self,
+        color="#fff",
+        *,
+        outline_color="#000",
+        outline_thickness=0,
+        extra_thickness=0.0,
+        screen_space=True,
+        aa=True,
+        **kwargs
     ):
         super().__init__(**kwargs)
 
         self._screen_space = None
         self.screen_space = screen_space
         self.color = color
-        self.thickness = thickness
+        self.outline_color = outline_color
+        self.outline_thickness = outline_thickness
+        self.extra_thickness = extra_thickness
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -59,7 +71,11 @@ class TextMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
-        self._store.color_is_transparent = color.a < 1
+        self._check_color_is_transparent()
+
+    def _check_color_is_transparent(self):
+        max_a = max(self.color.a, self.outline_color.a)
+        self._store.color_is_transparent = max_a < 0
 
     @property
     def color_is_transparent(self):
@@ -67,14 +83,40 @@ class TextMaterial(Material):
         return self._store.color_is_transparent
 
     @property
-    def thickness(self):
-        """A value indicating the relative thickness of the glyphs.
-        Could be seen as a font-weight / boldness scale factor. Default
-        1. Typical values would be between 0.5 and 5.
+    def outline_thickness(self):
+        """A value indicating the relative width of the outline. Valid
+        values are between 0 and 0.5, as a fraction of the font size.
+        Default 0 (no outline).
         """
-        return float(self.uniform_buffer.data["thickness"])
+        return float(self.uniform_buffer.data["outline_thickness"])
 
-    @thickness.setter
-    def thickness(self, value):
-        self.uniform_buffer.data["thickness"] = float(value)
+    @outline_thickness.setter
+    def outline_thickness(self, value):
+        self.uniform_buffer.data["outline_thickness"] = max(0, min(0.5, float(value)))
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def outline_color(self):
+        """The color of the outline of the text."""
+        return Color(self.uniform_buffer.data["outline_color"])
+
+    @outline_color.setter
+    def outline_color(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["outline_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+        self._check_color_is_transparent()
+
+    @property
+    def extra_thickness(self):
+        """A value indicating additional thickness for the glyphs.
+        Could be seen as a font-weight / boldness correction. Valid
+        values are between -0.25 and 0.5, as a fraction of the font
+        size. Default 0.
+        """
+        return float(self.uniform_buffer.data["extra_thickness"])
+
+    @extra_thickness.setter
+    def extra_thickness(self, value):
+        self.uniform_buffer.data["extra_thickness"] = max(-0.25, min(0.5, float(value)))
         self.uniform_buffer.update_range(0, 1)
