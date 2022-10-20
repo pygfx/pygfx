@@ -71,7 +71,6 @@ class TextItem:
         (
             indices,
             positions,
-            coverages,
             space_width,
             full_width,
         ) = shape_text_and_generate_glyph(text, font_filename)
@@ -90,7 +89,6 @@ class TextItem:
         self._props = font_props
         self._indices = indices
         self._positions = positions
-        self._coverages = coverages
         self._width = full_width
         self._margin = space_width / 2
 
@@ -105,10 +103,6 @@ class TextItem:
     @property
     def positions(self):
         return self._positions
-
-    @property
-    def coverages(self):
-        return self._coverages
 
     @property
     def width(self):
@@ -136,7 +130,6 @@ class TextGeometry(Geometry):
         # Compose the items in a single geometry
         indices_arrays = []
         positions_arrays = []
-        coverages_arrays = []
         glyph_count = 0
         for item in self._text_items:
             assert item.indices.dtype == np.uint32
@@ -145,14 +138,12 @@ class TextGeometry(Geometry):
             item.offset = glyph_count
             glyph_count += item.indices.size
             indices_arrays.append(item.indices)
-            coverages_arrays.append(item.coverages)
             positions_arrays.append(item.positions)
 
         # Store
         self.indices = Buffer(np.concatenate(indices_arrays, 0))
         self.positions = Buffer(np.concatenate(positions_arrays, 0))
         self.sizes = Buffer(np.zeros_like(self.positions.data))
-        self.coverages = Buffer(np.concatenate(coverages_arrays, 0))
 
         # Set props
         # todo: each of the below line invokes the positioning algorithm :/

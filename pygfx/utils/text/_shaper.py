@@ -1,3 +1,11 @@
+"""
+Shaping and glyph generation.
+
+Relevant links:
+* https://freetype.org/freetype2/docs/glyphs/glyphs-3.html
+
+"""
+
 import freetype
 import numpy as np
 
@@ -7,7 +15,8 @@ from ._atlas import glyph_atlas
 font_cache = {}
 
 
-# https://freetype.org/freetype2/docs/glyphs/glyphs-3.html
+# Set size to match the atlas, a bit less because some glyphs actually become larger
+REF_GLYPH_SIZE = glyph_atlas.glyph_size - 6
 
 
 def shape_text_and_generate_glyph(text, font_filename):
@@ -22,8 +31,8 @@ def shape_text_and_generate_glyph(text, font_filename):
     # * An array of indices of the glyphs into the atlas.
     # * An array of 2D positions in unit font space. These can be multiplied with
     #   the font size to get the pixel positions.
-    # * An array of 2D coverage numbers, because most glyphs don't occupy
-    #   the whole glyph square of the atlas.
+    # * The width of a space (in normalized font units)
+    # * The full width of this piece of text (in normalized font units).
     #
     # The glyph metrics place the origin at the baseline. When a bitmap
     # is generated, the bitmap's origin is not the glyphs origin, so
@@ -54,11 +63,7 @@ def shape_text_and_generate_glyph(text, font_filename):
     # Load font
     # todo: cache Face objects, or is this not necessary? Benchmark!
     face = freetype.Face(font_filename)
-
-    # Set size to match the atlas, a bit less because some glyphs actually become larger
-    # todo: set reference size *a lot* lower and check if rendering still works as expected - to test that our scaling is ok
-    reference_size = glyph_atlas.glyph_size - 6
-    face.set_pixel_sizes(reference_size, reference_size)
+    face.set_pixel_sizes(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
 
     # === Shaping
 
@@ -90,32 +95,24 @@ def shape_text_and_generate_glyph(text, font_filename):
 
     # === Glyph generation
 
-    # Prepare
     altas_indices = np.zeros((len(glyph_indices),), np.uint32)
-    coverage = np.zeros((len(glyph_indices), 2), np.float32)
-    bitmap_offsets = np.zeros((len(glyph_indices), 2), np.float32)
-
-    # Loop over the glyphs
+    advances2 = np.zeros((len(glyph_indices),), np.float32)
     for i, glyph_index in enumerate(glyph_indices):
-        # Get hash and glyph info
         glyph_hash = (font_index, glyph_index)
         info = glyph_atlas.get_glyph_info(glyph_hash)
         if not info:
             info = glyph_atlas.set_glyph(glyph_hash, *generate_glyph(face, glyph_index))
-        # Apply geometry
         altas_indices[i] = info["index"]
-        coverage[i] = info["coverage"]
-        bitmap_offsets[i] = info["offset"]
+        advances2[i] = info["advance"]
+
+    # todo: advances2 is actually a bit more accurate, but using it would intertwine the shaping and glyphgen steps
 
     # Finalize by making everything unit font size
-    positions = (positions_in_pixels + bitmap_offsets) / reference_size
-    coverage /= reference_size  # todo: should coverage be scaled like this?
-    full_width = pen_x / reference_size
-    space_width = get_advance_for_space(face) / reference_size
+    positions = positions_in_pixels / REF_GLYPH_SIZE
+    full_width = pen_x / REF_GLYPH_SIZE
+    space_width = get_advance_for_space(face) / REF_GLYPH_SIZE
 
-    # todo: I think we can encode coverage using an uint8
-
-    return altas_indices, positions, coverage, space_width, full_width
+    return altas_indices, positions, space_width, full_width
 
 
 def get_advance_for_space(face):
@@ -126,7 +123,9 @@ def get_advance_for_space(face):
 
 def generate_glyph(face, glyph_index):
     # This only gets called for glyphs that are not in the atlas yet.
+
     gs = glyph_atlas.glyph_size
+
     # Load the glyph bitmap
     face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
     try:
@@ -135,21 +134,26 @@ def generate_glyph(face, glyph_index):
         face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
     bitmap = face.glyph.bitmap
 
-    # Put in an array of the right size
-    glyph = np.zeros((gs, gs), np.uint8)
+    # Make the bitmap smaller if it does not fit in the atlas slot.
+    # The REF_GLYPH_SIZE should be set such that this does not happen.
+    # But when it does, the result is simply a cut-off glyph.
     a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
     if a.shape[0] > gs or a.shape[1] > gs:
         name = face.get_glyph_name(glyph_index).decode()
-        print(
-            f"Warning: glyph {glyph_index} ({name}) was cropped from {a.shape[1]}x{a.shape[0]} to {gs}x{gs}."
-        )
+        size1 = f"{a.shape[1]}x{a.shape[0]}"
+        msg = f"Warning: glyph {glyph_index} ({name}) was cropped from {size1} to {gs}x{gs}."
+        print(msg)
         a = a[:gs, :gs]
+
+    # Put in an array of the right size
+    glyph = np.zeros((gs, gs), np.uint8)
     glyph[: a.shape[0], : a.shape[1]] = a
+
     # Extract other info
     info = {
         "advance": face.glyph.linearHoriAdvance / 65536,
         # "advance": face.glyph.advance.x / 64,  -> less precize
-        "offset": (face.glyph.bitmap_left, face.glyph.bitmap_top),
-        "coverage": (a.shape[1], a.shape[0]),
+        "rect": (face.glyph.bitmap_left, face.glyph.bitmap_top, a.shape[1], a.shape[0]),
     }
+
     return glyph, info

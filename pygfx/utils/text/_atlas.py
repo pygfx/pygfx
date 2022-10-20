@@ -2,7 +2,7 @@ import threading
 
 import numpy as np
 
-from ...resources import Texture
+from ...resources import Texture, Buffer
 
 
 # todo: TextItems should release glyphs when disposed.
@@ -24,12 +24,13 @@ class GlyphAtlas:
         # Init array
         self._slots_shape = 0, 0
         self._array = np.zeros((0, 0), np.uint8)
+        self._rects = np.zeros((0, 4), np.int32)
         self._ensure_capacity(400)
 
     @property
     def glyph_size(self):
         """The used glyph size."""
-        return 64  # todo: what's a good size?
+        return 64  # 64 seems to be a reasonable size for SDF's
 
     @property
     def capacity(self):
@@ -62,23 +63,32 @@ class GlyphAtlas:
         gs = self.glyph_size
         used_indices = list(self._index2hash.keys())
 
-        # Collect info that we need for copying
-        array1 = self._array
-        rows_cols1 = [self._row_col_from_index(i) for i in used_indices]
-
-        # Apply - create new array
-        array2 = np.zeros((gs * nrows, gs * ncols), np.uint8)
-        self._slots_shape = nrows, ncols
-        self._array = array2
+        # Bookkeeping
         self._free_indices = set(range(self.capacity)) - set(used_indices)
+        self._slots_shape = nrows, ncols
+
+        # Create new array
+        array1 = self._array
+        array2 = np.zeros((gs * nrows, gs * ncols), np.uint8)
+        self._array = array2
 
         # Copy over the existing glyphs, so that the glyph indices stay valid
+        rows_cols1 = [self._row_col_from_index(i) for i in used_indices]
         rows_cols2 = [self._row_col_from_index(i) for i in used_indices]
         for row_col1, row_col2 in zip(rows_cols1, rows_cols2):
             row1, col1 = row_col1
             row2, col2 = row_col2
             glyph = array1[gs * row1 : gs * (row1 + 1), gs * col1 : gs * (col1 + 1)]
             array2[gs * row2 : gs * (row2 + 1), gs * col2 : gs * (col2 + 1)] = glyph
+
+        # Also create new rect array
+        rects1 = self._rects
+        rects2 = np.zeros((self.capacity, 4), np.int32)
+        self._rects = rects2
+
+        # Copy data in rects
+        max_i = min(rects1.shape[0], rects2.shape[0])
+        rects2[:max_i] = rects1[:max_i]
 
     def _row_col_from_index(self, index):
         ncols = self._array.shape[1] // self.glyph_size  # == int(self.capacity ** 0.5)
@@ -107,7 +117,8 @@ class GlyphAtlas:
         """Set the glyph corresponding to the given hash, and return
         the glyph info dict. If the glyph is already set, this method
         returns fast. The given glyph must be an array with shape
-        (glyph_size, glyph_size).
+        (glyph_size, glyph_size). If info has a 'rect' field, that rect
+        is stored in the rects array.
         """
 
         with self._lock:
@@ -132,6 +143,10 @@ class GlyphAtlas:
             index = min(self._free_indices)
             info = (info or {}).copy()
             info["index"] = index
+
+            # Update rects if given
+            if "rect" in info:
+                self._rects[index] = info["rect"]
 
             # Bookkeeping
             self._free_indices.remove(index)
@@ -163,15 +178,26 @@ class PyGfxGlyphAtlas(GlyphAtlas):
         """
         return self._texture_view
 
+    @property
+    def _gfx_rects_buffer(self):
+        """A buffer containing the rects for the glyphs. These indicate the offset
+        relative to the glyphs origin, and the (used) size of the glyph, in pixels.
+        """
+        return self._rects_buffer
+
     def _set_new_array(self, *args):
         super()._set_new_array(*args)
+        # Create texture view
         self._texture = Texture(self._array, dim=2)
         self._texture_view = self._texture.get_view(filter="linear")
+        # Create buffer
+        self._rects_buffer = Buffer(self._rects)
 
     def _set_glyph_slot(self, index, glyph):
         row, col = super()._set_glyph_slot(index, glyph)
         gs = self.glyph_size
         self._texture.update_range((gs * row, gs * col, 0), (gs, gs, 1))
+        self._rects_buffer.update_range(index, index + 1)
 
 
 glyph_atlas = PyGfxGlyphAtlas()
