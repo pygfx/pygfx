@@ -244,16 +244,17 @@ class TextShader(WorldObjectShader):
             if (alpha <= 0.0) { discard; }
 
             // Compose the final color
-            var color: vec4<f32> = u_material.color;
-            color.a = color.a * u_material.opacity * alpha;
+            let color_srgb = u_material.color;
+            let color = srgb2physical(color_srgb.rgb);
+            let opacity = color_srgb.a * u_material.opacity * alpha;
+            var color_out = vec4<f32>(color, opacity);
 
             // Debug
-            //color = vec4<f32>(atlas_value, 1.0, 0.0, 1.0);
-            //color = vec4<f32>(mix(vec3<f32>(0.2, 0.0, 0.0), color.rgb, distance), 1.0);
+            //color_out = vec4<f32>(atlas_value, 1.0, 0.0, 1.0);
 
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, color);
+            var out = get_fragment_output(varyings.position.z, color_out);
 
             $$ if write_pick
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
