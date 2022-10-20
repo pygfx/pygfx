@@ -1,3 +1,8 @@
+"""
+This example shows a dynamic environment map used for MeshStandardMaterial.
+The environment map is automatically be updated from the scene by a CubeCamera.
+"""
+
 import time
 import math
 
@@ -27,8 +32,6 @@ scene.add(cube)
 
 torus = gfx.Mesh(gfx.torus_knot_geometry(8, 3, 128, 16), material2)
 scene.add(torus)
-
-# ambient = gfx.AmbientLight()
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 75
