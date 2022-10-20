@@ -173,6 +173,7 @@ class TextShader(WorldObjectShader):
             var varyings: Varyings;
             varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
+            varyings.font_size = f32(font_size);
             varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
             varyings.glyph_texcoord = vec2<f32>(glyph_texcoord);
             varyings.glyph_index = i32(glyph_index);
@@ -217,12 +218,12 @@ class TextShader(WorldObjectShader):
             let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
 
             // Convert to a more useful measure, where the border is at 0.0,
-            // the inside is negative, and scaled by ...
+            // the inside is negative, and values represent distances in atlas-pixels.
             let distance = (0.5 - atlas_value) * 128.0;
 
             // Determine cutoff, we can tweak the glyph thickness here.
-            // But we need a more explicit sense of size/scale to do this right.
-            let cut_off = 0.0;//(u_material.thickness - 1.0);
+            // Default thickness is 1. With log2(1) == 1, default cutoff is 0.
+            let cut_off = - varyings.font_size * 0.1 * log2(clamp(0.1, 10.0, u_material.thickness));
 
             $$ if aa
                 // We use smoothstep to include alpha blending.

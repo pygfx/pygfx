@@ -10,7 +10,9 @@ class TextMaterial(Material):
         thickness="f4",
     )
 
-    def __init__(self, color=(1, 1, 1, 1), thickness=1.0, screen_space=True, aa=True, **kwargs):
+    def __init__(
+        self, color=(1, 1, 1, 1), thickness=1.0, screen_space=True, aa=True, **kwargs
+    ):
         super().__init__(**kwargs)
 
         self._screen_space = None
@@ -66,14 +68,13 @@ class TextMaterial(Material):
 
     @property
     def thickness(self):
-        """A value indicating the relative thickness of the glyphs. Could
-        be seen as a boldness scale factor. Default 1.
+        """A value indicating the relative thickness of the glyphs.
+        Could be seen as a font-weight / boldness scale factor. Default
+        1. Typical values would be between 0.5 and 5.
         """
-        return self.uniform_buffer.data["thickness"]
+        return float(self.uniform_buffer.data["thickness"])
 
     @thickness.setter
     def thickness(self, value):
         self.uniform_buffer.data["thickness"] = float(value)
         self.uniform_buffer.update_range(0, 1)
-
-    # todo: with SDF the weight may be dynamic? @property def weight(self)
