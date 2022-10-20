@@ -1,3 +1,4 @@
+import wgpu
 from ..linalg import Vector3
 from ..objects._base import WorldObject
 from ..cameras import PerspectiveCamera
@@ -64,26 +65,35 @@ class CubeCamera(WorldObject):
 
         camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = self.children
 
-        current_target = renderer.target
+        current_target = renderer._target
+        current_target_tex_format = renderer._target_tex_format
 
-        renderer.target = target.get_view(view_dim="2d", layer_range=range(1))
+        # We don't need to reconfigure the target context, so just access the private "_target" attribute here.
+
+        renderer._target_tex_format = target.format
+        if getattr(target, "_wgpu_texture", (-1, None))[1] is None:
+            target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
+            target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
+
+        renderer._target = target.get_view(view_dim="2d", layer_range=range(1))
         renderer.render(scene, camera_px)
 
-        renderer.target = target.get_view(view_dim="2d", layer_range=range(1, 2))
+        renderer._target = target.get_view(view_dim="2d", layer_range=range(1, 2))
         renderer.render(scene, camera_nx)
 
-        renderer.target = target.get_view(view_dim="2d", layer_range=range(2, 3))
+        renderer._target = target.get_view(view_dim="2d", layer_range=range(2, 3))
         renderer.render(scene, camera_py)
 
-        renderer.target = target.get_view(view_dim="2d", layer_range=range(3, 4))
+        renderer._target = target.get_view(view_dim="2d", layer_range=range(3, 4))
         renderer.render(scene, camera_ny)
 
-        renderer.target = target.get_view(view_dim="2d", layer_range=range(4, 5))
+        renderer._target = target.get_view(view_dim="2d", layer_range=range(4, 5))
         renderer.render(scene, camera_pz)
 
-        renderer.target = target.get_view(view_dim="2d", layer_range=range(5, 6))
+        renderer._target = target.get_view(view_dim="2d", layer_range=range(5, 6))
         renderer.render(scene, camera_nz)
 
-        renderer.target = current_target
+        renderer._target = current_target
+        renderer._target_tex_format = current_target_tex_format
 
         return target
