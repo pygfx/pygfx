@@ -5,6 +5,7 @@ actual dispatching / drawing.
 """
 
 import wgpu
+import hashlib
 
 from ...resources import Buffer, TextureView
 from ...utils import logger
@@ -740,7 +741,7 @@ class Cache:
         # todo: cache more objects, like pipelines once we figure out how to clean things up
 
         assert isinstance(source, str)
-        key = source  # or hash(code)
+        key = hashlib.sha1(source.encode()).hexdigest()
 
         m = self.get(key)
         if m is None:
