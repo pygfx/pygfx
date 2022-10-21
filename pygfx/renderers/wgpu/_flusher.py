@@ -135,7 +135,7 @@ class RenderFlusher:
             # A bit less crisp, but also less flicker.
             sigma = 0.5
             support = 2
-        elif factor >= 1:
+        elif factor > 1:
             # With src a higher res, we will do ssaa.
             # Kernel scales with input res.
             sigma = 0.5 * factor
