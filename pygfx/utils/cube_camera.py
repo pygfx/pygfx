@@ -1,8 +1,34 @@
-import wgpu
 from ..linalg import Vector3
 from ..objects._base import WorldObject
 from ..cameras import PerspectiveCamera
 from ..resources import Texture
+from ..renderers import WgpuRenderer
+
+
+def _is_cube_texture(texture):
+    if not isinstance(texture, Texture):
+        return False
+    return texture.dim == 2 and len(texture.size) == 3 and texture.size[2] == 6
+
+
+class _CubeCameraRenderer(WgpuRenderer):
+    def __init__(self, target, blend_mode="default"):
+
+        assert _is_cube_texture(target), "target must be a cube texture"
+
+        super().__init__(target, blend_mode=blend_mode)
+
+        # Pre generate views of different layers of the cube texture
+        self._target_views = []
+        for layer in range(6):
+            self._target_views.append(
+                target.get_view(view_dim="2d", layer_range=range(layer, layer + 1))
+            )
+
+    def render(self, scene: WorldObject, camera, layer):
+        # all _target_views are "TextureView" from the same Texyure and have same size, so we can change "_target" here safely.
+        self._target = self._target_views[layer]
+        super().render(scene, camera)
 
 
 class CubeCamera(WorldObject):
@@ -13,8 +39,10 @@ class CubeCamera(WorldObject):
     not to the "data" attribute of target. That is, its data cannot be accessed from the CPU.
     """
 
-    def __init__(self, near=0.1, far=1000):
+    def __init__(self, target, near=0.1, far=1000, blend_mode="default"):
         super().__init__()
+
+        self.renderer = _CubeCameraRenderer(target, blend_mode=blend_mode)
 
         fov = 90
         aspect = 1
@@ -54,46 +82,14 @@ class CubeCamera(WorldObject):
         camera_nz.look_at(Vector3(0, 0, -1))
         self.add(camera_nz)
 
-    def _is_cube_texture(self, texture):
-        if not isinstance(texture, Texture):
-            return False
-        return texture.dim == 2 and len(texture.size) == 3 and texture.size[2] == 6
-
-    def update(self, renderer, scene, target):
-
-        assert self._is_cube_texture(target), "Target must be a cube texture"
+    def render(self, scene):
 
         camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = self.children
+        renderer = self.renderer
 
-        current_target = renderer._target
-        current_target_tex_format = renderer._target_tex_format
-
-        # We don't need to reconfigure the target context, so just access the private "_target" attribute here.
-
-        renderer._target_tex_format = target.format
-        if getattr(target, "_wgpu_texture", (-1, None))[1] is None:
-            target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
-            target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
-
-        renderer._target = target.get_view(view_dim="2d", layer_range=range(1))
-        renderer.render(scene, camera_px)
-
-        renderer._target = target.get_view(view_dim="2d", layer_range=range(1, 2))
-        renderer.render(scene, camera_nx)
-
-        renderer._target = target.get_view(view_dim="2d", layer_range=range(2, 3))
-        renderer.render(scene, camera_py)
-
-        renderer._target = target.get_view(view_dim="2d", layer_range=range(3, 4))
-        renderer.render(scene, camera_ny)
-
-        renderer._target = target.get_view(view_dim="2d", layer_range=range(4, 5))
-        renderer.render(scene, camera_pz)
-
-        renderer._target = target.get_view(view_dim="2d", layer_range=range(5, 6))
-        renderer.render(scene, camera_nz)
-
-        renderer._target = current_target
-        renderer._target_tex_format = current_target_tex_format
-
-        return target
+        renderer.render(scene, camera_px, 0)
+        renderer.render(scene, camera_nx, 1)
+        renderer.render(scene, camera_py, 2)
+        renderer.render(scene, camera_ny, 3)
+        renderer.render(scene, camera_pz, 4)
+        renderer.render(scene, camera_nz, 5)

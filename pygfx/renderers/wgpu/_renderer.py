@@ -120,6 +120,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
     ):
         super().__init__(*args, **kwargs)
 
+        # Check and normalize inputs
+        if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
+            raise TypeError(
+                f"Render target must be a canvas or texture (view), not a {target.__class__.__name__}"
+            )
+        self._target = target
+
         # Process other inputs
         self.pixel_ratio = pixel_ratio
         self._show_fps = bool(show_fps)
@@ -129,14 +136,31 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if WgpuRenderer._shared is None:
             WgpuRenderer._shared = Shared(canvas)
 
-        self.target = target
-
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
 
         # Get target format
         self.gamma_correction = gamma_correction
         self._gamma_correction_srgb = 1.0
+        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+            self._canvas_context = self._target.get_context()
+            # Select output format. We currenly don't have a way of knowing
+            # what formats are available, so if not srgb, we gamma-correct in shader.
+            fmt = self._canvas_context.get_preferred_format(self._shared.adapter)
+            if not fmt.endswith("srgb"):
+                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
+            self._target_tex_format = fmt
+            # Also configure the canvas
+            self._canvas_context.configure(
+                device=self._shared.device,
+                format=self._target_tex_format,
+                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
+            )
+        else:
+            self._target_tex_format = self._target.format
+            # Also enable the texture for render and display usage
+            self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
+            self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
         # Prepare render targets.
         self.blend_mode = blend_mode
@@ -166,38 +190,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def target(self):
         """The render target. Can be a canvas, texture or texture view."""
         return self._target
-
-    @target.setter
-    def target(self, target):
-        if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
-            raise TypeError(
-                f"Render target must be a canvas or texture (view), not a {target.__class__.__name__}"
-            )
-        self._target = target
-
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            self._canvas_context = self._target.get_context()
-            # Select output format. We currenly don't have a way of knowing
-            # what formats are available, so if not srgb, we gamma-correct in shader.
-            fmt = self._canvas_context.get_preferred_format(self._shared.adapter)
-            if not fmt.endswith("srgb"):
-                self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
-            self._target_tex_format = fmt
-            # Also configure the canvas
-            self._canvas_context.configure(
-                device=self._shared.device,
-                format=self._target_tex_format,
-                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
-            )
-        else:
-            self._target_tex_format = self._target.format
-            # Also enable the texture for render and display usage
-            if isinstance(target, TextureView):
-                texture = target.texture
-            else:
-                texture = target
-            texture._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
-            texture._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
 
     @property
     def pixel_ratio(self):

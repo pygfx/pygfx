@@ -58,11 +58,12 @@ scene.add(background)
 
 material2.env_map = env_view
 
-cube_camera = CubeCamera()
 
 gen_env = gfx.Texture(
     dim=2, size=(512, 512, 6), format="rgba8unorm-srgb", generate_mipmaps=True
 )
+
+cube_camera = CubeCamera(gen_env)
 
 gen_env_view = gen_env.get_view(
     view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
@@ -88,7 +89,7 @@ def animate():
 
     torus.rotation.multiply(rot)
 
-    cube_camera.update(renderer, scene, target=gen_env)
+    cube_camera.render(scene)
 
     renderer.render(scene, camera)
     renderer.request_draw()
