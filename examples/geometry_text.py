@@ -12,15 +12,16 @@ scene = gfx.Scene()
 obj = gfx.Text(
     gfx.text_geometry(text="Lorem ipsum!", font_size=100),
     gfx.TextMaterial(
-        color="#444",
-        outline_color="#fff",
+        color="#aaa",
+        outline_color="#000",
         screen_space=True,
         aa=True,
-        outline_thickness=0.15,
+        outline_thickness=0.2,
     ),
 )
 scene.add(obj)
 
+scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff")))
 scene.add(gfx.AxesHelper(size=250))
 
 camera = gfx.PerspectiveCamera(70, 1)

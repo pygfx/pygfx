@@ -16,7 +16,7 @@ font_cache = {}
 
 
 # Set size to match the atlas, a bit less because some glyphs actually become larger
-REF_GLYPH_SIZE = glyph_atlas.glyph_size - 6
+REF_GLYPH_SIZE = glyph_atlas.glyph_size - 8  # 64 -8 == 56px == 42pt
 
 
 def shape_text_and_generate_glyph(text, font_filename):

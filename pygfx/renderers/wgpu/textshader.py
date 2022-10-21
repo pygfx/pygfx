@@ -200,12 +200,11 @@ class TextShader(WorldObjectShader):
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // The glyph is represented in the texture as a square region
-            // of fixed size, though only a subrectangle is actually used:
-            // the coverage.
+            // of fixed size, though only a subrectangle is actually used.
             //
-            // o-------   →  glyph_texcoord.x in 0..cover_x (max 1.0)
+            // o-------   →  glyph_texcoord.x
             // |       |
-            // |       |  ↓  glyph_texcoord.y in 0..cover_y (max 1.0)
+            // |       |  ↓  glyph_texcoord.y
             // |       |
             //  -------
 
@@ -216,7 +215,7 @@ class TextShader(WorldObjectShader):
             let col_row = vec2<i32>(glyph_index % ncols, glyph_index / ncols);
             let texcoord = (vec2<f32>(col_row) + varyings.glyph_texcoord) * f32(GLYPH_SIZE) / vec2<f32>(atlas_size);
 
-            // Sample distance. A value of 0.5 represents the edge of the glyph,
+            // Sample the distance. A value of 0.5 represents the edge of the glyph,
             // with positive values representing the inside.
             let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
 
@@ -228,44 +227,68 @@ class TextShader(WorldObjectShader):
             let extra_thickness = u_material.extra_thickness * f32(REF_GLYPH_SIZE);
             let outline_thickness = u_material.outline_thickness * f32(REF_GLYPH_SIZE);
 
+            // The softness is calculated from the scale of one atlas-pixel in screen space.
+            let max_softness = f32(GLYPH_SIZE);
+            let softness = clamp(0.0, max_softness, 3.0 / varyings.atlas_pixel_scale);
+
+            // Turns out that how thick a font looks depends on a number of factors:
+            // - In PyGfx the size of the font for which the sdf was created affects the output a bit.
+            // - In a browser, the type of browser seems to affect the output a bit.
+            // - In a browser, the OS matters more (e.g. Windows and MacOS handle aa and pixel alignment differently).
+            // - The blurry edge for aa affects the perception of the weight.
+            // - White text on black looks more bold than black text on white!
+            //
+            // Below you see how I gave the cut_off an offset that scales with the softness.
+            // This might suggest that it compensates for the 4th point but that might be a
+            // coincidence. All I did was try to bring our result close to the output of the
+            // same text, rendered in a browser, where the text is white on a dark bg (I
+            // checked against Firefox on MacOS, with retina display). Note that modern
+            // browsers compensate for the white-on-dark effect. We cannot, because we don't
+            // know whats behind the text, but the user can use extra_thickness when the text
+            // is darker than the bg. More info at issue #358.
+            let cut_off_correction = 0.25 * softness;
+
             // Calculate cut-off's
-            let cut_off = 0.0 + extra_thickness + outline_thickness;
+            let cut_off = 0.0 + cut_off_correction + extra_thickness + outline_thickness;
             let outline_cutoff = cut_off - outline_thickness;
 
             // Init opacity value to get the shape of the glyph
-            var alpha = 1.0;
-
-            // The softness is calculated from the scale of one atlas-pixel in screen space.
-            let max_softness = f32(GLYPH_SIZE);
-            let softness = clamp(0.0, max_softness, 5.0 / varyings.atlas_pixel_scale);
+            var aa_alpha = 1.0;
+            var soften_alpha = 1.0;
+            var outline = 0.0;
 
             $$ if aa
                 // We use smoothstep to include alpha blending.
-                // Now we can calculate to what extent we're outside of the glyph, and thus the alpha.
                 let outside_ness = _sdf_smoothstep(cut_off - softness, cut_off + softness, distance);
-                alpha = (1.0 - outside_ness);
+                aa_alpha = (1.0 - outside_ness);
                 // High softness values also result in lower alpha to prevent artifacts under high angles.
-                let softener = 1.0 - max(softness / max_softness - 0.5, 0.0);
-                alpha *= softener;
+                soften_alpha = 1.0 - max(softness / max_softness - 0.5, 0.0);
                 // Outline
-                let outline = _sdf_smoothstep(outline_cutoff - softness, outline_cutoff + softness, distance);
+                let outline_softness = min(softness, 0.5 * outline_thickness);
+                outline = _sdf_smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
             $$ else
                 // Do a hard transition
-                alpha = select(0.0, 1.0, distance < cut_off);
-                let outline = select(0.0, 1.0, distance < outline_cutoff);
+                aa_alpha = select(0.0, 1.0, distance < cut_off);
+                outline = select(1.0, 0.0, distance < outline_cutoff);
             $$ endif
 
             // Early exit
-            if (alpha <= 0.0) { discard; }
+            if (aa_alpha <= 0.0) { discard; }
 
-            // Get final color
+            // For aa we reduce alpha quicker, which looks better to the human eye
+            aa_alpha = aa_alpha * aa_alpha;
+
+            // Turn outline really off if not used. Otherwise some of it may leak through in the aa fragments.
+            outline = select(0.0, outline, outline_thickness > 0.0);
+
+            // Get color for this fragment
             let base_srgb = u_material.color;
             let outline_srgb = u_material.outline_color;
             let color = mix(srgb2physical(base_srgb.rgb), srgb2physical(outline_srgb.rgb), outline);
             let color_alpha = mix(base_srgb.a, outline_srgb.a, outline);
 
-            // Compose the output color
-            let opacity = color_alpha * u_material.opacity * alpha;
+            // Compose total opacity and the output color
+            let opacity = u_material.opacity * color_alpha * aa_alpha * soften_alpha;
             var color_out = vec4<f32>(color, opacity);
 
             // Debug
