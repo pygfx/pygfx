@@ -130,14 +130,20 @@ class RenderFlusher:
         factor_y = src_color_tex.size[1] / dst_color_tex.size[1]
         factor = (factor_x + factor_y) / 2
 
-        if factor > 1:
-            # The src has higher res, we can do ssaa.
+        if factor == 1:
+            # With equal res, we smooth a tiny bit.
+            # A bit less crisp, but also less flicker.
+            sigma = 0.5
+            support = 2
+        elif factor >= 1:
+            # With src a higher res, we will do ssaa.
+            # Kernel scales with input res.
             sigma = 0.5 * factor
             support = min(5, int(sigma * 3))
         else:
-            # The src has lower res, interpolate + smooth.
-            # Smoothing a bit more helps reduce the blockiness.
-            sigma = 1
+            # With src a lower res, the output is interpolated.
+            # But we also smooth to reduce the blockiness.
+            sigma = 0.5
             support = 2
 
         self._uniform_data["size"] = src_color_tex.size[:2]
