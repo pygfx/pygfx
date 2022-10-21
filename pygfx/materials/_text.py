@@ -85,14 +85,13 @@ class TextMaterial(Material):
     @property
     def outline_thickness(self):
         """A value indicating the relative width of the outline. Valid
-        values are between 0 and 0.5, as a fraction of the font size.
-        Default 0 (no outline).
+        values are between 0.0 and 0.5. Default 0 (no outline).
         """
         return float(self.uniform_buffer.data["outline_thickness"])
 
     @outline_thickness.setter
     def outline_thickness(self, value):
-        self.uniform_buffer.data["outline_thickness"] = max(0, min(0.5, float(value)))
+        self.uniform_buffer.data["outline_thickness"] = max(0.0, min(0.5, float(value)))
         self.uniform_buffer.update_range(0, 1)
 
     @property
@@ -111,12 +110,11 @@ class TextMaterial(Material):
     def extra_thickness(self):
         """A value indicating additional thickness for the glyphs.
         Could be seen as a font-weight / boldness correction. Valid
-        values are between -0.25 and 0.5, as a fraction of the font
-        size. Default 0.
+        values are between -0.5 and 0.5. Default 0.
         """
         return float(self.uniform_buffer.data["extra_thickness"])
 
     @extra_thickness.setter
     def extra_thickness(self, value):
-        self.uniform_buffer.data["extra_thickness"] = max(-0.25, min(0.5, float(value)))
+        self.uniform_buffer.data["extra_thickness"] = max(-0.5, min(0.5, float(value)))
         self.uniform_buffer.update_range(0, 1)

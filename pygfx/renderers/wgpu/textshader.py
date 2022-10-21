@@ -219,17 +219,17 @@ class TextShader(WorldObjectShader):
             // with positive values representing the inside.
             let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
 
-            // Convert to a more useful measure, where the border is at 0.0,
-            // the inside is negative, and values represent distances in atlas-pixels.
-            let distance = (0.5 - atlas_value) * 128.0;
+            // Convert to a more useful measure, where the border is at 0.0, and the inside is negative.
+            // The maximum value at which we can still detect the edge is just below 0.5.
+            let distance = (0.5 - atlas_value);
 
             // Load tickness factors
-            let extra_thickness = u_material.extra_thickness * f32(REF_GLYPH_SIZE);
-            let outline_thickness = u_material.outline_thickness * f32(REF_GLYPH_SIZE);
+            let extra_thickness = u_material.extra_thickness;
+            let outline_thickness = u_material.outline_thickness;
 
             // The softness is calculated from the scale of one atlas-pixel in screen space.
-            let max_softness = f32(GLYPH_SIZE);
-            let softness = clamp(0.0, max_softness, 3.0 / varyings.atlas_pixel_scale);
+            let max_softness = 0.25;
+            let softness = clamp(0.0, max_softness, 2.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale));
 
             // Turns out that how thick a font looks depends on a number of factors:
             // - In PyGfx the size of the font for which the sdf was created affects the output a bit.
@@ -248,9 +248,9 @@ class TextShader(WorldObjectShader):
             // is darker than the bg. More info at issue #358.
             let cut_off_correction = 0.25 * softness;
 
-            // Calculate cut-off's
-            let cut_off = 0.0 + cut_off_correction + extra_thickness + outline_thickness;
-            let outline_cutoff = cut_off - outline_thickness;
+            // Calculate cut-off's. Apply min so it's always a valid shape.
+            let cut_off = min(0.49, 0.0 + cut_off_correction + extra_thickness + outline_thickness);
+            let outline_cutoff = max(0.0, cut_off - outline_thickness);
 
             // Init opacity value to get the shape of the glyph
             var aa_alpha = 1.0;
