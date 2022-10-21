@@ -1,5 +1,6 @@
 """
-An example combining `synced_video.py` with subplots
+An example combining `synced_video.py` with subplots.
+Double click to re-center the images.
 """
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -72,35 +73,15 @@ def layout(event=None):
     viewports[3].rect = w / 2 + 5, h / 2 + 5, w2, h2
 
 
-reset_cameras = False
-
-
 def animate():
     for img in images:
         # create new image data
         img.geometry.grid.data[:] = np.random.rand(*dims).astype(np.float32) * 255
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
 
-    global reset_cameras
-
-    # reset the cameras if `reset_camera` is set to True
-    if reset_cameras:
-        # this should work in the future
-        # for camera, image in zip(cameras, images):
-        #     camera.show_object(image)
-
-        # until a way to center the controller in the scene is implemented
-        for camera, controller, cntrl_default in zip(
-            cameras, controllers, cntl_defaults
-        ):
-            controller.load_state(cntrl_default)
-            controller.update_camera(camera)
-
-        reset_cameras = False
-    else:
-        for camera, controller in zip(cameras, controllers):
-            # if not reset, update with the pan & zoom params
-            controller.update_camera(camera)
+    for camera, controller in zip(cameras, controllers):
+        # update with the pan & zoom params
+        controller.update_camera(camera)
 
     # render the viewports
     for viewport, s, c in zip(viewports, scenes, cameras):
@@ -108,6 +89,15 @@ def animate():
 
     renderer.flush()
     canvas.request_draw()
+
+
+def center_objects(ev):
+    for con, cam, img in zip(controllers, cameras, images):
+        con.show_object(cam, img)
+        con.zoom(1.3)
+
+
+renderer.add_event_handler(center_objects, "double_click")
 
 
 layout()
