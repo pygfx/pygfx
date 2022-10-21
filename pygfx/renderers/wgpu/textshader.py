@@ -16,13 +16,16 @@ class TextShader(WorldObjectShader):
 
     type = "render"
 
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
+        self["screen_space"] = material.screen_space
+        self["aa"] = material.aa
+
     def get_bindings(self, wobject, shared):
 
         geometry = wobject.geometry
         material = wobject.material
-
-        self["screen_space"] = material.screen_space
-        self["aa"] = material.aa
 
         sbuffer = "buffer/read_only_storage"
         bindings = [
