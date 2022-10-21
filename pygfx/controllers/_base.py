@@ -41,6 +41,9 @@ class Controller:
         camera.rotation.copy(rot)
         camera.position.copy(pos)
         camera.zoom = zoom
+        if hasattr(self, "scale"):
+            camera.scale = self.scale.clone()
+
         return self
 
     def add_default_event_handlers(

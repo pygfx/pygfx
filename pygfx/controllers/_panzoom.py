@@ -1,4 +1,5 @@
 from typing import Tuple
+from math import copysign
 
 from ..cameras import Camera, OrthographicCamera
 from ..utils.viewport import Viewport
@@ -16,6 +17,7 @@ class PanZoomController(Controller):
         up: Vector3 = None,
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
+        scale: Vector3 = None,
         auto_update: bool = True,
     ) -> None:
         super().__init__()
@@ -30,10 +32,19 @@ class PanZoomController(Controller):
             up = Vector3(0.0, 1.0, 0.0)
         self.zoom_value = zoom
         self.min_zoom = min_zoom
+
+        if scale is None:
+            # make an assumption, there should be a better way
+            scale = Vector3(1, 1, 1)
+
+        self.scale = scale
+        self.scale_factor = 0.05
+
         self.auto_update = True
 
         # State info used during a pan or rotate operation
         self._pan_info = None
+        self._scale_info = None
 
         # Temp objects (to avoid garbage collection)
         self._m = Matrix4()
@@ -53,6 +64,7 @@ class PanZoomController(Controller):
             "up": self.up.clone(),
             "zoom_value": self.zoom_value,
             "min_zoom": self.min_zoom,
+            "scale": self.scale,
         }
         return self._saved_state
 
@@ -64,6 +76,7 @@ class PanZoomController(Controller):
         self.up = state["up"].clone()
         self.zoom_value = state["zoom_value"]
         self.min_zoom = state["min_zoom"]
+        self.scale = state["scale"]
 
     def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
         self.distance = eye.distance_to(target)
@@ -72,41 +85,76 @@ class PanZoomController(Controller):
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         return self
 
-    def pan(self, vec3: Vector3) -> Controller:
-        """Pan in 3D world coordinates."""
+    def pan(self, vec3: Vector3, button: int) -> Controller:
+        """Pan or stretch in 3D world coordinates."""
         self.target.add(vec3)
+
+        if button == 1:
+            pass
+
+        elif button == 2:
+            stretch_val = vec3.clone().multiply_scalar(self.scale_factor)
+
+            # prevent the camera from flipping when value becomes very small
+            new_scale = self.scale.clone().add(stretch_val)
+            new_scale.x = copysign(new_scale.x, self.scale.x)
+            new_scale.y = copysign(new_scale.y, self.scale.y)
+            new_scale.z = copysign(new_scale.z, self.scale.z)
+
+            self.scale = new_scale
+
         return self
 
     def pan_start(
-        self,
-        pos: Tuple[float, float],
-        viewport: Viewport,
-        camera: Camera,
+        self, pos: Tuple[float, float], viewport: Viewport, camera: Camera, button: int
     ) -> Controller:
         # Using this function may be a bit overkill. We can also simply
         # get the ortho cameras world_size (camera.visible_world_size).
         # However, now the panzoom controller work with a perspecive camera ...
         scene_size = viewport.logical_size
         vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
-        self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+        if button == 1:
+            self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+        elif button == 2:
+            self._scale_info = {"last": pos, "vecx": vecx, "vecy": vecy}
         return self
 
-    def pan_stop(self) -> Controller:
-        self._pan_info = None
+    def pan_stop(self, button: int) -> Controller:
+        if button == 1:
+            self._pan_info = None
+        elif button == 2:
+            self._scale_info = None
         return self
 
-    def pan_move(self, pos: Tuple[float, float]) -> Controller:
+    def pan_move(self, pos: Tuple[float, float], button: int) -> Controller:
         """Pan the camera, based on a (2D) screen location. Call pan_start first."""
-        if self._pan_info is None:
-            return
-        delta = tuple((pos[i] - self._pan_info["last"][i]) for i in range(2))
+        if button == 1:
+            if self._pan_info is None:
+                return
+
+            info = self._pan_info
+
+        elif button == 2:
+            if self._scale_info is None:
+                return
+
+            info = self._scale_info
+
+        delta = tuple((pos[i] - info["last"][i]) for i in range(2))
+
         self.pan(
-            self._pan_info["vecx"]
+            info["vecx"]
             .clone()
             .multiply_scalar(-delta[0])
-            .add_scaled_vector(self._pan_info["vecy"], +delta[1])
+            .add_scaled_vector(info["vecy"], +delta[1]),
+            button=button,
         )
-        self._pan_info["last"] = pos
+
+        if button == 1:
+            self._pan_info["last"] = pos
+        elif button == 2:
+            self._scale_info["last"] = pos
+
         return self
 
     def zoom(self, multiplier: float) -> Controller:
@@ -135,7 +183,7 @@ class PanZoomController(Controller):
         delta = tuple(pos[i] - offset[i] - size[i] / 2 for i in (0, 1))
         delta1 = vecx.multiply_scalar(delta[0]).add(vecy.multiply_scalar(-delta[1]))
         delta2 = delta1.clone().multiply_scalar(zoom_ratio)
-        self.pan(delta1.sub(delta2))
+        self.pan(delta1.sub(delta2), button=1)
         return self
 
     def get_view(self) -> Tuple[Vector3, Vector3, float]:
@@ -149,19 +197,27 @@ class PanZoomController(Controller):
         (compatible with the jupyter_rfb event specification).
         """
         type = event.type
+
+        # ignore if both left and right click
+        if len(event.buttons) > 1:
+            return
+
         if type == "pointer_down" and viewport.is_inside(event.x, event.y):
-            if event.button == 1:
+            if event.button in [1, 2]:
                 xy = event.x, event.y
-                self.pan_start(xy, viewport, camera)
+                self.pan_start(xy, viewport, camera, button=event.button)
+
         elif type == "pointer_up":
-            if event.button == 1:
-                self.pan_stop()
+            if event.button in [1, 2]:
+                self.pan_stop(button=event.button)
+
         elif type == "pointer_move":
-            if 1 in event.buttons:
+            if 1 in event.buttons or 2 in event.buttons:
                 xy = event.x, event.y
-                self.pan_move(xy)
+                self.pan_move(xy, button=event.buttons[0])
                 if self.auto_update:
                     viewport.renderer.request_draw()
+
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             f = 2 ** (-event.dy * 0.0015)
