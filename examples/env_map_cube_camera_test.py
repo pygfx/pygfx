@@ -3,7 +3,9 @@ import imageio
 import pygfx as gfx
 from pathlib import Path
 from wgpu.gui.auto import WgpuCanvas, run
-from pygfx.utils.cube_camera import CubeCamera
+from pygfx.linalg import Vector3
+
+# from pygfx.utils.cube_camera import CubeCamera
 
 canvas = WgpuCanvas(size=(800, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -52,8 +54,39 @@ scene = gfx.Scene()
 background = gfx.Skybox(gfx.SkyboxMaterial(map=env_map))
 scene.add(background)
 
-cube_camera = CubeCamera()
-camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = cube_camera.children
+# cube_camera = CubeCamera()
+# camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = cube_camera.children
+
+# todo: use CubeCamera instead when it's ready
+
+fov = 90
+aspect = 1
+near = 0.1
+far = 100
+
+camera_px = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera_px.up.set(0, 1, 0)
+camera_px.look_at(Vector3(-1, 0, 0))
+
+camera_nx = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera_nx.up.set(0, 1, 0)
+camera_nx.look_at(Vector3(1, 0, 0))
+
+camera_py = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera_py.up.set(0, 0, -1)
+camera_py.look_at(Vector3(0, 1, 0))
+
+camera_ny = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera_ny.up.set(0, 0, 1)
+camera_ny.look_at(Vector3(0, -1, 0))
+
+camera_pz = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera_pz.up.set(0, 1, 0)
+camera_pz.look_at(Vector3(0, 0, 1))
+
+camera_nz = gfx.PerspectiveCamera(fov, aspect, near, far)
+camera_nz.up.set(0, 1, 0)
+camera_nz.look_at(Vector3(0, 0, -1))
 
 
 def animate():
