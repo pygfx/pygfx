@@ -200,8 +200,6 @@ class SkyboxShader(WorldObjectShader):
 
     def get_pipeline_info(self, wobject, shared):
 
-        # we don't need depth test and write for skybox, but now pygfx seems not exposing this ability
-
         return {
             "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "cull_mode": wgpu.CullMode.front,

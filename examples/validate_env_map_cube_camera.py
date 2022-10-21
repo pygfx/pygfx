@@ -1,3 +1,5 @@
+# test_example = true
+
 import numpy as np
 import imageio
 import pygfx as gfx
@@ -97,9 +99,10 @@ def animate():
     renderer.render(scene, camera_pz, rect=(200, 200, 200, 200), flush=False)
     renderer.render(scene, camera_nz, rect=(600, 200, 200, 200))
 
-    renderer.request_draw(animate)
+
+renderer.request_draw(animate)
 
 
 if __name__ == "__main__":
-    renderer.request_draw(animate)
+    # renderer.request_draw(animate)
     run()

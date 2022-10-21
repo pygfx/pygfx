@@ -20,26 +20,6 @@ class Scene(Group):
         self._background = background
         self._environment = environment
 
-    @property
-    def background(self):
-        """The background of the scene."""
-        return self._background
-
-    @background.setter
-    def background(self, background):
-        self._background = background
-
-    @property
-    def environment(self):
-        """The environment of the scene.
-        If not null, this texture is set as the environment map for all physical materials in the scene.
-        """
-        return self._environment
-
-    @environment.setter
-    def environment(self, environment):
-        self._environment = environment
-
 
 class Background(WorldObject):
     """An object representing a scene background.
