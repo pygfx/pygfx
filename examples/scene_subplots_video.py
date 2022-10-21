@@ -56,7 +56,7 @@ for i in range(4):
     controller.add_default_event_handlers(viewport, camera)
     controllers.append(controller)
 
-    # # get the initial controller params so the camera can be reset later
+    # get the initial controller params so the camera can be reset later
     cntl_defaults.append(controller.save_state())
 
 
@@ -91,7 +91,7 @@ def animate():
     canvas.request_draw()
 
 
-def center_objects(ev):
+def center_objects(ev):  # center objects upon double-click event
     for con, cam, img in zip(controllers, cameras, images):
         con.show_object(cam, img)
         con.zoom(1.3)
@@ -106,16 +106,3 @@ layout()
 if __name__ == "__main__":
     canvas.request_draw(animate)
     run()
-
-# Use with a Qt app or `jupyter_rfb` to utilize the `reset_camera`:
-# from ipywidgets import Button
-#
-# reset_button = Button(description="Reset View")
-#
-# def on_button_clicked(b):
-#     global reset_cameras
-#     reset_cameras = True
-#
-# reset_button.on_click(on_button_clicked)
-#
-# reset_button
