@@ -383,12 +383,12 @@ class PipelineContainer:
         """Update the actual wgpu objects."""
 
         if self.wgpu_shaders.get(env_hash, None) is None:
-
             environment.register_pipeline_container(self)  # allows us to clean up
             changed.add("compile_shader")
             self.wgpu_shaders[env_hash] = self._compile_shaders(
                 shared.device, environment
             )
+            self.wgpu_pipelines = {}  # Invalidate pipelines so new shaders get used
 
         if self.wgpu_pipelines.get(env_hash, None) is None:
             changed.add("compose_pipeline")
