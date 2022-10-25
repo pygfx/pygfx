@@ -26,7 +26,7 @@ class _CubeCameraRenderer(WgpuRenderer):
             )
 
     def render(self, scene: WorldObject, camera, layer):
-        # all _target_views are "TextureView" from the same Texyure and have same size, so we can change "_target" here safely.
+        # all _target_views are "TextureView" from the same Texture and have same size, so we can change "_target" here safely.
         self._target = self._target_views[layer]
         super().render(scene, camera)
 
@@ -42,7 +42,7 @@ class CubeCamera(WorldObject):
     def __init__(self, target, near=0.1, far=1000, blend_mode="default"):
         super().__init__()
 
-        self.renderer = _CubeCameraRenderer(target, blend_mode=blend_mode)
+        self._renderer = _CubeCameraRenderer(target, blend_mode=blend_mode)
 
         fov = 90
         aspect = 1
@@ -82,7 +82,14 @@ class CubeCamera(WorldObject):
         camera_nz.look_at(Vector3(0, 0, -1))
         self.add(camera_nz)
 
+    @property
+    def renderer(self):
+        """The renderer used to render the scene to the cube texture."""
+
+        return self._renderer
+
     def render(self, scene):
+        """Render the scene from the cube camera's perspective, and write the result to the target texture."""
 
         camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = self.children
         renderer = self.renderer
