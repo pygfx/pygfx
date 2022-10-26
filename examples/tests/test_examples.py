@@ -29,7 +29,7 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda module: module.stem)
-def test_examples_run(module, pytestconfig):
+def test_examples_run(module):
     """Run every example marked to see if they can run without error."""
     env = os.environ.copy()
     env["WGPU_FORCE_OFFSCREEN"] = "true"
@@ -118,21 +118,31 @@ def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
 
 def update_diffs(module, is_similar, img, stored_img):
     diffs_dir.mkdir(exist_ok=True)
-    # cast to float32 to avoid overflow
-    # compute absolute per-pixel difference
-    diffs_rgba = np.abs(stored_img.astype("f4") - img)
-    # magnify small values, making it easier to spot small errors
-    diffs_rgba = ((diffs_rgba / 255) ** 0.25) * 255
-    # cast back to uint8
-    diffs_rgba = diffs_rgba.astype("u1")
+
+    diffs_rgba = None
+
+    def get_diffs_rgba(slicer):
+        # lazily get and cache the diff computation
+        nonlocal diffs_rgba
+        if diffs_rgba is None:
+            # cast to float32 to avoid overflow
+            # compute absolute per-pixel difference
+            diffs_rgba = np.abs(stored_img.astype("f4") - img)
+            # magnify small values, making it easier to spot small errors
+            diffs_rgba = ((diffs_rgba / 255) ** 0.25) * 255
+            # cast back to uint8
+            diffs_rgba = diffs_rgba.astype("u1")
+        return diffs_rgba[..., slicer]
+
     # split into an rgb and an alpha diff
     diffs = {
-        diffs_dir / f"{module}-rgb.png": diffs_rgba[..., :3],
-        diffs_dir / f"{module}-alpha.png": diffs_rgba[..., 3],
+        diffs_dir / f"{module}-rgb.png": slice(0, 3),
+        diffs_dir / f"{module}-alpha.png": 3,
     }
 
-    for path, diff in diffs.items():
+    for path, slicer in diffs.items():
         if not is_similar:
+            diff = get_diffs_rgba(slicer)
             imageio.imwrite(path, diff)
         elif path.exists():
             path.unlink()
