@@ -9,8 +9,9 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-# check out this repo: https://github.com/KhronosGroup/glTF-Sample-Models
-# and update the paths to load one of the models in there
+# run the following command in the root of this repo
+# git clone https://github.com/KhronosGroup/glTF-Sample-Models ../glTF-Sample-Models
+# so that the paths will be set up correctly
 repo_root = Path(__file__).parent.parent
 gltf_samples_repo = repo_root.parent / "glTF-Sample-Models"
 gltf_path = gltf_samples_repo / "2.0" / "Sponza" / "glTF" / "Sponza.gltf"
