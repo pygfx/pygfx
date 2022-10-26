@@ -83,7 +83,11 @@ class TextItem:
 
     @property
     def props(self):
-        self._props
+        return self._props
+
+    @property
+    def meta(self):
+        return self._meta
 
     @property
     def indices(self):
@@ -111,10 +115,29 @@ class TextGeometry(Geometry):
         super().__init__()
 
         # Check incoming items
-        self._text_items = tuple(text_items)
-        for item in self._text_items:
+        text_items = list(text_items)
+        for item in text_items:
             if not isinstance(item, TextItem):
                 raise TypeError("TextGeometry only accepts TextItem objects.")
+
+        # Re-order the items if needed
+        i = 0
+        while i < len(text_items) - 1:
+            item = text_items[i]
+            if item.meta["direction"] == "rtl":
+                i1 = i2 = i
+                for j in range(i + 1, len(text_items)):
+                    next = text_items[j]
+                    if item.meta["direction"] != "rtl":
+                        break
+                    i2 = j
+                if i1 != i2:
+                    text_items[i1:i2+1] = reversed(text_items[i1:i2+1])
+                i = i2 + 1
+            else:
+                i += 1
+
+        self._text_items = tuple(text_items)
 
         # Compose the items in a single geometry
         indices_arrays = []
