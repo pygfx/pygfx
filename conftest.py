@@ -1,5 +1,4 @@
 """Global configuration for pytest"""
-import gc
 import numpy as np
 import pytest
 
@@ -30,8 +29,3 @@ def numerical_exceptions():
     Preferably using local `with np.errstate(...)` constructs
     """
     np.seterr(all="raise")
-
-
-@pytest.fixture(autouse=True)
-def force_gc():
-    gc.collect()
