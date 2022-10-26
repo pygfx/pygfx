@@ -9,11 +9,12 @@ class BoxHelper(Line):
     Parameters:
         size (float): The length of the box' edges (default 1).
         thickness (float): the thickness of the lines (default 1 px).
+        color (Color): the color of the box.
     """
 
-    def __init__(self, size=1.0, thickness=1):
+    def __init__(self, size=1.0, thickness=1, color="white"):
 
-        self._size = size
+        self._size = float(size)
 
         positions = np.array(
             [
@@ -48,11 +49,11 @@ class BoxHelper(Line):
         positions *= self._size
 
         geometry = Geometry(positions=positions)
-        material = LineSegmentMaterial(color=(1, 0, 0), thickness=thickness, aa=True)
+        material = LineSegmentMaterial(thickness=thickness, color=color, aa=True)
 
         super().__init__(geometry, material)
 
-    def set_transform_by_aabb(self, aabb):
+    def set_transform_by_aabb(self, aabb, scale=1.0):
         """Set the position and scale attributes
         based on a given bounding box.
 
@@ -63,6 +64,8 @@ class BoxHelper(Line):
                 is expected to have shape (2, 3), where the
                 two vectors represent the minimum and maximum
                 coordinates of the axis-aligned bounding box.
+            scale (float): the relative size of the box (oversize for
+                a bit of margin).
         """
         aabb = np.asarray(aabb)
         if aabb.shape != (2, 3):
@@ -75,12 +78,12 @@ class BoxHelper(Line):
 
         diagonal = aabb[1] - aabb[0]
         center = aabb[0] + diagonal * 0.5
-        scale = diagonal / self._size
+        full_scale = scale * diagonal / self._size
 
         self.position.set(*center)
-        self.scale.set(*scale)
+        self.scale.set(*full_scale)
 
-    def set_transform_by_object(self, object, space="world"):
+    def set_transform_by_object(self, object, space="world", scale=1.0):
         """Set the position and scale attributes
         based on the bounding box of another object.
 
@@ -93,6 +96,8 @@ class BoxHelper(Line):
                 be used as reference. If equal to "local", the
                 object's local space bounding box of its geometry
                 will be used instead.
+            scale (float): the relative size of the box (oversize for
+                a bit of margin).
 
         :Examples:
 
@@ -128,4 +133,10 @@ class BoxHelper(Line):
                 "for the given object, it (and its "
                 "children) may not define any geometry"
             )
-        self.set_transform_by_aabb(aabb)
+        self.set_transform_by_aabb(aabb, scale)
+
+    def get_world_bounding_box(self):
+        return None
+
+    def get_world_bounding_sphere(self):
+        return None
