@@ -740,13 +740,13 @@ class Cache:
         # todo: also release shader modules that are no longer used
         # todo: cache more objects, like pipelines once we figure out how to clean things up
 
-        assert isinstance(source, str)
-        key = hashlib.sha1(source.encode()).hexdigest()
+        # assert isinstance(source, str)
+        # key = hashlib.sha1(source.encode()).hexdigest()
 
-        m = self.get(key)
-        if m is None:
-            m = device.create_shader_module(code=source)
-            self.set(key, m)
+        # m = self.get(key)
+        # if m is None:
+        m = device.create_shader_module(code=source)
+        # self.set(key, m)
 
         return m
 
