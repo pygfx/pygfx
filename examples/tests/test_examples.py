@@ -4,6 +4,7 @@ Test that the examples run without error.
 
 import os
 import importlib
+import runpy
 from unittest.mock import patch
 
 import imageio.v2 as imageio
@@ -20,23 +21,21 @@ from examples.tests.testutils import (
 
 
 # run all tests unless they opt-out
-examples_to_run = find_examples(negative_query="# run_example = false")
+examples_to_run = find_examples(
+    negative_query="# run_example = false", return_stems=True
+)
 
 # only test output of examples that opt-in
 examples_to_test = find_examples(query="# test_example = true", return_stems=True)
 
 
-@pytest.mark.parametrize("module", examples_to_run, ids=lambda module: module.stem)
+@pytest.mark.parametrize("module", examples_to_run)
 def test_examples_run(module):
     """Run every example marked to see if they can run without error."""
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 
-    scope = globals().copy()
-    scope["__name__"] = "__main__"
-    scope["__file__"] = str(module.resolve())
-
     try:
-        exec(module.open().read(), scope)
+        runpy.run_module(f"examples.{module}", run_name="__main__")
     finally:
         del os.environ["WGPU_FORCE_OFFSCREEN"]
 
