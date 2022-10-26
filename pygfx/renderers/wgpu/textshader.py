@@ -8,7 +8,7 @@ from ...utils.text._shaper import REF_GLYPH_SIZE
 
 # from ...resources import Texture, TextureView
 
-GLYPH_SIZE = glyph_atlas.glyph_size
+ATLAS_GLYPH_SIZE = glyph_atlas.glyph_size
 
 
 @register_wgpu_render_function(Text, TextMaterial)
@@ -75,7 +75,7 @@ class TextShader(WorldObjectShader):
 
     def get_code(self):
         sizes = f"""
-        let GLYPH_SIZE: i32 = {GLYPH_SIZE};
+        let ATLAS_GLYPH_SIZE: i32 = {ATLAS_GLYPH_SIZE};
         let REF_GLYPH_SIZE: i32 = {REF_GLYPH_SIZE};
         """
 
@@ -131,7 +131,7 @@ class TextShader(WorldObjectShader):
 
             let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
             let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor) * font_size;
-            let glyph_texcoord = corner * vec2<f32>(bitmap_rect.zw) / f32(GLYPH_SIZE);
+            let glyph_texcoord = corner * vec2<f32>(bitmap_rect.zw) / f32(ATLAS_GLYPH_SIZE);
 
             $$ if screen_space
 
@@ -145,7 +145,7 @@ class TextShader(WorldObjectShader):
 
                 // Pixel scale is easy
 
-                let atlas_pixel_scale = font_size / f32(GLYPH_SIZE);
+                let atlas_pixel_scale = font_size / f32(ATLAS_GLYPH_SIZE);
 
             $$ else
 
@@ -160,7 +160,7 @@ class TextShader(WorldObjectShader):
                 // offset diagonally from the current vertex. The two points are
                 // mapped to screen coords and the smallest distance is used for scale.
 
-                let one_atlas_pixel = vec2<f32>(font_size / f32(GLYPH_SIZE));
+                let one_atlas_pixel = vec2<f32>(font_size / f32(ATLAS_GLYPH_SIZE));
 
                 let raw_pos2 = vec4<f32>(vertex_pos + one_atlas_pixel, 0.0, 1.0);
                 let world_pos2 = u_wobject.world_transform * raw_pos2;
@@ -211,9 +211,9 @@ class TextShader(WorldObjectShader):
             // Calculate texture position (in the atlas)
             let atlas_size = textureDimensions(t_atlas);
             let glyph_index = varyings.glyph_index;
-            let ncols = atlas_size.x / GLYPH_SIZE;
+            let ncols = atlas_size.x / ATLAS_GLYPH_SIZE;
             let col_row = vec2<i32>(glyph_index % ncols, glyph_index / ncols);
-            let texcoord = (vec2<f32>(col_row) + varyings.glyph_texcoord) * f32(GLYPH_SIZE) / vec2<f32>(atlas_size);
+            let texcoord = (vec2<f32>(col_row) + varyings.glyph_texcoord) * f32(ATLAS_GLYPH_SIZE) / vec2<f32>(atlas_size);
 
             // Sample the distance. A value of 0.5 represents the edge of the glyph,
             // with positive values representing the inside.

@@ -17,7 +17,7 @@ import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-from ..utils.text import FontProps, find_font, shape_text_and_generate_glyph
+from ..utils.text import FontProps, find_font, shape_text, generate_glyph
 
 
 def text_geometry(
@@ -68,29 +68,18 @@ class TextItem:
         font_filename = find_font(font_props)
 
         # === Shaping - generate indices and positions
-        (
-            indices,
-            positions,
-            space_width,
-            full_width,
-        ) = shape_text_and_generate_glyph(text, font_filename)
+        glyph_indices, positions, full_width, meta = shape_text(text, font_filename)
 
-        # or ..
-        # glyph_indices, positions = shape_text(text, font_props, font_filename)
-        # atlas_indices, position_updates = generate_glyphs(glyph_indices, font_filename)
-
-        # indices = np.zeros((len(text),), np.uint32)
-        # positions = np.zeros((len(text), 3), np.float32)
-        #
-        # for i in range(len(text)):
-        #     positions[i] = i * font_props.size, 0, 0
+        # === Glyph generation (populate atlas)
+        atlas_indices = generate_glyph(glyph_indices, font_filename)
 
         # Store stuff for the geometry to use
         self._props = font_props
-        self._indices = indices
+        self._meta = meta
+        self._indices = atlas_indices
         self._positions = positions
         self._width = full_width
-        self._margin = space_width / 2
+        self._margin = meta["space_width"] / 2
 
     @property
     def props(self):

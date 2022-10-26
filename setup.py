@@ -13,6 +13,8 @@ with open(f"{NAME}/__init__.py") as fh:
 runtime_deps = [
     "numpy",
     "wgpu>=0.8.0,<0.9.0",
+    "freetype-py",
+    "uharfbuzz",
     "Jinja2",
 ]
 

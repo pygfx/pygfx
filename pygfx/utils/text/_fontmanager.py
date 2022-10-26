@@ -111,6 +111,7 @@ class FontManager:
         """
         # todo: not implemented :)
         return get_resource_filename("NotoSans-Regular.ttf")
+        # return get_resource_filename("NotoSansArabic-Regular.ttf")
         # return get_resource_filename("DejaVuSans.ttf")
 
 
