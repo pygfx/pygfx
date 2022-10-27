@@ -10,7 +10,7 @@ from unittest.mock import patch
 import imageio.v2 as imageio
 import numpy as np
 import psutil
-# from pympler import tracker
+from pympler import tracker
 import pytest
 
 from examples.tests.testutils import (
@@ -45,8 +45,8 @@ def test_examples_run(module):
     if count >= limit:
         pytest.skip()
     
-    # if tr is None:
-    #     tr = tracker.SummaryTracker()
+    if tr is None:
+        tr = tracker.SummaryTracker()
 
     print("")
     mem_stats = psutil.virtual_memory()
@@ -61,8 +61,8 @@ def test_examples_run(module):
     finally:
         del os.environ["WGPU_FORCE_OFFSCREEN"]
 
-        # print("object diff, after test finish:")
-        # tr.print_diff()
+        print("object diff, after test finish:")
+        tr.print_diff()
 
 
 @pytest.fixture
