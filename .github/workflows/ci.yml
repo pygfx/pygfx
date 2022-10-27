@@ -93,7 +93,6 @@ jobs:
         python-version: '3.9'
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
-        ulimit -s 65536
         sudo apt-get update -y -qq
         sudo add-apt-repository ppa:oibaf/graphics-drivers -y
         sudo apt-get update -y -qq
@@ -104,6 +103,7 @@ jobs:
         pip install -e .[dev,examples]
     - name: Test examples
       run: |
+        ulimit -s 65536  # double twice from default 16384
         pytest -rpP -v examples
     - uses: actions/upload-artifact@v2
       if: ${{ failure() }}
