@@ -31,7 +31,7 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 
 count = 0
-limit = 10
+limit = 30
 
 
 @pytest.fixture
