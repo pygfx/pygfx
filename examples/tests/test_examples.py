@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import imageio.v2 as imageio
 import numpy as np
+import psutil
 import pytest
 
 from examples.tests.testutils import (
@@ -29,8 +30,16 @@ examples_to_run = find_examples(
 examples_to_test = find_examples(query="# test_example = true", return_stems=True)
 
 
+@pytest.fixture
+def monitor_leaks():
+    mem_stats = psutil.virtual_memory()
+    cpu_stats = psutil.cpu_percent()
+    print(f"\nused system memory, before test start: {format_bytes(mem_stats.used)}")
+    print(f"cpu freq, before test start: {cpu_stats}")
+
+
 @pytest.mark.parametrize("module", examples_to_run)
-def test_examples_run(module):
+def test_examples_run(module, monitor_leaks):
     """Run every example marked to see if they can run without error."""
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 
@@ -57,6 +66,17 @@ def mock_time():
     with patch("time.time") as time_mock:
         time_mock.return_value = 1.23456
         yield
+
+
+def format_bytes(size):
+    power = 2**10
+    n = 0
+    power_labels = {0: "", 1: "K", 2: "M", 3: "G", 4: "T"}
+    while size > power:
+        size /= power
+        n += 1
+    label = power_labels[n] + "B"
+    return f"{size:.2f} {label}"
 
 
 @pytest.mark.parametrize("module", examples_to_test)

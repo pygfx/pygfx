@@ -103,7 +103,7 @@ jobs:
         pip install -e .[dev,examples]
     - name: Test examples
       run: |
-        pytest -v examples
+        pytest -v -s examples
     - uses: actions/upload-artifact@v2
       if: ${{ failure() }}
       with:
