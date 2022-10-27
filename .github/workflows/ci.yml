@@ -103,7 +103,6 @@ jobs:
         pip install -e .[dev,examples]
     - name: Test examples
       run: |
-        ulimit -s 65536  # double twice from default 16384
         pytest -rpP -v examples
     - uses: actions/upload-artifact@v2
       if: ${{ failure() }}

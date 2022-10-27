@@ -101,6 +101,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     """
 
+    _shared = None
+
     _wobject_pipelines_collection = weakref.WeakValueDictionary()
 
     def __init__(
@@ -130,8 +132,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Make sure we have a shared object (the first renderer create it)
         canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
-        if self._shared is None:
-            self._shared = Shared(canvas)
+        if WgpuRenderer._shared is None:
+            WgpuRenderer._shared = Shared(canvas)
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
