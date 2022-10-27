@@ -10,6 +10,7 @@ from unittest.mock import patch
 import imageio.v2 as imageio
 import numpy as np
 import psutil
+from pympler import tracker
 import pytest
 
 from examples.tests.testutils import (
@@ -31,25 +32,27 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 
 count = 0
-limit = 30
+limit = 20
+tr = None
 
 
-@pytest.fixture
-def monitor_leaks():
+@pytest.mark.parametrize("module", examples_to_run)
+def test_examples_run(module):
+    """Run every example marked to see if they can run without error."""
+    global count, limit, tr
+
+    count += 1
+    if count >= limit:
+        pytest.skip()
+    
+    if tr is None:
+        tr = tracker.SummaryTracker()
+
     print("")
     mem_stats = psutil.virtual_memory()
     print(f"used system memory, before test start: {format_bytes(mem_stats.used)}")
     cpu_stats = psutil.cpu_percent()
     print(f"cpu freq, before test start: {cpu_stats}")
-
-
-@pytest.mark.parametrize("module", examples_to_run)
-def test_examples_run(module, monitor_leaks):
-    """Run every example marked to see if they can run without error."""
-    global count, limit
-    count += 1
-    if count >= limit:
-        pytest.skip()
 
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 
@@ -57,6 +60,9 @@ def test_examples_run(module, monitor_leaks):
         runpy.run_module(f"examples.{module}", run_name="__main__")
     finally:
         del os.environ["WGPU_FORCE_OFFSCREEN"]
+
+        print("object diff, after test finish:")
+        tr.print_diff()
 
 
 @pytest.fixture

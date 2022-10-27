@@ -28,6 +28,7 @@ extras_require = {
         "twine",
         "imageio",
         "psutil",
+        "pympler",
     ],
     "examples": [
         "pytest",
