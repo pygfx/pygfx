@@ -10,7 +10,6 @@ from unittest.mock import patch
 import imageio.v2 as imageio
 import numpy as np
 import psutil
-from pympler import tracker
 import pytest
 
 from examples.tests.testutils import (
@@ -33,20 +32,16 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 count = 0
 limit = 20
-tr = None
 
 
 @pytest.mark.parametrize("module", examples_to_run)
 def test_examples_run(module):
     """Run every example marked to see if they can run without error."""
-    global count, limit, tr
+    global count, limit
 
     count += 1
     if count >= limit:
         pytest.skip()
-    
-    if tr is None:
-        tr = tracker.SummaryTracker()
 
     print("")
     mem_stats = psutil.virtual_memory()
@@ -60,9 +55,6 @@ def test_examples_run(module):
         runpy.run_module(f"examples.{module}", run_name="__main__")
     finally:
         del os.environ["WGPU_FORCE_OFFSCREEN"]
-
-        print("object diff, after test finish:")
-        tr.print_diff()
 
 
 @pytest.fixture
