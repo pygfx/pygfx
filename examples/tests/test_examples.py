@@ -40,7 +40,7 @@ def monitor_leaks():
 
 
 @pytest.mark.parametrize("module", examples_to_run)
-def test_examples_run(module, monitor_leaks):
+def test_examples_run(module):
     """Run every example marked to see if they can run without error."""
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 
