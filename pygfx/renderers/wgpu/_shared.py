@@ -55,6 +55,10 @@ class Shared(Trackable):
         self._store.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
         self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
+    def __del__(self):
+        self._device._destroy()
+        self._adapter._destroy()
+
     @property
     def adapter(self):
         """The shared WGPU adapter object."""
