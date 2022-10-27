@@ -32,9 +32,10 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 @pytest.fixture
 def monitor_leaks():
+    print(f"\nleak monitoring...")
     mem_stats = psutil.virtual_memory()
+    print(f"used system memory, before test start: {format_bytes(mem_stats.used)}")
     cpu_stats = psutil.cpu_percent()
-    print(f"\nused system memory, before test start: {format_bytes(mem_stats.used)}")
     print(f"cpu freq, before test start: {cpu_stats}")
 
 
