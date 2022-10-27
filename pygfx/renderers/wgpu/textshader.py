@@ -129,8 +129,11 @@ class TextShader(WorldObjectShader):
             );
             let corner = corners[sub_index];
 
+            let slant_factor = 0.0;  // 0: no slant, 0.5 slanted, 1.0 extreme
+            let slant = vec2<f32>(0.5 - corner.y) * slant_factor;
+
             let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
-            let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor) * font_size;
+            let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
             let glyph_texcoord = corner * vec2<f32>(bitmap_rect.zw) / f32(ATLAS_GLYPH_SIZE);
 
             $$ if screen_space
