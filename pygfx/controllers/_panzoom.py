@@ -8,7 +8,7 @@ from ._base import Controller, get_screen_vectors_in_world_cords
 
 
 class PanZoomController(Controller):
-    """A class implementing two-dimensional pan-zoom camera controller."""
+    """A class implementing two-dimensional pan-zoom camera controller with scaling."""
 
     def __init__(
         self,
@@ -18,6 +18,8 @@ class PanZoomController(Controller):
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
         scale: Vector3 = None,
+        scale_factor: float = 0.01,
+        maintain_aspect: bool = False,
         auto_update: bool = True,
     ) -> None:
         super().__init__()
@@ -38,7 +40,8 @@ class PanZoomController(Controller):
             scale = Vector3(1, 1, 1)
 
         self.scale = scale
-        self.scale_factor = 0.05
+        self.scale_factor = scale_factor
+        self.maintain_aspect = maintain_aspect
 
         self.auto_update = True
 
@@ -97,6 +100,15 @@ class PanZoomController(Controller):
 
             # prevent the camera from flipping when value becomes very small
             new_scale = self.scale.clone().add(stretch_val)
+            if self.maintain_aspect:
+                # use the value from axis with the largest change
+                val = max(new_scale.x, new_scale.y)
+
+                new_scale.x = val
+                new_scale.y = val
+
+            print(self.scale)
+
             new_scale.x = copysign(new_scale.x, self.scale.x)
             new_scale.y = copysign(new_scale.y, self.scale.y)
             new_scale.z = copysign(new_scale.z, self.scale.z)
