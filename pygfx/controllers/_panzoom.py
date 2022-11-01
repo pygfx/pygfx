@@ -73,6 +73,12 @@ class PanZoomController(Controller):
         elif mode == "freescale":
             self.maintain_aspect = False
 
+        else:
+            raise ValueError(
+                "PanZoomController mode can be set to one of "
+                '"maintain-aspect" or "freescale"'
+            )
+
     def save_state(self):
         self._saved_state = {
             "rotation": self.rotation.clone(),
