@@ -59,6 +59,20 @@ class PanZoomController(Controller):
         # Save initial state
         self.save_state()
 
+    @property
+    def mode(self) -> str:
+        if self.maintain_aspect:
+            return "maintain-aspect"
+        else:
+            return "freescale"
+
+    @mode.setter
+    def mode(self, mode: str):
+        if mode == "maintain-aspect":
+            self.maintain_aspect = True
+        elif mode == "freescale":
+            self.maintain_aspect = False
+
     def save_state(self):
         self._saved_state = {
             "rotation": self.rotation.clone(),
