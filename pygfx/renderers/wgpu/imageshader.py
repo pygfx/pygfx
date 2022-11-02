@@ -69,10 +69,10 @@ class BaseImageShader(WorldObjectShader):
 
             let pos1 = vec2<f32>(-0.5);
             let pos2 = vec2<f32>(size.xy) + pos1;
-            
+
             // get the offset from the top left corner
             let pos_offset = load_s_positions(0);
-            
+
             geo.positions = array<vec3<f32>,4>(
                 vec3<f32>(pos2.x + pos_offset.x, pos1.y + pos_offset.x, 0.0),
                 vec3<f32>(pos2.x + pos_offset.x, pos2.y + pos_offset.x, 0.0),
