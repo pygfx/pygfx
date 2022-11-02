@@ -4,7 +4,8 @@ from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderM
 from ._utils import to_texture_format
 from ...objects import Image
 from ...materials import ImageBasicMaterial
-from ...resources import Texture, TextureView
+from ...resources import Texture, TextureView, Buffer
+import numpy as np
 
 
 vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
@@ -68,11 +69,15 @@ class BaseImageShader(WorldObjectShader):
 
             let pos1 = vec2<f32>(-0.5);
             let pos2 = vec2<f32>(size.xy) + pos1;
+            
+            // get the offset from the top left corner
+            let pos_offset = load_s_positions(0);
+            
             geo.positions = array<vec3<f32>,4>(
-                vec3<f32>(pos2.x, pos1.y, 0.0),
-                vec3<f32>(pos2.x, pos2.y, 0.0),
-                vec3<f32>(pos1.x, pos1.y, 0.0),
-                vec3<f32>(pos1.x, pos2.y, 0.0),
+                vec3<f32>(pos2.x + pos_offset.x, pos1.y + pos_offset.x, 0.0),
+                vec3<f32>(pos2.x + pos_offset.x, pos2.y + pos_offset.x, 0.0),
+                vec3<f32>(pos1.x + pos_offset.x, pos1.y + pos_offset.x, 0.0),
+                vec3<f32>(pos1.x + pos_offset.x, pos2.y + pos_offset.x, 0.0),
             );
 
             geo.texcoords = array<vec2<f32>,4>(
@@ -111,6 +116,24 @@ class ImageShader(BaseImageShader):
             Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
             Binding("u_material", "buffer/uniform", material.uniform_buffer),
         ]
+
+        # get the positions to use to offset the image position if specified
+        if hasattr(geometry, "positions"):
+            if geometry.positions.data.shape != (1, 3):
+                raise ValueError(
+                    "Geometry.positions for Image must be of shape (1, 3), i.e. "
+                    "[[x, y, z]]"
+                )
+            bindings.append(
+                Binding("s_positions", "buffer/read_only_storage", geometry.positions)
+            )
+
+        # no offset position by default
+        else:
+            zero_pos = Buffer(np.array([[0.0, 0.0, 0.0]], dtype=np.float32))
+            bindings.append(
+                Binding("s_positions", "buffer/read_only_storage", zero_pos)
+            )
 
         self["climcorrection"] = ""
 
