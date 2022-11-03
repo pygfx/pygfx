@@ -75,7 +75,7 @@ Objects are slightly more complicated than lights or cameras. They have a
 an object's appearance (color, reflectiveness, etc).
 
 Now we have all the necessary ingredients and it is time to take a look. To do
-so we need to create a `canvas` to draw what we see (here a on-screen window)
+so we need to create a `canvas` to draw what we see (here an on-screen window)
 and a `renderer` that will look at the scene (through the camera) and draw what
 it sees onto the canvas::
 
@@ -100,7 +100,7 @@ world example, we can go one step further and add a bit of flare. We can add a
         renderer.render(scene, camera)
         renderer.request_draw()
 
-    # make the cube pop
+    # Add a directional light to make the cube look better
     scene.add(gfx.DirectionalLight())
     
     # create a new window and new renderer
@@ -153,7 +153,6 @@ following::
 
 
     if __name__ == "__main__":
-        renderer.render(scene, camera)
         renderer.request_draw(animate)
         run()
 
