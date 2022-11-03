@@ -88,35 +88,18 @@ it sees onto the canvas::
 
 .. image:: _static/guide_static_cube.png
 
-Nice, we rendered our first scene! While this technically completes the hello
-world example, we can go one step further and add a bit of flare. We can add a
-`draw_function` which allows us to add custom logic into the rendering process::
-
-    def animate():
-        # rotate the cube a bit
-        rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-        cube.rotation.multiply(rot)
-        # update the canvas
-        renderer.render(scene, camera)
-        renderer.request_draw()
-
-    # Add a directional light to make the cube look better
-    scene.add(gfx.DirectionalLight())
-    
-    # create a new window and new renderer
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
-    renderer.request_draw(animate)
-    run()
-
-.. image:: _static/guide_rotating_cube.gif
+Nice, we rendered our first scene! Next-up we can look at a full example that
+takes this one step further and animates the cube.
 
 .. _full_example:
 
-Putting it together
--------------------
+Animations
+----------
 
-Combining everything introduced above into a single program, we obtain the
-following::
+As promised in the previous section, here is a full example of how to use pygfx.
+It adds a little bit of flare to the hello world example above  by specifying a
+custom `draw_function`. Doing so allows us to add custom logic into the
+rendering process, which we can use to animate the cube::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -132,7 +115,7 @@ following::
     scene.add(gfx.AmbientLight())
     scene.add(gfx.DirectionalLight())
 
-    # Populate a scene
+    # Populate the scene
     geometry = gfx.box_geometry(200, 200, 200)
     material = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
     cube = gfx.Mesh(geometry, material)
@@ -142,12 +125,13 @@ following::
     renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 
 
+    # custom logic to rotate the cube and redraw
     def animate():
-        # rotate the cube a bit
-        rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+        rot = gfx.linalg.Quaternion().set_from_euler(
+            gfx.linalg.Euler(0.005, 0.01)
+        )
         cube.rotation.multiply(rot)
 
-        # redraw the scene
         renderer.render(scene, camera)
         renderer.request_draw()
 
@@ -156,6 +140,7 @@ following::
         renderer.request_draw(animate)
         run()
 
+.. image:: _static/guide_rotating_cube.gif
 
 World objects
 -------------
