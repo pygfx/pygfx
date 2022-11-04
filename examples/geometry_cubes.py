@@ -2,7 +2,7 @@
 Example showing multiple rotating cubes. This also tests the depth buffer.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -11,7 +11,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:chelsea.png")
+im = iio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
 material = gfx.MeshBasicMaterial(map=tex)

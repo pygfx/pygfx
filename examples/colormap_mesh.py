@@ -7,7 +7,7 @@ this can also be applied for points and lines.
 """
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -69,7 +69,7 @@ ob1.position.x = -6
 
 texcoords2 = geometry.texcoords.data.copy()
 
-cmap2 = imageio.imread("imageio:chelsea.png").astype(np.float32) / 255
+cmap2 = iio.imread("imageio:chelsea.png").astype(np.float32) / 255
 tex2 = gfx.Texture(cmap2, dim=2).get_view(address_mode="repeat")
 
 ob2 = WobjectClass(
@@ -90,7 +90,7 @@ ob2.position.x = -2
 
 texcoords3 = geometry.positions.data * 0.4 + 0.5
 
-cmap3 = imageio.volread("imageio:stent.npz").astype(np.float32) / 1000
+cmap3 = iio.imread("imageio:stent.npz").astype(np.float32) / 1000
 tex3 = gfx.Texture(cmap3, dim=3).get_view()
 
 ob3 = WobjectClass(

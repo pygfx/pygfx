@@ -3,7 +3,7 @@ Example rendering the same mesh object multiple times, using instancing.
 """
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -12,7 +12,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
+im = iio.imread("imageio:bricks.jpg").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)

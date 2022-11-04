@@ -6,7 +6,7 @@ on. Upon clicking, the vertex closest to the pick location is moved.
 # todo: if we have per-vertex coloring, we can paint on the mesh instead :D
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -15,7 +15,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
+im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.box_geometry(200, 200, 200)

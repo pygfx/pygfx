@@ -4,7 +4,7 @@ Prints the world bounding box of the scene which used
 to trigger an Exception.
 """
 
-import imageio
+import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -14,7 +14,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
+voldata = iio.imread("imageio:stent.npz").astype(np.float32)
 
 geometry = gfx.Geometry(grid=voldata)
 geometry_with_texture = gfx.Geometry(grid=gfx.Texture(data=voldata, dim=3))
