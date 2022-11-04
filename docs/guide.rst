@@ -89,8 +89,6 @@ and present the contents of its internal buffer to the screen when it returns.::
         # update the internal buffer
         renderer.render(scene, camera)
 
-        # Note: the handover to the canvas is implicit
-
     # schedule the draw call
     renderer.request_draw(draw_function)
 
