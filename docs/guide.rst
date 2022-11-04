@@ -53,7 +53,7 @@ by defining an empty `Scene`::
 
 Right now this scene is very desolate. There is no light, no objects, and
 nothing that can look at those objects. Let's change this by adding some
-`light` and a `camera`::
+`light` and creating a `camera`::
 
     # and god said ...
     scene.add(gfx.AmbientLight())
@@ -71,15 +71,14 @@ we also need to add an object to look at::
     scene.add(cube)
 
 Objects are slightly more complicated than lights or cameras. They have a
-`geometry`, which controlls an object's form, and a `material`, which controls
+`geometry`, which controls an object's form, and a `material`, which controls
 an object's appearance (color, reflectiveness, etc).
 
 Now we have all the necessary ingredients and it is time to take a look. This is
-done by a `renderer` and happens in a two step process known as a draw call:
-First, the renderer looks through the camera we created earlier, paints an image
-of what it sees, and stores it in a intermediate buffer. Second, the renderer
-takes this buffer and hands it over to a `canvas` which is responsible for
-displaying the image (here inside an on-screen window)::
+done by a `renderer`, which looks through the camera we created earlier, paints an image
+of what it sees, and stores it in the internal buffer of the canvas. To display the result on
+the screen, we need to request a draw. The canvas will schedule a good time to call our `draw_function`
+and present the contents of its internal buffer to the screen when it returns.::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -89,8 +88,6 @@ displaying the image (here inside an on-screen window)::
     def draw_function():
         # update the internal buffer
         renderer.render(scene, camera)
-
-        # Note: the handover to the canvas is implicit
 
     # schedule the draw call
     renderer.request_draw(draw_function)
@@ -109,7 +106,7 @@ Animations
 ----------
 
 As promised in the previous section, here is a full example of how to use pygfx.
-It adds a little bit of flare to the hello world example by rotating the cube a
+It adds a little bit of flair to the hello world example by rotating the cube a
 bit during the draw call. This allows us to create a simple animation::
 
     from wgpu.gui.auto import WgpuCanvas, run
@@ -147,7 +144,6 @@ bit during the draw call. This allows us to create a simple animation::
         # update the internal buffer
         renderer.render(scene, camera)
 
-        # Note: the handover to the canvas is implicit
 
         # schedule the next draw call to show an animation
         # Note: without arguments it will use the previous draw_function
