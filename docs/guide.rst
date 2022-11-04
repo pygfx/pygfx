@@ -74,16 +74,28 @@ Objects are slightly more complicated than lights or cameras. They have a
 `geometry`, which controlls an object's form, and a `material`, which controls
 an object's appearance (color, reflectiveness, etc).
 
-Now we have all the necessary ingredients and it is time to take a look. To do
-so we need to create a `canvas` to draw what we see (here an on-screen window)
-and a `renderer` that will look at the scene (through the camera) and draw what
-it sees onto the canvas::
+Now we have all the necessary ingredients and it is time to take a look. This is
+done by a `renderer` and happens in a two step process known as a draw call:
+First, the renderer looks through the camera we created earlier, paints an image
+of what it sees, and stores it in a intermediate buffer. Second, the renderer
+takes this buffer and hands it over to a `canvas` which is responsible for
+displaying the image (here inside an on-screen window)::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
-    renderer.render(scene, camera)
+    canvas = WgpuCanvas()
+    renderer = gfx.renderers.WgpuRenderer(canvas)
 
+    def draw_function():
+        # update the internal buffer
+        renderer.render(scene, camera)
+
+        # Note: the handover to the canvas is implicit
+
+    # schedule the draw call
+    renderer.request_draw(draw_function)
+
+    # run the application
     run()
 
 .. image:: _static/guide_static_cube.png
@@ -97,9 +109,8 @@ Animations
 ----------
 
 As promised in the previous section, here is a full example of how to use pygfx.
-It adds a little bit of flare to the hello world example above  by specifying a
-custom `draw_function`. Doing so allows us to add custom logic into the
-rendering process, which we can use to animate the cube::
+It adds a little bit of flare to the hello world example by rotating the cube a
+bit during the draw call. This allows us to create a simple animation::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -122,22 +133,29 @@ rendering process, which we can use to animate the cube::
     scene.add(cube)
     
     # Create a canvas and a renderer
-    renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+    canvas = WgpuCanvas()
+    renderer = gfx.renderers.WgpuRenderer(canvas)
 
 
-    # custom logic to rotate the cube and redraw
-    def animate():
+    def draw_function():
+        # custom logic to rotate the cube
         rot = gfx.linalg.Quaternion().set_from_euler(
             gfx.linalg.Euler(0.005, 0.01)
         )
         cube.rotation.multiply(rot)
 
+        # update the internal buffer
         renderer.render(scene, camera)
+
+        # Note: the handover to the canvas is implicit
+
+        # schedule the next draw call to show an animation
+        # Note: without arguments it will use the previous draw_function
         renderer.request_draw()
 
 
     if __name__ == "__main__":
-        renderer.request_draw(animate)
+        renderer.request_draw(draw_function)
         run()
 
 .. image:: _static/guide_rotating_cube.gif
