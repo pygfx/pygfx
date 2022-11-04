@@ -74,11 +74,19 @@ Objects are slightly more complicated than lights or cameras. They have a
 `geometry`, which controls an object's form, and a `material`, which controls
 an object's appearance (color, reflectiveness, etc).
 
-Now we have all the necessary ingredients and it is time to take a look. This is
-done by a `renderer`, which looks through the camera we created earlier, paints an image
-of what it sees, and stores it in the internal buffer of the canvas. To display the result on
-the screen, we need to request a draw. The canvas will schedule a good time to call our `draw_function`
-and present the contents of its internal buffer to the screen when it returns.::
+Now we have all the necessary ingredients and it is time to take a look. To do
+so, we need a `canvas` and a `renderer`. In this example, the `canvas` is a
+window which will pop up and allow us to display an image on a screen, and the
+`renderer` is the entity that is responsible for drawing the image. To prevent
+the display from freezing, the canvas' window runs in a separate thread and
+because of this we can't directly interact with the window. Instead, we take our
+instructions on what to draw and *schedule* them. The canvas will pick these up
+and, at the next opportunity, will update the window using our instructions.
+This scheduling is done by calling `request_draw` and giving it a
+`draw_function` containing our instructions. These instructions typically
+include a call to `renderer.render`, which instructs the renderer to look
+through a camera and paint an image of what it sees to an internal buffer that
+the canvas can display::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -86,7 +94,7 @@ and present the contents of its internal buffer to the screen when it returns.::
     renderer = gfx.renderers.WgpuRenderer(canvas)
 
     def draw_function():
-        # update the internal buffer
+        # draw the image
         renderer.render(scene, camera)
 
     # schedule the draw call
@@ -107,7 +115,7 @@ Animations
 
 As promised in the previous section, here is a full example of how to use pygfx.
 It adds a little bit of flair to the hello world example by rotating the cube a
-bit during the draw call. This allows us to create a simple animation::
+bit during each draw call. This allows us to create a simple animation::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -141,12 +149,13 @@ bit during the draw call. This allows us to create a simple animation::
         )
         cube.rotation.multiply(rot)
 
-        # update the internal buffer
+        # draw the image
         renderer.render(scene, camera)
 
 
-        # schedule the next draw call to show an animation
-        # Note: without arguments it will use the previous draw_function
+        # schedule the next draw call to show the animation
+        # Note: without arguments the renderer will use the
+        # previous draw_function
         renderer.request_draw()
 
 
