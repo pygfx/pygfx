@@ -12,6 +12,7 @@ def loop_video(video):
         for frame in iio.imiter(video):
             yield frame[:, :, 0]
 
+
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
@@ -28,6 +29,7 @@ camera = gfx.PerspectiveCamera(70)
 camera.position.z = 200
 
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
+
 
 def animate():
     # Read next frame, rewind if we reach the end
