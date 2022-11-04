@@ -3,7 +3,7 @@ Example demonstrating different colormap dimensions on an image.
 """
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -23,7 +23,7 @@ camera.position.x = 1736 / 2
 # the colormap data we use a colormap that goes from red to green to
 # blue (1D). A classic image colormap use-case.
 
-img_data1 = imageio.imread("imageio:astronaut.png")[:, :, 1]
+img_data1 = iio.imread("imageio:astronaut.png")[:, :, 1]
 
 colormap1 = gfx.cm.magma
 image1 = gfx.Image(
@@ -69,8 +69,7 @@ rr, zz = np.meshgrid(np.linspace(0, 2 * np.pi, 512), np.linspace(0, 1, 512))
 xx = np.sin(rr) * 0.4 + 0.5
 yy = np.cos(rr) * 0.4 + 0.5
 img_data3 = np.stack([xx, yy, zz], 2).astype(np.float32)
-# img_data3 = np.stack([xx, yy, zz], 2).astype(np.float32)
-colormap_data3 = imageio.volread("imageio:stent.npz").astype(np.float32) / 1500
+colormap_data3 = iio.imread("imageio:stent.npz").astype(np.float32) / 1500
 
 colormap3 = gfx.Texture(colormap_data3, dim=3).get_view(filter="linear")
 image3 = gfx.Image(

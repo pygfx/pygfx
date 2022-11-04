@@ -2,7 +2,7 @@
 Show an image.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -11,7 +11,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:astronaut.png")[:, :, 1]
+im = iio.imread("imageio:astronaut.png")[:, :, 1]
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
