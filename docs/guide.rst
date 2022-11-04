@@ -75,11 +75,10 @@ Objects are slightly more complicated than lights or cameras. They have a
 an object's appearance (color, reflectiveness, etc).
 
 Now we have all the necessary ingredients and it is time to take a look. This is
-done by a `renderer` and happens in a two step process known as a draw call:
-First, the renderer looks through the camera we created earlier, paints an image
-of what it sees, and stores it in a intermediate buffer. Second, the renderer
-takes this buffer and hands it over to a `canvas` which is responsible for
-displaying the image (here inside an on-screen window)::
+done by a `renderer`, which looks through the camera we created earlier, paints an image
+of what it sees, and stores it in the internal buffer of the canvas. To display the result on
+the screen, we need to request a draw. The canvas will schedule a good time to call our `draw_function`
+and present the contents of its internal buffer to the screen when it returns.::
 
     from wgpu.gui.auto import WgpuCanvas, run
 
@@ -147,7 +146,6 @@ bit during the draw call. This allows us to create a simple animation::
         # update the internal buffer
         renderer.render(scene, camera)
 
-        # Note: the handover to the canvas is implicit
 
         # schedule the next draw call to show an animation
         # Note: without arguments it will use the previous draw_function
