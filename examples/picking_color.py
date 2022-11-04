@@ -4,7 +4,7 @@ object being clicked, more detailed picking info is available.
 """
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -16,7 +16,7 @@ scene = gfx.Scene()
 background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 0, 1, 1)))
 scene.add(background)
 
-im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
+im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.box_geometry(200, 200, 200)

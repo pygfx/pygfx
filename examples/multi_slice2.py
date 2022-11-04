@@ -7,7 +7,7 @@ See multi_slice1.py for a more generic approach.
 
 from time import time
 
-import imageio
+import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -23,7 +23,7 @@ scene.add(background)
 
 scene.add(gfx.AxesHelper(size=50))
 
-vol = imageio.volread("imageio:stent.npz").astype("float32")
+vol = iio.imread("imageio:stent.npz").astype("float32")
 tex = gfx.Texture(vol, dim=3)
 
 surface = marching_cubes(vol[0:], 200)

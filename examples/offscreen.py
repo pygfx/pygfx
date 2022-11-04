@@ -6,7 +6,7 @@ Note that one can also render to a ``pygfx.Texture`` and use that texture to
 decorate an object in another scene.
 """
 
-import imageio
+import imageio.v3 as iio
 import pygfx as gfx
 from wgpu.gui.offscreen import WgpuCanvas
 
@@ -16,7 +16,7 @@ canvas = WgpuCanvas(640, 480, 1)
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:astronaut.png").astype("float32") / 255
+im = iio.imread("imageio:astronaut.png").astype("float32") / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.box_geometry(200, 200, 200)
@@ -47,4 +47,4 @@ if __name__ == "__main__":
     im2 = renderer.snapshot()
     print("Image from renderer.snapshot():", im2.shape)  # (960, 1280, 4)
 
-    imageio.imsave("offscreen.png", im1)
+    iio.imwrite("offscreen.png", im1)
