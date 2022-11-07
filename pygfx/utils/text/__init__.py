@@ -1,3 +1,3 @@
-from ._fontmanager import FontProps, font_manager, find_font  # noqa: F401
+from ._fontmanager import FontProps, font_manager  # noqa: F401
 from ._atlas import glyph_atlas, generate_glyph  # noqa: F401
 from ._shaper import shape_text  # noqa: F401

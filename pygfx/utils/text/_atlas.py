@@ -262,6 +262,7 @@ def _generate_glyph(face, glyph_index):
 
     # Load the glyph bitmap
     face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
+
     try:
         face.glyph.render(freetype.FT_RENDER_MODE_SDF)
     except Exception:  # Freetype refuses SDF for spaces ?

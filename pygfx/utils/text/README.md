@@ -26,17 +26,19 @@ The appropriate font file is selected based on the font properties. Not all font
 
 Since it's likely that multiple text items use the same font, the results of font selection should be cached.
 
-### Shaping & glyph generation
+Since different characters in the same text item may need different font files, another itemisation round occurs here.
+
+### Shaping 
 
 *happens for each text item*
 
 The text of each item is converted into a list of glyph-indices and positions. A glyph-index is the index of the glyph in the font file. The number of glyphs may not match the length of the text. This is because of e.g. ligatures and diacritics.
 
+### Glyph generation
+
 Each glyph is now read from the font file (using its glyph-index) and a representation of it is generated and stored in a global atlas. In our case this is a scalar distance field (SDF). The result is the index into the atlas.
 
-From an API point of view, this step exchanges ...
-
-TODO: not sure yet if these should be two steps or one
+From an API point of view, this step exchanges the glyph index plus font file for an atlas index.
 
 
 ### Sizing

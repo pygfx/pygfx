@@ -17,7 +17,7 @@ import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-from ..utils.text import FontProps, find_font, shape_text, generate_glyph
+from ..utils.text import FontProps, font_manager, shape_text, generate_glyph
 
 
 def text_geometry(
@@ -53,57 +53,67 @@ def text_geometry(
 
 
 class TextItem:
-    """A text item represents a unit piece of text that is formatted
+    """A text item represents a unit piece of text that is formatted,
     in a specific way. The TextGeometry positions a list of text items so that
     they together display the intended total text.
     """
 
-    def __init__(self, text, font_props=None):
+    def __init__(self, text, family="", allow_break=True):
 
+        self._text = text
+        self._allow_break = bool(allow_break)
+        family = family or ""
+        self._family = family
         # Set font props
-        if font_props is None:
-            font_props = FontProps()  # default
+        # self._props = font_props
 
-        # === Font selection
-        font_filename = find_font(font_props)
-
-        # === Shaping - generate indices and positions
-        glyph_indices, positions, full_width, meta = shape_text(text, font_filename)
-
-        # === Glyph generation (populate atlas)
-        atlas_indices = generate_glyph(glyph_indices, font_filename)
-
-        # Store stuff for the geometry to use
-        self._props = font_props
-        self._meta = meta
-        self._indices = atlas_indices
-        self._positions = positions
-        self._width = full_width
-        self._margin = meta["space_width"] / 2
+    @property
+    def text(self):
+        """The text for this item."""
+        return self._text
 
     @property
     def props(self):
         return self._props
 
-    @property
-    def meta(self):
-        return self._meta
+    def convert_to_glyphs(self):
+        """Convert this text item in one or more GlyphItem objects.
+        This process includes font selection, shaping, and glyph generation.
+        """
+        text = self._text
 
-    @property
-    def indices(self):
-        return self._indices
+        # === Font selection
+        text_pieces = font_manager.select_font_for_text(self._text, self._family)
 
-    @property
-    def positions(self):
-        return self._positions
+        glyph_items = []
+        for text, font in text_pieces:
 
-    @property
-    def width(self):
-        return self._width
+            # === Shaping - generate indices and positions
+            glyph_indices, positions, full_width, meta = shape_text(text, font.filename)
 
-    @property
-    def margin(self):
-        return self._margin
+            # === Glyph generation (populate atlas)
+            atlas_indices = generate_glyph(glyph_indices, font.filename)
+
+            glyph_items.append(GlyphItem(positions, atlas_indices, full_width, meta))
+
+        # Set props so these items will be grouped correctly
+        glyph_items[0].allow_break = self._allow_break
+        glyph_items[0].margin_before = glyph_items[0].meta["space_width"] / 2
+        glyph_items[-1].margin_after = glyph_items[-1].meta["space_width"] / 2
+        return glyph_items
+
+
+class GlyphItem:
+    """A small collection of glyphs that represents a piece of text. Intended for internal use only."""
+
+    def __init__(self, positions, indices, width, meta):
+        self.positions = positions
+        self.indices = indices
+        self.width = width
+        self.meta = meta
+        self.allow_break = False
+        self.margin_before = 0
+        self.margin_after = 0
 
 
 class TextGeometry(Geometry):
@@ -115,35 +125,35 @@ class TextGeometry(Geometry):
         super().__init__()
 
         # Check incoming items
-        text_items = list(text_items)
+        glyph_items = []
         for item in text_items:
             if not isinstance(item, TextItem):
                 raise TypeError("TextGeometry only accepts TextItem objects.")
+            glyph_items.extend(item.convert_to_glyphs())
 
         # Re-order the items if needed
         i = 0
-        while i < len(text_items) - 1:
-            item = text_items[i]
+        while i < len(glyph_items) - 1:
+            item = glyph_items[i]
             if item.meta["direction"] == "rtl":
                 i1 = i2 = i
-                for j in range(i + 1, len(text_items)):
-                    next = text_items[j]
+                for j in range(i + 1, len(glyph_items)):
                     if item.meta["direction"] != "rtl":
                         break
                     i2 = j
                 if i1 != i2:
-                    text_items[i1:i2+1] = reversed(text_items[i1:i2+1])
+                    glyph_items[i1 : i2 + 1] = reversed(glyph_items[i1 : i2 + 1])
                 i = i2 + 1
             else:
                 i += 1
 
-        self._text_items = tuple(text_items)
+        self._glyph_items = tuple(glyph_items)
 
         # Compose the items in a single geometry
         indices_arrays = []
         positions_arrays = []
         glyph_count = 0
-        for item in self._text_items:
+        for item in self._glyph_items:
             assert item.indices.dtype == np.uint32
             assert item.positions.dtype == np.float32
             assert item.positions.shape == (item.indices.size, 2)
@@ -242,13 +252,13 @@ class TextGeometry(Geometry):
         font_size = self._font_size
 
         x_offset = 0
-        for item in self._text_items:
+        for item in self._glyph_items:
             if x_offset > 0:
-                x_offset += item.margin * font_size
+                x_offset += item.margin_before * font_size
             positions = item.positions * font_size + np.array([x_offset, 0])
             i1, i2 = item.offset, item.offset + positions.shape[0]
             self.positions.data[i1:i2] = positions
             self.positions.update_range(i1, i2)
             self.sizes.data[i1:i2] = font_size
             self.sizes.update_range(i1, i2)
-            x_offset += item.width * font_size + item.margin * font_size
+            x_offset += item.width * font_size + item.margin_after * font_size
