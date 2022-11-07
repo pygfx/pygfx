@@ -34,8 +34,8 @@ communicate with the hardware. WGPU is itself based on Vulkan, Metal and DX12.
 How to use pygfx?
 -----------------
 
-Pygfx is structured like many other rendering engines. We create a `scene` (a
-worlds/scenarios to render) using three main ingredients: (1) `objects` and
+Pygfx is structured like many other rendering engines. To create a `scene` (a
+worlds/scenarios to render) we use three main ingredients: (1) `objects` and
 their visual properties, (2) `light` sources, and (3) a `camera` that sees
 things. Once we defined those three things, we can position them in our scene
 and then use a `renderer` to look at what we have created (or take
