@@ -17,7 +17,7 @@ So far this is a minimal version of the MPL approach.
 """
 
 from .. import get_resource_filename
-
+from .. import logger
 
 # todo: math fonts? (MPL makes that part of the FontProperties)
 # todo: caching
@@ -98,6 +98,7 @@ class FontManager:
             size=12,
         )
         self._index_available_fonts()
+        self._warned_for_codepoints = set()
 
     def _index_available_fonts(self):
 
@@ -187,13 +188,19 @@ class FontManager:
             fonts.append(font_info)
         if not fonts:
             fonts.append(self._default_default_font)
+            if codepoint not in self._warned_for_codepoints:
+                # todo: when we have an index, we can tell the user what font package to install.
+                self._warned_for_codepoints.add(codepoint)
+                codepoint_repr = "U+" + hex(codepoint)[2:]
+                msg = f"No font available for {chr(codepoint)} ({codepoint_repr})."
+                msg += " You may need to install another Noto font package (TODO)"
+                logger.warning(msg)
         return fonts
 
     def select_font_for_text(self, text, family):
         """Select the (best) font for the given text. Returns a list of (text, fontname)
         tuples, because different characters in the text may require different fonts.
         """
-        # TODO: how to deal with codepoints that are not even in the default fonts
         text_pieces = []
         last_i, i = 0, 1
         fonts = self.select_fonts_for_codepoint(ord(text[0]), family)
