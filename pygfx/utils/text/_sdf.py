@@ -72,10 +72,22 @@ def _generate_glyph(face, glyph_index):
     # Load the glyph bitmap
     face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
 
+    # We first render in bitmap mode. Doing this forces the SDF renderer
+    # to use the BSDF approach instead of the outline approach. See
+    # http://freetype.org/freetype2/docs/reference/ft2-base_interface.html
+    # We do this because there are quite a few artifacts in e.g. Arabic
+    # and emoticons, due to sharp and/or intersecting Bezier curves.
+    # At the time I write this (07-11-2022) there are some fixes in
+    # FreeType's codebase, but freetype (and freetype-py) have not had
+    # a release that includes these improvements. Once it has, we can
+    # remove this line and uncomment the line in the except-clause below.
+    face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
+
+    # Render SFD
     try:
         face.glyph.render(freetype.FT_RENDER_MODE_SDF)
     except Exception:  # Freetype refuses SDF for spaces ?
-        face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
+        pass  # face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
     bitmap = face.glyph.bitmap
 
     # Make the bitmap smaller if it does not fit in the atlas slot.
