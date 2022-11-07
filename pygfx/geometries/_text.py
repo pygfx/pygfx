@@ -17,7 +17,7 @@ import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-from ..utils.text import FontProps, font_manager, shape_text, generate_glyph
+from ..utils.text import font_manager, shape_text, generate_glyph
 
 
 def text_geometry(

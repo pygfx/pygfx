@@ -10,7 +10,7 @@ Relevant links:
 import freetype
 import numpy as np
 
-from ._atlas import REF_GLYPH_SIZE
+from ._sdf import REF_GLYPH_SIZE
 
 
 def shape_text(text, font_filename):
@@ -120,7 +120,7 @@ def shape_text_ft(text, font_filename):
     space_width = get_advance_for_space_ft(face) / REF_GLYPH_SIZE
 
     # todo: use the line_gap as the reference line_height
-    line_gap = face.height
+    # line_gap = face.height
 
     meta = {
         "space_width": space_width,

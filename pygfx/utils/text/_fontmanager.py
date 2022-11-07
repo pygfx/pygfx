@@ -105,7 +105,7 @@ class FontManager:
         # todo: does the order matter, or only for the default font?
         font_list = []
 
-        fonts_dir = get_resource_filename("fonts")
+        fonts_dir = get_resource_filename("")
         font_files_in_dir = [
             os.path.join(fonts_dir, fname)
             for fname in sorted(os.listdir(fonts_dir))
