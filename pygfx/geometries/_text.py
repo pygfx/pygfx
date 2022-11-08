@@ -17,20 +17,22 @@ import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-from ..utils.text import font_manager, shape_text, generate_glyph
+from ..utils.text import FontProps, font_manager, shape_text, generate_glyph
 
 
 def text_geometry(
     *,
     text=None,
     markdown=None,
-    family=None,
     font_size=12,
     max_width=None,
     line_height=None,
     text_align=None,
+    **font_props,
 ):
     """Generate text geometry."""
+
+    font_props = FontProps(**font_props)
 
     # === Itemization - generate a list of TextItem objects
     items = []
@@ -39,7 +41,7 @@ def text_geometry(
             raise TypeError("Text must be a Unicode string.")
         # todo: replace with regex search on last-space-in-series-of-spaces, and newlines
         for piece in text.split():
-            items.append(TextItem(piece, family))
+            items.append(TextItem(piece, font_props))
     if markdown:
         raise NotImplementedError()
 
@@ -58,14 +60,16 @@ class TextItem:
     they together display the intended total text.
     """
 
-    def __init__(self, text, family="", allow_break=True):
+    def __init__(self, text, font_props=None, *, allow_break=True):
+
+        if font_props is None:
+            font_props = FontProps()
+        elif not isinstance(font_props, FontProps):
+            raise TypeError("font_props is not a FontProps object.")
+        self._font_props = font_props
 
         self._text = text
         self._allow_break = bool(allow_break)
-        family = family or ""
-        self._family = family
-        # Set font props
-        # self._props = font_props
 
     @property
     def text(self):
@@ -73,8 +77,8 @@ class TextItem:
         return self._text
 
     @property
-    def props(self):
-        return self._props
+    def font_props(self):
+        return self._font_props
 
     def convert_to_glyphs(self):
         """Convert this text item in one or more GlyphItem objects.
@@ -83,7 +87,9 @@ class TextItem:
         text = self._text
 
         # === Font selection
-        text_pieces = font_manager.select_font_for_text(self._text, self._family)
+        text_pieces = font_manager.select_font_for_text(
+            self._text, self._font_props.family
+        )
 
         glyph_items = []
         for text, font in text_pieces:
@@ -94,6 +100,7 @@ class TextItem:
             # === Glyph generation (populate atlas)
             atlas_indices = generate_glyph(glyph_indices, font.filename)
 
+            self._encode_font_props_in_atlas_indices(atlas_indices)
             glyph_items.append(GlyphItem(positions, atlas_indices, full_width, meta))
 
         # Set props so these items will be grouped correctly
@@ -102,13 +109,23 @@ class TextItem:
         glyph_items[-1].margin_after = glyph_items[-1].meta["space_width"] / 2
         return glyph_items
 
+    def _encode_font_props_in_atlas_indices(self, atlas_indices):
+        is_slanted = self._font_props.style in ("italic", "oblique", "slanted")
+        if is_slanted:
+            atlas_indices += 0x08000000
+        weight_0_15 = int((max(150, self._font_props.weight) - 150) / 50 + 0.4999)
+        print(self._font_props.weight, weight_0_15)
+        atlas_indices += max(0, min(15, weight_0_15)) << 28
+
 
 class GlyphItem:
     """A small collection of glyphs that represents a piece of text. Intended for internal use only."""
 
     def __init__(self, positions, indices, width, meta):
+        # Arrays with glyph data
         self.positions = positions
         self.indices = indices
+        # Layout data
         self.width = width
         self.meta = meta
         self.allow_break = False

@@ -106,9 +106,16 @@ class TextShader(WorldObjectShader):
             let sub_index = raw_index % 6;
 
             // Load glyph info
-            let glyph_index = i32(load_s_indices(index));
+            let glyph_index_raw = u32(load_s_indices(index));
             let font_size = load_s_sizes(index);
             let glyph_pos = load_s_positions(index);
+
+            let glyph_index = i32(glyph_index_raw & 0x00FFFFFFu);
+            let weight_0_15 = (glyph_index_raw & 0xF0000000u) >> 28u;  // highest 4 bits
+            let is_slanted = bool(glyph_index_raw & 0x08000000u);
+            //let reserved1 = bool(glyph_index_raw & 0x04000000u);
+            //let reserved2 = bool(glyph_index_raw & 0x02000000u);
+            //let reserved3 = bool(glyph_index_raw & 0x01000000u);
 
             // Load meta-data of the glyph in the atlas
             let bitmap_rect = load_s_rects(glyph_index);
@@ -129,8 +136,9 @@ class TextShader(WorldObjectShader):
             );
             let corner = corners[sub_index];
 
-            let slant_factor = 0.0;  // 0: no slant, 0.5 slanted, 1.0 extreme
-            let slant = vec2<f32>(0.5 - corner.y) * slant_factor;
+            // Apply slanting, a.k.a. automated obliques, a.k.a. fake italics
+            let slant_factor = f32(is_slanted) * 0.23;  // emperically selected based on NotoSans-Italic
+            let slant = vec2<f32>(0.5 - corner.y, 0.0) * slant_factor;
 
             let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
             let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
@@ -183,6 +191,7 @@ class TextShader(WorldObjectShader):
             varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
             varyings.glyph_texcoord = vec2<f32>(glyph_texcoord);
             varyings.glyph_index = i32(glyph_index);
+            varyings.weight = f32(150.0 + f32(weight_0_15) * 50.0);  // encodes 150-900 in steps of 50
 
             // Picking
             varyings.pick_idx = u32(index);
@@ -227,7 +236,8 @@ class TextShader(WorldObjectShader):
             let distance = (0.5 - atlas_value);
 
             // Load tickness factors
-            let extra_thickness = u_material.extra_thickness;
+            let weight = clamp(varyings.weight + u_material.weight_offset, 0.0, 2000.0);
+            let weight_thickness = (weight - 400.0) * 0.00031;  // emperically derived factor
             let outline_thickness = u_material.outline_thickness;
 
             // The softness is calculated from the scale of one atlas-pixel in screen space.
@@ -247,12 +257,12 @@ class TextShader(WorldObjectShader):
             // same text, rendered in a browser, where the text is white on a dark bg (I
             // checked against Firefox on MacOS, with retina display). Note that modern
             // browsers compensate for the white-on-dark effect. We cannot, because we don't
-            // know whats behind the text, but the user can use extra_thickness when the text
+            // know whats behind the text, but the user can use weight_offset when the text
             // is darker than the bg. More info at issue #358.
             let cut_off_correction = 0.25 * softness;
 
             // Calculate cut-off's. Apply min so it's always a valid shape.
-            let cut_off = min(0.49, 0.0 + cut_off_correction + extra_thickness + outline_thickness);
+            let cut_off = min(0.49, 0.0 + cut_off_correction + weight_thickness + outline_thickness);
             let outline_cutoff = max(0.0, cut_off - outline_thickness);
 
             // Init opacity value to get the shape of the glyph

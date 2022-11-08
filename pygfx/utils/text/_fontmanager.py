@@ -26,6 +26,26 @@ import os
 import freetype
 
 
+# Weight names according to CSS and the OpenType spec.
+weight_dict = {
+    "thin": 100,
+    "hairline": 100,
+    "ultralight": 200,
+    "extralight": 200,
+    "light": 300,
+    "normal": 400,
+    "regular": 400,
+    "medium": 500,
+    "semibold": 600,
+    "demibold": 600,
+    "bold": 700,
+    "extrabold": 800,
+    "ultrabold": 800,
+    "black": 900,
+    "heavy": 900,
+}
+
+
 class FontProps:
     """
     A class for storing font properties.
@@ -36,22 +56,15 @@ class FontProps:
 
     Parameters:
         family (str, tuple): The name of a font, or a list of font names
-            in decreasing order of priority. The items may include a
-            generic font family name, either 'sans-serif', 'serif',
-            'cursive', 'fantasy', or 'monospace'.
+            in decreasing order of priority.
         style (str): Either 'normal', 'italic' or 'oblique'.
-        variant (str): Either 'normal' or 'small-caps'.
+        weight (float, str): A numeric value in the range 100-900 or one of
+            'ultralight', 'light', 'normal', 'regular', 'medium',
+            'semibold', 'demibold', 'bold', 'extra bold', 'black'.
         stretch (float, str): A numeric value in the range 0-1000 or one of
             'ultra-condensed', 'extra-condensed', 'condensed',
             'semi-condensed', 'normal', 'semi-expanded', 'expanded',
             'extra-expanded' or 'ultra-expanded'.
-        weight (float, str): A numeric value in the range 0-1000 or one of
-            'ultralight', 'light', 'normal', 'regular', 'book',
-            'medium', 'roman', 'semibold', 'demibold', 'demi', 'bold',
-            'heavy', 'extra bold', 'black'.
-        size (float, str): Either a relative value of 'xx-small', 'x-small',
-            'small', 'medium', 'large', 'x-large', 'xx-large' or an
-            absolute font size, e.g., 10.
     """
 
     def __init__(
@@ -59,32 +72,53 @@ class FontProps:
         family=None,
         *,
         style=None,
-        variant=None,
-        stretch=None,
         weight=None,
-        size=None,
+        stretch=None,
     ):
         if family is None:
             family = font_manager.get_default_font_props().family
         if style is None:
             style = font_manager.get_default_font_props().style
-        if variant is None:
-            variant = font_manager.get_default_font_props().variant
-        if stretch is None:
-            stretch = font_manager.get_default_font_props().stretch
         if weight is None:
             weight = font_manager.get_default_font_props().weight
-        if size is None:
-            size = font_manager.get_default_font_props().size
+        if stretch is None:
+            stretch = font_manager.get_default_font_props().stretch
 
+        if isinstance(weight, str):
+            weight = weight_dict[weight.lower()]
+        elif not isinstance(weight, int):
+            raise TypeError("Weight must be an int (100-900) or string.")
+
+        self._kwargs = {
+            "family": family,
+            "style": style,
+            "weight": weight,
+            "stretch": stretch,
+        }
         # todo: checks
-        # todo: use @properties
-        self.family = family
-        self.style = style
-        self.variant = variant
-        self.stretch = stretch
-        self.weight = weight
-        self.size = size
+
+    def copy(self, **kwargs):
+        d = self._kwargs.copy()
+        for k, v in kwargs.items:
+            if v is not None:
+                d[k] = v
+        return self.__class__(**d)
+
+    @property
+    def family(self):
+        return self._kwargs["family"]
+
+    @property
+    def style(self):
+        return self._kwargs["style"]
+
+    @property
+    def weight(self):
+        return self._kwargs["weight"]
+
+    @property
+    def stretch(self):
+        return self._kwargs["stretch"]
 
 
 class FontManager:
@@ -92,13 +126,16 @@ class FontManager:
         self._default_font_props = FontProps(
             "noto sans",
             style="normal",
-            variant="normal",
             stretch="normal",
-            weight="normal",
-            size=12,
+            weight="regular",
         )
+        self._name_to_font = {}
         self._index_available_fonts()
         self._warned_for_codepoints = set()
+
+    def add_font_file(self, filename):
+        fi = FontInfo(filename)
+        self._name_to_font[fi.name] = fi
 
     def _index_available_fonts(self):
 
@@ -157,7 +194,7 @@ class FontManager:
                     x.append(fi)
 
         self._font_list = font_list
-        self._name_to_font_info = name_to_font_info
+        self._name_to_font.update(name_to_font_info)
         self._default_font_map = default_font_map
 
     def get_default_font_props(self):
@@ -178,7 +215,7 @@ class FontManager:
         for family in familie_names:
             name = normalize_font_name(family)
             try:
-                font_info = self._name_to_font_info[name]
+                font_info = self._name_to_font[name]
             except KeyError:
                 continue
             if font_info.has_codepoint(codepoint):

@@ -7,7 +7,7 @@ class TextMaterial(Material):
 
     uniform_type = dict(
         color="4xf4",
-        extra_thickness="f4",
+        weight_offset="f4",
         outline_thickness="f4",
         outline_color="4xf4",
     )
@@ -18,7 +18,7 @@ class TextMaterial(Material):
         *,
         outline_color="#000",
         outline_thickness=0,
-        extra_thickness=0.0,
+        weight_offset=0,
         screen_space=True,
         aa=True,
         **kwargs
@@ -30,7 +30,7 @@ class TextMaterial(Material):
         self.color = color
         self.outline_color = outline_color
         self.outline_thickness = outline_thickness
-        self.extra_thickness = extra_thickness
+        self.weight_offset = weight_offset
         self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -107,14 +107,14 @@ class TextMaterial(Material):
         self._check_color_is_transparent()
 
     @property
-    def extra_thickness(self):
-        """A value indicating additional thickness for the glyphs.
-        Could be seen as a font-weight / boldness correction. Valid
-        values are between -0.5 and 0.5. Default 0.
+    def weight_offset(self):
+        """A value representing an offset to the font weight. Font weights
+        are in the range 100-900, so this value should be in the same order of
+        magnitude. Default zero.
         """
-        return float(self.uniform_buffer.data["extra_thickness"])
+        return float(self.uniform_buffer.data["weight_offset"])
 
-    @extra_thickness.setter
-    def extra_thickness(self, value):
-        self.uniform_buffer.data["extra_thickness"] = max(-0.5, min(0.5, float(value)))
+    @weight_offset.setter
+    def weight_offset(self, value):
+        self.uniform_buffer.data["weight_offset"] = float(value)
         self.uniform_buffer.update_range(0, 1)
