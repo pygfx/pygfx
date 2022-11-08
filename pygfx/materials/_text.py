@@ -111,6 +111,10 @@ class TextMaterial(Material):
         """A value representing an offset to the font weight. Font weights
         are in the range 100-900, so this value should be in the same order of
         magnitude. Default zero.
+
+        One use-case is to make dark text on a light background 50 units
+        thicker, to counter the psychological effect that such text
+        *looks* thinner than a light text on a dark background.
         """
         return float(self.uniform_buffer.data["weight_offset"])
 
