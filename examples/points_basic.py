@@ -1,3 +1,8 @@
+"""
+Render Points
+"""
+
+
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

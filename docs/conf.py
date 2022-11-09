@@ -53,6 +53,7 @@ author = "Almar Klein, Korijn van Golen"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx_gallery.gen_gallery",
     # "nbsphinx",
 ]
 
@@ -63,6 +64,11 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+sphinx_gallery_conf = {
+     'examples_dirs': '../examples',
+     'gallery_dirs': '_gallery',
+}
 
 
 # -- Options for HTML output -------------------------------------------------

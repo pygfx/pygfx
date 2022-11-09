@@ -1,5 +1,9 @@
 # run_example = false
 
+"""
+Render Text with Qt
+"""
+
 import numpy as np
 import pygfx as gfx
 

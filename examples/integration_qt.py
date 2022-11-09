@@ -1,5 +1,9 @@
 # run_example = false
 
+"""
+Integrate pygfx in Qt
+"""
+
 import random
 
 from PySide6 import QtWidgets

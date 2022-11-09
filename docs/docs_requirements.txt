@@ -2,3 +2,5 @@ sphinx
 numpy
 wgpu
 jinja2
+sphinx-gallery
+
