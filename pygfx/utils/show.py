@@ -11,20 +11,30 @@ from .. import (
     Scene,
     PerspectiveCamera,
     OrbitController,
-    Light,
     AmbientLight,
     DirectionalLight,
 )
 
 
-def show(object: WorldObject, up=None):
+def show(
+    object: WorldObject,
+    up=None,
+    *,
+    canvas=None,
+    event_loop=None,
+    renderer=None,
+    controller=None,
+    camera=None,
+    before_render=None,
+    after_render=None,
+    draw_function=None
+):
     """Visualize a given WorldObject in a new window with an interactive camera.
 
     Parameters:
         object (WorldObject): The object to show.
         up (Vector3): Optional. Configure the up vector for the camera controller.
     """
-    from wgpu.gui.auto import WgpuCanvas, run
 
     if isinstance(object, Scene):
         scene = object
@@ -34,33 +44,47 @@ def show(object: WorldObject, up=None):
 
         background = Background(None, BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
         scene.add(background)
-
-    camera = PerspectiveCamera(70, 16 / 9)
-    look_at = camera.show_object(object)
-    scene.add(camera)
-
-    # Add lights if there are none
-    light_count = 0
-
-    def check_light(ob):
-        nonlocal light_count
-        if isinstance(ob, Light):
-            light_count += 1
-
-    scene.traverse(check_light, False)
-    if not light_count:
-        camera.add(DirectionalLight(0.8))
         scene.add(AmbientLight(0.2))
 
-    canvas = WgpuCanvas()
-    renderer = WgpuRenderer(canvas)
+    if not camera:
+        camera = PerspectiveCamera(70, 16 / 9)
+        camera.add(DirectionalLight(0.8))
+        scene.add(camera)
 
-    controller = OrbitController(camera.position.clone(), look_at, up=up)
-    controller.add_default_event_handlers(renderer, camera)
+    if canvas is None:
+        from wgpu.gui.auto import WgpuCanvas, run
 
-    def animate():
-        controller.update_camera(camera)
-        renderer.render(scene, camera)
+        canvas = WgpuCanvas()
+        event_loop = run
+    elif event_loop is None:
+        # TODO: find the matching run function
+        raise ValueError(
+            "When providing a canvas you also need to provide the event loop."
+        )
 
-    canvas.request_draw(animate)
-    run()
+    if renderer is None:
+        renderer = WgpuRenderer(canvas)
+
+    if controller is None:
+        look_at = camera.show_object(object)
+        controller = OrbitController(camera.position.clone(), look_at, up=up)
+        controller.add_default_event_handlers(renderer, camera)
+
+    if draw_function is None:
+
+        def animate():
+            if before_render is not None:
+                before_render()
+
+            controller.update_camera(camera)
+            renderer.render(scene, camera)
+
+            if after_render is not None:
+                after_render()
+
+            renderer.request_draw()
+
+        draw_function = animate
+
+    canvas.request_draw(draw_function)
+    event_loop()

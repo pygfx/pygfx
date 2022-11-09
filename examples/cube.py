@@ -2,11 +2,9 @@
 Example showing a single geometric cube.
 """
 
-from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 cube = gfx.Mesh(
@@ -26,10 +24,6 @@ def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     cube.rotation.multiply(rot)
 
-    renderer.render(scene, camera)
-    renderer.request_draw()
-
 
 if __name__ == "__main__":
-    renderer.request_draw(animate)
-    run()
+    gfx.show(scene, camera=camera, before_render=animate)
