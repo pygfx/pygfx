@@ -18,6 +18,8 @@ from .utils.show import show
 from .utils.viewport import Viewport
 from .utils import cm, logger
 
+from .scraper import _get_sg_image_scraper
+
 
 __version__ = "0.1.9"
 version_info = tuple(map(int, __version__.split(".")))
