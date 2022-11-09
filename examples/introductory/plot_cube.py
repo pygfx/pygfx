@@ -1,5 +1,9 @@
 """
-Example showing a single geometric cube.
+Hello World
+===========
+
+In this example, we will have a look the render engine equivalent of a hello
+world example: Rendering a 3D Cube on screen.
 """
 
 from wgpu.gui.auto import WgpuCanvas, run
