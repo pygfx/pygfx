@@ -66,8 +66,9 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 sphinx_gallery_conf = {
-     'examples_dirs': '../examples',
-     'gallery_dirs': '_gallery',
+    "examples_dirs": "../examples",
+    "gallery_dirs": "_gallery",
+    "image_scrapers": ("pygfx",),
 }
 
 
