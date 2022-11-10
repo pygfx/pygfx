@@ -3,6 +3,8 @@ Quickly visualize world objects with as
 little boilerplate as possible.
 """
 
+import sys
+
 from .. import (
     Background,
     BackgroundMaterial,
@@ -21,7 +23,6 @@ def show(
     up=None,
     *,
     canvas=None,
-    event_loop=None,
     renderer=None,
     controller=None,
     camera=None,
@@ -29,11 +30,36 @@ def show(
     after_render=None,
     draw_function=None
 ):
-    """Visualize a given WorldObject in a new window with an interactive camera.
+    """Display a WorldObject
 
-    Parameters:
-        object (WorldObject): The object to show.
-        up (Vector3): Optional. Configure the up vector for the camera controller.
+    This function provides you with the basic scaffolding to visualize a given
+    WorldObject in a new window. While it does add scaffolding, it aims to be
+    fully customizable so that you can replace each piece as needed.
+
+    Parameters
+    ----------
+        object : gfx.WorldObject
+            The object to show.
+        up : gfx.Vector3
+            If set, set the default camera controller's up vector to this value.
+        canvas : WgpuCanvas
+            The canvas to use to display the object.
+        renderer : gfx.Renderer
+            The renderer to use while drawing the scene.
+        controller : gfx.Controller
+            The camera controller to use.
+        camera : gfx.Camera
+            The camera to use.
+        before_render : Callable
+            A callback that will be executed during each draw call before a new
+            render is made.
+        after_render : Callable
+            A callback that will be executed during each draw call after a new
+            render is made.
+        draw_function : Callable
+            Replaces the draw callback with a custom one. If set both
+            `before_render` and `after_render` will have no effect.
+        
     """
 
     if isinstance(object, Scene):
@@ -56,11 +82,8 @@ def show(
 
         canvas = WgpuCanvas()
         event_loop = run
-    elif event_loop is None:
-        # TODO: find the matching run function
-        raise ValueError(
-            "When providing a canvas you also need to provide the event loop."
-        )
+    else:
+        event_loop = sys.modules[renderer.target.__module__].run
 
     if renderer is None:
         renderer = WgpuRenderer(canvas)
