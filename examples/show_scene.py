@@ -2,12 +2,12 @@
 Demonstrates show utility for a scene
 """
 
-import imageio
+import imageio.v3 as iio
 import pygfx as gfx
 
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:chelsea.png")
+im = iio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
 material = gfx.MeshBasicMaterial(map=tex)

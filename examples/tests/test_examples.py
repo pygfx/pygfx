@@ -7,7 +7,7 @@ import importlib
 import runpy
 from unittest.mock import patch
 
-import imageio.v2 as imageio
+import imageio.v3 as iio
 import numpy as np
 import psutil
 import pytest
@@ -110,13 +110,13 @@ def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
     # regenerate screenshot if requested
     screenshot_path = screenshots_dir / f"{module}.png"
     if pytestconfig.getoption("regenerate_screenshots"):
-        imageio.imwrite(screenshot_path, img)
+        iio.imwrite(screenshot_path, img)
 
     # if a reference screenshot exists, assert it is equal
     assert (
         screenshot_path.exists()
     ), "found # test_example = true but no reference screenshot available"
-    stored_img = imageio.imread(screenshot_path)
+    stored_img = iio.imread(screenshot_path)
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)
     update_diffs(module, is_similar, img, stored_img)
@@ -155,7 +155,7 @@ def update_diffs(module, is_similar, img, stored_img):
     for path, slicer in diffs.items():
         if not is_similar:
             diff = get_diffs_rgba(slicer)
-            imageio.imwrite(path, diff)
+            iio.imwrite(path, diff)
         elif path.exists():
             path.unlink()
 

@@ -2,7 +2,7 @@
 Show an image with points overlaid.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -12,7 +12,7 @@ scene = gfx.Scene()
 
 # %% add image
 
-im = imageio.imread("imageio:astronaut.png")
+im = iio.imread("imageio:astronaut.png")
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
