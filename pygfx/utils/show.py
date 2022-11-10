@@ -4,6 +4,7 @@ little boilerplate as possible.
 """
 
 import sys
+import numpy as np
 
 from .. import (
     Background,
@@ -69,7 +70,10 @@ def show(
         scene = Scene()
         scene.add(object)
 
-        background = Background(None, BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
+        dark_gray = np.array((169, 167, 168, 255)) / 255
+        light_gray = np.array((100, 100, 100, 255)) / 255
+
+        background = Background(None, BackgroundMaterial(light_gray, dark_gray))
         scene.add(background)
         scene.add(AmbientLight(0.2))
 
