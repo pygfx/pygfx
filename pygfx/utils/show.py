@@ -60,7 +60,7 @@ def show(
         draw_function : Callable
             Replaces the draw callback with a custom one. If set both
             `before_render` and `after_render` will have no effect.
-        
+
     """
 
     if isinstance(object, Scene):
@@ -81,13 +81,13 @@ def show(
     if renderer is not None:
         canvas = renderer.target
     elif canvas is None:
-        from wgpu.gui.auto import WgpuCanvas, run
+        from wgpu.gui.auto import WgpuCanvas
 
         canvas = WgpuCanvas()
         renderer = WgpuRenderer(canvas)
     else:
         renderer = WgpuRenderer(canvas)
-    
+
     if controller is None:
         look_at = camera.show_object(object)
         controller = OrbitController(camera.position.clone(), look_at, up=up)
