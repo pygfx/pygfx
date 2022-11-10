@@ -45,7 +45,8 @@ def show(
         canvas : WgpuCanvas
             The canvas to use to display the object.
         renderer : gfx.Renderer
-            The renderer to use while drawing the scene.
+            The renderer to use while drawing the scene. If set, `canvas` is
+            ignored.
         controller : gfx.Controller
             The camera controller to use.
         camera : gfx.Camera
@@ -77,17 +78,16 @@ def show(
         camera.add(DirectionalLight(0.8))
         scene.add(camera)
 
-    if canvas is None:
+    if renderer is not None:
+        canvas = renderer.target
+    elif canvas is None:
         from wgpu.gui.auto import WgpuCanvas, run
 
         canvas = WgpuCanvas()
-        event_loop = run
-    else:
-        event_loop = sys.modules[renderer.target.__module__].run
-
-    if renderer is None:
         renderer = WgpuRenderer(canvas)
-
+    else:
+        renderer = WgpuRenderer(canvas)
+    
     if controller is None:
         look_at = camera.show_object(object)
         controller = OrbitController(camera.position.clone(), look_at, up=up)
@@ -110,4 +110,4 @@ def show(
         draw_function = animate
 
     canvas.request_draw(draw_function)
-    event_loop()
+    sys.modules[renderer.target.__module__].run()
