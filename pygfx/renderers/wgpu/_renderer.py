@@ -252,11 +252,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
+        target_lsize = self.logical_size
+
         # Determine the pixel ratio of the render texture
         if self._pixel_ratio:
             pixel_ratio = self._pixel_ratio
         else:
-            target_lsize = self.logical_size
             pixel_ratio = target_psize[0] / target_lsize[0]
             if pixel_ratio <= 1:
                 pixel_ratio = 2.0  # use 2 on non-hidpi displays

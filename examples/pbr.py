@@ -5,10 +5,9 @@ The cubemap of skybox is also the environment cubemap of the helmet.
 
 from pathlib import Path
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.utils.gltf import load_gltf
 
 
 # Init
@@ -23,7 +22,7 @@ controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 
 # Read cube image and turn it into a 3D image (a 4d array)
-env_img = imageio.imread("imageio:meadow_cube.jpg")
+env_img = iio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]
 env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 
@@ -44,7 +43,7 @@ scene.add(background)
 gltf_path = (
     Path(__file__).parent / "models" / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 )
-meshes = load_gltf(gltf_path)
+meshes = gfx.load_scene(gltf_path)
 scene.add(*meshes)
 m = meshes[0]  # this example has just one mesh
 m.material.env_map = env_view

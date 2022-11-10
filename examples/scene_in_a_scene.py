@@ -10,7 +10,7 @@ surface of the cube in the outer scene.
 """
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -25,7 +25,7 @@ scene1 = gfx.Scene()
 background1 = gfx.Background(None, gfx.BackgroundMaterial((0, 0.5, 0, 1)))
 scene1.add(background1)
 
-im = imageio.imread("imageio:bricks.jpg").astype(np.float32) / 255
+im = iio.imread("imageio:bricks.jpg").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 geometry1 = gfx.box_geometry(200, 200, 200)
 material1 = gfx.MeshPhongMaterial(map=tex, color=(1, 1, 0, 1.0))

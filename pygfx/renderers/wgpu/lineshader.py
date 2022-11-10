@@ -48,13 +48,13 @@ class LineShader(WorldObjectShader):
     def __init__(self, wobject):
         super().__init__(wobject)
         self["line_type"] = "line"
+        self["aa"] = wobject.material.aa
 
     def get_bindings(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
 
         self["vertex_color_channels"] = 0
-        self["aa"] = material.aa
 
         positions1 = geometry.positions
 

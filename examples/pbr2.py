@@ -8,7 +8,7 @@ import time
 import math
 from colorsys import hls_to_rgb
 
-import imageio
+import imageio.v3 as iio
 import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
 
@@ -34,7 +34,7 @@ scene.add(point_light)
 point_light.add(gfx.PointLightHelper(4))
 
 # Read cube image and turn it into a 3D image (a 4d array)
-env_img = imageio.imread("imageio:meadow_cube.jpg")
+env_img = iio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]
 env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 
