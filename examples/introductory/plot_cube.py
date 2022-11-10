@@ -20,7 +20,7 @@ cube = gfx.Mesh(
 scene.add(cube)
 
 # %%
-# make a second block 
+# Bring it to life.
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 

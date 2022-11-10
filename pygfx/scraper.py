@@ -29,19 +29,27 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         the images. This is often produced by :func:`figure_rst`.
     """
 
-    current_scenes = []
+    current_scene = None
+    current_camera = None
     for var in block_vars["example_globals"].values():
         if isinstance(var, gfx.Scene):
-            current_scenes.append(var)
+            current_scene = var
 
-    if len(current_scenes) == 0:
+        if isinstance(var, gfx.Camera):
+            current_camera = var
+
+
+    if current_scene is None or current_camera is None:
         return ''  # nothing to do
 
+    renderer = gfx.WgpuRenderer(WgpuCanvas())
+    renderer.render(current_scene, current_camera)
     
+    path_generator = block_vars["image_path_iterator"]
+    img_path = next(path_generator)
+    iio.imwrite(img_path, renderer.snapshot())
 
-    print("")
-
-    return figure_rst([], gallery_conf['src_dir'])
+    return figure_rst([img_path], gallery_conf['src_dir'])
 
 
 def _get_sg_image_scraper():
