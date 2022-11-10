@@ -1,4 +1,7 @@
 """
+Colormap Channels
+=================
+
 Example demonstrating colormaps in 4 modes: grayscale, gray+alpha, RGB, RGBA.
 """
 

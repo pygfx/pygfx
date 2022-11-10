@@ -1,4 +1,7 @@
 """
+Subdivision
+===========
+
 Example showing subdivided polyhedrons.
 """
 

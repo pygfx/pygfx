@@ -1,4 +1,7 @@
 """
+Rotating Polyhedra
+==================
+
 Example showing multiple rotating polyhedrons.
 """
 

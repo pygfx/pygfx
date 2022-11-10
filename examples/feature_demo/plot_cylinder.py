@@ -1,4 +1,7 @@
 """
+Types of Cylinders
+==================
+
 Example showing different types of geometric cylinders.
 """
 

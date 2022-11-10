@@ -1,4 +1,7 @@
 """
+Image Click Events
+==================
+
 Show an image and print the x, y image data coordinates for click events.
 """
 

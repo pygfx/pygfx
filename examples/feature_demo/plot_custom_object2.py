@@ -1,4 +1,7 @@
 """
+Simple Custom Object
+====================
+
 Example that implements a simple custom object and renders it.
 
 This example draws a triangle at the appropriate position; the object's

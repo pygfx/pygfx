@@ -1,4 +1,7 @@
 """
+Geometry Plane
+==============
+
 Use a plane geometry to show a texture, which is continuously updated to show video.
 """
 

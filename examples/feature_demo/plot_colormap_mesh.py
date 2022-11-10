@@ -1,4 +1,7 @@
 """
+Colormap Mesh
+=============
+
 Example demonstrating different colormap dimensions on a mesh, and
 per-vertex colors as a bonus.
 

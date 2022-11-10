@@ -1,4 +1,7 @@
 """
+Custom Object
+=============
+
 Example that implements a custom object and renders it.
 
 This example draws multiple triangles. This is more or a full-fledged object.

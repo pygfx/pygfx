@@ -1,4 +1,7 @@
 """
+Render a Triangle
+=================
+
 Replicating the WGPU triangle example, but with about 10x less code.
 """
 

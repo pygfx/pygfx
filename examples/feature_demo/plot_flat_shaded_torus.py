@@ -1,4 +1,7 @@
 """
+Flat Shading
+============
+
 Example showing a Torus knot, using flat shading.
 """
 

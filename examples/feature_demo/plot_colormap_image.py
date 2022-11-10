@@ -1,4 +1,7 @@
 """
+Colormap Image
+==============
+
 Example demonstrating different colormap dimensions on an image.
 """
 

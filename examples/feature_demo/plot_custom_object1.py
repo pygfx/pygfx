@@ -1,4 +1,7 @@
 """
+Minimal Custom Object
+=====================
+
 Example that implements a minimal custom object and renders it.
 
 This example simply draws a triangle at the bottomleft of the screen.

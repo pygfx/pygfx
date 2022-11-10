@@ -1,4 +1,7 @@
 """
+Geometry Cubes
+==============
+
 Example showing multiple rotating cubes. This also tests the depth buffer.
 """
 
