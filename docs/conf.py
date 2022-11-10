@@ -2,6 +2,7 @@
 
 import os
 import sys
+from sphinx_gallery.sorting import ExplicitOrder
 
 
 ROOT_DIR = os.path.abspath(os.path.join(__file__, "..", ".."))
@@ -72,7 +73,15 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 sphinx_gallery_conf = {
     "examples_dirs": "../examples",
     "gallery_dirs": "_gallery",
+    "backreferences_dir": "_gallery/backreferences",
+    "doc_module": ("pygfx",),
     "image_scrapers": ("pygfx",),
+    "subsection_order": ExplicitOrder(
+        [
+            "../examples/introductory",
+            "../examples/feature_demo",
+        ]
+    ),
 }
 
 

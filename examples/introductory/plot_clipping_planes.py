@@ -1,4 +1,7 @@
 """
+Clipping Planes
+===============
+
 Example demonstrating clipping planes on a mesh.
 """
 

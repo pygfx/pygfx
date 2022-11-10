@@ -1,4 +1,7 @@
 """
+Klein Bottle Geometry
+=====================
+
 Example showing a Klein Bottle.
 """
 

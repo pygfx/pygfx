@@ -2,8 +2,8 @@
 Hello World
 ===========
 
-In this example, we will have a look the render engine equivalent of a hello
-world example: Rendering a 3D Cube on screen.
+In this example shows how to do the rendering world's hello world: Show a 3D
+Cube on screen.
 """
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -19,8 +19,6 @@ cube = gfx.Mesh(
 )
 scene.add(cube)
 
-# %%
-# Bring it to life.
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
 
