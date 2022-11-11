@@ -80,6 +80,7 @@ sphinx_gallery_conf = {
         [
             "../examples/introductory",
             "../examples/feature_demo",
+            "../examples/validation",
         ]
     ),
 }
