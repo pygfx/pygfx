@@ -1,4 +1,7 @@
 """
+Boundary Boxes
+==============
+
 Demonstrates visualizing object bounding boxes
 """
 from pathlib import Path

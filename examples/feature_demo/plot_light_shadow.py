@@ -1,6 +1,10 @@
 """
-This example demonstrates the effects of directional light shadows (from DirectionalLight)
-and omnidirectional shadows (from PointLight).
+
+Directional Shadow 2
+====================
+
+This example demonstrates the effects of directional light shadows (from
+DirectionalLight) and omnidirectional shadows (from PointLight).
 """
 
 import time

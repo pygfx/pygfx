@@ -1,4 +1,7 @@
 """
+Volume and Mesh Slicing 1
+=========================
+
 Slice a volume and a mesh through the three primary planes (XY, XZ, YZ).
 This example uses a mesh object with custom texture coordinates. This
 is a generic approach. See multi_slice2.py for a simpler way.

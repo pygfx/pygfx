@@ -1,4 +1,8 @@
 """
+
+Line Segments
+=============
+
 Display line segments. Can be useful e.g. for visializing vector fields.
 """
 

@@ -1,4 +1,7 @@
 """
+Point Picking
+=============
+
 Example showing picking points. When clicking on a point, it's location
 is changed. With a small change, a line is shown instead.
 """

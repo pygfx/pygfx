@@ -1,4 +1,8 @@
 """
+Mesh and Volume Slicing 2
+=========================
+
+
 Slice a volume and a mesh through the three primary planes (XY, XZ, YZ).
 This example uses Volume object with a VolumeSliceMaterial, which
 produces an implicit geometry defined by the volume data.

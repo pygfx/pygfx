@@ -1,4 +1,7 @@
 """
+Line Drawing Performance
+========================
+
 Display a line depicting a noisy signal consisting of a lot of points.
 """
 

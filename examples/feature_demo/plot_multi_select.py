@@ -1,4 +1,8 @@
 """
+Multi-Object Selection
+======================
+
+
 Example demonstrating multi object selection using mouse events.
 
 Hovering the mouse over a cube will highlight it with a bounding box.

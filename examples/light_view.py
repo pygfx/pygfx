@@ -1,4 +1,7 @@
 """
+Light Effects
+=============
+
 Lighting effect demonstration examples with adjustable parameters
 """
 

@@ -1,4 +1,7 @@
 """
+Depth Material
+==============
+
 A custom material for drawing geometry by depth
 """
 

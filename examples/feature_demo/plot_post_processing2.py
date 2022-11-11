@@ -1,4 +1,7 @@
 """
+Fullscreen Postprocessing 2
+===========================
+
 Example showing post-processing effects by modifying the flusher object.
 
 This example is a placeholder for how post-processing *could* work if

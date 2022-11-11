@@ -1,4 +1,8 @@
 """
+
+Physical Color
+==============
+
 PyGfx by default assumes that all colors are in the sRGB colorspace.
 This example shows how you can also provide colors in physical colorspace
 (a.k.a. linear-srgb). This example shows 3 images:

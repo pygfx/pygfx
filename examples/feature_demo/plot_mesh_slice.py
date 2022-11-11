@@ -1,4 +1,7 @@
 """
+Mesh Slice Material
+===================
+
 Example showing off the mesh slice material.
 """
 

@@ -1,4 +1,8 @@
 """
+Full-Screen Post Processing 1
+=============================
+
+
 Example full-screen post processing.
 
 The idea is to render a scene to a texture, and then rendering

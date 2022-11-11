@@ -1,4 +1,7 @@
 """
+Thick Lines
+===========
+
 Display very thick lines to show how lines stay pretty on large scales.
 """
 

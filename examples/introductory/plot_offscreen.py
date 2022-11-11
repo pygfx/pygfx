@@ -1,4 +1,7 @@
 """
+Offscreen Rendering
+===================
+
 Example demonstrating off-screen rendering.
 
 This uses wgpu's offscreen canvas to obtain the frames as a numpy array.
