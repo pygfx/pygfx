@@ -2,6 +2,7 @@
 
 """
 Integrate pygfx in Qt
+=====================
 """
 
 import random

@@ -1,4 +1,7 @@
 """
+Simple Cube with Qt
+===================
+
 Example showing a single geometric cube.
 """
 # run_example = false

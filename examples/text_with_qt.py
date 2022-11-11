@@ -2,6 +2,7 @@
 
 """
 Render Text with Qt
+===================
 """
 
 import numpy as np
