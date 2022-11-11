@@ -18,14 +18,33 @@ from .. import (
     AmbientLight,
     DirectionalLight,
     Light,
+    Camera,
+    Controller,
 )
 
 
-class DecorSet:
-    """Set function attributes using decorators.
+class RenderCallback:
+    """A callback used during the draw call
 
-    This class implements a Descriptor that allows setting
-    it's
+    This class implements a Descriptor that manages the draw call callbacks of
+    Display. It's main purpose is to allow setting the default value of these
+    callbacks using a decorator-style syntax::
+
+        @gfx.Display.before_render
+        def animate():
+            ...
+
+        gfx.show()  # uses animate
+
+    Parameters
+    ----------
+    default : Callable
+        The default callback to use.
+
+    Notes
+    -----
+    Using the decorator feature above sets the class-level default for the
+    callback and affects all instances of Display that use the default value.
 
     """
 
@@ -57,42 +76,45 @@ class DecorSet:
 
 
 class Display:
-    """A Helper to Display Objects
+    """A Helper to display an object or scene
 
     This class provides the basic scaffolding needed to visualize a given
-    WorldObject in a new window. While it does add scaffolding, it aims to be
-    fully customizable so that you can replace each piece as needed.
+    WorldObject. To do so the class chooses a sensible default for each part of
+    the full setup (@almarklein: what is the technical term for the full setup?)
+    unless the value is explicitly set by the user or exists as a child of
+    ``object``. For example, it will create a camera unless you explicitly set a
+    value for camera or if there is (at least) one camera in the scene.
 
     Parameters
     ----------
-        object : gfx.WorldObject
-            The object to show.
-        up : gfx.Vector3
-            If set, set the default camera controller's up vector to this value.
-        canvas : WgpuCanvas
-            The canvas to use to display the object.
-        renderer : gfx.Renderer
-            The renderer to use while drawing the scene. If set, `canvas` is
-            ignored.
-        controller : gfx.Controller
-            The camera controller to use.
-        camera : gfx.Camera
-            The camera to use.
-        before_render : Callable
-            A callback that will be executed during each draw call before a new
-            render is made.
-        after_render : Callable
-            A callback that will be executed during each draw call after a new
-            render is made.
-        draw_function : Callable
-            Replaces the draw callback with a custom one. If set both
-            `before_render` and `after_render` will have no effect.
+    canvas : WgpuCanvas
+        The canvas used to display the object. If both ``renderer`` and
+        ``canvas`` are set, then the renderer needs to use the set canvas.
+    renderer : gfx.Renderer
+        The renderer to use while drawing the scene. If both ``renderer``
+        and ``canvas`` are set, then the renderer needs to use the set canvas.
+    controller : gfx.Controller
+        The camera controller to use. If not set, Display will use the first
+        controller defined on ``object``. If there is none, Display will
+        create one.
+    camera : gfx.Camera
+        The camera to use. If not set, Display will use the first camera
+        defined on ``object``. If there is none, Display will create one.
+    before_render : Callable
+        A callback that will be executed during each draw call before a new
+        render is made.
+    after_render : Callable
+        A callback that will be executed during each draw call after a new
+        render is made.
+    draw_function : Callable
+        Replaces the draw callback with a custom one. If set both
+        `before_render` and `after_render` will have no effect.
 
     """
 
-    before_render = DecorSet()
-    after_render = DecorSet()
-    draw_function = DecorSet()
+    before_render = RenderCallback()
+    after_render = RenderCallback()
+    draw_function = RenderCallback()
 
     def __init__(
         self,
@@ -142,37 +164,21 @@ class Display:
 
         Parameters
         ----------
-            object : gfx.WorldObject
-                The object to show.
-            up : gfx.Vector3
-                If set, set the default camera controller's up vector to this value.
-            canvas : WgpuCanvas
-                The canvas to use to display the object.
-            renderer : gfx.Renderer
-                The renderer to use while drawing the scene. If set, `canvas` is
-                ignored.
-            controller : gfx.Controller
-                The camera controller to use.
-            camera : gfx.Camera
-                The camera to use.
-            before_render : Callable
-                A callback that will be executed during each draw call before a new
-                render is made.
-            after_render : Callable
-                A callback that will be executed during each draw call after a new
-                render is made.
-            draw_function : Callable
-                Replaces the draw callback with a custom one. If set both
-                `before_render` and `after_render` will have no effect.
+        object : gfx.WorldObject
+            The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
+            then Display will wrap it into a new scene containing lights and a
+            background.
+        up : gfx.Vector3
+            If set, and ``object`` does not contain a controller, set the camera
+            controller's up vector to this value.
+
+        Notes
+        -----
+        If you want to display multiple objects prefer :class:`gfx.Group
+        <pygfx.Group>` over :class:`gfx.Scene <pygfx.Scene>` to avoid the pitfall of
+        forgetting to add lights to the scene.
 
         """
-
-        if (
-            self.canvas is not None
-            and self.renderer is not None
-            and self.canvas != self.renderer.target
-        ):
-            raise ValueError("Display's render target differs from it's canvas.")
 
         if isinstance(object, Scene):
             scene = object
@@ -193,22 +199,38 @@ class Display:
                 "Your scene does not contain any lights. Some objects may not be visible"
             )
 
-        if not self.camera:
+        existing_cameras = self.find_children(Camera)
+        if self.camera:
+            pass
+        elif len(existing_cameras) > 0:
+            self.camera = existing_cameras[0]
+        elif not self.camera:
             self.camera = PerspectiveCamera(70, 16 / 9)
             self.camera.add(DirectionalLight())
+            # do we really want to modify the scene and add
+            # a camera?
             self.scene.add(self.camera)
 
-        if self.renderer is not None:
-            self.canvas = self.renderer.target
-        elif self.canvas is None:
+        if self.renderer is None and self.canvas is None:
             from wgpu.gui.auto import WgpuCanvas
 
             self.canvas = WgpuCanvas()
             self.renderer = WgpuRenderer(self.canvas)
-        else:
+        elif self.renderer is not None:
+            self.canvas = self.renderer.target
+        elif self.canvas is not None:
             self.renderer = WgpuRenderer(self.canvas)
+        elif self.canvas != self.renderer.target:
+            raise ValueError("Display's render target differs from it's canvas.")
+        else:
+            pass
 
-        if self.controller is None:
+        controllers = self.find_children(Controller)
+        if self.controller is not None:
+            pass
+        elif len(controllers) > 0:
+            self.controller = controllers[0]
+        else:
             look_at = self.camera.show_object(object)
             self.controller = OrbitController(
                 self.camera.position.clone(), look_at, up=up
@@ -252,28 +274,35 @@ def show(
 
     Parameters
     ----------
-        object : gfx.WorldObject
-            The object to show.
-        up : gfx.Vector3
-            If set, set the default camera controller's up vector to this value.
-        canvas : WgpuCanvas
-            The canvas to use to display the object.
-        renderer : gfx.Renderer
-            The renderer to use while drawing the scene. If set, `canvas` is
-            ignored.
-        controller : gfx.Controller
-            The camera controller to use.
-        camera : gfx.Camera
-            The camera to use.
-        before_render : Callable
-            A callback that will be executed during each draw call before a new
-            render is made.
-        after_render : Callable
-            A callback that will be executed during each draw call after a new
-            render is made.
-        draw_function : Callable
-            Replaces the draw callback with a custom one. If set both
-            `before_render` and `after_render` will have no effect.
+    object : gfx.WorldObject
+            The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
+            then Display will wrap it into a new scene containing lights and a
+            background.
+    up : gfx.Vector3
+        If set, and ``object`` does not contain a controller, set the camera
+        controller's up vector to this value.
+    canvas : WgpuCanvas
+        The canvas used to display the object. If both ``renderer`` and
+        ``canvas`` are set, then the renderer needs to use the set canvas.
+    renderer : gfx.Renderer
+        The renderer to use while drawing the scene. If both ``renderer``
+        and ``canvas`` are set, then the renderer needs to use the set canvas.
+    controller : gfx.Controller
+        The camera controller to use. If not set, Display will use the first
+        controller defined on ``object``. If there is none, Display will
+        create one.
+    camera : gfx.Camera
+        The camera to use. If not set, Display will use the first camera
+        defined on ``object``. If there is none, Display will create one.
+    before_render : Callable
+        A callback that will be executed during each draw call before a new
+        render is made.
+    after_render : Callable
+        A callback that will be executed during each draw call after a new
+        render is made.
+    draw_function : Callable
+        Replaces the draw callback with a custom one. If set both
+        `before_render` and `after_render` will have no effect.
 
     """
 
