@@ -45,15 +45,16 @@ class AxesHelper(Line):
             dtype="f4",
         )
 
+        arrow_radius = size * 0.1
         # the radius of the cone is the thickness, so that the arrow is twice as wide
         # as the line it sits on.
         # we want the arrow head to maintain the proportions of a equilateral triangle
         # when viewed from the side, so the desired height can be computed
         # by multiplying the radius by sqrt(3)
-        arrow_size = np.sqrt(3) * thickness
-        cone = cone_geometry(radius=thickness, height=arrow_size)
+        arrow_size = np.sqrt(3) * arrow_radius
+        cone = cone_geometry(radius=arrow_radius, height=arrow_size)
 
-        line_size = np.max([0, size - arrow_size])  # ensure >= 0
+        line_size = np.max([0.1, size - arrow_size])  # ensure > 0.0
         line_positions *= line_size
 
         geometry = Geometry(positions=line_positions, colors=colors)

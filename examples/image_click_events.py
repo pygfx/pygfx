@@ -2,7 +2,7 @@
 Show an image and print the x, y image data coordinates for click events.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import numpy as np
@@ -13,7 +13,7 @@ scene = gfx.Scene()
 
 # %% add image
 
-im = imageio.imread("imageio:astronaut.png")
+im = iio.imread("imageio:astronaut.png")
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
@@ -38,6 +38,9 @@ points.position.z = 1  # move points in front of the image
 scene.add(points)
 
 
+previous_selection = None
+
+
 def event_handler(event):
     print(
         f"Canvas click coordinates: {event.x, event.y}\n"
@@ -45,10 +48,15 @@ def event_handler(event):
         f"Other `pick_info`: {event.pick_info}"
     )
 
-    # reset colors to blue
-    points.geometry.colors.data[:] = np.vstack([[0.0, 0.0, 1.0, 1.0]] * len(xx)).astype(
-        np.float32
-    )
+    global previous_selection
+
+    if previous_selection is not None:
+        # reset colors to blue
+        blues = np.vstack([[0.0, 0.0, 1.0, 1.0]] * 3).astype(np.float32)
+        points.geometry.colors.data[previous_selection] = blues
+
+        for idx in previous_selection.tolist():
+            points.geometry.colors.update_range(idx, size=1)
 
     # set the color of the 3 closest points to red
     positions = points.geometry.positions.data
@@ -58,6 +66,9 @@ def event_handler(event):
     for idx in closest[:3].tolist():
         # only mark the changed points for synchronization to the GPU
         points.geometry.colors.update_range(idx, size=1)
+
+    previous_selection = closest[:3]
+
     renderer.request_draw()
 
 

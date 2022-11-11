@@ -32,6 +32,7 @@ from ._update import update_buffer, update_texture, update_texture_view
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
+from ._mipmapsutil import get_mipmaps_util
 
 logger = logging.getLogger("pygfx")
 
@@ -251,11 +252,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
+        target_lsize = self.logical_size
+
         # Determine the pixel ratio of the render texture
         if self._pixel_ratio:
             pixel_ratio = self._pixel_ratio
         else:
-            target_lsize = self.logical_size
             pixel_ratio = target_psize[0] / target_lsize[0]
             if pixel_ratio <= 1:
                 pixel_ratio = 2.0  # use 2 on non-hidpi displays
@@ -508,7 +510,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
 
         # Note: we could, in theory, allow specifying a custom target here.
-
+        needs_mipmaps = False
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             raw_texture_view = self._canvas_context.get_current_texture()
         else:
@@ -519,6 +521,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             update_texture(self._shared.device, texture_view.texture)
             update_texture_view(self._shared.device, texture_view)
             raw_texture_view = texture_view._wgpu_texture_view[1]
+
+            texture = texture_view.texture
+            needs_mipmaps = texture.generate_mipmaps
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
@@ -531,6 +536,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._gamma_correction * self._gamma_correction_srgb,
         )
         self.device.queue.submit(command_buffers)
+
+        if needs_mipmaps:
+            mipmaps_util = get_mipmaps_util(self.device)
+            texture_gpu = texture._wgpu_texture[1]
+            mipmaps_util.generate_mipmaps(
+                texture_gpu,
+                self._target_tex_format,
+                texture._mip_level_count,
+                texture_view.layer_range.start,
+            )
 
     def _render_recording(
         self,

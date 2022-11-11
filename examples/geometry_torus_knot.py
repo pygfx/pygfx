@@ -2,7 +2,7 @@
 Example showing a Torus knot, with a texture and lighting.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -11,7 +11,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:bricks.jpg")
+im = iio.imread("imageio:bricks.jpg")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)

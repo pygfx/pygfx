@@ -6,7 +6,7 @@ is a generic approach. See multi_slice2.py for a simpler way.
 
 from time import time
 
-import imageio
+import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -21,7 +21,7 @@ scene.add(background)
 
 scene.add(gfx.AxesHelper(size=50))
 
-vol = imageio.volread("imageio:stent.npz").astype("float32") / 2000
+vol = iio.imread("imageio:stent.npz").astype("float32") / 2000
 tex = gfx.Texture(vol, dim=3)
 view = tex.get_view(filter="linear")
 material = gfx.MeshBasicMaterial(map=view)

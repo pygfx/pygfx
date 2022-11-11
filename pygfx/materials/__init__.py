@@ -1,6 +1,7 @@
 # flake8: noqa
 
 from ._base import Material
+from ._compat import pillow_image, trimesh_material
 from ._mesh import (
     MeshBasicMaterial,
     MeshPhongMaterial,
@@ -41,3 +42,4 @@ __all__ = [
 __all__.sort()
 __all__.remove("Material")
 __all__.insert(0, "Material")
+__all__.extend(["pillow_image", "trimesh_material"])
