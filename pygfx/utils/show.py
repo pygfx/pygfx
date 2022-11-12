@@ -209,8 +209,6 @@ class Display:
         elif not self.camera:
             self.camera = PerspectiveCamera(70, 16 / 9)
             self.camera.add(DirectionalLight())
-            # do we really want to modify the scene and add
-            # a camera?
             self.scene.add(self.camera)
 
         if self.renderer is None and self.canvas is None:
