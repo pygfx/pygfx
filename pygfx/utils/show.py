@@ -22,60 +22,6 @@ from .. import (
 )
 
 
-class RenderCallback:
-    """A callback used during the draw call
-
-    This class implements a Descriptor that manages the draw call callbacks of
-    Display. It's main purpose is to allow setting the default value of these
-    callbacks using a decorator-style syntax::
-
-        @gfx.Display.before_render
-        def animate():
-            ...
-
-        gfx.show()  # uses animate
-
-    Parameters
-    ----------
-    default : Callable
-        The default callback to use.
-
-    Notes
-    -----
-    Using the decorator feature above sets the class-level default for the
-    callback and affects all instances of Display that use the default value.
-
-    """
-
-    def __init__(self, default=None) -> None:
-        self.default_callback = default
-
-    def __set_name__(self, owner, name):
-        self.private_name = "_" + name
-
-    def __get__(self, instance, type=None):
-        # allow decorator-style setting of default
-        # callback
-        if instance is None:
-            return self
-
-        try:
-            value = getattr(instance, self.private_name)
-        except AttributeError:
-            # persist the current class-level default on the instance
-            self.__set__(instance, self.default_callback)
-
-            value = self.default_callback
-
-        return value
-
-    def __set__(self, instance, value) -> None:
-        setattr(instance, self.private_name, value)
-
-    def __call__(self, callback_fn) -> None:
-        self.default_callback = callback_fn
-
-
 class Display:
     """A Helper to display an object or scene
 
@@ -113,10 +59,6 @@ class Display:
 
     """
 
-    before_render = RenderCallback()
-    after_render = RenderCallback()
-    draw_function = RenderCallback()
-
     def __init__(
         self,
         canvas=None,
@@ -131,14 +73,10 @@ class Display:
         self.renderer = renderer
         self.controller = controller
         self.camera = camera
-        self.draw_function = draw_function or self.default_draw
         self.scene = None
-
-        if before_render is not None:
-            self.before_render = before_render
-
-        if after_render is not None:
-            self.after_render = after_render
+        self.before_render = before_render
+        self.after_render = after_render
+        self.draw_function = draw_function or self.default_draw
 
     def default_draw(self):
         if self.before_render is not None:
