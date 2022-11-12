@@ -19,7 +19,6 @@ from .. import (
     DirectionalLight,
     Light,
     Camera,
-    Controller,
 )
 
 
