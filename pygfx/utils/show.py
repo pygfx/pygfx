@@ -196,7 +196,7 @@ class Display:
             scene.add(AmbientLight(), DirectionalLight())
         self.scene = scene
 
-        if len(self.find_children(Light)) == 0:
+        if not any(self.find_children(Light)):
             warnings.warn(
                 "Your scene does not contain any lights. Some objects may not be visible"
             )
@@ -204,7 +204,7 @@ class Display:
         existing_cameras = self.find_children(Camera)
         if self.camera:
             pass
-        elif len(existing_cameras) > 0:
+        elif any(existing_cameras):
             self.camera = existing_cameras[0]
         elif not self.camera:
             self.camera = PerspectiveCamera(70, 16 / 9)
@@ -227,12 +227,7 @@ class Display:
         else:
             pass
 
-        controllers = self.find_children(Controller)
-        if self.controller is not None:
-            pass
-        elif len(controllers) > 0:
-            self.controller = controllers[0]
-        else:
+        if self.controller is None:
             look_at = self.camera.show_object(object)
             self.controller = OrbitController(
                 self.camera.position.clone(), look_at, up=up
