@@ -1,7 +1,7 @@
 import imageio.v3 as iio
 import pygfx as gfx
 from sphinx_gallery.scrapers import figure_rst
-from wgpu.gui.offscreen import WgpuCanvas, run
+from wgpu.gui.offscreen import WgpuCanvas
 
 
 def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
@@ -38,18 +38,17 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         if isinstance(var, gfx.Camera):
             current_camera = var
 
-
     if current_scene is None or current_camera is None:
-        return ''  # nothing to do
+        return ""  # nothing to do
 
     renderer = gfx.WgpuRenderer(WgpuCanvas())
     renderer.render(current_scene, current_camera)
-    
+
     path_generator = block_vars["image_path_iterator"]
     img_path = next(path_generator)
     iio.imwrite(img_path, renderer.snapshot())
 
-    return figure_rst([img_path], gallery_conf['src_dir'])
+    return figure_rst([img_path], gallery_conf["src_dir"])
 
 
 def _get_sg_image_scraper():

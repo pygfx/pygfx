@@ -44,7 +44,11 @@ scene.add(background)
 # Load meshes, and apply env map
 # Note that this lits the helmet already
 gltf_path = (
-    Path(__file__).parents[1] / "models" / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
+    Path(__file__).parents[1]
+    / "models"
+    / "DamagedHelmet"
+    / "glTF"
+    / "DamagedHelmet.gltf"
 )
 meshes = gfx.load_scene(gltf_path)
 scene.add(*meshes)
