@@ -60,13 +60,15 @@ class RenderCallback:
         if instance is None:
             return self
 
-        value = getattr(instance, self.private_name, None)
-        if value is not None:
-            return value
+        try:
+            value = getattr(instance, self.private_name)
+        except AttributeError:
+            # persist the current class-level default on the instance
+            self.__set__(instance, self.default_callback)
 
-        # persist callback to prevent it from changing
-        self.__set__(instance, self.default_callback)
-        return self.default_callback
+            value = self.default_callback
+
+        return value
 
     def __set__(self, instance, value) -> None:
         setattr(instance, self.private_name, value)
