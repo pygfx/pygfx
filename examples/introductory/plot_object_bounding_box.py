@@ -11,7 +11,7 @@ import trimesh
 import pygfx as gfx
 
 
-teapot = trimesh.load(Path(__file__).parent / "models" / "teapot.stl")
+teapot = trimesh.load(Path(__file__).parents[1] / "models" / "teapot.stl")
 
 scene = gfx.Scene()
 
