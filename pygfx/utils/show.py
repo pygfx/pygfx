@@ -41,7 +41,7 @@ class Display:
         The renderer to use while drawing the scene. If both ``renderer``
         and ``canvas`` are set, then the renderer needs to use the set canvas.
     controller : gfx.Controller
-        The camera controller to use. 
+        The camera controller to use.
     camera : gfx.Camera
         The camera to use. If not set, Display will use the first camera
         in the scene graph. If there is none, Display will create one.
@@ -118,8 +118,10 @@ class Display:
         """
 
         if isinstance(object, Scene):
+            custom_scene = False
             scene = object
         else:
+            custom_scene = True
             scene = Scene()
             scene.add(object)
 
@@ -141,10 +143,12 @@ class Display:
             pass
         elif any(existing_cameras):
             self.camera = existing_cameras[0]
-        elif not self.camera:
+        elif custom_scene:
             self.camera = PerspectiveCamera(70, 16 / 9)
             self.camera.add(DirectionalLight())
             self.scene.add(self.camera)
+        else:
+            self.camera = PerspectiveCamera(70, 16 / 9)
 
         if self.renderer is None and self.canvas is None:
             from wgpu.gui.auto import WgpuCanvas
@@ -221,7 +225,7 @@ def show(
         The renderer to use while drawing the scene. If both ``renderer``
         and ``canvas`` are set, then the renderer needs to use the set canvas.
     controller : gfx.Controller
-        The camera controller to use. 
+        The camera controller to use.
     camera : gfx.Camera
         The camera to use. If not set, Display will use the first camera
         in the scene graph. If there is none, Display will create one.
