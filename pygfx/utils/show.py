@@ -28,8 +28,8 @@ class Display:
     This class provides the basic scaffolding needed to visualize a given
     WorldObject. To do so the class chooses a sensible default for each part of
     the full setup (@almarklein: what is the technical term for the full setup?)
-    unless the value is explicitly set by the user or exists as a child of
-    ``object``. For example, it will create a camera unless you explicitly set a
+    unless the value is explicitly set by the user or exists as a child of the
+    ``object`` passed to ``show()``. For example, it will create a camera unless you explicitly set a
     value for camera or if there is (at least) one camera in the scene.
 
     Parameters
@@ -41,12 +41,10 @@ class Display:
         The renderer to use while drawing the scene. If both ``renderer``
         and ``canvas`` are set, then the renderer needs to use the set canvas.
     controller : gfx.Controller
-        The camera controller to use. If not set, Display will use the first
-        controller defined on ``object``. If there is none, Display will
-        create one.
+        The camera controller to use. 
     camera : gfx.Camera
         The camera to use. If not set, Display will use the first camera
-        defined on ``object``. If there is none, Display will create one.
+        in the scene graph. If there is none, Display will create one.
     before_render : Callable
         A callback that will be executed during each draw call before a new
         render is made.
@@ -54,7 +52,7 @@ class Display:
         A callback that will be executed during each draw call after a new
         render is made.
     draw_function : Callable
-        Replaces the draw callback with a custom one. If set both
+        Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
 
     """
@@ -113,9 +111,9 @@ class Display:
 
         Notes
         -----
-        If you want to display multiple objects prefer :class:`gfx.Group
-        <pygfx.Group>` over :class:`gfx.Scene <pygfx.Scene>` to avoid the pitfall of
-        forgetting to add lights to the scene.
+        If you want to display multiple objects, use :class:`gfx.Group
+        <pygfx.Group>` instead of :class:`gfx.Scene <pygfx.Scene>` if you
+        want lights and background to be added.
 
         """
 
