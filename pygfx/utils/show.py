@@ -27,10 +27,10 @@ class Display:
 
     This class provides the basic scaffolding needed to visualize a given
     WorldObject. To do so the class chooses a sensible default for each part of
-    the full setup (@almarklein: what is the technical term for the full setup?)
-    unless the value is explicitly set by the user or exists as a child of the
-    ``object`` passed to ``show()``. For example, it will create a camera unless you explicitly set a
-    value for camera or if there is (at least) one camera in the scene.
+    the full setup unless the value is explicitly set by the user or exists as a
+    child of ``object``. For example, it will create a camera unless you
+    explicitly set a value for camera or if there is (at least) one camera in
+    the scene.
 
     Parameters
     ----------
@@ -205,12 +205,15 @@ def show(
     Parameters
     ----------
     object : gfx.WorldObject
-            The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
-            then Display will wrap it into a new scene containing lights and a
-            background.
+        The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
+        then Display will wrap it into a new scene containing lights and a
+        background.
     up : gfx.Vector3
         If set, and ``object`` does not contain a controller, set the camera
         controller's up vector to this value.
+        canvas : WgpuCanvas
+        The canvas used to display the object. If both ``renderer`` and
+        ``canvas`` are set, then the renderer needs to use the set canvas.
     canvas : WgpuCanvas
         The canvas used to display the object. If both ``renderer`` and
         ``canvas`` are set, then the renderer needs to use the set canvas.
@@ -218,12 +221,10 @@ def show(
         The renderer to use while drawing the scene. If both ``renderer``
         and ``canvas`` are set, then the renderer needs to use the set canvas.
     controller : gfx.Controller
-        The camera controller to use. If not set, Display will use the first
-        controller defined on ``object``. If there is none, Display will
-        create one.
+        The camera controller to use. 
     camera : gfx.Camera
         The camera to use. If not set, Display will use the first camera
-        defined on ``object``. If there is none, Display will create one.
+        in the scene graph. If there is none, Display will create one.
     before_render : Callable
         A callback that will be executed during each draw call before a new
         render is made.
@@ -231,8 +232,14 @@ def show(
         A callback that will be executed during each draw call after a new
         render is made.
     draw_function : Callable
-        Replaces the draw callback with a custom one. If set both
+        Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
+
+    Notes
+    -----
+    If you want to display multiple objects, use :class:`gfx.Group
+    <pygfx.Group>` instead of :class:`gfx.Scene <pygfx.Scene>` if you
+    want lights and background to be added.
 
     """
 
