@@ -8,10 +8,7 @@ from ._atlas import glyph_atlas
 fontname_cache = {}
 
 
-# Set size to match the atlas, a bit less because some glyphs actually become larger
-# todo: this could be different for each glyph, otherwise we have to set this
-# quite low to also support the big arabic/chinese chars, and thereby waste valuable atlas space.
-REF_GLYPH_SIZE = glyph_atlas.glyph_size - 8  # 64 -8 == 56px == 42pt
+REF_GLYPH_SIZE = 48  # 48px == 64pt
 
 
 def generate_glyph(glyph_indices, font_filename):
@@ -54,20 +51,17 @@ def generate_glyph(glyph_indices, font_filename):
     for i in range(len(glyph_indices)):
         glyph_index = int(glyph_indices[i])
         glyph_hash = (font_index, glyph_index)
-        info = glyph_atlas.get_glyph_info(glyph_hash)
-        if not info:
-            info = glyph_atlas.set_glyph(
-                glyph_hash, *_generate_glyph(face, glyph_index)
-            )
-        atlas_indices[i] = info["index"]
+        index = glyph_atlas.get_index_from_hash(glyph_hash)
+        if index is None:
+            glyph, offset = _generate_glyph(face, glyph_index)
+            index = glyph_atlas.store_region_with_hash(glyph_hash, glyph, offset)
+        atlas_indices[i] = index
 
     return atlas_indices
 
 
 def _generate_glyph(face, glyph_index):
     # This only gets called for glyphs that are not in the atlas yet.
-
-    gs = glyph_atlas.glyph_size
 
     # Load the glyph bitmap
     face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
@@ -88,31 +82,10 @@ def _generate_glyph(face, glyph_index):
         face.glyph.render(freetype.FT_RENDER_MODE_SDF)
     except Exception:  # Freetype refuses SDF for spaces ?
         pass  # face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
+
+    # Convert to numpy array
     bitmap = face.glyph.bitmap
+    glyph = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
+    offset = face.glyph.bitmap_left, face.glyph.bitmap_top
 
-    # Make the bitmap smaller if it does not fit in the atlas slot.
-    # The REF_GLYPH_SIZE should be set such that this does not happen.
-    # But when it does, the result is simply a cut-off glyph.
-    a = np.array(bitmap.buffer, np.uint8).reshape(bitmap.rows, bitmap.width)
-    if a.shape[0] > gs or a.shape[1] > gs:
-        try:
-            name = face.get_glyph_name(glyph_index).decode()
-        except Exception:
-            name = "?"
-        size1 = f"{a.shape[1]}x{a.shape[0]}"
-        msg = f"Warning: glyph {glyph_index} ({name}) was cropped from {size1} to {gs}x{gs}."
-        print(msg)
-        a = a[:gs, :gs]
-
-    # Put in an array of the right size
-    glyph = np.zeros((gs, gs), np.uint8)
-    glyph[: a.shape[0], : a.shape[1]] = a
-
-    # Extract other info
-    info = {
-        "advance": face.glyph.linearHoriAdvance / 65536,
-        # "advance": face.glyph.advance.x / 64,  -> less precize
-        "rect": (face.glyph.bitmap_left, face.glyph.bitmap_top, a.shape[1], a.shape[0]),
-    }
-
-    return glyph, info
+    return glyph, offset

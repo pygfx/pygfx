@@ -76,7 +76,6 @@ def shape_text_hb(text, font_filename):
     normalized_positions = positions / REF_GLYPH_SIZE
     full_width = pen_x / REF_GLYPH_SIZE
     space_width = glyph_positions[-1].x_advance / REF_GLYPH_SIZE
-
     # todo: for line height I think we can use font.get_font_extents("rtl")
 
     meta = {

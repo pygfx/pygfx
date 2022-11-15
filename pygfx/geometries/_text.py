@@ -114,7 +114,6 @@ class TextItem:
         if is_slanted:
             atlas_indices += 0x08000000
         weight_0_15 = int((max(150, self._font_props.weight) - 150) / 50 + 0.4999)
-        print(self._font_props.weight, weight_0_15)
         atlas_indices += max(0, min(15, weight_0_15)) << 28
 
 

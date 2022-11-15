@@ -3,12 +3,7 @@ import wgpu  # only for flags/enums
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...objects import Text
 from ...materials import TextMaterial
-from ...utils.text import glyph_atlas
 from ...utils.text._shaper import REF_GLYPH_SIZE
-
-# from ...resources import Texture, TextureView
-
-ATLAS_GLYPH_SIZE = glyph_atlas.glyph_size
 
 
 @register_wgpu_render_function(Text, TextMaterial)
@@ -37,9 +32,7 @@ class TextShader(WorldObjectShader):
             Binding("s_sizes", sbuffer, geometry.sizes, "VERTEX"),
         ]
 
-        rects = shared.glyph_atlas_rects_buffer
         view = shared.glyph_atlas_texture_view
-        bindings.append(Binding("s_rects", sbuffer, rects, "VERTEX"))
         bindings.append(Binding("s_atlas", "sampler/filtering", view, "FRAGMENT"))
         bindings.append(Binding("t_atlas", "texture/auto", view, "FRAGMENT"))
 
@@ -47,8 +40,14 @@ class TextShader(WorldObjectShader):
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
 
+        bindings1 = {}
+        bindings1[0] = Binding(
+            "s_glyph_infos", sbuffer, shared.glyph_atlas_info_buffer, "VERTEX"
+        )
+
         return {
             0: bindings,
+            1: bindings1,
         }
 
     def get_pipeline_info(self, wobject, shared):
@@ -75,7 +74,6 @@ class TextShader(WorldObjectShader):
 
     def get_code(self):
         sizes = f"""
-        let ATLAS_GLYPH_SIZE: i32 = {ATLAS_GLYPH_SIZE};
         let REF_GLYPH_SIZE: i32 = {REF_GLYPH_SIZE};
         """
 
@@ -95,6 +93,13 @@ class TextShader(WorldObjectShader):
             @builtin(vertex_index) vertex_index : u32,
         };
 
+        struct GlyphInfo {
+            origin: vec2<i32>, // origin in the atlas
+            size: vec2<i32>,  // size of the glyph (in the atlas)
+            offset: vec2<f32>,  // positional offset of the glyph
+        };
+        @group(1) @binding(0)
+        var<storage,read> s_glyph_infos: array<GlyphInfo>;
 
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
@@ -118,12 +123,14 @@ class TextShader(WorldObjectShader):
             //let reserved3 = bool(glyph_index_raw & 0x01000000u);
 
             // Load meta-data of the glyph in the atlas
-            let bitmap_rect = load_s_rects(glyph_index);
+            //let bitmap_rect = load_s_rects(glyph_index);
+            let glyph_info = s_glyph_infos[glyph_index];
+            let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
 
             // Prep correction vectors
-            // The first puts the rectangle to put it on the baseline/origin.
+            // The first offsets the rectangle to put it on the baseline/origin.
             // The second puts it at the end of the atlas-glyph rectangle.
-            let pos_offset1 = vec2<f32>(bitmap_rect.xy) / f32(REF_GLYPH_SIZE);
+            let pos_offset1 = glyph_info.offset / f32(REF_GLYPH_SIZE);
             let pos_offset2 = vec2<f32>(bitmap_rect.zw) / f32(REF_GLYPH_SIZE);
 
             var corners = array<vec2<f32>, 6>(
@@ -142,7 +149,7 @@ class TextShader(WorldObjectShader):
 
             let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
             let vertex_pos = glyph_pos + (pos_offset1 + pos_offset2 * pos_corner_factor + slant) * font_size;
-            let glyph_texcoord = corner * vec2<f32>(bitmap_rect.zw) / f32(ATLAS_GLYPH_SIZE);
+            let texcoord_in_pixels = vec2<f32>(bitmap_rect.xy) + vec2<f32>(bitmap_rect.zw) * corner;
 
             $$ if screen_space
 
@@ -156,7 +163,7 @@ class TextShader(WorldObjectShader):
 
                 // Pixel scale is easy
 
-                let atlas_pixel_scale = font_size / f32(ATLAS_GLYPH_SIZE);
+                let atlas_pixel_scale = font_size / f32(REF_GLYPH_SIZE);
 
             $$ else
 
@@ -171,7 +178,7 @@ class TextShader(WorldObjectShader):
                 // offset diagonally from the current vertex. The two points are
                 // mapped to screen coords and the smallest distance is used for scale.
 
-                let one_atlas_pixel = vec2<f32>(font_size / f32(ATLAS_GLYPH_SIZE));
+                let one_atlas_pixel = vec2<f32>(font_size / f32(REF_GLYPH_SIZE));
 
                 let raw_pos2 = vec4<f32>(vertex_pos + one_atlas_pixel, 0.0, 1.0);
                 let world_pos2 = u_wobject.world_transform * raw_pos2;
@@ -189,7 +196,8 @@ class TextShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.font_size = f32(font_size);
             varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
-            varyings.glyph_texcoord = vec2<f32>(glyph_texcoord);
+            varyings.glyph_coord = vec2<f32>(corner);
+            varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
             varyings.glyph_index = i32(glyph_index);
             varyings.weight = f32(150.0 + f32(weight_0_15) * 50.0);  // encodes 150-900 in steps of 50
 
@@ -211,21 +219,9 @@ class TextShader(WorldObjectShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
-            // The glyph is represented in the texture as a square region
-            // of fixed size, though only a subrectangle is actually used.
-            //
-            // o-------   →  glyph_texcoord.x
-            // |       |
-            // |       |  ↓  glyph_texcoord.y
-            // |       |
-            //  -------
-
-            // Calculate texture position (in the atlas)
+            // Get the float texcoord
             let atlas_size = textureDimensions(t_atlas);
-            let glyph_index = varyings.glyph_index;
-            let ncols = atlas_size.x / ATLAS_GLYPH_SIZE;
-            let col_row = vec2<i32>(glyph_index % ncols, glyph_index / ncols);
-            let texcoord = (vec2<f32>(col_row) + varyings.glyph_texcoord) * f32(ATLAS_GLYPH_SIZE) / vec2<f32>(atlas_size);
+            let texcoord = varyings.texcoord_in_pixels  / vec2<f32>(atlas_size);
 
             // Sample the distance. A value of 0.5 represents the edge of the glyph,
             // with positive values representing the inside.
@@ -316,8 +312,8 @@ class TextShader(WorldObjectShader):
             out.pick = (
                 pick_pack(u32(u_wobject.id), 20) +
                 pick_pack(varyings.pick_idx, 26) +
-                pick_pack(u32(varyings.glyph_texcoord.x + 256.0), 9) +
-                pick_pack(u32(varyings.glyph_texcoord.y + 256.0), 9)
+                pick_pack(u32(varyings.glyph_coord.x + 256.0), 9) +
+                pick_pack(u32(varyings.glyph_coord.y + 256.0), 9)
             );
             $$ endif
 

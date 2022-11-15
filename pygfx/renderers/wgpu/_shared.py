@@ -58,14 +58,14 @@ class Shared(Trackable):
 
         # Init glyph atlas texture
         self._store.glyph_atlas_texture_view = glyph_atlas._gfx_texture_view
-        self._store.glyph_atlas_rects_buffer = glyph_atlas._gfx_rects_buffer
+        self._store.glyph_atlas_info_buffer = glyph_atlas._gfx_info_buffer
 
     def pre_render_hook(self):
         """Called by the renderer on the beginning of a draw."""
         view = glyph_atlas._gfx_texture_view
         if view is not self._store["glyph_atlas_texture_view"]:
             self._store.glyph_atlas_texture_view = view
-            self._store.glyph_atlas_rects_buffer = glyph_atlas._gfx_rects_buffer
+            self._store.glyph_atlas_info_buffer = glyph_atlas._gfx_info_buffer
 
     @property
     def adapter(self):
@@ -90,6 +90,6 @@ class Shared(Trackable):
         return self._store.glyph_atlas_texture_view
 
     @property
-    def glyph_atlas_rects_buffer(self):
-        """A vec4 buffer containing the rects of the glyphs."""
-        return self._store.glyph_atlas_rects_buffer
+    def glyph_atlas_info_buffer(self):
+        """A buffer containing the rects of the glyphs and more."""
+        return self._store.glyph_atlas_info_buffer
