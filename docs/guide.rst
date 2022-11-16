@@ -137,9 +137,8 @@ Why then would we explicitly provide a `Canvas`? Well, beyond the `Canvas`
 itself a backend also provides an event loop. This event loop allows us to
 animate the scene or build a GUI by registering callbacks. To ensure that this
 works correctly we need to use the same backend for both the event loop and the
-`Canvas` and thus we may wish to create the `Canvas` explicitly. We will cover
-this in more detail in the `section on animations <full_example>`_, but before
-doing so we need to introduce the final building block of a rendering setup.
+`Canvas` and, for more complex scenarios, we may thus wish to create the
+`Canvas` explicitly.
 
 **Renderers**
 
@@ -177,60 +176,32 @@ later when it becomes relevant.
 (@almarklein: Do we have examples that customize the renderer that we could
 reference here?)
 
-.. _full_example:
-
 Animations
 ----------
 
-As promised in the previous section, here is a full example of how to use pygfx.
-It adds a little bit of flair to the hello world example by rotating the cube a
-bit during each draw call. This allows us to create a simple animation::
-
-    from wgpu.gui.auto import WgpuCanvas, run
+Static renders are nice, but you know what is better? Animations! As mentioned
+in the section on `Canvases`, this is done via a backend's event loop which
+allows you to specify callbacks that get executed periodically. For convenience,
+`gfx.show` exposes two callbacks that will be executed before a new render is
+made (`before_render`) and afterward (`after_render`). To animate a scene,
+simply pass a callback to this function (here ``animate``) and use it to modify
+the scene as desired::
 
     import pygfx as gfx
 
-    scene = gfx.Scene()
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
 
-    # create a camera to view the scene
-    camera = gfx.PerspectiveCamera(70, 16 / 9)
-    camera.position.z = 400
-
-    # add some light so that the camera can see
-    scene.add(gfx.AmbientLight())
-    scene.add(gfx.DirectionalLight())
-
-    # Populate the scene
-    geometry = gfx.box_geometry(200, 200, 200)
-    material = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
-    cube = gfx.Mesh(geometry, material)
-    scene.add(cube)
-    
-    # Create a canvas and a renderer
-    canvas = WgpuCanvas()
-    renderer = gfx.renderers.WgpuRenderer(canvas)
-
-
-    def draw_function():
-        # custom logic to rotate the cube
+    def animate():
         rot = gfx.linalg.Quaternion().set_from_euler(
-            gfx.linalg.Euler(0.005, 0.01)
-        )
+                gfx.linalg.Euler(0, 0.01)
+            )
         cube.rotation.multiply(rot)
 
-        # draw the image
-        renderer.render(scene, camera)
-
-
-        # schedule the next draw call to show the animation
-        # Note: without arguments the renderer will use the
-        # previous draw_function
-        renderer.request_draw()
-
-
     if __name__ == "__main__":
-        renderer.request_draw(draw_function)
-        run()
+        gfx.show(cube, before_render=animate)
 
 .. image:: _static/guide_rotating_cube.gif
 
