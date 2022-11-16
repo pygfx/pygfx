@@ -34,18 +34,36 @@ communicate with the hardware. WGPU is itself based on Vulkan, Metal and DX12.
 How to use pygfx?
 -----------------
 
-Pygfx is structured like many other rendering engines. To create a `scene` (a
-worlds/scenarios to render) we use three main ingredients: (1) `objects` and
-their visual properties, (2) `light` sources, and (3) a `camera` that sees
-things. Once we defined those three things, we can position them in our scene
-and then use a `renderer` to look at what we have created (or take
-pictures/videos of it).
+Before jumping into the details, here is a minimal example of how to use the
+library::
 
-.. note:: 
-    The :ref:`full code example <full_example>` can be found below.
+    import pygfx as gfx
 
-Let's look at a hello world example of how this works: A rotating cube. We begin
-by defining an empty `Scene`::
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    if __name__ == "__main__":
+        gfx.show(cube)
+
+.. image:: _static/guide_hello_world.png
+
+And with that we rendered our first scene using vulcan! Simple, right? At the same
+time, this is just scratching the surface of what we can do with pygfx and next
+up we will have a look at the three main building blocks involved in creating
+more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
+`Renderers`.
+
+**Scenes**
+
+Starting off with the most important building bock, a `Scene` is the world or
+scenario to render. It has at least three components: an `object` with some
+visual properties, a `Light` source, and a `Camera` to view the scene. Once we
+defined those three things, we can position them within our scene and render it. 
+
+Let's look at an example of how this works and recreate the above example. We
+begin by defining an empty `Scene`::
 
     import pygfx as gfx
 
@@ -57,6 +75,7 @@ nothing that can look at those objects. Let's change this by adding some
 
     # and god said ...
     scene.add(gfx.AmbientLight())
+    scene.add(gfx.DirectionalLight())
 
     camera = gfx.PerspectiveCamera(70, 16 / 9)
     camera.position.z = 400
@@ -65,48 +84,98 @@ Now there is light and a camera to perceive the light. To complete the setup
 we also need to add an object to look at::
 
     geometry = gfx.box_geometry(200, 200, 200)
-    material = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
+    material = gfx.MeshPhongMaterial(color="#336699")
     cube = gfx.Mesh(geometry, material)
-
     scene.add(cube)
 
 Objects are slightly more complicated than lights or cameras. They have a
-`geometry`, which controls an object's form, and a `material`, which controls
-an object's appearance (color, reflectiveness, etc).
+`geometry`, which controls an object's form, and a `material`, which controls an
+object's appearance (color, reflectiveness, etc). From here, we can hand our
+result to `gfx.show` and visualize it. This time, however, we are passing a `Scene`
+instead of an `Object`, so the result will look a little different::
 
-Now we have all the necessary ingredients and it is time to take a look. To do
-so, we need a `canvas` and a `renderer`. In this example, the `canvas` is a
-window which will pop up and allow us to display an image on a screen, and the
-`renderer` is the entity that is responsible for drawing the image. To prevent
-the display from freezing, the canvas' window runs in a separate thread and
-because of this we can't directly interact with the window. Instead, we take our
-instructions on what to draw and *schedule* them. The canvas will pick these up
-and, at the next opportunity, will update the window using our instructions.
-This scheduling is done by calling `request_draw` and giving it a
-`draw_function` containing our instructions. These instructions typically
-include a call to `renderer.render`, which instructs the renderer to look
-through a camera and paint an image of what it sees to an internal buffer that
-the canvas can display::
-
-    from wgpu.gui.auto import WgpuCanvas, run
-
-    canvas = WgpuCanvas()
-    renderer = gfx.renderers.WgpuRenderer(canvas)
-
-    def draw_function():
-        # draw the image
-        renderer.render(scene, camera)
-
-    # schedule the draw call
-    renderer.request_draw(draw_function)
-
-    # run the application
-    run()
+    gfx.show(scene)
 
 .. image:: _static/guide_static_cube.png
 
-Nice, we rendered our first scene! Next-up we can look at a full example that
-takes this one step further and animates the cube.
+This happens because a `Scene` can be rendered as-is, whereas an `Object` can
+not. As such, `gfx.show` will, when given an `Object`, create a new scene for
+us, add the missing lights, a camera, and a background (for visual appeal),
+place the object into the scene and then render the result. When given a
+`Scene`, on the other hand, it can use the input as-is, allowing you to see
+exactly what you've created and potentially spot any problems.
+
+**Canvases**
+
+The second main building block is the `Canvas`. A `Canvas` provides the surface
+onto which the scene should be rendered and to use it you directly import it
+from wgpu-py (on top of which pygfx is built). Wgpu-py has several canvases that
+we can choose from, but for starters the most important ones is ``auto``, which
+automatically selects an appropriate backend to talk to the GPU and the OS::
+
+    # @almarklein: Can we provide a more meaningful example
+    import pygfx as gfx
+    from wgpu.gui.auto import WgpuCanvas
+
+    canvas = WgpuCanvas()
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    if __name__ == "__main__":
+        gfx.show(cube, canvas=canvas)
+
+.. image:: _static/guide_hello_world.png
+
+If you run the above, you will notice that it looks exactly the same as our
+introductory example. Just as with a `Scene` above, `gfx.show` will create a
+`Canvas` for you unless you provide it explicitly, and by default this uses the
+``auto`` backend and hence we won't see any changes.
+
+Why then would we explicitly provide a `Canvas`? Well, beyond the `Canvas`
+itself a backend also provides an event loop. This event loop allows us to
+animate the scene or build a GUI by registering callbacks. To ensure that this
+works correctly we need to use the same backend for both the event loop and the
+`Canvas` and thus we may wish to create the `Canvas` explicitly. We will cover
+this in more detail in the `section on animations <full_example>`_, but before
+doing so we need to introduce the final building block of a rendering setup.
+
+**Renderers**
+
+The third and final main building block is a `Renderer`. A `Renderer` is like an
+artist that brings all of the above together. It looks at the `Scene` through a
+`Camera` and draws what it sees onto the surface provided by the `Canvas`. Like
+any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
+`Renderer` we also need to create a `Canvas`::
+
+    # @almarklein: Can we provide a more meaningful example
+    import pygfx as gfx
+    from wgpu.gui.auto import WgpuCanvas
+
+    canvas = WgpuCanvas()
+    renderer = gfx.renderers.WgpuRenderer(canvas)
+    
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    if __name__ == "__main__":
+        gfx.show(cube, renderer=renderer)
+
+.. image:: _static/guide_hello_world.png
+
+As you may expect by now, the output is the same as without the explicit
+reference because `gfx.show` will create a renderer if you don't provide it. For
+many applications this is perfectly fine; however, if we want to tackle more
+advanced problems (e.g., control the exact process on how objects appear to
+overlay each other) we may need to create it explicitly. For starters, it is
+enough to know that it exists and what it does, so that we can come back to it
+later when it becomes relevant.
+
+(@almarklein: Do we have examples that customize the renderer that we could
+reference here?)
 
 .. _full_example:
 
