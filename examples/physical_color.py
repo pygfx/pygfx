@@ -7,7 +7,7 @@ This example shows how you can also provide colors in physical colorspace
 * An image in physical colorspace, rendered correctly.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import numpy as np
@@ -18,7 +18,7 @@ scene = gfx.Scene()
 
 
 def read_srgb_color_image():
-    return imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
+    return iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 
 
 def read_physical_color_image():

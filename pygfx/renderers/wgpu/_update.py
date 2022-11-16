@@ -104,7 +104,7 @@ def update_texture(device, resource):
     if fmt in ALTTEXFORMAT:
         fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
 
-    needs_mipmaps = getattr(resource, "generate_mipmaps", False)
+    needs_mipmaps = resource.generate_mipmaps
 
     mip_level_count = get_mip_level_count(resource) if needs_mipmaps else 1
 

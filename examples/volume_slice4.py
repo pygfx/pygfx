@@ -3,7 +3,7 @@ Render slices through a volume, by creating a 3D texture, and viewing
 it with a VolumeSliceMaterial. Easy because we can just define the view plane.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -12,7 +12,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-voldata = imageio.volread("imageio:stent.npz").astype("float32")
+voldata = iio.imread("imageio:stent.npz").astype("float32")
 nslices = voldata.shape[0]
 index = nslices // 2
 

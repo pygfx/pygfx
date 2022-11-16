@@ -3,7 +3,7 @@ Render slices through a volume, by creating a 3D texture, and sampling onto
 a plane geometry. Simple, fast and subpixel!
 """
 
-import imageio
+import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -13,7 +13,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-vol = imageio.volread("imageio:stent.npz").astype("float32") / 2000
+vol = iio.imread("imageio:stent.npz").astype("float32") / 2000
 nslices = vol.shape[0]
 index = nslices // 2
 
