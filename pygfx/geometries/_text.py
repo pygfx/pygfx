@@ -34,6 +34,9 @@ def text_geometry(
 
     font_props = FontProps(**font_props)
 
+    if text is None:
+        raise ValueError("Text must be given.")
+
     # === Itemization - generate a list of TextItem objects
     items = []
     if text:
@@ -44,6 +47,10 @@ def text_geometry(
             items.append(TextItem(piece, font_props))
     if markdown:
         raise NotImplementedError()
+
+    # We need at least one text item
+    if not items:
+        items.append(TextItem(" ", font_props))
 
     return TextGeometry(
         items,
@@ -146,6 +153,9 @@ class TextGeometry(Geometry):
             if not isinstance(item, TextItem):
                 raise TypeError("TextGeometry only accepts TextItem objects.")
             glyph_items.extend(item.convert_to_glyphs())
+
+        if not glyph_items:
+            raise ValueError("TextGeometry needs at least 1 TextItem.")
 
         # Re-order the items if needed
         i = 0

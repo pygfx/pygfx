@@ -8,6 +8,36 @@ from ...resources import Texture, Buffer
 # todo: TextItems should release glyphs when disposed.
 
 
+def generate_size_table(max_size=8192):
+    size = 0
+    ref_area = 256
+    while size < max_size:
+        while size * size < ref_area:
+            size += 8
+        size = min(size, max_size)
+        yield (size, size * size, ref_area)
+        ref_area *= 2
+
+
+# A table of predefined atlas sizes, resulting in ± factor-of-two increasing area.
+# Each item in the table is a tuple (size, area, ref_area).
+# Sizes are rounded to multiples of 8.
+SIZES = list(generate_size_table())
+
+
+def get_suitable_size(approximate_area):
+    """Get the atlas size such that it has about the given area."""
+    for i in range(1, len(SIZES)):
+        size2, area2, _ = SIZES[i]
+        if area2 >= approximate_area:
+            size1, area1, _ = SIZES[i - 1]
+            diff1 = np.abs(area1 - approximate_area)
+            diff2 = np.abs(area2 - approximate_area)
+            return size1 if diff1 < diff2 else size2
+    else:
+        return SIZES[-1][0]
+
+
 class RectPacker:
     """
     The algorithm is based on the article by Jukka Jylänki : "A Thousand Ways
@@ -109,7 +139,7 @@ class GlyphAtlas(RectPacker):
     capacity is much larger than the need.
     """
 
-    def __init__(self, initial_infos_size=8, initial_array_size=8):
+    def __init__(self, initial_infos_size=1024, initial_array_size=1024):
         self._lock = threading.RLock()
 
         # Keep track of the index for each glyph
@@ -118,12 +148,16 @@ class GlyphAtlas(RectPacker):
 
         # Indices monotonically increase, but can also be reused from freed regions
         self._index_counter = 0
-        self._freed_indices = set()
+        self._free_indices = set()
 
         # Stats
+        # The allocated_area represents the sum of areas that the packer has allocated,
+        # not including the areas of freed regions. The free_area consists of regions
+        # that were once allocated. The waste space in the atlas due to inefficient
+        # packing is not counted.
         self._region_count = 0
         self._allocated_area = 0
-        self._freed_area = 0
+        self._free_area = 0
 
         # The per-glyph information (used in the shader)
         self._info_dtype = [
@@ -134,9 +168,9 @@ class GlyphAtlas(RectPacker):
 
         # Init arrays
         self._infos = self._array = np.zeros((0,), np.void)
-        self._initial_array_size = initial_array_size
+        self._initial_array_size = get_suitable_size(initial_array_size**2)
         self._set_new_infos_array(initial_infos_size)
-        self._set_new_glyphs_array(initial_array_size)
+        self._set_new_glyphs_array(self._initial_array_size)
 
     @property
     def region_count(self):
@@ -170,10 +204,16 @@ class GlyphAtlas(RectPacker):
         """Create a new array to store the glyphs."""
         assert size > 0
 
-        # Create new array
-        array1 = self._array
-        array2 = np.zeros((size, size), np.uint8)
-        self._array = array2
+        if size == self._array.shape[0]:
+            # Keep the array, we'll repack only
+            array1 = self._array.copy()
+            array2 = self._array
+            array2.fill(0)
+        else:
+            # Create new array
+            array1 = self._array
+            array2 = np.zeros((size, size), np.uint8)
+            self._array = array2
 
         # We're going to pack it up fresh
         self._reset_packer()
@@ -193,8 +233,9 @@ class GlyphAtlas(RectPacker):
 
         assert allocated_area == self._allocated_area
 
-        self._freed_area = 0
-        self._freed_indices.clear()
+        self._free_area = 0
+        self._allocated_area = allocated_area
+        self._free_indices.clear()
 
     def allocate_region(self, w, h):
         """Allocate a region of the given size. Returns the index for
@@ -208,27 +249,29 @@ class GlyphAtlas(RectPacker):
 
             # If the array is full the above returns None. If so, resize and try again.
             if rect is None:
-                if (
-                    self._allocated_area
-                    and self._freed_area >= 0.5 * self._allocated_area
-                ):
-                    # Resize to same size: repack only
+                # If one third or more is empty, we repack only
+                if self._free_area and self._free_area >= 0.5 * self._allocated_area:
                     self._set_new_glyphs_array(self._array.shape[0])
-                else:
-                    # Increase size with about a factor 2
-                    rounder = int(8 * np.ceil(max(w, h) / 8))
-                    current_size = self._array.shape[0]
-                    new_size = (2 * current_size * current_size) ** 0.5
-                    new_size = int(rounder * np.ceil(new_size / rounder))
+                    rect = self._select_region(w, h)
+                # Increase size until we have enough space. Note that the requested
+                # region might simply require more than double the original size.
+                new_size = 0
+                while rect is None:
+                    new_size = get_suitable_size(self.total_area * 2)
+                    if new_size**2 == self.total_area:
+                        # You'd have to stretch things *a lot*, but this can happen in theory
+                        raise RuntimeError(
+                            "Glyph atlas is out of space and cannot be larger."
+                        )
                     self._set_new_glyphs_array(new_size)
-                # Try again
-                rect = self._select_region(w, h)
-                assert rect
+                    rect = self._select_region(w, h)
 
             # Select an index
-            if self._freed_indices:
+            if self._free_indices:
                 # Reuse an index that was previously freed.
-                index = self._freed_indices.pop()
+                # Note that we only re-use the index (and thus the slot in the infos array),
+                # but not the slot in the glyph array. Therefore _free_area does not change.
+                index = self._free_indices.pop()
             else:
                 # Create a new index
                 index = self._index_counter
@@ -298,55 +341,69 @@ class GlyphAtlas(RectPacker):
     def free_region(self, index):
         """Free up a region slot."""
         # Note that the array data is not nullified
+        index = int(index)
         with self._lock:
             # Free in data structure
+            assert index < self._index_counter, "Invalid index to free"
             info = self._infos[index]
             x, y = info["origin"]
             w, h = info["size"]
             info["size"] = 0, 0
+            self._free_indices.add(index)
+            # Bookkeeping
             self._region_count -= 1
-            self._freed_area += w * h
+            self._free_area += w * h
             self._allocated_area -= w * h
-            self._freed_indices.add(index)
             # Clear hash data
             hash = self._index2hash.pop(index, None)
             if hash is not None:
                 self._hash2index.pop(hash)
-            # Maybe reduce size
-            if self._allocated_area < 0.25 * self.total_area:
-                rounder = 8
+            # Reduce size if over three quarters is free space
+            if self._free_area >= 3 * self._allocated_area:
                 current_size = self._array.shape[0]
                 if current_size > self._initial_array_size:
-                    new_size = (0.5 * current_size * current_size) ** 0.5
-                    new_size = int(rounder * np.ceil(new_size / rounder))
+                    new_size = get_suitable_size(self.total_area / 2)
                     new_size = max(new_size, self._initial_array_size)
-                    self._set_new_glyphs_array(new_size)
+                    if new_size != current_size:
+                        self._set_new_glyphs_array(new_size)
 
 
 class PyGfxGlyphAtlas(GlyphAtlas):
     """A textured pygfx-specific subclass of the GlyphAtlas."""
 
     @property
-    def _gfx_texture_view(self):
+    def texture_view(self):
         """The texture view for the atlas. The Shared object exposes this object
         in a trackable way.
         """
         return self._texture_view
 
     @property
-    def _gfx_info_buffer(self):
+    def info_buffer(self):
         """A buffer containing the info for the glyphs (origin, size, offset)."""
         return self._infos_buffer
 
     def _set_new_glyphs_array(self, *args):
+        # Do the normal behavior
+        array = self._array
         super()._set_new_glyphs_array(*args)
-        self._texture = Texture(self._array, dim=2)
-        self._texture_view = self._texture.get_view(filter="linear")
+        # Create wgpu object if needed
+        if self._array is not array:
+            self._texture = Texture(self._array, dim=2)
+            self._texture_view = self._texture.get_view(filter="linear")
+        # Schedule an update
+        w, h = self._array.shape[1], self._array.shape[0]
+        self._texture.update_range((0, 0, 0), (w, h, 1))
 
     def _set_new_infos_array(self, *args):
+        # Do the normal behavior
+        infos = self._infos
         super()._set_new_infos_array(*args)
-        self._infos_buffer = Buffer(self._infos)
-        # self._offsets_buffer = Buffer(self._offsets)
+        # Create wgpu object if needed
+        if self._infos is not infos:
+            self._infos_buffer = Buffer(self._infos)
+        # Schedule an update
+        self._infos_buffer.update_range(0, self._infos.shape[0])
 
     def set_region(self, index, glyph):
         with self._lock:
@@ -354,7 +411,7 @@ class PyGfxGlyphAtlas(GlyphAtlas):
             info = self._infos[index]
             x, y = info["origin"]
             w, h = info["size"]
-            self._texture.update_range((y, x, 0), (h, w, 1))
+            self._texture.update_range((x, y, 0), (w, h, 1))
             self._infos_buffer.update_range(index, index + 1)
 
 

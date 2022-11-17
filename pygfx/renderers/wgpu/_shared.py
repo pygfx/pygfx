@@ -57,15 +57,17 @@ class Shared(Trackable):
         self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
         # Init glyph atlas texture
-        self._store.glyph_atlas_texture_view = glyph_atlas._gfx_texture_view
-        self._store.glyph_atlas_info_buffer = glyph_atlas._gfx_info_buffer
+        self._store.glyph_atlas_texture_view = glyph_atlas.texture_view
+        self._store.glyph_atlas_info_buffer = glyph_atlas.info_buffer
 
     def pre_render_hook(self):
         """Called by the renderer on the beginning of a draw."""
-        view = glyph_atlas._gfx_texture_view
+        view = glyph_atlas.texture_view
+        buffer = glyph_atlas.info_buffer
         if view is not self._store["glyph_atlas_texture_view"]:
             self._store.glyph_atlas_texture_view = view
-            self._store.glyph_atlas_info_buffer = glyph_atlas._gfx_info_buffer
+        if buffer is not self._store["glyph_atlas_info_buffer"]:
+            self._store.glyph_atlas_info_buffer = buffer
 
     @property
     def adapter(self):
