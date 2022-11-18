@@ -99,7 +99,7 @@ class FontProps:
 
     def copy(self, **kwargs):
         d = self._kwargs.copy()
-        for k, v in kwargs.items:
+        for k, v in kwargs.items():
             if v is not None:
                 d[k] = v
         return self.__class__(**d)

@@ -154,7 +154,6 @@ class TextGeometry(Geometry):
             raise TypeError("Either text or markdown must be given")
 
         # Set props
-        # todo: each of the below line invokes the positioning algorithm :/
         self.font_size = font_size
         self.max_width = max_width
         self.line_height = line_height
@@ -165,7 +164,13 @@ class TextGeometry(Geometry):
         self._position()
 
     def set_text_items(self, text_items):
-        """Provide new text in the form of a list of TextItem objects."""
+        """Provide new text in the form of a list of TextItem objects.
+
+        A note on performance: if the new text consists of more glyphs
+        than the current, new (larger) buffers are created. If the
+        number of glyphs is smaller, the buffers are not replaced, but
+        simply not fully used.
+        """
 
         # Check incoming items
         glyph_items = []
@@ -231,7 +236,7 @@ class TextGeometry(Geometry):
 
         A note on performance: if the new text consists of more glyphs
         than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaces, but
+        number of glyphs is smaller, the buffers are not replaced, but
         simply not fully used.
 
         Parameters:
@@ -250,7 +255,7 @@ class TextGeometry(Geometry):
         font_props = FontProps(family=family, style=style, weight=weight)
 
         # === Itemization - generate a list of TextItem objects
-        # todo: replace with regex search on last-space-in-series-of-spaces, and newlines
+        # todo: when we impove the layout, replace below with regex search on last-space-in-series-of-spaces, and newlines
         items = []
         for piece in text.split():
             items.append(TextItem(piece, font_props))
@@ -258,7 +263,29 @@ class TextGeometry(Geometry):
         self.set_text_items(items)
 
     def set_markdown(self, text, family=None):
-        raise NotImplementedError()
+        """Update the geometry's text using markdown formatting.
+
+        The supported subset of markdown is limited to surrounding words with
+        single and double stars for oblique and bold text respectively.
+        """
+
+        if not isinstance(text, str):
+            raise TypeError("Markdown text must be a Unicode string.")
+        font_props = FontProps(family=family)
+
+        items = []
+        for piece in text.split():
+            props = font_props
+            if piece.startswith("*") and piece.endswith("*"):
+                if piece.startswith("**") and piece.endswith("**"):
+                    piece = piece[2:-2]
+                    props = props.copy(weight="bold")
+                else:
+                    piece = piece[1:-1]
+                    props = props.copy(style="slanted")
+            items.append(TextItem(piece, props))
+
+        self.set_text_items(items)
 
     @property
     def font_size(self):

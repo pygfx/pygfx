@@ -1,5 +1,5 @@
 """
-Example showing text.
+Example showing text in world and screen space.
 """
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -10,53 +10,50 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 
-gfx.utils.text.font_manager.add_font_file(
-    "/Users/almar/dev/py/pygfx/pygfx/pkg_resources/fonts/NotoSans-Bold.ttf"
+# Create a plane to put attach text to
+plane = gfx.Mesh(
+    gfx.box_geometry(20, 20, 1),
+    gfx.MeshPhongMaterial(color=(0.2, 0.4, 0.6, 1.0)),
 )
+scene.add(plane)
 
-obj = gfx.Text(
-    # gfx.TextGeometry(text="", font_size=70),
-    gfx.TextGeometry(
-        text="Hello world🥳 مرحبا بالعالم", font_size=60, family="NotoSans-Bold"
-    ),
-    gfx.TextMaterial(
-        color="#444",
-        outline_color="#000",
-        screen_space=True,
-        aa=True,
-        outline_thickness=0.0,
-    ),
+# Create two texts, one on each side of the plane
+text1 = gfx.Text(
+    gfx.TextGeometry("Привет мир", font_size=3),
+    gfx.TextMaterial(color="#ddd", screen_space=False),
 )
-scene.add(obj)
+text1.position.set(-9, 0, 0.55)
+plane.add(text1)
 
-obj2 = gfx.Text(
-    # gfx.TextGeometry(text="", font_size=70),
-    gfx.TextGeometry(text="Hello world🥳 مرحبا بالعالم", font_size=60, weight="regular"),
-    gfx.TextMaterial(
-        color="#444",
-        outline_color="#000",
-        screen_space=True,
-        aa=True,
-        outline_thickness=0.0,
-    ),
+text2 = gfx.Text(
+    gfx.TextGeometry("Hello world", font_size=3),
+    gfx.TextMaterial(color="#ddd", screen_space=False),
 )
-scene.add(obj2)
-obj2.position.z = 40
+text2.position.set(9, 0, -0.55)
+text2.scale.set(-1, 1, 1)
+plane.add(text2)
 
+# Another text in screen space. Also shows markdown formatting
+text3 = gfx.Text(
+    gfx.TextGeometry(markdown="**Screen** space", font_size=20),
+    gfx.TextMaterial(color="#0f4", screen_space=True),
+)
+text3.position.set(10, 0, 0)
+plane.add(text3)
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff")))
-scene.add(gfx.AxesHelper(size=250))
+# Let there be ...
+scene.add(gfx.AmbientLight())
+scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
 
-camera = gfx.PerspectiveCamera(70, 1)
-camera.position.z = 30
-
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.position.z = 25
 
 
 def animate():
-    controller.update_camera(camera)
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+    plane.rotation.multiply(rot)
     renderer.render(scene, camera)
+    renderer.request_draw()
 
 
 if __name__ == "__main__":
