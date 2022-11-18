@@ -18,7 +18,7 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 obj0 = gfx.Text(
-    gfx.text_geometry(text="Screen  |   World", font_size=80),
+    gfx.TextGeometry(text="Screen  |   World", font_size=80),
     gfx.TextMaterial(
         color="#555",
         screen_space=True,
@@ -27,7 +27,7 @@ obj0 = gfx.Text(
 obj0.position.set(-230, 50, 0)
 
 obj1 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum!", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum!", font_size=40),
     gfx.TextMaterial(
         color="#fff",
         screen_space=True,
@@ -36,7 +36,7 @@ obj1 = gfx.Text(
 obj1.position.set(-250, 0, 0)
 
 obj2 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum!", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum!", font_size=40),
     gfx.TextMaterial(
         color="#fff",
         screen_space=False,
@@ -45,7 +45,7 @@ obj2 = gfx.Text(
 obj2.position.set(0, 0, 0)
 
 obj3 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum! (screen small)", font_size=20),
+    gfx.TextGeometry(text="Lorem ipsum! (screen small)", font_size=20),
     gfx.TextMaterial(
         color="#fff",
         screen_space=True,
@@ -57,7 +57,7 @@ obj3.scale.set(
 )  # This (intentionally) does not work, we set font_size instead
 
 obj4 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum! (world small)", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum! (world small)", font_size=40),
     gfx.TextMaterial(
         color="#fff",
         screen_space=False,

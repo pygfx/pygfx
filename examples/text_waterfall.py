@@ -46,10 +46,7 @@ text_material = gfx.TextMaterial(color="#06E", screen_space=True)
 
 for i in range(100):
     obj = gfx.Text(
-        gfx.text_geometry(
-            text=next(chargen),
-            font_size=30,
-        ),
+        gfx.TextGeometry(font_size=12),
         text_material,
     )
     scene.add(obj)
@@ -68,7 +65,7 @@ def animate():
 
     # Let them fall
     for obj in list(live_objects):
-        obj.position.y -= 2
+        obj.position.y -= obj.fall_speed
         if obj.position.y < -60:
             live_objects.discard(obj)
             waiting_objects.add(obj)
@@ -89,10 +86,8 @@ def animate():
         live_objects.add(obj)
         obj.position.y = 50
         obj.position.x = np.random.uniform(0, 100)
-        obj.geometry = gfx.text_geometry(
-            text=next(chargen),
-            font_size=30,
-        )
+        obj.geometry.set_text(next(chargen))
+        obj.fall_speed = np.random.uniform(1, 4)
 
     # Update the image
     if atlas_viewer.material.map is not glyph_atlas.texture_view:

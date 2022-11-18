@@ -1,38 +1,56 @@
-from pygfx import text_geometry
+from pygfx import TextGeometry
 from pytest import raises
+import numpy as np
 
 
 def test_text_geometry1():
 
     # Let's try some special cases first
 
-    # Must specify text or html or whatever
-    with raises(ValueError):
-        text_geometry()
+    # Must specify either text or markdown
+    with raises(TypeError):
+        TextGeometry()
+    with raises(TypeError):
+        TextGeometry(text="foo", markdown="foo")
 
     # Empty string - still has one item (whitespace)
-    geo = text_geometry(text="")
+    geo = TextGeometry(text="")
     geo.positions.nitems == 1
     geo.indices.nitems == 1
     geo.sizes.nitems == 1
 
     # Only a space
-    geo = text_geometry(text=" ")
+    geo = TextGeometry(" ")  # also test that text is a positional arg
     geo.positions.nitems == 1
     geo.indices.nitems == 1
     geo.sizes.nitems == 1
 
     # One char
-    geo = text_geometry(text="a")
+    geo = TextGeometry(text="a")
     geo.positions.nitems == 1
     geo.indices.nitems == 1
     geo.sizes.nitems == 1
 
     # Two words with 3 chars in total
-    geo = text_geometry(text="a bc")
+    geo = TextGeometry(text="a bc")
     geo.positions.nitems == 3
     geo.indices.nitems == 3
     geo.sizes.nitems == 3
+
+    # Can set new text, buffers are recreated
+    geo.set_text("foo bar")
+    geo.positions.nitems == 6
+    geo.indices.nitems == 6
+    geo.sizes.nitems == 6
+
+    # If setting smaller text, buffer size is oversized
+    geo.set_text("x")
+    geo.positions.nitems == 6
+    geo.indices.nitems == 6
+    geo.sizes.nitems == 6
+
+    # Last parts are not used
+    assert np.all(geo.positions.data[1:] == 0)
 
 
 if __name__ == "__main__":

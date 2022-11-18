@@ -28,7 +28,7 @@ Since it's likely that multiple text items use the same font, the results of fon
 
 Since different characters in the same text item may need different font files, another itemisation round occurs here.
 
-### Shaping 
+### Shaping
 
 *happens for each text item*
 
@@ -77,5 +77,5 @@ The positions define small quads that are positioned in the vertex shader. In th
 
 ## What happens where
 
-The API entrypoint is the `text_geometry()` function that will produce a `TextGeometry` object. Both can be found in the `geometries/_text.py` module. In that module we implement all the steps above, but in a high-level way - the actual implementation of most steps are in the `utils/text` subpackage.
+The API entrypoint is the `TextGeometry` object, which can be found in the `geometries/_text.py` module. In that module we implement all the steps above, but in a high-level way - the actual implementation of most steps are in the `utils/text` subpackage.
 

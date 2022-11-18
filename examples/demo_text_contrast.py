@@ -20,21 +20,21 @@ scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
 
 
 t1 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum", font_size=40),
     gfx.TextMaterial(color="#fff", screen_space=True),
 )
 t2 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum", font_size=40),
     gfx.TextMaterial(color="#000", screen_space=True, weight_offset=50),
 )
 t3 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum", font_size=40),
     gfx.TextMaterial(
         color="#fff", screen_space=True, outline_color="#000", outline_thickness=0.15
     ),
 )
 t4 = gfx.Text(
-    gfx.text_geometry(text="Lorem ipsum", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum", font_size=40),
     gfx.TextMaterial(
         color="#fff", screen_space=True, outline_color="#000", outline_thickness=0.15
     ),

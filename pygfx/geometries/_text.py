@@ -20,47 +20,6 @@ from ..resources import Buffer
 from ..utils.text import FontProps, font_manager, shape_text, generate_glyph
 
 
-def text_geometry(
-    *,
-    text=None,
-    markdown=None,
-    font_size=12,
-    max_width=None,
-    line_height=None,
-    text_align=None,
-    **font_props,
-):
-    """Generate text geometry."""
-
-    font_props = FontProps(**font_props)
-
-    if text is None:
-        raise ValueError("Text must be given.")
-
-    # === Itemization - generate a list of TextItem objects
-    items = []
-    if text:
-        if not isinstance(text, str):
-            raise TypeError("Text must be a Unicode string.")
-        # todo: replace with regex search on last-space-in-series-of-spaces, and newlines
-        for piece in text.split():
-            items.append(TextItem(piece, font_props))
-    if markdown:
-        raise NotImplementedError()
-
-    # We need at least one text item
-    if not items:
-        items.append(TextItem(" ", font_props))
-
-    return TextGeometry(
-        items,
-        font_size=font_size,
-        max_width=max_width,
-        line_height=line_height,
-        text_align=text_align,
-    )
-
-
 class TextItem:
     """A text item represents a unit piece of text that is formatted,
     in a specific way. The TextGeometry positions a list of text items so that
@@ -137,15 +96,76 @@ class GlyphItem:
         self.allow_break = False
         self.margin_before = 0
         self.margin_after = 0
+        # Int offset. Note that this means that a glyph item is bound to a TextGeometry
+        self.offset = 0
 
 
 class TextGeometry(Geometry):
-    """Produce renderable geometry from a list of TextItem objects."""
+    """Produce renderable geometry from a list of TextItem objects.
+
+    Parameters:
+        text (str): the text to render (optional). Either text or markdown must be given.
+        markdown (str): the text to render, formatted as markdown (optional). TODO
+        font_size (float): the size of the font, in scene coordinates or pixel screen
+            coordinates, depending on ``material.screen_space``. Default 12.
+        max_width (float): the maximum width of the text. Words are wrapped if necessary.
+            A value of zero means no wrapping. Default zero.
+        line_height (float): a factor to scale the distance between lines. A value
+            of 1 means the "native" font's line distance. Default 1.2.
+        text_align (str): How to align the text. Not implemented.
+        family (str, tuple): the name(s) of the font to prefer. If multiple names
+            are given, they are preferred in the given order. Characters that are
+            not supported by any of the given fonts are rendered with the default
+            font (from the Noto Sans collection).
+    """
 
     def __init__(
-        self, text_items, font_size=12, max_width=0, line_height=1.2, text_align="left"
+        self,
+        text=None,
+        *,
+        markdown=None,
+        font_size=12,
+        max_width=0,
+        line_height=1.2,
+        text_align="left",
+        family=None,
     ):
         super().__init__()
+
+        # Check inputs
+        inputs = text, markdown
+        if all(i is not None for i in inputs):
+            raise TypeError("Either text or markdown must be given, not both.")
+
+        # Init stub buffers
+        self.indices = None
+        self.positions = None
+        self.sizes = None
+
+        # Disable positioning, so we can initialize first
+        self._do_positioning = False
+
+        # Process input
+        if text is not None:
+            self.set_text(text, family=family)
+        elif markdown is not None:
+            self.set_markdown(markdown, family=family)
+        else:
+            raise TypeError("Either text or markdown must be given")
+
+        # Set props
+        # todo: each of the below line invokes the positioning algorithm :/
+        self.font_size = font_size
+        self.max_width = max_width
+        self.line_height = line_height
+        self.text_align = text_align
+
+        # Positioning
+        self._do_positioning = True
+        self._position()
+
+    def set_text_items(self, text_items):
+        """Provide new text in the form of a list of TextItem objects."""
 
         # Check incoming items
         glyph_items = []
@@ -154,10 +174,11 @@ class TextGeometry(Geometry):
                 raise TypeError("TextGeometry only accepts TextItem objects.")
             glyph_items.extend(item.convert_to_glyphs())
 
+        # We cannot have nonzero buffers, so we create a single space
         if not glyph_items:
-            raise ValueError("TextGeometry needs at least 1 TextItem.")
+            glyph_items = TextItem(" ").convert_to_glyphs()
 
-        # Re-order the items if needed
+        # Re-order the items if needed, based on text direction
         i = 0
         while i < len(glyph_items) - 1:
             item = glyph_items[i]
@@ -175,9 +196,7 @@ class TextGeometry(Geometry):
 
         self._glyph_items = tuple(glyph_items)
 
-        # Compose the items in a single geometry
-        indices_arrays = []
-        positions_arrays = []
+        # Iterate over the glyph_items to set offsets
         glyph_count = 0
         for item in self._glyph_items:
             assert item.indices.dtype == np.uint32
@@ -185,20 +204,61 @@ class TextGeometry(Geometry):
             assert item.positions.shape == (item.indices.size, 2)
             item.offset = glyph_count
             glyph_count += item.indices.size
-            indices_arrays.append(item.indices)
-            positions_arrays.append(item.positions)
 
-        # Store
-        self.indices = Buffer(np.concatenate(indices_arrays, 0))
-        self.positions = Buffer(np.concatenate(positions_arrays, 0))
-        self.sizes = Buffer(np.zeros((self.positions.nitems,), np.float32))
+        # Do we need new buffers?
+        if self.indices is None or self.indices.nitems < glyph_count:
+            self.indices = Buffer(np.zeros((glyph_count,), np.uint32))
+            self.positions = Buffer(np.zeros((glyph_count, 2), np.float32))
+            self.sizes = Buffer(np.zeros((glyph_count,), np.float32))
 
-        # Set props
-        # todo: each of the below line invokes the positioning algorithm :/
-        self.font_size = font_size
-        self.max_width = max_width
-        self.line_height = line_height
-        self.text_align = text_align
+        # Copy the glyph arrays into the buffers
+        for item in self._glyph_items:
+            i1, i2 = item.offset, item.offset + item.indices.shape[0]
+            self.indices.data[i1:i2] = item.indices
+            self.positions.data[i1:i2] = item.positions
+
+        # Disable the unused space
+        self.indices.data[glyph_count:] = 0
+        self.positions.data[glyph_count:] = 0
+
+        # Schedule the array to be uploaded
+        self.indices.update_range(0, self.indices.nitems)
+        # self.positions.update_range(0, self.positions.nitems)
+        self._position()
+
+    def set_text(self, text, family=None, style=None, weight=None):
+        """Update the geometry's text.
+
+        A note on performance: if the new text consists of more glyphs
+        than the current, new (larger) buffers are created. If the
+        number of glyphs is smaller, the buffers are not replaces, but
+        simply not fully used.
+
+        Parameters:
+            text (str): the text to render.
+            family (str, tuple): the name(s) of the font to prefer. If multiple names
+                are given, they are preferred in the given order. Characters that are
+                not supported by any of the given fonts are rendered with the default
+                font (from the Noto Sans collection).
+            style (str): The style of the font (normal, italic, oblique).
+            weight (str, int): The weight of the font. E.g. "normal" or "bold" or a
+                number between 100 and 900.
+        """
+
+        if not isinstance(text, str):
+            raise TypeError("Text must be a Unicode string.")
+        font_props = FontProps(family=family, style=style, weight=weight)
+
+        # === Itemization - generate a list of TextItem objects
+        # todo: replace with regex search on last-space-in-series-of-spaces, and newlines
+        items = []
+        for piece in text.split():
+            items.append(TextItem(piece, font_props))
+
+        self.set_text_items(items)
+
+    def set_markdown(self, text, family=None):
+        raise NotImplementedError()
 
     @property
     def font_size(self):
@@ -269,6 +329,9 @@ class TextGeometry(Geometry):
         self._position()
 
     def _position(self):
+
+        if not self._do_positioning:
+            return
 
         # === Positioning
         # Handle alignment, wrapping and all that.
