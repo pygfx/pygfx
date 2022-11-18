@@ -19,14 +19,14 @@ scene.add(plane)
 
 # Create two texts, one on each side of the plane
 text1 = gfx.Text(
-    gfx.TextGeometry("Привет мир", font_size=3),
+    gfx.TextGeometry("Hello world", font_size=2.8),
     gfx.TextMaterial(color="#ddd", screen_space=False),
 )
 text1.position.set(-9, 0, 0.55)
 plane.add(text1)
 
 text2 = gfx.Text(
-    gfx.TextGeometry("Hello world", font_size=3),
+    gfx.TextGeometry("Здравей свят", font_size=2.8),
     gfx.TextMaterial(color="#ddd", screen_space=False),
 )
 text2.position.set(9, 0, -0.55)

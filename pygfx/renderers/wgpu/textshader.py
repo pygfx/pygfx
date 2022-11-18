@@ -169,25 +169,30 @@ class TextShader(WorldObjectShader):
 
                 // We take the glyph positions as model pos, move to world and then NDC.
 
+                let proj_cam_matrix = u_stdinfo.projection_transform * u_stdinfo.cam_transform;
+                let full_matrix = proj_cam_matrix * u_wobject.world_transform;
+
                 let raw_pos = vec4<f32>(vertex_pos, 0.0, 1.0);
                 let world_pos = u_wobject.world_transform * raw_pos;
-                let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+                let ndc_pos = proj_cam_matrix * world_pos;
                 let delta_ndc = vec2<f32>(0.0, 0.0);
 
-                // For the pixel scale, we first project a second point that is
-                // offset diagonally from the current vertex. The two points are
-                // mapped to screen coords and the smallest distance is used for scale.
+                // For the pixel scale, we first project a point in x and in y
+                // and see their distance in screen space. The smallest distance
+                // is used for scale.
 
-                let one_atlas_pixel = vec2<f32>(font_size / f32(REF_GLYPH_SIZE));
+                let atlas_pixel_dx = vec2<f32>(font_size / f32(REF_GLYPH_SIZE), 0.0);
+                let raw_pos_dx = vec4<f32>(vertex_pos + atlas_pixel_dx, 0.0, 1.0);
+                let ndc_pos_dx = full_matrix * raw_pos_dx;
 
-                let raw_pos2 = vec4<f32>(vertex_pos + one_atlas_pixel, 0.0, 1.0);
-                let world_pos2 = u_wobject.world_transform * raw_pos2;
-                let ndc_pos2 = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos2;
+                let atlas_pixel_dy = vec2<f32>(0.0, font_size / f32(REF_GLYPH_SIZE));
+                let raw_pos_dy = vec4<f32>(vertex_pos + atlas_pixel_dy, 0.0, 1.0);
+                let ndc_pos_dy = full_matrix * raw_pos_dy;
 
-                let screen_pos1 = (ndc_pos.xy / ndc_pos.w) * screen_factor;
-                let screen_pos2 = (ndc_pos2.xy / ndc_pos2.w) * screen_factor;
-                let screen_diff = abs(screen_pos1 - screen_pos2);
-                let atlas_pixel_scale = min(screen_diff.x, screen_diff.y);
+                let screen_pos = (raw_pos.xy / raw_pos.w) * screen_factor;
+                let screen_pos_dx = (raw_pos_dx.xy / raw_pos_dx.w) * screen_factor;
+                let screen_pos_dy = (ndc_pos_dy.xy / ndc_pos_dy.w) * screen_factor;
+                let atlas_pixel_scale = min(distance(screen_pos, screen_pos_dx), distance(screen_pos, screen_pos_dy));
 
             $$ endif
 
