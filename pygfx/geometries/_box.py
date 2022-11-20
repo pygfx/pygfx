@@ -53,17 +53,15 @@ def box_geometry(
         [
             *cube_normal_up[4],
             np.cross(
-                np.array(cube_normal_up[4, 0], dtype=np.float32),
-                np.array(cube_normal_up[4, 1], dtype=np.float32)
+                np.ndarray.astype(cube_normal_up[4, 0], np.float32),
+                np.ndarray.astype(cube_normal_up[4, 1], np.float32)
             ),
         ]
     )
 
     planes = []
     for normal, up in cube_normal_up:
-        normal = np.array(normal, dtype=np.float32)
-        up = np.array(up, dtype=np.float32)
-
+        
         plane_idx = np.flatnonzero(normal == 0)
         (
             plane_positions,
@@ -82,7 +80,10 @@ def box_geometry(
                 [
                     normal,
                     up,
-                    np.cross(normal, up),
+                    np.cross(
+                        np.ndarray.astype(normal, np.float32), 
+                        np.ndarray.astype(up, np.float32)
+                    ),
                 ]
             ).T,
             plane_csys,
