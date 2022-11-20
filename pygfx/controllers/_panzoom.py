@@ -60,11 +60,8 @@ class PanZoomController(Controller):
         self.save_state()
 
     @property
-    def mode(self) -> str:
-        if self.maintain_aspect:
-            return "maintain-aspect"
-        else:
-            return "freescale"
+    def maintain_aspect(self) -> bool:
+        return self._maintain_aspect
 
     @mode.setter
     def mode(self, mode: str):
