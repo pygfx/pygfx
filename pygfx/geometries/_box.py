@@ -53,8 +53,8 @@ def box_geometry(
         [
             *cube_normal_up[4],
             np.cross(
-                np.ndarray.astype(cube_normal_up[4, 0], np.float32),
-                np.ndarray.astype(cube_normal_up[4, 1], np.float32)
+                np.ndarray.astype(cube_normal_up[4, 0], np.float32, copy=False),
+                np.ndarray.astype(cube_normal_up[4, 1], np.float32, copy=False)
             ),
         ]
     )
@@ -81,8 +81,8 @@ def box_geometry(
                     normal,
                     up,
                     np.cross(
-                        np.ndarray.astype(normal, np.float32), 
-                        np.ndarray.astype(up, np.float32)
+                        np.ndarray.astype(normal, np.float32, copy=False), 
+                        np.ndarray.astype(up, np.float32, copy=False)
                     ),
                 ]
             ).T,

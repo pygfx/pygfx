@@ -126,8 +126,8 @@ def torus_knot_geometry(
     pos2 = torus_knot_surface(u + 0.01, p, q, scale)
 
     # Two vectors along the torus' centerline
-    vec1 = np.ndarray.astype(pos1 - pos2, np.float32)
-    vec2 = np.ndarray.astype(pos1 + pos2, np.float32)
+    vec1 = np.ndarray.astype(pos1 - pos2, np.float32, copy=False)
+    vec2 = np.ndarray.astype(pos1 + pos2, np.float32, copy=False)
 
     # Two vectors orthoginal to the torus' centerline
     vec3 = np.cross(vec1, vec2)
