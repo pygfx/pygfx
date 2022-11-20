@@ -52,7 +52,7 @@ def box_geometry(
     plane_csys = np.array(
         [
             *cube_normal_up[4],
-            np.cross(*cube_normal_up[4]),
+            np.cross(*cube_normal_up[4], dtype=np.float32),
         ]
     )
 
@@ -76,7 +76,7 @@ def box_geometry(
                 [
                     normal,
                     up,
-                    np.cross(normal, up),
+                    np.cross(normal, up, dtype=np.float32),
                 ]
             ).T,
             plane_csys,
