@@ -63,7 +63,7 @@ def box_geometry(
     for normal, up in cube_normal_up:
         normal = np.ndarray.astype(normal, np.float32, copy=False)
         up = np.ndarray.astype(up, np.float32, copy=False)
-    
+
         plane_idx = np.flatnonzero(normal == 0)
         (
             plane_positions,
