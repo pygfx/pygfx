@@ -317,7 +317,7 @@ def polyhedron_geometry(
     a = faces[..., 0, :]
     ab = faces[..., 1, :] - a  # face winding convention
     ac = faces[..., 2, :] - a
-    face_normals = np.cross(ab, ac)
+    face_normals = np.cross(ab, ac, dtype=np.float32)
     face_normals /= np.linalg.norm(face_normals, axis=-1)[..., None]
     normals = np.broadcast_to(face_normals[..., None, :], faces.shape)
 

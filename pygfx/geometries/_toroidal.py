@@ -128,8 +128,8 @@ def torus_knot_geometry(
     vec1 = pos1 - pos2
     vec2 = pos1 + pos2
     # Two vectors orthoginal to the torus' centerline
-    vec3 = np.cross(vec1, vec2)
-    vec4 = np.cross(vec3, vec1)
+    vec3 = np.cross(vec1, vec2, dtype=np.float32)
+    vec4 = np.cross(vec3, vec1, dtype=np.float32)
     # Normalize
     vec3 /= ((vec3[:, 0] ** 2 + vec3[:, 1] ** 2 + vec3[:, 2] ** 2) ** 0.5).reshape(
         -1, 1
