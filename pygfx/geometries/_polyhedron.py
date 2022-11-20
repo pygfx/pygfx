@@ -320,7 +320,7 @@ def polyhedron_geometry(
 
     ab = np.ndarray.astype(ab, np.float32, copy=False)
     ac = np.ndarray.astype(ac, np.float32, copy=False)
-    face_normals = np.cross( ab, ac )
+    face_normals = np.cross(ab, ac)
 
     face_normals /= np.linalg.norm(face_normals, axis=-1)[..., None]
     normals = np.broadcast_to(face_normals[..., None, :], faces.shape)
