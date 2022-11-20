@@ -4,13 +4,13 @@ Example with a skybox background.
 Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.rs
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 # Read the image
 # The order of the images is already correct for GPU cubemap texture sampling
-im = imageio.imread("imageio:meadow_cube.jpg")
+im = iio.imread("imageio:meadow_cube.jpg")
 
 # Turn it into a 3D image (a 4d nd array)
 width = height = im.shape[1]

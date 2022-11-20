@@ -5,7 +5,7 @@ Press 's' to save the state, and
 press 'l' to load the last saved state.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -16,7 +16,7 @@ scene = gfx.Scene()
 
 scene.add(gfx.AxesHelper(size=250))
 
-im = imageio.imread("imageio:chelsea.png")
+im = iio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
 
 material = gfx.MeshBasicMaterial(map=tex, side="front")

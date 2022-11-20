@@ -23,6 +23,8 @@ class Texture(Resource):
             (e.g. from ``wgpu.TextureFormat``).
         colorspace (str): If this data is used as color, it is interpreted to be
             in this colorspace. Can be "srgb" or "physical". Default "srgb".
+        generate_mipmaps (bool): Whether to automatically generate mipmaps when uploading to
+            the GPU.
     """
 
     def __init__(
@@ -33,6 +35,7 @@ class Texture(Resource):
         size=None,
         format=None,
         colorspace="srgb",
+        generate_mipmaps=False,
     ):
         super().__init__()
         self._rev = 0
@@ -51,6 +54,8 @@ class Texture(Resource):
 
         self._colorspace = (colorspace or "srgb").lower()
         assert self._colorspace in ("srgb", "physical")
+
+        self._generate_mipmaps = bool(generate_mipmaps)
 
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
@@ -82,6 +87,11 @@ class Texture(Resource):
         Can be "srgb" or "physical". Default "srgb".
         """
         return self._colorspace
+
+    @property
+    def generate_mipmaps(self):
+        """Whether to automatically generate mipmaps when uploading to the GPU."""
+        return self._generate_mipmaps
 
     def get_view(self, **kwargs):
         """Get a new view on the this texture."""
