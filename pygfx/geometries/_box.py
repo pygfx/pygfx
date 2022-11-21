@@ -54,7 +54,7 @@ def box_geometry(
             *cube_normal_up[4],
             np.cross(
                 np.ndarray.astype(cube_normal_up[4, 0], np.float32, copy=False),
-                np.ndarray.astype(cube_normal_up[4, 1], np.float32, copy=False)
+                np.ndarray.astype(cube_normal_up[4, 1], np.float32, copy=False),
             ),
         ]
     )
@@ -78,13 +78,7 @@ def box_geometry(
         affine[:-1, -1] = (cube_dim[sign_idx] / 2) * normal
 
         swap_axes = np.dot(
-            np.array(
-                [
-                    normal,
-                    up,
-                    np.cross(normal, up)
-                ]
-            ).T,
+            np.array([normal, up, np.cross(normal, up)]).T,
             plane_csys,
         )
 
