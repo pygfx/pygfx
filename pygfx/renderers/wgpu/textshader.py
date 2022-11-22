@@ -241,7 +241,7 @@ class TextShader(WorldObjectShader):
             let outline_thickness = u_material.outline_thickness;
 
             // The softness is calculated from the scale of one atlas-pixel in screen space.
-            let max_softness = 0.25;
+            let max_softness = 0.75;
             let softness = clamp(0.0, max_softness, 2.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale));
 
             // Turns out that how thick a font looks depends on a number of factors:
@@ -275,7 +275,7 @@ class TextShader(WorldObjectShader):
                 let outside_ness = _sdf_smoothstep(cut_off - softness, cut_off + softness, distance);
                 aa_alpha = (1.0 - outside_ness);
                 // High softness values also result in lower alpha to prevent artifacts under high angles.
-                soften_alpha = 1.0 - max(softness / max_softness - 0.5, 0.0);
+                soften_alpha = 1.0 - max(softness / max_softness - 0.1, 0.0);
                 // Outline
                 let outline_softness = min(softness, 0.5 * outline_thickness);
                 outline = _sdf_smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
