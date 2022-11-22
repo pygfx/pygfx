@@ -182,11 +182,10 @@ class TextShader(WorldObjectShader):
                 // and see their distance in screen space. The smallest distance
                 // is used for scale.
 
-                // Also needs compensation for aspect ratio to avoid blurr.
+                // Also needs compensation for aspect ratio to avoid blur.
                 let aspect_ratio = vec2<f32>(u_wobject.world_transform[0][0], u_wobject.world_transform[1][1]);
-                let scale_correct_x = vec2<f32>(aspect_ratio.y / aspect_ratio.x, 1.0);
-                let scale_correct_y = vec2<f32>(1.0, aspect_ratio.x / aspect_ratio.y);
-                let scale_correct = select(scale_correct_x, scale_correct_y, aspect_ratio.x > aspect_ratio.y);
+                let aspect_scale = sqrt(aspect_ratio.y / aspect_ratio.x);
+                let scale_correct = vec2<f32>(aspect_scale, 1.0 / aspect_scale);
 
                 let atlas_pixel_dx = vec2<f32>(font_size / f32(REF_GLYPH_SIZE), 0.0) * scale_correct.x;
                 let raw_pos_dx = vec4<f32>(vertex_pos + atlas_pixel_dx, 0.0, 1.0);
