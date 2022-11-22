@@ -115,6 +115,7 @@ class TextShader(WorldObjectShader):
             let font_size = load_s_sizes(index);
             let glyph_pos = load_s_positions(index);
 
+            // Extract actual glyph index and the encoded font props
             let glyph_index = i32(glyph_index_raw & 0x00FFFFFFu);
             let weight_0_15 = (glyph_index_raw & 0xF0000000u) >> 28u;  // highest 4 bits
             let is_slanted = bool(glyph_index_raw & 0x08000000u);

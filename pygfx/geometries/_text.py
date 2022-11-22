@@ -76,6 +76,13 @@ class TextItem:
         return glyph_items
 
     def _encode_font_props_in_atlas_indices(self, atlas_indices):
+        # We could put font properties in their own buffer(s), but to
+        # safe memory, we encode them in the top bits of the atlas
+        # indices. This seems like a good place, because these top bits
+        # won't be used (2**24 is more than enough glyphs), and the
+        # glyph index is a rather "opaque" value to the user anyway.
+        # You can think of the new glyph index as the index to the glyph
+        # in the atlas, plus props to tweak its appearance.
         is_slanted = self._font_props.style in ("italic", "oblique", "slanted")
         if is_slanted:
             atlas_indices += 0x08000000
