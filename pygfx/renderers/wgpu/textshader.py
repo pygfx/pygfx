@@ -169,12 +169,11 @@ class TextShader(WorldObjectShader):
 
                 // We take the glyph positions as model pos, move to world and then NDC.
 
-                let proj_cam_matrix = u_stdinfo.projection_transform * u_stdinfo.cam_transform;
-                let full_matrix = proj_cam_matrix * u_wobject.world_transform;
+                let full_matrix = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
 
                 let raw_pos = vec4<f32>(vertex_pos, 0.0, 1.0);
                 let world_pos = u_wobject.world_transform * raw_pos;
-                let ndc_pos = proj_cam_matrix * world_pos;
+                let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
                 let delta_ndc = vec2<f32>(0.0, 0.0);
 
                 // For the pixel scale, we first project a point in x and in y
@@ -189,8 +188,8 @@ class TextShader(WorldObjectShader):
                 let raw_pos_dy = vec4<f32>(vertex_pos + atlas_pixel_dy, 0.0, 1.0);
                 let ndc_pos_dy = full_matrix * raw_pos_dy;
 
-                let screen_pos = (raw_pos.xy / raw_pos.w) * screen_factor;
-                let screen_pos_dx = (raw_pos_dx.xy / raw_pos_dx.w) * screen_factor;
+                let screen_pos = (ndc_pos.xy / ndc_pos.w) * screen_factor;
+                let screen_pos_dx = (ndc_pos_dx.xy / ndc_pos_dx.w) * screen_factor;
                 let screen_pos_dy = (ndc_pos_dy.xy / ndc_pos_dy.w) * screen_factor;
                 let atlas_pixel_scale = min(distance(screen_pos, screen_pos_dx), distance(screen_pos, screen_pos_dy));
 

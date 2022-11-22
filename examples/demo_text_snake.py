@@ -56,7 +56,7 @@ def handle_event(event):
 
 
 def animate():
-    text1.geometry.apply_layout()
+    # text1.geometry.apply_layout()
     controller.update_camera(camera)
     renderer.render(scene, camera)
     renderer.request_draw()
