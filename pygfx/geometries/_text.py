@@ -161,7 +161,7 @@ class TextGeometry(Geometry):
 
         # Positioning
         self._do_positioning = True
-        self._position()
+        self.apply_layout()
 
     def set_text_items(self, text_items):
         """Provide new text in the form of a list of TextItem objects.
@@ -229,7 +229,7 @@ class TextGeometry(Geometry):
         # Schedule the array to be uploaded
         self.indices.update_range(0, self.indices.nitems)
         # self.positions.update_range(0, self.positions.nitems)
-        self._position()
+        self.apply_layout()
 
     def set_text(self, text, family=None, style=None, weight=None):
         """Update the geometry's text.
@@ -301,7 +301,7 @@ class TextGeometry(Geometry):
     @font_size.setter
     def font_size(self, value):
         self._font_size = float(value)
-        self._position()
+        self.apply_layout()
 
     @property
     def max_width(self):
@@ -316,7 +316,7 @@ class TextGeometry(Geometry):
     @max_width.setter
     def max_width(self, width):
         self._max_width = float(width or 0)
-        self._position()
+        self.apply_layout()
 
     @property
     def line_height(self):
@@ -328,7 +328,7 @@ class TextGeometry(Geometry):
     @line_height.setter
     def line_height(self, heigh):
         self._line_height = float(heigh or 1.2)
-        self._position()
+        self.apply_layout()
 
     @property
     def text_align(self):
@@ -353,12 +353,18 @@ class TextGeometry(Geometry):
         if align not in alignments:
             raise ValueError(f"Align must be one of {alignments}")
         self._text_align = align
-        self._position()
+        self.apply_layout()
 
-    def _position(self):
+    def apply_layout(self):
+        """Apply the layout algorithm to position the (internal) glyph items.
 
-        if not self._do_positioning:
-            return
+        To overload this with a custom layout, overload ``_apply_layout()``.
+        """
+
+        if self._do_positioning:
+            self._apply_layout()
+
+    def _apply_layout(self):
 
         # === Positioning
         # Handle alignment, wrapping and all that.
