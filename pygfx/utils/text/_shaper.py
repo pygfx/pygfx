@@ -8,6 +8,7 @@ Relevant links:
 """
 
 import freetype
+import uharfbuzz
 import numpy as np
 
 from ._sdf import REF_GLYPH_SIZE
@@ -37,25 +38,23 @@ def shape_text(text, font_filename):
 
 def shape_text_hb(text, font_filename):
 
-    import uharfbuzz as hb  # noqa
-
     # Prepare buffer
-    buf = hb.Buffer()
+    buf = uharfbuzz.Buffer()
     buf.add_str(text)
     buf.guess_segment_properties()
 
     # Load font
     # todo: cache font objects, or is this not necessary? Benchmark!
-    blob = hb.Blob.from_file_path(font_filename)
-    face = hb.Face(blob)
-    font = hb.Font(face)
+    blob = uharfbuzz.Blob.from_file_path(font_filename)
+    face = uharfbuzz.Face(blob)
+    font = uharfbuzz.Font(face)
     font.scale = REF_GLYPH_SIZE, REF_GLYPH_SIZE
 
     # Add space so we can measure the space between words
     buf.add_str(" ")
 
     # Shape!
-    hb.shape(font, buf)
+    uharfbuzz.shape(font, buf)
 
     glyph_infos = buf.glyph_infos
     glyph_positions = buf.glyph_positions
