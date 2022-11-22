@@ -155,7 +155,8 @@ class TextShader(WorldObjectShader):
             $$ if screen_space
 
                 // We take the object's pos (model pos is origin), move to NDC, and apply the
-                // glyph-positioning in logical screen coords.
+                // glyph-positioning in logical screen coords. When the text is a child of another
+                // object, the text should be unaffected by the parent object's transform.
 
                 let raw_pos = vec3<f32>(0.0, 0.0, 0.0);
                 let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
@@ -181,11 +182,17 @@ class TextShader(WorldObjectShader):
                 // and see their distance in screen space. The smallest distance
                 // is used for scale.
 
-                let atlas_pixel_dx = vec2<f32>(font_size / f32(REF_GLYPH_SIZE), 0.0);
+                // Also needs compensation for aspect ratio to avoid blurr.
+                let aspect_ratio = vec2<f32>(u_wobject.world_transform[0][0], u_wobject.world_transform[1][1]);
+                let scale_correct_x = vec2<f32>(aspect_ratio.y / aspect_ratio.x, 1.0);
+                let scale_correct_y = vec2<f32>(1.0, aspect_ratio.x / aspect_ratio.y);
+                let scale_correct = select(scale_correct_x, scale_correct_y, aspect_ratio.x > aspect_ratio.y);
+
+                let atlas_pixel_dx = vec2<f32>(font_size / f32(REF_GLYPH_SIZE), 0.0) * scale_correct.x;
                 let raw_pos_dx = vec4<f32>(vertex_pos + atlas_pixel_dx, 0.0, 1.0);
                 let ndc_pos_dx = full_matrix * raw_pos_dx;
 
-                let atlas_pixel_dy = vec2<f32>(0.0, font_size / f32(REF_GLYPH_SIZE));
+                let atlas_pixel_dy = vec2<f32>(0.0, font_size / f32(REF_GLYPH_SIZE)) * scale_correct.y;
                 let raw_pos_dy = vec4<f32>(vertex_pos + atlas_pixel_dy, 0.0, 1.0);
                 let ndc_pos_dy = full_matrix * raw_pos_dy;
 
@@ -199,11 +206,9 @@ class TextShader(WorldObjectShader):
             var varyings: Varyings;
             varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
-            varyings.font_size = f32(font_size);
             varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
             varyings.glyph_coord = vec2<f32>(corner);
             varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
-            varyings.glyph_index = i32(glyph_index);
             varyings.weight = f32(150.0 + f32(weight_0_15) * 50.0);  // encodes 150-900 in steps of 50
 
             // Picking

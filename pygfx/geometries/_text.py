@@ -298,10 +298,12 @@ class TextGeometry(Geometry):
     def font_size(self):
         """The size of the text. For text rendered in screen space, the
         size is in logical pixels. For text rendered in world space,
-        the size represents world units. Note that the font_size is an
-        indicative size - most glyphs are smaller, and some may be
-        larger. Also note that some pieces of the text may have a
-        different size due to formatting.
+        the size represents world units. In the latter case the text is
+        also affected by the object's transform, including its scale.
+
+        Note that the font_size is an indicative size - most glyphs are
+        smaller, and some may be larger. Also note that some pieces of
+        the text may have a different size due to formatting.
         """
         return self._font_size
 
