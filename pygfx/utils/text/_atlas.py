@@ -5,9 +5,6 @@ import numpy as np
 from ...resources import Texture, Buffer
 
 
-# todo: TextItems should release glyphs when disposed.
-
-
 def generate_size_table(max_size=8192):
     size = 0
     ref_area = 256

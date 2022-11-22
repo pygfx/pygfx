@@ -54,7 +54,6 @@ class TextMaterial(Material):
     @property
     def screen_space(self):
         """Whether the text is applied in screen space (in contrast to model space)."""
-        # todo: maybe make different materials for these cases instead
         return self._store.screen_space
 
     @screen_space.setter

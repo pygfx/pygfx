@@ -1,4 +1,4 @@
-# The text rendering process in PyGfx
+# Text rendering in PyGfx
 
 Text rendering is a notoriously complex task. In PyGfx we draw inspiration
 from Vispy, Matplotlib and the work of Nicolas Rougier
@@ -6,76 +6,131 @@ from Vispy, Matplotlib and the work of Nicolas Rougier
 
 ## Text rendering steps
 
-This is a high-level overview of the steps of our text rendering process.
+This is a high-level overview of the steps of our text rendering
+process. In summary, the steps are as shown below. The steps are
+explained in more detail in the following subsections.
+
+* Entrypoint & itemisation
+* Font selection
+* Shaping
+* Glyph generation
+* Layout
+* Rendering
 
 ### Entrypoint & itemisation
 
-We provide the user with an API to produce text. This can be plain text, Markdown, Html, Math, musical notes, etc. In addition, the user may provide certain font properties (TODO: which ones?). This is the API entry point.
+We provide the user with an API to produce text. This can be plain text,
+Markdown, Html, Math, musical notes, etc. In addition, the user may
+provide font properties. This is the API entry point.
 
-Depending on the situation, the text is then cut in pieces. E.g. if the input is markdown `"hello *world*"`  this is separated into two parts: one with regular text and one with the bold text. Each part can even use different scripts and have a different font-famly.
+Depending on the situation, the text is then cut in pieces. E.g. if the
+input is markdown `"hello *world*"`  this is separated into two parts:
+one with regular text and one with the bold text. Each part can be
+provided with a different font-family. In practice, each word becomes
+a separate text item, which allows moving words around during the
+layout. The API to provide raw `TextItem` objects is also available,
+in case more control is needed.
 
-TODO: will we separate each word?
-
-The result of this step is a list of text items: each a Unicode string and associated font properties.
+The result of this step is a list of text items: each a Unicode string
+and associated font properties.
 
 ### Font selection
 
-*happens for each text item*
+The text items can be seen as a request to render the text in a certain
+way. In the font selection step, the most appropriate font file is
+selected. It may be needed to split a text item into more pieces, e.g.
+when a smiley is present at the end of a word. For this step to
+function, a system is needed that can detect what fonts are present and
+what properties they have.
 
-The appropriate font file is selected based on the font properties. Not all font properties are used here, only the ones that define what file should be used. This selection process tries to find the best match. E.g. if a weight of 900 is requested but there is only a font file for that family with weight 700 (the standard bold), then this one is used.
-
-Since it's likely that multiple text items use the same font, the results of font selection should be cached.
-
-Since different characters in the same text item may need different font files, another itemisation round occurs here.
+The result of this step is a list of `(text, fontfile)` tuples.
 
 ### Shaping
 
-*happens for each text item*
+Shaping is the process of converting a list of characters into a list
+of glyphs and their positions. You can do this the naïve way using
+FreeType, or the proper way using Harfbuzz. The shaping process takes
+into account kerning and glyph-replacements such as ligatures and
+diacritics, and is crucial to make e.g. Arabic text look right.
 
-The text of each item is converted into a list of glyph-indices and positions. A glyph-index is the index of the glyph in the font file. The number of glyphs may not match the length of the text. This is because of e.g. ligatures and diacritics.
+The result of this step is a list of glyph-indices (indices in the font
+file) and positions, as well as some meta-data about the font such as
+the width of a space and the line height.
 
 ### Glyph generation
 
-Each glyph is now read from the font file (using its glyph-index) and a representation of it is generated and stored in a global atlas. In our case this is a scalar distance field (SDF). The result is the index into the atlas.
+Each glyph is now read from the font file (using its glyph-index) and
+a representation of it is generated and stored in a global atlas. We
+use a signed distance field (SDF) to realise high quality rendering.
+Glyphs that are already in the atlas can naturally be re-used.
 
-From an API point of view, this step exchanges the glyph index plus font file for an atlas index.
+This step exchanges the glyph index (plus font file) for an atlas index.
 
+### Layout
+
+In the previous steps, the incoming list of text items has been
+converted to a list of glyph items. These contain an array of glyph
+indices, an array of positions, and several attributes needed to do the
+layout.
+
+In the layout step, we perform re-ordering (if LTR scripts are used)
+alignment, and justification.
+
+The result of this step is a complete PyGfx geometry ready for rendering.
+
+### Rendering
+
+Each glyph represents a small rectangular area, to which the contents
+of the atlas must be rendered. Each rectangle has an origin in the
+atlas, a size (in pixels), and an offset for positioning the rectangle
+relative to the glyph's origin.
+
+The SDF rendering offers some interesting features. For one, the glyph
+can be rendered at any size. Further, the glyph can be adjusted for its
+weight (to a certain degree), and provided with an outline. It's also
+quite trivial to implement slanting to approximate italic text.
+
+## What happens where
+
+The API entrypoint is the `TextGeometry` object, which can be found in
+the `geometries/_text.py` module. In that module we perform all the
+steps above, except rendering. The actual implementation of most steps
+is in the `utils/text` subpackage.
+
+## Details
+
+### Font properties
+
+Font properties specify how a font looks:
+
+* family: a font name or list of font names (fallbacks).
+* style: regular, italic, slanted.
+* weight: the boldness.
+* stretch: how compact or stretched the font is.
+
+These properties are used to select a font, but in our case are also
+used to influence the rendering, since we can approximate weight, style,
+and stretch pretty well.
 
 ### Sizing
 
-The glyphs are stored in the atlas with a fixed square `glyph_size` per
-glyph. The SDF glyphs are rendered to fit in this square at a certain
-(pixel) font size, which is slightly smaller. The factor between the
-two is used to correct the final size (by the geometry TODO still true?)
+The glyphs are rendered at a certain "reference glyph size". The
+resulting SDF glyphs are each of a different size (posing a challenge
+to efficiently pack them in the atlas).
 
 The TextGeometry has a `font_size` property. For text rendered in screen
 space, this is the font size in logical pixels. For text rendered in
 world space, the size is expressed in world units. Note that the
-font_size is an indicative size - most glyphs are smaller, and some may
-be larger.
+`font_size` is an indicative size - most glyphs are smaller, and some
+may be larger.
 
-A FontProps object also has a size property. This can be relative or
-absolute. The geometry resolves its own `font_size` and the TextItem's
-`size` prop into the final positions.
+A `TextItem` object also has a size property to create pieces of text
+that are smaller/larger than normal, e.g. for subscrips. The geometry
+resolves these two sizes during layout, and provides the shader with a
+single size per glyph.
 
-In the shader, the positioning is already correct. However, it does not
-some sizing info to relate certain material properties, and handle
-antialiasing.
+In the shader, the per-glyph size and relative glyph size must be
+combined to position the rectangle appropriately.
 
 
-### Positioning
-
-Each text item now has a list of atlas-indices and matching (relative) positions. These items are then composed so that they form the complete text. This is where word-wrapping, justification etc. are applied. The end result is a single list of atlas-indices and matching positions.
-
-It may also be necessary to reorder the items to deal with a mix of LTR and RTL languages.
-
-TODO: let's mention exactly what text props are used here.
-
-### Rendering
-
-The positions define small quads that are positioned in the vertex shader. In the fragment shader the atlas-index is used to sample the glyph representation from the global atlas, so that it can be rendered to the screen.
-
-## What happens where
-
-The API entrypoint is the `TextGeometry` object, which can be found in the `geometries/_text.py` module. In that module we implement all the steps above, but in a high-level way - the actual implementation of most steps are in the `utils/text` subpackage.
 
