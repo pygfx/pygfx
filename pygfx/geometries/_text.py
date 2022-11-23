@@ -268,7 +268,8 @@ class TextGeometry(Geometry):
             raise TypeError("Text must be a Unicode string.")
         font_props = textmodule.FontProps(family=family, style=style, weight=weight)
 
-        # === Itemization - generate a list of TextItem objects
+        # Split the text in pieces using a tokenizer. We put the
+        # whitespace as margin on the text items (whitespace is not rendered)
         items = []
         pending_witespace = None
         for kind, piece in textmodule.tokenize_text(text):
@@ -388,7 +389,6 @@ class TextGeometry(Geometry):
         Can be overloaded for custom behavior.
         """
 
-        # === Positioning
         # Handle alignment, wrapping and all that.
         # Note, could render the text in a curve or something.
 
