@@ -73,8 +73,9 @@ converted to a list of glyph items. These contain an array of glyph
 indices, an array of positions, and several attributes needed to do the
 layout.
 
-In the layout step, we perform re-ordering (if LTR scripts are used)
-alignment, and justification.
+In the layout step, we perform line breaks, text wrapping, alignment,
+justification, etc. The re-ordering of items (if LTR scripts are used)
+can be seen as pre-processing for the layout procedure.
 
 The result of this step is a complete PyGfx geometry ready for rendering.
 

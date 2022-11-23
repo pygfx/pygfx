@@ -17,20 +17,20 @@ import numpy as np
 
 from ._base import Geometry
 from ..resources import Buffer
-from ..utils.text import FontProps, font_manager, shape_text, generate_glyph
+from ..utils import text as textmodule
 
 
 class TextItem:
-    """A text item represents a unit piece of text that is formatted,
-    in a specific way. The TextGeometry positions a list of text items so that
-    they together display the intended total text.
+    """A text item represents a unit piece of text that is formatted
+    in a specific way. The TextGeometry positions a list of text items
+    so that they together display the intended total text.
     """
 
     def __init__(self, text, font_props=None, *, allow_break=True):
 
         if font_props is None:
-            font_props = FontProps()
-        elif not isinstance(font_props, FontProps):
+            font_props = textmodule.FontProps()
+        elif not isinstance(font_props, textmodule.FontProps):
             raise TypeError("font_props is not a FontProps object.")
         self._font_props = font_props
 
@@ -45,49 +45,6 @@ class TextItem:
     @property
     def font_props(self):
         return self._font_props
-
-    def convert_to_glyphs(self):
-        """Convert this text item in one or more GlyphItem objects.
-        This process includes font selection, shaping, and glyph generation.
-        """
-        text = self._text
-
-        # === Font selection
-        text_pieces = font_manager.select_font_for_text(
-            self._text, self._font_props.family
-        )
-
-        glyph_items = []
-        for text, font in text_pieces:
-
-            # === Shaping - generate indices and positions
-            glyph_indices, positions, full_width, meta = shape_text(text, font.filename)
-
-            # === Glyph generation (populate atlas)
-            atlas_indices = generate_glyph(glyph_indices, font.filename)
-
-            self._encode_font_props_in_atlas_indices(atlas_indices)
-            glyph_items.append(GlyphItem(positions, atlas_indices, full_width, meta))
-
-        # Set props so these items will be grouped correctly
-        glyph_items[0].allow_break = self._allow_break
-        glyph_items[0].margin_before = glyph_items[0].meta["space_width"] / 2
-        glyph_items[-1].margin_after = glyph_items[-1].meta["space_width"] / 2
-        return glyph_items
-
-    def _encode_font_props_in_atlas_indices(self, atlas_indices):
-        # We could put font properties in their own buffer(s), but to
-        # safe memory, we encode them in the top bits of the atlas
-        # indices. This seems like a good place, because these top bits
-        # won't be used (2**24 is more than enough glyphs), and the
-        # glyph index is a rather "opaque" value to the user anyway.
-        # You can think of the new glyph index as the index to the glyph
-        # in the atlas, plus props to tweak its appearance.
-        is_slanted = self._font_props.style in ("italic", "oblique", "slanted")
-        if is_slanted:
-            atlas_indices += 0x08000000
-        weight_0_15 = int((max(150, self._font_props.weight) - 150) / 50 + 0.4999)
-        atlas_indices += max(0, min(15, weight_0_15)) << 28
 
 
 class GlyphItem:
@@ -112,7 +69,8 @@ class TextGeometry(Geometry):
 
     Parameters:
         text (str): the text to render (optional). Either text or markdown must be given.
-        markdown (str): the text to render, formatted as markdown (optional). TODO
+        markdown (str): the text to render, formatted as markdown (optional).
+            Currently, support is limited to making words italic or bold.
         font_size (float): the size of the font, in scene coordinates or pixel screen
             coordinates, depending on ``material.screen_space``. Default 12.
         max_width (float): the maximum width of the text. Words are wrapped if necessary.
@@ -173,24 +131,48 @@ class TextGeometry(Geometry):
     def set_text_items(self, text_items):
         """Provide new text in the form of a list of TextItem objects.
 
+        This is considered a low level function - you should probably use
+        ``set_text`` or ``set_markdown`` instead.
+
         A note on performance: if the new text consists of more glyphs
         than the current, new (larger) buffers are created. If the
         number of glyphs is smaller, the buffers are not replaced, but
         simply not fully used.
         """
 
-        # Check incoming items
+        # This function can be considered the core of the text rendering.
+        # Everyting comes together here.
+
+        # We cannot have nonzero buffers, so if we have nothing create a single space
+        if not text_items:
+            text_items = [TextItem(" ")]
+
+        # Convert incoming text items to glyph items
         glyph_items = []
         for item in text_items:
             if not isinstance(item, TextItem):
                 raise TypeError("TextGeometry only accepts TextItem objects.")
-            glyph_items.extend(item.convert_to_glyphs())
+            first_index = len(glyph_items)
 
-        # We cannot have nonzero buffers, so we create a single space
-        if not glyph_items:
-            glyph_items = TextItem(" ").convert_to_glyphs()
+            # Text rendering steps: font selection, shaping, glyph generation
+            text_pieces = self._select_font(item.text, item.font_props.family)
+            for text, font in text_pieces:
+                glyph_indices, positions, full_width, meta = self._shape_text(
+                    text, font.filename
+                )
+                atlas_indices = self._generate_glyph(glyph_indices, font.filename)
+                self._encode_font_props_in_atlas_indices(atlas_indices, item.font_props)
+                glyph_items.append(
+                    GlyphItem(positions, atlas_indices, full_width, meta)
+                )
 
-        # Re-order the items if needed, based on text direction
+            # Set props so these items will be grouped correctly
+            first_item, last_item = glyph_items[first_index], glyph_items[-1]
+            first_item.allow_break = item._allow_break
+            first_item.margin_before = first_item.meta["space_width"] / 2
+            last_item.margin_after = last_item.meta["space_width"] / 2
+
+        # Layout pre-processing: re-order the items if needed, based on text direction
         i = 0
         while i < len(glyph_items) - 1:
             item = glyph_items[i]
@@ -206,9 +188,10 @@ class TextGeometry(Geometry):
             else:
                 i += 1
 
+        # We can now store the glyph items
         self._glyph_items = tuple(glyph_items)
 
-        # Iterate over the glyph_items to set offsets
+        # We set the glyph offsets so we know their place in the total buffer
         glyph_count = 0
         for item in self._glyph_items:
             assert item.indices.dtype == np.uint32
@@ -235,8 +218,11 @@ class TextGeometry(Geometry):
 
         # Schedule the array to be uploaded
         self.indices.update_range(0, self.indices.nitems)
-        # self.positions.update_range(0, self.positions.nitems)
+
+        # Finalize the buffers by applying the layout algorithmm.
         self.apply_layout()
+
+    # %%%%% Entrypoint and itemization
 
     def set_text(self, text, family=None, style=None, weight=None):
         """Update the geometry's text.
@@ -259,7 +245,7 @@ class TextGeometry(Geometry):
 
         if not isinstance(text, str):
             raise TypeError("Text must be a Unicode string.")
-        font_props = FontProps(family=family, style=style, weight=weight)
+        font_props = textmodule.FontProps(family=family, style=style, weight=weight)
 
         # === Itemization - generate a list of TextItem objects
         # todo: when we impove the layout, replace below with regex search on last-space-in-series-of-spaces, and newlines
@@ -278,7 +264,7 @@ class TextGeometry(Geometry):
 
         if not isinstance(text, str):
             raise TypeError("Markdown text must be a Unicode string.")
-        font_props = FontProps(family=family)
+        font_props = textmodule.FontProps(family=family)
 
         items = []
         for piece in text.split():
@@ -294,12 +280,85 @@ class TextGeometry(Geometry):
 
         self.set_text_items(items)
 
+    # %%%%% Font selection
+
+    def _select_font(self, text, family):
+        """The font selection step. Returns (text, font_filename) tuples.
+        Can be overloaded for custom behavior.
+        """
+        return textmodule.select_font(text, family)
+
+    # %%%%% Shaping
+
+    def _shape_text(self, text, font_filename):
+        """The shaping step. Returns (glyph_indices, positions, full_width, meta).
+        Can be overloaded for custom behavior.
+        """
+        return textmodule.shape_text(text, font_filename)
+
+    # %%%%% Glyph generation
+
+    def _generate_glyph(self, glyph_indices, font_filename):
+        """The glyph generation step. Returns the atlas indices.
+        Can be overloaded for custom behavior.
+        """
+        return textmodule.generate_glyph(glyph_indices, font_filename)
+
+    def _encode_font_props_in_atlas_indices(self, atlas_indices, font_props):
+        # We could put font properties in their own buffer(s), but to
+        # safe memory, we encode them in the top bits of the atlas
+        # indices. This seems like a good place, because these top bits
+        # won't be used (2**24 is more than enough glyphs), and the
+        # glyph index is a rather "opaque" value to the user anyway.
+        # You can think of the new glyph index as the index to the glyph
+        # in the atlas, plus props to tweak its appearance.
+        is_slanted = font_props.style in ("italic", "oblique", "slanted")
+        if is_slanted:
+            atlas_indices += 0x08000000
+        weight_0_15 = int((max(150, font_props.weight) - 150) / 50 + 0.4999)
+        atlas_indices += max(0, min(15, weight_0_15)) << 28
+
+    # %%%%% Layout
+
+    def _apply_layout(self):
+        """The layout step. Updates positions and sizes to finalize the geometry.
+        Can be overloaded for custom behavior.
+        """
+
+        # === Positioning
+        # Handle alignment, wrapping and all that.
+        # Note, could render the text in a curve or something.
+
+        font_size = self._font_size
+
+        x_offset = 0
+        for item in self._glyph_items:
+            if x_offset > 0:
+                x_offset += item.margin_before * font_size
+            positions = item.positions * font_size + np.array([x_offset, 0])
+            i1, i2 = item.offset, item.offset + positions.shape[0]
+            self.positions.data[i1:i2] = positions
+            self.positions.update_range(i1, i2)
+            self.sizes.data[i1:i2] = font_size
+            self.sizes.update_range(i1, i2)
+            x_offset += item.width * font_size + item.margin_after * font_size
+
+    def apply_layout(self):
+        """Apply the layout algorithm to position the (internal) glyph items.
+
+        To overload this with a custom layout, overload ``_apply_layout()``.
+        """
+
+        if self._do_positioning:
+            self._apply_layout()
+
     @property
     def font_size(self):
-        """The size of the text. For text rendered in screen space, the
-        size is in logical pixels. For text rendered in world space,
-        the size represents world units. In the latter case the text is
-        also affected by the object's transform, including its scale.
+        """The size of the text. For text rendered in screen space
+        (``material.screen_space==True``), the size is in logical
+        pixels. For text rendered in world space, the size represents
+        world units. In the latter case the text is also affected by
+        the object's transform, including its scale.
 
         Note that the font_size is an indicative size - most glyphs are
         smaller, and some may be larger. Also note that some pieces of
@@ -315,11 +374,10 @@ class TextGeometry(Geometry):
     @property
     def max_width(self):
         """The maximum width of the text. Text will wrap if beyond this
-        limit. The coordinate system that this applies to depends on
-        the material, but it's coordinate system that the text_size
-        applies to. Set to 0 for no wrap. Default 0.
+        limit. The coordinate system that this applies to is the same
+        as for font_size and depens on the material's ``screen_space``
+        property. Set to 0 for no wrap. Default 0.
         """
-        # todo: double-check these docstrings on coord systems when we're done
         return self._max_width
 
     @max_width.setter
@@ -363,33 +421,3 @@ class TextGeometry(Geometry):
             raise ValueError(f"Align must be one of {alignments}")
         self._text_align = align
         self.apply_layout()
-
-    def apply_layout(self):
-        """Apply the layout algorithm to position the (internal) glyph items.
-
-        To overload this with a custom layout, overload ``_apply_layout()``.
-        """
-
-        if self._do_positioning:
-            self._apply_layout()
-
-    def _apply_layout(self):
-
-        # === Positioning
-        # Handle alignment, wrapping and all that.
-        # Note, could render the text in a curve or something.
-        # todo: perhaps use a hook for custom positioning effects?
-
-        font_size = self._font_size
-
-        x_offset = 0
-        for item in self._glyph_items:
-            if x_offset > 0:
-                x_offset += item.margin_before * font_size
-            positions = item.positions * font_size + np.array([x_offset, 0])
-            i1, i2 = item.offset, item.offset + positions.shape[0]
-            self.positions.data[i1:i2] = positions
-            self.positions.update_range(i1, i2)
-            self.sizes.data[i1:i2] = font_size
-            self.sizes.update_range(i1, i2)
-            x_offset += item.width * font_size + item.margin_after * font_size

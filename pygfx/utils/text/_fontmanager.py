@@ -234,7 +234,7 @@ class FontManager:
                 logger.warning(msg)
         return fonts
 
-    def select_font_for_text(self, text, family):
+    def select_font(self, text, family):
         """Select the (best) font for the given text. Returns a list of (text, fontname)
         tuples, because different characters in the text may require different fonts.
         """

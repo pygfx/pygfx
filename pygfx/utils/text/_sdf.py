@@ -77,7 +77,7 @@ def _generate_glyph(face, glyph_index):
     # remove this line and uncomment the line in the except-clause below.
     face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
 
-    # Render SFD
+    # Render SDF
     try:
         face.glyph.render(freetype.FT_RENDER_MODE_SDF)
     except Exception:  # Freetype refuses SDF for spaces ?
