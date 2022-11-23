@@ -26,7 +26,15 @@ class TextItem:
     so that they together display the intended total text.
     """
 
-    def __init__(self, text, font_props=None, *, allow_break=True):
+    def __init__(
+        self,
+        text,
+        font_props=None,
+        *,
+        whitespace_before="",
+        whitespace_after="",
+        allow_break=True,
+    ):
 
         if font_props is None:
             font_props = textmodule.FontProps()
@@ -35,6 +43,8 @@ class TextItem:
         self._font_props = font_props
 
         self._text = text
+        self._whitespace_before = whitespace_before
+        self._whitespace_after = whitespace_after
         self._allow_break = bool(allow_break)
 
     @property
@@ -166,11 +176,22 @@ class TextGeometry(Geometry):
                     GlyphItem(positions, atlas_indices, full_width, meta)
                 )
 
+            # Get whitespace after and before the text
+            margin_before = margin_after = 0
+            if item._whitespace_before:
+                _, _, margin_before, _ = self._shape_text(
+                    item._whitespace_before, text_pieces[0][1].filename
+                )
+            if item._whitespace_after:
+                _, _, margin_after, _ = self._shape_text(
+                    item._whitespace_after, text_pieces[-1][0].filename
+                )
+
             # Set props so these items will be grouped correctly
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
             first_item.allow_break = item._allow_break
-            first_item.margin_before = first_item.meta["space_width"] / 2
-            last_item.margin_after = last_item.meta["space_width"] / 2
+            first_item.margin_before = margin_before
+            last_item.margin_after = margin_after
 
         # Layout pre-processing: re-order the items if needed, based on text direction
         i = 0
@@ -248,36 +269,78 @@ class TextGeometry(Geometry):
         font_props = textmodule.FontProps(family=family, style=style, weight=weight)
 
         # === Itemization - generate a list of TextItem objects
-        # todo: when we impove the layout, replace below with regex search on last-space-in-series-of-spaces, and newlines
         items = []
-        for piece in text.split():
-            items.append(TextItem(piece, font_props))
+        pending_witespace = None
+        for kind, piece in textmodule.tokenize_text(text):
+            if kind == "whitespace":
+                if not items:
+                    pending_witespace = piece
+                else:
+                    items[-1]._whitespace_after += piece
+            else:
+                items.append(TextItem(piece, font_props))
+                if pending_witespace:
+                    items[-1]._whitespace_before += pending_witespace
+                    pending_witespace = None
 
         self.set_text_items(items)
 
     def set_markdown(self, text, family=None):
         """Update the geometry's text using markdown formatting.
 
-        The supported subset of markdown is limited to surrounding words with
-        single and double stars for oblique and bold text respectively.
+        The supported subset of markdown is limited to surrounding
+        pieces of text with single and double stars for slanted and
+        bold text respectively.
         """
 
         if not isinstance(text, str):
             raise TypeError("Markdown text must be a Unicode string.")
+
+        # Split text in pieces using a tokenizer
+        pieces = list(textmodule.tokenize_markdown(text))
+
+        # Put a virtual zero-char space in front and at the end, to make the alg simpler
+        pieces.insert(0, ("space", ""))
+        pieces.append(("space", ""))
+
+        # Prepare font props
         font_props = textmodule.FontProps(family=family)
+        pieces_props = [font_props for x in pieces]
 
-        items = []
-        for piece in text.split():
-            props = font_props
-            if piece.startswith("*") and piece.endswith("*"):
-                if piece.startswith("**") and piece.endswith("**"):
-                    piece = piece[2:-2]
-                    props = props.copy(weight="bold")
-                else:
-                    piece = piece[1:-1]
-                    props = props.copy(style="slanted")
-            items.append(TextItem(piece, props))
+        # Now resolve starts to detect bold and italic pieces
+        bold_start = slant_start = None
+        for i in range(len(pieces)):
+            kind, piece = pieces[i]
+            if kind == "stars":
+                prev_is_wordlike = pieces[i - 1][0] not in ("space", "punctuation")
+                next_is_wordlike = pieces[i + 1][0] not in ("space", "punctuation")
+                if not prev_is_wordlike and next_is_wordlike:
+                    # Might be a beginning
+                    if piece == "**" and not bold_start:
+                        bold_start = i
+                    elif piece == "*" and not slant_start:
+                        slant_start = i
+                elif prev_is_wordlike and not next_is_wordlike:
+                    # Might be an end
+                    if piece == "**" and bold_start:
+                        pieces[bold_start] = "", ""
+                        pieces[i] = "", ""
+                        for j in range(bold_start + 1, i):
+                            pieces_props[j] = pieces_props[j].copy(weight="bold")
+                        bold_start = None
+                    elif piece == "*" and slant_start:
+                        pieces[slant_start] = "", ""
+                        pieces[i] = "", ""
+                        for j in range(slant_start + 1, i):
+                            pieces_props[j] = pieces_props[j].copy(style="slanted")
+                        slant_start = None
 
+        # Convert to TextItem objects
+        items = [
+            TextItem(piece[1], props)
+            for piece, props in zip(pieces, pieces_props)
+            if piece[1]
+        ]
         self.set_text_items(items)
 
     # %%%%% Font selection

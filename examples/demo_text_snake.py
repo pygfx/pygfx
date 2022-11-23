@@ -24,9 +24,9 @@ class SnakeTextGeometry(gfx.TextGeometry):
 
 
 # Create the text
-s = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+s = "**Lorem ipsum** dolor sit amet, *consectetur adipiscing elit*, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
 text1 = gfx.Text(
-    SnakeTextGeometry(s, font_size=10),
+    SnakeTextGeometry(markdown=s, font_size=10),
     gfx.TextMaterial(color="#fff", screen_space=False),
 )
 text1.position.x = -100

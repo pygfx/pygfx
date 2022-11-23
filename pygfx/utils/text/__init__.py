@@ -15,8 +15,10 @@ Rendering is implemented in the TextShader.
 
 from ._fontmanager import FontProps, FontInfo, font_manager  # noqa: F401
 from ._atlas import glyph_atlas  # noqa: F401
+from ._tokenizers import tokenize_text, tokenize_markdown  # noqa: F401
 from . import _sdf
 from . import _shaper
+
 
 select_font = font_manager.select_font  # Font selection
 shape_text = _shaper.shape_text  # Shaping
