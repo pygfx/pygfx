@@ -12,6 +12,7 @@ import numpy as np
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 400)))
 scene = gfx.Scene()
 glyph_atlas = gfx.utils.text.glyph_atlas
+glyph_atlas.clear_free_regions = True  # So we can see regions being freed
 
 # Add background
 background = gfx.Background(None, gfx.BackgroundMaterial("#dde", "#fff"))

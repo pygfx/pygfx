@@ -156,6 +156,10 @@ class GlyphAtlas(RectPacker):
         self._allocated_area = 0
         self._free_area = 0
 
+        # Props to influence the behavior
+        self.clear_free_regions = False
+        self.downscale_ratio = 0.25
+
         # The per-glyph information (used in the shader)
         self._info_dtype = [
             ("origin", np.int32, 2),
@@ -340,6 +344,9 @@ class GlyphAtlas(RectPacker):
         # Note that the array data is not nullified
         index = int(index)
         with self._lock:
+            # Clear the region data
+            if self.clear_free_regions:
+                self.set_region(index, 0)
             # Free in data structure
             assert index < self._index_counter, "Invalid index to free"
             info = self._infos[index]
@@ -355,14 +362,16 @@ class GlyphAtlas(RectPacker):
             hash = self._index2hash.pop(index, None)
             if hash is not None:
                 self._hash2index.pop(hash)
-            # Reduce size if over three quarters is free space
-            if self._free_area >= 3 * self._allocated_area:
-                current_size = self._array.shape[0]
-                if current_size > self._initial_array_size:
-                    new_size = get_suitable_size(self.total_area / 2)
-                    new_size = max(new_size, self._initial_array_size)
-                    if new_size != current_size:
-                        self._set_new_glyphs_array(new_size)
+            # Reduce size?
+            if self.downscale_ratio:
+                total_area = self._allocated_area + self._free_area
+                if self._allocated_area <= self.downscale_ratio * total_area:
+                    current_size = self._array.shape[0]
+                    if current_size > self._initial_array_size:
+                        new_size = get_suitable_size(self.total_area / 2)
+                        new_size = max(new_size, self._initial_array_size)
+                        if new_size != current_size:
+                            self._set_new_glyphs_array(new_size)
 
 
 class PyGfxGlyphAtlas(GlyphAtlas):
