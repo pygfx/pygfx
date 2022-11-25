@@ -587,8 +587,6 @@ class RenderPipelineContainer(PipelineContainer):
         render_info = self.render_info
         assert isinstance(render_info, dict)
 
-        # expected = {"indices", "render_mask"}
-        # assert set(render_info.keys()) == expected, f"{render_info.keys()}"
         assert "indices" in set(render_info.keys()), f"{render_info.keys()}"
         assert "render_mask" in set(render_info.keys()), f"{render_info.keys()}"
 
@@ -650,7 +648,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         # We should be able to control the depth-write and depth_test of individual objects in the scene more flexibly.
         # So when render_info specifies this setting, we use it to override the default setting of "blender".
-        # todo: make stencil test also the same
+        # todo: make stencil test configurable too
         # todo: more depth test and stencil test options
         depth_write = self.render_info.get("depth_write", True)
         depth_test = self.render_info.get("depth_test", True)
