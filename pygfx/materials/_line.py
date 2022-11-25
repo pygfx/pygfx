@@ -59,11 +59,11 @@ class LineMaterial(Material):
         gives prettier results, but may affect performance for very large
         datasets. Default True.
         """
-        return self._aa
+        return self._store.aa
 
     @aa.setter
     def aa(self, aa):
-        self._aa = bool(aa)
+        self._store.aa = bool(aa)
 
     @property
     def vertex_colors(self):

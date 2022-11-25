@@ -15,7 +15,7 @@ Note that we may get a more streamlined way to implement post-processing effects
 import time
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from pygfx.renderers.wgpu import Binding
@@ -142,7 +142,7 @@ texture = gfx.Texture(dim=2, size=(640, 480, 1), format="rgba8unorm")
 renderer1 = gfx.renderers.WgpuRenderer(texture)
 scene = gfx.Scene()
 
-im = imageio.imread("imageio:astronaut.png").astype(np.float32) / 255
+im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
 
 geometry = gfx.box_geometry(200, 200, 200)

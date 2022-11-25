@@ -3,7 +3,7 @@ Render slices through a volume, by uploading to a 2D texture.
 Simple and ... slow.
 """
 
-import imageio
+import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -12,7 +12,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-vol = imageio.volread("imageio:stent.npz").astype("float32") / 2000
+vol = iio.imread("imageio:stent.npz").astype("float32") / 2000
 nslices = vol.shape[0]
 index = nslices // 2
 im = vol[index].copy()

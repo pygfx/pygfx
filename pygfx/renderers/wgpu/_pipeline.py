@@ -5,6 +5,7 @@ actual dispatching / drawing.
 """
 
 import wgpu
+import hashlib
 
 from ...resources import Buffer, TextureView
 from ...utils import logger
@@ -382,12 +383,12 @@ class PipelineContainer:
         """Update the actual wgpu objects."""
 
         if self.wgpu_shaders.get(env_hash, None) is None:
-
             environment.register_pipeline_container(self)  # allows us to clean up
             changed.add("compile_shader")
             self.wgpu_shaders[env_hash] = self._compile_shaders(
                 shared.device, environment
             )
+            self.wgpu_pipelines = {}  # Invalidate pipelines so new shaders get used
 
         if self.wgpu_pipelines.get(env_hash, None) is None:
             changed.add("compose_pipeline")
@@ -755,7 +756,7 @@ class Cache:
         # todo: cache more objects, like pipelines once we figure out how to clean things up
 
         assert isinstance(source, str)
-        key = source  # or hash(code)
+        key = hashlib.sha1(source.encode()).hexdigest()
 
         m = self.get(key)
         if m is None:

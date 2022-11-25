@@ -3,6 +3,10 @@ Quickly visualize world objects with as
 little boilerplate as possible.
 """
 
+import sys
+import numpy as np
+import warnings
+
 from .. import (
     Background,
     BackgroundMaterial,
@@ -11,56 +15,238 @@ from .. import (
     Scene,
     PerspectiveCamera,
     OrbitController,
-    Light,
     AmbientLight,
     DirectionalLight,
+    Light,
+    Camera,
 )
 
 
-def show(object: WorldObject, up=None):
-    """Visualize a given WorldObject in a new window with an interactive camera.
+class Display:
+    """A Helper to display an object or scene
 
-    Parameters:
-        object (WorldObject): The object to show.
-        up (Vector3): Optional. Configure the up vector for the camera controller.
+    This class provides the basic scaffolding needed to visualize a given
+    WorldObject. To do so the class chooses a sensible default for each part of
+    the full setup unless the value is explicitly set by the user or exists as a
+    child of ``object``. For example, it will create a camera unless you
+    explicitly set a value for camera or if there is (at least) one camera in
+    the scene.
+
+    Parameters
+    ----------
+    canvas : WgpuCanvas
+        The canvas used to display the object. If both ``renderer`` and
+        ``canvas`` are set, then the renderer needs to use the set canvas.
+    renderer : gfx.Renderer
+        The renderer to use while drawing the scene. If both ``renderer``
+        and ``canvas`` are set, then the renderer needs to use the set canvas.
+    controller : gfx.Controller
+        The camera controller to use.
+    camera : gfx.Camera
+        The camera to use. If not set, Display will use the first camera
+        in the scene graph. If there is none, Display will create one.
+    before_render : Callable
+        A callback that will be executed during each draw call before a new
+        render is made.
+    after_render : Callable
+        A callback that will be executed during each draw call after a new
+        render is made.
+    draw_function : Callable
+        Replaces the draw callback with a custom one. If set, both
+        `before_render` and `after_render` will have no effect.
+
     """
-    from wgpu.gui.auto import WgpuCanvas, run
 
-    if isinstance(object, Scene):
-        scene = object
-    else:
-        scene = Scene()
-        scene.add(object)
+    def __init__(
+        self,
+        canvas=None,
+        renderer=None,
+        controller=None,
+        camera=None,
+        before_render=None,
+        after_render=None,
+        draw_function=None,
+    ) -> None:
+        self.canvas = canvas
+        self.renderer = renderer
+        self.controller = controller
+        self.camera = camera
+        self.scene = None
+        self.before_render = before_render
+        self.after_render = after_render
+        self.draw_function = draw_function or self.default_draw
 
-        background = Background(None, BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
-        scene.add(background)
+    def default_draw(self):
+        if self.before_render is not None:
+            self.before_render()
 
-    camera = PerspectiveCamera(70, 16 / 9)
-    look_at = camera.show_object(object)
-    scene.add(camera)
+        self.controller.update_camera(self.camera)
+        self.renderer.render(self.scene, self.camera)
 
-    # Add lights if there are none
-    light_count = 0
+        if self.after_render is not None:
+            self.after_render()
 
-    def check_light(ob):
-        nonlocal light_count
-        if isinstance(ob, Light):
-            light_count += 1
+        self.renderer.request_draw()
 
-    scene.traverse(check_light, False)
-    if not light_count:
-        camera.add(DirectionalLight(0.8))
-        scene.add(AmbientLight(0.2))
+    def show(
+        self,
+        object: WorldObject,
+        up=None,
+    ):
+        """Display a WorldObject
 
-    canvas = WgpuCanvas()
-    renderer = WgpuRenderer(canvas)
+        This function provides you with the basic scaffolding to visualize a given
+        WorldObject in a new window. While it does add scaffolding, it aims to be
+        fully customizable so that you can replace each piece as needed.
 
-    controller = OrbitController(camera.position.clone(), look_at, up=up)
-    controller.add_default_event_handlers(renderer, camera)
+        Parameters
+        ----------
+        object : gfx.WorldObject
+            The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
+            then Display will wrap it into a new scene containing lights and a
+            background.
+        up : gfx.Vector3
+            If set, and ``object`` does not contain a controller, set the camera
+            controller's up vector to this value.
 
-    def animate():
-        controller.update_camera(camera)
-        renderer.render(scene, camera)
+        Notes
+        -----
+        If you want to display multiple objects, use :class:`gfx.Group
+        <pygfx.Group>` instead of :class:`gfx.Scene <pygfx.Scene>` if you
+        want lights and background to be added.
 
-    canvas.request_draw(animate)
-    run()
+        """
+
+        if isinstance(object, Scene):
+            custom_scene = False
+            scene = object
+        else:
+            custom_scene = True
+            scene = Scene()
+            scene.add(object)
+
+            dark_gray = np.array((169, 167, 168, 255)) / 255
+            light_gray = np.array((100, 100, 100, 255)) / 255
+
+            background = Background(None, BackgroundMaterial(light_gray, dark_gray))
+            scene.add(background)
+            scene.add(AmbientLight(), DirectionalLight())
+        self.scene = scene
+
+        if not any(self.find_children(Light)):
+            warnings.warn(
+                "Your scene does not contain any lights. Some objects may not be visible"
+            )
+
+        existing_cameras = self.find_children(Camera)
+        if self.camera:
+            pass
+        elif any(existing_cameras):
+            self.camera = existing_cameras[0]
+        elif custom_scene:
+            self.camera = PerspectiveCamera(70, 16 / 9)
+            self.camera.add(DirectionalLight())
+            self.scene.add(self.camera)
+        else:
+            self.camera = PerspectiveCamera(70, 16 / 9)
+
+        if self.renderer is None and self.canvas is None:
+            from wgpu.gui.auto import WgpuCanvas
+
+            self.canvas = WgpuCanvas()
+            self.renderer = WgpuRenderer(self.canvas)
+        elif self.renderer is not None:
+            self.canvas = self.renderer.target
+        elif self.canvas is not None:
+            self.renderer = WgpuRenderer(self.canvas)
+        elif self.canvas != self.renderer.target:
+            raise ValueError("Display's render target differs from it's canvas.")
+        else:
+            pass
+
+        if self.controller is None:
+            look_at = self.camera.show_object(object)
+            self.controller = OrbitController(
+                self.camera.position.clone(), look_at, up=up
+            )
+            self.controller.add_default_event_handlers(self.renderer, self.camera)
+
+        self.canvas.request_draw(self.draw_function)
+        sys.modules[self.canvas.__module__].run()
+
+    # this should probably live on WorldObject
+    def find_children(self, clazz):
+        """Return all children of the given type"""
+        objects = list()
+
+        # can we make traverse a generator?
+        # [x for x in self.scene.traverse(filter=lambda x: isinstance(x, clazz))
+        self.scene.traverse(
+            lambda x: objects.append(x) if isinstance(x, clazz) else None
+        )
+
+        return objects
+
+
+def show(
+    object: WorldObject,
+    up=None,
+    *,
+    canvas=None,
+    renderer=None,
+    controller=None,
+    camera=None,
+    before_render=None,
+    after_render=None,
+    draw_function=None,
+):
+    """Display a WorldObject
+
+    This function provides you with the basic scaffolding to visualize a given
+    WorldObject in a new window. While it does add scaffolding, it aims to be
+    fully customizable so that you can replace each piece as needed.
+
+    Parameters
+    ----------
+    object : gfx.WorldObject
+        The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
+        then Display will wrap it into a new scene containing lights and a
+        background.
+    up : gfx.Vector3
+        If set, and ``object`` does not contain a controller, set the camera
+        controller's up vector to this value.
+        canvas : WgpuCanvas
+        The canvas used to display the object. If both ``renderer`` and
+        ``canvas`` are set, then the renderer needs to use the set canvas.
+    canvas : WgpuCanvas
+        The canvas used to display the object. If both ``renderer`` and
+        ``canvas`` are set, then the renderer needs to use the set canvas.
+    renderer : gfx.Renderer
+        The renderer to use while drawing the scene. If both ``renderer``
+        and ``canvas`` are set, then the renderer needs to use the set canvas.
+    controller : gfx.Controller
+        The camera controller to use.
+    camera : gfx.Camera
+        The camera to use. If not set, Display will use the first camera
+        in the scene graph. If there is none, Display will create one.
+    before_render : Callable
+        A callback that will be executed during each draw call before a new
+        render is made.
+    after_render : Callable
+        A callback that will be executed during each draw call after a new
+        render is made.
+    draw_function : Callable
+        Replaces the draw callback with a custom one. If set, both
+        `before_render` and `after_render` will have no effect.
+
+    Notes
+    -----
+    If you want to display multiple objects, use :class:`gfx.Group
+    <pygfx.Group>` instead of :class:`gfx.Scene <pygfx.Scene>` if you
+    want lights and background to be added.
+
+    """
+
+    Display(
+        canvas, renderer, controller, camera, before_render, after_render, draw_function
+    ).show(object, up)

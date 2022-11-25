@@ -2,7 +2,7 @@
 Render three volumes using different world transforms.
 """
 
-import imageio
+import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -12,7 +12,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-voldata = imageio.volread("imageio:stent.npz").astype(np.float32)
+voldata = iio.imread("imageio:stent.npz").astype(np.float32)
 
 geometry = gfx.Geometry(grid=voldata)
 material = gfx.VolumeRayMaterial(clim=(0, 2000))
