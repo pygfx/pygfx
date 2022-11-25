@@ -4,7 +4,7 @@ import pygfx as gfx
 from pathlib import Path
 from wgpu.gui.auto import WgpuCanvas, run
 
-canvas = WgpuCanvas(size=(1280, 640))
+canvas = WgpuCanvas(size=(640, 640))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 camera = gfx.PerspectiveCamera(90, 1 / 1, 0.25, 20)
@@ -47,23 +47,12 @@ env_map = tex.get_view(
 )
 
 scene = gfx.Scene()
-background = gfx.Skybox(gfx.SkyboxMaterial(map=env_map))
-scene.add(
-    background
-)  # todo: make sure background is rendered first, We should handle it separately by setting the background attribute of the scene
-
-scene2 = gfx.Scene()
-background2 = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_map))
-scene2.add(background2)
+background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_map))
+scene.add(background)
 
 material = gfx.MeshStandardMaterial(roughness=0.01, metalness=1)
 material.side = "Front"
 material.env_map = env_map
-
-# mesh = gfx.Mesh(
-#     gfx.box_geometry(2, 2, 2),
-#     material,
-# )
 
 mesh = gfx.Mesh(
     gfx.sphere_geometry(2, 64, 64),
@@ -81,10 +70,7 @@ def animate():
     controller.update_camera(camera)
 
     scene.add(mesh)
-    renderer.render(scene, camera, rect=(0, 0, 640, 640), flush=False)
-
-    scene2.add(mesh)
-    renderer.render(scene2, camera, rect=(640, 0, 640, 640))
+    renderer.render(scene, camera)
     renderer.request_draw(animate)
 
 

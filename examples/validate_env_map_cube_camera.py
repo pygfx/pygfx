@@ -1,13 +1,12 @@
 # test_example = true
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 import pygfx as gfx
 from pathlib import Path
 from wgpu.gui.auto import WgpuCanvas, run
-from pygfx.linalg import Vector3
 
-# from pygfx.utils.cube_camera import CubeCamera
+from pygfx.utils.cube_camera import CubeCamera
 
 canvas = WgpuCanvas(size=(800, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -19,7 +18,7 @@ env_map_path = Path(__file__).parent / "textures" / "cubemap.jpg"
 
 datas = []
 
-data = imageio.imread(Path(env_map_path), pilmode="RGBA")
+data = iio.imread(Path(env_map_path))
 
 h = data.shape[0] // 3
 w = data.shape[1] // 4
@@ -53,42 +52,13 @@ env_map = tex.get_view(
 )
 
 scene = gfx.Scene()
-background = gfx.Skybox(gfx.SkyboxMaterial(map=env_map))
+background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_map))
 scene.add(background)
 
-# cube_camera = CubeCamera()
-# camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = cube_camera.children
-
-# todo: use CubeCamera instead when it's ready
-
-fov = 90
-aspect = 1
-near = 0.1
-far = 100
-
-camera_px = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera_px.up.set(0, 1, 0)
-camera_px.look_at(Vector3(-1, 0, 0))
-
-camera_nx = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera_nx.up.set(0, 1, 0)
-camera_nx.look_at(Vector3(1, 0, 0))
-
-camera_py = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera_py.up.set(0, 0, -1)
-camera_py.look_at(Vector3(0, 1, 0))
-
-camera_ny = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera_ny.up.set(0, 0, 1)
-camera_ny.look_at(Vector3(0, -1, 0))
-
-camera_pz = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera_pz.up.set(0, 1, 0)
-camera_pz.look_at(Vector3(0, 0, 1))
-
-camera_nz = gfx.PerspectiveCamera(fov, aspect, near, far)
-camera_nz.up.set(0, 1, 0)
-camera_nz.look_at(Vector3(0, 0, -1))
+cube_camera = CubeCamera(
+    gfx.Texture(None, dim=2, size=(0, 0, 6), format="rgba8unorm-srgb")
+)
+camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = cube_camera.children
 
 
 def animate():
@@ -104,5 +74,4 @@ renderer.request_draw(animate)
 
 
 if __name__ == "__main__":
-    # renderer.request_draw(animate)
     run()

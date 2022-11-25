@@ -29,7 +29,6 @@ from ._background import (
     BackgroundMaterial,
     BackgroundImageMaterial,
     BackgroundSkyboxMaterial,
-    SkyboxMaterial,
 )
 
 

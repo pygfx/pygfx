@@ -20,6 +20,7 @@ from ...objects import (
     WheelEvent,
     WindowEvent,
     WorldObject,
+    Background,
 )
 from ...cameras import Camera
 from ...resources import Texture, TextureView
@@ -461,12 +462,27 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Get the list of objects to render, as they appear in the scene graph
         wobject_list = []
-        scene.traverse(wobject_list.append, True)
+
+        # todo: We can use `scene.background` to process the background separately
+        background = None
+
+        def _get_wobjects(obj):
+            if isinstance(obj, Background):
+                nonlocal background
+                background = obj
+            else:
+                wobject_list.append(obj)
+
+        scene.traverse(_get_wobjects, True)
 
         # Sort objects
         if self.sort_objects:
             sort_func = _get_sort_function(camera)
             wobject_list.sort(key=sort_func)
+
+        # Make sure background is rendered first
+        if background:
+            wobject_list.insert(0, background)
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []

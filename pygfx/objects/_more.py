@@ -15,11 +15,6 @@ class Scene(Group):
     fog, and environment map. Camera's and lights can also be part of a scene.
     """
 
-    def __init__(self, background=None, environment=None):
-        super().__init__()
-        self._background = background
-        self._environment = environment
-
 
 class Background(WorldObject):
     """An object representing a scene background.

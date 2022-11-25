@@ -2,9 +2,14 @@ import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ._utils import to_texture_format
-from ...objects import Background, Skybox
-from ...materials import BackgroundMaterial, BackgroundImageMaterial, SkyboxMaterial
+from ...objects import Background
+from ...materials import (
+    BackgroundMaterial,
+    BackgroundImageMaterial,
+    BackgroundSkyboxMaterial,
+)
 from ...resources import Texture, TextureView
+from ...geometries import box_geometry
 
 
 @register_wgpu_render_function(Background, BackgroundMaterial)
@@ -163,16 +168,19 @@ class BackgroundShader(WorldObjectShader):
         """
 
 
-@register_wgpu_render_function(Skybox, SkyboxMaterial)
+@register_wgpu_render_function(Background, BackgroundSkyboxMaterial)
 class SkyboxShader(WorldObjectShader):
 
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
+    box = box_geometry(1, 1, 1)
+
     def get_bindings(self, wobject, shared):
 
         material = wobject.material
-        geometry = wobject.box
+
+        geometry = self.box
 
         bindings = []
         bindings.append(Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer))
@@ -206,7 +214,7 @@ class SkyboxShader(WorldObjectShader):
         }
 
     def get_render_info(self, wobject, shared):
-        geometry = wobject.box
+        geometry = self.box
 
         n = geometry.indices.data.size
         n_instances = 1
