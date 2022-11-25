@@ -1,6 +1,5 @@
 from ._base import WorldObject
 from ..utils import unpack_bitfield
-from ..geometries import box_geometry
 
 
 class Group(WorldObject):
@@ -25,14 +24,6 @@ class Background(WorldObject):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
         super().__init__(None, material, **kwargs)
-
-
-class Skybox(WorldObject):
-    """A skybox is a WorldObject that is rendered as the background of a scene."""
-
-    def __init__(self, material=None):
-        super().__init__(material=material)
-        self.box = box_geometry(1, 1, 1)
 
 
 class Line(WorldObject):
