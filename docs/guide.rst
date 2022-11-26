@@ -98,26 +98,25 @@ instead of an `Object`, so the result will look a little different::
 
 .. image:: _static/guide_static_cube.png
 
-This happens because a complete `Scene` can be rendered as-is, whereas an `Object` can
-not. As such, `gfx.show` will, when given an `Object`, create a new scene for
-us, add the missing lights, a camera, and a background (for visual appeal),
-place the object into the scene and then render the result. When given a
-`Scene`, on the other hand, it will use the input as-is, allowing you to see
+This happens because a complete `Scene` can be rendered as-is, whereas an
+`Object` can not. As such, `gfx.show` will, when given an `Object`, create a new
+scene for us, add the missing lights, a camera, and a background (for visual
+appeal), place the object into the scene and then render the result. When given
+a `Scene`, on the other hand, it will use the input as-is, allowing you to see
 exactly what you've created and potentially spot any problems.
 
 **Canvases**
 
 The second main building block is the `Canvas`. A `Canvas` provides the surface
-onto which the scene should be rendered, and to use it you directly import it
+onto which the scene should be rendered, and to use it we directly import it
 from wgpu-py (on top of which pygfx is built). Wgpu-py has several canvases that
 we can choose from, but for starters the most important one is ``auto``, which
 automatically selects an appropriate backend to create a window on your screen::
 
-    # @almarklein: Can we provide a more meaningful example
     import pygfx as gfx
     from wgpu.gui.auto import WgpuCanvas
 
-    canvas = WgpuCanvas()
+    canvas = WgpuCanvas(size=(200, 200), title="A cube!")
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
@@ -128,17 +127,13 @@ automatically selects an appropriate backend to create a window on your screen::
 
 .. image:: _static/guide_hello_world.png
 
-If you run the above, you will notice that it looks exactly the same as our
-introductory example. Just as with a `Scene` above, `gfx.show` will create a
-`Canvas` for you unless you provide it explicitly, and by default this uses the
-``auto`` backend and hence we won't see any changes.
-
-Why then would we explicitly provide a `Canvas`? Well, beyond the `Canvas`
-itself a backend also provides an event loop. This event loop allows us to
-animate the scene or build a GUI by registering callbacks. To ensure that this
-works correctly we need to use the same backend for both the event loop and the
-`Canvas` and, for more complex scenarios, we may thus wish to create the
-`Canvas` explicitly.
+Like before, ``gfx.show`` will automatically create a canvas if we don't provide
+one explicitly. This works fine for quick visualizations where the render can
+appear as a standalone window. However, if we want to have more fine-graned
+control over the target, e.g., because we want to change the window size or
+title, we need specify the canvas explicitly. Another common use-case for an
+explicit canvas is because we are creating a larger GUI and we want the render
+to only appear in a subwidget of the full window.
 
 **Renderers**
 
