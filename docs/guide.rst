@@ -160,9 +160,9 @@ any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
 
 .. image:: _static/guide_hello_world.png
 
-As you may expect by now, the output is the same as without the explicit
-reference because `gfx.show` will create a renderer if you don't provide it. For
-many applications this is perfectly fine; however, if we want to tackle more
+The output is the same as without the explicit reference because `gfx.show`
+will, as you may expect at this point, create a renderer if we don't provide it.
+For many applications this is perfectly fine; however, if we want to tackle more
 advanced problems (e.g., control the exact process on how objects appear to
 overlay each other) we may need to create it explicitly. For starters, it is
 enough to know that it exists and what it does, so that we can come back to it
