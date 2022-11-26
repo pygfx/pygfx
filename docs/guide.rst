@@ -49,7 +49,7 @@ library::
 
 .. image:: _static/guide_hello_world.png
 
-And with that we rendered our first scene using vulcan! Simple, right? At the same
+And with that we rendered our first scene using wgpu! Simple, right? At the same
 time, this is just scratching the surface of what we can do with pygfx and next
 up we will have a look at the three main building blocks involved in creating
 more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
@@ -98,20 +98,20 @@ instead of an `Object`, so the result will look a little different::
 
 .. image:: _static/guide_static_cube.png
 
-This happens because a `Scene` can be rendered as-is, whereas an `Object` can
+This happens because a complete `Scene` can be rendered as-is, whereas an `Object` can
 not. As such, `gfx.show` will, when given an `Object`, create a new scene for
 us, add the missing lights, a camera, and a background (for visual appeal),
 place the object into the scene and then render the result. When given a
-`Scene`, on the other hand, it can use the input as-is, allowing you to see
+`Scene`, on the other hand, it will use the input as-is, allowing you to see
 exactly what you've created and potentially spot any problems.
 
 **Canvases**
 
 The second main building block is the `Canvas`. A `Canvas` provides the surface
-onto which the scene should be rendered and to use it you directly import it
+onto which the scene should be rendered, and to use it you directly import it
 from wgpu-py (on top of which pygfx is built). Wgpu-py has several canvases that
-we can choose from, but for starters the most important ones is ``auto``, which
-automatically selects an appropriate backend to talk to the GPU and the OS::
+we can choose from, but for starters the most important one is ``auto``, which
+automatically selects an appropriate backend to create a window on your screen::
 
     # @almarklein: Can we provide a more meaningful example
     import pygfx as gfx
