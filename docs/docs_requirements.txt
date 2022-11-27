@@ -5,3 +5,6 @@ jinja2
 sphinx-gallery
 imageio
 matplotlib
+imageio-ffmpeg>=0.4.7
+scikit-image
+trimesh
