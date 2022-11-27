@@ -80,7 +80,7 @@ def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
     """Run every example marked for testing."""
 
     # render
-    example = importlib.import_module(f"examples.{module}")
+    example = importlib.import_module(f"examples.validation.{module}")
     img = example.renderer.target.draw()
 
     # check if _something_ was rendered
