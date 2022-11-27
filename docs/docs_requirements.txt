@@ -3,4 +3,4 @@ numpy
 wgpu
 jinja2
 sphinx-gallery
-
+imageio
