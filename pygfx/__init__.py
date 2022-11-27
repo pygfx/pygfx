@@ -18,7 +18,7 @@ from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils import cm, logger
 
-from .scraper import _get_sg_image_scraper
+from .utils.gallery_scraper import _get_sg_image_scraper
 
 
 __version__ = "0.1.9"

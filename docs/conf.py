@@ -83,6 +83,7 @@ sphinx_gallery_conf = {
             "../examples/validation",
         ]
     ),
+    "remove_config_comments": True,
 }
 
 
