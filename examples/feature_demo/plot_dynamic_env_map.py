@@ -6,6 +6,8 @@ This example shows a dynamic environment map used for MeshStandardMaterial.
 The environment map is automatically be updated from the scene by a CubeCamera.
 """
 
+# sphinx_gallery_pygfx_render = True
+
 import time
 import math
 
