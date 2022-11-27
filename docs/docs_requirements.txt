@@ -4,3 +4,4 @@ wgpu
 jinja2
 sphinx-gallery
 imageio
+matplotlib
