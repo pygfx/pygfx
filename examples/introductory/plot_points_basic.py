@@ -5,6 +5,7 @@ Rendering Points
 
 Render Points
 """
+# sphinx_gallery_pygfx_render = True
 
 
 import numpy as np

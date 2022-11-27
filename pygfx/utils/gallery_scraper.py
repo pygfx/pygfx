@@ -14,7 +14,7 @@ from ..renderers import Renderer
 default_config = {
     "render": False,  # if True, render an image
     "animate": False,  # if True, render a GIF (TODO)
-    "target_name": "disp",  # the display to use
+    "target_name": "renderer",  # the display to use
     # GIF settings
     "duration": 3,  # how many seconds to record
     "loop": 0,  # loop forever
