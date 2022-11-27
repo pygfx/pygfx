@@ -4,6 +4,7 @@ Synced Video Rendering
 
 Example demonstrating synced video rendering
 """
+# sphinx_gallery_pygfx_render = True
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

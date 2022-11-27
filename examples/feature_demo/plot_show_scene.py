@@ -4,6 +4,8 @@ Use gfx.show to show a Scene
 
 Demonstrates show utility for a scene
 """
+# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_target_name = "disp"
 
 import imageio.v3 as iio
 import pygfx as gfx
@@ -24,4 +26,5 @@ background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1,
 scene.add(background)
 
 if __name__ == "__main__":
-    gfx.show(scene)
+    disp = gfx.Display()
+    disp.show(scene)

@@ -5,6 +5,8 @@ Flat Shading
 Example showing a Torus knot, using flat shading.
 """
 
+# sphinx_gallery_pygfx_render = True
+
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 

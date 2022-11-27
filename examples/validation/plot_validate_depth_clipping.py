@@ -37,6 +37,8 @@ else:
 
 # %% Create four planes near the z-clipping planes
 
+# sphinx_gallery_pygfx_render = True
+
 geometry = gfx.plane_geometry(1, 1)
 green_material = gfx.MeshBasicMaterial(color=(0, 0.8, 0.2, 1))
 greener_material = gfx.MeshBasicMaterial(color=(0, 1, 0, 1))

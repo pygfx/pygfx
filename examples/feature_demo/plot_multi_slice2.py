@@ -8,6 +8,7 @@ This example uses Volume object with a VolumeSliceMaterial, which
 produces an implicit geometry defined by the volume data.
 See multi_slice1.py for a more generic approach.
 """
+# sphinx_gallery_pygfx_render = True
 
 from time import time
 

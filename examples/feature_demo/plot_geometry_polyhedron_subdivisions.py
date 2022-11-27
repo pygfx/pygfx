@@ -5,6 +5,9 @@ Subdivision
 Example showing subdivided polyhedrons.
 """
 
+# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_target_name = "disp"
+
 import pygfx as gfx
 
 
@@ -23,4 +26,5 @@ scene.add(background)
 
 
 if __name__ == "__main__":
-    gfx.show(scene, up=gfx.linalg.Vector3(0, 0, 1))
+    disp = gfx.Display()
+    disp.show(scene, up=gfx.linalg.Vector3(0, 0, 1))

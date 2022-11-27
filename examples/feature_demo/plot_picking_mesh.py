@@ -5,6 +5,7 @@ Mesh Picking
 Example showing picking a mesh. Showing two meshes that can be clicked
 on. Upon clicking, the vertex closest to the pick location is moved.
 """
+# sphinx_gallery_pygfx_render = True
 
 # todo: if we have per-vertex coloring, we can paint on the mesh instead :D
 

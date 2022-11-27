@@ -128,6 +128,8 @@ class TriangleShader(WorldObjectShader):
 
 # %% Setup scene
 
+# sphinx_gallery_pygfx_render = True
+
 renderer = gfx.WgpuRenderer(WgpuCanvas())
 camera = gfx.OrthographicCamera(10, 10)
 

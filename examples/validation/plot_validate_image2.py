@@ -9,6 +9,7 @@ Show an image displayed the correct way.
 * The darker corner is in the bottom left.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

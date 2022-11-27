@@ -5,6 +5,8 @@ Geometry Image
 Show an image.
 """
 
+# sphinx_gallery_pygfx_render = True
+
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

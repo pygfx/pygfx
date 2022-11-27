@@ -5,6 +5,7 @@ Line Segments
 
 Display line segments. Can be useful e.g. for visializing vector fields.
 """
+# sphinx_gallery_pygfx_render = True
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

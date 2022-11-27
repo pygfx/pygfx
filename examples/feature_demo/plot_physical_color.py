@@ -10,6 +10,7 @@ This example shows how you can also provide colors in physical colorspace
 * An image in physical colorspace, shows up too dark.
 * An image in physical colorspace, rendered correctly.
 """
+# sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

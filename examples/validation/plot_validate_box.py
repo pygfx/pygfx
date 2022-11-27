@@ -5,6 +5,7 @@ Box Geometry
 Example showing the box geometry.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

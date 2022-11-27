@@ -7,6 +7,8 @@ this is still performant.
 """
 # run_example = false - because it takes too long and times out
 
+# sphinx_gallery_pygfx_render = True
+
 import time  # noqa
 
 import numpy as np

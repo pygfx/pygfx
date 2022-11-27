@@ -104,6 +104,8 @@ class DepthShader(MeshShader):
 
 # %% Setup scene
 
+# sphinx_gallery_pygfx_render = True
+
 renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
 camera = gfx.PerspectiveCamera(45, 640 / 480, 8, 12)
 camera.position.z = 10

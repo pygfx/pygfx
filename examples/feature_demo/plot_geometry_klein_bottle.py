@@ -5,6 +5,8 @@ Klein Bottle Geometry
 Example showing a Klein Bottle.
 """
 
+# sphinx_gallery_pygfx_render = True
+
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 

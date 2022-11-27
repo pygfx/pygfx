@@ -11,6 +11,7 @@ But the plane gemeometry is such that it is reversed again.
 * The darker corner is in the top left.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

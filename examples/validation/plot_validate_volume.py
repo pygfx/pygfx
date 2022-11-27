@@ -8,6 +8,7 @@ Render a volume and volume slices. You should see:
 * The volume has its corners darker and its very center is brighter.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

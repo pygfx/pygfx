@@ -9,6 +9,7 @@ Example showing the axes and grid helpers with a perspective camera.
 * The red box fits snugly around the grid.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

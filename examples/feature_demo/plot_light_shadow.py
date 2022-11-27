@@ -6,6 +6,7 @@ Directional Shadow 2
 This example demonstrates the effects of directional light shadows (from
 DirectionalLight) and omnidirectional shadows (from PointLight).
 """
+# sphinx_gallery_pygfx_render = True
 
 import time
 import math

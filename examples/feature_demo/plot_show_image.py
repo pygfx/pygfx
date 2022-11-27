@@ -4,6 +4,7 @@ Show Image
 
 Use camera.show_object to ensure the Image is in view.
 """
+# sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

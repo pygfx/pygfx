@@ -7,6 +7,7 @@ Example showing a 3D scene with a 2D overlay.
 The idea is to render both scenes, but clear the depth before rendering
 the overlay, so that it's always on top.
 """
+# sphinx_gallery_pygfx_render = True
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

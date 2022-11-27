@@ -84,6 +84,8 @@ class SquareShader(WorldObjectShader):
 
 # %% Setup scene
 
+# sphinx_gallery_pygfx_render = True
+
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas)
 

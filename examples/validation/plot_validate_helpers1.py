@@ -10,6 +10,7 @@ Example showing the axes helper.
 * The blue axes (z) is not visible.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

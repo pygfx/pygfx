@@ -5,6 +5,8 @@ Colormap Image
 Example demonstrating different colormap dimensions on an image.
 """
 
+# sphinx_gallery_pygfx_render = True
+
 import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

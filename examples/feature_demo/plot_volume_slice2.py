@@ -5,6 +5,7 @@ Volume Slice 2
 Render slices through a volume, by creating a 3D texture, with 2D views.
 Simple and relatively fast, but no subslices.
 """
+# sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

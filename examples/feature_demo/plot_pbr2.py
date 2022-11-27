@@ -7,6 +7,7 @@ This example shows the lighting rendering affect of materials with different
 metalness and roughness. Every second sphere has an IBL environment map on it.
 """
 # run_example = false
+# sphinx_gallery_pygfx_render = True
 
 import time
 import math

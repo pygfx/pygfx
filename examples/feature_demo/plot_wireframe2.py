@@ -6,6 +6,7 @@ Example showing a Torus knot, as a wireframe. We create two wireframes,
 one for the front, bright blue and lit, and one for the back, unlit and
 gray.
 """
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

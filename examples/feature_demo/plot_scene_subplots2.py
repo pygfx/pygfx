@@ -4,6 +4,7 @@ Subplots 2
 
 Like scene_side_by_side, but now with a more plot-like idea, and mouse interaction.
 """
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

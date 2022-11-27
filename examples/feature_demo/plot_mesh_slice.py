@@ -4,6 +4,7 @@ Mesh Slice Material
 
 Example showing off the mesh slice material.
 """
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

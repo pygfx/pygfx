@@ -16,6 +16,8 @@ scene = gfx.Scene()
 
 # %% add image
 
+# sphinx_gallery_pygfx_render = True
+
 im = iio.imread("imageio:astronaut.png")
 
 image = gfx.Image(

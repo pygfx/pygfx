@@ -25,6 +25,8 @@ scene.add(image)
 
 # %% add points
 
+# sphinx_gallery_pygfx_render = True
+
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
 

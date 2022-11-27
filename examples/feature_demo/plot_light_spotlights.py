@@ -6,6 +6,7 @@ Spotlights
 
 Spotlights example.
 """
+# sphinx_gallery_pygfx_render = True
 
 import time
 import math
@@ -147,8 +148,9 @@ def init_scene():
         renderer.request_draw()
 
     renderer.request_draw(animate)
+    return renderer
 
 
 if __name__ == "__main__":
-    init_scene()
+    renderer = init_scene()
     run()

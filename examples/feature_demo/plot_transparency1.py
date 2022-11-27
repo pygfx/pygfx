@@ -6,6 +6,7 @@ Example showing transparency using three overlapping planes.
 Press space to toggle the order of the planes.
 Press 1-6 to select the blend mode.
 """
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

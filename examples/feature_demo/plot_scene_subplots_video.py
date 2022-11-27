@@ -5,6 +5,7 @@ Subplots Video
 An example combining `synced_video.py` with subplots.
 Double click to re-center the images.
 """
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
