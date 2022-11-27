@@ -1,1 +1,1 @@
-.. rubric:: Feature Examples
+.. rubric:: Feature Demos

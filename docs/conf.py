@@ -81,6 +81,7 @@ sphinx_gallery_conf = {
             "../examples/introductory",
             "../examples/feature_demo",
             "../examples/validation",
+            "../examples/other",
         ]
     ),
     "remove_config_comments": True,
