@@ -14,7 +14,7 @@ Some parts of the architecture are not settled yet, and several decisions about
 the API are yet to be made. Further the API is not complete yet.
 
 1. **Try the examples**: in any case, the examples should work. Try them out and
-   report a big if one does not work. This helps us improve the stability of Pygfx.
+   report a bug if one does not work. This helps us improve the stability of Pygfx.
 1. **Play with it**: If you're up for it, try to create your own visualizations
    with Pygfx, and let us know if you run into problems or if you have suggestions
    about the API. This will help us set the direction of the API.
