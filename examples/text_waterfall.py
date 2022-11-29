@@ -47,7 +47,7 @@ text_material = gfx.TextMaterial(color="#06E", screen_space=True)
 
 for i in range(100):
     obj = gfx.Text(
-        gfx.TextGeometry(next(chargen), font_size=18),
+        gfx.TextGeometry(" ", font_size=18),
         text_material,
     )
     scene.add(obj)

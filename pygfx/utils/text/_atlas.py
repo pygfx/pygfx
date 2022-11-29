@@ -202,7 +202,9 @@ class GlyphAtlas(RectPacker):
         infos2[: infos1.shape[0]] = infos1
 
     def _set_new_glyphs_array(self, size):
-        """Create a new array to store the glyphs."""
+        """Pack all glyphs up in a new array. If the size is unchanged,
+        repacks the glyphs in the current array.
+        """
         assert size > 0
 
         if size == self._array.shape[0]:
@@ -398,9 +400,10 @@ class PyGfxGlyphAtlas(GlyphAtlas):
         if self._array is not array:
             self._texture = Texture(self._array, dim=2)
             self._texture_view = self._texture.get_view(filter="linear")
-        # Schedule an update
+        # Schedule an update. Note that the infos array is updated due to repacking.
         w, h = self._array.shape[1], self._array.shape[0]
         self._texture.update_range((0, 0, 0), (w, h, 1))
+        self._infos_buffer.update_range(0, self._infos.shape[0])
 
     def _set_new_infos_array(self, *args):
         # Do the normal behavior
