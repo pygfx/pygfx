@@ -143,7 +143,6 @@ artist that brings all of the above together. It looks at the `Scene` through a
 any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
 `Renderer` we also need to create a `Canvas`::
 
-    # @almarklein: Can we provide a more meaningful example
     import pygfx as gfx
     from wgpu.gui.auto import WgpuCanvas
 
@@ -167,9 +166,6 @@ advanced problems (e.g., control the exact process on how objects appear to
 overlay each other) we may need to create it explicitly. For starters, it is
 enough to know that it exists and what it does, so that we can come back to it
 later when it becomes relevant.
-
-(@almarklein: Do we have examples that customize the renderer that we could
-reference here?)
 
 Animations
 ----------
