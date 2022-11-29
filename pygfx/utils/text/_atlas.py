@@ -341,10 +341,11 @@ class GlyphAtlas(RectPacker):
 
     def free_region(self, index):
         """Free up a region slot."""
-        # Note that the array data is not nullified
-        index = int(index)
+        # We mask the index to only use the first 24 bits. In PyGfx we use
+        # the upper 8 bits to store font-prop info for the shader.
+        index = int(index) & 0x0FFF
         with self._lock:
-            # Clear the region data
+            # Zero out the region data
             if self.clear_free_regions:
                 self.set_region(index, 0)
             # Free in data structure

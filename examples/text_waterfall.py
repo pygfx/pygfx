@@ -73,11 +73,9 @@ def animate():
             if garbage_collect:
                 all_indices = set()
                 for x in live_objects:
-                    all_indices.update(
-                        int(index) & 0x0FFF for index in x.geometry.indices.data
-                    )
+                    all_indices.update(int(index) for index in x.geometry.indices.data)
                 for index in obj.geometry.indices.data:
-                    index = int(index) & 0x0FFF
+                    index = int(index)
                     if index not in all_indices:
                         glyph_atlas.free_region(index)
 

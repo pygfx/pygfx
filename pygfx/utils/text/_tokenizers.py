@@ -4,7 +4,7 @@ text_prog = re.compile(r"\s+")
 
 
 def tokenize_text(text):
-    """Splits the text in pieces of whitespace and non-whitespace."""
+    """Splits the text in pieces of "ws" and "other" (whitespace and non-whitespace)."""
     pos = 0
     while True:
         match = text_prog.search(text, pos)
@@ -20,7 +20,7 @@ def tokenize_text(text):
             yield "other", other
 
         s = match.group()
-        yield "space", s
+        yield "ws", s
         pos = match.end()
 
 
@@ -29,7 +29,7 @@ markdown_prog = re.compile(r"(\s)+|(\d|\w|-|_)+|(\*)+|(" + punctuation + ")")
 
 
 def tokenize_markdown(text):
-    """Splits the text in pieces of: whitespace, words, stars, punctuation, other."""
+    """Splits the text in pieces of: ws, words, stars, punctuation, other."""
     pos = 0
     while True:
         match = markdown_prog.search(text, pos)
@@ -47,7 +47,7 @@ def tokenize_markdown(text):
         s = match.group()
 
         if match.group(1):
-            yield "space", s
+            yield "ws", s
         elif match.group(2):
             yield "word", s
         elif match.group(3):

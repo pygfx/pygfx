@@ -31,8 +31,8 @@ class TextItem:
         text,
         font_props=None,
         *,
-        whitespace_before="",
-        whitespace_after="",
+        ws_before="",
+        ws_after="",
         allow_break=True,
     ):
 
@@ -43,8 +43,8 @@ class TextItem:
         self._font_props = font_props
 
         self._text = text
-        self._whitespace_before = whitespace_before
-        self._whitespace_after = whitespace_after
+        self._ws_before = ws_before
+        self._ws_after = ws_after
         self._allow_break = bool(allow_break)
 
     @property
@@ -60,13 +60,14 @@ class TextItem:
 class GlyphItem:
     """A small collection of glyphs that represents a piece of text. Intended for internal use only."""
 
-    def __init__(self, positions, indices, width, meta):
+    def __init__(self, positions, indices, meta):
         # Arrays with glyph data
         self.positions = positions
         self.indices = indices
         # Layout data
-        self.width = width
         self.meta = meta
+        self.width = meta["width"]
+        self.direction = meta["direction"]
         self.allow_break = False
         self.margin_before = 0
         self.margin_after = 0
@@ -167,25 +168,19 @@ class TextGeometry(Geometry):
             # Text rendering steps: font selection, shaping, glyph generation
             text_pieces = self._select_font(item.text, item.font_props.family)
             for text, font in text_pieces:
-                glyph_indices, positions, full_width, meta = self._shape_text(
-                    text, font.filename
-                )
+                glyph_indices, positions, meta = self._shape_text(text, font.filename)
                 atlas_indices = self._generate_glyph(glyph_indices, font.filename)
                 self._encode_font_props_in_atlas_indices(atlas_indices, item.font_props)
-                glyph_items.append(
-                    GlyphItem(positions, atlas_indices, full_width, meta)
-                )
+                glyph_items.append(GlyphItem(positions, atlas_indices, meta))
 
             # Get whitespace after and before the text
             margin_before = margin_after = 0
-            if item._whitespace_before:
-                _, _, margin_before, _ = self._shape_text(
-                    item._whitespace_before, text_pieces[0][1].filename
-                )
-            if item._whitespace_after:
-                _, _, margin_after, _ = self._shape_text(
-                    item._whitespace_after, text_pieces[-1][0].filename
-                )
+            if item._ws_before:
+                meta = self._shape_text(item._ws_before, text_pieces[0][1].filename)[2]
+                margin_before = meta["width"]
+            if item._ws_after:
+                meta = self._shape_text(item._ws_after, text_pieces[-1][1].filename)[2]
+                margin_after = meta["width"]
 
             # Set props so these items will be grouped correctly
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
@@ -197,10 +192,10 @@ class TextGeometry(Geometry):
         i = 0
         while i < len(glyph_items) - 1:
             item = glyph_items[i]
-            if item.meta["direction"] == "rtl":
+            if item.direction == "rtl":
                 i1 = i2 = i
                 for j in range(i + 1, len(glyph_items)):
-                    if item.meta["direction"] != "rtl":
+                    if item.direction != "rtl":
                         break
                     i2 = j
                 if i1 != i2:
@@ -273,15 +268,15 @@ class TextGeometry(Geometry):
         items = []
         pending_witespace = None
         for kind, piece in textmodule.tokenize_text(text):
-            if kind == "whitespace":
+            if kind == "ws":
                 if not items:
                     pending_witespace = piece
                 else:
-                    items[-1]._whitespace_after += piece
+                    items[-1]._ws_after += piece
             else:
                 items.append(TextItem(piece, font_props))
                 if pending_witespace:
-                    items[-1]._whitespace_before += pending_witespace
+                    items[-1]._ws_before += pending_witespace
                     pending_witespace = None
 
         self.set_text_items(items)
@@ -301,8 +296,8 @@ class TextGeometry(Geometry):
         pieces = list(textmodule.tokenize_markdown(text))
 
         # Put a virtual zero-char space in front and at the end, to make the alg simpler
-        pieces.insert(0, ("space", ""))
-        pieces.append(("space", ""))
+        pieces.insert(0, ("ws", ""))
+        pieces.append(("ws", ""))
 
         # Prepare font props
         font_props = textmodule.FontProps(family=family)
@@ -313,8 +308,8 @@ class TextGeometry(Geometry):
         for i in range(len(pieces)):
             kind, piece = pieces[i]
             if kind == "stars":
-                prev_is_wordlike = pieces[i - 1][0] not in ("space", "punctuation")
-                next_is_wordlike = pieces[i + 1][0] not in ("space", "punctuation")
+                prev_is_wordlike = pieces[i - 1][0] not in ("ws", "punctuation")
+                next_is_wordlike = pieces[i + 1][0] not in ("ws", "punctuation")
                 if not prev_is_wordlike and next_is_wordlike:
                     # Might be a beginning
                     if piece == "**" and not bold_start:
@@ -355,7 +350,7 @@ class TextGeometry(Geometry):
     # %%%%% Shaping
 
     def _shape_text(self, text, font_filename):
-        """The shaping step. Returns (glyph_indices, positions, full_width, meta).
+        """The shaping step. Returns (glyph_indices, positions, meta).
         Can be overloaded for custom behavior.
         """
         return textmodule.shape_text(text, font_filename)
