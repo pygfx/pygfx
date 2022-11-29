@@ -1,4 +1,5 @@
 import imageio.v3 as iio
+from pathlib import Path
 
 from .show import Display
 from ..renderers import Renderer
@@ -80,7 +81,15 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         images.append(img_path)
 
     if scraper_config["animate"]:
-        pass  # TODO: code to generate an ainmated GIF
+        frames = []
+        n_frames = scraper_config["duration"] * 30
+        for _ in range(n_frames):
+            frames.append(canvas.draw())
+
+        path_generator = block_vars["image_path_iterator"]
+        img_path = Path(next(path_generator)).with_suffix(".gif")
+        iio.imwrite(img_path, frames, duration=40, loop=scraper_config["loop"])  # write at 25Hz
+        images.append(img_path)
 
     return figure_rst(images, gallery_conf["src_dir"])
 
