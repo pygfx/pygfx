@@ -46,6 +46,15 @@ weight_dict = {
 }
 
 
+style_dict = {
+    "normal": "normal",
+    "regular": "normal",
+    "italic": "italic",
+    "oblique": "oblique",
+    "slanted": "oblique",
+}
+
+
 class FontProps:
     """
     A class for storing font properties.
@@ -61,10 +70,6 @@ class FontProps:
         weight (float, str): A numeric value in the range 100-900 or one of
             'ultralight', 'light', 'normal', 'regular', 'medium',
             'semibold', 'demibold', 'bold', 'extra bold', 'black'.
-        stretch (float, str): A numeric value in the range 0-1000 or one of
-            'ultra-condensed', 'extra-condensed', 'condensed',
-            'semi-condensed', 'normal', 'semi-expanded', 'expanded',
-            'extra-expanded' or 'ultra-expanded'.
     """
 
     def __init__(
@@ -73,31 +78,50 @@ class FontProps:
         *,
         style=None,
         weight=None,
-        stretch=None,
     ):
+
+        # Check family
         if family is None:
             family = font_manager.get_default_font_props().family
+        else:
+            if not isinstance(family, str):
+                cls = type(family).__name__
+                raise TypeError(f"Font family must be str, not '{cls}'")
+
+        # Check style
         if style is None:
             style = font_manager.get_default_font_props().style
+        else:
+            if not isinstance(style, str):
+                cls = type(style).__name__
+                raise TypeError("Font style must be str, not '{cls}'")
+            try:
+                style = style_dict[style.lower()]
+            except KeyError:
+                raise TypeError(f"Style string not known: '{style}'")
+
+        # Check weight
         if weight is None:
             weight = font_manager.get_default_font_props().weight
-        if stretch is None:
-            stretch = font_manager.get_default_font_props().stretch
-
-        if isinstance(weight, str):
-            weight = weight_dict[weight.lower()]
-        elif not isinstance(weight, int):
-            raise TypeError("Weight must be an int (100-900) or string.")
+        else:
+            if isinstance(weight, str):
+                try:
+                    weight = weight_dict[weight.lower()]
+                except KeyError:
+                    raise TypeError(f"Weight string not known: '{weight}'")
+            elif isinstance(weight, int):
+                weight = min(900, max(100, weight))
+            else:
+                raise TypeError("Weight must be an int (100-900) or a string.")
 
         self._kwargs = {
             "family": family,
             "style": style,
             "weight": weight,
-            "stretch": stretch,
         }
-        # todo: checks
 
     def copy(self, **kwargs):
+        """Make a copy of the font prop, with given kwargs replaced."""
         d = self._kwargs.copy()
         for k, v in kwargs.items():
             if v is not None:
@@ -106,19 +130,20 @@ class FontProps:
 
     @property
     def family(self):
+        """The font family, e.g. "NotoSans" or "Arial". Can also be a tuple
+        to indicate fallback fonts.
+        """
         return self._kwargs["family"]
 
     @property
     def style(self):
+        """The style, one of "normal", "italic", or "oblique"."""
         return self._kwargs["style"]
 
     @property
     def weight(self):
+        """The weight, as a number between 100-900."""
         return self._kwargs["weight"]
-
-    @property
-    def stretch(self):
-        return self._kwargs["stretch"]
 
 
 class FontManager:
@@ -126,7 +151,6 @@ class FontManager:
         self._default_font_props = FontProps(
             "noto sans",
             style="normal",
-            stretch="normal",
             weight="regular",
         )
         self._name_to_font = {}

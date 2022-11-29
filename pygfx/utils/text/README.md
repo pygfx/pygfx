@@ -107,11 +107,10 @@ Font properties specify how a font looks:
 * family: a font name or list of font names (fallbacks).
 * style: regular, italic, slanted.
 * weight: the boldness.
-* stretch: how compact or stretched the font is.
 
 These properties are used to select a font, but in our case are also
-used to influence the rendering, since we can approximate weight, style,
-and stretch pretty well.
+used to influence the rendering, since we can approximate weight and style
+pretty well.
 
 ### Sizing
 
