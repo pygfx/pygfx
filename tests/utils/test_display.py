@@ -12,7 +12,6 @@ def test_repeated_show():
     )
 
     # always use offscreen canvas
-    # @almarklein do we have a fixture for that?
     disp = gfx.Display(canvas=WgpuCanvas())
 
     disp.show(cube)
