@@ -228,11 +228,13 @@ class TextGeometry(Geometry):
             self.indices.data[i1:i2] = item.indices
             self.positions.data[i1:i2] = item.positions
 
-        # Disable the unused space
-        self.indices.data[glyph_count:] = 0
-        self.positions.data[glyph_count:] = 0
+        # Disable the unused space by setting the sizes to zero, leading
+        # to degenerate triangles. Leave the indices intact, so that
+        # any errors will be detected by the old text shining through.
+        self.sizes.data[glyph_count:] = 0
 
-        # Schedule the array to be uploaded
+        # Trigger new indices and sizes to be uploaded to the GPU.
+        self.sizes.update_range(0, self.indices.nitems)
         self.indices.update_range(0, self.indices.nitems)
 
         # Finalize the buffers by applying the layout algorithmm.
