@@ -2,13 +2,11 @@ import numpy as np
 import freetype
 
 from ._atlas import glyph_atlas
+from ._shaper import CACHE_FT, REF_GLYPH_SIZE
 
 
 # A little cache so we can assign numbers to fonts
 fontname_cache = {}
-
-
-REF_GLYPH_SIZE = 48  # 48px == 64pt
 
 
 def generate_glyph(glyph_indices, font_filename):
@@ -44,8 +42,14 @@ def generate_glyph(glyph_indices, font_filename):
         font_index = len(fontname_cache) + 1
         fontname_cache[font_filename] = font_index
 
-    face = freetype.Face(font_filename)
-    face.set_pixel_sizes(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
+    # Get the face object. We will not need it if all glyphs are already
+    # in the atlas, but because of the cache it is fast, and this way
+    # we keep the face alive in the cache.
+    face = CACHE_FT.get(font_filename)
+    if not face:
+        face = freetype.Face(font_filename)
+        face.set_pixel_sizes(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
+        CACHE_FT.set(font_filename, face)
 
     atlas_indices = np.zeros((len(glyph_indices),), np.uint32)
     for i in range(len(glyph_indices)):
@@ -63,25 +67,35 @@ def generate_glyph(glyph_indices, font_filename):
 def _generate_glyph(face, glyph_index):
     # This only gets called for glyphs that are not in the atlas yet.
 
+    # FreeType has two ways to render an SDF. The old way is based on
+    # the bitmap, and the new way renders from the geometry directly.
+    # The new way is the default, and the old way can be selected by
+    # first rendering the glyph in bitmap mode. See
+    # http://freetype.org/freetype2/docs/reference/ft2-base_interface.html
+    #
+    # Currently the new way produces quite a few artifacts in e.g. Arabic
+    # and emoticons, due to sharp and/or intersecting Bezier curves.
+    #
+    # Some timing data:
+    # about 0.2 ms to create a simple bitmap.
+    # about 0.8 ms to create an SDF from the bitmap in the old/stable way (no artifacts)
+    # about 1.9 ms to create an SDF the new/fancy way (with artifacts)
+    #
+    # So, at the time I write this (November 2022) the SDF that goes
+    # via the bitmap is both more stable and faster. We might want to
+    # revisit this in a year or so.
+
     # Load the glyph bitmap
     face.load_glyph(glyph_index, freetype.FT_LOAD_DEFAULT)
 
-    # We first render in bitmap mode. Doing this forces the SDF renderer
-    # to use the BSDF approach instead of the outline approach. See
-    # http://freetype.org/freetype2/docs/reference/ft2-base_interface.html
-    # We do this because there are quite a few artifacts in e.g. Arabic
-    # and emoticons, due to sharp and/or intersecting Bezier curves.
-    # At the time I write this (07-11-2022) there are some fixes in
-    # FreeType's codebase, but freetype (and freetype-py) have not had
-    # a release that includes these improvements. Once it has, we can
-    # remove this line and uncomment the line in the except-clause below.
+    # Render bitmap. This forces the SDF to be based off the bitmap, being more stable
     face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
 
     # Render SDF
     try:
         face.glyph.render(freetype.FT_RENDER_MODE_SDF)
     except Exception:  # Freetype refuses SDF for spaces ?
-        pass  # face.glyph.render(freetype.FT_RENDER_MODE_NORMAL)
+        pass
 
     # Convert to numpy array
     bitmap = face.glyph.bitmap

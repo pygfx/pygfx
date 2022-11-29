@@ -1,3 +1,4 @@
+import time
 from pygfx import TextGeometry
 from pytest import raises
 import numpy as np
@@ -53,9 +54,28 @@ def test_text_geometry1():
     assert np.all(geo.positions.data[1:] == 0)
 
 
+def check_speed():
+
+    t = TextGeometry(text="HelloWorld")
+
+    t0 = time.perf_counter()
+    for i in range(1000):
+        t.apply_layout()
+    dt = time.perf_counter() - t0
+    print(
+        f"generate_glyph: {1000*dt:0.1f} ms total",
+        f"{1000*dt/(10000):0.3f} ms per glyph",
+    )
+
+    # On 29-11-2022 (with only very basic layour mechanics),
+    # this takes about 8ms, which translates to 0.001 ms per glyph.
+
+
 if __name__ == "__main__":
     for ob in list(globals().values()):
         if callable(ob) and ob.__name__.startswith("test_"):
             print(f"{ob.__name__} ...")
             ob()
     print("done")
+
+    check_speed()
