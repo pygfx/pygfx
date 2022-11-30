@@ -217,7 +217,9 @@ class TextGeometry(Geometry):
                     item._ws_before, text_pieces[0][1].filename
                 )
             if item._ws_after:
-                margin_after = self._get_ws_extent(item._ws_after, text_pieces[-1][1].filename)
+                margin_after = self._get_ws_extent(
+                    item._ws_after, text_pieces[-1][1].filename
+                )
 
             # Set props so these items will be grouped correctly
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
@@ -305,18 +307,17 @@ class TextGeometry(Geometry):
         # Split the text in pieces using a tokenizer. We put the
         # whitespace as margin on the text items (whitespace is not rendered)
         items = []
-        pending_witespace = None
+        pending_whitespace = None
         for kind, piece in textmodule.tokenize_text(text):
             if kind == "ws":
                 if not items:
-                    pending_witespace = piece
+                    pending_whitespace = piece
                 else:
                     items[-1]._ws_after += piece
             else:
                 items.append(TextItem(piece, font_props))
-                if pending_witespace:
-                    items[-1]._ws_before += pending_witespace
-                    pending_witespace = None
+        if items and pending_whitespace:
+            items[0]._ws_before += pending_whitespace
 
         self.set_text_items(items)
 
@@ -371,11 +372,22 @@ class TextGeometry(Geometry):
                         slant_start = None
 
         # Convert to TextItem objects
-        items = [
-            TextItem(piece[1], props)
-            for piece, props in zip(pieces, pieces_props)
-            if piece[1]
-        ]
+        items = []
+        pending_whitespace = None
+        for i in range(len(pieces)):
+            kind, piece = pieces[i]
+            if not kind:
+                pass
+            elif kind == "ws":
+                if not items:
+                    pending_whitespace = piece
+                else:
+                    items[-1]._ws_after += piece
+            else:
+                items.append(TextItem(piece, pieces_props[i]))
+        if items and pending_whitespace:
+            items[0]._ws_before += pending_whitespace
+
         self.set_text_items(items)
 
     # %%%%% Font selection
@@ -439,7 +451,7 @@ class TextGeometry(Geometry):
         # there is no sensible value. Unfortunately, whether or not we
         # render in screen space is defined by the material. So we
         # simply never expose a bounding box for text.
-        return np.array([[0, 0, 0],[0,0, 0]], np.float32)
+        return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
 
     def _apply_layout(self):
         """The layout step. Updates positions and sizes to finalize the geometry.
@@ -458,7 +470,6 @@ class TextGeometry(Geometry):
         top = bottom = 0
 
         # Resolve position and sizes
-
 
         extent_offset = 0
         for item in self._glyph_items:

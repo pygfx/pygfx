@@ -54,6 +54,15 @@ def test_text_geometry1():
     assert np.all(geo.sizes.data[1:] == 0)
 
 
+def test_text_geometry_markdown():
+    # The same text, but the 2nd one is formatted. Should still
+    # result in same number of glyphs and equally positioned.
+    t1 = TextGeometry(text="abc def")
+    t2 = TextGeometry(markdown="*abc* **def**")
+
+    assert np.all(t1.positions.data == t2.positions.data)
+
+
 def test_text_geometry_anchor():
     t = TextGeometry("")
 
@@ -97,8 +106,8 @@ def test_text_geometry_direction():
     t1 = TextGeometry("abc def", direction="lrt")
     t2 = TextGeometry("abc def", direction="ttb")
 
-    t1.positions.data[:,0].max() > t1.positions.data[:,1].max()
-    t2.positions.data[:,1].max() > t2.positions.data[:,0].max()
+    assert t1.positions.data[:, 0].max() > t1.positions.data[:, 1].max()
+    assert t2.positions.data[:, 1].max() > t2.positions.data[:, 0].max()
 
 
 def check_speed():

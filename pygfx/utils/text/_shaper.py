@@ -128,7 +128,10 @@ def shape_text_hb(text, font_filename, direction=None):
     for i in range(n_glyphs):
         glyph_indices[i] = glyph_infos[i].codepoint
         pos = glyph_positions[i]
-        positions[i] = (pen_x + pos.x_offset) / ref_size, (pen_y + pos.y_offset) / ref_size
+        positions[i] = (
+            (pen_x + pos.x_offset) / ref_size,
+            (pen_y + pos.y_offset) / ref_size,
+        )
         pen_x += pos.x_advance
         pen_y += pos.y_advance
 

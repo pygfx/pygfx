@@ -107,10 +107,10 @@ def test_shape_direction_hb():
 
     assert meta1["extent"] > 0
     assert meta2["extent"] < 0
-    assert np.all(positions1[2:,0] > 1)
-    assert np.all(positions1[:,1] == 0)
-    assert np.all(np.abs(positions2[:,0]) < 0.5) # x-offsets
-    assert np.all(np.abs(positions2[2:,1]) > 1)
+    assert np.all(positions1[2:, 0] > 1)
+    assert np.all(positions1[:, 1] == 0)
+    assert np.all(np.abs(positions2[:, 0]) < 0.5)  # x-offsets
+    assert np.all(np.abs(positions2[2:, 1]) > 1)
 
 
 def test_glyph_size():
