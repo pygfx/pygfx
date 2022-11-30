@@ -427,6 +427,14 @@ class TextGeometry(Geometry):
 
     # %%%%% Layout
 
+    def bounding_box(self):
+        # We can calculate the bounding box when text is in world
+        # coordinates, but when text is rendered in screen coordinates
+        # there is no sensible value. Unfortunately, whether or not we
+        # render in screen space is defined by the material. So we
+        # simply never expose a bounding box for text.
+        return None
+
     def _apply_layout(self):
         """The layout step. Updates positions and sizes to finalize the geometry.
         Can be overloaded for custom behavior.
@@ -460,8 +468,6 @@ class TextGeometry(Geometry):
             top = max(top, item.ascender * font_size)
             bottom = min(bottom, item.descender * font_size)
 
-        self._extent = 0, bottom, right - left, top - bottom
-
         # Anchoring
 
         if anchor.endswith("left"):
@@ -482,12 +488,6 @@ class TextGeometry(Geometry):
 
         if pos_offset_x or pos_offset_y:
             positions_array += pos_offset_x, pos_offset_y
-            self._extent = (
-                pos_offset_x,
-                bottom + pos_offset_y,
-                right - left,
-                top - bottom,
-            )
 
         # Trigger uploads to GPU
 
