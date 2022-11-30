@@ -143,11 +143,11 @@ class Display:
                 "Your scene does not contain any lights. Some objects may not be visible"
             )
 
-        existing_cameras = [x for x in scene.iter(lambda x: isinstance(x, Camera))]
+        existing_camera = next(scene.iter(lambda x: isinstance(x, Camera)), None)
         if self.camera:
             pass
-        elif any(existing_cameras):
-            self.camera = existing_cameras[0]
+        elif existing_camera is not None:
+            self.camera = existing_camera
         elif custom_scene:
             self.camera = PerspectiveCamera(70, 16 / 9)
             self.camera.add(DirectionalLight())
