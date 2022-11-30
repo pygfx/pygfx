@@ -52,7 +52,7 @@ def test_cache():
         c.set(i, i)
     assert len(c._cache) == 1000
 
-    for i in range(1000):
+    for i in [0, 1, 500, 998, 999]:  # testing 1000 can take too long in debug mode
         assert c.get(i) == i
 
     time.sleep(1.1)
@@ -92,6 +92,8 @@ def check_result(indices, positions, meta):
     assert isinstance(meta, dict)
     assert "width" in meta.keys()
     assert meta["width"] > positions[:, 0].max()
+    assert "ascender" in meta.keys()
+    assert "descender" in meta.keys()
     assert "direction" in meta.keys()
     assert "script" in meta.keys()
 

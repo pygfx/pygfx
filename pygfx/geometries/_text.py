@@ -68,11 +68,54 @@ class GlyphItem:
         self.meta = meta
         self.width = meta["width"]
         self.direction = meta["direction"]
+        self.ascender = meta["ascender"]
+        self.descender = meta["descender"]
         self.allow_break = False
         self.margin_before = 0
         self.margin_after = 0
         # Int offset. Note that this means that a glyph item is bound to a TextGeometry
         self.offset = 0
+
+
+TEXT_ALIGN_ALTS = {
+    "left": "start",
+    "top": "start",
+    "middle": "center",
+    "right": "end",
+    "bottom": "end",
+}
+ANCHOR_X_ALTS = {
+    "left": "left",
+    "center": "center",
+    "middle": "center",
+    "right": "right",
+}
+ANCHOR_Y_ALTS = {
+    "top": "top",
+    "middle": "middle",
+    "center": "middle",
+    "baseline": "baseline",
+    "bottom": "bottom",
+}
+
+
+WHITESPACE_WIDTHS = {}  # A cache
+
+
+def get_ws_width(s, font_filename):
+    """Get the width of a piece of whitespace text. Results of small strings are cached."""
+    if len(s) <= 8:
+        key = (s, font_filename)
+        try:
+            width = WHITESPACE_WIDTHS[key]
+        except KeyError:
+            meta = textmodule.shape_text(s, font_filename)[2]
+            width = meta["width"]
+            WHITESPACE_WIDTHS[key] = width
+    else:
+        meta = textmodule.shape_text(s, font_filename)[2]
+        width = meta["width"]
+    return width
 
 
 class TextGeometry(Geometry):
@@ -84,6 +127,7 @@ class TextGeometry(Geometry):
             Currently, support is limited to making words italic or bold.
         font_size (float): the size of the font, in scene coordinates or pixel screen
             coordinates, depending on ``material.screen_space``. Default 12.
+        anchor (str): the position of the origin of the text. Default "middle-center".
         max_width (float): the maximum width of the text. Words are wrapped if necessary.
             A value of zero means no wrapping. Default zero.
         line_height (float): a factor to scale the distance between lines. A value
@@ -101,6 +145,7 @@ class TextGeometry(Geometry):
         *,
         markdown=None,
         font_size=12,
+        anchor="middle-center",
         max_width=0,
         line_height=1.2,
         text_align="left",
@@ -131,6 +176,7 @@ class TextGeometry(Geometry):
 
         # Set props
         self.font_size = font_size
+        self.anchor = anchor
         self.max_width = max_width
         self.line_height = line_height
         self.text_align = text_align
@@ -176,11 +222,11 @@ class TextGeometry(Geometry):
             # Get whitespace after and before the text
             margin_before = margin_after = 0
             if item._ws_before:
-                meta = self._shape_text(item._ws_before, text_pieces[0][1].filename)[2]
-                margin_before = meta["width"]
+                margin_before = get_ws_width(
+                    item._ws_before, text_pieces[0][1].filename
+                )
             if item._ws_after:
-                meta = self._shape_text(item._ws_after, text_pieces[-1][1].filename)[2]
-                margin_after = meta["width"]
+                margin_after = get_ws_width(item._ws_after, text_pieces[-1][1].filename)
 
             # Set props so these items will be grouped correctly
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
@@ -386,22 +432,67 @@ class TextGeometry(Geometry):
         Can be overloaded for custom behavior.
         """
 
-        # Handle alignment, wrapping and all that.
-        # Note, could render the text in a curve or something.
+        # Prepare
 
         font_size = self._font_size
+        anchor = self._anchor
+
+        positions_array = self.positions.data
+        sizes_array = self.sizes.data
+
+        left = right = 0
+        top = bottom = 0
+
+        # Resolve position and sizes
 
         x_offset = 0
         for item in self._glyph_items:
-            if x_offset > 0:
-                x_offset += item.margin_before * font_size
+            x_offset += item.margin_before * font_size
             positions = item.positions * font_size + np.array([x_offset, 0])
             i1, i2 = item.offset, item.offset + positions.shape[0]
-            self.positions.data[i1:i2] = positions
-            self.positions.update_range(i1, i2)
-            self.sizes.data[i1:i2] = font_size
-            self.sizes.update_range(i1, i2)
-            x_offset += item.width * font_size + item.margin_after * font_size
+            positions_array[i1:i2] = positions
+            sizes_array[i1:i2] = font_size
+            # Prepare for next
+            ws_margin = item.margin_after * font_size
+            x_offset += item.width * font_size + ws_margin
+            # Update total extent
+            right = x_offset
+            top = max(top, item.ascender * font_size)
+            bottom = min(bottom, item.descender * font_size)
+
+        self._extent = 0, bottom, right - left, top - bottom
+
+        # Anchoring
+
+        if anchor.endswith("left"):
+            pos_offset_x = 0
+        elif anchor.endswith("center"):
+            pos_offset_x = -0.5 * (right - left)
+        elif anchor.endswith("right"):
+            pos_offset_x = -right
+
+        if anchor.startswith("top"):
+            pos_offset_y = -top
+        elif anchor.startswith("middle"):
+            pos_offset_y = -top + 0.5 * (top - bottom)
+        elif anchor.startswith("baseline"):
+            pos_offset_y = 0
+        elif anchor.startswith("bottom"):
+            pos_offset_y = -bottom
+
+        if pos_offset_x or pos_offset_y:
+            positions_array += pos_offset_x, pos_offset_y
+            self._extent = (
+                pos_offset_x,
+                bottom + pos_offset_y,
+                right - left,
+                top - bottom,
+            )
+
+        # Trigger uploads to GPU
+
+        self.sizes.update_range(0, i2)
+        self.positions.update_range(0, i2)
 
     def apply_layout(self):
         """Apply the layout algorithm to position the (internal) glyph items.
@@ -437,6 +528,8 @@ class TextGeometry(Geometry):
         limit. The coordinate system that this applies to is the same
         as for font_size and depens on the material's ``screen_space``
         property. Set to 0 for no wrap. Default 0.
+
+        TEXT WRAPPING IS NOT YET IMPLEMENTED
         """
         return self._max_width
 
@@ -459,25 +552,62 @@ class TextGeometry(Geometry):
 
     @property
     def text_align(self):
-        """Set the alignment of the text. Can be left, right, center, or justify.
-        Default "left".
+        """Set the alignment of wrapped text. Can be start, end, center, or justify.
+        Default "start".
         """
         return self._text_align
 
     @text_align.setter
     def text_align(self, align):
-        alignments = "left", "right", "center", "justify"
+        alignments = "start", "end", "center", "justify"
         if align is None:
-            align = "left"  # todo: or does center make more sense in a viz lib?
-        elif isinstance(align, int):
-            try:
-                align = {-1: "left", 0: "center", 1: "right"}[align]
-            except KeyError:
-                raise ValueError("Align as an int must be -1, 0 or 1.")
-        elif not isinstance(align, str):
-            raise TypeError("Align must be a None, str or int.")
+            align = "start"
+        if not isinstance(align, str):
+            raise TypeError("text-align must be a None or str.")
         align = align.lower()
+        align = TEXT_ALIGN_ALTS.get(align, align)
         if align not in alignments:
             raise ValueError(f"Align must be one of {alignments}")
         self._text_align = align
+        self.apply_layout()
+
+    @property
+    def anchor(self):
+        """The position of the origin of the text. This is a string
+        representing the vertical and horizontal anchors, separated by
+        a dash, e.g. "top-left", "bottom-right", or "middle-center".
+        The vertical anchor can also be "baseline", though this only
+        makes sense for single-line text.
+        """
+        return self._anchor
+
+    @anchor.setter
+    def anchor(self, anchor):
+        # Init
+        if anchor is None:
+            anchor = "middle-center"
+        elif not isinstance(anchor, str):
+            raise TypeError("Text anchor must be str.")
+        anchor = anchor.lower().strip()
+        # Split
+        if anchor.count("-") == 1:
+            anchory, _, anchorx = anchor.partition("-")
+        else:
+            anchory = anchorx = ""
+            for key, val in ANCHOR_Y_ALTS.items():
+                if anchor.startswith(key):
+                    anchory = val
+                    break
+            for key, val in ANCHOR_X_ALTS.items():
+                if anchor.endswith(key):
+                    anchorx = val
+                    break
+        # Resolve
+        try:
+            anchory = ANCHOR_Y_ALTS[anchory]
+            anchorx = ANCHOR_X_ALTS[anchorx]
+        except KeyError:
+            raise ValueError(f"Invalid anchor value '{anchor}'")
+        # Apply
+        self._anchor = f"{anchory}-{anchorx}"
         self.apply_layout()

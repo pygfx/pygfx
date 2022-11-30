@@ -51,7 +51,46 @@ def test_text_geometry1():
     geo.sizes.nitems == 6
 
     # Last parts are not used
-    assert np.all(geo.positions.data[1:] == 0)
+    assert np.all(geo.sizes.data[1:] == 0)
+
+
+def test_text_geometry_anchor():
+    t = TextGeometry("")
+
+    assert t.anchor == "middle-center"
+
+    t.anchor = "top-left"
+    assert t.anchor == "top-left"
+    t.anchor = "bottom-right"
+    assert t.anchor == "bottom-right"
+    t.anchor = "middle-center"
+    assert t.anchor == "middle-center"
+    t.anchor = "baseline-left"
+    assert t.anchor == "baseline-left"
+
+    # Aliases for middle/center
+    t.anchor = "center-middle"
+    assert t.anchor == "middle-center"
+
+    # No dash
+    t.anchor = "topleft"
+    assert t.anchor == "top-left"
+    t.anchor = "bottomright"
+    assert t.anchor == "bottom-right"
+    t.anchor = "middlecenter"
+    assert t.anchor == "middle-center"
+    t.anchor = "baselineleft"
+    assert t.anchor == "baseline-left"
+
+    # No dash with alias allows shortcut
+    t.anchor = "center"
+    assert t.anchor == "middle-center"
+    t.anchor = "middle"
+    assert t.anchor == "middle-center"
+
+    # Default
+    t.anchor = None
+    assert t.anchor == "middle-center"
 
 
 def check_speed():

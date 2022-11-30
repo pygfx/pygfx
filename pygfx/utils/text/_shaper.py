@@ -126,10 +126,13 @@ def shape_text_hb(text, font_filename):
         positions[i] = (pen_x + pos.x_offset) / ref_size, pos.y_offset / ref_size
         pen_x += pos.x_advance
 
-    # note: for line height I think we can use font.get_font_extents("rtl")
+    # Get font extents
+    ext = font.get_font_extents(buf.direction)
 
     meta = {
         "width": pen_x / ref_size,
+        "ascender": ext.ascender / ref_size,
+        "descender": ext.descender / ref_size,
         "direction": buf.direction,
         "script": buf.script,
     }
@@ -175,8 +178,10 @@ def shape_text_ft(text, font_filename):
 
     meta = {
         "width": pen_x / ref_size,
-        "script": "",
+        "ascender": face.ascender / face.units_per_EM,
+        "descender": face.descender / face.units_per_EM,
         "direction": "ltr",
+        "script": "",
     }
 
     return glyph_indices, positions, meta
