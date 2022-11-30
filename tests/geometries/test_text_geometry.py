@@ -54,6 +54,42 @@ def test_text_geometry1():
     assert np.all(geo.sizes.data[1:] == 0)
 
 
+def test_text_geometry_whitespace():
+    # Tests how whitespace is handled during itemization and layout.
+
+    # With left anchor
+
+    t1 = TextGeometry(text="abc def", anchor="baselineleft")
+    t2 = TextGeometry(text="abc   def", anchor="baselineleft")
+    t3 = TextGeometry(text=" abc def", anchor="baselineleft")
+    t4 = TextGeometry(text="abc def ", anchor="baselineleft")
+
+    x1 = t1.positions.data[-1, 0]
+    x2 = t2.positions.data[-1, 0]
+    x3 = t3.positions.data[-1, 0]
+    x4 = t4.positions.data[-1, 0]
+
+    assert x2 > x1  # Extra spaces in between words are preserved
+    assert x3 > x1  # Extra space at the start is also preserved
+    assert x4 == x1  # Extra space at the end is dropped
+
+    # With right anchor
+
+    t1 = TextGeometry(text="abc def", anchor="baselineright")
+    t2 = TextGeometry(text="abc   def", anchor="baselineright")
+    t3 = TextGeometry(text=" abc def", anchor="baselineright")
+    t4 = TextGeometry(text="abc def ", anchor="baselineright")
+
+    x1 = t1.positions.data[0, 0]
+    x2 = t2.positions.data[0, 0]
+    x3 = t3.positions.data[0, 0]
+    x4 = t4.positions.data[0, 0]
+
+    assert x2 < x1  # Extra spaces in between words are preserved
+    assert x3 == x1  # Extra space at the start is dropped
+    assert x4 < x1  # Extra space at the end is preserved
+
+
 def test_text_geometry_markdown():
     # The same text, but the 2nd one is formatted. Should still
     # result in same number of glyphs and equally positioned.
