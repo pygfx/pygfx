@@ -128,6 +128,8 @@ class Geometry(Trackable):
                 return self._aabb
             pos = self.positions.data
             self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
+            while self._aabb.shape[1] < 3:
+                self._aabb = np.column_stack([self._aabb, np.zeros((2, 1), np.float32)])
             self._aabb_rev = self.positions.rev
             return self._aabb
 

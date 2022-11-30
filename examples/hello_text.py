@@ -2,13 +2,10 @@
 Example showing text in world and screen space.
 """
 
-from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
-
 
 # Create a plane to put attach text to
 plane = gfx.Mesh(
@@ -45,17 +42,13 @@ plane.add(text3)
 scene.add(gfx.AmbientLight())
 scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 25
 
-
-def animate():
+def before_render():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     plane.rotation.multiply(rot)
-    renderer.render(scene, camera)
-    renderer.request_draw()
 
+
+display = gfx.Display(before_render=before_render)
 
 if __name__ == "__main__":
-    renderer.request_draw(animate)
-    run()
+    display.show(scene)
