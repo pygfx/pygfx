@@ -29,12 +29,11 @@ text1 = gfx.Text(
     SnakeTextGeometry(markdown=s, font_size=10),
     gfx.TextMaterial(color="#fff", screen_space=False),
 )
-text1.position.x = -100
 scene.add(text1)
 
 # Camera and controller
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 100
+camera.position.z = 350
 controller = gfx.OrbitController(camera.position.clone())
 controller.add_default_event_handlers(renderer, camera)
 

@@ -49,7 +49,6 @@ t4.position.set(+1, -1, 0)
 scene.add(t1, t2, t3, t4)
 
 camera = gfx.OrthographicCamera(4, 3)
-camera.position.x = 0.8
 
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())

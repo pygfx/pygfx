@@ -3,8 +3,8 @@ This example shows text with different sizes.
 
 * On the left the text is in screen space. The size must match a
   reference, e.g. from text with the same font in a browser.
-* On the right the text is in world space. The text must fit nicely in
-  between the green lines.
+* On the right the text is in world space. The text must sit snugly with its
+  baseline on the bottom line.
 """
 # test_example = true
 
@@ -12,58 +12,56 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-# todo: text anchor center would be nice here
-
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 obj0 = gfx.Text(
-    gfx.TextGeometry(text="Screen  |   World", font_size=80),
+    gfx.TextGeometry(text="Screen  |  World", font_size=80, anchor="bottom-center"),
     gfx.TextMaterial(
         color="#555",
         screen_space=True,
     ),
 )
-obj0.position.set(-230, 50, 0)
+obj0.position.set(0, 50, 0)
 
 obj1 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum!", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum 40!", font_size=40, anchor="baseline-right"),
     gfx.TextMaterial(
         color="#fff",
         screen_space=True,
     ),
 )
-obj1.position.set(-250, 0, 0)
+obj1.position.set(-10, 0, 0)
 
 obj2 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum!", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum 40!", font_size=40, anchor="baseline-left"),
     gfx.TextMaterial(
         color="#fff",
         screen_space=False,
     ),
 )
-obj2.position.set(0, 0, 0)
+obj2.position.set(10, 0, 0)
 
 obj3 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum! (screen small)", font_size=20),
+    gfx.TextGeometry(text="Lorem ipsum 20 !", font_size=20, anchor="baseline-right"),
     gfx.TextMaterial(
         color="#fff",
         screen_space=True,
     ),
 )
-obj3.position.set(-250, -50, 0)
+obj3.position.set(-10, -50, 0)
 obj3.scale.set(
     0.5, 0.5, 0.5
 )  # This (intentionally) does not work, we set font_size instead
 
 obj4 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum! (world small)", font_size=40),
+    gfx.TextGeometry(text="Lorem ipsum 20!", font_size=40, anchor="baseline-left"),
     gfx.TextMaterial(
         color="#fff",
         screen_space=False,
     ),
 )
-obj4.position.set(0, -50, 0)
+obj4.position.set(10, -50, 0)
 obj4.scale.set(0.5, 0.5, 0.5)
 
 line = gfx.Line(
@@ -74,7 +72,7 @@ line = gfx.Line(
 scene.add(line, obj0, obj1, obj2, obj3, obj4)
 
 
-camera = gfx.OrthographicCamera(500, 400)
+camera = gfx.OrthographicCamera(650, 400)
 camera.position.z = 30
 
 controller = gfx.OrbitController(camera.position.clone())
