@@ -16,7 +16,7 @@ import numpy as np
 REF_GLYPH_SIZE = 48  # 48px == 64pt
 
 
-def shape_text(text, font_filename):
+def shape_text(text, font_filename, direction=None):
     """Text shaping. Takes a Unicode string, and replace it with a list
     of glyphs, positioned to represent the given text in a good way.
     Depending on the algorithm used, this takes care of kerning,
@@ -33,7 +33,7 @@ def shape_text(text, font_filename):
 
     All returned distances are measured in unit font_size.
     """
-    return shape_text_hb(text, font_filename)
+    return shape_text_hb(text, font_filename, direction)
     # return shape_text_ft(text, font_filename)
 
 
@@ -88,7 +88,7 @@ CACHE_HB = TemperalCache(10)
 CACHE_FT = TemperalCache(10)
 
 
-def shape_text_hb(text, font_filename):
+def shape_text_hb(text, font_filename, direction=None):
 
     ref_size = REF_GLYPH_SIZE
 
@@ -96,6 +96,11 @@ def shape_text_hb(text, font_filename):
     buf = uharfbuzz.Buffer()
     buf.add_str(text)
     buf.guess_segment_properties()
+
+    is_horizontal = True
+    if direction is not None:
+        buf.direction = direction
+        is_horizontal = direction in ("ltr", "rtl")
 
     # Load font
     cached = CACHE_HB.get(font_filename)
@@ -116,23 +121,24 @@ def shape_text_hb(text, font_filename):
     n_glyphs = len(glyph_infos)
 
     # Get glyph indices (these can be different from the text's Unicode
-    # code points) and onvert advances to positions.
+    # code points) and convert advances to positions.
     glyph_indices = np.zeros((n_glyphs,), np.uint32)
     positions = np.zeros((n_glyphs, 2), np.float32)
-    pen_x = 0
+    pen_x = pen_y = 0
     for i in range(n_glyphs):
         glyph_indices[i] = glyph_infos[i].codepoint
         pos = glyph_positions[i]
-        positions[i] = (pen_x + pos.x_offset) / ref_size, pos.y_offset / ref_size
+        positions[i] = (pen_x + pos.x_offset) / ref_size, (pen_y + pos.y_offset) / ref_size
         pen_x += pos.x_advance
+        pen_y += pos.y_advance
 
     # Get font extents
-    ext = font.get_font_extents(buf.direction)
+    font_ext = font.get_font_extents(buf.direction)
 
     meta = {
-        "width": pen_x / ref_size,
-        "ascender": ext.ascender / ref_size,
-        "descender": ext.descender / ref_size,
+        "extent": (pen_x if is_horizontal else pen_y) / ref_size,
+        "ascender": font_ext.ascender / ref_size,
+        "descender": font_ext.descender / ref_size,
         "direction": buf.direction,
         "script": buf.script,
     }
@@ -140,7 +146,8 @@ def shape_text_hb(text, font_filename):
     return glyph_indices, positions, meta
 
 
-def shape_text_ft(text, font_filename):
+def shape_text_ft(text, font_filename, direction=None):
+    # assert direction is None  # Just given direction ...
 
     ref_size = REF_GLYPH_SIZE
 
@@ -177,7 +184,7 @@ def shape_text_ft(text, font_filename):
     # line_gap = face.height
 
     meta = {
-        "width": pen_x / ref_size,
+        "extent": pen_x / ref_size,
         "ascender": face.ascender / face.units_per_EM,
         "descender": face.descender / face.units_per_EM,
         "direction": "ltr",

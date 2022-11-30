@@ -90,12 +90,27 @@ def check_result(indices, positions, meta):
     )
 
     assert isinstance(meta, dict)
-    assert "width" in meta.keys()
-    assert meta["width"] > positions[:, 0].max()
+    assert "extent" in meta.keys()
+    assert meta["extent"] > positions[:, 0].max()
     assert "ascender" in meta.keys()
     assert "descender" in meta.keys()
     assert "direction" in meta.keys()
     assert "script" in meta.keys()
+
+
+def test_shape_direction_hb():
+    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    text = "HelloWorld"
+
+    _, positions1, meta1 = shape_text_hb(text, font.filename, "ltr")
+    _, positions2, meta2 = shape_text_hb(text, font.filename, "ttb")
+
+    assert meta1["extent"] > 0
+    assert meta2["extent"] < 0
+    assert np.all(positions1[2:,0] > 1)
+    assert np.all(positions1[:,1] == 0)
+    assert np.all(np.abs(positions2[:,0]) < 0.5) # x-offsets
+    assert np.all(np.abs(positions2[2:,1]) > 1)
 
 
 def test_glyph_size():
@@ -108,7 +123,7 @@ def test_glyph_size():
     xx2 = positions2[1:, 0]
     assert np.all(xx1 < xx2)
 
-    assert meta2["width"] > meta1["width"]
+    assert meta2["extent"] > meta1["extent"]
 
 
 def check_speed():

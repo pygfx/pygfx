@@ -66,7 +66,7 @@ class GlyphItem:
         self.indices = indices
         # Layout data
         self.meta = meta
-        self.width = meta["width"]
+        self.extent = meta["extent"]
         self.direction = meta["direction"]
         self.ascender = meta["ascender"]
         self.descender = meta["descender"]
@@ -99,23 +99,7 @@ ANCHOR_Y_ALTS = {
 }
 
 
-WHITESPACE_WIDTHS = {}  # A cache
-
-
-def get_ws_width(s, font_filename):
-    """Get the width of a piece of whitespace text. Results of small strings are cached."""
-    if len(s) <= 8:
-        key = (s, font_filename)
-        try:
-            width = WHITESPACE_WIDTHS[key]
-        except KeyError:
-            meta = textmodule.shape_text(s, font_filename)[2]
-            width = meta["width"]
-            WHITESPACE_WIDTHS[key] = width
-    else:
-        meta = textmodule.shape_text(s, font_filename)[2]
-        width = meta["width"]
-    return width
+WHITESPACE_EXTENTS = {}  # A cache
 
 
 class TextGeometry(Geometry):
@@ -137,6 +121,9 @@ class TextGeometry(Geometry):
             are given, they are preferred in the given order. Characters that are
             not supported by any of the given fonts are rendered with the default
             font (from the Noto Sans collection).
+        direction (str): The text direction. By default the text direction is
+            determined automatically, but always horizontal. Can be set to
+            'lrt', 'rtl', 'ttb' or 'btt'.
     """
 
     def __init__(
@@ -150,6 +137,7 @@ class TextGeometry(Geometry):
         line_height=1.2,
         text_align="left",
         family=None,
+        direction=None,
     ):
         super().__init__()
 
@@ -162,6 +150,9 @@ class TextGeometry(Geometry):
         self.indices = None
         self.positions = None
         self.sizes = None
+
+        # Init static props
+        self._direction = direction
 
         # Disable positioning, so we can initialize first
         self._do_positioning = False
@@ -222,11 +213,11 @@ class TextGeometry(Geometry):
             # Get whitespace after and before the text
             margin_before = margin_after = 0
             if item._ws_before:
-                margin_before = get_ws_width(
+                margin_before = self._get_ws_extent(
                     item._ws_before, text_pieces[0][1].filename
                 )
             if item._ws_after:
-                margin_after = get_ws_width(item._ws_after, text_pieces[-1][1].filename)
+                margin_after = self._get_ws_extent(item._ws_after, text_pieces[-1][1].filename)
 
             # Set props so these items will be grouped correctly
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
@@ -238,10 +229,10 @@ class TextGeometry(Geometry):
         i = 0
         while i < len(glyph_items) - 1:
             item = glyph_items[i]
-            if item.direction == "rtl":
+            if item.direction in ("rtl", "btt"):
                 i1 = i2 = i
                 for j in range(i + 1, len(glyph_items)):
-                    if item.direction != "rtl":
+                    if glyph_items[j].direction not in ("rtl", "btt"):
                         break
                     i2 = j
                 if i1 != i2:
@@ -401,7 +392,22 @@ class TextGeometry(Geometry):
         """The shaping step. Returns (glyph_indices, positions, meta).
         Can be overloaded for custom behavior.
         """
-        return textmodule.shape_text(text, font_filename)
+        return textmodule.shape_text(text, font_filename, self._direction)
+
+    def _get_ws_extent(self, s, font_filename):
+        """Get the extent of a piece of whitespace text. Results of small strings are cached."""
+        if len(s) <= 8:
+            key = (s, self._direction, font_filename)
+            try:
+                extent = WHITESPACE_EXTENTS[key]
+            except KeyError:
+                meta = self._shape_text(s, font_filename)[2]
+                extent = meta["extent"]
+                WHITESPACE_EXTENTS[key] = extent
+        else:
+            meta = self._shape_text(s, font_filename)[2]
+            extent = meta["extent"]
+        return extent
 
     # %%%%% Glyph generation
 
@@ -433,7 +439,7 @@ class TextGeometry(Geometry):
         # there is no sensible value. Unfortunately, whether or not we
         # render in screen space is defined by the material. So we
         # simply never expose a bounding box for text.
-        return None
+        return np.array([[0, 0, 0],[0,0, 0]], np.float32)
 
     def _apply_layout(self):
         """The layout step. Updates positions and sizes to finalize the geometry.
@@ -444,29 +450,38 @@ class TextGeometry(Geometry):
 
         font_size = self._font_size
         anchor = self._anchor
-
         positions_array = self.positions.data
         sizes_array = self.sizes.data
+        is_horizontal = self._direction is None or self._direction in ("ltr", "rtl")
 
         left = right = 0
         top = bottom = 0
 
         # Resolve position and sizes
 
-        x_offset = 0
+
+        extent_offset = 0
         for item in self._glyph_items:
-            x_offset += item.margin_before * font_size
-            positions = item.positions * font_size + np.array([x_offset, 0])
+            extent_offset += item.margin_before * font_size
+            if is_horizontal:
+                positions = item.positions * font_size + np.array([extent_offset, 0])
+            else:
+                positions = item.positions * font_size + np.array([0, extent_offset])
             i1, i2 = item.offset, item.offset + positions.shape[0]
             positions_array[i1:i2] = positions
             sizes_array[i1:i2] = font_size
             # Prepare for next
             ws_margin = item.margin_after * font_size
-            x_offset += item.width * font_size + ws_margin
+            extent_offset += item.extent * font_size + ws_margin
             # Update total extent
-            right = x_offset
-            top = max(top, item.ascender * font_size)
-            bottom = min(bottom, item.descender * font_size)
+            if is_horizontal:
+                right = extent_offset
+                top = max(top, item.ascender * font_size)
+                bottom = min(bottom, item.descender * font_size)
+            else:
+                bottom = extent_offset
+                right = max(right, item.ascender * font_size)
+                left = min(left, item.descender * font_size)
 
         # Anchoring
 

@@ -93,6 +93,14 @@ def test_text_geometry_anchor():
     assert t.anchor == "middle-center"
 
 
+def test_text_geometry_direction():
+    t1 = TextGeometry("abc def", direction="lrt")
+    t2 = TextGeometry("abc def", direction="ttb")
+
+    t1.positions.data[:,0].max() > t1.positions.data[:,1].max()
+    t2.positions.data[:,1].max() > t2.positions.data[:,0].max()
+
+
 def check_speed():
 
     t = TextGeometry(text="HelloWorld")
