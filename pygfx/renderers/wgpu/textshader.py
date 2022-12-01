@@ -155,8 +155,9 @@ class TextShader(WorldObjectShader):
             $$ if screen_space
 
                 // We take the object's pos (model pos is origin), move to NDC, and apply the
-                // glyph-positioning in logical screen coords. When the text is a child of another
-                // object, the text should be unaffected by the parent object's transform.
+                // glyph-positioning in logical screen coords. The text position is affected
+                // by the world_transform, but the local scale and rotation do not affect the position.
+                // We apply these seperately in screen space, so the user can scale and rotate the text that way.
 
                 let raw_pos = vec3<f32>(0.0, 0.0, 0.0);
                 let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
@@ -183,9 +184,13 @@ class TextShader(WorldObjectShader):
                 // and see their distance in screen space. The smallest distance
                 // is used for scale.
 
-                // Also needs compensation for aspect ratio to avoid blur.
-                let aspect_ratio = vec2<f32>(u_wobject.world_transform[0][0], u_wobject.world_transform[1][1]);
-                let aspect_scale = sqrt(aspect_ratio.y / aspect_ratio.x);
+                // Down below we measure how out-of-plane the text is to determine the amount of aa.
+                // However, part of this skew might be due to intentional anisotropic scaling (stretched text).
+                // Therefore we measure the intentional part here, so we can compensate below.
+                // Stretched text still becomes somewhat jaggy or blurry, but not as much as it normally would.
+                let sx = length(vec3<f32>(u_wobject.world_transform [0][0], u_wobject.world_transform [0][1], u_wobject.world_transform [0][2]));
+                let sy = length(vec3<f32>(u_wobject.world_transform [1][0], u_wobject.world_transform [1][1], u_wobject.world_transform [1][2]));
+                let aspect_scale = sqrt(sy / sx);
                 let scale_correct = vec2<f32>(aspect_scale, 1.0 / aspect_scale);
 
                 let atlas_pixel_dx = vec2<f32>(font_size / f32(REF_GLYPH_SIZE), 0.0) * scale_correct.x;
