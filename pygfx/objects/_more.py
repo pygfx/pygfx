@@ -1,5 +1,6 @@
 from ._base import WorldObject
 from ..utils import unpack_bitfield
+from .. import linalg
 
 
 class Group(WorldObject):
@@ -118,3 +119,19 @@ class Volume(WorldObject):
 
 class Text(WorldObject):
     """An object representing text."""
+
+    uniform_type = dict(
+        rot_scale_transform="4x4xf4",
+    )
+
+    def update_matrix(self, *args, **kwargs):
+        super().update_matrix(*args, **kwargs)
+        # When rendering in screen space, the world transform is used
+        # to establish the point in the scene where the text is placed.
+        # The only part of the local transform that is used is the
+        # position. Therefore, we also keep a transform containing the
+        # local rotation and scale, so that these can be applied to the
+        # text in screen coordinates.
+        matrix = linalg.Matrix4()
+        matrix.compose(linalg.Vector3(0, 0, 0), self.rotation, self.scale)
+        self.uniform_buffer.data["rot_scale_transform"].flat = matrix.elements

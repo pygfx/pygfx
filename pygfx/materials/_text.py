@@ -58,7 +58,10 @@ class TextMaterial(Material):
 
     @property
     def screen_space(self):
-        """Whether the text is applied in screen space (in contrast to model space)."""
+        """Whether the text is applied in screen space (in contrast to
+        model space). Whith screen_space set, the object's local
+        rotation and scale are applied in screen space.
+        """
         return self._store.screen_space
 
     @screen_space.setter

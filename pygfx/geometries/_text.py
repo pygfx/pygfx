@@ -552,7 +552,7 @@ class TextGeometry(Geometry):
     def max_width(self):
         """The maximum width of the text. Text will wrap if beyond this
         limit. The coordinate system that this applies to is the same
-        as for font_size and depens on the material's ``screen_space``
+        as for font_size and depends on the material's ``screen_space``
         property. Set to 0 for no wrap. Default 0.
 
         TEXT WRAPPING IS NOT YET IMPLEMENTED
@@ -566,7 +566,7 @@ class TextGeometry(Geometry):
 
     @property
     def line_height(self):
-        """The height of a line of text, used to set the distance between
+        """The relative height of a line of text, used to set the distance between
         lines. Represented as a factor of the font size. Default 1.2.
         """
         return self._line_height
