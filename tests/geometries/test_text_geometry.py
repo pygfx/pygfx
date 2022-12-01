@@ -138,12 +138,36 @@ def test_text_geometry_anchor():
     assert t.anchor == "middle-center"
 
 
-def test_text_geometry_direction():
+def test_text_geometry_direction_ttb():
     t1 = TextGeometry("abc def", direction="lrt")
     t2 = TextGeometry("abc def", direction="ttb")
 
     assert t1.positions.data[:, 0].max() > t1.positions.data[:, 1].max()
     assert t2.positions.data[:, 1].max() > t2.positions.data[:, 0].max()
+
+
+def test_text_geometry_direction_rtl():
+
+    # This is a very adversary/weird text: two words of Arabic in the
+    # middle of Latin. In a text editor it looks like the first Arabic
+    # word is longer than the second, but in fact the word after "foo"
+    # is the shorter one. Try stepping your cursor through the string.
+    # PyGfx should re-order the items so they appear as they should
+    # again. That's what we test here.
+    text = "foo عدد النبات baaaar"
+
+    t = TextGeometry(text=text)
+    items = t._glyph_items
+    assert len(items) == 4
+
+    assert items[0].direction == "ltr"
+    assert items[1].direction == "rtl"
+    assert items[2].direction == "rtl"
+    assert items[3].direction == "ltr"
+
+    # Use the lengths of the words to identify them
+    assert items[3].extent > items[0].extent
+    assert items[1].extent > items[2].extent
 
 
 def check_speed():
