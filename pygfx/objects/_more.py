@@ -118,7 +118,7 @@ class Volume(WorldObject):
 
 
 class Text(WorldObject):
-    """An object representing text."""
+    """An object representing text. See ``TextGeometry`` for details."""
 
     uniform_type = dict(
         rot_scale_transform="4x4xf4",
