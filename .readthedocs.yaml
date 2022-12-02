@@ -1,0 +1,30 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+build:
+  os: ubuntu-20.04
+  tools:
+    python: "3.9"
+  jobs:
+    pre_build:
+      # install a software/CPU renderer
+      apt-get update -y -qq 
+      add-apt-repository ppa:oibaf/graphics-drivers -y 
+      apt-get update -y -qq 
+      apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers 
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: true
+
+# Optionally declare the Python requirements required to build your docs
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+        - examples
+   - requirements: docs/doc_requirements.txt
