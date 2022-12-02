@@ -1,6 +1,6 @@
 """
-This example shows texts with different anchors, so the text can be aligned
-in in the scene.
+This example shows texts with different anchors, so the text can be
+aligned in the scene.
 """
 # test_example = true
 
@@ -15,7 +15,7 @@ scene = gfx.Scene()
 def add_text(anchor, pos):
     obj = gfx.Text(
         gfx.TextGeometry(text=anchor, anchor=anchor, font_size=20),
-        gfx.TextMaterial(color="#fff", screen_space=True),
+        gfx.TextMaterial(color="#0f0", screen_space=True),
     )
     obj.position.set(*pos)
     scene.add(obj)
@@ -26,7 +26,7 @@ line_positions += [(-1, -1), (1, -1), (-1, 1), (1, 1)]
 line_positions += [(-1, -1), (-1, 1), (1, -1), (1, 1)]
 line = gfx.Line(
     gfx.Geometry(positions=[(p[0] * 50, p[1] * 50, -1) for p in line_positions]),
-    gfx.LineSegmentMaterial(color="green"),
+    gfx.LineSegmentMaterial(color="#00f"),
 )
 scene.add(line)
 

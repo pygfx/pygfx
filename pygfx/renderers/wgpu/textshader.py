@@ -124,7 +124,6 @@ class TextShader(WorldObjectShader):
             //let reserved3 = bool(glyph_index_raw & 0x01000000u);
 
             // Load meta-data of the glyph in the atlas
-            //let bitmap_rect = load_s_rects(glyph_index);
             let glyph_info = s_glyph_infos[glyph_index];
             let bitmap_rect = vec4<i32>(glyph_info.origin, glyph_info.size );
 
@@ -135,12 +134,8 @@ class TextShader(WorldObjectShader):
             let pos_offset2 = vec2<f32>(bitmap_rect.zw) / f32(REF_GLYPH_SIZE);
 
             var corners = array<vec2<f32>, 6>(
-                vec2<f32>(0.0, 0.0),
-                vec2<f32>(0.0, 1.0),
-                vec2<f32>(1.0, 0.0),
-                vec2<f32>(0.0, 1.0),
-                vec2<f32>(1.0, 0.0),
-                vec2<f32>(1.0, 1.0),
+                vec2<f32>(0.0, 0.0), vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0),
+                vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0),
             );
             let corner = corners[sub_index];
 
@@ -166,32 +161,30 @@ class TextShader(WorldObjectShader):
                 let delta_ndc = vertex_pos_rotated_and_scaled.xy / screen_factor;
 
                 // Pixel scale is easy
-
                 let atlas_pixel_scale = font_size / f32(REF_GLYPH_SIZE);
 
             $$ else
 
                 // We take the glyph positions as model pos, move to world and then NDC.
 
-                let full_matrix = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
-
                 let raw_pos = vec4<f32>(vertex_pos, 0.0, 1.0);
                 let world_pos = u_wobject.world_transform * raw_pos;
                 let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
                 let delta_ndc = vec2<f32>(0.0, 0.0);
 
-                // For the pixel scale, we first project a point in x and in y
-                // and see their distance in screen space. The smallest distance
-                // is used for scale.
+                // For the pixel scale, we first project points in x and y direction, and calculate
+                // their distance in screen space. The smallest distance is used for scale.
+                // In other words. we measure how out-of-plane the text is to determine the amount of aa.
 
-                // Down below we measure how out-of-plane the text is to determine the amount of aa.
-                // However, part of this skew might be due to intentional anisotropic scaling (stretched text).
+                // Part of the out-of-plane skew might be due to intentional anisotropic scaling (stretched text).
                 // Therefore we measure the intentional part here, so we can compensate below.
                 // Stretched text still becomes somewhat jaggy or blurry, but not as much as it normally would.
                 let sx = length(vec3<f32>(u_wobject.world_transform [0][0], u_wobject.world_transform [0][1], u_wobject.world_transform [0][2]));
                 let sy = length(vec3<f32>(u_wobject.world_transform [1][0], u_wobject.world_transform [1][1], u_wobject.world_transform [1][2]));
                 let aspect_scale = sqrt(sy / sx);
                 let scale_correct = vec2<f32>(aspect_scale, 1.0 / aspect_scale);
+
+                let full_matrix = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform;
 
                 let atlas_pixel_dx = vec2<f32>(font_size / f32(REF_GLYPH_SIZE), 0.0) * scale_correct.x;
                 let raw_pos_dx = vec4<f32>(vertex_pos + atlas_pixel_dx, 0.0, 1.0);
@@ -212,12 +205,12 @@ class TextShader(WorldObjectShader):
             varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
-            varyings.glyph_coord = vec2<f32>(corner);
             varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
             varyings.weight = f32(150.0 + f32(weight_0_15) * 50.0);  // encodes 150-900 in steps of 50
 
             // Picking
             varyings.pick_idx = u32(index);
+            varyings.glyph_coord = vec2<f32>(corner);
 
             return varyings;
         }
@@ -242,7 +235,7 @@ class TextShader(WorldObjectShader):
             // with positive values representing the inside.
             let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
 
-            // Convert to a more useful measure, where the border is at 0.0, and the inside is negative.
+            // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
             // The maximum value at which we can still detect the edge is just below 0.5.
             let distance = (0.5 - atlas_value);
 
@@ -263,7 +256,7 @@ class TextShader(WorldObjectShader):
             // - White text on black looks more bold than black text on white!
             //
             // Below you see how I gave the cut_off an offset that scales with the softness.
-            // This might suggest that it compensates for the 4th point but that might be a
+            // This might suggest that it compensates mostly for the aa-effect but that might be a
             // coincidence. All I did was try to bring our result close to the output of the
             // same text, rendered in a browser, where the text is white on a dark bg (I
             // checked against Firefox on MacOS, with retina display). Note that modern

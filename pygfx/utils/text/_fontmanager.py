@@ -1,7 +1,7 @@
 """
 Module implementing the listing and detection of fonts.
 
-Mostly a stub for now.
+Mostly a stub for now. Needs cleanup once we know how to proceed ...
 
 * Visvis uses a combo of fc-match and manual matching
   https://github.com/almarklein/visvis/blob/master/text/text_freetype.py#L326

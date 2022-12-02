@@ -6,6 +6,7 @@ from ...resources import Texture, Buffer
 
 
 def generate_size_table(max_size=8192):
+    # 8192 is the default wgpu max texture size
     size = 0
     ref_area = 256
     while size < max_size:
@@ -37,15 +38,18 @@ def get_suitable_size(approximate_area):
 
 class RectPacker:
     """
+    This Python code was copied from the Vispy project.
     The algorithm is based on the article by Jukka Jylänki : "A Thousand Ways
     to Pack the Bin - A Practical Approach to Two-Dimensional Rectangle Bin
     Packing", February 27, 2010. More precisely, this is an implementation of
     the Skyline Bottom-Left algorithm based on C++ sources provided by Jukka
     Jylänki at: http://clb.demon.fi/files/RectangleBinPack/.
-    The Python code was copied from the Vispy project.
     """
 
-    # Note: could be extended to keep track of waste-space in a separate data structure (a.k.a. waste map improvement)
+    # Note: this could be extended to keep track of waste-space in a
+    # separate data structure (a.k.a. waste map improvement). Similarly,
+    # we could track freed regions for re-use. Right now we keep things
+    # simple, and repack to re-claim freed regions.
 
     def _reset_packer(self):
         self._atlas_nodes = [(0, 0, self._array.shape[1])]
@@ -133,7 +137,7 @@ class GlyphAtlas(RectPacker):
     repacked. This means that packed regions are moved to a new location
     (defragmentation). Therefore the actual location must be looked up
     via the infos array. The internal array is also reduced when the
-    capacity is much larger than the need.
+    capacity is much larger than needed.
     """
 
     def __init__(self, initial_infos_size=1024, initial_array_size=1024):

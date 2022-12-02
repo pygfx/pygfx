@@ -18,22 +18,15 @@ def generate_glyph(glyph_indices, font_filename):
 
     This generates SDF glyphs and puts them in the atlas. The indices
     of where the glyphs are in the atlas are returned. Glyphs already
-    present in the atlas are of course reused.
+    present in the atlas are reused.
     """
 
-    # Notes on the rect:
-    #
     # The glyph metrics place the origin at the baseline. When a bitmap
     # is generated, the bitmap's origin is not the glyphs origin, so
     # we need to correct for this, otherwise the characters are not on
     # the same baseline. Further, the glyph bitmap that is generated
-    # varies in size depending on the glyph. We put it in the atlas
-    # where each glyph has the same size. Because we put the bitmap in
-    # the upperleft corner, this all works well. However, we don't want
-    # to process all those empty pixels in the fragment shader.
-    #
-    # Both issues are solved by exposing the rect of each glyph, which
-    # is stored in a buffer along with the atlas texture.
+    # varies in size depending on the glyph. The rect info to account for
+    # the above points is stored in the per-glyph buffer of the atlas.
 
     # Get font index (so we can make it part of the glyph hash)
     try:
@@ -57,14 +50,15 @@ def generate_glyph(glyph_indices, font_filename):
         glyph_hash = (font_index, glyph_index)
         index = glyph_atlas.get_index_from_hash(glyph_hash)
         if index is None:
-            glyph, offset = _generate_glyph(face, glyph_index)
+            glyph, offset = _generate_sdf(face, glyph_index)
             index = glyph_atlas.store_region_with_hash(glyph_hash, glyph, offset)
         atlas_indices[i] = index
 
     return atlas_indices
 
 
-def _generate_glyph(face, glyph_index):
+def _generate_sdf(face, glyph_index):
+    """Generate the SDF bitmap."""
     # This only gets called for glyphs that are not in the atlas yet.
 
     # FreeType has two ways to render an SDF. The old way is based on

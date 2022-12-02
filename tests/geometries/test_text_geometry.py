@@ -1,16 +1,14 @@
 import time
-from pygfx import TextGeometry
+from pygfx import TextGeometry, TextItem
 from pytest import raises
 import numpy as np
 
 
-def test_text_geometry1():
+def test_text_geometry_text():
 
     # Let's try some special cases first
 
     # Must specify either text or markdown
-    with raises(TypeError):
-        TextGeometry()
     with raises(TypeError):
         TextGeometry(text="foo", markdown="foo")
 
@@ -52,6 +50,22 @@ def test_text_geometry1():
 
     # Last parts are not used
     assert np.all(geo.sizes.data[1:] == 0)
+
+
+def test_text_geometry_items():
+
+    geo = TextGeometry()
+
+    items = [TextItem("foo"), TextItem("baar")]
+    geo.set_text_items(items)
+    geo.positions.nitems == 7
+    geo.indices.nitems == 7
+
+    items = [TextItem("foo"), TextItem("baar"), TextItem("!")]
+    geo.set_text_items(items)
+
+    geo.positions.nitems == 8
+    geo.indices.nitems == 8
 
 
 def test_text_geometry_whitespace():

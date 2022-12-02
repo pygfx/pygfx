@@ -93,5 +93,5 @@ class Shared(Trackable):
 
     @property
     def glyph_atlas_info_buffer(self):
-        """A buffer containing the rects of the glyphs and more."""
+        """A buffer containing per-glyph metadata (rects and more)."""
         return self._store.glyph_atlas_info_buffer

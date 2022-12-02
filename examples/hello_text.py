@@ -32,10 +32,10 @@ plane.add(text2)
 
 # Another text in screen space. Also shows markdown formatting
 text3 = gfx.Text(
-    gfx.TextGeometry(markdown="**Screen** space", font_size=20, anchor="bottomleft"),
+    gfx.TextGeometry(markdown=" **Screen** space", font_size=20, anchor="bottomleft"),
     gfx.TextMaterial(color="#0f4", screen_space=True),
 )
-text3.position.set(10, 0, 0)
+text3.position.set(10, 10, 0)
 plane.add(text3)
 
 # Let there be ...

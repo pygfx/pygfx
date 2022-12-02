@@ -1,9 +1,9 @@
 """
-Examples demonstrating text on dark and light background.
+Example demonstrating text on dark and light background.
 
-On the left plain text is shown in black and white. There is a
-psychological effect that makes the bottom text (dark text on light
-background) appear thinner than the other way around. The weight_offset
+On the left, plain text is shown in black and white. There is a
+psychological effect that makes the bottom text appear thinner than the
+other way around  (dark text on light background). The weight_offset
 compensates for this effect.
 
 On the right the text uses an outline to give a good appearance on any

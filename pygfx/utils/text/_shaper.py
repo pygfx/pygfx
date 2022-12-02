@@ -13,6 +13,7 @@ import uharfbuzz
 import numpy as np
 
 
+# Determine reference size. This affects the size of the SDF bitmap.
 REF_GLYPH_SIZE = 48  # 48px == 64pt
 
 
@@ -70,7 +71,7 @@ class TemperalCache:
         # so make it faster if there are say 10k items in the set. This
         # makes it faster for that case, but the added complexity makes
         # it slower already for 100 items, which is way more realistic
-        # font count.
+        # font count. So let's keep things simple :)
         pretty_old = time.time() - self._ref_lifetime
         to_remove = {key for key, lt in self._lifetimes.items() if lt < pretty_old}
         for key in to_remove:
@@ -89,6 +90,7 @@ CACHE_FT = TemperalCache(10)
 
 
 def shape_text_hb(text, font_filename, direction=None):
+    """Shape text with Harfbuzz."""
 
     ref_size = REF_GLYPH_SIZE
 
@@ -150,7 +152,15 @@ def shape_text_hb(text, font_filename, direction=None):
 
 
 def shape_text_ft(text, font_filename, direction=None):
-    # assert direction is None  # Just given direction ...
+    """Shape text with FreeType.
+
+    This function is tested but not actually used. It is provided for
+    completeness, as a possible fallback. FreeType supports basic
+    shaping with kerning but not much more than that (e.g. no glyph
+    replacements).
+    """
+
+    # assert direction is None  # Just ignore the given direction ...
 
     ref_size = REF_GLYPH_SIZE
 
@@ -182,9 +192,6 @@ def shape_text_ft(text, font_filename, direction=None):
         positions[i] = pen_x / ref_size, 0
         pen_x += advances[i]
         prev = c
-
-    # note: can use the line_gap as the reference line_height
-    # line_gap = face.height
 
     meta = {
         "extent": pen_x / ref_size,

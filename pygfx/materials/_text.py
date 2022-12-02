@@ -35,7 +35,7 @@ class TextMaterial(Material):
 
     def _wgpu_get_pick_info(self, pick_value):
         # Note that the glyph index is not necessarily the same as the
-        # char index. It would not be worth letting the shader produce
+        # char index. It would not be worth the effort to let the shader produce
         # the char index, but I think we could make it possible to look
         # up the char index from the glyph index via the geometry.
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
@@ -117,7 +117,7 @@ class TextMaterial(Material):
     def weight_offset(self):
         """A value representing an offset to the font weight. Font weights
         are in the range 100-900, so this value should be in the same order of
-        magnitude. Default zero.
+        magnitude. Can be negative to make text thinner. Default zero.
 
         One use-case is to make dark text on a light background 50 units
         thicker, to counter the psychological effect that such text

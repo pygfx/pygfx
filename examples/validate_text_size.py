@@ -29,40 +29,40 @@ obj0.position.set(0, 50, 0)
 
 obj1 = gfx.Text(
     gfx.TextGeometry(text="Lorem ipsum 40!", font_size=40, anchor="baseline-right"),
-    gfx.TextMaterial(color="#fff", screen_space=True),
+    gfx.TextMaterial(color="#0ff", screen_space=True),
 )
 obj1.position.set(-10, 0, 0)
 
 obj2 = gfx.Text(
     gfx.TextGeometry(text="Lorem ipsum 40!", font_size=40, anchor="baseline-left"),
-    gfx.TextMaterial(color="#fff", screen_space=False),
+    gfx.TextMaterial(color="#0ff", screen_space=False),
 )
 obj2.position.set(10, 0, 0)
 
 obj3 = gfx.Text(
     gfx.TextGeometry(text="Lorem ipsum 20 !", font_size=40, anchor="baseline-right"),
-    gfx.TextMaterial(color="#fff", screen_space=True),
+    gfx.TextMaterial(color="#0ff", screen_space=True),
 )
 obj3.position.set(-10, -50, 0)
 obj3.scale.set(0.5, 0.5, 0.5)
 
 obj4 = gfx.Text(
     gfx.TextGeometry(text="Lorem ipsum 20!", font_size=40, anchor="baseline-left"),
-    gfx.TextMaterial(color="#fff", screen_space=False),
+    gfx.TextMaterial(color="#0ff", screen_space=False),
 )
 obj4.position.set(10, -50, 0)
 obj4.scale.set(0.5, 0.5, 0.5)
 
 obj5 = gfx.Text(
     gfx.TextGeometry(text="Rotated", font_size=20, anchor="baseline-right"),
-    gfx.TextMaterial(color="#fff", screen_space=True),
+    gfx.TextMaterial(color="#0ff", screen_space=True),
 )
 obj5.position.set(-10, -100, 0)
 obj5.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), 0.2)
 
 obj6 = gfx.Text(
     gfx.TextGeometry(text="Rotated", font_size=20, anchor="baseline-left"),
-    gfx.TextMaterial(color="#fff", screen_space=False),
+    gfx.TextMaterial(color="#0ff", screen_space=False),
 )
 obj6.position.set(10, -100, 0)
 obj6.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), -0.2)

@@ -1,14 +1,7 @@
 """
-This module implements text geometry.
-
-The TextGeometry class accepts a list of TextItem objects, and turns these into
-positions and atlas_indices. Each TextItem object represents a piece of text
-with specific font properties.
-
-The TextGeometry object has a few text properties that affect the positioning
-of the text.
-
-The text_geometry() function is the user-friendly API to generate text geometry.
+This module implements text geometry. This is where the text rendering
+comes together. Most steps in the text rendering process come from
+pygfx.utils.text, though most of the alignment is implemented here.
 
 For details about the text rendering process, see pygfx/utils/text/README.md
 """
@@ -18,63 +11,6 @@ import numpy as np
 from ._base import Geometry
 from ..resources import Buffer
 from ..utils import text as textmodule
-
-
-class TextItem:
-    """A text item represents a unit piece of text that is formatted
-    in a specific way. The TextGeometry positions a list of text items
-    so that they together display the intended total text.
-    """
-
-    def __init__(
-        self,
-        text,
-        font_props=None,
-        *,
-        ws_before="",
-        ws_after="",
-        allow_break=True,
-    ):
-
-        if font_props is None:
-            font_props = textmodule.FontProps()
-        elif not isinstance(font_props, textmodule.FontProps):
-            raise TypeError("font_props is not a FontProps object.")
-        self._font_props = font_props
-
-        self._text = text
-        self._ws_before = ws_before
-        self._ws_after = ws_after
-        self._allow_break = bool(allow_break)
-
-    @property
-    def text(self):
-        """The text for this item."""
-        return self._text
-
-    @property
-    def font_props(self):
-        return self._font_props
-
-
-class GlyphItem:
-    """A small collection of glyphs that represents a piece of text. Intended for internal use only."""
-
-    def __init__(self, positions, indices, meta):
-        # Arrays with glyph data
-        self.positions = positions
-        self.indices = indices
-        # Layout data
-        self.meta = meta
-        self.extent = meta["extent"]
-        self.direction = meta["direction"]
-        self.ascender = meta["ascender"]
-        self.descender = meta["descender"]
-        self.allow_break = False
-        self.margin_before = 0
-        self.margin_after = 0
-        # Int offset. Note that this means that a glyph item is bound to a TextGeometry
-        self.offset = 0
 
 
 TEXT_ALIGN_ALTS = {
@@ -102,13 +38,95 @@ ANCHOR_Y_ALTS = {
 WHITESPACE_EXTENTS = {}  # A cache
 
 
+class TextItem:
+    """A text item represents a unit piece of text that is formatted
+    in a specific way. The TextGeometry converts these into GlyphItem's,
+    and positions these so that they together display the intended total
+    text.
+    """
+
+    def __init__(
+        self,
+        text,
+        font_props=None,
+        *,
+        ws_before="",
+        ws_after="",
+        allow_break=True,
+    ):
+
+        if not isinstance(text, str):
+            raise TypeError("TextItem text must be str.")
+        if font_props is None:
+            font_props = textmodule.FontProps()
+        elif not isinstance(font_props, textmodule.FontProps):
+            raise TypeError("TextItem font_props must be a FontProps object.")
+
+        self._text = text
+        self._font_props = font_props
+        self._ws_before = ws_before
+        self._ws_after = ws_after
+        self._allow_break = bool(allow_break)
+
+    @property
+    def text(self):
+        """The text for this item."""
+        return self._text
+
+    @property
+    def font_props(self):
+        """The FontProps object to format this text item."""
+        return self._font_props
+
+    @property
+    def ws_before(self):
+        """The whitespace text in front of this item."""
+        return self._ws_before
+
+    @property
+    def ws_after(self):
+        """The whitespace text in front of this item."""
+        return self._ws_after
+
+    @property
+    def allow_break(self):
+        """Whether or not a line-break is allowed after this item."""
+        return self._allow_break
+
+
+class GlyphItem:
+    """A collection of glyphs that represents a unit piece of text.
+    Intended for internal use only. In most cases one TextItem results
+    in one GlyphItem, but it can be more if multiple fonts are required
+    to render the TextItem.
+    """
+
+    def __init__(self, positions, indices, meta):
+        # Arrays with glyph data
+        self.positions = positions
+        self.indices = indices
+        # Layout data
+        self.meta = meta
+        self.extent = meta["extent"]
+        self.direction = meta["direction"]
+        self.ascender = meta["ascender"]
+        self.descender = meta["descender"]
+        self.allow_break = False
+        self.margin_before = 0
+        self.margin_after = 0
+        # Int offset. Note that this means that a glyph item is bound to a TextGeometry
+        self.offset = 0
+
+
 class TextGeometry(Geometry):
-    """Produce renderable geometry from a list of TextItem objects.
+    """The textGeometry creates and stores the geometry to render a piece of text.
+
+    Text can be provided as plain text or in markdown to support basic formatting.
 
     Parameters:
-        text (str): the text to render (optional). Either text or markdown must be given.
+        text (str): the plain text to render (optional).
         markdown (str): the text to render, formatted as markdown (optional).
-            Currently, support is limited to making words italic or bold.
+            See ``set_markdown()`` for details on the supported formatting.
         font_size (float): the size of the font, in scene coordinates or pixel screen
             coordinates, depending on ``material.screen_space``. Default 12.
         anchor (str): the position of the origin of the text. Default "middle-center".
@@ -122,7 +140,7 @@ class TextGeometry(Geometry):
             not supported by any of the given fonts are rendered with the default
             font (from the Noto Sans collection).
         direction (str): The text direction. By default the text direction is
-            determined automatically, but always horizontal. Can be set to
+            determined automatically, but is always horizontal. Can be set to
             'lrt', 'rtl', 'ttb' or 'btt'.
     """
 
@@ -141,11 +159,6 @@ class TextGeometry(Geometry):
     ):
         super().__init__()
 
-        # Check inputs
-        inputs = text, markdown
-        if all(i is not None for i in inputs):
-            raise TypeError("Either text or markdown must be given, not both.")
-
         # Init stub buffers
         self.indices = None
         self.positions = None
@@ -154,8 +167,14 @@ class TextGeometry(Geometry):
         # Init static props
         self._direction = direction
 
-        # Disable positioning, so we can initialize first
-        self._do_positioning = False
+        # Disable layout, so we can initialize first
+        self._do_layout = False
+
+        # Check inputs
+        inputs = text, markdown
+        inputs = [i for i in inputs if i is not None]
+        if len(inputs) > 1:
+            raise TypeError("Either text or markdown must be given, not both.")
 
         # Process input
         if text is not None:
@@ -163,7 +182,7 @@ class TextGeometry(Geometry):
         elif markdown is not None:
             self.set_markdown(markdown, family=family)
         else:
-            raise TypeError("Either text or markdown must be given")
+            self.set_text_items([])
 
         # Set props
         self.font_size = font_size
@@ -172,15 +191,15 @@ class TextGeometry(Geometry):
         self.line_height = line_height
         self.text_align = text_align
 
-        # Positioning
-        self._do_positioning = True
+        # Finish layout
+        self._do_layout = True
         self.apply_layout()
 
     def set_text_items(self, text_items):
         """Provide new text in the form of a list of TextItem objects.
 
-        This is considered a low level function - you should probably use
-        ``set_text`` or ``set_markdown`` instead.
+        This is considered a low level function to provide more control.
+        Use ``set_text`` or ``set_markdown`` for more convenience.
 
         A note on performance: if the new text consists of more glyphs
         than the current, new (larger) buffers are created. If the
@@ -212,18 +231,12 @@ class TextGeometry(Geometry):
 
             # Get whitespace after and before the text
             margin_before = margin_after = 0
-            if item._ws_before:
-                margin_before = self._get_ws_extent(
-                    item._ws_before, text_pieces[0][1].filename
-                )
-            if item._ws_after:
-                margin_after = self._get_ws_extent(
-                    item._ws_after, text_pieces[-1][1].filename
-                )
+            margin_before = self._get_ws_extent(item.ws_before, text_pieces[0][1])
+            margin_after = self._get_ws_extent(item.ws_after, text_pieces[-1][1])
 
             # Set props so these items will be grouped correctly
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
-            first_item.allow_break = item._allow_break
+            first_item.allow_break = item.allow_break
             first_item.margin_before = margin_before
             last_item.margin_after = margin_after
 
@@ -284,20 +297,20 @@ class TextGeometry(Geometry):
     def set_text(self, text, family=None, style=None, weight=None):
         """Update the geometry's text.
 
+        Parameters:
+            text (str): the text to render.
+            family (str, tuple): the name(s) of the font to prefer (optional).
+                If multiple names are given, they are preferred in the
+                given order. Characters that are not supported by any
+                of the given fonts are rendered with the default font.
+            style (str): The style of the font (normal, italic, oblique). Default "normal"
+            weight (str, int): The weight of the font. E.g. "normal" or "bold" or a
+                number between 100 and 900. Default "normal".
+
         A note on performance: if the new text consists of more glyphs
         than the current, new (larger) buffers are created. If the
         number of glyphs is smaller, the buffers are not replaced, but
         simply not fully used.
-
-        Parameters:
-            text (str): the text to render.
-            family (str, tuple): the name(s) of the font to prefer. If multiple names
-                are given, they are preferred in the given order. Characters that are
-                not supported by any of the given fonts are rendered with the default
-                font (from the Noto Sans collection).
-            style (str): The style of the font (normal, italic, oblique).
-            weight (str, int): The weight of the font. E.g. "normal" or "bold" or a
-                number between 100 and 900.
         """
 
         if not isinstance(text, str):
@@ -321,19 +334,31 @@ class TextGeometry(Geometry):
 
         self.set_text_items(items)
 
-    def set_markdown(self, text, family=None):
+    def set_markdown(self, markdown, family=None):
         """Update the geometry's text using markdown formatting.
 
         The supported subset of markdown is limited to surrounding
         pieces of text with single and double stars for slanted and
         bold text respectively.
+
+        Parameters:
+            markdown (str): the markdown to render.
+            family (str, tuple): the name(s) of the font to prefer (optional).
+                If multiple names are given, they are preferred in the
+                given order. Characters that are not supported by any
+                of the given fonts are rendered with the default font.
+
+        A note on performance: if the new text consists of more glyphs
+        than the current, new (larger) buffers are created. If the
+        number of glyphs is smaller, the buffers are not replaced, but
+        simply not fully used.
         """
 
-        if not isinstance(text, str):
+        if not isinstance(markdown, str):
             raise TypeError("Markdown text must be a Unicode string.")
 
         # Split text in pieces using a tokenizer
-        pieces = list(textmodule.tokenize_markdown(text))
+        pieces = list(textmodule.tokenize_markdown(markdown))
 
         # Put a virtual zero-char space in front and at the end, to make the alg simpler
         pieces.insert(0, ("ws", ""))
@@ -406,25 +431,27 @@ class TextGeometry(Geometry):
         """
         return textmodule.shape_text(text, font_filename, self._direction)
 
-    def _get_ws_extent(self, s, font_filename):
+    def _get_ws_extent(self, s, font):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""
-        if len(s) <= 8:
-            key = (s, self._direction, font_filename)
+        if not s:
+            return 0
+        elif len(s) <= 8:
+            key = (s, self._direction, font.filename)
             try:
-                extent = WHITESPACE_EXTENTS[key]
+                return WHITESPACE_EXTENTS[key]
             except KeyError:
-                meta = self._shape_text(s, font_filename)[2]
+                meta = self._shape_text(s, font.filename)[2]
                 extent = meta["extent"]
                 WHITESPACE_EXTENTS[key] = extent
+                return extent
         else:
-            meta = self._shape_text(s, font_filename)[2]
-            extent = meta["extent"]
-        return extent
+            meta = self._shape_text(s, font.filename)[2]
+            return meta["extent"]
 
     # %%%%% Glyph generation
 
     def _generate_glyph(self, glyph_indices, font_filename):
-        """The glyph generation step. Returns the atlas indices.
+        """The glyph generation step. Returns an array with atlas indices.
         Can be overloaded for custom behavior.
         """
         return textmodule.generate_glyph(glyph_indices, font_filename)
@@ -526,20 +553,26 @@ class TextGeometry(Geometry):
         To overload this with a custom layout, overload ``_apply_layout()``.
         """
 
-        if self._do_positioning:
+        if self._do_layout:
             self._apply_layout()
 
     @property
     def font_size(self):
-        """The size of the text. For text rendered in screen space
-        (``material.screen_space==True``), the size is in logical
-        pixels. For text rendered in world space, the size represents
-        world units. In the latter case the text is also affected by
-        the object's transform, including its scale.
+        """The size of the text.
 
-        Note that the font_size is an indicative size - most glyphs are
-        smaller, and some may be larger. Also note that some pieces of
-        the text may have a different size due to formatting.
+        For text rendered in screen space
+        (``material.screen_space==True``), the size is in logical
+        pixels, and the object's local transform affects the final text
+        size.
+
+        For text rendered in world space, the size is in model
+        coordinates, and the the object's world-transform affects the
+        final text size.
+
+        Note that the font_size is an indicative size depending on the
+        font family. Most glyphs are smaller, and some may be larger.
+        Also, some pieces of the text may have a different size due to
+        formatting.
         """
         return self._font_size
 
@@ -566,8 +599,8 @@ class TextGeometry(Geometry):
 
     @property
     def line_height(self):
-        """The relative height of a line of text, used to set the distance between
-        lines. Represented as a factor of the font size. Default 1.2.
+        """The relative height of a line of text, used to set the
+        distance between lines. Default 1.2. TEXT WRAPPING IS NOT YET IMPLEMENTED
         """
         return self._line_height
 
@@ -579,7 +612,7 @@ class TextGeometry(Geometry):
     @property
     def text_align(self):
         """Set the alignment of wrapped text. Can be start, end, center, or justify.
-        Default "start".
+        Default "start". TEXT WRAPPING IS NOT YET IMPLEMENTED
         """
         return self._text_align
 
@@ -601,9 +634,10 @@ class TextGeometry(Geometry):
     def anchor(self):
         """The position of the origin of the text. This is a string
         representing the vertical and horizontal anchors, separated by
-        a dash, e.g. "top-left", "bottom-right", or "middle-center".
-        The vertical anchor can also be "baseline", though this only
-        makes sense for single-line text.
+        a dash, e.g. "top-left" or "bottom-center".
+
+        * Vertical values: "top", "middle", "baseline", "bottom".
+        * Horizontal values: "left", "center", "right".
         """
         return self._anchor
 
