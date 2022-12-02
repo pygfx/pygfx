@@ -3,14 +3,23 @@
 import os
 import sys
 from sphinx_gallery.sorting import ExplicitOrder
+import wgpu.gui.offscreen
 
 
 ROOT_DIR = os.path.abspath(os.path.join(__file__, "..", ".."))
 sys.path.insert(0, ROOT_DIR)
 
-# Avoid freezing examples
-os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+# -- Sphix Gallery Hackz -----------------------------------------------------
+# When building the gallery, render offscreen and don't process
+# the event loop while parsing the example
 
+def _ignore_offscreen_run():
+    wgpu.gui.offscreen.run = lambda: None
+
+os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+_ignore_offscreen_run()
+
+# ----------------------------------------------------------------------------
 
 import pygfx  # noqa: E402
 
