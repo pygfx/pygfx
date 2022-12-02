@@ -494,12 +494,19 @@ class TextGeometry(Geometry):
     # %%%%% Layout
 
     def bounding_box(self):
-        # We can calculate the bounding box when text is in world
-        # coordinates, but when text is rendered in screen coordinates
-        # there is no sensible value. Unfortunately, whether or not we
-        # render in screen space is defined by the material. So we
-        # simply never expose a bounding box for text.
-        return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
+        if self.screen_space:
+            # The space occupied by the text is essentially a point
+            return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
+        else:
+            if self._aabb_rev == self.positions.rev:
+                return self._aabb
+            pos = self.positions.data
+            aabb_2d = np.array([pos.min(axis=0), pos.max(axis=0)], np.float32)
+            self._aabb[1, 0] += self.font_size  # because last position does not include its width
+            # If positions contains xy, but not z, assume z=0
+            self._aabb = np.column_stack([aabb_2d, np.zeros((2, 1), np.float32)])
+            self._aabb_rev = self.positions.rev
+            return self._aabb
 
     def _apply_layout(self):
         """The layout step. Updates positions and sizes to finalize the geometry.
@@ -542,6 +549,8 @@ class TextGeometry(Geometry):
                 right = max(right, item.ascender * font_size)
                 left = min(left, item.descender * font_size)
 
+        self._aabb = np.array([(left, bottom, 0), (right, top, 0)], np.float32)
+
         # Anchoring
 
         if anchor.endswith("left"):
@@ -562,6 +571,7 @@ class TextGeometry(Geometry):
 
         if pos_offset_x or pos_offset_y:
             positions_array += pos_offset_x, pos_offset_y
+            self._aabb += pos_offset_x, pos_offset_y, 0
 
         # Trigger uploads to GPU
 
