@@ -348,11 +348,21 @@ class WorldObject(EventTarget, RootTrackable):
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
         """
+
+        for child in self.iter(skip_invisible=skip_invisible):
+            callback(child)
+
+    def iter(self, filter_fn=None, skip_invisible=False):
         if skip_invisible and not self.visible:
             return
-        callback(self)
+
+        if filter_fn is not None and not filter_fn(self):
+            return
+
+        yield self
+
         for child in self._children:
-            child.traverse(callback, skip_invisible)
+            yield from child.iter(filter_fn, skip_invisible)
 
     def update_matrix(self):
         p, r, s = self.position, self.rotation, self.scale
