@@ -160,7 +160,7 @@ def shape_text_ft(text, font_filename, direction=None):
     replacements).
     """
 
-    # assert direction is None  # Just ignore the given direction ...
+    # assert direction is None  # just ignore the given direction ...
 
     ref_size = REF_GLYPH_SIZE
 
