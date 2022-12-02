@@ -13,8 +13,10 @@ sys.path.insert(0, ROOT_DIR)
 # When building the gallery, render offscreen and don't process
 # the event loop while parsing the example
 
+
 def _ignore_offscreen_run():
     wgpu.gui.offscreen.run = lambda: None
+
 
 os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 _ignore_offscreen_run()

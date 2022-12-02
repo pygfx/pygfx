@@ -88,7 +88,9 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
 
         path_generator = block_vars["image_path_iterator"]
         img_path = Path(next(path_generator)).with_suffix(".gif")
-        iio.imwrite(img_path, frames, duration=40, loop=scraper_config["loop"])  # write at 25Hz
+        iio.imwrite(
+            img_path, frames, duration=40, loop=scraper_config["loop"]
+        )  # write at 25Hz
         images.append(img_path)
 
     return figure_rst(images, gallery_conf["src_dir"])
