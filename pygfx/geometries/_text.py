@@ -502,8 +502,7 @@ class TextGeometry(Geometry):
                 return self._aabb
             pos = self.positions.data
             aabb_2d = np.array([pos.min(axis=0), pos.max(axis=0)], np.float32)
-            self._aabb[1, 0] += self.font_size  # because last position does not include its width
-            # If positions contains xy, but not z, assume z=0
+            self._aabb[1, 0] += self.font_size  # positions do not include char width
             self._aabb = np.column_stack([aabb_2d, np.zeros((2, 1), np.float32)])
             self._aabb_rev = self.positions.rev
             return self._aabb
