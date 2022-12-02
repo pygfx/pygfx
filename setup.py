@@ -44,7 +44,7 @@ extras_require = {
         "sphinx-gallery",
         "imageio",
         "matplotlib",
-    ]
+    ],
 }
 
 
