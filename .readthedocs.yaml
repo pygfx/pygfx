@@ -27,4 +27,4 @@ python:
       extra_requirements:
         - docs
         - examples
-   - requirements: docs/doc_requirements.txt
+    - requirements: docs/doc_requirements.txt
