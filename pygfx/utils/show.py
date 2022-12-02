@@ -117,6 +117,11 @@ class Display:
 
         """
 
+        if self.canvas and self.canvas.is_closed():
+            raise RuntimeError(
+                "Can not show a closed canvas. Did you repeatedly call `show`?"
+            )
+
         if isinstance(object, Scene):
             custom_scene = False
             scene = object
@@ -133,16 +138,16 @@ class Display:
             scene.add(AmbientLight(), DirectionalLight())
         self.scene = scene
 
-        if not any(self.find_children(Light)):
+        if not any(scene.iter(lambda x: isinstance(x, Light))):
             warnings.warn(
                 "Your scene does not contain any lights. Some objects may not be visible"
             )
 
-        existing_cameras = self.find_children(Camera)
+        existing_camera = next(scene.iter(lambda x: isinstance(x, Camera)), None)
         if self.camera:
             pass
-        elif any(existing_cameras):
-            self.camera = existing_cameras[0]
+        elif existing_camera is not None:
+            self.camera = existing_camera
         elif custom_scene:
             self.camera = PerspectiveCamera(70, 16 / 9)
             self.camera.add(DirectionalLight())
@@ -173,19 +178,6 @@ class Display:
 
         self.canvas.request_draw(self.draw_function)
         sys.modules[self.canvas.__module__].run()
-
-    # this should probably live on WorldObject
-    def find_children(self, clazz):
-        """Return all children of the given type"""
-        objects = list()
-
-        # can we make traverse a generator?
-        # [x for x in self.scene.traverse(filter=lambda x: isinstance(x, clazz))
-        self.scene.traverse(
-            lambda x: objects.append(x) if isinstance(x, clazz) else None
-        )
-
-        return objects
 
 
 def show(

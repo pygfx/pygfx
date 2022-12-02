@@ -31,109 +31,170 @@ The `WGPU <https://github.com/pygfx/wgpu-py>`_ library provides the low level AP
 communicate with the hardware. WGPU is itself based on Vulkan, Metal and DX12.
 
 
-Defining a scene
-----------------
+How to use pygfx?
+-----------------
 
-Visualizations in pygfx are constructed of world objects, grouped together into
-a scene. These define the kinds of object being visualized, and how it should
-be rendered (we get to the details later).
-
-.. code-block:: python
-
-    scene = gfx.Scene()
-
-    geometry = gfx.BoxGeometry(200, 200, 200)
-    material = gfx.MeshPhongMaterial(color=(1, 1, 0, 01))
-    cube = gfx.Mesh(geometry, material)
-
-    scene.add(cube)
-
-
-Opening a window to render to
------------------------------
-
-Your visualization must end up on the screen somehow. For this, we use the
-canvas abstraction provided by wgpu-py.
-
-.. code-block:: python
-
-    # Create Qt widget that can function as a canvas
-    from wgpu.gui.qt import WgpuCanvas
-    canvas = WgpuCanvas()
-
-
-We can ask the canvas to schedule a draw event, and tell it what to do
-to perform a draw.
-
-.. code-block:: python
-
-    def animate():
-       ...  # we'll get to this
-
-
-    canvas.request_draw(animate)
-
-
-Setting up a renderer
----------------------
-
-To render your scene to the canvas, you need a renderer. A renderer
-needs a target to render to (which can be a canvas or a texture).
-And finally, you need a camera to define the point of view to render the scene from.
-
-.. code-block:: python
-
-    # A renderer is associated with a canvas (or a texture) that it renders to
-    renderer = gfx.renderers.WgpuRenderer(canvas)
-
-    # A camera defines the viewpoint and projection
-    camera = gfx.PerspectiveCamera(70, 16 / 9)
-
-    ...
-
-    # The actual rendering
-    renderer.render(scene, camera)
-
-
-Putting it together
--------------------
-
-If you run this, you should see a rotating yellow cube.
-
-.. code-block:: python
+Before jumping into the details, here is a minimal example of how to use the
+library::
 
     import pygfx as gfx
 
-    from PySide6 import QtWidgets
-    from wgpu.gui.qt import WgpuCanvas
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
 
+    if __name__ == "__main__":
+        gfx.show(cube)
 
-    app = QtWidgets.QApplication([])
+.. image:: _static/guide_hello_world.png
 
-    # Create a canvas and a renderer
-    canvas = WgpuCanvas()
-    renderer = gfx.renderers.WgpuRenderer(canvas)
+And with that we rendered our first scene using wgpu! Simple, right? At the same
+time, this is just scratching the surface of what we can do with pygfx and next
+up we will have a look at the three main building blocks involved in creating
+more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
+`Renderers`.
 
-    # Populate a scene with a cube
+**Scenes**
+
+Starting off with the most important building bock, a `Scene` is the world or
+scenario to render. It has at least three components: an `object` with some
+visual properties, a `Light` source, and a `Camera` to view the scene. Once we
+defined those three things, we can position them within our scene and render it. 
+
+Let's look at an example of how this works and recreate the above example. We
+begin by defining an empty `Scene`::
+
+    import pygfx as gfx
+
     scene = gfx.Scene()
-    geometry = gfx.BoxGeometry(200, 200, 200)
-    material = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
-    cube = gfx.Mesh(geometry, material)
-    scene.add(cube)
+
+Right now this scene is very desolate. There is no light, no objects, and
+nothing that can look at those objects. Let's change this by adding some
+`light` and creating a `camera`::
+
+    # and god said ...
+    scene.add(gfx.AmbientLight())
+    scene.add(gfx.DirectionalLight())
 
     camera = gfx.PerspectiveCamera(70, 16 / 9)
     camera.position.z = 400
 
+Now there is light and a camera to perceive the light. To complete the setup
+we also need to add an object to look at::
+
+    geometry = gfx.box_geometry(200, 200, 200)
+    material = gfx.MeshPhongMaterial(color="#336699")
+    cube = gfx.Mesh(geometry, material)
+    scene.add(cube)
+
+Objects are slightly more complicated than lights or cameras. They have a
+`geometry`, which controls an object's form, and a `material`, which controls an
+object's appearance (color, reflectiveness, etc). From here, we can hand our
+result to `gfx.show` and visualize it. This time, however, we are passing a `Scene`
+instead of an `Object`, so the result will look a little different::
+
+    gfx.show(scene)
+
+.. image:: _static/guide_static_cube.png
+
+This happens because a complete `Scene` can be rendered as-is, whereas an
+`Object` can not. As such, `gfx.show` will, when given an `Object`, create a new
+scene for us, add the missing lights, a camera, and a background (for visual
+appeal), place the object into the scene and then render the result. When given
+a `Scene`, on the other hand, it will use the input as-is, allowing you to see
+exactly what you've created and potentially spot any problems.
+
+**Canvases**
+
+The second main building block is the `Canvas`. A `Canvas` provides the surface
+onto which the scene should be rendered, and to use it we directly import it
+from wgpu-py (on top of which pygfx is built). Wgpu-py has several canvases that
+we can choose from, but for starters the most important one is ``auto``, which
+automatically selects an appropriate backend to create a window on your screen::
+
+    import pygfx as gfx
+    from wgpu.gui.auto import WgpuCanvas
+
+    canvas = WgpuCanvas(size=(200, 200), title="A cube!")
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    if __name__ == "__main__":
+        gfx.show(cube, canvas=canvas)
+
+.. image:: _static/guide_hello_world.png
+
+Like before, ``gfx.show`` will automatically create a canvas if we don't provide
+one explicitly. This works fine for quick visualizations where the render can
+appear as a standalone window. However, if we want to have more fine-graned
+control over the target, e.g., because we want to change the window size or
+title, we need specify the canvas explicitly. Another common use-case for an
+explicit canvas is because we are creating a larger GUI and we want the render
+to only appear in a subwidget of the full window.
+
+**Renderers**
+
+The third and final main building block is a `Renderer`. A `Renderer` is like an
+artist that brings all of the above together. It looks at the `Scene` through a
+`Camera` and draws what it sees onto the surface provided by the `Canvas`. Like
+any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
+`Renderer` we also need to create a `Canvas`::
+
+    import pygfx as gfx
+    from wgpu.gui.auto import WgpuCanvas
+
+    canvas = WgpuCanvas()
+    renderer = gfx.renderers.WgpuRenderer(canvas)
+    
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
+    if __name__ == "__main__":
+        gfx.show(cube, renderer=renderer)
+
+.. image:: _static/guide_hello_world.png
+
+The output is the same as without the explicit reference because `gfx.show`
+will, as you may expect at this point, create a renderer if we don't provide it.
+For many applications this is perfectly fine; however, if we want to tackle more
+advanced problems (e.g., control the exact process on how objects appear to
+overlay each other) we may need to create it explicitly. For starters, it is
+enough to know that it exists and what it does, so that we can come back to it
+later when it becomes relevant.
+
+Animations
+----------
+
+Static renders are nice, but you know what is better? Animations! As mentioned
+in the section on `Canvases`, this is done via a backend's event loop which
+allows you to specify callbacks that get executed periodically. For convenience,
+`gfx.show` exposes two callbacks that will be executed before a new render is
+made (`before_render`) and afterward (`after_render`). To animate a scene,
+simply pass a callback to this function (here ``animate``) and use it to modify
+the scene as desired::
+
+    import pygfx as gfx
+
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshPhongMaterial(color="#336699"),
+    )
+
     def animate():
-        rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
+        rot = gfx.linalg.Quaternion().set_from_euler(
+                gfx.linalg.Euler(0, 0.01)
+            )
         cube.rotation.multiply(rot)
 
-        renderer.render(scene, camera)
-        canvas.request_draw()
+    if __name__ == "__main__":
+        gfx.show(cube, before_render=animate)
 
-    canvas.request_draw(animate)
-    app.exec_()
-
+.. image:: _static/guide_rotating_cube.gif
 
 World objects
 -------------
