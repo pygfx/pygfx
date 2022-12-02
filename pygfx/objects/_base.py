@@ -353,6 +353,10 @@ class WorldObject(EventTarget, RootTrackable):
             callback(child)
 
     def iter(self, filter_fn=None, skip_invisible=False):
+        """Create a generator that iterates over this objects and its children.
+        If ``filter_fn`` is given, only objects for which it returns ``True``
+        are included.
+        """
         if skip_invisible and not self.visible:
             return
 
