@@ -10,10 +10,10 @@ build:
   jobs:
     pre_build:
       # install a software/CPU renderer
-      apt-get update -y -qq 
-      add-apt-repository ppa:oibaf/graphics-drivers -y 
-      apt-get update -y -qq 
-      apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers 
+      - apt-get update -y -qq 
+      - add-apt-repository ppa:oibaf/graphics-drivers -y 
+      - apt-get update -y -qq 
+      - apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers 
 
 sphinx:
   configuration: docs/conf.py
