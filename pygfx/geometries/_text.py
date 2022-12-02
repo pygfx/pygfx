@@ -127,8 +127,10 @@ class TextGeometry(Geometry):
         text (str): the plain text to render (optional).
         markdown (str): the text to render, formatted as markdown (optional).
             See ``set_markdown()`` for details on the supported formatting.
-        font_size (float): the size of the font, in scene coordinates or pixel screen
-            coordinates, depending on ``material.screen_space``. Default 12.
+        screen_space (bool): whether the text is rendered in screen space,
+            in contrast to world space. Default False.
+        font_size (float): the size of the font, in object coordinates or pixel screen
+            coordinates, depending on the value of the ``screen_space`` property. Default 12.
         anchor (str): the position of the origin of the text. Default "middle-center".
         max_width (float): the maximum width of the text. Words are wrapped if necessary.
             A value of zero means no wrapping. Default zero.
@@ -149,6 +151,7 @@ class TextGeometry(Geometry):
         text=None,
         *,
         markdown=None,
+        screen_space=False,
         font_size=12,
         anchor="middle-center",
         max_width=0,
@@ -164,7 +167,8 @@ class TextGeometry(Geometry):
         self.positions = None
         self.sizes = None
 
-        # Init static props
+        # Init props unrelated to layout
+        self.screen_space = screen_space
         self._direction = direction
 
         # Disable layout, so we can initialize first
@@ -184,7 +188,7 @@ class TextGeometry(Geometry):
         else:
             self.set_text_items([])
 
-        # Set props
+        # Set layout props
         self.font_size = font_size
         self.anchor = anchor
         self.max_width = max_width
@@ -194,6 +198,23 @@ class TextGeometry(Geometry):
         # Finish layout
         self._do_layout = True
         self.apply_layout()
+
+    @property
+    def screen_space(self):
+        """Whether the text is rendered in screen space (in contrast to world space).
+
+        If ``False`` (default), the text occupies the world (i.e. scene) as
+        objects normally do, and sizes are expressed in object
+        coordinates. If ``True``, the text is rendered in logical screen
+        coordinates at the object's point in the world. The object's
+        local rotation and scale can still be used to rotate and scale
+        the text. This mode is typically used for annotations.
+        """
+        return self._store.screen_space
+
+    @screen_space.setter
+    def screen_space(self, value):
+        self._store.screen_space = bool(value)
 
     def set_text_items(self, text_items):
         """Provide new text in the form of a list of TextItem objects.
@@ -560,16 +581,15 @@ class TextGeometry(Geometry):
     def font_size(self):
         """The size of the text.
 
-        For text rendered in screen space
-        (``material.screen_space==True``), the size is in logical
-        pixels, and the object's local transform affects the final text
-        size.
+        For text rendered in screen space (``screen_space`` property is set),
+        the size is in logical pixels, and the object's local transform
+        affects the final text size.
 
-        For text rendered in world space, the size is in model
-        coordinates, and the the object's world-transform affects the
-        final text size.
+        For text rendered in world space (``screen_space`` property is *not* set),
+        the size is in object coordinates, and the the object's
+        world-transform affects the final text size.
 
-        Note that the font_size is an indicative size depending on the
+        Note that the font size is an indicative size depending on the
         font family. Most glyphs are smaller, and some may be larger.
         Also, some pieces of the text may have a different size due to
         formatting.
@@ -585,8 +605,7 @@ class TextGeometry(Geometry):
     def max_width(self):
         """The maximum width of the text. Text will wrap if beyond this
         limit. The coordinate system that this applies to is the same
-        as for font_size and depends on the material's ``screen_space``
-        property. Set to 0 for no wrap. Default 0.
+        as for ``font_size``. Set to 0 for no wrap. Default 0.
 
         TEXT WRAPPING IS NOT YET IMPLEMENTED
         """

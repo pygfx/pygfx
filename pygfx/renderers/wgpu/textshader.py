@@ -13,8 +13,9 @@ class TextShader(WorldObjectShader):
 
     def __init__(self, wobject):
         super().__init__(wobject)
+        geometry = wobject.geometry
         material = wobject.material
-        self["screen_space"] = material.screen_space
+        self["screen_space"] = geometry.screen_space
         self["aa"] = material.aa
 
     def get_bindings(self, wobject, shared):

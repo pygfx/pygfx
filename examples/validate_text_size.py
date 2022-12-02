@@ -16,10 +16,11 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
 obj0 = gfx.Text(
-    gfx.TextGeometry(text="Screen  |  World", font_size=80, anchor="bottom-center"),
+    gfx.TextGeometry(
+        text="Screen  |  World", font_size=80, screen_space=True, anchor="bottom-center"
+    ),
     gfx.TextMaterial(
         color="#aea",
-        screen_space=True,
         weight_offset=100,
         outline_color="#484",
         outline_thickness=0.2,
@@ -28,41 +29,56 @@ obj0 = gfx.Text(
 obj0.position.set(0, 50, 0)
 
 obj1 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum 40!", font_size=40, anchor="baseline-right"),
-    gfx.TextMaterial(color="#0ff", screen_space=True),
+    gfx.TextGeometry(
+        text="Lorem ipsum 40!", font_size=40, anchor="baseline-right", screen_space=True
+    ),
+    gfx.TextMaterial(color="#0ff"),
 )
 obj1.position.set(-10, 0, 0)
 
 obj2 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum 40!", font_size=40, anchor="baseline-left"),
-    gfx.TextMaterial(color="#0ff", screen_space=False),
+    gfx.TextGeometry(
+        text="Lorem ipsum 40!", font_size=40, anchor="baseline-left", screen_space=False
+    ),
+    gfx.TextMaterial(color="#0ff"),
 )
 obj2.position.set(10, 0, 0)
 
 obj3 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum 20 !", font_size=40, anchor="baseline-right"),
-    gfx.TextMaterial(color="#0ff", screen_space=True),
+    gfx.TextGeometry(
+        text="Lorem ipsum 20 !",
+        font_size=40,
+        anchor="baseline-right",
+        screen_space=True,
+    ),
+    gfx.TextMaterial(color="#0ff"),
 )
 obj3.position.set(-10, -50, 0)
 obj3.scale.set(0.5, 0.5, 0.5)
 
 obj4 = gfx.Text(
-    gfx.TextGeometry(text="Lorem ipsum 20!", font_size=40, anchor="baseline-left"),
-    gfx.TextMaterial(color="#0ff", screen_space=False),
+    gfx.TextGeometry(
+        text="Lorem ipsum 20!", font_size=40, anchor="baseline-left", screen_space=False
+    ),
+    gfx.TextMaterial(color="#0ff"),
 )
 obj4.position.set(10, -50, 0)
 obj4.scale.set(0.5, 0.5, 0.5)
 
 obj5 = gfx.Text(
-    gfx.TextGeometry(text="Rotated", font_size=20, anchor="baseline-right"),
-    gfx.TextMaterial(color="#0ff", screen_space=True),
+    gfx.TextGeometry(
+        text="Rotated", font_size=20, anchor="baseline-right", screen_space=True
+    ),
+    gfx.TextMaterial(color="#0ff"),
 )
 obj5.position.set(-10, -100, 0)
 obj5.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), 0.2)
 
 obj6 = gfx.Text(
-    gfx.TextGeometry(text="Rotated", font_size=20, anchor="baseline-left"),
-    gfx.TextMaterial(color="#0ff", screen_space=False),
+    gfx.TextGeometry(
+        text="Rotated", font_size=20, anchor="baseline-left", screen_space=False
+    ),
+    gfx.TextMaterial(color="#0ff"),
 )
 obj6.position.set(10, -100, 0)
 obj6.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), -0.2)

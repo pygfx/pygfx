@@ -18,27 +18,23 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
 
-geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40)
+geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40, screen_space=True)
 
 t1 = gfx.Text(
     geo,
-    gfx.TextMaterial(color="#fff", screen_space=True),
+    gfx.TextMaterial(color="#fff"),
 )
 t2 = gfx.Text(
     geo,
-    gfx.TextMaterial(color="#000", screen_space=True, weight_offset=50),
+    gfx.TextMaterial(color="#000", weight_offset=50),
 )
 t3 = gfx.Text(
     geo,
-    gfx.TextMaterial(
-        color="#fff", screen_space=True, outline_color="#000", outline_thickness=0.15
-    ),
+    gfx.TextMaterial(color="#fff", outline_color="#000", outline_thickness=0.15),
 )
 t4 = gfx.Text(
     geo,
-    gfx.TextMaterial(
-        color="#fff", screen_space=True, outline_color="#000", outline_thickness=0.15
-    ),
+    gfx.TextMaterial(color="#fff", outline_color="#000", outline_thickness=0.15),
 )
 
 t1.position.set(-1, +1, 0)

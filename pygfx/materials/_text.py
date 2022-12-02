@@ -19,14 +19,11 @@ class TextMaterial(Material):
         outline_color="#000",
         outline_thickness=0,
         weight_offset=0,
-        screen_space=True,
         aa=True,
         **kwargs
     ):
         super().__init__(**kwargs)
 
-        self._screen_space = None
-        self.screen_space = screen_space
         self.color = color
         self.outline_color = outline_color
         self.outline_thickness = outline_thickness
@@ -55,18 +52,6 @@ class TextMaterial(Material):
     @aa.setter
     def aa(self, aa):
         self._store.aa = bool(aa)
-
-    @property
-    def screen_space(self):
-        """Whether the text is applied in screen space (in contrast to
-        model space). Whith screen_space set, the object's local
-        rotation and scale are applied in screen space.
-        """
-        return self._store.screen_space
-
-    @screen_space.setter
-    def screen_space(self, value):
-        self._store.screen_space = bool(value)
 
     @property
     def color(self):

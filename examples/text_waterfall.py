@@ -43,11 +43,11 @@ chargen = character_generator()
 live_objects = set()
 waiting_objects = set()
 
-text_material = gfx.TextMaterial(color="#06E", screen_space=True)
+text_material = gfx.TextMaterial(color="#06E")
 
 for i in range(100):
     obj = gfx.Text(
-        gfx.TextGeometry(" ", font_size=18),
+        gfx.TextGeometry(" ", font_size=18, screen_space=True),
         text_material,
     )
     scene.add(obj)

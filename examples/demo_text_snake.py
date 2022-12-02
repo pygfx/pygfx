@@ -27,7 +27,7 @@ class SnakeTextGeometry(gfx.TextGeometry):
 s = "**Lorem ipsum** dolor sit amet, *consectetur adipiscing elit*, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
 text1 = gfx.Text(
     SnakeTextGeometry(markdown=s, font_size=10),
-    gfx.TextMaterial(color="#fff", screen_space=False),
+    gfx.TextMaterial(color="#fff"),
 )
 scene.add(text1)
 
