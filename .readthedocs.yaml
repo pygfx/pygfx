@@ -7,7 +7,7 @@ build:
   os: ubuntu-20.04
   tools:
     python: "3.9"
-  apt-packages:
+  apt_packages:
     - libegl1-mesa
     - libgl1-mesa-dri
     - libxcb-xfixes0-dev
