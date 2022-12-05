@@ -360,7 +360,9 @@ class WorldObject(EventTarget, RootTrackable):
         if skip_invisible and not self.visible:
             return
 
-        if not (filter_fn is not None and not filter_fn(self)):
+        if filter_fn is None:
+            yield self
+        elif filter_fn(self):
             yield self
 
         for child in self._children:
