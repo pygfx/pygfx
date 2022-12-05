@@ -7,12 +7,11 @@ build:
   os: ubuntu-20.04
   tools:
     python: "3.9"
-  jobs:
-    apt-packages:
-      - libegl1-mesa
-      - libgl1-mesa-dri
-      - libxcb-xfixes0-dev
-      - mesa-vulkan-drivers
+  apt-packages:
+    - libegl1-mesa
+    - libgl1-mesa-dri
+    - libxcb-xfixes0-dev
+    - mesa-vulkan-drivers
 
 sphinx:
   configuration: docs/conf.py
