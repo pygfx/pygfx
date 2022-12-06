@@ -16,8 +16,7 @@ Mostly a stub for now. Needs cleanup once we know how to proceed ...
 So far this is a minimal version of the MPL approach.
 """
 
-from .. import get_resource_filename
-from .. import logger
+from .. import logger, get_resources_dir
 
 # todo: math fonts? (MPL makes that part of the FontProperties)
 # todo: caching
@@ -167,7 +166,7 @@ class FontManager:
         # todo: does the order matter, or only for the default font?
         font_list = []
 
-        fonts_dir = get_resource_filename("")
+        fonts_dir = get_resources_dir()
         font_files_in_dir = [
             os.path.join(fonts_dir, fname)
             for fname in sorted(os.listdir(fonts_dir))

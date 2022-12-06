@@ -1,11 +1,11 @@
 import os
 import logging
-from pkg_resources import resource_filename
 
 import numpy as np
 
 from .color import Color  # noqa: F401
 from . import cm  # noqa: F401
+from ._dirs import get_resources_dir, get_cache_dir  # noqa: F401
 
 logger = logging.getLogger("pygfx")
 
@@ -26,11 +26,6 @@ def _set_log_level():
 
 
 _set_log_level()
-
-
-def get_resource_filename(name):
-    """Get the filename to a pygfx package resource."""
-    return resource_filename("pygfx.pkg_resources", name)
 
 
 def array_from_shadertype(shadertype, count=None):
