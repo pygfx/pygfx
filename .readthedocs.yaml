@@ -12,9 +12,6 @@ build:
     - libgl1-mesa-dri
     - libxcb-xfixes0-dev
     - mesa-vulkan-drivers
-  jobs:
-    pre_system_dependencies:
-      - deb https://ppa.launchpadcontent.net/oibaf/graphics-drivers/ubuntu jammy main
 
 sphinx:
   configuration: docs/conf.py
