@@ -180,3 +180,20 @@ def test_adjust_children_order():
     # is not in children
     root.add(child1, before=non_child)
     assert root.children == (child3, child2, child1)
+
+
+def test_iter():
+    class Foo(WorldObject):
+        pass
+
+    root = WorldObject()
+    root.add(Foo(), Foo())
+    assert len(list(root.iter(lambda x: isinstance(x, Foo)))) == 2
+
+    root = Foo()
+    root.add(Foo(), Foo())
+    assert len(list(root.iter(lambda x: isinstance(x, Foo)))) == 3
+
+    root = WorldObject()
+    root.add(Foo(), WorldObject(), Foo())
+    assert len(list(root.iter(lambda x: isinstance(x, Foo)))) == 2
