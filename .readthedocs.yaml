@@ -14,7 +14,7 @@ build:
     - mesa-vulkan-drivers
   jobs:
     pre_system_dependencies:
-      - add-apt-repository ppa:oibaf/graphics-drivers -y 
+      - deb https://ppa.launchpadcontent.net/oibaf/graphics-drivers/ubuntu jammy main
 
 sphinx:
   configuration: docs/conf.py
