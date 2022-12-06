@@ -14,7 +14,7 @@ build:
     - mesa-vulkan-drivers
   jobs:
     pre_system_dependencies:
-      add-apt-repository ppa:oibaf/graphics-drivers -y 
+      - add-apt-repository ppa:oibaf/graphics-drivers -y 
 
 sphinx:
   configuration: docs/conf.py
