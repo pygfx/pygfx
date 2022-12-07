@@ -27,7 +27,6 @@ extras_require = {
         "wheel",
         "twine",
         "imageio",
-        "psutil",
     ],
     "examples": [
         "pytest",
