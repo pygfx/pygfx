@@ -97,6 +97,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
             frames,
             duration=33,
             loop=scraper_config["loop"],
+            lossless=True,
         )
         images.append(img_path)
 
