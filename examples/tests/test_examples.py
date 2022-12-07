@@ -32,19 +32,9 @@ examples_to_run = find_examples(
 examples_to_test = find_examples(query="# test_example = true", return_stems=True)
 
 
-count = 0
-limit = 20
-
-
 @pytest.mark.parametrize("module", examples_to_run)
 def test_examples_run(module, force_offscreen, disable_call_later):
     """Run every example marked to see if they can run without error."""
-    global count, limit
-
-    count += 1
-    if count >= limit:
-        pytest.skip()
-
     print("")
     mem_stats = psutil.virtual_memory()
     print(f"used system memory, before test start: {format_bytes(mem_stats.used)}")
