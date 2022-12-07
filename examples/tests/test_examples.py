@@ -102,11 +102,12 @@ def test_examples_screenshots(
     """Run every example marked for testing."""
 
     # import the example module
-    example = importlib.import_module(f"examples.{module}")
+    module_name = f"examples.{module}"
+    example = importlib.import_module(module_name)
 
     # ensure it is unloaded after the test
     def unload_module():
-        del sys.modules[f"examples.{module}"]
+        del sys.modules[module_name]
 
     request.addfinalizer(unload_module)
 
