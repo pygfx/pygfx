@@ -1,5 +1,6 @@
 import imageio.v3 as iio
 from pathlib import Path
+from wgpu.gui import WgpuCanvasBase
 
 from .show import Display
 from ..renderers import Renderer
@@ -68,9 +69,10 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         canvas = target.canvas
     elif isinstance(target, Renderer):
         canvas = target.target
-    else:
-        # @almarklein: Where can I find the base class of Canvas?
+    elif isinstance(target, WgpuCanvasBase):
         canvas = target
+    else:
+        raise ValueError("`target` must be a Display, Renderer, or Canvas.")
 
     images = []
 
