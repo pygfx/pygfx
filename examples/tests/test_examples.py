@@ -35,13 +35,9 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 @pytest.mark.parametrize("module", examples_to_run)
 def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     """Run every example marked to see if they can run without error."""
-    try:
-        # use runpy so the module is not actually imported (and can be gc'd)
-        # but also to be able to run the code in the __main__ block
-        ns = runpy.run_module(f"examples.{module}", run_name="__main__")
-    finally:
-        # ensure not even pytest can keep a reference to the namespace
-        del ns
+    # use runpy so the module is not actually imported (and can be gc'd)
+    # but also to be able to run the code in the __main__ block
+    runpy.run_module(f"examples.{module}", run_name="__main__")
 
 
 @pytest.fixture
@@ -99,17 +95,6 @@ def mock_time():
         yield
 
 
-def format_bytes(size):
-    power = 2**10
-    n = 0
-    power_labels = {0: "", 1: "K", 2: "M", 3: "G", 4: "T"}
-    while size > power:
-        size /= power
-        n += 1
-    label = power_labels[n] + "B"
-    return f"{size:.2f} {label}"
-
-
 @pytest.mark.parametrize("module", examples_to_test)
 def test_examples_screenshots(
     module, pytestconfig, force_offscreen, disable_call_later_after_run, mock_time
@@ -154,8 +139,6 @@ def test_examples_screenshots(
             " CI build artifacts as well)"
         )
     finally:
-        # ensure not even pytest can keep a reference to the namespace
-        del example
         # ensure the imported module is unloaded
         del sys.modules[f"examples.{module}"]
 
