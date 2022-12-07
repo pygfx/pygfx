@@ -196,6 +196,7 @@ def get_windows_font_directories():
 
     dirs = []
     dirs.extend(WinFontDirs)
+    dirs.append(os.path.join(os.environ["WINDIR"], "Fonts"))
 
     # Get win32 font directory from the registry
     ms_folders = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
@@ -203,9 +204,11 @@ def get_windows_font_directories():
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, ms_folders) as user:
             dirs.append(winreg.QueryValueEx(user, "Fonts")[0])
     except OSError:
-        dirs.append(os.path.join(os.environ["WINDIR"], "Fonts"))
+        pass
 
-    return [os.path.abspath(d) for d in dirs if os.path.isdir(d)]
+    # filter out duplicates and non-existants
+    dirs = {os.path.abspath(d) for d in dirs if os.path.isdir(d)}
+    return list(dirs)
 
 
 def get_osx_font_directories():
@@ -230,8 +233,10 @@ except Exception:  # Exceptions thrown by home() are not specified...
     HOME = "/home"  # Just an arbitrary path
 
 WinFontDirs = [
-    os.path.join(HOME, "AppData/Local/Microsoft/Windows/Fonts"),
-    os.path.join(HOME, "AppData/Roaming/Microsoft/Windows/Fonts"),
+    os.path.join(os.environ["LOCALAPPDATA"], "Microsoft/Windows/Fonts"),
+    os.path.join(os.environ["APPDATA"], "Microsoft/Windows/Fonts"),
+    os.path.join(os.environ["ALLUSERSPROFILE"], "AppData/Local/Microsoft/Windows/Fonts"),
+    os.path.join(os.environ["ALLUSERSPROFILE"], "AppData/Roaming/Microsoft/Windows/Fonts"),
 ]
 
 X11FontDirectories = [
