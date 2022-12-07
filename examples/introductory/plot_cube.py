@@ -4,6 +4,7 @@ Hello World
 
 In this example shows how to do the rendering world's hello world: Show a 3D
 Cube on screen.
+
 """
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_target_name = "disp"

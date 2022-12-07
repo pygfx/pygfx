@@ -85,19 +85,23 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
 
     if scraper_config["animate"]:
         frames = []
+
+        # by default videos are rendered at ~ 30 FPS
         n_frames = scraper_config["duration"] * 30
         for _ in range(n_frames):
             frames.append(canvas.draw())
 
         path_generator = block_vars["image_path_iterator"]
-        img_path = Path(next(path_generator)).with_suffix(".gif")
-        iio.imwrite(
-            img_path, frames, duration=40, loop=scraper_config["loop"]
-        )  # write at 25Hz
+        img_path = Path(next(path_generator)).with_suffix(".webp")
+        iio.imwrite(img_path, frames, duration=int(round(1/30 * 1000)), loop=scraper_config["loop"])
         images.append(img_path)
 
     return figure_rst(images, gallery_conf["src_dir"])
 
 
 def _get_sg_image_scraper():
+    # add webp as supported extension
+    import sphinx_gallery.scrapers
+    sphinx_gallery.scrapers._KNOWN_IMG_EXTS += ("webp",)
+
     return pygfx_scraper
