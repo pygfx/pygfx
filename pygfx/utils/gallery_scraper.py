@@ -102,12 +102,3 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         images.append(img_path)
 
     return figure_rst(images, gallery_conf["src_dir"])
-
-
-def _get_sg_image_scraper():
-    # add webp as supported extension
-    import sphinx_gallery.scrapers
-
-    sphinx_gallery.scrapers._KNOWN_IMG_EXTS += ("webp",)
-
-    return pygfx_scraper

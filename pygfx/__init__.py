@@ -18,11 +18,19 @@ from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils import cm, logger
 
-from .utils.gallery_scraper import _get_sg_image_scraper
-
 
 __version__ = "0.1.9"
 version_info = tuple(map(int, __version__.split(".")))
+
+
+def _get_sg_image_scraper():
+    import sphinx_gallery.scrapers
+    from .utils.gallery_scraper import pygfx_scraper
+
+    # add webp as supported extension
+    sphinx_gallery.scrapers._KNOWN_IMG_EXTS += ("webp",)
+
+    return pygfx_scraper
 
 
 # Elements of this library are derived from three.js, original license
