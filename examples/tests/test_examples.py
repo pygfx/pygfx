@@ -33,7 +33,7 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 
 @pytest.mark.parametrize("module", examples_to_run)
-def test_examples_run(module, force_offscreen, disable_call_later):
+def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     """Run every example marked to see if they can run without error."""
     print("")
     mem_stats = psutil.virtual_memory()
@@ -46,19 +46,29 @@ def test_examples_run(module, force_offscreen, disable_call_later):
         del ns
 
 
-def noop(*args, **kwargs):
-    pass
-
-
 @pytest.fixture
-def disable_call_later():
-    """Disable call_later."""
-    old_call_later = wgpu.gui.offscreen.call_later
-    wgpu.gui.offscreen.call_later = noop
+def disable_call_later_after_run():
+    """Disable call_later after run has been called."""
+    orig_run = wgpu.gui.offscreen.run
+    orig_call_later = wgpu.gui.offscreen.call_later
+    allow_call_later = True
+
+    def wrapped_call_later(*args, **kwargs):
+        if allow_call_later:
+            orig_call_later(*args, **kwargs)
+
+    def wrapped_run(*args, **kwargs):
+        nonlocal allow_call_later
+        allow_call_later = False
+        orig_run(*args, **kwargs)
+
+    wgpu.gui.offscreen.call_later = wrapped_call_later
+    wgpu.gui.offscreen.run = wrapped_run
     try:
         yield
     finally:
-        wgpu.gui.offscreen.call_later = old_call_later
+        wgpu.gui.offscreen.call_later = orig_call_later
+        wgpu.gui.offscreen.run = orig_run
 
 
 @pytest.fixture
@@ -92,7 +102,9 @@ def format_bytes(size):
 
 
 @pytest.mark.parametrize("module", examples_to_test)
-def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
+def test_examples_screenshots(
+    module, pytestconfig, force_offscreen, disable_call_later_after_run, mock_time
+):
     """Run every example marked for testing."""
 
     # render
