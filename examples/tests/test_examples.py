@@ -40,6 +40,8 @@ def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     print(f"used system memory, before test start: {format_bytes(mem_stats.used)}")
 
     try:
+        # use runpy so the module is not actually imported (and can be gc'd)
+        # but also to be able to run the code in the __main__ block
         ns = runpy.run_module(f"examples.{module}", run_name="__main__")
     finally:
         # ensure not even pytest can keep a reference to the namespace
