@@ -12,6 +12,7 @@ import imageio.v3 as iio
 import numpy as np
 import psutil
 import pytest
+import wgpu.gui.offscreen
 
 from examples.tests.testutils import (
     is_lavapipe,
@@ -51,10 +52,13 @@ def test_examples_run(module):
     print(f"cpu freq, before test start: {cpu_stats}")
 
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    old_run = wgpu.gui.offscreen.run
+    wgpu.gui.offscreen.run = lambda: None
 
     try:
         ns = runpy.run_module(f"examples.{module}", run_name="__main__")
     finally:
+        wgpu.gui.offscreen.run = old_run
         del os.environ["WGPU_FORCE_OFFSCREEN"]
         # ensure not even pytest can keep a reference to the namespace
         del ns
