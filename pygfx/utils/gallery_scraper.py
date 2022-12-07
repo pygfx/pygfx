@@ -95,7 +95,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         iio.imwrite(
             img_path,
             frames,
-            duration=int(round(1 / 30 * 1000)),
+            duration=33,
             loop=scraper_config["loop"],
         )
         images.append(img_path)
