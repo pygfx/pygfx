@@ -1,4 +1,3 @@
-import imageio.v3 as iio
 from pathlib import Path
 from wgpu.gui import WgpuCanvasBase
 
@@ -48,8 +47,10 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         the images. This is often produced by :func:`figure_rst`.
     """
 
-    # import locally, to keep sphinx an optional dependency
+    # import locally, to keep sphinx and imageio an optional dependency
     from sphinx_gallery.scrapers import figure_rst
+    import imageio.v3 as iio
+
 
     # parse block-level config
     scraper_config = default_config.copy()
