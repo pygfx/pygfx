@@ -51,7 +51,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     from sphinx_gallery.scrapers import figure_rst
     import imageio.v3 as iio
 
-
     # parse block-level config
     scraper_config = default_config.copy()
     config_prefix = "# sphinx_gallery_pygfx_"
@@ -93,7 +92,12 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
 
         path_generator = block_vars["image_path_iterator"]
         img_path = Path(next(path_generator)).with_suffix(".webp")
-        iio.imwrite(img_path, frames, duration=int(round(1/30 * 1000)), loop=scraper_config["loop"])
+        iio.imwrite(
+            img_path,
+            frames,
+            duration=int(round(1 / 30 * 1000)),
+            loop=scraper_config["loop"],
+        )
         images.append(img_path)
 
     return figure_rst(images, gallery_conf["src_dir"])
@@ -102,6 +106,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
 def _get_sg_image_scraper():
     # add webp as supported extension
     import sphinx_gallery.scrapers
+
     sphinx_gallery.scrapers._KNOWN_IMG_EXTS += ("webp",)
 
     return pygfx_scraper
