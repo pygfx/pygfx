@@ -33,11 +33,11 @@ examples_to_test = find_examples(query="# test_example = true", return_stems=Tru
 
 
 count = 0
-limit = 9999
+limit = 20
 
 
 @pytest.mark.parametrize("module", examples_to_run)
-def test_examples_run(module):
+def test_examples_run(module, force_offscreen, disable_call_later):
     """Run every example marked to see if they can run without error."""
     global count, limit
 
@@ -48,20 +48,27 @@ def test_examples_run(module):
     print("")
     mem_stats = psutil.virtual_memory()
     print(f"used system memory, before test start: {format_bytes(mem_stats.used)}")
-    cpu_stats = psutil.cpu_percent()
-    print(f"cpu freq, before test start: {cpu_stats}")
-
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-    old_run = wgpu.gui.offscreen.run
-    wgpu.gui.offscreen.run = lambda: None
 
     try:
         ns = runpy.run_module(f"examples.{module}", run_name="__main__")
     finally:
-        wgpu.gui.offscreen.run = old_run
-        del os.environ["WGPU_FORCE_OFFSCREEN"]
         # ensure not even pytest can keep a reference to the namespace
         del ns
+
+
+def noop(*args, **kwargs):
+    pass
+
+
+@pytest.fixture
+def disable_call_later():
+    """Disable call_later."""
+    old_call_later = wgpu.gui.offscreen.call_later
+    wgpu.gui.offscreen.call_later = noop
+    try:
+        yield
+    finally:
+        wgpu.gui.offscreen.call_later = old_call_later
 
 
 @pytest.fixture
