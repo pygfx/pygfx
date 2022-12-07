@@ -109,7 +109,7 @@ def test_examples_screenshots(
     def unload_module():
         del sys.modules[module_name]
 
-    request.addfinalizer(unload_module)
+    # request.addfinalizer(unload_module)
 
     # render a frame
     img = example.renderer.target.draw()
