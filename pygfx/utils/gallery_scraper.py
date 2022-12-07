@@ -1,9 +1,11 @@
 from pathlib import Path
+
+import imageio.v3 as iio
+from sphinx_gallery.scrapers import figure_rst
 from wgpu.gui import WgpuCanvasBase
 
-from .show import Display
 from ..renderers import Renderer
-
+from .show import Display
 
 # The scraper's default configuration. An example code-block
 # may overwrite these values by setting comments of the form
@@ -46,10 +48,6 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         The ReSTructuredText that will be rendered to HTML containing
         the images. This is often produced by :func:`figure_rst`.
     """
-
-    # import locally, to keep sphinx and imageio an optional dependency
-    from sphinx_gallery.scrapers import figure_rst
-    import imageio.v3 as iio
 
     # parse block-level config
     scraper_config = default_config.copy()
