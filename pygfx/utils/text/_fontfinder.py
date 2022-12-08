@@ -9,37 +9,98 @@ import json
 import time
 import secrets
 
+import freetype
+
 from .. import logger, get_resources_dir, get_cache_dir
 
 
-def find_fonts_from_dir(directory, recursive):
-    """
-    Return a list of all fonts matching any of the extensions, found
-    recursively under the directory.
-    """
-    if not os.path.isdir(directory):
-        raise OSError(f"Not a directory: {directory}")
-    extensions = ".ttf", ".otf"
-    dir_paths = set()
-    file_paths = set()
-    if not recursive:
-        dir_paths.add(directory)
-        for fname in os.listdir(directory):
-            if fname.lower().endswith(extensions):
-                file_paths.add(os.path.join(directory, fname))
-    else:
-        for dirpath, _, filenames in os.walk(directory):
-            dir_paths.add(dirpath)
-            for fname in filenames:
-                if fname.lower().endswith(extensions):
-                    file_paths.add(os.path.join(dirpath, fname))
-    return dir_paths, file_paths
+class FontFile:
+    """Object to represent a font file."""
+
+    def __init__(self, filename, family_name=None, style_name=None, codepoints=None):
+        assert isinstance(filename, str)
+        assert family_name is None or isinstance(family_name, str)
+        assert style_name is None or isinstance(style_name, str)
+        assert codepoints is None or isinstance(codepoints, set)
+
+        self._filename = filename
+        self._family_name = family_name
+        self._style_name = style_name
+        self._name = None
+        self._codepoints = codepoints
+
+    def __repr__(self):
+        return f"<FontFile {self.name} at 0x{hex(id(self))}>"
+
+    def __hash__(self):
+        return hash(self.name)
+
+    @property
+    def filename(self):
+        """The path to this font file."""
+        return self._filename
+
+    def _get_face(self):
+        # Factor this out so it can be overloaded in tests
+        return freetype.Face(self._filename)
+
+    @property
+    def family_name(self):
+        """The family name of this font, e.g. 'Noto Sans' or 'Arial'"""
+        if not self._family_name:
+            self._family_name = self._get_face().family_name.decode()
+            if not self._family_name:
+                name = os.path.basename(self._filename).split(".")[0]
+                family, _, _ = name.partition("-")
+                self._family_name = family or "Unknown"
+        return self._family_name
+
+    @property
+    def style_name(self):
+        """The style name of this font, e.g. 'Regular', 'Bold', 'Italic', 'Thin Italic'."""
+        if not self._style_name:
+            self._style_name = self._get_face().style_name.decode()
+            if not self._style_name:
+                name = os.path.basename(self._filename).split(".")[0]
+                _, _, style_name = name.partition("-")
+                self._style_name = style_name or "Regular"
+        return self._style_name
+
+    @property
+    def name(self):
+        """A normalized name that includes the family and name. This
+        therefore uniquely identifies the font. This typically is the
+        same as the filename (without extension), but this is not
+        guaranteed to be the case.
+        """
+        if not self._name:
+            family = "".join(x[0].upper() + x[1:] for x in self.family_name.split())
+            style = "".join(x[0].upper() + x[1:] for x in self.style_name.split())
+            self._name = family + "-" + style
+        return self._name
+
+    @property
+    def codepoints(self):
+        """A set of Unicode code points (ints) supported by this font."""
+        # todo: use a data structure that stores codepoints more efficiently
+        if self._codepoints is None:
+            self._codepoints = set(i for i, _ in self._get_face().get_chars())
+        return self._codepoints
+
+    def has_codepoint(self, codepoint):
+        """Check whether a codepoint is supported by this font."""
+        return codepoint in self.codepoints
+
+
+def get_all_fonts():
+    """Get a set of all available fonts."""
+    return get_builtin_fonts() | get_system_fonts()
 
 
 def get_builtin_fonts():
     """Get a list of fonts that is shipped with PyGfx."""
-    dir_paths, file_paths = find_fonts_from_dir(get_resources_dir(), False)
-    return file_paths
+    dir_paths, file_paths = find_fonts_paths(get_resources_dir(), False)
+    return {FontFile(p) for p in file_paths}
 
 
 def get_entrypoints_fonts():
@@ -86,6 +147,8 @@ def get_system_fonts():
                     raise RuntimeError("File path not a str.")
                 elif not isinstance(info, dict):
                     raise RuntimeError("File info not a dict.")
+                elif {"mtime", "family", "style"}.difference(info.keys()):
+                    reset = True  # We probably added new info to the cache
                 # elif not os.path.isfile(p):  # slow, and should be covered by dir mtime
                 #     dirs_to_update(os.path.dirname(p))
         except Exception as err:
@@ -100,7 +163,7 @@ def get_system_fonts():
             if os.path.dirname(p) == dir_path:
                 files.pop(p)
         # Detect fonts again, schedule for inclusion in the cache
-        _, file_paths = find_fonts_from_dir(dir_path, False)
+        _, file_paths = find_fonts_paths(dir_path, False)
         new_dir_paths.add(dir_path)
         new_file_paths.update(file_paths)
 
@@ -111,19 +174,28 @@ def get_system_fonts():
 
     # Do we need to update?
     if new_dir_paths or new_file_paths:
-        logger.info(
-            f"Searched for fonts in: {new_dir_paths}",
-        )
+        logger.info(f"Searched for fonts in: {new_dir_paths}")
 
-        # Put new items in the cache
+        # Put new dirs in the cache
         dirs = cache["dirs"]
         for p in new_dir_paths:
-            info = {"mtime": os.path.getmtime(p)}
-            dirs[p.replace("\\", "/")] = info
+            dirs[p.replace("\\", "/")] = {
+                "mtime": os.path.getmtime(p),
+            }
+
+        # Put new files in the cache
         files = cache["files"]
         for p in new_file_paths:
-            info = {"mtime": os.path.getmtime(p)}
-            files[p.replace("\\", "/")] = info
+            ff = FontFile(p)
+            try:
+                ff.name  # This makes FreeType open the file
+            except Exception:
+                continue
+            files[p.replace("\\", "/")] = {
+                "mtime": os.path.getmtime(ff.filename),
+                "family": ff.family_name,
+                "style": ff.style_name,
+            }
 
         # Sort the keys, just being clean
         cache = {"dirs": {}, "files": {}}
@@ -160,7 +232,11 @@ def get_system_fonts():
             except Exception:
                 pass
 
-    return list(cache["files"].keys())
+    # Return set of FontFile objects
+    return {
+        FontFile(filename, info["family"], info["style"])
+        for filename, info in cache["files"].items()
+    }
 
 
 def find_system_fonts():
@@ -171,10 +247,32 @@ def find_system_fonts():
     dir_paths = set()
     file_paths = set()
     for d in dirs:
-        new_dirs, new_files = find_fonts_from_dir(d, True)
+        new_dirs, new_files = find_fonts_paths(d, True)
         dir_paths.update(new_dirs)
         file_paths.update(new_files)
+    return dir_paths, file_paths
 
+
+def find_fonts_paths(directory, recursive):
+    """Return two sets (dir_paths, file_paths) representing the dirs and
+    fonts matching any of the extensions, found in the given directory.
+    """
+    if not os.path.isdir(directory):
+        raise OSError(f"Not a directory: {directory}")
+    extensions = ".ttf", ".otf"
+    dir_paths = set()
+    file_paths = set()
+    if not recursive:
+        dir_paths.add(directory)
+        for fname in os.listdir(directory):
+            if fname.lower().endswith(extensions):
+                file_paths.add(os.path.join(directory, fname))
+    else:
+        for dirpath, _, filenames in os.walk(directory):
+            dir_paths.add(dirpath)
+            for fname in filenames:
+                if fname.lower().endswith(extensions):
+                    file_paths.add(os.path.join(dirpath, fname))
     return dir_paths, file_paths
 
 
@@ -182,6 +280,7 @@ def find_system_fonts():
 
 
 def get_system_font_directories():
+    """Get a set of system font directories."""
     # Simple triage, easy to replace in tests.
     if sys.platform.startswith("win"):
         return get_windows_font_directories()
@@ -194,37 +293,35 @@ def get_system_font_directories():
 def get_windows_font_directories():
     import winreg
 
-    dirs = []
-    dirs.extend(WinFontDirs)
-    dirs.append(os.path.join(os.environ["WINDIR"], "Fonts"))
+    dirs = set()
+    dirs.update(WinFontDirs)
+    dirs.add(os.path.join(os.getenv("WINDIR", ""), "Fonts"))
 
     # Get win32 font directory from the registry
     ms_folders = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, ms_folders) as user:
-            dirs.append(winreg.QueryValueEx(user, "Fonts")[0])
+            dirs.add(winreg.QueryValueEx(user, "Fonts")[0])
     except OSError:
         pass
 
-    # filter out duplicates and non-existants
-    dirs = {os.path.abspath(d) for d in dirs if os.path.isdir(d)}
-    return list(dirs)
+    return {os.path.abspath(d) for d in dirs if os.path.isdir(d)}
 
 
 def get_osx_font_directories():
-    dirs = []
-    dirs.extend(X11FontDirectories)
-    dirs.extend(OSXFontDirectories)
-    return [os.path.abspath(d) for d in dirs if os.path.isdir(d)]
+    dirs = set()
+    dirs.update(X11FontDirectories)
+    dirs.update(OSXFontDirectories)
+    return {os.path.abspath(d) for d in dirs if os.path.isdir(d)}
 
 
 def get_unix_font_directories():
     # MPL also calls out to fontconfig (fc-list) to get a list of fonts.
     # But if we assume that our list of possible directories is
     # complete, this should not be necessary. Let's see how it goes.
-    dirs = []
-    dirs.extend(X11FontDirectories)
-    return [os.path.abspath(d) for d in dirs if os.path.isdir(d)]
+    dirs = set()
+    dirs.update(X11FontDirectories)
+    return {os.path.abspath(d) for d in dirs if os.path.isdir(d)}
 
 
 try:
@@ -233,10 +330,14 @@ except Exception:  # Exceptions thrown by home() are not specified...
     HOME = "/home"  # Just an arbitrary path
 
 WinFontDirs = [
-    os.path.join(os.environ["LOCALAPPDATA"], "Microsoft/Windows/Fonts"),
-    os.path.join(os.environ["APPDATA"], "Microsoft/Windows/Fonts"),
-    os.path.join(os.environ["ALLUSERSPROFILE"], "AppData/Local/Microsoft/Windows/Fonts"),
-    os.path.join(os.environ["ALLUSERSPROFILE"], "AppData/Roaming/Microsoft/Windows/Fonts"),
+    os.path.join(os.getenv("LOCALAPPDATA", ""), "Microsoft/Windows/Fonts"),
+    os.path.join(os.getenv("APPDATA", ""), "Microsoft/Windows/Fonts"),
+    os.path.join(
+        os.getenv("ALLUSERSPROFILE", ""), "AppData/Local/Microsoft/Windows/Fonts"
+    ),
+    os.path.join(
+        os.getenv("ALLUSERSPROFILE", ""), "AppData/Roaming/Microsoft/Windows/Fonts"
+    ),
 ]
 
 X11FontDirectories = [

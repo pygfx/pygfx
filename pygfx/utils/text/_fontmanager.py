@@ -15,14 +15,11 @@ Mostly a stub for now. Needs cleanup once we know how to proceed ...
 
 So far this is a minimal version of the MPL approach.
 """
+import os
+import json
 
 from .. import logger, get_resources_dir
-
-# todo: math fonts? (MPL makes that part of the FontProperties)
-# todo: caching
-import os
-
-import freetype
+from ._fontfinder import FontFile, get_all_fonts
 
 
 # Weight names according to CSS and the OpenType spec.
@@ -155,70 +152,85 @@ class FontManager:
         self._name_to_font = {}
         self._index_available_fonts()
         self._warned_for_codepoints = set()
+        self._warned_for_font_names = set()
 
     def add_font_file(self, filename):
-        fi = FontInfo(filename)
-        self._name_to_font[fi.name] = fi
+        ff = FontFile(filename)
+        self._name_to_font[ff.name] = ff
 
     def _index_available_fonts(self):
 
-        # Collect font files
-        # todo: does the order matter, or only for the default font?
-        font_list = []
+        # Get a dict of FontFile objects
+        self._name_to_font = {ff.name: ff for ff in get_all_fonts()}
 
-        fonts_dir = get_resources_dir()
-        font_files_in_dir = [
-            os.path.join(fonts_dir, fname)
-            for fname in sorted(os.listdir(fonts_dir))
-            if fname.endswith((".ttf", ".otf"))
-        ]
+        # Load default font index
+        index_filename = os.path.join(get_resources_dir(), "noto_default_index.json")
+        with open(index_filename, "rt", encoding="utf-8") as f:
+            index = json.load(f)
+        names = [x.split(".")[0] for x in index["fonts"]]
+        self._default_font_map = {
+            int(k): [names[i] for i in v] for k, v in index["index"].items()
+        }
 
-        # The default default font goes first
-        filename = os.path.join(fonts_dir, "NotoSans-Regular.ttf")
-        self._default_default_font = FontInfo(filename)
-        font_list.append(self._default_default_font)
+        self._default_main_font = self._name_to_font["NotoSans-Regular"]
 
-        # Then add all the other default font files
-        for filename in font_files_in_dir:
-            fi = FontInfo(filename)
-            if (
-                fi.name.startswith("Noto")
-                and fi.name != self._default_default_font.name
-            ):
-                font_list.append(fi)
+        # # Collect font files
+        # # todo: does the order matter, or only for the default font?
+        # font_list = []
+        #
+        # fonts_dir = get_resources_dir()
+        # font_files_in_dir = [
+        #     os.path.join(fonts_dir, fname)
+        #     for fname in sorted(os.listdir(fonts_dir))
+        #     if fname.endswith((".ttf", ".otf"))
+        # ]
+        #
+        # # The default default font goes first
+        # filename = os.path.join(fonts_dir, "NotoSans-Regular.ttf")
+        # self._default_default_font = FontInfo(filename)
+        # font_list.append(self._default_default_font)
+        #
+        # # Then add all the other default font files
+        # for filename in font_files_in_dir:
+        #     fi = FontInfo(filename)
+        #     if (
+        #         fi.name.startswith("Noto")
+        #         and fi.name != self._default_default_font.name
+        #     ):
+        #         font_list.append(fi)
+        #
+        # # Then add the other font files
+        # for filename in font_files_in_dir:
+        #     if not fi.name.startswith("Noto"):
+        #         font_list.append(fi)
+        #
+        # name_to_font_info = {}
+        # default_fonts = []
+        # for fi in font_list:
+        #     if fi.name not in name_to_font_info:
+        #         name_to_font_info[fi.name] = fi
+        #     if fi.name.startswith("Noto"):
+        #         default_fonts.append(fi)
+        #
+        # # For our default font, create a dict mapping codepoints to font filenames
+        # # Could use a smart/sparse data structure here, but it's only for our default
+        # # font, so not that important (full Noto incl CJK would be about 2 MB). More
+        # # important is that it's fast to read from.
+        # default_font_map = {}
+        #
+        # for codepoint in self._default_default_font.codepoints:
+        #     x = default_font_map.setdefault(codepoint, [])
+        #     x.append(self._default_default_font)
+        #
+        # for fi in default_fonts:
+        #     for codepoint in fi.codepoints:
+        #         if codepoint not in self._default_default_font.codepoints:
+        #             x = default_font_map.setdefault(codepoint, [])
+        #             x.append(fi)
 
-        # Then add the other font files
-        for filename in font_files_in_dir:
-            if not fi.name.startswith("Noto"):
-                font_list.append(fi)
-
-        name_to_font_info = {}
-        default_fonts = []
-        for fi in font_list:
-            if fi.name not in name_to_font_info:
-                name_to_font_info[fi.name] = fi
-            if fi.name.startswith("Noto"):
-                default_fonts.append(fi)
-
-        # For our default font, create a dict mapping codepoints to font filenames
-        # Could use a smart/sparse data structure here, but it's only for our default
-        # font, so not that important (full Noto incl CJK would be about 2 MB). More
-        # important is that it's fast to read from.
-        default_font_map = {}
-
-        for codepoint in self._default_default_font.codepoints:
-            x = default_font_map.setdefault(codepoint, [])
-            x.append(self._default_default_font)
-
-        for fi in default_fonts:
-            for codepoint in fi.codepoints:
-                if codepoint not in self._default_default_font.codepoints:
-                    x = default_font_map.setdefault(codepoint, [])
-                    x.append(fi)
-
-        self._font_list = font_list
-        self._name_to_font.update(name_to_font_info)
-        self._default_font_map = default_font_map
+        # self._font_list = font_list
+        # self._name_to_font.update(name_to_font_info)
+        # self._default_font_map = default_font_map
 
     def get_default_font_props(self):
         return self._default_font_props  # todo: are font props immutable?
@@ -236,25 +248,38 @@ class FontManager:
         fonts = []
         # Add fonts from given families that support the code point
         for family in familie_names:
-            name = normalize_font_name(family)
+            name = "".join(x[0].upper() + x[1:] for x in family.split())
+            if "-" not in name:
+                name = name + "-Regular"
             try:
-                font_info = self._name_to_font[name]
+                ff = self._name_to_font[name]
             except KeyError:
                 continue
-            if font_info.has_codepoint(codepoint):
-                fonts.append(font_info)
+            if ff.has_codepoint(codepoint):
+                fonts.append(ff)
         # Add default font
-        for font_info in self._default_font_map.get(codepoint, ()):
-            fonts.append(font_info)
+        default_names = self._default_font_map.get(codepoint, ())
+        for name in default_names:
+            try:
+                fonts.append(self._name_to_font[name])
+            except KeyError:
+                continue
         if not fonts:
-            fonts.append(self._default_default_font)
+            fonts.append(self._default_main_font)
             if codepoint not in self._warned_for_codepoints:
-                # todo: when we have an index, we can tell the user what font package to install.
                 self._warned_for_codepoints.add(codepoint)
                 codepoint_repr = "U+" + hex(codepoint)[2:]
-                msg = f"No font available for {chr(codepoint)} ({codepoint_repr})."
-                msg += " You may need to install another Noto font package (TODO)"
-                logger.warning(msg)
+                if not default_names:
+                    msg = f"No font available for {chr(codepoint)} ({codepoint_repr})."
+                    logger.warning(msg)
+                elif not any(
+                    name in self._warned_for_font_names for name in default_names
+                ):
+                    self._warned_for_font_names.update(default_names)
+                    msg = f"Fonts to support {chr(codepoint)} ({codepoint_repr}) can be installed via:\n"
+                    for name in default_names:
+                        msg += f"    https://pygfx.github.io/noto-mirror/#{name}\n"
+                    logger.warning(msg)
         return fonts
 
     def select_font(self, text, family):
@@ -275,48 +300,6 @@ class FontManager:
                 fonts = self.select_fonts_for_codepoint(codepoint, family)
         text_pieces.append((text[last_i : i + 1], fonts[0]))
         return text_pieces
-
-
-def normalize_font_name(name):
-    # Normalize the name - this could use some more sophistication
-    name2 = name.split(".")[0]
-    name3 = name2.replace("-", " ").replace("Regular", "")
-    return "".join(part[0].upper() + part[1:] for part in name3.split())
-
-
-class FontInfo:
-    """Object to store information on a font file."""
-
-    def __init__(self, filename):
-        # Get name
-        self._filename = filename
-        self._name = normalize_font_name(os.path.basename(filename))
-
-        # Collect codepoints
-        face = freetype.Face(filename)
-        # todo: use a data structure that stores codepoints more efficiently
-        self._codepoints = set(i for i, _ in face.get_chars())
-
-    def __repr__(self):
-        return f"<FontInfo {self.name} at 0x{hex(id(self))}>"
-
-    def __hash__(self):
-        return id(self)
-
-    @property
-    def filename(self):
-        return self._filename
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def codepoints(self):
-        return self._codepoints
-
-    def has_codepoint(self, codepoint):
-        return codepoint in self._codepoints
 
 
 # Instantiate the global/default font manager

@@ -7,7 +7,7 @@ from pytest import raises
 from pygfx.utils.text import _fontfinder
 
 
-def test_find_fonts_from_dir():
+def test_find_fonts_paths():
 
     # Prepare a clean temp dir
     tmpdir = os.path.join(tempfile.gettempdir(), "pygfx_test")
@@ -37,7 +37,7 @@ def test_find_fonts_from_dir():
 
     try:
         # Test non-recursive
-        dirs, files = _fontfinder.find_fonts_from_dir(tmpdir, False)
+        dirs, files = _fontfinder.find_fonts_paths(tmpdir, False)
         assert isinstance(dirs, set)
         assert isinstance(files, set)
         assert dirs == {tmpdir}
@@ -45,13 +45,13 @@ def test_find_fonts_from_dir():
         assert files == {"aa", "bb", "cc"}
 
         # Again but deeper
-        dirs, files = _fontfinder.find_fonts_from_dir(tmpdir + "/sub", False)
+        dirs, files = _fontfinder.find_fonts_paths(tmpdir + "/sub", False)
         assert dirs == {tmpdir + "/sub"}
         files = set(p[len(tmpdir) + 1 : -4] for p in files)
         assert files == {"sub/ee", "sub/ff", "sub/gg"}
 
         # Recursive
-        dirs, files = _fontfinder.find_fonts_from_dir(tmpdir, True)
+        dirs, files = _fontfinder.find_fonts_paths(tmpdir, True)
         assert isinstance(dirs, set)
         assert isinstance(files, set)
         assert dirs == {tmpdir, tmpdir + "/sub", tmpdir + "/sub/deeper"}
@@ -69,7 +69,7 @@ def test_find_fonts_from_dir():
         }
 
         # Recursive
-        dirs, files = _fontfinder.find_fonts_from_dir(tmpdir + "/sub", True)
+        dirs, files = _fontfinder.find_fonts_paths(tmpdir + "/sub", True)
         assert dirs == {tmpdir + "/sub", tmpdir + "/sub/deeper"}
         files = set(p[len(tmpdir) + 1 : -4] for p in files)
         assert files == {
@@ -83,13 +83,22 @@ def test_find_fonts_from_dir():
 
         # Not a directory
         with raises(OSError):
-            _fontfinder.find_fonts_from_dir(tmpdir + "/nope", False)
+            _fontfinder.find_fonts_paths(tmpdir + "/nope", False)
         with raises(OSError):
-            _fontfinder.find_fonts_from_dir(tmpdir + "/nope", True)
+            _fontfinder.find_fonts_paths(tmpdir + "/nope", True)
 
     finally:
         # Clean up
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class StubFace:
+    def __init__(self):
+        self.family_name = b""
+        self.style_name = b""
+
+    def get_chars(self):
+        return []
 
 
 def test_get_system_fonts():
@@ -125,6 +134,10 @@ def test_get_system_fonts():
     )
     _fontfinder.get_system_font_directories = lambda: counter.append("") or sysdirs
 
+    # Monkey_patch FontFile.
+    ori_get_face = _fontfinder.FontFile._get_face
+    _fontfinder.FontFile._get_face = lambda self=None: StubFace()
+
     # Make the cache be stored in this dir as well
     os.environ["PYGFX_DATA_DIR"] = tmpdir
     cache_filename = tmpdir + "/font_cache.json"
@@ -137,9 +150,9 @@ def test_get_system_fonts():
 
         # Get fonts
         files = _fontfinder.get_system_fonts()
-        assert isinstance(files, list)
-        initial_files = set(p[len(tmpdir) + 1 : -4] for p in files)
-        assert initial_files == {"d1/aa", "d1/bb", "d1/cc", "d2/ii", "d2/jj", "d2/kk"}
+        assert isinstance(files, set)
+        initial_files = {p.family_name for p in files}
+        assert initial_files == {"aa", "bb", "cc", "ii", "jj", "kk"}
 
         # Had to query them
         assert len(counter) == 1
@@ -151,10 +164,10 @@ def test_get_system_fonts():
         with open(cache_filename, "rt", encoding="utf-8") as f:
             cache_text = f.read()
         for p in files:
-            assert p in cache_text
+            assert p.filename in cache_text
 
         # Do it again
-        files = set(p[len(tmpdir) + 1 : -4] for p in _fontfinder.get_system_fonts())
+        files = {p.family_name for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
         # No need to query!
         assert len(counter) == 1
@@ -164,30 +177,31 @@ def test_get_system_fonts():
             f.write(b"not valid json")
 
         # No worries, will re-create
-        files = set(p[len(tmpdir) + 1 : -4] for p in _fontfinder.get_system_fonts())
+        files = {p.family_name for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
 
         # Had to query them, of course
         assert len(counter) == 2
 
         # Yes, the cache works
-        files = set(p[len(tmpdir) + 1 : -4] for p in _fontfinder.get_system_fonts())
+        files = {p.family_name for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
         # No need to query!
         assert len(counter) == 2
 
         # Add a font file. This will update the mtime of the directory, triggering
-        # a call to find_fonts_from_dir on that dir
+        # a call to find_fonts_paths on that dir
         with open(tmpdir + "/d1/sub/ee.ttf", "wb"):
             pass
 
         # So now if we get the fonts ...
-        files = set(p[len(tmpdir) + 1 : -4] for p in _fontfinder.get_system_fonts())
+        files = {p.family_name for p in _fontfinder.get_system_fonts()}
         assert files != initial_files
-        assert files.difference(initial_files).pop() == "d1/sub/ee"
+        assert files.difference(initial_files).pop() == "ee"
 
     finally:
         # Clean up
+        _fontfinder.FontFile._get_face = ori_get_face
         _fontfinder.get_system_font_directories = (
             _fontfinder.ori_get_system_font_directories
         )

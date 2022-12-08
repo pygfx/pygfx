@@ -1,6 +1,6 @@
 import time
 
-from pygfx.utils.text import font_manager, FontInfo
+from pygfx.utils.text import font_manager, FontFile
 
 
 def test_select_font():
@@ -12,7 +12,7 @@ def test_select_font():
     assert len(pieces) == 1
     assert isinstance(pieces[0], tuple)
     assert pieces[0][0] == text
-    assert isinstance(pieces[0][1], FontInfo)
+    assert isinstance(pieces[0][1], FontFile)
 
     # A text with both Latin and Arabic, needs two fonts
     text = "Hello World مرحبا بالعالم"
@@ -21,8 +21,8 @@ def test_select_font():
     assert len(pieces) == 2
     assert isinstance(pieces[0], tuple)
     assert isinstance(pieces[1], tuple)
-    assert isinstance(pieces[0][1], FontInfo)
-    assert isinstance(pieces[1][1], FontInfo)
+    assert isinstance(pieces[0][1], FontFile)
+    assert isinstance(pieces[1][1], FontFile)
     assert pieces[0][0] == "Hello World "
     assert pieces[1][0] == "مرحبا بالعالم"
 
