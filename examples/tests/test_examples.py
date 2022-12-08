@@ -2,15 +2,17 @@
 Test that the examples run without error.
 """
 
+import asyncio
 import os
 import importlib
-from unittest.mock import patch
-import subprocess
+import runpy
 import sys
+from unittest.mock import patch
 
 import imageio.v3 as iio
 import numpy as np
 import pytest
+import wgpu.gui.offscreen
 
 from examples.tests.testutils import (
     is_lavapipe,
@@ -22,38 +24,56 @@ from examples.tests.testutils import (
 
 
 # run all tests unless they opt-out
-examples_to_run = find_examples(negative_query="# run_example = false")
+examples_to_run = find_examples(
+    negative_query="# run_example = false", return_stems=True
+)
 
 # only test output of examples that opt-in
 examples_to_test = find_examples(query="# test_example = true", return_stems=True)
 
 
-@pytest.mark.parametrize("module", examples_to_run, ids=lambda module: module.stem)
-def test_examples_run(module):
+@pytest.mark.parametrize("module", examples_to_run)
+def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     """Run every example marked to see if they can run without error."""
-    env = os.environ.copy()
-    env["WGPU_FORCE_OFFSCREEN"] = "true"
+    # use runpy so the module is not actually imported (and can be gc'd)
+    # but also to be able to run the code in the __main__ block
+    runpy.run_module(f"examples.{module}", run_name="__main__")
 
+
+@pytest.fixture
+def disable_call_later_after_run():
+    """Disable call_later after run has been called."""
+    # we start by asserting no tasks are pending
+    # if this fails, we likely need to refactor this fixture
+    loop = asyncio.get_event_loop_policy().get_event_loop()
+    if len(asyncio.all_tasks(loop=loop)) != 0:
+        raise RuntimeError("no tasks should be pending")
+
+    orig_run = wgpu.gui.offscreen.run
+    orig_call_later = wgpu.gui.offscreen.call_later
+    allow_call_later = True
+
+    def wrapped_call_later(*args, **kwargs):
+        if allow_call_later:
+            orig_call_later(*args, **kwargs)
+
+    def wrapped_run(*args, **kwargs):
+        nonlocal allow_call_later
+        allow_call_later = False
+        orig_run(*args, **kwargs)
+
+    wgpu.gui.offscreen.call_later = wrapped_call_later
+    wgpu.gui.offscreen.run = wrapped_run
     try:
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(module.relative_to(ROOT)),
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            cwd=ROOT,
-            timeout=16,
-            env=env,
-        )
-    except subprocess.TimeoutExpired:
-        pytest.fail(
-            "opt-out by adding `# run_example = false` to the module docstring,"
-            "or use WgpuAutoGui to support WGPU_FORCE_OFFSCREEN"
-        )
+        yield
 
-    assert result.returncode == 0, f"failed to run:\n{result.stdout}"
+        # again, after the test, no tasks should be pending
+        # if this fails, we likely need to refactor this fixture
+        if len(asyncio.all_tasks(loop=loop)) != 0:
+            raise RuntimeError("no tasks should be pending")
+    finally:
+        wgpu.gui.offscreen.call_later = orig_call_later
+        wgpu.gui.offscreen.run = orig_run
 
 
 @pytest.fixture
@@ -76,11 +96,22 @@ def mock_time():
 
 
 @pytest.mark.parametrize("module", examples_to_test)
-def test_examples_screenshots(module, pytestconfig, force_offscreen, mock_time):
+def test_examples_screenshots(
+    module, pytestconfig, force_offscreen, mock_time, request
+):
     """Run every example marked for testing."""
 
-    # render
-    example = importlib.import_module(f"examples.{module}")
+    # import the example module
+    module_name = f"examples.{module}"
+    example = importlib.import_module(module_name)
+
+    # ensure it is unloaded after the test
+    def unload_module():
+        del sys.modules[module_name]
+
+    request.addfinalizer(unload_module)
+
+    # render a frame
     img = example.renderer.target.draw()
 
     # check if _something_ was rendered
