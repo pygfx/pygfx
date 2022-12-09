@@ -1,4 +1,5 @@
 import os
+import time
 import shutil
 import tempfile
 
@@ -93,9 +94,18 @@ def test_find_fonts_paths():
 
 
 class StubFace:
-    def __init__(self):
-        self.family_name = b""
-        self.style_name = b""
+    def __init__(self, filename):
+        self._filename = filename
+
+    @property
+    def family_name(self):
+        return b""  # The FontFile will construct a family name from the filename
+
+    @property
+    def style_name(self):
+        if "broken" in self._filename:
+            raise RuntimeError()
+        return b""
 
     def get_chars(self):
         return []
@@ -114,6 +124,7 @@ def test_get_system_fonts():
         "/d1/bb.ttf",
         "/d1/cc.otf",
         "/d1/dd.png",
+        "/d1/broken.ttf",  # Our stubFace will fail on this one
         "/d1/sub/hh.png",
         "/d2/ii.ttf",
         "/d2/jj.ttf",
@@ -136,7 +147,7 @@ def test_get_system_fonts():
 
     # Monkey_patch FontFile.
     ori_get_face = _fontfinder.FontFile._get_face
-    _fontfinder.FontFile._get_face = lambda self=None: StubFace()
+    _fontfinder.FontFile._get_face = lambda self: StubFace(self.filename)
 
     # Make the cache be stored in this dir as well
     os.environ["PYGFX_DATA_DIR"] = tmpdir
@@ -190,9 +201,10 @@ def test_get_system_fonts():
         assert len(counter) == 2
 
         # Add a font file. This will update the mtime of the directory, triggering
-        # a call to find_fonts_paths on that dir
+        # a call to find_fonts_paths on that dir, and thus finding the new font
         with open(tmpdir + "/d1/sub/ee.ttf", "wb"):
             pass
+        time.sleep(0.1)
 
         # So now if we get the fonts ...
         files = {p.family_name for p in _fontfinder.get_system_fonts()}
