@@ -200,7 +200,7 @@ class MeshShader(WorldObjectShader):
 
             // If the camera flips a dimension, it flips the face winding.
             // We can correct for this by adjusting the order (sub_index) here.
-            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
+            // sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
 
             // Sample
             let ii = load_s_indices(face_index);
