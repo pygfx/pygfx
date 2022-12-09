@@ -341,9 +341,19 @@ class MeshShader(WorldObjectShader):
                 let u = dpdx(varyings.world_pos);
                 let v = dpdy(varyings.world_pos);
                 normal = normalize(cross(u, v));
-                normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
                 $$ endif
-                let physical_color = lighting_{{ lighting }}(is_front, varyings, normal, view, physical_albeido);
+
+                $$ if use_normal_map is defined
+                    var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
+                    normal_map = normal_map * 2.0 - 1.0;
+                    let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
+                    normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
+                $$ else
+                    // See pygfx/issues/#105 for details;
+                    normal = select(-normal, normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
+                $$ endif
+
+                let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else
                 let physical_color = physical_albeido;
             $$ endif
