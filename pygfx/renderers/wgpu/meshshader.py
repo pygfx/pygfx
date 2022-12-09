@@ -350,7 +350,7 @@ class MeshShader(WorldObjectShader):
                     normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
                 $$ else
                     // See pygfx/issues/#105 for details;
-                    normal = select(-normal, normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
+                    normal = select(-normal, normal, is_front);
                 $$ endif
 
                 let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
