@@ -24,20 +24,22 @@ from examples.tests.testutils import (
 
 
 # run all tests unless they opt-out
-examples_to_run = find_examples(
-    negative_query="# run_example = false", return_stems=True
-)
+examples_to_run = find_examples(negative_query="# run_example = false")
 
 # only test output of examples that opt-in
-examples_to_test = find_examples(query="# test_example = true", return_stems=True)
+examples_to_test = find_examples(query="# test_example = true")
 
 
-@pytest.mark.parametrize("module", examples_to_run)
+@pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
 def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     """Run every example marked to see if they can run without error."""
     # use runpy so the module is not actually imported (and can be gc'd)
     # but also to be able to run the code in the __main__ block
-    runpy.run_module(f"examples.{module}", run_name="__main__")
+
+    # (relative) module name from project root
+    module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
+
+    runpy.run_module(module_name, run_name="__main__")
 
 
 @pytest.fixture
@@ -95,14 +97,16 @@ def mock_time():
         yield
 
 
-@pytest.mark.parametrize("module", examples_to_test)
+@pytest.mark.parametrize("module", examples_to_test, ids=lambda x: x.stem)
 def test_examples_screenshots(
     module, pytestconfig, force_offscreen, mock_time, request
 ):
     """Run every example marked for testing."""
 
+    # (relative) module name from project root
+    module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
+
     # import the example module
-    module_name = f"examples.{module}"
     example = importlib.import_module(module_name)
 
     # ensure it is unloaded after the test
@@ -127,7 +131,7 @@ def test_examples_screenshots(
         pytest.skip("screenshot comparisons are only done when using lavapipe")
 
     # regenerate screenshot if requested
-    screenshot_path = screenshots_dir / f"{module}.png"
+    screenshot_path = screenshots_dir / f"{module.stem}.png"
     if pytestconfig.getoption("regenerate_screenshots"):
         iio.imwrite(screenshot_path, img)
 
@@ -138,9 +142,9 @@ def test_examples_screenshots(
     stored_img = iio.imread(screenshot_path)
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)
-    update_diffs(module, is_similar, img, stored_img)
+    update_diffs(module.stem, is_similar, img, stored_img)
     assert is_similar, (
-        f"rendered image for example {module} changed, see "
+        f"rendered image for example {module.stem} changed, see "
         f"the {diffs_dir.relative_to(ROOT).as_posix()} folder"
         " for visual diffs (you can download this folder from"
         " CI build artifacts as well)"

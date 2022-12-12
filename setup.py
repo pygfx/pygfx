@@ -36,6 +36,15 @@ extras_require = {
         "scikit-image",
         "trimesh",
     ],
+    "docs": [
+        "sphinx",
+        "numpy",
+        "wgpu",
+        "jinja2",
+        "sphinx-gallery",
+        "imageio",
+        "matplotlib",
+    ],
 }
 
 
