@@ -24,19 +24,13 @@ from examples.tests.testutils import (
 
 
 # run all tests unless they opt-out
-examples_to_run_dict = {
-    path.stem: path for path in find_examples(negative_query="# run_example = false")
-}
-examples_to_run = [x for x in examples_to_run_dict.keys()]
+examples_to_run = find_examples(negative_query="# run_example = false")
 
 # only test output of examples that opt-in
-examples_to_test_dict = {
-    path.stem: path for path in find_examples(query="# test_example = true")
-}
-examples_to_test = [x for x in examples_to_test_dict.keys()]
+examples_to_test = find_examples(query="# test_example = true")
 
 
-@pytest.mark.parametrize("module", examples_to_run)
+@pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
 def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     """Run every example marked to see if they can run without error."""
     # use runpy so the module is not actually imported (and can be gc'd)
@@ -44,7 +38,7 @@ def test_examples_run(module, force_offscreen, disable_call_later_after_run):
 
     # (relative) module name from project root
     module_name = (
-        examples_to_run_dict[module]
+        module
         .relative_to(ROOT)
         .with_suffix("")
         .as_posix()
@@ -109,7 +103,7 @@ def mock_time():
         yield
 
 
-@pytest.mark.parametrize("module", examples_to_test)
+@pytest.mark.parametrize("module", examples_to_test, ids=lambda x: x.stem)
 def test_examples_screenshots(
     module, pytestconfig, force_offscreen, mock_time, request
 ):
@@ -117,7 +111,7 @@ def test_examples_screenshots(
 
     # (relative) module name from project root
     module_name = (
-        examples_to_test_dict[module]
+        module
         .relative_to(ROOT)
         .with_suffix("")
         .as_posix()
