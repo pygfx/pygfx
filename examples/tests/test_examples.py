@@ -37,13 +37,7 @@ def test_examples_run(module, force_offscreen, disable_call_later_after_run):
     # but also to be able to run the code in the __main__ block
 
     # (relative) module name from project root
-    module_name = (
-        module
-        .relative_to(ROOT)
-        .with_suffix("")
-        .as_posix()
-        .replace("/", ".")
-    )
+    module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
 
     runpy.run_module(module_name, run_name="__main__")
 
@@ -110,13 +104,7 @@ def test_examples_screenshots(
     """Run every example marked for testing."""
 
     # (relative) module name from project root
-    module_name = (
-        module
-        .relative_to(ROOT)
-        .with_suffix("")
-        .as_posix()
-        .replace("/", ".")
-    )
+    module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
 
     # import the example module
     example = importlib.import_module(module_name)
