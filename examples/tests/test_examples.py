@@ -131,7 +131,7 @@ def test_examples_screenshots(
         pytest.skip("screenshot comparisons are only done when using lavapipe")
 
     # regenerate screenshot if requested
-    screenshot_path = screenshots_dir / f"{module}.png"
+    screenshot_path = screenshots_dir / f"{module.stem}.png"
     if pytestconfig.getoption("regenerate_screenshots"):
         iio.imwrite(screenshot_path, img)
 
@@ -142,9 +142,9 @@ def test_examples_screenshots(
     stored_img = iio.imread(screenshot_path)
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)
-    update_diffs(module, is_similar, img, stored_img)
+    update_diffs(module.stem, is_similar, img, stored_img)
     assert is_similar, (
-        f"rendered image for example {module} changed, see "
+        f"rendered image for example {module.stem} changed, see "
         f"the {diffs_dir.relative_to(ROOT).as_posix()} folder"
         " for visual diffs (you can download this folder from"
         " CI build artifacts as well)"
