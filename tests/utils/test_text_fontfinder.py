@@ -245,9 +245,9 @@ def test_get_system_fonts():
 
         # Add a font file. This will update the mtime of the directory, triggering
         # a call to find_fonts_paths on that dir, and thus finding the new font
+        time.sleep(0.2)
         with open(tmpdir + "/d1/sub/ee.ttf", "wb"):
             pass
-        time.sleep(0.1)
 
         # So now if we get the fonts ...
         files = {p.family for p in _fontfinder.get_system_fonts()}
