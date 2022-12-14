@@ -1,6 +1,11 @@
 """
-Detect fonts on the system.
-Some of this code was "inspired" by the Matplotlib font manager.
+Detect fonts on the system. This code was inspired by the Matplotlib
+font manager. It differs in that we rely fully on finding fonts in
+certain directories. We do not use the Windows registry or anything
+like that to get a list of "official" fonts. The downside is that we
+may find more fonts that the OS feels are registered. The big advantage
+is that we can check the mtime of a handful of directories to know
+whether we need to update our cache (and can also do partial updates).
 """
 
 import os
@@ -66,7 +71,7 @@ class FontFile:
         return hash(self.name)
 
     def _get_face(self):
-        # Factor this out so it can be overloaded in tests
+        # This was factored out so it can be overloaded in tests
         return freetype.Face(self._filename)
 
     @property
@@ -76,7 +81,9 @@ class FontFile:
 
     @property
     def family(self):
-        """The family name of this font, e.g. 'Noto Sans' or 'Arial'"""
+        """The family name of this font, e.g. 'Noto Sans' or 'Arial'.
+        This value is defined in the font file.
+        """
         if not self._family:
             self._family = self._get_face().family_name.decode()
             if not self._family:
@@ -130,7 +137,7 @@ class FontFile:
 
     @property
     def name(self):
-        """A normalized name that includes the family and name. This
+        """A normalized name that includes the family and variant. This
         therefore uniquely identifies the font. This typically is the
         same as the filename (without extension), but this is not
         guaranteed to be the case.
@@ -143,8 +150,10 @@ class FontFile:
 
     @property
     def codepoints(self):
-        """A set of Unicode code points (ints) supported by this font."""
-        # todo: use a data structure that stores codepoints more efficiently
+        """A set of Unicode code points (ints) supported by this font.
+        To test whether a certain codepoint is supported, use has_codepoint() instead.
+        """
+        # note: we could use a data structure that stores codepoints more efficiently
         if self._codepoints is None:
             self._codepoints = set(i for i, _ in self._get_face().get_chars())
         return self._codepoints
@@ -160,7 +169,7 @@ def get_all_fonts():
 
 
 def get_builtin_fonts():
-    """Get a list of fonts that is shipped with PyGfx."""
+    """Get a list of fonts that are shipped with PyGfx."""
     dir_paths, file_paths = find_fonts_paths(get_resources_dir(), False)
     return {FontFile(p) for p in file_paths}
 
@@ -176,7 +185,7 @@ def get_system_fonts():
     that may contain fonts have changed (files are deleted, added, or
     renamed). If so, we search that directory again. This way we are
     able to detect new fonts without an exaustive search each process
-    startup (which can be slow).
+    startup (which would be slow).
     """
 
     # Load cache from file system

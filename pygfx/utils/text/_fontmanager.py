@@ -1,20 +1,3 @@
-"""
-Module implementing the listing and detection of fonts.
-
-Mostly a stub for now. Needs cleanup once we know how to proceed ...
-
-* Visvis uses a combo of fc-match and manual matching
-  https://github.com/almarklein/visvis/blob/master/text/text_freetype.py#L326
-* Vispy uses a mix of gdi32 on Windows, quartz on MacOS, fontconfig on Linux.
-    https://github.com/vispy/vispy/blob/main/vispy/util/fonts/_win32.py
-    https://github.com/vispy/vispy/blob/main/vispy/util/fonts/_freetype.py
-* Matplotlib uses a platform agnostic approach that searches for fonts in known
-  locations and scores each font based on its name. More manual work, but feels
-  the most stable.
-  https://github.com/matplotlib/matplotlib/blob/main/lib/matplotlib/font_manager.py
-
-So far this is a minimal version of the MPL approach.
-"""
 import os
 import json
 
@@ -22,19 +5,15 @@ from .. import logger, get_resources_dir
 from ._fontfinder import FontFile, get_all_fonts, weight_dict, style_dict
 
 
-# Allow "slanted" to be requested. It will request a normal font:
-# the glyphs will be slanted in the shader.
+# Allow "slanted" to be requested. It will request a regular font,
+# and the glyphs will be slanted in the shader.
 style_dict = style_dict.copy()
 style_dict["slanted"] = "slanted"
 
 
 class FontProps:
     """
-    A class for storing font properties.
-    The font properties are the six properties described in the
-    `W3C Cascading Style Sheet, Level 1
-    <http://www.w3.org/TR/1998/REC-CSS2-19980512/>`_ font
-    specification.
+    An object for storing font properties. Typically used as a request for an actual font.
 
     Parameters:
         family (str, tuple): The name of a font, or a list of font names
@@ -113,10 +92,7 @@ class FontProps:
 
     @property
     def family(self):
-        """The font family as a tuple of strings, e.g. "Noto Sans" or
-        "Arial". If multiple families are given, the first is
-        prioritised while the others serve as fallbacks.
-        """
+        """A tuple of font family strings, e.g. "Noto Sans" or "Arial"."""
         return self._kwargs["family"]
 
     @property
@@ -131,12 +107,21 @@ class FontProps:
 
 
 class FontManager:
-    """Object for selecting fonts."""
+    """The main purpose of the font manager is font selection, i.e.
+    selecting a font based on the text to be rendered and a font_props
+    object.
+
+    This manager uses a default font set based on the Noto fonts,
+    allowing a very complete Unicode coverage, including rare and
+    ancient scripts. Users probably don't have the full set of Noto
+    fonts installed. When a font is missing that the manager knows would
+    support the text, a useful error message is produced, that includes
+    a link where the font can be installed from.
+    """
 
     def __init__(self):
         self._default_font_props = FontProps((), style="normal", weight="regular")
         self._warned_for_codepoints = set()
-        self._warned_for_font_names = set()
         self._family_to_font = {}  # name -> style -> FontFile
         self._load_default_font_index()
         self._load_fonts()
