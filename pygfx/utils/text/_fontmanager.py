@@ -171,7 +171,7 @@ class FontManager:
         # The main font of the default font is the fallback of fallbacks.
         # We copy the fontfile so we can detect when it's used to show tofu's.
         ff = self._family_to_font["Noto Sans"]["Regular"]
-        self._tofu_font = FontFile(ff.filename, ff.family, ff.variant)
+        self._fallback_font = FontFile(ff.filename, ff.family, ff.variant)
 
     def _load_default_font_index(self):
 
@@ -211,10 +211,9 @@ class FontManager:
         # text, the default font is used. In this case, any font from
         # the default set is fine. We just try to make the pieces as
         # long as possible. For characters that we cannot render, the
-        # main default font is used. We call it the tofu font, because
-        # for unknown chars it will show the tofu symbol.
+        # fallback font is used - we need *a* font to render the tofu's ...
 
-        tofu_font = self._tofu_font
+        fallback_font = self._fallback_font
 
         # Select fonts that match the preferred font_props
         preferred_fonts = []
@@ -283,17 +282,17 @@ class FontManager:
                             fonts = self._select_default_fonts_for_codepoint(codepoint)
                             if not fonts:
                                 continue
-                            last_font = tofu_font
+                            last_font = fallback_font
                         else:
                             last_font = fonts[0]
                             fonts = self._select_default_fonts_for_codepoint(codepoint)
                         text_pieces2.append((text[last_i:i], last_font))
                         last_i = i
-                last_font = fonts[0] if fonts else tofu_font
+                last_font = fonts[0] if fonts else fallback_font
                 text_pieces2.append((text[last_i : i + 1], last_font))
 
         # Did we encounter characters that we cannot render?
-        failed_texts = [text for text, font in text_pieces2 if font is tofu_font]
+        failed_texts = [text for text, font in text_pieces2 if font is fallback_font]
         if failed_texts:
             codepoints = {ord(c) for c in "".join(failed_texts)}
             if any(cp not in self._warned_for_codepoints for cp in codepoints):

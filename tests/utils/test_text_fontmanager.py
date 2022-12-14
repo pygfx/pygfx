@@ -112,31 +112,33 @@ def test_font_fallback2():
 
 def test_tofu():
 
+    fallback_font = font_manager._fallback_font
+
     # Multiple unsupported chars should be kept together
     text = "\uf000\uf001\uf002"
     pieces = font_manager.select_font(text, FontProps())
     assert len(pieces) == 1
-    assert pieces[0][1] is font_manager._tofu_font
+    assert pieces[0][1] is fallback_font
 
     # Also when surrounded
     text = "abc\uf000\uf001\uf002abc\uf000\uf001\uf002abc"
     pieces = font_manager.select_font(text, FontProps())
     assert len(pieces) == 5
-    assert pieces[0][1] is not font_manager._tofu_font
-    assert pieces[1][1] is font_manager._tofu_font
-    assert pieces[2][1] is not font_manager._tofu_font
-    assert pieces[3][1] is font_manager._tofu_font
-    assert pieces[4][1] is not font_manager._tofu_font
+    assert pieces[0][1] is not fallback_font
+    assert pieces[1][1] is fallback_font
+    assert pieces[2][1] is not fallback_font
+    assert pieces[3][1] is fallback_font
+    assert pieces[4][1] is not fallback_font
 
     # Also when preferred font is used
     text = "abc\uf000\uf001\uf002abc\uf000\uf001\uf002abc"
     pieces = font_manager.select_font(text, FontProps("Humor Sans"))
     assert len(pieces) == 5
-    assert pieces[0][1] is not font_manager._tofu_font
-    assert pieces[1][1] is font_manager._tofu_font
-    assert pieces[2][1] is not font_manager._tofu_font
-    assert pieces[3][1] is font_manager._tofu_font
-    assert pieces[4][1] is not font_manager._tofu_font
+    assert pieces[0][1] is not fallback_font
+    assert pieces[1][1] is fallback_font
+    assert pieces[2][1] is not fallback_font
+    assert pieces[3][1] is fallback_font
+    assert pieces[4][1] is not fallback_font
 
 
 def test_missing_font_hints():

@@ -63,7 +63,7 @@ def test_cache():
 
 
 def test_shape_text_hb():
-    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    font = font_manager._fallback_font
     text = "HelloWorld"
 
     result = shape_text_hb(text, font.filename)
@@ -71,7 +71,7 @@ def test_shape_text_hb():
 
 
 def test_shape_text_ft():
-    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    font = font_manager._fallback_font
     text = "HelloWorld"
 
     result = shape_text_ft(text, font.filename)
@@ -99,7 +99,7 @@ def check_result(indices, positions, meta):
 
 
 def test_shape_direction_hb():
-    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    font = font_manager._fallback_font
     text = "HelloWorld"
 
     _, positions1, meta1 = shape_text_hb(text, font.filename, "ltr")
@@ -114,7 +114,7 @@ def test_shape_direction_hb():
 
 
 def test_glyph_size():
-    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    font = font_manager._fallback_font
 
     _, positions1, meta1 = shape_text_hb("iiii", font.filename)
     _, positions2, meta2 = shape_text_hb("MMMM", font.filename)
@@ -127,7 +127,7 @@ def test_glyph_size():
 
 
 def check_speed():
-    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    font = font_manager._fallback_font
     text = "HelloWorld"
 
     t0 = time.perf_counter()
@@ -164,7 +164,7 @@ def check_mem_to_store_face_objects():
     """
     import psutil, freetype, uharfbuzz  # noqa
 
-    font = font_manager.select_fonts_for_codepoint(32, ())[0]
+    font = font_manager._fallback_font
     font_filename = font.filename
     # font_filename = "/Users/almar/dev/py/pygfx/pygfx/pkg_resources/fonts/noto_cjk_man/NotoSansSC-Regular.otf"
 
