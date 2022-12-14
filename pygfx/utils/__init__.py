@@ -7,6 +7,7 @@ from .color import Color  # noqa: F401
 from . import cm  # noqa: F401
 from ._dirs import get_resources_dir, get_cache_dir  # noqa: F401
 
+
 logger = logging.getLogger("pygfx")
 
 

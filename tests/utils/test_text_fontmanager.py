@@ -1,6 +1,6 @@
 import time
 
-from pygfx.utils.text import font_manager, FontFile
+from pygfx.utils.text import font_manager, FontProps, FontFile
 
 
 def test_select_font():
@@ -8,7 +8,7 @@ def test_select_font():
     # A simple text, that can be rendered with the main font
     text = "HelloWorld"
 
-    pieces = font_manager.select_font(text, ())
+    pieces = font_manager.select_font(text, FontProps())
     assert len(pieces) == 1
     assert isinstance(pieces[0], tuple)
     assert pieces[0][0] == text
@@ -17,7 +17,7 @@ def test_select_font():
     # A text with both Latin and Arabic, needs two fonts
     text = "Hello World مرحبا بالعالم"
 
-    pieces = font_manager.select_font(text, ())
+    pieces = font_manager.select_font(text, FontProps())
     assert len(pieces) == 2
     assert isinstance(pieces[0], tuple)
     assert isinstance(pieces[1], tuple)
@@ -27,12 +27,233 @@ def test_select_font():
     assert pieces[1][0] == "مرحبا بالعالم"
 
 
+def test_font_fallback1():
+
+    # The preferred order of fonts. The default font is implicitly appended.
+    # The nonexistint font will always be skipped.
+    families = "DoesNotExist Sans", "Humor Sans"
+
+    # Simple, select Humor Sans
+    text = "Hello"
+    pieces = font_manager.select_font(text, FontProps(families))
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Humor Sans"
+
+    # Humor Sans only supports Latin, so fallback here.
+    text = "Привет"
+    pieces = font_manager.select_font(text, FontProps(families))
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Noto Sans"
+
+    #  Humor Sans will be used for the latic chars, and Noto Sans
+    # for the Cyrillic chars.
+    text = "Hello Привет"
+    pieces = font_manager.select_font(text, FontProps(families))
+    assert len(pieces) == 2
+    assert pieces[0][1].family == "Humor Sans"
+    assert pieces[1][1].family == "Noto Sans"
+
+    # Make it a bit harder by including Arabic
+    text = "Hello Привет مرحبا"
+    pieces = font_manager.select_font(text, FontProps(families))
+    assert len(pieces) == 4
+    assert pieces[0][1].family == "Humor Sans"
+    assert pieces[1][1].family == "Noto Sans"
+    assert pieces[3][1].family == "Noto Sans Arabic"
+    # Yes, four pieces, because the space is in Humor Sans
+    assert pieces[2][1].family == "Humor Sans"
+    assert pieces[2][0] == " "
+
+
+def test_font_fallback2():
+
+    # A text that requires the Arabic font, with a dash in between.
+    # That dash is supported by the Arabic font, but also by Noto Sans.
+    text = "مرحبا-مرحبا"
+
+    # If we use the default fonts, we get a single piece
+    pieces = font_manager.select_font(text, FontProps())
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Noto Sans Arabic"
+
+    # Default font rules apply when preferred font does not "kick in"
+    pieces = font_manager.select_font(text, FontProps("NotAnActualFont"))
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Noto Sans Arabic"
+
+    # However, if a preferred font is given, the select_font() tries
+    # to use that wherever it can, so also for the dash.
+    pieces = font_manager.select_font(text, FontProps("Humor Sans"))
+    assert len(pieces) == 3
+    assert pieces[0][1].family == "Noto Sans Arabic"
+    assert pieces[1][1].family == "Humor Sans"
+    assert pieces[1][0] == "-"
+    assert pieces[2][1].family == "Noto Sans Arabic"
+
+    # Also if the preferred font is the main default
+    pieces = font_manager.select_font(text, FontProps("Noto Sans"))
+    assert len(pieces) == 3
+    assert pieces[0][1].family == "Noto Sans Arabic"
+    assert pieces[1][1].family == "Noto Sans"
+    assert pieces[1][0] == "-"
+    assert pieces[2][1].family == "Noto Sans Arabic"
+
+    # But not when we prefer Arabic
+    pieces = font_manager.select_font(text, FontProps("Noto Sans Arabic"))
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Noto Sans Arabic"
+
+    # Also not when we use the default name
+    # Ok, this works simply because "sans" in not a valid family name
+    pieces = font_manager.select_font(text, FontProps("sans"))
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Noto Sans Arabic"
+
+
+def test_tofu():
+
+    # Multiple unsupported chars should be kept together
+    text = "\uf000\uf001\uf002"
+    pieces = font_manager.select_font(text, FontProps())
+    assert len(pieces) == 1
+    assert pieces[0][1] is font_manager._tofu_font
+
+    # Also when surrounded
+    text = "abc\uf000\uf001\uf002abc\uf000\uf001\uf002abc"
+    pieces = font_manager.select_font(text, FontProps())
+    assert len(pieces) == 5
+    assert pieces[0][1] is not font_manager._tofu_font
+    assert pieces[1][1] is font_manager._tofu_font
+    assert pieces[2][1] is not font_manager._tofu_font
+    assert pieces[3][1] is font_manager._tofu_font
+    assert pieces[4][1] is not font_manager._tofu_font
+
+    # Also when preferred font is used
+    text = "abc\uf000\uf001\uf002abc\uf000\uf001\uf002abc"
+    pieces = font_manager.select_font(text, FontProps("Humor Sans"))
+    assert len(pieces) == 5
+    assert pieces[0][1] is not font_manager._tofu_font
+    assert pieces[1][1] is font_manager._tofu_font
+    assert pieces[2][1] is not font_manager._tofu_font
+    assert pieces[3][1] is font_manager._tofu_font
+    assert pieces[4][1] is not font_manager._tofu_font
+
+
+def test_missing_font_hints():
+    def dedent(s):
+        lines = [line for line in s.splitlines() if line.strip()]
+        indent = min([len(line) - len(line.lstrip()) for line in lines])
+        return "\n".join(line[indent:] for line in lines) + "\n"
+
+    assert font_manager._produce_font_warning("abc") == dedent(
+        """
+    Cannot render chars 'abc'. To fix this, install the following font:
+        https://pygfx.github.io/noto-mirror/#NotoSans-Regular.ttf
+    """
+    )
+
+    assert font_manager._produce_font_warning("foo", "bar") == dedent(
+        """
+    Cannot render chars 'foo bar'. To fix this, install the following font:
+        https://pygfx.github.io/noto-mirror/#NotoSans-Regular.ttf
+    """
+    )
+
+    assert font_manager._produce_font_warning("こんにちは世界") == dedent(
+        """
+    Cannot render chars 'こんにちは世界'. To fix this, install any of the following fonts:
+        https://pygfx.github.io/noto-mirror/#NotoSansHK-Regular.otf
+        https://pygfx.github.io/noto-mirror/#NotoSansJP-Regular.otf
+        https://pygfx.github.io/noto-mirror/#NotoSansKR-Regular.otf
+        https://pygfx.github.io/noto-mirror/#NotoSansSC-Regular.otf
+        https://pygfx.github.io/noto-mirror/#NotoSansTC-Regular.otf
+    """
+    )
+
+    assert font_manager._produce_font_warning("\uf000a") == dedent(
+        """
+    Cannot render chars 'a'. To fix this, install (some) of the following fonts:
+        https://pygfx.github.io/noto-mirror/#NotoSans-Regular.ttf
+    """
+    )
+
+    assert font_manager._produce_font_warning("\uf000\uf001") == dedent(
+        """
+    Cannot render chars ''. Even the Noto font set does not support these characters.
+    """
+    )
+
+
+class FakeFontFile(FontFile):
+    def __init__(self, family, variant, codepoints):
+        super("", family, variant)
+
+    @property
+    def family(self):
+        return self._family
+
+    @property
+    def variant(self):
+        return self._variant
+
+
+def test_selecting_font_props():
+
+    codepoints = {ord(c) for c in "abcdefghijklmnopqrtsuvwxyz"}
+    foo_fonts = [
+        FontFile("", "Foo Sans", "Regular", codepoints),
+        FontFile("", "Foo Sans", "Bold", codepoints),
+        FontFile("", "Foo Sans", "Italic", codepoints),
+        FontFile("", "Foo Sans", "Bold Italic", codepoints),
+    ]
+    for ff in foo_fonts:
+        font_manager.add_font_file(ff)
+
+    # Won't select on codepoints that our fonts do not support
+    pieces = font_manager.select_font("ABC", FontProps("Foo Sans"))
+    assert len(pieces) == 1
+    assert pieces[0][1].family == "Noto Sans"
+
+    # But this will select the regular
+    pieces = font_manager.select_font("abc", FontProps("Foo Sans"))
+    assert len(pieces) == 1
+    assert pieces[0][1] is foo_fonts[0]
+
+    # So do thin requests
+    for w in (100, 200, 300, 400, 500):
+        fp = FontProps("Foo Sans", weight=w)
+        pieces = font_manager.select_font("abc", fp)
+        assert len(pieces) == 1
+        assert pieces[0][1] is foo_fonts[0]
+
+    # And these will select the bold
+    for w in (600, 700, 800, 900):
+        fp = FontProps("Foo Sans", weight=w)
+        pieces = font_manager.select_font("abc", fp)
+        assert len(pieces) == 1
+        assert pieces[0][1] is foo_fonts[1]
+
+    # These select regular italic
+    for w in (100, 200, 300, 400, 500):
+        fp = FontProps("Foo Sans", weight=w, style="italic")
+        pieces = font_manager.select_font("abc", fp)
+        assert len(pieces) == 1
+        assert pieces[0][1] is foo_fonts[2]
+
+    # These select bold italic
+    for w in (600, 700, 800, 900):
+        fp = FontProps("Foo Sans", weight=w, style="italic")
+        pieces = font_manager.select_font("abc", fp)
+        assert len(pieces) == 1
+        assert pieces[0][1] is foo_fonts[3]
+
+
 def check_speed():
     text = "HelloWorld"
 
     t0 = time.perf_counter()
     for i in range(1000):
-        font_manager.select_font(text, ())
+        font_manager.select_font(text, FontProps())
     dt = time.perf_counter() - t0
     print(
         f"select_font: {1000*dt:0.1f} ms total", f"{1000*dt/(10000):0.3f} ms per char"

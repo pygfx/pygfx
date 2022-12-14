@@ -19,36 +19,13 @@ import os
 import json
 
 from .. import logger, get_resources_dir
-from ._fontfinder import FontFile, get_all_fonts
+from ._fontfinder import FontFile, get_all_fonts, weight_dict, style_dict
 
 
-# Weight names according to CSS and the OpenType spec.
-weight_dict = {
-    "thin": 100,
-    "hairline": 100,
-    "ultralight": 200,
-    "extralight": 200,
-    "light": 300,
-    "normal": 400,
-    "regular": 400,
-    "medium": 500,
-    "semibold": 600,
-    "demibold": 600,
-    "bold": 700,
-    "extrabold": 800,
-    "ultrabold": 800,
-    "black": 900,
-    "heavy": 900,
-}
-
-
-style_dict = {
-    "normal": "normal",
-    "regular": "normal",
-    "italic": "italic",
-    "oblique": "oblique",
-    "slanted": "oblique",
-}
+# Allow "slanted" to be requested. It will request a normal font:
+# the glyphs will be slanted in the shader.
+style_dict = style_dict.copy()
+style_dict["slanted"] = "slanted"
 
 
 class FontProps:
@@ -78,15 +55,21 @@ class FontProps:
 
         # Check family
         if family is None:
-            family = font_manager.get_default_font_props().family
+            family = font_manager.default_font_props.family
         else:
-            if not isinstance(family, str):
+            if isinstance(family, str):
+                family = (family,)
+            elif isinstance(family, (tuple, list)) and all(
+                isinstance(x, str) for x in family
+            ):
+                family = tuple(family)
+            else:
                 cls = type(family).__name__
-                raise TypeError(f"Font family must be str, not '{cls}'")
+                raise TypeError(f"Font family must be str or tuple-of-str, not '{cls}'")
 
         # Check style
         if style is None:
-            style = font_manager.get_default_font_props().style
+            style = font_manager.default_font_props.style
         else:
             if not isinstance(style, str):
                 cls = type(style).__name__
@@ -98,7 +81,7 @@ class FontProps:
 
         # Check weight
         if weight is None:
-            weight = font_manager.get_default_font_props().weight
+            weight = font_manager.default_font_props.weight
         else:
             if isinstance(weight, str):
                 try:
@@ -126,8 +109,9 @@ class FontProps:
 
     @property
     def family(self):
-        """The font family, e.g. "NotoSans" or "Arial". Can also be a tuple
-        to indicate fallback fonts.
+        """The font family as a tuple of strings, e.g. "Noto Sans" or
+        "Arial". If multiple families are given, the first is
+        prioritised while the others serve as fallbacks.
         """
         return self._kwargs["family"]
 
@@ -138,120 +122,244 @@ class FontProps:
 
     @property
     def weight(self):
-        """The weight, as a number between 100-900."""
+        """The font weight, as a number between 100-900."""
         return self._kwargs["weight"]
 
 
 class FontManager:
+    """Object for selecting fonts."""
+
     def __init__(self):
-        self._default_font_props = FontProps(
-            "noto sans",
-            style="normal",
-            weight="regular",
-        )
-        self._index_available_fonts()
+        self._default_font_props = FontProps((), style="normal", weight="regular")
         self._warned_for_codepoints = set()
         self._warned_for_font_names = set()
+        self._family_to_font = {}  # name -> style -> FontFile
+        self._load_default_font_index()
+        self._load_fonts()
 
-    def add_font_file(self, filename):
-        ff = FontFile(filename)
-        self._name_to_font[ff.name] = ff
+    @property
+    def default_font_props(self):
+        """The default font properties."""
+        # Note: could implement set_default_font(font_props) at some point ...
+        return self._default_font_props
 
-    def _index_available_fonts(self):
+    def add_font_file(self, font_file):
+        """Add the given font_file to the collection of fonts. The
+        font_file can be a filename or a FontFile object. Returns the
+        FontFile object for the font.
+        """
+        # Obtain FontFile object
+        if isinstance(font_file, FontFile):
+            ff = font_file
+        elif isinstance(font_file, str):
+            ff = FontFile(font_file)
+        else:
+            TypeError("add_font_file expects FontFile or str filename.")
 
-        # Get a dict of FontFile objects
-        self._name_to_font = {ff.name: ff for ff in get_all_fonts()}
+        # Select on family name
+        variants = self._family_to_font.setdefault(ff.family, {})
+        variants[ff.variant] = ff
 
-        # Load default font index
+        return ff
+
+    def _load_fonts(self):
+
+        # Populate the dict of font objects
+        for ff in get_all_fonts():
+            self.add_font_file(ff)
+
+        # The main font of the default font is the fallback of fallbacks.
+        # We copy the fontfile so we can detect when it's used to show tofu's.
+        ff = self._family_to_font["Noto Sans"]["Regular"]
+        self._tofu_font = FontFile(ff.filename, ff.family, ff.variant)
+
+    def _load_default_font_index(self):
+
+        # Load the json
         index_filename = os.path.join(get_resources_dir(), "noto_default_index.json")
         with open(index_filename, "rt", encoding="utf-8") as f:
-            index = json.load(f)
+            ob = json.load(f)
+        families, fnames, index = ob["families"], ob["filenames"], ob["index"]
 
-        # Get default names (family_name-style_name), and create a map to lookup the fname
-        default_names = [x.split(".")[0] for x in index["fonts"]]
-        self._default_name_to_fname = {
-            name: fname for name, fname in zip(default_names, index["fonts"])
+        # Create a map to lookup the fname from the family
+        self._default_family_to_fname = {
+            family: fname for family, fname in zip(families, fnames)
         }
 
-        # Create a dict that maps codepoint to tuple of names.
+        # Create a dict that maps codepoint to tuple of names
         self._default_font_map = {}
-        for k, v in index["index"].items():
+        for k, v in index.items():
             codepoint = int(k)
-            self._default_font_map[codepoint] = tuple(default_names[i] for i in v)
+            self._default_font_map[codepoint] = tuple(families[i] for i in v)
 
-        # The main font of the default font is the fallback of fallbacks :)
-        self._default_main_font = self._name_to_font["NotoSans-Regular"]
+    def print_fonts(self):
+        """Print a list of all fonts available."""
+        for family in sorted(self._family_to_font.keys()):
+            base_line = family + " - "
+            for ff in self._family_to_font[family].values():
+                print(f"{base_line}{ff.variant}  ({ff.filename})")
+                base_line = " " * len(base_line)
 
-    def get_default_font_props(self):
-        return self._default_font_props  # todo: are font props immutable?
+    def select_font(self, text, font_props):
+        """Select the (best) fonts for the given text. Returns a list of (text, font_file)
+        tuples, because different characters in the text may require different fonts.
+        """
 
-    def set_default_font(self, font_props):
-        global default_font
-        if not isinstance(font_props, FontProps):
-            x = font_props.__class__.__name__
-            raise TypeError(f"set_default_font() requires a FontProps object, not {x}")
-        self._default_font_props = font_props
+        # The selection strategy depends on whether preferred fonts are
+        # given. If this is the case, the preferred font should be used
+        # where possible. This applies per character. For the remaining
+        # text, the default font is used. In this case, any font from
+        # the default set is fine. We just try to make the pieces as
+        # long as possible. For characters that we cannot render, the
+        # main default font is used. We call it the tofu font, because
+        # for unknown chars it will show the tofu symbol.
 
-    def select_fonts_for_codepoint(self, codepoint, family):
-        """Select the fonts that support the given codepoint."""
-        familie_names = (family,) if isinstance(family, str) else tuple(family)
-        fonts = []
-        # Add fonts from given families that support the code point
-        for family in familie_names:
-            name = "".join(x[0].upper() + x[1:] for x in family.split())
-            if "-" not in name:
-                name = name + "-Regular"
+        tofu_font = self._tofu_font
+
+        # Select fonts that match the preferred font_props
+        preferred_fonts = []
+        for family in font_props.family:
+            # Get variants for the given family
             try:
-                ff = self._name_to_font[name]
+                variants = self._family_to_font[family]
+            except KeyError:
+                continue
+            # Select best variant
+            best_score, best_ff = 0, None
+            for ff in variants.values():
+                score = (
+                    int(font_props.style == ff.style)
+                    + 600
+                    - abs(ff.weight - font_props.weight)
+                )
+                if score > best_score:
+                    best_score, best_ff = score, ff
+            # Select
+            if best_ff:
+                preferred_fonts.append(best_ff)
+
+        # First apply the most-preferred font to each character.
+        # If not preferred_fonts are supplied, we can take a shortcut.
+        text_pieces1 = []
+        if preferred_fonts:
+            codepoint = ord(text[0])
+            last_font = self._select_prefered_font_for_codepoint(
+                codepoint, preferred_fonts
+            )
+            last_i = i = 0
+            for i in range(2, len(text)):
+                codepoint = ord(text[i])
+                font = self._select_prefered_font_for_codepoint(
+                    codepoint, preferred_fonts
+                )
+                if font is not last_font:
+                    text_pieces1.append((text[last_i:i], last_font))
+                    last_i = i
+                    last_font = font
+            text_pieces1.append((text[last_i : i + 1], last_font))
+        else:
+            text_pieces1.append((text, None))
+
+        failed_codepoints = []
+
+        # Now process the pieces that don't have a font yet, using the default fonts.
+        text_pieces2 = []
+        for text, font in text_pieces1:
+            if font is not None:
+                text_pieces2.append((text, font))
+            else:
+                codepoint = ord(text[0])
+                fonts = self._select_default_fonts_for_codepoint(codepoint)
+                last_i = i = 0
+                for i in range(1, len(text)):
+                    codepoint = ord(text[i])
+                    new_fonts = [ff for ff in fonts if ff.has_codepoint(codepoint)]
+                    if new_fonts:
+                        # Our selection of fonts is still nonzero
+                        fonts = new_fonts
+                    else:
+                        if not fonts:
+                            failed_codepoints.append(codepoint)
+                            fonts = self._select_default_fonts_for_codepoint(codepoint)
+                            if not fonts:
+                                continue
+                            last_font = tofu_font
+                        else:
+                            last_font = fonts[0]
+                            fonts = self._select_default_fonts_for_codepoint(codepoint)
+                        text_pieces2.append((text[last_i:i], last_font))
+                        last_i = i
+                last_font = fonts[0] if fonts else tofu_font
+                text_pieces2.append((text[last_i : i + 1], last_font))
+
+        # Did we encounter characters that we cannot render?
+        failed_texts = [text for text, font in text_pieces2 if font is tofu_font]
+        if failed_texts:
+            codepoints = {ord(c) for c in "".join(failed_texts)}
+            if any(cp not in self._warned_for_codepoints for cp in codepoints):
+                self._warned_for_codepoints.update(codepoints)
+                logger.warning(self._produce_font_warning(*failed_texts))
+
+        return text_pieces2
+
+    def _select_prefered_font_for_codepoint(self, codepoint, preferred_fonts):
+        # Select one font, in order of preference
+        for ff in preferred_fonts:
+            if ff.has_codepoint(codepoint):
+                return ff
+        return None
+
+    def _select_default_fonts_for_codepoint(self, codepoint):
+        # Select all fonts capable of rendering this character
+        fonts = []
+        default_families = self._default_font_map.get(codepoint, ())
+        for family in default_families:
+            try:
+                ff = self._family_to_font[family]["Regular"]
             except KeyError:
                 continue
             if ff.has_codepoint(codepoint):
                 fonts.append(ff)
-        # Add default font
-        default_names = self._default_font_map.get(codepoint, ())
-        for name in default_names:
-            try:
-                fonts.append(self._name_to_font[name])
-            except KeyError:
-                continue
-        if not fonts:
-            fonts.append(self._default_main_font)
-            self._produce_font_warning(codepoint, default_names)
         return fonts
 
-    def _produce_font_warning(self, codepoint, default_names):
-        if codepoint not in self._warned_for_codepoints:
-            self._warned_for_codepoints.add(codepoint)
-            codepoint_repr = "U+" + hex(codepoint)[2:]
-            if not default_names:
-                msg = f"No font available for {chr(codepoint)} ({codepoint_repr})."
-                logger.warning(msg)
-            elif not any(name in self._warned_for_font_names for name in default_names):
-                self._warned_for_font_names.update(default_names)
-                msg = f"Fonts to support {chr(codepoint)} ({codepoint_repr}) can be installed via:\n"
-                for name in default_names:
-                    fname = self._default_name_to_fname[name]
-                    msg += f"    https://pygfx.github.io/noto-mirror/#{fname}\n"
-                logger.warning(msg)
+    def _produce_font_warning(self, *failed_texts):
 
-    def select_font(self, text, family):
-        """Select the (best) font for the given text. Returns a list of (text, fontname)
-        tuples, because different characters in the text may require different fonts.
-        """
-        text_pieces = []
-        last_i, i = 0, 1
-        fonts = self.select_fonts_for_codepoint(ord(text[0]), family)
-        for i in range(1, len(text)):
-            codepoint = ord(text[i])
-            new_fonts = [font for font in fonts if font.has_codepoint(codepoint)]
-            if new_fonts:
-                fonts = new_fonts
+        # Get the codepoints that failed
+        codepoints = list({ord(c) for c in "".join(failed_texts)})
+
+        # Collect families. We try to find a set of families that supports all
+        # the failed characters. In theory we could analyse things more and
+        # show the minimal set of fonts that supports all chars.
+        all_families = set()
+        min_families = set(self._default_font_map.get(codepoints[0], ()))
+        for cp in codepoints:
+            families = self._default_font_map.get(cp, ())
+            all_families.update(families)
+            min_families.intersection_update(families)
+
+        # Define what to report
+        msg = f"Cannot render chars '{' '.join(failed_texts)}'. "
+        fonts_to_link = set()
+        if min_families:
+            fonts_to_link = min_families
+            if len(min_families) == 1:
+                msg += "To fix this, install the following font:"
             else:
-                text_pieces.append((text[last_i:i], fonts[0]))
-                last_i = i
-                fonts = self.select_fonts_for_codepoint(codepoint, family)
-        text_pieces.append((text[last_i : i + 1], fonts[0]))
-        return text_pieces
+                msg += "To fix this, install any of the following fonts:"
+        elif all_families:
+            fonts_to_link = all_families
+            msg += "To fix this, install (some) of the following fonts:"
+        else:
+            msg += "Even the Noto font set does not support these characters."
+
+        # Show links
+        msg += "\n"
+        for family in sorted(fonts_to_link):
+            fname = self._default_family_to_fname[family]
+            msg += f"    https://pygfx.github.io/noto-mirror/#{fname}\n"
+
+        # We return a string, making this method easy to test
+        return msg
 
 
 # Instantiate the global/default font manager

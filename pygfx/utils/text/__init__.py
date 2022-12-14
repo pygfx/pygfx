@@ -14,7 +14,7 @@ Rendering is implemented in the TextShader.
 """
 
 from ._fontfinder import FontFile  # noqa: F401
-from ._fontmanager import FontProps, font_manager  # noqa: F401
+from ._fontmanager import FontProps, FontManager, font_manager  # noqa: F401
 from ._atlas import glyph_atlas  # noqa: F401
 from ._tokenizers import tokenize_text, tokenize_markdown  # noqa: F401
 from . import _sdf

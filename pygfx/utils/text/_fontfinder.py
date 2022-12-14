@@ -14,19 +14,49 @@ import freetype
 from .. import logger, get_resources_dir, get_cache_dir
 
 
+# Weight names according to CSS and the OpenType spec.
+weight_dict = {
+    "thin": 100,
+    "hairline": 100,
+    "ultralight": 200,
+    "extralight": 200,
+    "light": 300,
+    "normal": 400,
+    "regular": 400,
+    "medium": 500,
+    "semibold": 600,
+    "demibold": 600,
+    "bold": 700,
+    "extrabold": 800,
+    "ultrabold": 800,
+    "black": 900,
+    "heavy": 900,
+}
+
+
+style_dict = {
+    "normal": "normal",
+    "regular": "normal",
+    "italic": "italic",
+    "oblique": "oblique",
+}
+
+
 class FontFile:
     """Object to represent a font file."""
 
-    def __init__(self, filename, family_name=None, style_name=None, codepoints=None):
+    def __init__(self, filename, family=None, variant=None, codepoints=None):
         assert isinstance(filename, str)
-        assert family_name is None or isinstance(family_name, str)
-        assert style_name is None or isinstance(style_name, str)
+        assert family is None or isinstance(family, str)
+        assert variant is None or isinstance(variant, str)
         assert codepoints is None or isinstance(codepoints, set)
 
         self._filename = filename
-        self._family_name = family_name
-        self._style_name = style_name
+        self._family = family
+        self._variant = variant
         self._name = None
+        self._weight = None
+        self._style = None
         self._codepoints = codepoints
 
     def __repr__(self):
@@ -35,36 +65,68 @@ class FontFile:
     def __hash__(self):
         return hash(self.name)
 
-    @property
-    def filename(self):
-        """The path to this font file."""
-        return self._filename
-
     def _get_face(self):
         # Factor this out so it can be overloaded in tests
         return freetype.Face(self._filename)
 
     @property
-    def family_name(self):
-        """The family name of this font, e.g. 'Noto Sans' or 'Arial'"""
-        if not self._family_name:
-            self._family_name = self._get_face().family_name.decode()
-            if not self._family_name:
-                name = os.path.basename(self._filename).split(".")[0]
-                family, _, _ = name.partition("-")
-                self._family_name = family or "Unknown"
-        return self._family_name
+    def filename(self):
+        """The path to this font file."""
+        return self._filename
 
     @property
-    def style_name(self):
-        """The style name of this font, e.g. 'Regular', 'Bold', 'Italic', 'Thin Italic'."""
-        if not self._style_name:
-            self._style_name = self._get_face().style_name.decode()
-            if not self._style_name:
+    def family(self):
+        """The family name of this font, e.g. 'Noto Sans' or 'Arial'"""
+        if not self._family:
+            self._family = self._get_face().family_name.decode()
+            if not self._family:
                 name = os.path.basename(self._filename).split(".")[0]
-                _, _, style_name = name.partition("-")
-                self._style_name = style_name or "Regular"
-        return self._style_name
+                family, _, _ = name.partition("-")
+                self._family = family or "Unknown"
+        return self._family
+
+    @property
+    def variant(self):
+        """The variant name of this font, e.g. 'Regular', 'Bold',
+        'Italic', 'Thin Italic'. This is a value defined in the font
+        file, and from this the weight and style are derived.
+        """
+        if not self._variant:
+            self._variant = self._get_face().style_name.decode()
+            if not self._variant:
+                name = os.path.basename(self._filename).split(".")[0]
+                _, _, variant = name.partition("-")
+                self._variant = variant or "Regular"
+        return self._variant
+
+    @property
+    def weight(self):
+        """The font weight, as a number between 100-900."""
+        if not self._weight:
+            variant_name = self._variant.lower()
+            if variant_name == "regular":  # make common cases fast
+                self._weight = 400
+            else:
+                for weight_name, weight_nr in weight_dict.items():
+                    if weight_name in variant_name:
+                        self._weight = weight_nr
+                        break
+                else:
+                    self._weight = 400
+        return self._weight
+
+    @property
+    def style(self):
+        """The style, one of "normal", "italic", or "oblique"."""
+        if not self._style:
+            variant_name = self._variant.lower()
+            for style_name1, style_name2 in style_dict.items():
+                if style_name1 in variant_name:
+                    self._style = style_name2
+                    break
+            else:
+                self._style = "normal"
+        return self._style
 
     @property
     def name(self):
@@ -74,8 +136,8 @@ class FontFile:
         guaranteed to be the case.
         """
         if not self._name:
-            family = "".join(x[0].upper() + x[1:] for x in self.family_name.split())
-            style = "".join(x[0].upper() + x[1:] for x in self.style_name.split())
+            family = "".join(x[0].upper() + x[1:] for x in self.family.split())
+            style = "".join(x[0].upper() + x[1:] for x in self.variant.split())
             self._name = family + "-" + style
         return self._name
 
@@ -147,7 +209,7 @@ def get_system_fonts():
                     raise RuntimeError("File path not a str.")
                 elif not isinstance(info, dict):
                     raise RuntimeError("File info not a dict.")
-                elif {"mtime", "family", "style"}.difference(info.keys()):
+                elif {"mtime", "family", "variant"}.difference(info.keys()):
                     reset = True  # We probably added new info to the cache
                 # elif not os.path.isfile(p):  # slow, and should be covered by dir mtime
                 #     dirs_to_update(os.path.dirname(p))
@@ -193,8 +255,8 @@ def get_system_fonts():
                 continue
             files[p.replace("\\", "/")] = {
                 "mtime": os.path.getmtime(ff.filename),
-                "family": ff.family_name,
-                "style": ff.style_name,
+                "family": ff.family,
+                "variant": ff.variant,
             }
 
         # Sort the keys, just being clean
@@ -234,7 +296,7 @@ def get_system_fonts():
 
     # Return set of FontFile objects
     return {
-        FontFile(filename, info["family"], info["style"])
+        FontFile(filename, info["family"], info["variant"])
         for filename, info in cache["files"].items()
     }
 

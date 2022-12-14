@@ -162,7 +162,7 @@ def test_get_system_fonts():
         # Get fonts
         files = _fontfinder.get_system_fonts()
         assert isinstance(files, set)
-        initial_files = {p.family_name for p in files}
+        initial_files = {p.family for p in files}
         assert initial_files == {"aa", "bb", "cc", "ii", "jj", "kk"}
 
         # Had to query them
@@ -178,7 +178,7 @@ def test_get_system_fonts():
             assert p.filename in cache_text
 
         # Do it again
-        files = {p.family_name for p in _fontfinder.get_system_fonts()}
+        files = {p.family for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
         # No need to query!
         assert len(counter) == 1
@@ -188,14 +188,14 @@ def test_get_system_fonts():
             f.write(b"not valid json")
 
         # No worries, will re-create
-        files = {p.family_name for p in _fontfinder.get_system_fonts()}
+        files = {p.family for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
 
         # Had to query them, of course
         assert len(counter) == 2
 
         # Yes, the cache works
-        files = {p.family_name for p in _fontfinder.get_system_fonts()}
+        files = {p.family for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
         # No need to query!
         assert len(counter) == 2
@@ -207,7 +207,7 @@ def test_get_system_fonts():
         time.sleep(0.1)
 
         # So now if we get the fonts ...
-        files = {p.family_name for p in _fontfinder.get_system_fonts()}
+        files = {p.family for p in _fontfinder.get_system_fonts()}
         assert files != initial_files
         assert files.difference(initial_files).pop() == "ee"
 

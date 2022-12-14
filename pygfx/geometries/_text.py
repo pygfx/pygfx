@@ -243,11 +243,11 @@ class TextGeometry(Geometry):
             first_index = len(glyph_items)
 
             # Text rendering steps: font selection, shaping, glyph generation
-            text_pieces = self._select_font(item.text, item.font_props.family)
+            text_pieces = self._select_font(item.text, item.font_props)
             for text, font in text_pieces:
                 glyph_indices, positions, meta = self._shape_text(text, font.filename)
                 atlas_indices = self._generate_glyph(glyph_indices, font.filename)
-                self._encode_font_props_in_atlas_indices(atlas_indices, item.font_props)
+                self._encode_font_props_in_atlas_indices(atlas_indices, item.font_props, font)
                 glyph_items.append(GlyphItem(positions, atlas_indices, meta))
 
             # Get whitespace after and before the text
@@ -354,6 +354,7 @@ class TextGeometry(Geometry):
             items[0]._ws_before += pending_whitespace
 
         self.set_text_items(items)
+        return self
 
     def set_markdown(self, markdown, family=None):
         """Update the geometry's text using markdown formatting.
@@ -435,14 +436,15 @@ class TextGeometry(Geometry):
             items[0]._ws_before += pending_whitespace
 
         self.set_text_items(items)
+        return self
 
     # %%%%% Font selection
 
-    def _select_font(self, text, family):
+    def _select_font(self, text, font_props):
         """The font selection step. Returns (text, font_filename) tuples.
         Can be overloaded for custom behavior.
         """
-        return textmodule.select_font(text, family)
+        return textmodule.select_font(text, font_props)
 
     # %%%%% Shaping
 
@@ -477,7 +479,7 @@ class TextGeometry(Geometry):
         """
         return textmodule.generate_glyph(glyph_indices, font_filename)
 
-    def _encode_font_props_in_atlas_indices(self, atlas_indices, font_props):
+    def _encode_font_props_in_atlas_indices(self, atlas_indices, font_props, font):
         # We could put font properties in their own buffer(s), but to
         # safe memory, we encode them in the top bits of the atlas
         # indices. This seems like a good place, because these top bits
