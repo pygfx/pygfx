@@ -207,7 +207,7 @@ class TextShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.atlas_pixel_scale = f32(atlas_pixel_scale);
             varyings.texcoord_in_pixels = vec2<f32>(texcoord_in_pixels);
-            varyings.weight = f32(150.0 + f32(weight_0_15) * 50.0);  // encodes 150-900 in steps of 50
+            varyings.weight_offset = f32(f32(weight_0_15) * 50.0 - 250.0);  // encodes -250..500 in steps of 50
 
             // Picking
             varyings.pick_idx = u32(index);
@@ -241,8 +241,8 @@ class TextShader(WorldObjectShader):
             let distance = (0.5 - atlas_value);
 
             // Load tickness factors
-            let weight = clamp(varyings.weight + u_material.weight_offset, 0.0, 2000.0);
-            let weight_thickness = (weight - 400.0) * 0.00031;  // emperically derived factor
+            let weight_offset = clamp(varyings.weight_offset + u_material.weight_offset, -400.0, 1600.0);
+            let weight_thickness = weight_offset * 0.00031;  // emperically derived factor
             let outline_thickness = u_material.outline_thickness;
 
             // The softness is calculated from the scale of one atlas-pixel in screen space.

@@ -247,7 +247,9 @@ class TextGeometry(Geometry):
             for text, font in text_pieces:
                 glyph_indices, positions, meta = self._shape_text(text, font.filename)
                 atlas_indices = self._generate_glyph(glyph_indices, font.filename)
-                self._encode_font_props_in_atlas_indices(atlas_indices, item.font_props, font)
+                self._encode_font_props_in_atlas_indices(
+                    atlas_indices, item.font_props, font
+                )
                 glyph_items.append(GlyphItem(positions, atlas_indices, meta))
 
             # Get whitespace after and before the text
@@ -487,10 +489,14 @@ class TextGeometry(Geometry):
         # glyph index is a rather "opaque" value to the user anyway.
         # You can think of the new glyph index as the index to the glyph
         # in the atlas, plus props to tweak its appearance.
-        is_slanted = font_props.style in ("italic", "oblique", "slanted")
-        if is_slanted:
+
+        # We compare the font_props (i.e. the requested font variant)
+        # with the actual font to see what correcion we need to apply.
+        slanted_like = "italic", "oblique", "slanted"
+        if font_props.style in slanted_like and font.style not in slanted_like:
             atlas_indices += 0x08000000
-        weight_0_15 = int((max(150, font_props.weight) - 150) / 50 + 0.4999)
+        weight_offset = font_props.weight - font.weight
+        weight_0_15 = int((max(-250, weight_offset) + 250) / 50 + 0.4999)
         atlas_indices += max(0, min(15, weight_0_15)) << 28
 
     # %%%%% Layout
