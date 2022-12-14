@@ -1,4 +1,7 @@
 """
+Text size
+=========
+
 This example shows text with different sizes.
 
 * On the left the text is in screen space. The size must match a
@@ -7,6 +10,7 @@ This example shows text with different sizes.
   baseline on the bottom line.
 """
 # test_example = true
+# sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

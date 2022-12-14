@@ -1,6 +1,12 @@
 """
+Hello text
+==========
+
 Example showing text in world and screen space.
 """
+# sphinx_gallery_pygfx_animate = True
+# sphinx_gallery_pygfx_target_name = "disp"
+
 
 import pygfx as gfx
 
@@ -53,7 +59,7 @@ def before_render():
     plane.rotation.multiply(rot)
 
 
-display = gfx.Display(before_render=before_render)
+disp = gfx.Display(before_render=before_render)
 
 if __name__ == "__main__":
-    display.show(scene)
+    disp.show(scene)

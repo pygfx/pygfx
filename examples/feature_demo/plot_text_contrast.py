@@ -1,4 +1,7 @@
 """
+Text contrast
+=============
+
 Example demonstrating text on dark and light background.
 
 On the left, plain text is shown in black and white. There is a
@@ -9,6 +12,9 @@ compensates for this effect.
 On the right the text uses an outline to give a good appearance on any
 background.
 """
+# sphinx_gallery_pygfx_animate = True
+# sphinx_gallery_pygfx_target_name = "renderer"
+
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

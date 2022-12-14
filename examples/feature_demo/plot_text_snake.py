@@ -1,6 +1,10 @@
 """
+Text snake
+==========
 Example showing a text with picking and custom layout.
 """
+# sphinx_gallery_pygfx_animate = True
+# sphinx_gallery_pygfx_target_name = "renderer"
 
 import time
 
