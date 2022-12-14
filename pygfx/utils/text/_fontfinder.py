@@ -219,10 +219,11 @@ def get_system_fonts():
 
     # Reset directories that need an update
     for dir_path in dirs_to_update:
+        dir_path = os.path.normpath(dir_path)
         # Clear fonts in this dir
         files = cache["files"]
         for p in list(files.keys()):
-            if os.path.dirname(p) == dir_path:
+            if os.path.normpath(os.path.dirname(p)) == dir_path:
                 files.pop(p)
         # Detect fonts again, schedule for inclusion in the cache
         _, file_paths = find_fonts_paths(dir_path, False)
@@ -279,7 +280,7 @@ def get_system_fonts():
         # Windows, however, the replace will fail if something else has
         # the file open. So we wait and try again, until we time out
         # and give up.
-        etime = time.time() + 10
+        etime = time.time() + 5
         while time.time() < etime:
             try:
                 os.replace(filename2, filename)

@@ -1,6 +1,43 @@
 import time
 
-from pygfx.utils.text import font_manager, FontProps, FontFile
+from pytest import raises
+
+from pygfx.utils.text import font_manager, FontManager, FontProps, FontFile
+
+
+def test_font_props():
+
+    # Defaults
+    fp = FontProps()
+    assert fp.family == ()
+    assert fp.weight == 400
+    assert fp.style == "normal"
+
+    fp = FontProps("Arial", weight="bold", style="oblique")
+    assert fp.family == ("Arial",)
+    assert fp.weight == 700
+    assert fp.style == "oblique"
+    assert "Arial" in repr(fp)
+
+    fp = FontProps(("Arial", "Tahoma"), weight=250, style="regular")
+    assert fp.family == ("Arial", "Tahoma")
+    assert fp.weight == 250
+    assert fp.style == "normal"
+    assert "Arial" in repr(fp) and "Tahoma" in repr(fp)
+
+    # Fails
+    with raises(TypeError):
+        FontProps(3)
+    with raises(TypeError):
+        FontProps(("Arial", 3))
+    with raises(TypeError):
+        FontProps("Arial", weight=())
+    with raises(TypeError):
+        FontProps("Arial", weight="notaweight")
+    with raises(TypeError):
+        FontProps("Arial", style=())
+    with raises(TypeError):
+        FontProps("Arial", style="notastyle")
 
 
 def test_select_font():
@@ -199,7 +236,21 @@ class FakeFontFile(FontFile):
         return self._variant
 
 
+def test_add_font_file():
+
+    with raises(TypeError):
+        font_manager.add_font_file(42)
+    with raises(Exception):  # FreeType error
+        font_manager.add_font_file("not a filename")
+
+    # Add font by filename
+    ff = font_manager.add_font_file(font_manager._fallback_font.filename)
+    assert ff.family == "Noto Sans"
+
+
 def test_selecting_font_props():
+
+    font_manager = FontManager()
 
     codepoints = {ord(c) for c in "abcdefghijklmnopqrtsuvwxyz"}
     foo_fonts = [
@@ -208,8 +259,15 @@ def test_selecting_font_props():
         FontFile("", "Foo Sans", "Italic", codepoints),
         FontFile("", "Foo Sans", "Bold Italic", codepoints),
     ]
+
+    for ff in foo_fonts:
+        assert ff not in font_manager.get_fonts()
+
     for ff in foo_fonts:
         font_manager.add_font_file(ff)
+
+    for ff in foo_fonts:
+        assert ff in font_manager.get_fonts()
 
     # Won't select on codepoints that our fonts do not support
     pieces = font_manager.select_font("ABC", FontProps("Foo Sans"))

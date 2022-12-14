@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import shutil
 import tempfile
@@ -6,6 +7,36 @@ import tempfile
 from pytest import raises
 
 from pygfx.utils.text import _fontfinder
+
+
+def test_font_file():
+
+    ff1 = _fontfinder.FontFile("x", "Foo Sans", "Regular", {1, 2, 3})
+    assert ff1.filename == "x"
+    assert ff1.name == "FooSans-Regular"
+    assert ff1.family == "Foo Sans"
+    assert ff1.variant == "Regular"
+    assert ff1.weight == 400
+    assert ff1.style == "normal"
+    assert ff1.codepoints.intersection((2, 3, 4, 5)) == {2, 3}
+
+    ff2 = _fontfinder.FontFile("x", "Foo Sans", "Bold", {1, 2, 3})
+    assert ff2.name == "FooSans-Bold"
+    assert ff2.family == "Foo Sans"
+    assert ff2.variant == "Bold"
+    assert ff2.weight == 700
+    assert ff2.style == "normal"
+
+    ff3 = _fontfinder.FontFile("x", "Foo Sans", "Bold Italic", {1, 2, 3})
+    assert ff3.name == "FooSans-BoldItalic"
+    assert ff3.family == "Foo Sans"
+    assert ff3.variant == "Bold Italic"
+    assert ff3.weight == 700
+    assert ff3.style == "italic"
+
+    assert hash(ff1) != hash(ff2)
+    assert hash(ff1) != hash(ff3)
+    assert hash(ff2) != hash(ff3)
 
 
 def test_find_fonts_paths():
@@ -190,15 +221,27 @@ def test_get_system_fonts():
         # No worries, will re-create
         files = {p.family for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
-
         # Had to query them, of course
         assert len(counter) == 2
+
+        # Break the file again, but in a more subtle way
+        with open(cache_filename, "rt", encoding="utf-8") as f:
+            cache = json.load(f)
+        cache["files"]["not_a_path"] = 42  # not a dict
+        with open(cache_filename, "wt", encoding="utf-8") as f:
+            json.dump(cache, f)
+
+        # No worries, will re-create
+        files = {p.family for p in _fontfinder.get_system_fonts()}
+        assert files == initial_files
+        # Had to query them, of course
+        assert len(counter) == 3
 
         # Yes, the cache works
         files = {p.family for p in _fontfinder.get_system_fonts()}
         assert files == initial_files
         # No need to query!
-        assert len(counter) == 2
+        assert len(counter) == 3
 
         # Add a font file. This will update the mtime of the directory, triggering
         # a call to find_fonts_paths on that dir, and thus finding the new font
@@ -218,6 +261,7 @@ def test_get_system_fonts():
             _fontfinder.ori_get_system_font_directories
         )
         shutil.rmtree(tmpdir, ignore_errors=True)
+        os.environ["PYGFX_DATA_DIR"] = ""
 
 
 if __name__ == "__main__":

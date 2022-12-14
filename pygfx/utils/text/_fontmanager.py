@@ -56,48 +56,52 @@ class FontProps:
         # Check family
         if family is None:
             family = font_manager.default_font_props.family
+        elif isinstance(family, str):
+            family = (family,)
+        elif isinstance(family, (tuple, list)):
+            for x in family:
+                if not isinstance(x, str):
+                    cls = type(x).__name__
+                    raise TypeError(f"Font family must be str, not '{cls}'")
+            family = tuple(family)
         else:
-            if isinstance(family, str):
-                family = (family,)
-            elif isinstance(family, (tuple, list)) and all(
-                isinstance(x, str) for x in family
-            ):
-                family = tuple(family)
-            else:
-                cls = type(family).__name__
-                raise TypeError(f"Font family must be str or tuple-of-str, not '{cls}'")
+            cls = type(family).__name__
+            raise TypeError(f"Font family must be str or tuple-of-str, not '{cls}'")
 
         # Check style
         if style is None:
             style = font_manager.default_font_props.style
-        else:
-            if not isinstance(style, str):
-                cls = type(style).__name__
-                raise TypeError("Font style must be str, not '{cls}'")
+        elif isinstance(style, str):
             try:
                 style = style_dict[style.lower()]
             except KeyError:
                 raise TypeError(f"Style string not known: '{style}'")
+        else:
+            cls = type(style).__name__
+            raise TypeError("Font style must be str, not '{cls}'")
 
         # Check weight
         if weight is None:
             weight = font_manager.default_font_props.weight
+        elif isinstance(weight, str):
+            try:
+                weight = weight_dict[weight.lower()]
+            except KeyError:
+                raise TypeError(f"Weight string not known: '{weight}'")
+        elif isinstance(weight, int):
+            weight = min(900, max(100, weight))
         else:
-            if isinstance(weight, str):
-                try:
-                    weight = weight_dict[weight.lower()]
-                except KeyError:
-                    raise TypeError(f"Weight string not known: '{weight}'")
-            elif isinstance(weight, int):
-                weight = min(900, max(100, weight))
-            else:
-                raise TypeError("Weight must be an int (100-900) or a string.")
+            raise TypeError("Weight must be an int (100-900) or a string.")
 
         self._kwargs = {
             "family": family,
             "style": style,
             "weight": weight,
         }
+
+    def __repr__(self):
+        fam = ", ".join(repr(x) for x in self.family)
+        return f"<FontProps {fam} at 0x{hex(id(self))}>"
 
     def copy(self, **kwargs):
         """Make a copy of the font prop, with given kwargs replaced."""
@@ -154,12 +158,18 @@ class FontManager:
         elif isinstance(font_file, str):
             ff = FontFile(font_file)
         else:
-            TypeError("add_font_file expects FontFile or str filename.")
+            raise TypeError("add_font_file() expects FontFile or str filename.")
 
         # Select on family name
         variants = self._family_to_font.setdefault(ff.family, {})
-        variants[ff.variant] = ff
 
+        # Warn for duplicates
+        if ff.variant in variants:
+            old = variants[ff.variant]
+            logger.debug(f"Duplicate font {ff.name} ({old.filename} -> {ff.filename})")
+
+        # Store
+        variants[ff.variant] = ff
         return ff
 
     def _load_fonts(self):
@@ -192,13 +202,16 @@ class FontManager:
             codepoint = int(k)
             self._default_font_map[codepoint] = tuple(families[i] for i in v)
 
-    def print_fonts(self):
-        """Print a list of all fonts available."""
+    def get_fonts(self):
+        """Get a list of all registered FontFile objects. E.g. to show a list
+        of all available fonts:
+        ``for ff in font_manager.get_fonts(): print(ff.family, "-", ff.variant)``
+        """
+        fonts = []
         for family in sorted(self._family_to_font.keys()):
-            base_line = family + " - "
             for ff in self._family_to_font[family].values():
-                print(f"{base_line}{ff.variant}  ({ff.filename})")
-                base_line = " " * len(base_line)
+                fonts.append(ff)
+        return fonts
 
     def select_font(self, text, font_props):
         """Select the (best) fonts for the given text. Returns a list of (text, font_file)
