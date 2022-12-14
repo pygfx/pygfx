@@ -21,9 +21,6 @@ for i, geometry in enumerate(geometries):
     polyhedron.position.set(6 - i * 3, 0, 0)
     scene.add(polyhedron)
 
-background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
-scene.add(background)
-
 
 if __name__ == "__main__":
     disp = gfx.Display()

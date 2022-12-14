@@ -12,6 +12,7 @@ press 'l' to load the last saved state.
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import numpy as np
 
 
 canvas = WgpuCanvas()
@@ -21,7 +22,9 @@ scene = gfx.Scene()
 axes = gfx.AxesHelper(size=250)
 scene.add(axes)
 
-background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
+dark_gray = np.array((169, 167, 168, 255)) / 255
+light_gray = np.array((100, 100, 100, 255)) / 255
+background = gfx.Background(None, gfx.BackgroundMaterial(light_gray, dark_gray))
 scene.add(background)
 
 im = iio.imread("imageio:astronaut.png")

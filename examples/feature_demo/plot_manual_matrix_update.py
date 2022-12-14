@@ -6,15 +6,13 @@ Transform Control without Matrix Updating
 Example showing transform control flow without matrix auto updating.
 """
 # sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_target_name = "disp"
 
 import imageio.v3 as iio
-from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
-scene = gfx.Scene()
+group = gfx.Group()
 
 im = iio.imread("imageio:chelsea.png")
 tex = gfx.Texture(im, dim=2).get_view(filter="linear")
@@ -25,10 +23,8 @@ cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
     cube.matrix_auto_update = False
     cube.matrix = gfx.linalg.Matrix4().set_position_xyz(350 - i * 100, 0, 0)
-    scene.add(cube)
+    group.add(cube)
 
-background = gfx.Background(None, gfx.BackgroundMaterial((0, 1, 0, 1), (0, 1, 1, 1)))
-scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.matrix_auto_update = False
@@ -47,10 +43,8 @@ def animate():
         rot.premultiply(pos)
         cube.matrix = rot
 
-    renderer.render(scene, camera)
-    canvas.request_draw()
-
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
-    run()
+    disp = gfx.Display(camera=camera)
+    disp.before_render = animate
+    disp.show(group)
