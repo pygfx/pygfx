@@ -7,6 +7,7 @@ import wgpu
 from ...resources import Buffer
 from ...utils.trackable import Trackable
 from ...utils import array_from_shadertype
+from ...utils.text import glyph_atlas
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -55,6 +56,19 @@ class Shared(Trackable):
         self._store.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
         self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
+        # Init glyph atlas texture
+        self._store.glyph_atlas_texture_view = glyph_atlas.texture_view
+        self._store.glyph_atlas_info_buffer = glyph_atlas.info_buffer
+
+    def pre_render_hook(self):
+        """Called by the renderer on the beginning of a draw."""
+        view = glyph_atlas.texture_view
+        buffer = glyph_atlas.info_buffer
+        if view is not self._store["glyph_atlas_texture_view"]:
+            self._store.glyph_atlas_texture_view = view
+        if buffer is not self._store["glyph_atlas_info_buffer"]:
+            self._store.glyph_atlas_info_buffer = buffer
+
     @property
     def adapter(self):
         """The shared WGPU adapter object."""
@@ -73,7 +87,11 @@ class Shared(Trackable):
         return self._store.uniform_buffer
 
     @property
-    def glyph_atlas(self):
-        """The shared glyph atlas (a texture view). TODO"""
-        return self._store.glyph_atlas
-        # todo: implement this as part of the text PR
+    def glyph_atlas_texture_view(self):
+        """The shared glyph atlas (a texture view) for objects that want to render text."""
+        return self._store.glyph_atlas_texture_view
+
+    @property
+    def glyph_atlas_info_buffer(self):
+        """A buffer containing per-glyph metadata (rects and more)."""
+        return self._store.glyph_atlas_info_buffer
