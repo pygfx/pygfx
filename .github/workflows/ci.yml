@@ -86,7 +86,8 @@ jobs:
         pip install .[dev]
     - name: Unit tests
       run: |
-        pytest -v tests
+        cd tests
+        pytest -v .
 
   test-examples-build:
     name: Test examples
