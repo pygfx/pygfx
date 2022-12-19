@@ -33,7 +33,6 @@ class TriangleMaterial(gfx.Material):
 
     uniform_type = dict(
         color="4xf4",
-        foo="4x4xf4"
     )
 
     def __init__(self, *, color="white", **kwargs):
@@ -49,12 +48,6 @@ class TriangleMaterial(gfx.Material):
     def color(self, color):
         self.uniform_buffer.data["color"] = gfx.Color(color)
         self.uniform_buffer.update_range(0, 99999)
-
-        import numpy as np
-        r, g, b = gfx.Color(color).rgb
-        m = np.array([[r, g, b, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0,0, 0]], np.float32)
-
-        self.uniform_buffer.data["foo"] = m
 
 
 @gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
@@ -127,10 +120,7 @@ class TriangleShader(WorldObjectShader):
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
             let a = u_material.color.a * u_material.opacity;
-
-            let m = u_material.foo;
-            //out.color = vec4<f32>(u_material.color.rgb, a);
-            out.color = vec4<f32>(vec3<f32>(m[0][0], m[0][1], m[0][2]), a);
+            out.color = vec4<f32>(u_material.color.rgb, a);
             return out;
         }
         """
@@ -143,7 +133,7 @@ class TriangleShader(WorldObjectShader):
 renderer = gfx.WgpuRenderer(WgpuCanvas())
 camera = gfx.OrthographicCamera(10, 10)
 
-t = Triangle(None, TriangleMaterial(color=(0.2, 0.5, 0.8)))
+t = Triangle(None, TriangleMaterial(color="cyan"))
 t.position.x = 2  # set offset to demonstrate that it works
 
 scene = gfx.Scene()
