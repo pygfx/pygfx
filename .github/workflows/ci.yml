@@ -80,14 +80,14 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.pyversion }}
-    - name: Install dev dependencies
+    - name: Install package and dev dependencies
       run: |
         python -m pip install --upgrade pip
         pip install .[dev]
+        rm -r pygfx
     - name: Unit tests
       run: |
-        cd tests
-        pytest -v .
+        pytest -v tests
 
   test-examples-build:
     name: Test examples
