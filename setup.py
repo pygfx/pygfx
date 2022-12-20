@@ -49,7 +49,7 @@ extras_require = {
     ],
 }
 
-resources_globs = ["*.ttf", "*.otf"]
+resources_globs = ["*.ttf", "*.otf", "*.json"]
 
 setup(
     name=NAME,
