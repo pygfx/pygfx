@@ -2,10 +2,26 @@
 
 import os
 import sys
+from sphinx_gallery.sorting import ExplicitOrder
+import wgpu.gui.offscreen
 
 
 ROOT_DIR = os.path.abspath(os.path.join(__file__, "..", ".."))
 sys.path.insert(0, ROOT_DIR)
+
+# -- Sphix Gallery Hackz -----------------------------------------------------
+# When building the gallery, render offscreen and don't process
+# the event loop while parsing the example
+
+
+def _ignore_offscreen_run():
+    wgpu.gui.offscreen.run = lambda: None
+
+
+os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+_ignore_offscreen_run()
+
+# ----------------------------------------------------------------------------
 
 import pygfx  # noqa: E402
 
@@ -53,6 +69,7 @@ author = "Almar Klein, Korijn van Golen"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx_gallery.gen_gallery",
     # "nbsphinx",
 ]
 
@@ -63,6 +80,23 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+sphinx_gallery_conf = {
+    "examples_dirs": "../examples",
+    "gallery_dirs": "_gallery",
+    "backreferences_dir": "_gallery/backreferences",
+    "doc_module": ("pygfx",),
+    "image_scrapers": ("pygfx",),
+    "subsection_order": ExplicitOrder(
+        [
+            "../examples/introductory",
+            "../examples/feature_demo",
+            "../examples/validation",
+            "../examples/other",
+        ]
+    ),
+    "remove_config_comments": True,
+}
 
 
 # -- Options for HTML output -------------------------------------------------

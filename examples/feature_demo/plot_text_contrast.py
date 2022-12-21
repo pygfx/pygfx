@@ -1,0 +1,61 @@
+"""
+Text contrast
+=============
+
+Example demonstrating text on dark and light background.
+
+On the left, plain text is shown in black and white. There is a
+psychological effect that makes the bottom text appear thinner than the
+other way around  (dark text on light background). The weight_offset
+compensates for this effect.
+
+On the right the text uses an outline to give a good appearance on any
+background.
+"""
+# sphinx_gallery_pygfx_animate = True
+# sphinx_gallery_pygfx_target_name = "renderer"
+
+
+from wgpu.gui.auto import WgpuCanvas, run
+import pygfx as gfx
+
+scene = gfx.Scene()
+
+
+scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
+
+geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40, screen_space=True)
+
+t1 = gfx.Text(
+    geo,
+    gfx.TextMaterial(color="#fff"),
+)
+t2 = gfx.Text(
+    geo,
+    gfx.TextMaterial(color="#000", weight_offset=50),
+)
+t3 = gfx.Text(
+    geo,
+    gfx.TextMaterial(color="#fff", outline_color="#000", outline_thickness=0.15),
+)
+t4 = gfx.Text(
+    geo,
+    gfx.TextMaterial(color="#fff", outline_color="#000", outline_thickness=0.15),
+)
+
+t1.position.set(-1, +1, 0)
+t2.position.set(-1, -1, 0)
+
+t3.position.set(+1, +1, 0)
+t4.position.set(+1, -1, 0)
+
+scene.add(t1, t2, t3, t4)
+
+camera = gfx.OrthographicCamera(4, 3)
+
+
+renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+renderer.request_draw(lambda: renderer.render(scene, camera))
+
+if __name__ == "__main__":
+    run()

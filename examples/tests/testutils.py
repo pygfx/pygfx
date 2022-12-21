@@ -5,12 +5,16 @@ Test suite utilities.
 from pathlib import Path
 import subprocess
 import sys
+from itertools import chain
 
 
-ROOT = Path(__file__).parent.parent.parent  # repo root
+ROOT = Path(__file__).parents[2]  # repo root
 examples_dir = ROOT / "examples"
 screenshots_dir = examples_dir / "screenshots"
 diffs_dir = screenshots_dir / "diffs"
+
+# examples live in themed sub-folders
+example_globs = ["*.py", "introductory/*.py", "feature_demo/*.py", "validation/*.py"]
 
 
 def wgpu_backend_endswith(query):
@@ -40,7 +44,7 @@ is_lavapipe = wgpu_backend_endswith("CPU Vulkan")
 
 def find_examples(query=None, negative_query=None, return_stems=False):
     result = []
-    for example_path in examples_dir.glob("*.py"):
+    for example_path in chain(*(examples_dir.glob(x) for x in example_globs)):
         example_code = example_path.read_text()
         query_match = query is None or query in example_code
         negative_query_match = (

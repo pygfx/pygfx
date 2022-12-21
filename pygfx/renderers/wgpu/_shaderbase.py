@@ -416,7 +416,7 @@ class BaseShader:
         )
         if not scalar_type.endswith("32"):
             raise ValueError(
-                f"Buffer format {format} not supported, format must have a stride of 4 bytes: i4, u4 of f4."
+                f"Buffer format {fmt} not supported, format must have a stride of 4 bytes: i4, u4 of f4."
             )
 
         # Define the element types. The element_type2 is the actual type.

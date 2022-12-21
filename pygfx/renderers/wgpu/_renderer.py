@@ -453,6 +453,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
+        # Prepare the shared object
+        self._shared.pre_render_hook()
+
         # Update stdinfo uniform buffer object that we'll use during this render call
         self._update_stdinfo_buffer(camera, scene_psize, scene_lsize)
 

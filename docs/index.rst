@@ -11,6 +11,7 @@ Contents
    :maxdepth: 2
 
    Guide <guide.rst>
+   Gallery <_gallery/index.rst>
    Reference <reference.rst>
    Writing shaders <shaders.rst>
 
