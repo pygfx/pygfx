@@ -334,7 +334,7 @@ class MeshShader(WorldObjectShader):
             // Lighting
             $$ if lighting
                 // Get view direction
-                var view = select(
+                let view = select(
                     normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
                     ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
                     is_orthographic()
