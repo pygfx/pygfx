@@ -193,19 +193,6 @@ class MeshShader(WorldObjectShader):
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
 
-            // Select what face we're at
-            let index = i32(in.vertex_index);
-            let face_index = index / 3;
-            var sub_index = index % 3;
-
-            // If the camera flips a dimension, it flips the face winding.
-            // We can correct for this by adjusting the order (sub_index) here.
-            // sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
-
-            // Sample
-            let ii = load_s_indices(face_index);
-            let i0 = i32(ii[sub_index]);
-
             // Get world transform
             $$ if instanced
                 let instance_info = s_instance_infos[in.instance_index];
@@ -213,6 +200,23 @@ class MeshShader(WorldObjectShader):
             $$ else
                 let world_transform = u_wobject.world_transform;
             $$ endif
+
+            // Select what face we're at
+            let index = i32(in.vertex_index);
+            let face_index = index / 3;
+            var sub_index = index % 3;
+
+            // If a transform has an uneven number of negative scales, the 3 vertices
+            // that make up the face are such that the GPU will mix up front and back
+            // faces, producing an incorrect is_front. We can detect this from the
+            // sign of the determinant, and reorder the faces to fix it.
+            let winding_world = sign(determinant(world_transform));
+            let winding_cam = sign(determinant(u_stdinfo.cam_transform));
+            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
+
+            // Sample
+            let ii = load_s_indices(face_index);
+            let i0 = i32(ii[sub_index]);
 
             // Get vertex position
             let raw_pos = load_s_positions(i0);
@@ -329,30 +333,28 @@ class MeshShader(WorldObjectShader):
 
             // Lighting
             $$ if lighting
-                let world_pos = varyings.world_pos;
-                let view = select(
-                    normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos),
+                // Get view direction
+                var view = select(
+                    normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
                     ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
                     is_orthographic()
                 );
-                // Get normal
+                // Get surface normal
                 var normal = vec3<f32>(varyings.normal);
                 $$ if flat_shading
                 let u = dpdx(varyings.world_pos);
                 let v = dpdy(varyings.world_pos);
                 normal = normalize(cross(u, v));
                 $$ endif
-
                 $$ if use_normal_map is defined
                     var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
                     normal_map = normal_map * 2.0 - 1.0;
                     let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
                     normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
-                $$ else
-                    // See pygfx/issues/#105 for details;
-                    normal = select(-normal, normal, is_front);
                 $$ endif
-
+                // Flip the normal if we're looking at the back face
+                normal = select(-normal, normal, is_front);
+                // Do the math
                 let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else
                 let physical_color = physical_albeido;
