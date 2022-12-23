@@ -4,8 +4,9 @@ Culling
 
 Example test to validate winding and culling.
 
-* The top green knots should look normal and well lit.
-* The bottom yellow know should show the backfaces, well lit.
+* The rightmost shapes are only lit by a dim ambient light. Other than that:
+* The top green shapes should look normal and well lit.
+* The bottom yellow shapes should show the backfaces, well lit.
 
 """
 # test_example = true
@@ -15,7 +16,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1200, 600))
+canvas = WgpuCanvas(size=(1500, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -50,11 +51,9 @@ def create_scene(title):
     amb_light = gfx.AmbientLight(0.2, 2)
     dir_light = gfx.DirectionalLight(1, 2)
 
-    # Compose scene. Use the second line to see that when the light is not attached
-    # to the camera, the 3th and 4th shapes will be unlit
+    # Compose scene
     scene = gfx.Scene()
     scene.add(obj1, obj2, t, amb_light, camera.add(dir_light))
-    # scene.add(obj1, obj2, t, amb_light, dir_light, camera)
 
     return scene
 
@@ -75,12 +74,19 @@ vp4 = gfx.Viewport(renderer, (900, 0, 300, 600))
 scene4 = create_scene("Flip camera")
 scene4.children[-1].scale.z = -1
 
+vp5 = gfx.Viewport(renderer, (1200, 0, 300, 600))
+scene5 = create_scene("Flip camera, not light")
+scene5.children[-1].scale.z = -1
+scene5.add(scene5.children[-1].children[0])  # put light in root
+scene5.add(scene5.children[-2])  # move camera to the end
+
 
 def animate():
     vp1.render(scene1, scene1.children[-1])
     vp2.render(scene2, scene2.children[-1])
     vp3.render(scene3, scene3.children[-1])
     vp4.render(scene4, scene4.children[-1])
+    vp5.render(scene5, scene5.children[-1])
     renderer.flush()
 
 
