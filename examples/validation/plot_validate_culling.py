@@ -4,9 +4,8 @@ Culling
 
 Example test to validate winding and culling.
 
-* The top red knot should look normal and well lit.
-* The top green know should show the backfaces, well lit.
-* The bottom row shows the same, but the camera looks backwards.
+* The top green knots should look normal and well lit.
+* The bottom yellow know should show the backfaces, well lit.
 
 """
 # test_example = true
@@ -16,49 +15,73 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(600, 600))
+canvas = WgpuCanvas(size=(1200, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 # geometry = gfx.BoxGeometry(1, 1, 1)
-geometry = gfx.torus_knot_geometry(1, 0.3, 64, 10)
+geometry = gfx.torus_knot_geometry(1, 0.3, 256, 20)
 
-# Create red know shown normally
-material1 = gfx.MeshPhongMaterial(color=(1, 0, 0, 1))
-obj1 = gfx.Mesh(geometry, material1)
-obj1.position.set(-2, 0, 0)
-obj1.material.side = "FRONT"
 
-# Create a green knot for which we show the back
-material2 = gfx.MeshPhongMaterial(color=(0, 1, 0, 1))
-obj2 = gfx.Mesh(geometry, material2)
-obj2.position.set(+2, 0, 0)
-obj2.material.side = "BACK"
+def create_scene(title):
+    # Create a green knot shown normally
+    material1 = gfx.MeshPhongMaterial(color=(0, 1, 0, 1))
+    obj1 = gfx.Mesh(geometry, material1)
+    obj1.position.set(0, 2, 0)
+    obj1.material.side = "FRONT"
 
-# Rotate all of them and add to scene
-rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 1))
-obj1.rotation.multiply(rot)
-obj2.rotation.multiply(rot)
-scene.add(obj1, obj2)
+    # Create a yellow knot for which we show the back
+    material2 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
+    obj2 = gfx.Mesh(geometry, material2)
+    obj2.position.set(0, -2, 0)
+    obj2.material.side = "BACK"
 
-camera = gfx.OrthographicCamera(6, 4)
+    # Rotate both in a position where the back faces are easier spotted
+    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 1))
+    obj1.rotation.multiply(rot)
+    obj2.rotation.multiply(rot)
 
-dir_light = gfx.DirectionalLight(1, 2)
-dir_light.position.set(0, 0, 1)
+    t = gfx.Text(
+        gfx.TextGeometry(title, screen_space=True, font_size=20), gfx.TextMaterial()
+    )
+    t.position.set(0, 4, 0)
+    camera = gfx.OrthographicCamera(4.2, 6)
 
-scene.add(gfx.AmbientLight(1, 0.2), dir_light)
+    amb_light = gfx.AmbientLight(0.2, 2)
+    dir_light = gfx.DirectionalLight(1, 2)
+
+    # Compose scene. Use the second line to see that when the light is not attached
+    # to the camera, the 3th and 4th shapes will be unlit
+    scene = gfx.Scene()
+    scene.add(obj1, obj2, t, amb_light, camera.add(dir_light))
+    # scene.add(obj1, obj2, t, amb_light, dir_light, camera)
+
+    return scene
+
+
+vp1 = gfx.Viewport(renderer, (0, 0, 300, 600))
+scene1 = create_scene("Regular")
+
+vp2 = gfx.Viewport(renderer, (300, 0, 300, 600))
+scene2 = create_scene("Flip object")
+scene2.children[0].scale.x = -1
+scene2.children[1].scale.x = -1
+
+vp3 = gfx.Viewport(renderer, (600, 0, 300, 600))
+scene3 = create_scene("Rotate camera")
+scene3.children[-1].rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), 3.141592)
+
+vp4 = gfx.Viewport(renderer, (900, 0, 300, 600))
+scene4 = create_scene("Flip camera")
+scene4.children[-1].scale.z = -1
 
 
 def animate():
-    # Render top row
-    camera.scale.z = 1
-    renderer.render(scene, camera, rect=(0, 0, 600, 300), flush=False)
-    # Render same scene in bottom row. The camera's z scale is negative.
-    # This means it looks backwards, but more importantly, it means that the
-    # winding is affected. The result should still look correct because we
-    # take this effect into account in the mesh shader.
-    camera.scale.z = -1
-    renderer.render(scene, camera, rect=(0, 300, 600, 300))
+    vp1.render(scene1, scene1.children[-1])
+    vp2.render(scene2, scene2.children[-1])
+    vp3.render(scene3, scene3.children[-1])
+    vp4.render(scene4, scene4.children[-1])
+    renderer.flush()
 
 
 canvas.request_draw(animate)
