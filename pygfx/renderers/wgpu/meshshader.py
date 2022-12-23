@@ -189,6 +189,13 @@ class MeshShader(WorldObjectShader):
         var<storage,read> s_instance_infos: array<InstanceInfo>;
         $$ endif
 
+        fn get_sign_of_det_of_4x4(m: mat4x4<f32>) -> f32 {
+            // We know/assume that the matrix is a homogeneous matrix,
+            // so that only the 3x3 region is relevant for the determinant,
+            // which is faster to calculate that the det of the 4x4.
+            let m3 = mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
+            return sign(determinant(m3));
+        }
 
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
@@ -210,8 +217,8 @@ class MeshShader(WorldObjectShader):
             // that make up the face are such that the GPU will mix up front and back
             // faces, producing an incorrect is_front. We can detect this from the
             // sign of the determinant, and reorder the faces to fix it.
-            let winding_world = sign(determinant(world_transform));
-            let winding_cam = sign(determinant(u_stdinfo.cam_transform));
+            let winding_world = get_sign_of_det_of_4x4(world_transform);
+            let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
             sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
 
             // Sample
