@@ -216,7 +216,9 @@ class MeshShader(WorldObjectShader):
             // If a transform has an uneven number of negative scales, the 3 vertices
             // that make up the face are such that the GPU will mix up front and back
             // faces, producing an incorrect is_front. We can detect this from the
-            // sign of the determinant, and reorder the faces to fix it.
+            // sign of the determinant, and reorder the faces to fix it. Note that
+            // the projection_transform is not included here, because it cannot be
+            // set with the public API and we assume that it does not include a flip.
             let winding_world = get_sign_of_det_of_4x4(world_transform);
             let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
             sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
