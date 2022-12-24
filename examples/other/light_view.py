@@ -39,14 +39,21 @@ class LightViewer(QtWidgets.QWidget):
             "Flat Shading", self.mesh.material, "flat_shading"
         )
 
-        self.mesh_flat_checkbox = self.create_checkbox(
+        self.mesh_wireframe_checkbox = self.create_checkbox(
             "Wireframe", self.mesh.material, "wireframe"
+        )
+
+        self.mesh_side_checkbox = self.create_checkbox(
+            "Back Side",
+            None,
+            None,
+            lambda c: setattr(self.mesh.material, "side", "BACK" if c else "FRONT"),
         )
 
         self.mesh_rotate_checkbox = self.create_checkbox("Auto Rotate")
 
         self.mesh_color_btn = self.create_color_btn(
-            "Material", self.mesh.material, "color"
+            "Diffuse", self.mesh.material, "color"
         )
 
         self.mesh_specular_btn = self.create_color_btn(
@@ -72,10 +79,9 @@ class LightViewer(QtWidgets.QWidget):
                     "Color",
                     self.point_light1,
                     "color",
-                    lambda c: setattr(self.point_light1_helper.material, "color", c),
                 ),
                 self.create_slider(
-                    "Intensity", 0, 2, self.point_light1, "intensity", step=0.01
+                    "Intensity", 0, 5, self.point_light1, "intensity", step=0.01
                 ),
                 self.point_light1_move,
             ],
@@ -94,10 +100,9 @@ class LightViewer(QtWidgets.QWidget):
                     "Color",
                     self.point_light2,
                     "color",
-                    lambda c: setattr(self.point_light2_helper.material, "color", c),
                 ),
                 self.create_slider(
-                    "Intensity", 0, 2, self.point_light2, "intensity", step=0.01
+                    "Intensity", 0, 5, self.point_light2, "intensity", step=0.01
                 ),
                 self.point_light2_move,
             ],
@@ -116,12 +121,9 @@ class LightViewer(QtWidgets.QWidget):
                     "Color",
                     self.directional_light,
                     "color",
-                    lambda c: setattr(
-                        self.directional_light_helper.material, "color", c
-                    ),
                 ),
                 self.create_slider(
-                    "Intensity", 0, 2, self.directional_light, "intensity", step=0.01
+                    "Intensity", 0, 5, self.directional_light, "intensity", step=0.01
                 ),
             ],
         )
@@ -136,7 +138,7 @@ class LightViewer(QtWidgets.QWidget):
             toggle=[
                 self.create_color_btn("Color", self.ambient_light, "color"),
                 self.create_slider(
-                    "Intensity", 0, 2, self.ambient_light, "intensity", step=0.01
+                    "Intensity", 0, 5, self.ambient_light, "intensity", step=0.01
                 ),
             ],
         )
@@ -251,9 +253,7 @@ class LightViewer(QtWidgets.QWidget):
         point_light1.position.x = 25
         point_light1.position.y = 20
 
-        light_sp = gfx.sphere_geometry(1)
-
-        self.point_light1_helper = create_pointlight_helper(point_light1, light_sp)
+        point_light1.add(gfx.PointLightHelper())
         scene.add(point_light1)
 
         # Point Light2
@@ -263,7 +263,7 @@ class LightViewer(QtWidgets.QWidget):
         point_light2.position.x = -25
         point_light2.position.y = 20
 
-        self.point_light2_helper = create_pointlight_helper(point_light2, light_sp)
+        point_light2.add(gfx.PointLightHelper())
         scene.add(point_light2)
 
         # Directional light
@@ -273,7 +273,7 @@ class LightViewer(QtWidgets.QWidget):
         directional_light.position.x = -25
         directional_light.position.y = 20
 
-        self.light3_helper = create_directionallight_helper(directional_light, 20)
+        directional_light.add(gfx.DirectionalLightHelper(5))
         scene.add(directional_light)
 
         # Ambient light
@@ -329,41 +329,6 @@ class LightViewer(QtWidgets.QWidget):
             renderer.request_draw()
 
         renderer.request_draw(animate)
-
-
-def create_pointlight_helper(light, geometry=None):
-    if geometry is None:
-        geometry = gfx.sphere_geometry(1)
-
-    helper = gfx.Mesh(
-        geometry,
-        gfx.MeshBasicMaterial(color=light.color.hex),
-    )
-    light.add(helper)
-    return helper
-
-
-def create_directionallight_helper(light, length):
-    helper = gfx.Line(
-        gfx.Geometry(
-            positions=[
-                [1, 0, 0],
-                [1, 0, 1],
-                [-1, 0, 0],
-                [-1, 0, 1],
-                [0, 1, 0],
-                [0, 1, 1],
-                [0, -1, 0],
-                [0, -1, 1],
-            ]
-        ),
-        gfx.LineArrowMaterial(color=light.color.hex),
-    )
-
-    helper.look_at(light.position)
-    helper.scale.z = length
-    light.add(helper)
-    return helper
 
 
 if __name__ == "__main__":
