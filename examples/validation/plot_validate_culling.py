@@ -81,6 +81,16 @@ scene5.add(scene5.children[-1].children[0])  # put light in root
 scene5.add(scene5.children[-2])  # move camera to the end
 
 
+def toggle_flat_shading(e):
+    for scene in (scene1, scene2, scene3, scene4, scene5):
+        for obj in scene.children[:2]:
+            obj.material.flat_shading = not obj.material.flat_shading
+    canvas.request_draw()
+
+
+canvas.add_event_handler(toggle_flat_shading, "key_down")
+
+
 def animate():
     vp1.render(scene1, scene1.children[-1])
     vp2.render(scene2, scene2.children[-1])
