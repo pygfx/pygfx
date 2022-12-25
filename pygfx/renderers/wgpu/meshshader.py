@@ -244,6 +244,8 @@ class MeshShader(WorldObjectShader):
             // Prepare output
             var varyings: Varyings;
 
+            varyings.winding_cam = f32(winding_cam);
+
             // Set position
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
@@ -272,7 +274,11 @@ class MeshShader(WorldObjectShader):
 
             // Set the normal
             let raw_normal = load_s_normals(i0);
-            let world_normal = normalize(world_transform * vec4<f32>(raw_normal, 0.0)).xyz;
+            // Transform the normal to world space
+            // Note that the world transform matrix cannot be directly applied to the normal
+            let normal_matrix = transpose(u_wobject.world_transform_inv);
+            let world_normal = normalize(normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz;
+
             varyings.normal = vec3<f32>(world_normal);
             varyings.geometry_normal = vec3<f32>(raw_normal);
 
@@ -346,13 +352,15 @@ class MeshShader(WorldObjectShader):
                     is_orthographic()
                 );
                 // Get surface normal
-                var normal = vec3<f32>(varyings.normal);
                 $$ if flat_shading
-                // Compute the normal from the screen-space derivatives, no need to flip
                 let u = dpdx(varyings.world_pos);
                 let v = dpdy(varyings.world_pos);
-                normal = normalize(cross(v, u));
+                var normal = normalize(cross(v, u));
+                // Compute the normal from the 'world_pos' partial derivatives with respect to window coordinates
+                // no need to flip the normal by face orientation, but we need consider the sign of the camera dimension
+                normal = select(-normal, normal, varyings.winding_cam>0.0);
                 $$ else
+                var normal = vec3<f32>(varyings.normal);
                 // Flip the vertex normal if we're looking at the back face
                 normal = select(-normal, normal, is_front);
                 $$ endif
