@@ -277,7 +277,7 @@ class MeshShader(WorldObjectShader):
             // Transform the normal to world space
             // Note that the world transform matrix cannot be directly applied to the normal
             let normal_matrix = transpose(u_wobject.world_transform_inv);
-            let world_normal = normalize(normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz;
+            let world_normal = normalize((normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz);
 
             varyings.normal = vec3<f32>(world_normal);
             varyings.geometry_normal = vec3<f32>(raw_normal);
