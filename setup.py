@@ -13,6 +13,8 @@ with open(f"{NAME}/__init__.py") as fh:
 runtime_deps = [
     "numpy",
     "wgpu>=0.8.0,<0.9.0",
+    "freetype-py",
+    "uharfbuzz",
     "Jinja2",
 ]
 
@@ -36,8 +38,18 @@ extras_require = {
         "scikit-image",
         "trimesh",
     ],
+    "docs": [
+        "sphinx",
+        "numpy",
+        "wgpu",
+        "jinja2",
+        "sphinx-gallery",
+        "imageio",
+        "matplotlib",
+    ],
 }
 
+resources_globs = ["*.ttf", "*.otf", "*.json"]
 
 setup(
     name=NAME,
@@ -45,6 +57,7 @@ setup(
     packages=find_packages(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
+    package_data={f"{NAME}.pkg_resources": resources_globs},
     python_requires=">=3.7.0",
     install_requires=runtime_deps,
     extras_require=extras_require,

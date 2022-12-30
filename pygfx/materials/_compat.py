@@ -47,6 +47,8 @@ def trimesh_material(material):
         ).get_view(address_mode="repeat", filter="linear")
         gfx_material.roughness_map = metallic_roughness_map
         gfx_material.metalness_map = metallic_roughness_map
+        gfx_material.roughness = 1.0
+        gfx_material.metalness = 1.0
 
     if material.roughnessFactor is not None:
         gfx_material.roughness = material.roughnessFactor

@@ -5,6 +5,8 @@ import numpy as np
 
 from .color import Color  # noqa: F401
 from . import cm  # noqa: F401
+from ._dirs import get_resources_dir, get_cache_dir  # noqa: F401
+
 
 logger = logging.getLogger("pygfx")
 
@@ -36,7 +38,6 @@ def array_from_shadertype(shadertype, count=None):
             If count is not None, array has a shape of (count, ),
             Indicates that the corresponding "Buffer" is an array of struct.
     """
-
     assert isinstance(shadertype, dict)
     assert count is None or count > 0
 

@@ -105,6 +105,10 @@ Specific world objects
     :members:
     :member-order: bysource
 
+.. autoclass:: pygfx.Text
+    :members:
+    :member-order: bysource
+
 
 Helper objects
 --------------

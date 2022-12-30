@@ -278,7 +278,7 @@ class Root:
         # Get labels
         labels = self._trackable_names.get(name, None)
 
-        if is_trackable:
+        if is_trackable and labels:
             # Register / unregister stores
             if is_trackable & 1:
                 for label in labels:
