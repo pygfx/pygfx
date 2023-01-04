@@ -246,8 +246,6 @@ class MeshShader(WorldObjectShader):
             // Prepare output
             var varyings: Varyings;
 
-            varyings.winding_cam = f32(winding_cam);
-
             // Set position
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
@@ -283,6 +281,7 @@ class MeshShader(WorldObjectShader):
 
             varyings.normal = vec3<f32>(world_normal);
             varyings.geometry_normal = vec3<f32>(raw_normal);
+            varyings.winding_cam = f32(winding_cam);
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
@@ -355,26 +354,24 @@ class MeshShader(WorldObjectShader):
                 );
                 // Get surface normal
                 $$ if flat_shading
-                let u = dpdx(varyings.world_pos);
-                let v = dpdy(varyings.world_pos);
-                var normal = normalize(cross(v, u));
-                // Compute the normal from the 'world_pos' partial derivatives with respect to window coordinates
-                // no need to flip the normal by face orientation, but we need consider the sign of the camera dimension
-                normal = select(-normal, normal, varyings.winding_cam>0.0);
+                    let u = dpdx(varyings.world_pos);
+                    let v = dpdy(varyings.world_pos);
+                    var normal = normalize(cross(u, v));
+                    // Compute the normal from the 'world_pos' partial derivatives with respect to window coordinates.
+                    // Therefore no need to flip the normal by face orientation, but we need consider the sign of the camera dimension.
+                    normal = select(-normal, normal, varyings.winding_cam < 0.0);
                 $$ else
-                var normal = vec3<f32>(varyings.normal);
-                // Flip the vertex normal if we're looking at the back face
-                normal = select(-normal, normal, is_front);
+                    $$ if use_normal_map is defined
+                        var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
+                        normal_map = normal_map * 2.0 - 1.0;
+                        let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
+                        normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
+                    $$ else
+                        var normal = vec3<f32>(varyings.normal);
+                    $$ endif
+                    // Flip the vertex normal if we're looking at the back face
+                    normal = select(-normal, normal, is_front);
                 $$ endif
-
-
-                $$ if use_normal_map is defined
-                    var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
-                    normal_map = normal_map * 2.0 - 1.0;
-                    let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-                    normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
-                $$ endif
-
                 // Do the math
                 let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else

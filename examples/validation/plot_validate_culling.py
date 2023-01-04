@@ -7,6 +7,7 @@ Example test to validate winding and culling.
 * The rightmost shapes are only lit by a dim ambient light. Other than that:
 * The top green shapes should look normal and well lit.
 * The bottom yellow shapes should show the backfaces, well lit.
+* Hit space to toggle flat shading.
 
 """
 # test_example = true
@@ -81,14 +82,14 @@ scene5.add(scene5.children[-1].children[0])  # put light in root
 scene5.add(scene5.children[-2])  # move camera to the end
 
 
+@canvas.add_event_handler("key_down")
 def toggle_flat_shading(e):
-    for scene in (scene1, scene2, scene3, scene4, scene5):
-        for obj in scene.children[:2]:
-            obj.material.flat_shading = not obj.material.flat_shading
-    canvas.request_draw()
+    if e["key"] == " ":
+        for scene in (scene1, scene2, scene3, scene4, scene5):
+            for obj in scene.children[:2]:
+                obj.material.flat_shading = not obj.material.flat_shading
+        canvas.request_draw()
 
-
-canvas.add_event_handler(toggle_flat_shading, "key_down")
 
 
 def animate():
