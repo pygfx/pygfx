@@ -149,10 +149,13 @@ class MeshBasicMaterial(Material):
 
     @property
     def flat_shading(self):
-        """Whether the mesh is rendered with flat shading.
-        A material that applies lighting per-face (non-interpolated).
-        This gives a "pixelated" look, but can also be usefull if one wants
-        to show the (size of) the triangle faces.
+        """Whether the mesh is rendered with flat shading. When true,
+        the shader will apply per-face surface normals, resulting in
+        per-face lighting and a "pixelated", non-interpolated look,
+        which can be usefull to show the (size of) the triangle faces,
+        or simply for the retro appearance. Note that the face normals
+        are calculated from the vertex positions, ignoring the normal
+        data in the geometry.
         """
         return self._store.flat_shading
 
@@ -260,7 +263,9 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
 
 class MeshNormalMaterial(MeshBasicMaterial):
-    """A material that maps the normal vectors to RGB colors."""
+    """A material that maps the normal vectors to RGB colors.
+    The ``flat_shading`` property can be used to show face normals.
+    """
 
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):

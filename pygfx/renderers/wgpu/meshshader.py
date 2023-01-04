@@ -322,6 +322,19 @@ class MeshShader(WorldObjectShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
+            // Get the surface normal from the geometry
+            var surface_normal = vec3<f32>(varyings.normal);
+            $$ if flat_shading
+                let u = dpdx(varyings.world_pos);
+                let v = dpdy(varyings.world_pos);
+                surface_normal = normalize(cross(u, v));
+                // Compute the normal from the 'world_pos' partial derivatives with respect to window coordinates.
+                // Therefore no need to flip the normal by face orientation, but we need consider the sign of the camera dimension.
+                surface_normal = select(-surface_normal, surface_normal, varyings.winding_cam < 0.0);
+                // If this is a back face, we need to flip the normal to the front
+                surface_normal = select(-surface_normal, surface_normal, is_front);
+            $$ endif
+
             $$ if color_mode == 'vertex'
                 let color_value = varyings.color;
                 let albeido = color_value.rgb;
@@ -329,7 +342,7 @@ class MeshShader(WorldObjectShader):
                 let color_value = sample_colormap(varyings.texcoord);
                 let albeido = color_value.rgb;  // no more colormap
             $$ elif color_mode == 'normal'
-                let albeido = normalize(varyings.normal.xyz) * 0.5 + 0.5;
+                let albeido = normalize(surface_normal) * 0.5 + 0.5;
                 let color_value = vec4<f32>(albeido, 1.0);
             $$ else
                 let color_value = u_material.color;
@@ -352,25 +365,15 @@ class MeshShader(WorldObjectShader):
                     ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
                     is_orthographic()
                 );
-                // Get surface normal
-                $$ if flat_shading
-                    let u = dpdx(varyings.world_pos);
-                    let v = dpdy(varyings.world_pos);
-                    var normal = normalize(cross(u, v));
-                    // Compute the normal from the 'world_pos' partial derivatives with respect to window coordinates.
-                    // Therefore no need to flip the normal by face orientation, but we need consider the sign of the camera dimension.
-                    normal = select(-normal, normal, varyings.winding_cam < 0.0);
+                // Get normal used to calculate lighting
+                $$ if use_normal_map is defined
+                    // Get normal from the normalmap and use the PBR logic to deal with back faces
+                    let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord ) * 2.0 - 1.0;
+                    let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
+                    let normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
                 $$ else
-                    $$ if use_normal_map is defined
-                        var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
-                        normal_map = normal_map * 2.0 - 1.0;
-                        let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-                        normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
-                    $$ else
-                        var normal = vec3<f32>(varyings.normal);
-                    $$ endif
-                    // Flip the vertex normal if we're looking at the back face
-                    normal = select(-normal, normal, is_front);
+                    // Flip the surface normal if we're looking at the back face
+                    let normal = select(-surface_normal, surface_normal, is_front);
                 $$ endif
                 // Do the math
                 let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
