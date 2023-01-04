@@ -60,6 +60,7 @@ def trimesh_material(material):
         gfx_material.normal_map = pillow_image(material.normalTexture).get_view(
             address_mode="repeat", filter="linear"
         )
+        gfx_material.normal_scale = (1.0, -1.0)
 
     if material.occlusionTexture is not None:
         gfx_material.ao_map = pillow_image(material.occlusionTexture).get_view(
