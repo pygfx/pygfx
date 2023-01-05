@@ -96,7 +96,9 @@ class LineShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif material.map is not None:
             self["color_mode"] = "map"
-            bindings.extend(self.define_vertex_colormap(material.map))
+            bindings.extend(
+                self.define_vertex_colormap(material.map, geometry.texcoords)
+            )
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -598,7 +600,9 @@ class ThinLineShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif material.map is not None:
             self["color_mode"] = "map"
-            bindings.extend(self.define_vertex_colormap(material.map))
+            bindings.extend(
+                self.define_vertex_colormap(material.map, geometry.texcoords)
+            )
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
