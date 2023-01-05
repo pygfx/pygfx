@@ -95,6 +95,7 @@ sphinx_gallery_conf = {
             "../examples/other",
         ]
     ),
+    "filename_pattern": r"^((?!/other/).)*$",
     "remove_config_comments": True,
 }
 
