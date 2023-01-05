@@ -370,7 +370,7 @@ class MeshShader(WorldObjectShader):
                     // Get normal from the normalmap and use the PBR logic to deal with back faces
                     let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord ) * 2.0 - 1.0;
                     let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-                    let normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
+                    let normal = perturbNormal2Arb(view, surface_normal, normal_map_scale, varyings.texcoord, is_front);
                 $$ else
                     // Flip the surface normal if we're looking at the back face
                     let normal = select(-surface_normal, surface_normal, is_front);
