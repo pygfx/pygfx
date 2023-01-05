@@ -269,10 +269,32 @@ class MeshNormalMaterial(MeshBasicMaterial):
 
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):
-    """A material that shows surface normals as lines sticking out of the mesh."""
+    """A material that shows surface normals as simple lines. The lines
+    stick out from the vertices at the front faces. At the back faces
+    the lines are just 10% of the length.
+    """
+
+    uniform_type = dict(
+        line_length="f4",
+    )
+
+    def __init__(self, line_length=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.line_length = line_length
 
     def _wgpu_get_pick_info(self, pick_value):
         return {}  # No picking for normal lines
+
+    @property
+    def line_length(self):
+        """The length of the lines that indicate the normals, in local space.
+        """
+        return float(self.uniform_buffer.data["line_length"])
+
+    @line_length.setter
+    def line_length(self, value):
+        self.uniform_buffer.data["line_length"] = value
+        self.uniform_buffer.update_range(0, 1)
 
 
 class MeshSliceMaterial(MeshBasicMaterial):

@@ -572,19 +572,18 @@ class MeshNormalLinesShader(MeshShader):
         fn vs_main(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
             let r = index % 2;
-            let i0 = (index - r) / 2;
+            let i0 = index / 2;
 
             let raw_pos = load_s_positions(i0);
             let raw_normal = load_s_normals(i0);
 
-            let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-            let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
+            let scaled_normal = normalize(raw_normal) * u_material.line_length;
 
-            // The normal is sized in world coordinates
-            let world_normal = normalize(world_pos2 - world_pos1);
-
-            let amplitude = 1.0;
-            let world_pos = world_pos1 + f32(r) * world_normal * amplitude;
+            // The line is in the direction of the normal, but punches just a wee bit
+            // to othe other side, so that it's visible in the back faces.
+            let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos - 0.1 * scaled_normal, 1.0);
+            let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + scaled_normal, 1.0);
+            let world_pos = world_pos1 * f32(r) + world_pos2 * (1.0 - f32(r));
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             var varyings: Varyings;
@@ -592,6 +591,7 @@ class MeshNormalLinesShader(MeshShader):
             varyings.position = vec4<f32>(ndc_pos);
 
             // Stub varyings, because the mesh varyings are based on face index
+            varyings.normal = vec3<f32>(world_pos2.xyz - world_pos1.xyz);
             varyings.pick_id = u32(u_wobject.id);
             varyings.pick_idx = u32(0);
             varyings.pick_coords = vec3<f32>(0.0);
