@@ -91,7 +91,6 @@ def toggle_flat_shading(e):
         canvas.request_draw()
 
 
-
 def animate():
     vp1.render(scene1, scene1.children[-1])
     vp2.render(scene2, scene2.children[-1])

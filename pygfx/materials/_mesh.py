@@ -287,8 +287,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
     @property
     def line_length(self):
-        """The length of the lines that indicate the normals, in local space.
-        """
+        """The length of the lines that indicate the normals, in local space."""
         return float(self.uniform_buffer.data["line_length"])
 
     @line_length.setter
