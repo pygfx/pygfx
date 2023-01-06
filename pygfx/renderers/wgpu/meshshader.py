@@ -322,16 +322,17 @@ class MeshShader(WorldObjectShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
-            // Get the surface normal from the geometry
+            // Get the surface normal from the geometry.
+            // This is the unflipped normal, because thet NormalMaterial needs that.
             var surface_normal = vec3<f32>(varyings.normal);
             $$ if flat_shading
                 let u = dpdx(varyings.world_pos);
                 let v = dpdy(varyings.world_pos);
                 surface_normal = normalize(cross(u, v));
-                // Compute the normal from the 'world_pos' partial derivatives with respect to window coordinates.
-                // Therefore no need to flip the normal by face orientation, but we need consider the sign of the camera dimension.
+                // Because this normal is derived from the world_pos, it has been corrected
+                // for some of the winding, but not all. We apply the below steps to
+                // bring it in the same state as the regular (non-flat) shading.
                 surface_normal = select(-surface_normal, surface_normal, varyings.winding_cam < 0.0);
-                // If this is a back face, we need to flip the normal to the front
                 surface_normal = select(-surface_normal, surface_normal, is_front);
             $$ endif
 
@@ -366,14 +367,11 @@ class MeshShader(WorldObjectShader):
                     is_orthographic()
                 );
                 // Get normal used to calculate lighting
+                var normal = select(-surface_normal, surface_normal, is_front);
                 $$ if use_normal_map is defined
-                    // Get normal from the normalmap and use the PBR logic to deal with back faces
                     let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord ) * 2.0 - 1.0;
                     let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-                    let normal = perturbNormal2Arb(view, surface_normal, normal_map_scale, varyings.texcoord, is_front);
-                $$ else
-                    // Flip the surface normal if we're looking at the back face
-                    let normal = select(-surface_normal, surface_normal, is_front);
+                    normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
                 $$ endif
                 // Do the math
                 let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
