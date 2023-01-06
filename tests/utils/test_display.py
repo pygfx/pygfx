@@ -21,6 +21,8 @@ def test_repeated_show():
 
     disp.show(cube)
 
+    disp.canvas.close()
+
     with pytest.raises(RuntimeError):
         # repeated show should raise - currently doesn't because offscreen
         # canvases can't be closed
