@@ -96,7 +96,9 @@ class LineShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif material.map is not None:
             self["color_mode"] = "map"
-            bindings.extend(self.define_vertex_colormap(material.map))
+            bindings.extend(
+                self.define_vertex_colormap(material.map, geometry.texcoords)
+            )
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -303,7 +305,7 @@ class LineShader(WorldObjectShader):
             let npos2 = get_point_ndc(i);
             let npos3 = get_point_ndc(min(u_renderer.last_i, i + 1));
 
-            // Convert to logical screen coordinates, because that's were the lines work
+            // Convert to logical screen coordinates, because that's where the lines work
             let ppos1 = (npos1.xy / npos1.w + 1.0) * screen_factor;
             let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
             let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
@@ -342,19 +344,20 @@ class LineShader(WorldObjectShader):
 
                 // Determine the angle between two of the normals. If this angle is smaller
                 // than zero, the inside of the join is at nb/nd, otherwise it is at na/nc.
-                var angle:f32 = atan2(na.y, na.x) - atan2(nc.y, nc.x);
-                angle = (angle + PI) % (2.0 * PI) - PI;
+                let angle = -atan2( na.x * nc.y - na.y * nc.x, na.x * nc.x + na.y * nc.y );
 
-                // From the angle we can also calculate the intersection of the lines.
+                // Determine the direction of ne
+                let vec_dir = select(na + nc, nb + nd, angle >= 0.0);
+
+                // From the angle we can also determine how long the ne vector should be.
                 // We express it in a vector magnifier, and limit it to a factor 2,
                 // since when the angle is ~pi, the intersection is near infinity.
                 // For a bevel join we can omit ne (or set vec_mag to 1.0).
                 // For a miter join we'd need an extra vertex to smoothly transition
                 // from a miter to a bevel when the angle is too small.
-                // Note that ne becomes inf if v1 == v2, but that's ok, because the
-                // triangles in which ne takes part are degenerate for this use-case.
                 let vec_mag = 1.0 / max(0.25, cos(0.5 * angle));
-                ne = normalize(normalize(v1) - normalize(v2)) * vec_mag;
+
+                ne = normalize(vec_dir) * vec_mag;
             }
 
             // Select the correct vector, note that all except ne are unit.
@@ -598,7 +601,9 @@ class ThinLineShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif material.map is not None:
             self["color_mode"] = "map"
-            bindings.extend(self.define_vertex_colormap(material.map))
+            bindings.extend(
+                self.define_vertex_colormap(material.map, geometry.texcoords)
+            )
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
