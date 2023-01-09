@@ -5,7 +5,7 @@ from pygfx.linalg import (
     Quaternion,
 )
 
-from utils import matrix_equals, euler_equals, quat_equals
+from .utils import matrix_equals, euler_equals, quat_equals
 
 
 x = 2

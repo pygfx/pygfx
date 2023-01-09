@@ -3,6 +3,7 @@ import json
 import time
 import shutil
 import tempfile
+from pathlib import Path
 
 from pytest import raises
 
@@ -39,89 +40,93 @@ def test_font_file():
     assert hash(ff2) != hash(ff3)
 
 
-def test_find_fonts_paths():
-
+def test_find_fonts_paths(request):
     # Prepare a clean temp dir
-    tmpdir = os.path.join(tempfile.gettempdir(), "pygfx_test")
+    tmpdir = Path(tempfile.gettempdir()) / "pygfx_test"
     shutil.rmtree(tmpdir, ignore_errors=True)
-    os.mkdir(tmpdir)
+    request.addfinalizer(lambda: shutil.rmtree(tmpdir, ignore_errors=True))
 
     # Put a directory structure with stub files in place
+    tmpdir.mkdir()
     files = [
-        "/aa.ttf",
-        "/bb.ttf",
-        "/cc.otf",
-        "/dd.png",
-        "/sub/ee.ttf",
-        "/sub/ff.ttf",
-        "/sub/gg.otf",
-        "/sub/hh.png",
-        "/sub/deeper/ii.ttf",
-        "/sub/deeper/jj.ttf",
-        "/sub/deeper/kk.otf",
-        "/sub/deeper/ll.png",
+        Path("aa.ttf"),
+        Path("bb.ttf"),
+        Path("cc.otf"),
+        Path("dd.png"),
+        Path("sub") / "ee.ttf",
+        Path("sub") / "ff.ttf",
+        Path("sub") / "gg.otf",
+        Path("sub") / "hh.png",
+        Path("sub") / "deeper" / "ii.ttf",
+        Path("sub") / "deeper" / "jj.ttf",
+        Path("sub") / "deeper" / "kk.otf",
+        Path("sub") / "deeper" / "ll.png",
     ]
     for fname in files:
-        filename = tmpdir + fname
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        with open(filename, "wb"):
-            pass
+        filename = tmpdir / fname
+        filename.parent.mkdir(exist_ok=True)
+        filename.touch()
 
-    try:
-        # Test non-recursive
-        dirs, files = _fontfinder.find_fonts_paths(tmpdir, False)
-        assert isinstance(dirs, set)
-        assert isinstance(files, set)
-        assert dirs == {tmpdir}
-        files = set(p[len(tmpdir) + 1 : -4] for p in files)
-        assert files == {"aa", "bb", "cc"}
+    # Test non-recursive
+    dirs, files = _fontfinder.find_fonts_paths(tmpdir, False)
+    assert isinstance(dirs, set)
+    assert isinstance(files, set)
+    assert dirs == {tmpdir}
+    files = set(Path(p).stem for p in files)
+    assert files == {"aa", "bb", "cc"}
 
-        # Again but deeper
-        dirs, files = _fontfinder.find_fonts_paths(tmpdir + "/sub", False)
-        assert dirs == {tmpdir + "/sub"}
-        files = set(p[len(tmpdir) + 1 : -4] for p in files)
-        assert files == {"sub/ee", "sub/ff", "sub/gg"}
+    # Again but deeper
+    root = tmpdir / "sub"
+    dirs, files = _fontfinder.find_fonts_paths(root, False)
+    assert dirs == {root}
+    files = set(
+        str(Path(p).relative_to(tmpdir).with_suffix("").as_posix()) for p in files
+    )
+    assert files == {"sub/ee", "sub/ff", "sub/gg"}
 
-        # Recursive
-        dirs, files = _fontfinder.find_fonts_paths(tmpdir, True)
-        assert isinstance(dirs, set)
-        assert isinstance(files, set)
-        assert dirs == {tmpdir, tmpdir + "/sub", tmpdir + "/sub/deeper"}
-        files = set(p[len(tmpdir) + 1 : -4] for p in files)
-        assert files == {
-            "aa",
-            "bb",
-            "cc",
-            "sub/ee",
-            "sub/ff",
-            "sub/gg",
-            "sub/deeper/ii",
-            "sub/deeper/jj",
-            "sub/deeper/kk",
-        }
+    # Recursive
+    dirs, files = _fontfinder.find_fonts_paths(tmpdir, True)
+    assert isinstance(dirs, set)
+    assert isinstance(files, set)
+    dirs = set(Path(p) for p in dirs)
+    assert dirs == {tmpdir, tmpdir / "sub", tmpdir / "sub" / "deeper"}
+    files = set(
+        str(Path(p).relative_to(tmpdir).with_suffix("").as_posix()) for p in files
+    )
+    assert files == {
+        "aa",
+        "bb",
+        "cc",
+        "sub/ee",
+        "sub/ff",
+        "sub/gg",
+        "sub/deeper/ii",
+        "sub/deeper/jj",
+        "sub/deeper/kk",
+    }
 
-        # Recursive
-        dirs, files = _fontfinder.find_fonts_paths(tmpdir + "/sub", True)
-        assert dirs == {tmpdir + "/sub", tmpdir + "/sub/deeper"}
-        files = set(p[len(tmpdir) + 1 : -4] for p in files)
-        assert files == {
-            "sub/ee",
-            "sub/ff",
-            "sub/gg",
-            "sub/deeper/ii",
-            "sub/deeper/jj",
-            "sub/deeper/kk",
-        }
+    # Recursive
+    root = tmpdir / "sub"
+    dirs, files = _fontfinder.find_fonts_paths(root, True)
+    dirs = set(Path(p) for p in dirs)
+    assert dirs == {root, root / "deeper"}
+    files = set(
+        str(Path(p).relative_to(tmpdir).with_suffix("").as_posix()) for p in files
+    )
+    assert files == {
+        "sub/ee",
+        "sub/ff",
+        "sub/gg",
+        "sub/deeper/ii",
+        "sub/deeper/jj",
+        "sub/deeper/kk",
+    }
 
-        # Not a directory
-        with raises(OSError):
-            _fontfinder.find_fonts_paths(tmpdir + "/nope", False)
-        with raises(OSError):
-            _fontfinder.find_fonts_paths(tmpdir + "/nope", True)
-
-    finally:
-        # Clean up
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    # Not a directory
+    with raises(OSError):
+        _fontfinder.find_fonts_paths(tmpdir / "nope", False)
+    with raises(OSError):
+        _fontfinder.find_fonts_paths(tmpdir / "nope", True)
 
 
 class StubFace:

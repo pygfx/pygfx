@@ -4,7 +4,7 @@ import numpy as np
 import wgpu
 import pygfx as gfx
 
-from testutils import can_use_wgpu_lib
+from ..testutils import can_use_wgpu_lib
 import pytest
 
 
