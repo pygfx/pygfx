@@ -39,6 +39,7 @@ search the docs of these sub-packages for additional information. In that case,
 you can read more about them here:
 
 .. autosummary::
+    :toctree: _autosummary/
 
     pygfx.cameras
     pygfx.controllers
@@ -191,15 +192,6 @@ Helper objects
 .. autoclass:: pygfx.SpotLightHelper
     :members:
     :member-order: bysource
-
-
-Geometries
-----------
-
-.. automodule:: pygfx.geometries
-    :members:
-    :member-order: bysource
-
 
 Materials
 ---------

@@ -6,36 +6,19 @@ from ..linalg.utils import aabb_to_sphere
 
 
 class Geometry(Trackable):
-    """A Geomerty object is a container for geometry data of a WorldObject.
+    """Base class for Geometries.
 
-    A geometry object contains the data that defines (the shape of) the
-    object, such as positions, plus data associated with these positions
-    (normals, texcoords, colors, etc.).
+    Parameters
+    ----------
+    kwargs : dict
+        A dict of attributes to define on the geometry object. Keys must match
+        the naming convention described in the implementation details of the
+        :mod:`Geometries module <pygfx.geometries>`. If they don't they will
+        become optional attributes. Values must either be `Resources` or
+        ArrayLike. 
 
-    Its attributes are Buffer and Texture(View) objects. The data can
-    be provided as keyword arguments, which are converted to numpy
-    arrays and wrapped in a Buffer if necessary.
-
-    The names for these attributes are standardized so that the
-    renderers know what to expect. Each material requires certain
-    attributes to be present, and may support optional attributes.
-    Optional attributes must always be "turned on" on the material;
-    their presence on the geometry does not mean that they're used.
-
-    The standardized names are:
-
-    * ``indices``: An index into per-vertex data. Typically Nx3 for mesh geometry.
-    * ``positions``: Nx3 positions (xyz), defining the location of e.g. vertices or points.
-    * ``normals``: Nx3 normal vectors. These may or may not be unit.
-    * ``texcoords``: Texture coordinates used to lookup the color for a vertex.
-      Can be Nx1, Nx2 or Nx3, corresponding to a 1D, 2D and 3D texture map.
-    * ``colors``: Per-vertex colors. Must be NxM, with M 1-4 for gray,
-      gray+alpha, rgb, rgba, respectively.
-    * ``sizes``: Scalar size per-vertex.
-    * ``grid``: A 2D or 3D Texture/TextureView that contains a regular grid of
-      data. I.e. for images and volumes.
-
-    :Example:
+    Example
+    -------
 
     .. code-block:: py
 
