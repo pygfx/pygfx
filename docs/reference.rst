@@ -1,5 +1,54 @@
-The pygfx reference
-===================
+API Reference
+=============
+
+.. rubric:: Public API
+
+The primary way of accessing pygfx is by using the members of its top-level namespace.
+Currently this includes the following classes, which comprise the public API:
+
+.. autosummary::
+
+    pygfx.objects.WorldObject
+    pygfx.utils.color.Color
+    pygfx.utils.load.load_scene
+    pygfx.utils.show.show
+    pygfx.utils.show.Display
+    pygfx.utils.viewport.Viewport
+    pygfx.utils.text.font_manager
+    pygfx.utils.cm
+    pygfx.utils.logger
+
+
+.. from .resources import *
+.. from .objects import *
+.. from .geometries import *
+.. from .materials import *
+.. from .cameras import *
+.. from .helpers import *
+.. from .controllers import *
+
+.. from .renderers import *
+
+
+
+.. rubric:: Sub-Packages
+
+Internally, pygfx is structured into several sub-packages that provide the
+functionality exposed in the top-level namespace. At times, you may wish to
+search the docs of these sub-packages for additional information. In that case,
+you can read more about them here:
+
+.. autosummary::
+
+    pygfx.cameras
+    pygfx.controllers
+    pygfx.geometries
+    pygfx.helpers
+    pygfx.linalg
+    pygfx.materials
+    pygfx.objects
+    pygfx.renderers
+    pygfx.resources
 
 
 Resources
