@@ -52,12 +52,12 @@ you can read more about them here:
     pygfx.resources
 
 
-Resources
----------
+.. Resources
+.. ---------
 
-.. automodule:: pygfx.resources
-    :members:
-    :member-order: bysource
+.. .. automodule:: pygfx.resources
+..     :members:
+..     :member-order: bysource
 
 
 World objects
@@ -193,17 +193,17 @@ Helper objects
     :members:
     :member-order: bysource
 
-Materials
----------
+.. Materials
+.. ---------
 
-.. automodule:: pygfx.materials
-    :members:
-    :member-order: bysource
+.. .. automodule:: pygfx.materials
+..     :members:
+..     :member-order: bysource
 
 
-Controllers
------------
+.. Controllers
+.. -----------
 
-.. automodule:: pygfx.controllers
-    :members:
-    :member-order: bysource
+.. .. automodule:: pygfx.controllers
+..     :members:
+..     :member-order: bysource
