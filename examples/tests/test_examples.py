@@ -51,31 +51,12 @@ def disable_call_later_after_run():
     if len(asyncio.all_tasks(loop=loop)) != 0:
         raise RuntimeError("no tasks should be pending")
 
-    orig_run = wgpu.gui.offscreen.run
-    orig_call_later = wgpu.gui.offscreen.call_later
-    allow_call_later = True
+    yield
 
-    def wrapped_call_later(*args, **kwargs):
-        if allow_call_later:
-            orig_call_later(*args, **kwargs)
-
-    def wrapped_run(*args, **kwargs):
-        nonlocal allow_call_later
-        allow_call_later = False
-        orig_run(*args, **kwargs)
-
-    wgpu.gui.offscreen.call_later = wrapped_call_later
-    wgpu.gui.offscreen.run = wrapped_run
-    try:
-        yield
-
-        # again, after the test, no tasks should be pending
-        # if this fails, we likely need to refactor this fixture
-        if len(asyncio.all_tasks(loop=loop)) != 0:
-            raise RuntimeError("no tasks should be pending")
-    finally:
-        wgpu.gui.offscreen.call_later = orig_call_later
-        wgpu.gui.offscreen.run = orig_run
+    # again, after the test, no tasks should be pending
+    # if this fails, we likely need to refactor this fixture
+    if len(asyncio.all_tasks(loop=loop)) != 0:
+        raise RuntimeError("no tasks should be pending")
 
 
 @pytest.fixture
