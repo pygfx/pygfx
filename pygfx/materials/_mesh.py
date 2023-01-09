@@ -270,8 +270,7 @@ class MeshNormalMaterial(MeshBasicMaterial):
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):
     """A material that shows surface normals as simple lines. The lines
-    stick out from the vertices at the front faces. At the back faces
-    the lines are just 10% of the length.
+    stick out from the vertices at the front faces by default.
     """
 
     uniform_type = dict(
@@ -287,7 +286,10 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
     @property
     def line_length(self):
-        """The length of the lines that indicate the normals, in local space."""
+        """The length of the lines that indicate the normals, in local
+        space. Set this to a negative value to make the lines stick out
+        from the back faces.
+        """
         return float(self.uniform_buffer.data["line_length"])
 
     @line_length.setter

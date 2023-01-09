@@ -21,8 +21,9 @@ material = gfx.MeshPhongMaterial(color=(1, 0.5, 0, 1))
 obj = gfx.Mesh(geometry, material)
 scene.add(obj)
 
-obj2 = gfx.Mesh(geometry, gfx.MeshNormalLinesMaterial(color=(0, 0, 1, 1)))
-obj.add(obj2)
+obj2 = gfx.Mesh(geometry, gfx.MeshNormalLinesMaterial(color="#00f", line_length=1))
+obj3 = gfx.Mesh(geometry, gfx.MeshNormalLinesMaterial(color="#0ff", line_length=-1))
+obj.add(obj2, obj3)
 
 camera = gfx.PerspectiveCamera(70, 1)
 camera.position.z = 30

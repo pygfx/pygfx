@@ -572,20 +572,25 @@ class MeshNormalLinesShader(MeshShader):
             let r = index % 2;
             let i0 = index / 2;
 
+            // Get regular position
             let raw_pos = load_s_positions(i0);
-            let raw_normal = load_s_normals(i0);
+            var world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
 
-            // The line is in the direction of the normal, but punches just a wee bit
-            // to othe other side, so that it's visible in the back faces.
-
+            // Get the normal, expressed in world coords. Use the normal-matrix
+            // to take anisotropic scaling into account.
             let normal_matrix = transpose(u_wobject.world_transform_inv);
+            let raw_normal = load_s_normals(i0);
             let world_normal = normalize((normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz);
 
-            let scaled_normal = world_normal * u_material.line_length;
+            // Calculate the two end-pieces of the line that we want to show.
+            let pos1 = world_pos.xyz / world_pos.w;
+            let pos2 = pos1 + world_normal * u_material.line_length;
 
-            let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos - 0.1 * scaled_normal, 1.0);
-            let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + scaled_normal, 1.0);
-            let world_pos = world_pos1 * f32(r) + world_pos2 * (1.0 - f32(r));
+            // Select either end of the line and make this the world pos
+            let pos3 = pos1 * f32(r) + pos2 * (1.0 - f32(r));
+            world_pos = vec4<f32>(pos3 * world_pos.w, world_pos.w,);
+
+            // To NDC
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             var varyings: Varyings;
