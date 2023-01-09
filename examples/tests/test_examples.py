@@ -29,7 +29,7 @@ examples_to_test = find_examples(query="# test_example = true")
 
 
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
-def test_examples_run(module):
+def test_examples_run(module, check_asyncio):
     """Run every example marked to see if they can run without error."""
     # use runpy so the module is not actually imported (and can be gc'd)
     # but also to be able to run the code in the __main__ block
@@ -38,6 +38,16 @@ def test_examples_run(module):
     module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
 
     runpy.run_module(module_name, run_name="__main__")
+
+
+@pytest.fixture
+def check_asyncio():
+    import asyncio
+    loop = asyncio.get_event_loop_policy().get_event_loop()
+    yield
+    # check that we're not back to square 1
+    if len(asyncio.all_tasks(loop=loop)) != 0:
+        raise RuntimeError("no tasks should be pending")
 
 
 @pytest.fixture(autouse=True, scope="session")
