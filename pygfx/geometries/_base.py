@@ -15,7 +15,7 @@ class Geometry(Trackable):
         the naming convention described in the implementation details of the
         :mod:`Geometries module <pygfx.geometries>`. If they don't they will
         become optional attributes. Values must either be `Resources` or
-        ArrayLike. 
+        ArrayLike.
 
     Example
     -------
