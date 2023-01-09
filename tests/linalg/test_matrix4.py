@@ -9,7 +9,7 @@ from pygfx.linalg import (
     Quaternion,
 )
 
-from utils import matrix_equals, euler_equals  # this import works: WHY?
+from .utils import matrix_equals, euler_equals
 
 
 eps = 0.0001
