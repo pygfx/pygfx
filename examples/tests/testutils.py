@@ -45,7 +45,7 @@ is_lavapipe = wgpu_backend_endswith("CPU Vulkan")
 def find_examples(query=None, negative_query=None, return_stems=False):
     result = []
     for example_path in chain(*(examples_dir.glob(x) for x in example_globs)):
-        example_code = example_path.read_text()
+        example_code = example_path.read_text(encoding="UTF-8")
         query_match = query is None or query in example_code
         negative_query_match = (
             negative_query is None or negative_query not in example_code
