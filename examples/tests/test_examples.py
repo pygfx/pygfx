@@ -29,7 +29,7 @@ examples_to_test = find_examples(query="# test_example = true")
 
 
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
-def test_examples_run(module, force_offscreen):
+def test_examples_run(module):
     """Run every example marked to see if they can run without error."""
     # use runpy so the module is not actually imported (and can be gc'd)
     # but also to be able to run the code in the __main__ block
@@ -40,7 +40,7 @@ def test_examples_run(module, force_offscreen):
     runpy.run_module(module_name, run_name="__main__")
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True, scope="session")
 def force_offscreen():
     """Force the offscreen canvas to be selected by the auto gui module."""
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
@@ -50,7 +50,7 @@ def force_offscreen():
         del os.environ["WGPU_FORCE_OFFSCREEN"]
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True, scope="session")
 def mock_time():
     """Some examples use time to animate. Fix the return value
     for repeatable output."""
@@ -60,9 +60,7 @@ def mock_time():
 
 
 @pytest.mark.parametrize("module", examples_to_test, ids=lambda x: x.stem)
-def test_examples_screenshots(
-    module, pytestconfig, force_offscreen, mock_time, request
-):
+def test_examples_screenshots(module, pytestconfig, request):
     """Run every example marked for testing."""
 
     # (relative) module name from project root
