@@ -70,6 +70,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx_gallery.gen_gallery",
+    "sphinx.ext.autosummary",
     # "nbsphinx",
 ]
 
