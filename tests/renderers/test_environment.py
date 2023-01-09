@@ -4,7 +4,7 @@ import wgpu
 import pygfx as gfx
 from pygfx.renderers.wgpu._environment import environment_manager
 
-from testutils import can_use_wgpu_lib
+from ..testutils import can_use_wgpu_lib
 import pytest
 
 

@@ -11,7 +11,7 @@ Example showing subdivided polyhedrons.
 import pygfx as gfx
 
 
-scene = gfx.Scene()
+scene = gfx.Group()
 
 material = gfx.MeshBasicMaterial(wireframe=True, side="FRONT")
 geometries = [gfx.tetrahedron_geometry(subdivisions=i) for i in range(4)]
