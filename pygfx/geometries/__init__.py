@@ -8,7 +8,6 @@ Containers for geometry data.
     :toctree: _autosummary/
 
     box_geometry
-    trimesh_geometry
     cylinder_geometry
     cone_geometry
     sphere_geometry
@@ -26,6 +25,7 @@ Containers for geometry data.
 .. autosummary::
     :toctree: _autosummary/
 
+    trimesh_geometry
     octahedron_geometry
     icosahedron_geometry
     dodecahedron_geometry
