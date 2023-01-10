@@ -13,7 +13,7 @@ def trimesh_geometry(mesh):
     ----------
     mesh : Trimesh
         The mesh to be converted into a geometry.
-    
+
     Returns
     -------
     converted_mesh : Geometry
