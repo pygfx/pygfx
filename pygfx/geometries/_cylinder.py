@@ -143,7 +143,53 @@ def cylinder_geometry(
     theta_length=np.pi * 2,
     open_ended=False,
 ):
-    """Create geometry representing a cylinder."""
+    """A simple cylinder geometry.
+
+    .. @almarklein @korjin: isn't this inconsistend 
+    .. with our convnetion that the z-axis is forward?
+
+    This function generates a cylinder or a cylinder segment. The cylinder's
+    axis runs along the local z-axis, and its midpoint is located at the local
+    origin. The cylinder's faces (top and bottom cap) are approximated by
+    regular N-sided polygons, with corners on a circle of the given radius.
+    
+    Optionally, the cylinder's faces may be replaced with polygon approximations
+    of two circle segments. In this case, a cylinder segment will be created,
+    and each segment's arc is constructed from N equal-length line segments
+    closed by a line along the segments cord.
+ 
+    Parameters
+    ----------
+    radius_bottom : float
+        The radius at the bottom of the cyliner.
+    radius_top : float
+        The radius at the top of the cyliner.
+    height : float
+        The height of the cylinder.
+    radial_segments : int
+        The number of segments to use when approximating the circle/arc.
+    height_segments : int
+        The number of evenly spaced segments into which the mantle should be
+        split.
+    theta_start : float
+        The angle (in rad) at which to start the circle segment. Zero points
+        into the direction of the local x-axis.
+    theta_length : float
+        The arc's central angle (in rad). Defaults to a full circle.
+    open_ended : bool
+        If True, the cylinder's faces are not added and the resulting geometry
+        only contains the mantle.
+    
+    Returns
+    -------
+    cylinder : Geometry
+        A geometry object representing a cylinder.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.cylinder_geometry
+
+    """
 
     assert radial_segments > 0
     assert height_segments > 0
