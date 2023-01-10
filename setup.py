@@ -46,6 +46,12 @@ extras_require = {
         "sphinx-gallery",
         "imageio",
         "matplotlib",
+        # duplicate example dependencies to avoid pyside6
+        "pytest",
+        "imageio",
+        "imageio-ffmpeg>=0.4.7",
+        "scikit-image",
+        "trimesh",
     ],
 }
 
