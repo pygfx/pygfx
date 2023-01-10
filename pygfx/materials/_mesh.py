@@ -149,10 +149,13 @@ class MeshBasicMaterial(Material):
 
     @property
     def flat_shading(self):
-        """Whether the mesh is rendered with flat shading.
-        A material that applies lighting per-face (non-interpolated).
-        This gives a "pixelated" look, but can also be usefull if one wants
-        to show the (size of) the triangle faces.
+        """Whether the mesh is rendered with flat shading. When true,
+        the shader will apply per-face surface normals, resulting in
+        per-face lighting and a "pixelated", non-interpolated look,
+        which can be usefull to show the (size of) the triangle faces,
+        or simply for the retro appearance. Note that the face normals
+        are calculated from the vertex positions, ignoring the normal
+        data in the geometry.
         """
         return self._store.flat_shading
 
@@ -260,14 +263,39 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
 
 class MeshNormalMaterial(MeshBasicMaterial):
-    """A material that maps the normal vectors to RGB colors."""
+    """A material that maps the normal vectors to RGB colors.
+    The ``flat_shading`` property can be used to show face normals.
+    """
 
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):
-    """A material that shows surface normals as lines sticking out of the mesh."""
+    """A material that shows surface normals as simple lines. The lines
+    stick out from the vertices at the front faces by default.
+    """
+
+    uniform_type = dict(
+        line_length="f4",
+    )
+
+    def __init__(self, line_length=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.line_length = line_length
 
     def _wgpu_get_pick_info(self, pick_value):
         return {}  # No picking for normal lines
+
+    @property
+    def line_length(self):
+        """The length of the lines that indicate the normals, in local
+        space. Set this to a negative value to make the lines stick out
+        from the back faces.
+        """
+        return float(self.uniform_buffer.data["line_length"])
+
+    @line_length.setter
+    def line_length(self, value):
+        self.uniform_buffer.data["line_length"] = value
+        self.uniform_buffer.update_range(0, 1)
 
 
 class MeshSliceMaterial(MeshBasicMaterial):
