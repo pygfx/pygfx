@@ -1,5 +1,5 @@
 """
-Container for geometry data.
+Containers for geometry data.
 
 .. currentmodule:: pygfx.geometries
 

@@ -6,14 +6,14 @@ from ..linalg.utils import aabb_to_sphere
 
 
 class Geometry(Trackable):
-    """Base class for Geometries.
+    """Base class for Geometry Subtypes.
 
     Parameters
     ----------
     kwargs : dict
         A dict of attributes to define on the geometry object. Keys must match
-        the naming convention described in the implementation details of the
-        :mod:`Geometries module <pygfx.geometries>`. If they don't they will
+        the naming convention described in the implementation details section of
+        the :mod:`Geometries module <pygfx.geometries>`. If they don't they will
         become optional attributes. Values must either be `Resources` or
         ArrayLike.
 
@@ -100,11 +100,18 @@ class Geometry(Trackable):
         return x
 
     def bounding_box(self):
-        """Compute the axis-aligned bounding box based on either positions
-        or the shape of the grid buffer.
+        """Compute the axis-aligned bounding box.
 
-        If both are present, the bounding box will be computed based on
+        Computes the aabb based on either positions or the shape of the grid
+        buffer. If both are present, the bounding box will be computed based on
         the positions buffer.
+
+        Returns
+        -------
+        aabb : ndarray, [2, 3]
+            The axis-aligned bounding box given by the "smallest" (lowest value)
+            and "largest" (highest value) corners.
+
         """
         if hasattr(self, "positions"):
             if self._aabb_rev == self.positions.rev:
@@ -146,9 +153,21 @@ class Geometry(Trackable):
         )
 
     def bounding_sphere(self):
-        """Compute the bounding sphere based on the axis-aligned bounding box.
+        """Compute a bounding sphere.
 
-        Note: not the optimal fit.
+        Uses the geometry's axis-aligned bounding box, to estimate a sphere
+        which contains the geometry.
+
+        Returns
+        -------
+        sphere : ndarray, [4]
+            A sphere given by it's center and radius. Format: ``(x, y, z, radius)``.
+
+        Notes
+        -----
+        Since the sphere wraps the geometry's bounding box, it typically won't
+        be the minimally binding sphere.
+
         """
         if self._bsphere is not None and self._bsphere_rev == self._aabb_rev:
             return self._bsphere
