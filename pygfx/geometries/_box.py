@@ -14,7 +14,7 @@ def box_geometry(
     height_segments=1,
     depth_segments=1,
 ):
-    """A simple box geometry.
+    """Generate a box (rectangular cuboid).
 
     Creates a box (a rectangular cuboid) of the given size that is centered
     around the local frame's origin. Faces may be subdivided by specifying the

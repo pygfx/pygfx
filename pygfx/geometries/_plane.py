@@ -40,7 +40,35 @@ def generate_plane(width, height, width_segments, height_segments):
 
 
 def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
-    """Create a geometry that represents a 2D plane in a 3D world."""
+    """Generate a plane.
+
+    Creates a flat (2D) rectangle in the local xy-plane that has its center at
+    local origin. The plane may be subdivided into segments along the x- or
+    y-axis respectively.
+    
+    Parameters
+    ----------
+    width : float
+        The plane's width measured along the x-axis.
+    height : float
+        The plane's width measured along the y-axis.
+    width_segments : int
+        The number of evenly spaced segments along the x-axis into which the
+        plane should be devided.
+    height_segments : int
+        The number of evenly spaced segments along the y-axis into which the
+        plane should be devided.
+
+    Returns
+    -------
+    plane : Geometry
+        A geometry object representing the requested plane.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.plane_geometry
+    
+    """
 
     positions, normals, texcoords, indices = generate_plane(
         width, height, width_segments, height_segments
