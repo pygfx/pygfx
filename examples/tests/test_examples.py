@@ -2,7 +2,6 @@
 Test that the examples run without error.
 """
 
-import asyncio
 import os
 import importlib
 import runpy
