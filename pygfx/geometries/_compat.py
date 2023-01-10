@@ -7,8 +7,8 @@ def trimesh_geometry(mesh):
     """Convert geometry from Trimesh.
 
     Creates a Geometry object from the given `trimesh.Trimesh
-    <https://trimsh.org/trimesh.html#trimesh.Trimesh>` object.
-    
+    <https://trimsh.org/trimesh.html#trimesh.Trimesh>`_ object.
+
     Parameters
     ----------
     mesh : Trimesh
@@ -18,6 +18,10 @@ def trimesh_geometry(mesh):
     -------
     converted_mesh : Geometry
         A Geometry object representing the given mesh.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.trimesh_geometry
 
     """
     from trimesh import Trimesh  # noqa
