@@ -4,19 +4,29 @@ from ._base import Geometry
 
 
 def tetrahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a tetrahedron, centered
-    around the origin.
+    """Generate a tetrahedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Creates a tetrahedron that is centered around local origin. Its vertices
+    lie on the surface of a sphere of the given radius. Its faces are optionally
+    subdivided if subdivisions>0.
 
-    Parameters:
-        radius (int): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the tetrahedron
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
+
+    Returns
+    -------
+    tetrahedron : Geometry
+        A geometry object representing the desired tetrahedron.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.tetrahedron_geometry
+
     """
     positions = np.array(
         [
@@ -42,19 +52,29 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def octahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a octahedron, centered
-    around the origin.
+    """Generate a octahedron.
+    
+    Creates an octahedron that is centered around the local origin. It has its
+    vertices lie on the surface of a sphere of the given radius. Its faces are
+    optionally subdivided if subdivisions>0.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
 
-    Parameters:
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Returns
+    -------
+    octahedron : Geometry
+        A geometry object representing the desired octahedron.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.octahedron_geometry
+
     """
     positions = np.array(
         [
@@ -86,19 +106,29 @@ def octahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def icosahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a icosahedron, centered
-    around the origin.
+    """Generate a icosahedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Creates an icosahedron that is centered around the local origin. It has its
+    vertices lie on the surface of a sphere of the given radius. Its faces are
+    optionally subdivided if subdivisions>0.
 
-    Parameters:
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
+
+    Returns
+    -------
+    icosahedron : Geometry
+        A geometry object representing the desired icosahedron.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.icosahedron_geometry
+    
     """
     t = (1 + np.sqrt(5)) / 2
 
@@ -150,19 +180,29 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def dodecahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a dodecahedron, centered
-    around the origin.
+    """Generate a dodecahedron.
+    
+    Creates an dodecahedron that is centered around the local origin. It has its
+    vertices lie on the surface of a sphere of the given radius. Its faces are
+    optionally subdivided if subdivisions>0.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
 
-    Parameters:
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Returns
+    -------
+    dodecahedron : Geometry
+        A geometry object representing the desired dodecahedron.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.dodecahedron_geometry
+    
     """
     t = (1 + np.sqrt(5)) / 2
     r = 1 / t
