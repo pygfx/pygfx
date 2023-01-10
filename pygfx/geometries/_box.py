@@ -14,24 +14,38 @@ def box_geometry(
     height_segments=1,
     depth_segments=1,
 ):
-    """Create geometry respresenting a box.
+    """A simple box geometry.
 
-    The box has its center at the origin. The normals for each side all
-    point in the same direction; the corners are actually square.
-    Texture coordinates for each side run from 0 to 1.
+    Creates a box (a rectangular cuboid) of the given size that is centered
+    around the local frame's origin. Faces may be subdivided by specifying the
+    number of segments along each axis. This will result in all faces parallel to
+    the given axis to be evenly devided into the requested number of segments.
 
-    Parameters:
-        width (int): The size in the x-dimension, default 1.
-        height (int): The size in the y-dimension, default 1.
-        depth (int): The size in the z-dimension, default 1.
-        width_segments (int): The number of segments to use in x.
-        height_segments (int): The number of segments to use in y.
-        depth_segments (int): The number of segments to use in z.
+    .. @almarklein: What does it mean for corners to be square?
+    The normals for each side all point in the same direction; the corners are
+    actually square. Texture coordinates for each side run from 0 to 1.
+
+    Parameters
+    ----------
+    width : int
+        Size along the x-axis.
+    height : int
+        Size along the y-axis.
+    depth : int
+        Size along the z-axis.
+    width_segments : int
+        Number of segments along x-axis.
+    height_segments : int
+        Number of segments along y-axis.
+    depth_segments : int
+        Number of segments along z-axis.
+
+    Returns
+    -------
+    box : Geometry
+        A geometry object containing the requested box shape.
+
     """
-
-    # y z
-    # |/
-    #  -- x
 
     cube_dim = np.array([width, height, depth], dtype=np.float32)
     cube_seg = np.array(
