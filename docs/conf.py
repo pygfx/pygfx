@@ -97,7 +97,7 @@ sphinx_gallery_conf = {
     ),
     "remove_config_comments": True,
     # Exclude files in 'other' dir from being executed
-    "filename_pattern": r"^((?!/other/).)*$",
+    "filename_pattern": r"^((?![\\/]other[\\/]).)*$",
 }
 
 

@@ -189,22 +189,16 @@ class MeshShader(WorldObjectShader):
         var<storage,read> s_instance_infos: array<InstanceInfo>;
         $$ endif
 
+        fn get_sign_of_det_of_4x4(m: mat4x4<f32>) -> f32 {
+            // We know/assume that the matrix is a homogeneous matrix,
+            // so that only the 3x3 region is relevant for the determinant,
+            // which is faster to calculate that the det of the 4x4.
+            let m3 = mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
+            return sign(determinant(m3));
+        }
 
         @stage(vertex)
         fn vs_main(in: VertexInput) -> Varyings {
-
-            // Select what face we're at
-            let index = i32(in.vertex_index);
-            let face_index = index / 3;
-            var sub_index = index % 3;
-
-            // If the camera flips a dimension, it flips the face winding.
-            // We can correct for this by adjusting the order (sub_index) here.
-            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, u_stdinfo.flipped_winding > 0);
-
-            // Sample
-            let ii = load_s_indices(face_index);
-            let i0 = i32(ii[sub_index]);
 
             // Get world transform
             $$ if instanced
@@ -213,6 +207,25 @@ class MeshShader(WorldObjectShader):
             $$ else
                 let world_transform = u_wobject.world_transform;
             $$ endif
+
+            // Select what face we're at
+            let index = i32(in.vertex_index);
+            let face_index = index / 3;
+            var sub_index = index % 3;
+
+            // If a transform has an uneven number of negative scales, the 3 vertices
+            // that make up the face are such that the GPU will mix up front and back
+            // faces, producing an incorrect is_front. We can detect this from the
+            // sign of the determinant, and reorder the faces to fix it. Note that
+            // the projection_transform is not included here, because it cannot be
+            // set with the public API and we assume that it does not include a flip.
+            let winding_world = get_sign_of_det_of_4x4(world_transform);
+            let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
+            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
+
+            // Sample
+            let ii = load_s_indices(face_index);
+            let i0 = i32(ii[sub_index]);
 
             // Get vertex position
             let raw_pos = load_s_positions(i0);
@@ -261,10 +274,14 @@ class MeshShader(WorldObjectShader):
 
             // Set the normal
             let raw_normal = load_s_normals(i0);
-            let world_pos_n = world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
-            let world_normal = normalize(world_pos_n - world_pos).xyz;
+            // Transform the normal to world space
+            // Note that the world transform matrix cannot be directly applied to the normal
+            let normal_matrix = transpose(u_wobject.world_transform_inv);
+            let world_normal = normalize((normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz);
+
             varyings.normal = vec3<f32>(world_normal);
             varyings.geometry_normal = vec3<f32>(raw_normal);
+            varyings.winding_cam = f32(winding_cam);
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
@@ -305,6 +322,20 @@ class MeshShader(WorldObjectShader):
         @stage(fragment)
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
+            // Get the surface normal from the geometry.
+            // This is the unflipped normal, because thet NormalMaterial needs that.
+            var surface_normal = vec3<f32>(varyings.normal);
+            $$ if flat_shading
+                let u = dpdx(varyings.world_pos);
+                let v = dpdy(varyings.world_pos);
+                surface_normal = normalize(cross(u, v));
+                // Because this normal is derived from the world_pos, it has been corrected
+                // for some of the winding, but not all. We apply the below steps to
+                // bring it in the same state as the regular (non-flat) shading.
+                surface_normal = select(-surface_normal, surface_normal, varyings.winding_cam < 0.0);
+                surface_normal = select(-surface_normal, surface_normal, is_front);
+            $$ endif
+
             $$ if color_mode == 'vertex'
                 let color_value = varyings.color;
                 let albeido = color_value.rgb;
@@ -312,7 +343,7 @@ class MeshShader(WorldObjectShader):
                 let color_value = sample_colormap(varyings.texcoord);
                 let albeido = color_value.rgb;  // no more colormap
             $$ elif color_mode == 'normal'
-                let albeido = normalize(varyings.normal.xyz) * 0.5 + 0.5;
+                let albeido = normalize(surface_normal) * 0.5 + 0.5;
                 let color_value = vec4<f32>(albeido, 1.0);
             $$ else
                 let color_value = u_material.color;
@@ -329,21 +360,21 @@ class MeshShader(WorldObjectShader):
 
             // Lighting
             $$ if lighting
-                let world_pos = varyings.world_pos;
+                // Get view direction
                 let view = select(
-                    normalize(u_stdinfo.cam_transform_inv[3].xyz - world_pos),
+                    normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
                     ( u_stdinfo.cam_transform_inv * vec4<f32>(0.0, 0.0, 1.0, 0.0) ).xyz,
                     is_orthographic()
                 );
-                // Get normal
-                var normal = vec3<f32>(varyings.normal);
-                $$ if flat_shading
-                let u = dpdx(varyings.world_pos);
-                let v = dpdy(varyings.world_pos);
-                normal = normalize(cross(u, v));
-                normal = select(normal, -normal, (select(0, 1, is_front) + u_stdinfo.flipped_winding) == 1);
+                // Get normal used to calculate lighting
+                var normal = select(-surface_normal, surface_normal, is_front);
+                $$ if use_normal_map is defined
+                    let normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord ) * 2.0 - 1.0;
+                    let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
+                    normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
                 $$ endif
-                let physical_color = lighting_{{ lighting }}(is_front, varyings, normal, view, physical_albeido);
+                // Do the math
+                let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else
                 let physical_color = physical_albeido;
             $$ endif
@@ -539,19 +570,27 @@ class MeshNormalLinesShader(MeshShader):
         fn vs_main(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
             let r = index % 2;
-            let i0 = (index - r) / 2;
+            let i0 = index / 2;
 
+            // Get regular position
             let raw_pos = load_s_positions(i0);
+            var world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
+
+            // Get the normal, expressed in world coords. Use the normal-matrix
+            // to take anisotropic scaling into account.
+            let normal_matrix = transpose(u_wobject.world_transform_inv);
             let raw_normal = load_s_normals(i0);
+            let world_normal = normalize((normal_matrix * vec4<f32>(raw_normal, 0.0)).xyz);
 
-            let world_pos1 = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-            let world_pos2 = u_wobject.world_transform * vec4<f32>(raw_pos + raw_normal, 1.0);
+            // Calculate the two end-pieces of the line that we want to show.
+            let pos1 = world_pos.xyz / world_pos.w;
+            let pos2 = pos1 + world_normal * u_material.line_length;
 
-            // The normal is sized in world coordinates
-            let world_normal = normalize(world_pos2 - world_pos1);
+            // Select either end of the line and make this the world pos
+            let pos3 = pos1 * f32(r) + pos2 * (1.0 - f32(r));
+            world_pos = vec4<f32>(pos3 * world_pos.w, world_pos.w,);
 
-            let amplitude = 1.0;
-            let world_pos = world_pos1 + f32(r) * world_normal * amplitude;
+            // To NDC
             let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
             var varyings: Varyings;
@@ -559,6 +598,7 @@ class MeshNormalLinesShader(MeshShader):
             varyings.position = vec4<f32>(ndc_pos);
 
             // Stub varyings, because the mesh varyings are based on face index
+            varyings.normal = vec3<f32>(world_normal);
             varyings.pick_id = u32(u_wobject.id);
             varyings.pick_idx = u32(0);
             varyings.pick_coords = vec3<f32>(0.0);
