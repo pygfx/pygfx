@@ -4,13 +4,30 @@ from ._base import Geometry
 
 
 def klein_bottle_geometry(scale=1.0):
-    """The Klein bottle is a surface for which the inside and outside
+    """Generate a (Almar ^.^) klein bottle.
+    
+    The Klein bottle is a surface for which the inside and outside
     are the same, similar to a Möbius strip. In fact, a Klein bottle
     can be constructed by glueing together two Möbius strips.
 
     More technically: the Klein bottle is an example of a non-orientable
     surface; it is a two-dimensional manifold against which a system
     for determining a normal vector cannot be consistently defined.
+
+    Parameters
+    ----------
+    scale : float
+        The scale of the bottle.
+
+    Returns
+    -------
+    klein_bottle : Geometry
+        A geometry object representing the requested klein bottle.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.klein_bottle_geometry
+
     """
 
     # This is an interesting object for mathematicians. For us it's
@@ -87,11 +104,13 @@ def klein_bottle_surface(u, v):
 def torus_knot_geometry(
     scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
 ):
-    """Create geometry representing a torus knot, the particular shape of which
-    is defined by a pair of coprime integers, p and q. If p and q are not coprime,
+    """Generate a torus knot.
+    
+    Create geometry representing a torus knot, the particular shape of which is
+    defined by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
 
-    Arguments:
+    Parameters:
         scale (float): the scale of the torus, default 1.
         tube (float): the radius of the tube. Default 0.4.
         tubular_segments (int): default is 64.
@@ -100,6 +119,14 @@ def torus_knot_geometry(
             rotational symmetry. Default 2.
         q (int): how many times the geometry winds around a circle in
             the interior of the torus. Default 3.
+
+    Returns:
+        torus (Geometry): A geometry object representing the requested torus.
+
+    Examples
+    --------
+
+    .. minigallery:: pygfx.torus_know_geometry
 
     """
 

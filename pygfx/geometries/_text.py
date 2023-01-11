@@ -1,7 +1,7 @@
 """
-This module implements text geometry. This is where the text rendering
-comes together. Most steps in the text rendering process come from
-pygfx.utils.text, though most of the alignment is implemented here.
+This module implements text geometry. This is where the text rendering comes
+together. Most steps in the text rendering process come from pygfx.utils.text,
+though most of the alignment is implemented here.
 
 For details about the text rendering process, see pygfx/utils/text/README.md
 """
@@ -39,10 +39,11 @@ WHITESPACE_EXTENTS = {}  # A cache
 
 
 class TextItem:
-    """A text item represents a unit piece of text that is formatted
-    in a specific way. The TextGeometry converts these into GlyphItem's,
-    and positions these so that they together display the intended total
-    text.
+    """A formatted piece of text.
+    
+    A text item represents a unit piece of text that is formatted in a specific
+    way. The TextGeometry converts these into GlyphItem's, and positions these
+    so that they together display the intended total text.
     """
 
     def __init__(
@@ -119,31 +120,48 @@ class GlyphItem:
 
 
 class TextGeometry(Geometry):
-    """The textGeometry creates and stores the geometry to render a piece of text.
+    """Generate Text.
+    
+    The TextGeometry creates and stores the geometry to render a piece of text.
+    It can be provided as plain text or in markdown to support basic formatting.
 
-    Text can be provided as plain text or in markdown to support basic formatting.
+    Parameters
+    ----------
+    text : str
+        The plain text to render (optional).
+    markdown : str
+        The text to render, formatted as markdown (optional). See
+        ``set_markdown()`` for details on the supported formatting.
+    screen_space : bool 
+        Whether the text is rendered in screen space, in contrast to world
+        space.
+    font_size : float
+        The size of the font, in object coordinates or pixel screen coordinates,
+        depending on the value of the ``screen_space`` property. Default 12.
+    anchor : str 
+        The position of the origin of the text. Default "middle-center".
+    max_width : float
+        The maximum width of the text. Words are wrapped if necessary. A value
+        of zero means no wrapping. Default zero.
+    line_height : float
+        A factor to scale the distance between lines. A value of 1 means the
+        "native" font's line distance. Default 1.2.
+    text_align : str
+        How to align the text. Not implemented.
+    family : str, tuple
+        The name(s) of the font to prefer. If multiple names are given, they are
+        preferred in the given order. Characters that are not supported by any
+        of the given fonts are rendered with the default font (from the Noto
+        Sans collection).
+    direction : str
+        The text direction. By default the text direction is determined
+        automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
+        'ttb' or 'btt'.
 
-    Parameters:
-        text (str): the plain text to render (optional).
-        markdown (str): the text to render, formatted as markdown (optional).
-            See ``set_markdown()`` for details on the supported formatting.
-        screen_space (bool): whether the text is rendered in screen space,
-            in contrast to world space. Default False.
-        font_size (float): the size of the font, in object coordinates or pixel screen
-            coordinates, depending on the value of the ``screen_space`` property. Default 12.
-        anchor (str): the position of the origin of the text. Default "middle-center".
-        max_width (float): the maximum width of the text. Words are wrapped if necessary.
-            A value of zero means no wrapping. Default zero.
-        line_height (float): a factor to scale the distance between lines. A value
-            of 1 means the "native" font's line distance. Default 1.2.
-        text_align (str): How to align the text. Not implemented.
-        family (str, tuple): the name(s) of the font to prefer. If multiple names
-            are given, they are preferred in the given order. Characters that are
-            not supported by any of the given fonts are rendered with the default
-            font (from the Noto Sans collection).
-        direction (str): The text direction. By default the text direction is
-            determined automatically, but is always horizontal. Can be set to
-            'lrt', 'rtl', 'ttb' or 'btt'.
+    Examples
+    --------
+    .. minigallery: pygfx.TextGeometry
+
     """
 
     def __init__(
@@ -201,14 +219,21 @@ class TextGeometry(Geometry):
 
     @property
     def screen_space(self):
-        """Whether the text is rendered in screen space (in contrast to world space).
+        """Text size unit (screen vs local).
 
-        If ``False`` (default), the text occupies the world (i.e. scene) as
-        objects normally do, and sizes are expressed in object
-        coordinates. If ``True``, the text is rendered in logical screen
-        coordinates at the object's point in the world. The object's
-        local rotation and scale can still be used to rotate and scale
-        the text. This mode is typically used for annotations.
+        Returns
+        -------
+        screen_space : bool
+            If False, text size uses the unit of the local frame (e.g. cm).
+            Otherwise it is uses the logical screen's units (e.g. px).
+
+        Notes
+        -----
+        Regardless of choice, the local object's rotation and scale will still
+        transform the text.
+
+        This mode is typically used for annotations.
+
         """
         return self._store.screen_space
 
@@ -219,13 +244,12 @@ class TextGeometry(Geometry):
     def set_text_items(self, text_items):
         """Provide new text in the form of a list of TextItem objects.
 
-        This is considered a low level function to provide more control.
-        Use ``set_text`` or ``set_markdown`` for more convenience.
+        This is considered a low level function to provide more control. Use
+        ``set_text`` or ``set_markdown`` for more convenience.
 
-        A note on performance: if the new text consists of more glyphs
-        than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaced, but
-        simply not fully used.
+        A note on performance: if the new text consists of more glyphs than the
+        current, new (larger) buffers are created. If the number of glyphs is
+        smaller, the buffers are not replaced, but simply not fully used.
         """
 
         # This function can be considered the core of the text rendering.
@@ -330,10 +354,9 @@ class TextGeometry(Geometry):
             weight (str, int): The weight of the font. E.g. "normal" or "bold" or a
                 number between 100 and 900. Default "normal".
 
-        A note on performance: if the new text consists of more glyphs
-        than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaced, but
-        simply not fully used.
+        A note on performance: if the new text consists of more glyphs than the
+        current, new (larger) buffers are created. If the number of glyphs is
+        smaller, the buffers are not replaced, but simply not fully used.
         """
 
         if not isinstance(text, str):
@@ -372,10 +395,9 @@ class TextGeometry(Geometry):
                 given order. Characters that are not supported by any
                 of the given fonts are rendered with the default font.
 
-        A note on performance: if the new text consists of more glyphs
-        than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaced, but
-        simply not fully used.
+        A note on performance: if the new text consists of more glyphs than the
+        current, new (larger) buffers are created. If the number of glyphs is
+        smaller, the buffers are not replaced, but simply not fully used.
         """
 
         if not isinstance(markdown, str):
