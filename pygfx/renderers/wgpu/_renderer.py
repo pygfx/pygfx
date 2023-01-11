@@ -628,7 +628,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
-        stdinfo_data["flipped_winding"] = camera.flips_winding
         # Upload to GPU
         self._shared.uniform_buffer.update_range(0, 1)
         update_buffer(self._shared.device, self._shared.uniform_buffer)

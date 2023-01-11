@@ -21,7 +21,6 @@ stdinfo_uniform_type = dict(
     projection_transform_inv="4x4xf4",
     physical_size="2xf4",
     logical_size="2xf4",
-    flipped_winding="i4",  # A bool, really
 )
 
 

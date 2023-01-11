@@ -77,14 +77,6 @@ class Camera(WorldObject):
         self.look_at(pos)
         return pos
 
-    @property
-    def flips_winding(self):
-        """Get whether the camera flips any dimensions causing the
-        winding of faces to be flipped. Note that if an even number of
-        dimensions are flipped, the winding is not affected.
-        """
-        return False
-
 
 class NDCCamera(Camera):
     """A Camera operating in NDC coordinates: its projection matrix

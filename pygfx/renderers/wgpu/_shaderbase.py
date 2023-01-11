@@ -37,7 +37,6 @@ varying_types = (
     + [t.replace("f", "u") for t in varying_types]
 )
 
-
 re_varying_getter = re.compile(r"[\s,\(\[]varyings\.(\w+)", re.UNICODE)
 re_varying_setter = re.compile(r"\A\s*?varyings\.(\w+)(\.\w+)?\s*?\=")
 builtin_varyings = {"position": "vec4<f32>"}

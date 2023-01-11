@@ -452,7 +452,6 @@ class Shaderlib:
         }
 
         fn lighting_phong(
-            is_front: bool,
             varyings: Varyings,
             normal: vec3<f32>,
             view_dir: vec3<f32>,
@@ -472,7 +471,7 @@ class Shaderlib:
 
             var geometry: GeometricContext;
             geometry.position = varyings.world_pos;
-            geometry.normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details;
+            geometry.normal = normal;
             geometry.view_dir = view_dir;
             var i = 0;
             $$ if num_point_lights > 0
@@ -551,7 +550,6 @@ class Shaderlib:
             + """
 
         fn lighting_pbr(
-            is_front: bool,
             varyings: Varyings,
             normal: vec3<f32>,
             view_dir: vec3<f32>,
@@ -580,14 +578,7 @@ class Shaderlib:
             material.roughness = min( roughness_factor + geometry_roughness, 1.0 );
             material.specular_f90 = 1.0;
 
-            // Get the normal
-            var normal = select(-normal, normal, is_front);  // See pygfx/issues/#105 for details;
-            $$ if use_normal_map is defined
-                var normal_map = textureSample( t_normal_map, s_normal_map, varyings.texcoord );
-                normal_map = normal_map * 2.0 - 1.0;
-                let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
-                normal = perturbNormal2Arb(view_dir, normal, normal_map_scale, varyings.texcoord, is_front);
-            $$ endif
+
 
             // Define geometry
             var geometry: GeometricContext;
