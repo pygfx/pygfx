@@ -53,7 +53,7 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
 
 def octahedron_geometry(radius=1.0, subdivisions=0):
     """Generate a octahedron.
-    
+
     Creates an octahedron that is centered around the local origin. It has its
     vertices lie on the surface of a sphere of the given radius. Its faces are
     optionally subdivided if subdivisions>0.
@@ -128,7 +128,7 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
     Examples
     --------
     .. minigallery:: pygfx.icosahedron_geometry
-    
+
     """
     t = (1 + np.sqrt(5)) / 2
 
@@ -181,7 +181,7 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
 
 def dodecahedron_geometry(radius=1.0, subdivisions=0):
     """Generate a dodecahedron.
-    
+
     Creates an dodecahedron that is centered around the local origin. It has its
     vertices lie on the surface of a sphere of the given radius. Its faces are
     optionally subdivided if subdivisions>0.
@@ -202,7 +202,7 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
     Examples
     --------
     .. minigallery:: pygfx.dodecahedron_geometry
-    
+
     """
     t = (1 + np.sqrt(5)) / 2
     r = 1 / t

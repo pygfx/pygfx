@@ -145,19 +145,19 @@ def cylinder_geometry(
 ):
     """Generate a cylinder or a cylinder segment.
 
-    .. @almarklein @korjin: isn't this inconsistend 
+    .. @almarklein @korjin: isn't this inconsistend
     .. with our convnetion that the z-axis is forward?
 
     This function generates a cylinder or a cylinder segment. The cylinder's
     axis runs along the local z-axis, and its midpoint is located at the local
     origin. The cylinder's faces (top and bottom cap) are approximated by
     regular N-sided polygons, with corners on a circle of the given radius.
-    
+
     Optionally, the cylinder's faces may be replaced with polygon approximations
     of two circle segments. In this case, a cylinder segment will be created,
     and each segment's arc is constructed from N equal-length line segments
     closed by a line along the segments cord.
- 
+
     Parameters
     ----------
     radius_bottom : float
@@ -179,7 +179,7 @@ def cylinder_geometry(
     open_ended : bool
         If True, the cylinder's faces are not added and the resulting geometry
         only contains the mantle.
-    
+
     Returns
     -------
     cylinder : Geometry
@@ -256,7 +256,7 @@ def cone_geometry(
     The function is a thin wrapper around
     :func:`pygfx.geometries.cylinder_geometry` with ``radius_top = 0.0`` and
     slightly renamed arguments. For details, see the wrapped function.
- 
+
     Parameters
     ----------
     radius : float
@@ -276,7 +276,7 @@ def cone_geometry(
     open_ended : bool
         If True, the cone's faces are not added and the resulting geometry
         only contains the mantle.
-    
+
     Returns
     -------
     cylinder : Geometry

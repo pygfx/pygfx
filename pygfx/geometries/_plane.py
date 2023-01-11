@@ -45,7 +45,7 @@ def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
     Creates a flat (2D) rectangle in the local xy-plane that has its center at
     local origin. The plane may be subdivided into segments along the x- or
     y-axis respectively.
-    
+
     Parameters
     ----------
     width : float
@@ -67,7 +67,7 @@ def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
     Examples
     --------
     .. minigallery:: pygfx.plane_geometry
-    
+
     """
 
     positions, normals, texcoords, indices = generate_plane(

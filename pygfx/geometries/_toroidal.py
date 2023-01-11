@@ -5,7 +5,7 @@ from ._base import Geometry
 
 def klein_bottle_geometry(scale=1.0):
     """Generate a (Almar ^.^) klein bottle.
-    
+
     The Klein bottle is a surface for which the inside and outside
     are the same, similar to a Möbius strip. In fact, a Klein bottle
     can be constructed by glueing together two Möbius strips.
@@ -105,7 +105,7 @@ def torus_knot_geometry(
     scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
 ):
     """Generate a torus knot.
-    
+
     Create geometry representing a torus knot, the particular shape of which is
     defined by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.

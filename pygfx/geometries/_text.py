@@ -40,7 +40,7 @@ WHITESPACE_EXTENTS = {}  # A cache
 
 class TextItem:
     """A formatted piece of text.
-    
+
     A text item represents a unit piece of text that is formatted in a specific
     way. The TextGeometry converts these into GlyphItem's, and positions these
     so that they together display the intended total text.
@@ -121,7 +121,7 @@ class GlyphItem:
 
 class TextGeometry(Geometry):
     """Generate Text.
-    
+
     The TextGeometry creates and stores the geometry to render a piece of text.
     It can be provided as plain text or in markdown to support basic formatting.
 
@@ -132,13 +132,13 @@ class TextGeometry(Geometry):
     markdown : str
         The text to render, formatted as markdown (optional). See
         ``set_markdown()`` for details on the supported formatting.
-    screen_space : bool 
+    screen_space : bool
         Whether the text is rendered in screen space, in contrast to world
         space.
     font_size : float
         The size of the font, in object coordinates or pixel screen coordinates,
         depending on the value of the ``screen_space`` property. Default 12.
-    anchor : str 
+    anchor : str
         The position of the origin of the text. Default "middle-center".
     max_width : float
         The maximum width of the text. Words are wrapped if necessary. A value
