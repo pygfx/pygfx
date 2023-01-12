@@ -281,23 +281,29 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
 def polyhedron_geometry(
     positions: np.ndarray, indices: np.ndarray, radius: float, subdivisions: int
 ):
-    """Procedurally generate geometry representing a polyhedron, centered
-    around the origin.
+    """Generate a Polyhedron.
+    
+    Procedurally generate geometry representing a polyhedron, centered around
+    the origin. The vertices lie on the surface of a sphere of the given radius.
+    The faces are optionally subdivided if subdivisions>0.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Parameters
+    ----------
+    positions : ndarray
+        The vertices used to initialize polyhedron generation.
+    indices : ndarray
+        The face index used to initialize polyhedron generation.
+    radius : float
+        The vertices lie on the surface of a sphere with this radius.
+    subdivisions : int
+        The amount of times the faces will be subdivided, where 0 (the
+        default) means no subdivision.
 
-    Parameters:
-        positions (ndarray): The vertices used to initialize polyhedron
-            generation.
-        indices (ndarray): The face index used to initialize polyhedron
-            generation.
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Returns
+    -------
+    polyhedron : Geometry
+        A geometry object representing the requested polyhedron.
+
     """
     # subdivide faces
     faces = positions[indices]
