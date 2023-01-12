@@ -160,39 +160,6 @@ Specific world objects
     :member-order: bysource
 
 
-Helper objects
---------------
-
-.. autoclass:: pygfx.AxesHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.BoxHelper
-    :members:
-    :member-order: bysource
-
-    .. automethod:: __init__
-
-.. autoclass:: pygfx.GridHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.TransformGizmo
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.PointLightHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.DirectionalLightHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.SpotLightHelper
-    :members:
-    :member-order: bysource
-
 .. Materials
 .. ---------
 

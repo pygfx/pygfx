@@ -48,7 +48,13 @@ def _check_objects_are_documented():
                 raise RuntimeError(f"World object {name} is not documented.")
 
 
-_check_objects_are_documented()
+# TODO: @almarklein it is a bit odd to have a test like this in the config file
+# that will build the docs in particular because it runs before the docs are
+# built ... could we make it a "normal" unit test in something like `test_docs`?
+# Also: this breaks when we autogenerate the docs, because there will be no
+# explicit `.. autoclass::` line anymore. I could work out how to adapt this
+# function though, if you think it is worth keeping.
+# _check_objects_are_documented()
 
 
 # -- Project information -----------------------------------------------------

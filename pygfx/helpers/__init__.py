@@ -1,3 +1,23 @@
+""" Helper functions.
+
+This module contains a collection of useful helpers.
+
+
+.. currentmodule:: pygfx.helpers
+
+.. autosummary::
+    :toctree: helpers/
+
+    AxesHelper
+    GridHelper
+    BoxHelper
+    TransformGizmo
+    PointLightHelper
+    DirectionalLightHelper
+    SpotLightHelper
+
+"""
+
 # flake8: noqa
 
 from ._axes import AxesHelper

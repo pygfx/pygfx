@@ -13,11 +13,23 @@ from ..utils import Color
 
 
 class AxesHelper(Line):
-    """An object indicating the axes directions.
+    """Generate an axis indicator.
 
-    Parameters:
-        size (float): The length of the lines (default 1).
-        thickness (float): The thickness of the lines (default 2 px).
+    Generates three arrows starting at the local origin and pointing into the
+    direction of the local x, y, and z-axis respectively. Each arrow is colored
+    to represent the respective axis. In particular, the x-axis arrow is blue,
+    the y-axis arrow is green, and the z-axis arrow is red.
+
+    Parameters
+    ----------
+    size : float
+        The length of the lines in local space.
+    thickness : float
+        The thickness of the lines in (onscreen) pixels.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.AxesHelper
     """
 
     def __init__(self, size=1.0, thickness=2):
@@ -33,6 +45,7 @@ class AxesHelper(Line):
             dtype="f4",
         )
 
+        # TODO: maybe change to colors that are friendly for colorblind users.
         colors = np.array(
             [
                 [1, 0, 0, 1],
@@ -78,6 +91,28 @@ class AxesHelper(Line):
             self.add(arrow_head)
 
     def set_colors(self, x, y, z):
+        """Update arrow colors.
+
+        Parameters
+        ----------
+        x : int, float, str, tuple
+            The color of the x arrow. This is a either a single int or float
+            (gray), a 4-tuple ``(r,g,b,a)`` of ints or floats, or a hex-coded
+            color string in one of the following formats: ``#RGB``, ``#RGBA``,
+            ``#RRGGBB``, ``#RRGGBBAA``.
+        y : int, float, str, tuple
+            The color of the x arrow. This is a either a single int or float
+            (gray), a 4-tuple ``(r,g,b,a)`` of ints or floats, or a hex-coded
+            color string in one of the following formats: ``#RGB``, ``#RGBA``,
+            ``#RRGGBB``, ``#RRGGBBAA``.
+        z : int, float, str, tuple
+            The color of the x arrow. This is a either a single int or float
+            (gray), a 4-tuple ``(r,g,b,a)`` of ints or floats, or a hex-coded
+            color string in one of the following formats: ``#RGB``, ``#RGBA``,
+            ``#RRGGBB``, ``#RRGGBBAA``.
+
+        """
+
         x, y, z = Color(x), Color(y), Color(z)
         # update lines
         self._geometry.colors.data[0] = x
