@@ -5,7 +5,7 @@ Containers for geometry data.
 
 .. rubric:: Basic Geometry
 .. autosummary::
-    :toctree: _autosummary/
+    :toctree: geometry/
 
     box_geometry
     cylinder_geometry
@@ -16,14 +16,14 @@ Containers for geometry data.
 
 .. rubric:: Text Geometry
 .. autosummary::
-    :toctree: _autosummary/
+    :toctree: geometry/
 
     TextGeometry
     TextItem
 
 .. rubric:: Other/Special Geometry
 .. autosummary::
-    :toctree: _autosummary/
+    :toctree: geometry/
 
     trimesh_geometry
     octahedron_geometry
