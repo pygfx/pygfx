@@ -159,15 +159,6 @@ Specific world objects
     :members:
     :member-order: bysource
 
-
-.. Materials
-.. ---------
-
-.. .. automodule:: pygfx.materials
-..     :members:
-..     :member-order: bysource
-
-
 .. Controllers
 .. -----------
 

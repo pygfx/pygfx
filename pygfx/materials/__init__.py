@@ -1,3 +1,45 @@
+"""
+Containers for Material data.
+
+.. autosummary::
+    :toctree: materials/
+
+    Material
+    pillow_image
+    trimesh_material
+
+    MeshBasicMaterial
+    MeshPhongMaterial
+    MeshNormalMaterial
+    MeshNormalLinesMaterial
+    MeshSliceMaterial
+    MeshStandardMaterial
+
+    PointsMaterial
+    GaussianPointsMaterial
+
+    LineMaterial
+    LineThinMaterial
+    LineThinSegmentMaterial
+    LineSegmentMaterial
+    LineArrowMaterial
+
+    ImageBasicMaterial
+
+    VolumeBasicMaterial
+    VolumeSliceMaterial
+    VolumeRayMaterial
+    VolumeMipMaterial
+
+    BackgroundMaterial
+    BackgroundImageMaterial
+    BackgroundSkyboxMaterial
+
+    TextMaterial
+
+"""
+
+
 # flake8: noqa
 
 from ._base import Material
