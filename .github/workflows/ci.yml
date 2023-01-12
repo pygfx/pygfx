@@ -45,8 +45,6 @@ jobs:
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
-        sudo add-apt-repository ppa:oibaf/graphics-drivers -y
-        sudo apt-get update -y -qq
         sudo apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
@@ -102,8 +100,6 @@ jobs:
         python-version: '3.9'
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
-        sudo apt-get update -y -qq
-        sudo add-apt-repository ppa:oibaf/graphics-drivers -y
         sudo apt-get update -y -qq
         sudo apt-get install --no-install-recommends -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
