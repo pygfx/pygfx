@@ -282,7 +282,7 @@ def polyhedron_geometry(
     positions: np.ndarray, indices: np.ndarray, radius: float, subdivisions: int
 ):
     """Generate a Polyhedron.
-    
+
     Procedurally generate geometry representing a polyhedron, centered around
     the origin. The vertices lie on the surface of a sphere of the given radius.
     The faces are optionally subdivided if subdivisions>0.

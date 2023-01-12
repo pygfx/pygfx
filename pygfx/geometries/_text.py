@@ -261,7 +261,7 @@ class TextGeometry(Geometry):
 
     def set_text_items(self, text_items):
         """Update the text using one or more TextItems.
-        
+
         .. note::
             This is considered a low level function to provide more control. Use
             ``set_text`` or ``set_markdown`` for more convenience.
