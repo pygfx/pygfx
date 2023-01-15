@@ -4,7 +4,35 @@ from ..utils import Color
 
 
 def pillow_image(image, dim=2, **kwargs):
-    """Create a Texture from a PIL.Image."""
+    """Pillow Image texture.
+    
+    Create a Texture from a PIL.Image.
+
+    Parameters
+    ----------
+    image : Image
+        The `PIL.Image
+        <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image>`_
+        to convert into a texture.
+    dim : int
+        The number of spatial dimensions of the image.
+    kwargs : Any
+        Additional kwargs are forwarded to :class:`pygfx.Texture`.
+
+    Returns
+    -------
+    image_texture : Texture
+        A texture object representing the given image.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.pillow_image
+
+    """
+
+    # @almarklein: It's a bit odd that we have a texture generating function in
+    # materials. Could we think of a better place for this, e.g., resources?
+
     from PIL.Image import Image  # noqa
 
     if not isinstance(image, Image):
@@ -20,7 +48,25 @@ def pillow_image(image, dim=2, **kwargs):
 
 
 def trimesh_material(material):
-    """Create Material from a trimesh Material."""
+    """Trimesh material.
+    
+    Converts a trimesh material into a pygfx material.
+
+    Parameters
+    ----------
+    material : trimesh.Material
+        The material to convert.
+
+    Returns
+    -------
+    converted : Material
+        The converted material.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.trimesh_material
+    
+    """
     from trimesh.visual.material import PBRMaterial  # noqa
 
     if not isinstance(material, PBRMaterial):

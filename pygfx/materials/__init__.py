@@ -1,6 +1,8 @@
 """
 Containers for Material data.
 
+Materials define how an object is rendered, subject to certain properties.
+
 .. autosummary::
     :toctree: materials/
 

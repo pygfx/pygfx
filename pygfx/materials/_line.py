@@ -4,7 +4,34 @@ from ..utils import unpack_bitfield, Color
 
 
 class LineMaterial(Material):
-    """The default material to draw lines."""
+    """Basic line material.
+    
+    Parameters
+    ----------
+    color : Color
+        The uniform color of the line. Ignored if ``vertex_colors`` is True.
+    thickness : float
+        The line thickness expressed in logical pixels.
+    vertex_colors : bool
+        Whether to use the vertex colors provided in the geometry to color the
+        line. If True, color will be ignored.
+    map : TextureView
+        The texture map specifying the color for each texture coordinate. The
+        dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+    aa : bool
+        Whether or not the line should be anti-aliased. Aliasing gives prettier
+        results, but may affect performance for very large datasets. Default
+        True.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    Examples
+    --------
+    .. minigallery:: LineMaterial
+
+    """
 
     uniform_type = dict(
         color="4xf4",
@@ -101,26 +128,41 @@ class LineMaterial(Material):
 
 
 class LineThinMaterial(LineMaterial):
-    """A simple line, drawn with line_strip primitives that has a thickness
+    """Thin line material.
+    
+    A simple line, drawn with line_strip primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
     You probably want to avoid this material, because its width is
     inconsistent and looks *very* thin on HiDPI monitors.
     """
+
+    # @almarklein: The docs advise to avoid this. Depricate before 1.0?
 
 
 class LineThinSegmentMaterial(LineMaterial):
-    """Simple line segments, drawn with line primitives that has a thickness
+    """Thin line segment material.
+    
+    Simple line segments, drawn with line primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
     You probably want to avoid this material, because its width is
     inconsistent and looks *very* thin on HiDPI monitors.
     """
 
+    # @almarklein: The docs advise to avoid this. Depricate before 1.0?
+
 
 class LineSegmentMaterial(LineMaterial):
-    """A material that renders line segments between each two subsequent points."""
+    """Line segment material.
+    
+    A material that renders line segments between each two subsequent points."""
 
 
 class LineArrowMaterial(LineSegmentMaterial):
-    """A material that renders line segments that look like little vectors."""
+    """Arrow (vector) line material.
+    
+    A material that renders line segments that look like little vectors."""
+
+    # @almarklein: This is a thin (1:1) wrapper around LineMaterial. Out of
+    # curiosity, how does it do more than the base class?

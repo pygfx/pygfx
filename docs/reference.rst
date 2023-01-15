@@ -52,14 +52,6 @@ you can read more about them here:
     pygfx.resources
 
 
-.. Resources
-.. ---------
-
-.. .. automodule:: pygfx.resources
-..     :members:
-..     :member-order: bysource
-
-
 World objects
 -------------
 

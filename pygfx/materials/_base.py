@@ -4,8 +4,24 @@ from ..resources import Buffer
 
 
 class Material(Trackable):
-    """The base class for all materials.
-    Materials define how an object is rendered, subject to certain properties.
+    """Material base class.
+    
+    Parameters
+    ----------
+    opacity : float
+        The opacity (a.k.a. alpha value) applied to this material, expressed as
+        a value between 0 and 1. If the material contains any non-opaque
+        fragments, their alphas are simply scaled by this value.
+    clipping_planes : tuple
+        A tuple of planes (abcd tuples) in world space. Points in space whose
+        signed distance to the plane is negative are clipped (not rendered).
+        Applies to the object to which this material is attached.
+    clipping_mode : str
+        Set the behavior for multiple clipping planes: "any" or "all". If this
+        is "any" (the default) a fragment is discarded if it is clipped by any
+        clipping plane. If this is "all", a fragment is discarded only if it is
+        clipped by *all* of the clipping planes.
+
     """
 
     uniform_type = dict(
