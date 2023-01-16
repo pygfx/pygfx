@@ -5,7 +5,7 @@ from ..utils import unpack_bitfield, Color
 
 class LineMaterial(Material):
     """Basic line material.
-    
+
     Parameters
     ----------
     color : Color
@@ -129,7 +129,7 @@ class LineMaterial(Material):
 
 class LineThinMaterial(LineMaterial):
     """Thin line material.
-    
+
     A simple line, drawn with line_strip primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
@@ -142,7 +142,7 @@ class LineThinMaterial(LineMaterial):
 
 class LineThinSegmentMaterial(LineMaterial):
     """Thin line segment material.
-    
+
     Simple line segments, drawn with line primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
@@ -155,13 +155,13 @@ class LineThinSegmentMaterial(LineMaterial):
 
 class LineSegmentMaterial(LineMaterial):
     """Line segment material.
-    
+
     A material that renders line segments between each two subsequent points."""
 
 
 class LineArrowMaterial(LineSegmentMaterial):
     """Arrow (vector) line material.
-    
+
     A material that renders line segments that look like little vectors."""
 
     # @almarklein: This is a thin (1:1) wrapper around LineMaterial. Out of

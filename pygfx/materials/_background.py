@@ -5,7 +5,7 @@ from ..linalg import Vector3
 
 class BackgroundMaterial(Material):
     """Solid/Gradient background color.
-    
+
     A background material that draws the background is a uniform color
     or in a gradient. The positional arguments are passed to ``set_colors()``.
 
@@ -113,7 +113,7 @@ class BackgroundMaterial(Material):
 
 class BackgroundImageMaterial(BackgroundMaterial):
     """Image/Skybox background.
-    
+
     A background material that displays an image. If map is a 2D
     texture view, it is used as a static background. If it is a cube
     texture view, (on a NxMx6 texture) it is used as a skybox.
@@ -149,7 +149,7 @@ class BackgroundImageMaterial(BackgroundMaterial):
 
 class BackgroundSkyboxMaterial(BackgroundImageMaterial):
     """Skybox background.
-    
+
     A cube image background, resulting in a skybox.
     Use the up property to orient the skybox.
 

@@ -5,7 +5,7 @@ from ..resources import Buffer
 
 class Material(Trackable):
     """Material base class.
-    
+
     Parameters
     ----------
     opacity : float

@@ -6,9 +6,56 @@ from ..utils.color import Color
 
 
 class MeshBasicMaterial(Material):
-    """A material for drawing geometries in a simple shaded (flat or
-    wireframe) way. This material is not affected by lights.
+    """Basic mesh material.
+
+    A material for drawing geometries in a simple shaded (flat or wireframe)
+    way. This material is not affected by lights.
+
+    Parameters
+    ----------
+    color : Color
+        The (uniform) color of the mesh. Ignored if vertex_colors is True.
+    vertex_colors : bool
+        Whether to use the vertex colors provided in the geometry.
+    map : TextureView
+        The texture map specifying the color at each texture coordinate. The
+        dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+    wireframe : bool
+        If True, render geometry as a wireframe, i.e., only render edges.
+    wireframe_thickness : int
+        The thickness of a rendered edge in screen pixels.
+    flat_shading : bool
+        If True, the shader will ignore the geometry's normal data and instead
+        use face normals during lighting calculations.
+    side : str
+        The culling mode for this material: ``"FRONT"``, ``"BACK"``, or
+        ``"BOTH"``. "FRONT" will only render faces that face the camera. "BACK"
+        will only render faces that face away from the camera. "BOTH" will
+        render faces regardless of their orientation.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    Notes
+    -----
+    The color format of the map is assumed to be sRGB. To use physical space
+    instead, set the texture's colorspace property to "physical".
+
+    The direction of a face is determined using Counter-clockwise (CCW) winding;
+    i.e., if the fingers of your curled hand match the direction in which the
+    face's vertices are defined then your thumb points into the "FRONT"
+    direction of the face. If this is not the case for your mesh, adjust its
+    geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.MeshBasicMaterial
+
     """
+
+    # @almarklein: Could we be more precise on what "physical space" means for
+    # the map's color format?
 
     uniform_type = dict(
         color="4xf4",
@@ -165,9 +212,31 @@ class MeshBasicMaterial(Material):
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
-    """A material affected by light, diffuse and with specular
+    """Phong mesh material.
+
+    A material affected by light, diffuse and with specular
     highlights. This material uses the Blinn-Phong reflectance model.
     If the specular color is turned off, Lambertian shading is obtained.
+
+    Parameters
+    ----------
+    shininess : int
+        How shiny the specular highlight is; a higher value gives a sharper
+        highlight.
+    emissive : Color
+        The emissive (light) color of the mesh. This color is added to the final
+        color and is unaffected by lighting. The alpha channel of this color is
+        ignored.
+    specular : Color
+        The specular (highlight) color of the mesh.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.MeshBasicMaterial>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.MeshPhongMaterial
+
     """
 
     # For reference:
@@ -263,14 +332,35 @@ class MeshPhongMaterial(MeshBasicMaterial):
 
 
 class MeshNormalMaterial(MeshBasicMaterial):
-    """A material that maps the normal vectors to RGB colors.
+    """Color from Mesh normals.
+
+    A material that maps the normal vectors to RGB colors.
     The ``flat_shading`` property can be used to show face normals.
     """
 
+    # @almarklein: Not Implemented?
+
 
 class MeshNormalLinesMaterial(MeshBasicMaterial):
-    """A material that shows surface normals as simple lines. The lines
+    """Turns surface normals to lines.
+
+    A material that shows surface normals as simple lines. The lines
     stick out from the vertices at the front faces by default.
+
+    Parameters
+    ----------
+    line_length : float
+        The length of the lines that indicate the normals, in local
+        space. Set this to a negative value to make the lines stick out
+        from the back faces.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.MeshBasicMaterial>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.MeshNormalLinesMaterial
+
     """
 
     uniform_type = dict(
@@ -299,7 +389,26 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
 
 class MeshSliceMaterial(MeshBasicMaterial):
-    """A material that displays a slice of the mesh."""
+    """Display a mesh slice.
+
+    Parameters
+    ----------
+    plane : tuple
+        The plane to slice at, represented with 4 floats ``(a, b, c, d)``, which
+        make up the equation: ``ax + by + cz + d = 0`` The plane definition
+        applies to the world space (of the scene).
+    thickness : float
+        The thickness of the line to draw the edge of the mesh in screen space
+        (px).
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.MeshBasicMaterial>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.MeshSliceMaterial
+
+    """
 
     uniform_type = dict(
         plane="4xf4",
@@ -336,8 +445,35 @@ class MeshSliceMaterial(MeshBasicMaterial):
 
 
 class MeshStandardMaterial(MeshBasicMaterial):
-    """A standard physically based material, applying PBR (Physically based rendering)
+    """PBR shaded material.
+
+    A standard physically based material, applying PBR (Physically based rendering)
     using the Metallic-Roughness workflow.
+
+    Parameters
+    ----------
+    emissive : Color
+        The emissive color of the mesh. I.e. the color that the object emits
+        even when not lit by a light source. This color is added to the final
+        color and unaffected by lighting. The alpha channel is ignored.
+    metalness : float
+        How much the material looks like a metal. Non-metallic materials such as
+        wood or stone use 0.0, metal use 1.0, with nothing (usually) in between.
+        Default is 0.0. A value between 0.0 and 1.0 could be used for a rusty
+        metal look. If metalness_map is also provided, both values are
+        multiplied.
+    roughness : float
+        How rough the material is. 0.0 means a smooth mirror reflection, 1.0
+        means fully diffuse. Default is 1.0. If roughness_map is also provided,
+        both values are multiplied.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.MeshBasicMaterial>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.MeshStandardMaterial
+
     """
 
     # Physically based rendering (PBR) has recently become the standard

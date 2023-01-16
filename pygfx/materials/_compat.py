@@ -5,7 +5,7 @@ from ..utils import Color
 
 def pillow_image(image, dim=2, **kwargs):
     """Pillow Image texture.
-    
+
     Create a Texture from a PIL.Image.
 
     Parameters
@@ -49,7 +49,7 @@ def pillow_image(image, dim=2, **kwargs):
 
 def trimesh_material(material):
     """Trimesh material.
-    
+
     Converts a trimesh material into a pygfx material.
 
     Parameters
@@ -65,7 +65,7 @@ def trimesh_material(material):
     Examples
     --------
     .. minigallery:: pygfx.trimesh_material
-    
+
     """
     from trimesh.visual.material import PBRMaterial  # noqa
 

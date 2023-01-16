@@ -10,6 +10,8 @@ Materials define how an object is rendered, subject to certain properties.
     pillow_image
     trimesh_material
 
+    # @almarklein the descriptions for the materials are sparse, but I lack
+    # context to come up with something more precise. Could you make a suggestion?
     MeshBasicMaterial
     MeshPhongMaterial
     MeshNormalMaterial
