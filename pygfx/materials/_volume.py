@@ -3,7 +3,26 @@ from ._base import Material
 
 
 class VolumeBasicMaterial(Material):
-    """Base volume material."""
+    """Basic volume material.
+
+    Parameters
+    ----------
+    clim : tuple
+        The contrast limits to scale the data values with. Default (0, 1).
+    map : TextureView
+        The colormap to turn the volume values into its final color.
+        If not given or None, the values themselves represents the color.
+        The dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of channels in the volume.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.VolumeBasicMaterial
+
+    """
 
     uniform_type = dict(
         clim="2xf4",

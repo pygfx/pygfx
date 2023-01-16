@@ -230,7 +230,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     specular : Color
         The specular (highlight) color of the mesh.
     kwargs : Any
-        Additional kwargs will be passed to the :class:`material base class
+        Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
 
     Examples
@@ -354,7 +354,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
         space. Set this to a negative value to make the lines stick out
         from the back faces.
     kwargs : Any
-        Additional kwargs will be passed to the :class:`material base class
+        Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
 
     Examples
@@ -401,7 +401,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
         The thickness of the line to draw the edge of the mesh in screen space
         (px).
     kwargs : Any
-        Additional kwargs will be passed to the :class:`material base class
+        Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
 
     Examples
@@ -467,7 +467,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         means fully diffuse. Default is 1.0. If roughness_map is also provided,
         both values are multiplied.
     kwargs : Any
-        Additional kwargs will be passed to the :class:`material base class
+        Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
 
     Examples
