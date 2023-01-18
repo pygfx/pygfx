@@ -14,6 +14,8 @@ from ._events import EventTarget
 
 
 class IdProvider:
+    # @almarklein: if it is for internal use, maybe we can exclude it from the
+    # public docs?
     """Object for internal use to manage world object id's."""
 
     def __init__(self):
@@ -76,23 +78,39 @@ class RenderMask(enum.IntFlag):
 
 
 class WorldObject(EventTarget, RootTrackable):
-    """The base class for objects present in the "world", i.e. the scene graph.
+    """Base class for objects.
 
-    Each WorldObject has geometry to define it's data, and material to define
-    its appearance. The object itself is only responsible for defining object
-    hierarchies (parent / children) and its position and orientation in the world.
+    This class represents objects in the world, i.e., the scene graph.Each
+    WorldObject has geometry to define it's data, and material to define its
+    appearance. The object itself is only responsible for defining object
+    hierarchies (parent / children) and its position and orientation in the
+    world.
 
-    This is considered a base class. Use Group to collect multiple world objects
-    into a single empty world object.
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
 
-    Parameters:
-        geometry (Geometry): the data defining the shape of the object.
-        material (Material): the object defining the appearence of the object.
-        visible (bool): whether the object is visible.
-        render_order (int): the render order (when applicable for the renderer's blend mode).
-        render_mask (str): determines the render passes that the object is rendered in.
-           It's recommended to let the renderer decide, using "auto".
-        position (Vector): The position of the light source. Default (0, 0, 0).
+    Notes
+    -----
+    Use :class:`Group` to collect multiple world objects into a single empty
+    world object.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.WorldObject
+
     """
 
     # The uniform type describes the structured info for this object, which represents

@@ -52,22 +52,6 @@ you can read more about them here:
     pygfx.resources
 
 
-World objects
--------------
-
-.. autoclass:: pygfx.WorldObject
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Group
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Scene
-    :members:
-    :member-order: bysource
-
-
 Camera objects
 --------------
 
@@ -91,65 +75,6 @@ Camera objects
     :members:
     :member-order: bysource
 
-
-Light objects
---------------
-
-.. autoclass:: pygfx.Light
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.AmbientLight
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.PointLight
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.DirectionalLight
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.SpotLight
-    :members:
-    :member-order: bysource
-
-
-Specific world objects
-----------------------
-
-.. autoclass:: pygfx.Background
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Line
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Mesh
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.InstancedMesh
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Points
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Image
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Volume
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Text
-    :members:
-    :member-order: bysource
 
 .. Controllers
 .. -----------

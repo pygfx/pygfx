@@ -30,7 +30,7 @@ class EventType(str, Enum):
 
 
 class Event:
-    """Event base class for creating events.
+    """Event base class.
 
     If a target is set, an event can bubble up through a hierarchy
     of targets, connected through a ``parent`` property.
@@ -38,6 +38,29 @@ class Event:
 
     It is also possible to cancel events, which will stop any further
     handling of the event (also by the same target).
+
+    Parameters
+    ----------
+    type : Union[str, EventType]
+        The name of the event.
+    bubbles : bool
+        If True, the event bubbles up through the scene tree.
+    target : EventTarget
+        The object onto which the event was dispatched.
+    root : RootEventHandler
+        A reference to the root event handler.
+    time_stamp : float
+        The time at which the event was created (in ms). Might not be an actual
+        time stamp so please only use this for relative time measurements.
+    cancelled : bool
+        A boolean value indicating whether the event is cancelled.
+    event_type : str
+        Unused.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Event
+
     """
 
     def __init__(
@@ -118,6 +141,27 @@ class Event:
 
 
 class KeyboardEvent(Event):
+    """Keyboard button press.
+
+    Parameters
+    ----------
+    args : Any
+        Positional arguments are forwarded to the :class:`base class
+        <pygfx.objects.Event>`.
+    key : str
+        The key that was pressed.
+    modifiers : list
+        The modifiers that were pressed while the key was pressed.
+    kwargs : Any
+        Additional keyword arguments are forward to the :class:`base class
+        <pygfx.objects.Event>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.KeyboardEvent
+
+    """
+
     def __init__(self, *args, key, modifiers=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.key = key
@@ -125,6 +169,43 @@ class KeyboardEvent(Event):
 
 
 class PointerEvent(Event):
+    """Mouse/Touch Event.
+
+    Parameters
+    ----------
+    args : Any
+        Positional arguments are forwarded to the :class:`base class
+        <pygfx.objects.Event>`.
+    x : int
+        The x position of the cursor or touch in screen space (px).
+    y : int
+        Thy y position of the cursor or touch in screen space (px).
+    button : int
+        @almarklein: where can I find the description of this attribute?
+    buttons : str
+        @almarklein: where can I find the description of this attribute?
+    modifiers : list
+        The modifiers that were pressed while the key was pressed.
+    ntouches : int
+        The total number of syncronous touches.
+    touches : list
+        A list of all currently occuring touches.
+    pick_info : Any
+        @almarklein: where can I find the description of this attribute?
+    clicks : int
+        The total number of syncronous clicks.
+    pointer_id : Any
+        @almarklein: where can I find the description of this attribute?
+    kwargs : Any
+        Additional keyword arguments are forward to the :class:`base class
+        <pygfx.objects.Event>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.PointerEvent
+
+    """
+
     def __init__(
         self,
         *args,
@@ -176,6 +257,27 @@ class PointerEvent(Event):
 
 
 class WheelEvent(PointerEvent):
+    """Scrolling of the mouse wheel.
+
+    Parameters
+    ----------
+    args : Any
+        Positional arguments are forwarded to the :class:`base class
+        <pygfx.objects.Event>`.
+    dx : float
+        The amount (in rad) by which the wheel was turned around the x-axis.
+    dy : float
+        The amount (in rad) by which the wheel was turned around the y-axis.
+    kwargs : Any
+        Additional keyword arguments are forward to the :class:`base class
+        <pygfx.objects.Event>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.WheelEvent
+
+    """
+
     def __init__(self, *args, dx, dy, **kwargs):
         super().__init__(*args, **kwargs)
         self.dx = dx
@@ -183,6 +285,29 @@ class WheelEvent(PointerEvent):
 
 
 class WindowEvent(Event):
+    """Window resize event
+
+    Parameters
+    ----------
+    args : Any
+        Positional arguments are forwarded to the :class:`base class
+        <pygfx.objects.Event>`.
+    width : int
+        The new width of the application window in screen space (px).
+    height : int
+        The new height of the application window in screen space (px).
+    pixel_ratio : float
+        The new pixel ratio. (@almarklein: is this aspect ratio or dpi or something else?)
+    kwargs : Any
+        Additional keyword arguments are forward to the :class:`base class
+        <pygfx.objects.Event>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.WheelEvent
+
+    """
+
     def __init__(self, *args, width=None, height=None, pixel_ratio=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.width = width
@@ -191,8 +316,22 @@ class WindowEvent(Event):
 
 
 class EventTarget:
-    """Mixin class that enables event handlers to be attached to objects
+    """Targetable object mixin.
+
+    Mixin class that enables event handlers to be attached to objects
     of the mixed-in class.
+
+    Parameters
+    ----------
+    args : Any
+        Arguments are forwarded to allow multiple inheritance.
+    kwargs : Any
+        Kwargs are forwarded to allow multiple inheritance.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.EventTarget
+
     """
 
     pointer_captures = {}
@@ -298,7 +437,15 @@ class EventTarget:
 
 
 class RootEventHandler(EventTarget):
-    """Root event handler for the Pygfx event system."""
+    """Pygfx event handler.
+
+    Root event handler for the Pygfx event system.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.RootEventHandler
+
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -310,14 +457,14 @@ class RootEventHandler(EventTarget):
     def dispatch_event(self, event: Event):
         """Dispatch the given event.
 
-        This method will dispatch an event by looking for the right target
-        to handle the event. When a target is set on the event, then that
-        target will be the first object that gets to handle the event.
-        From there it will ask its parents one-by-one to handle the event
-        as long as the event bubbles / propagates up or is not cancelled.
+        This method will dispatch an event by looking for the right target to
+        handle the event. When a target is set on the event, then that target
+        will be the first object that gets to handle the event. From there it
+        will ask its parents one-by-one to handle the event as long as the event
+        bubbles / propagates up or is not cancelled.
 
-        The RootEventHandler object will serve as a virtual root for the
-        tree hierarchy.
+        The RootEventHandler object will serve as a virtual root for the tree
+        hierarchy.
 
         Whenever an object has captured the pointer (for a specific pointer_id)
         then that object will get all pointer related events until the object
@@ -327,8 +474,11 @@ class RootEventHandler(EventTarget):
         events in order to generate and dispatch ``click`` and ``double_click``
         events.
 
-        Arguments:
-            event: Event object to dispatch
+        Parameters
+        ----------
+        event : Event
+            The event to dispatch.
+
         """
         pointer_id = getattr(event, "pointer_id", None)
 
