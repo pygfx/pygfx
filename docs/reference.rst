@@ -46,6 +46,7 @@ you can read more about them here:
     pygfx.objects
     pygfx.renderers
     pygfx.resources
+    pygfx.utils
 
 
 Camera objects

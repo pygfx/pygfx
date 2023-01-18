@@ -3,6 +3,8 @@ Containers for Material data.
 
 Materials define how an object is rendered, subject to certain properties.
 
+.. currentmodule:: pygfx.materials
+
 .. autosummary::
     :toctree: materials/
 

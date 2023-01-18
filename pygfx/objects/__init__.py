@@ -26,6 +26,8 @@
     SpotLightShadow
     PointLightShadow
 
+.. currentmodule:: pygfx.objects
+
 .. rubric:: Events
 .. autosummary::
     :toctree: objects/

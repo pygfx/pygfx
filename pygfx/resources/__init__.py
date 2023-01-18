@@ -1,6 +1,8 @@
 """
 Resource handlers for GPU objects.
 
+.. currentmodule:: pygfx.resources
+
 .. autosummary::
     :toctree: texture/
 

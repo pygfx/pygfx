@@ -25,6 +25,8 @@ call may consist of multiple passes (to deal with semi-transparent fragments).
 The flush-step resolves the internal representation into the target texture or
 canvas, averaging neighbouring fragments for anti-aliasing.
 
+.. currentmodule:: pygfx.renderers
+
 .. autosummary::
     :toctree: renderers/
 
