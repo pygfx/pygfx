@@ -1,3 +1,15 @@
+"""
+Currently exposed items from utils:
+
+from .utils.color import Color
+from .utils.load import load_scene
+from .utils.show import show, Display
+from .utils.viewport import Viewport
+from .utils.text import font_manager
+from .utils import cm, logger
+"""
+
+
 import os
 import logging
 

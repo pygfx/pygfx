@@ -4,27 +4,41 @@ from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
 
 class Texture(Resource):
-    """A base texture wrapper that can be implemented for numpy, ctypes arrays,
-    or any other kind of array.
+    """Container for textures.
+
+    A base texture wrapper that can be implemented for numpy, ctypes arrays, or
+    any other kind of array.
 
     Parameters:
-        data (array, optional): Array data of any type that supports the
-            buffer-protocol, (e.g. a bytes or numpy array). If not given
-            or None, nbytes and nitems must be provided. The data is
-            copied if it's float64 or not contiguous.
-        dim (int): The dimensionality of the array (1, 2 or 3).
-        size (3-tuple): The extent ``(width, height, depth)`` of the array.
-            If not given or None, it is derived from dim and the shape of
-            the data. By creating a 2D array with ``depth > 1``, a view can
-            be created with format 'd2_array' or 'cube'.
-        format (str): the format of texture. By default this is automatically
-            set from the data. This must be a pygfx format specifier, e.g. "3xf4",
-            but can also be a format specific to the render backend if necessary
-            (e.g. from ``wgpu.TextureFormat``).
-        colorspace (str): If this data is used as color, it is interpreted to be
-            in this colorspace. Can be "srgb" or "physical". Default "srgb".
-        generate_mipmaps (bool): Whether to automatically generate mipmaps when uploading to
+        data : array, optional
+            Array data of any type that supports the buffer-protocol, (e.g. a
+            bytes or numpy array). If None, nbytes and nitems must be provided.
+            The data is copied if it's not float32 or not contiguous.
+        dim : int
+            The dimensionality of the array (1, 2 or 3).
+        size : tuple, [3]
+            The extent ``(width, height, depth)`` of the array. If None, it is
+            derived from dim and the shape of the data. By creating a 2D array
+            with ``depth > 1``, a view can be created with format 'd2_array' or
+            'cube'.
+            @almarklein: I don't understand this behavior. Can you elaborate so
+            I can come up with a better docstring?
+        format : str
+            A format string describing the texture layout. If None, this is
+            automatically set from the data. This must be a pygfx format
+            specifier, e.g. "3xf4", but can also be a format specific to the
+            render backend if necessary (e.g. from ``wgpu.VertexFormat``).
+        colorspace : str
+            If this data is used as color, it is interpreted to be in this
+            colorspace. Can be "srgb" or "physical".
+        generate_mipmaps : bool
+            If True, automatically generates mipmaps when transfering data to
             the GPU.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Texture
+
     """
 
     def __init__(
@@ -275,27 +289,49 @@ def format_from_memoryview(mem, size):
 
 
 class TextureView(Resource):
-    """A view on a texture.
+    """View into a Texture.
 
-    The view defines the sampling behavior and can specify a selection/different
-    view on the texture.
+    Similar to numpy views, a TextureView is a view into a textures data buffer
+    with a (potentially) modified sampling behavior and can specify a
+    selection/different view on the texture.
 
-    Passing no more than ``address_mode`` and ``filter`` will create a
-    default view on the texture with the given sampling parameters.
+    Passing no more than ``address_mode`` and ``filter`` will create a default
+    view on the texture with the given sampling parameters.
 
-    Parameters:
-        address_mode (str): How to sample beyond the edges. Use "clamp",
-            "mirror" or "repeat". Default "clamp".
-            Can also use e.g. "clamp,clamp,repeat" to specify for u, v and w.
-        filter (str): Interpolation filter. Use "nearest" or "linear".
-            Default "nearest". Can also use e.g. "linear,linear,nearest" to set
-            mag, min and mipmap filters.
-        format (str): Omit or pass None to use the texture's format.
-        view_dim (str): Omit or pass None to use the texture's format. Or e.g.
-            get a "2d" slice view from a 3d texture, or e.g. "cube" or "2d-array".
-        aspect (str): Omit or pass None to use the default.
-        mip_range (range): A range object to specify what mip levels to view.
-        layer_range (range): A range object to specify what array layers to view.
+    Parameters
+    ----------
+    texture : Texture
+        The texture to view.
+    address_mode : str
+        How to handle out of bounds access. Use "clamp", "mirror" or "repeat".
+        This value can also be set per-channel by providing multiple
+        comma-separated values, e.g., "clamp,clamp,repeat".
+    filter : str
+        Interpolation mode. Possible values are: "nearest" or "linear". This
+        value can also be set using three comma-separated values to control mag,
+        min and mipmap filters individually, e.g., "linear,linear,nearest".
+    format : str
+        A format string describing the texture layout. If None, use the same as
+        the underlying texture. This must be a pygfx format specifier, e.g.
+        "3xf4", but can also be a format specific to the render backend if
+        necessary (e.g. from ``wgpu.VertexFormat``).
+    view_dim : str
+        The dimensionality of the array (1, 2 or 3). If None, use the texture's
+        dimension. Or e.g. get a "2d" slice view from a 3d texture, or e.g.
+        "cube" or "2d-array".
+    aspect : str
+        Omit or pass None to use the default.
+        @almarklein: What does this do?
+    mip_range : range
+        A range object specifying the viewed mip levels.
+        @almarklein: this is an odd parameter choice. Why `range` and not `slice`?
+    layer_range : range
+        A range object specifying the array layers to view.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.TextureView
+
     """
 
     def __init__(
