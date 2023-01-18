@@ -21,11 +21,6 @@ def box_geometry(
     number of segments along each axis. This will result in all faces parallel to
     the given axis to be evenly devided into the requested number of segments.
 
-    .. @almarklein: What does it mean for corners to be square?
-
-    The normals for each side all point in the same direction; the corners are
-    actually square. Texture coordinates for each side run from 0 to 1.
-
     Parameters
     ----------
     width : int
