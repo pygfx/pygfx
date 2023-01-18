@@ -107,16 +107,22 @@ class FontProps:
 
 
 class FontManager:
-    """The main purpose of the font manager is font selection, i.e.
-    selecting a font based on the text to be rendered and a font_props
-    object.
+    """Storage and discovery of text glyphs.
 
-    This manager uses a default font set based on the Noto fonts,
-    allowing a very complete Unicode coverage, including rare and
-    ancient scripts. Users probably don't have the full set of Noto
-    fonts installed. When a font is missing that the manager knows would
-    support the text, a useful error message is produced, that includes
-    a link where the font can be installed from.
+    The main purpose of the font manager is font selection, i.e. selecting a
+    font based on the text to be rendered and a font_props object.
+
+    This manager uses a default font set based on the Noto fonts, allowing a
+    very complete Unicode coverage, including rare and ancient scripts. Users
+    probably don't have the full set of Noto fonts installed. When a font is
+    missing that the manager knows would support the text, a useful error
+    message is produced, that includes a link to where the font can be installed
+    from.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.FontManager
+
     """
 
     def __init__(self):

@@ -33,19 +33,19 @@ def _float_from_css_value(v, i):
 
 
 class Color:
-    """An object representing a color (in the sRGB colorspace).
+    """A representation of color (in the sRGB colorspace).
 
-    Internally the color is stored using 4 32-bit floats (rgba).
-    It can be instantiated in a variety of ways. E.g. by providing
-    the color components as values between 0 and 1:
+    Internally the color is stored using 4 32-bit floats (rgba). It can be
+    instantiated in a variety of ways. E.g. by providing the color components as
+    values between 0 and 1:
 
     * `Color(r, g, b, a)` providing rgba values.
     * `Color(r, g, b)` providing rgb, alpha is 1.
     * `Color(gray, a)` grayscale intensity and alpha.
     * `Color(gray)` grayscale intensity.
 
-    The above variations can also be supplied as a single tuple/list,
-    or anything that :
+    The above variations can also be supplied as a single tuple/list, or
+    anything that:
 
     * `Color((r, g, b))`.
 
@@ -66,6 +66,16 @@ class Color:
 
     * `Color("rgb(255, 0, 0)")`.
     * `Color("rgba(255, 0, 0, 1.0)")`.
+
+    Parameters
+    ----------
+    args : tuple, int, str
+        The color specification. Check the docstring of this function for
+        details on available format options.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Color
 
     """
 

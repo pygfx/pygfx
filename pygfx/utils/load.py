@@ -7,13 +7,23 @@ import pygfx as gfx
 
 def load_scene(path):
     """Load a scene from a file.
+
     This function requires the trimesh library. Might not be complete yet.
 
-    Parameters:
-        path (str): the path to a file.
+    Parameters
+    ----------
+    path : str
+        The location where the scene description is stored.
 
-    Returns:
-        meshes (list): list of meshes
+    Returns
+    -------
+    meshes : list
+        A list of loaded meshes.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.load_scene
+
     """
 
     import trimesh  # noqa

@@ -1,3 +1,19 @@
+"""Predefined Colormaps.
+
+The following colormaps are currently available:
+
+.. currentmodule:: pygfx.utils.cm
+
+.. autosummary::
+
+    viridis
+    plasma
+    inferno
+    magma
+    cividis
+
+"""
+
 from ._cmdata_mpl import (
     _viridis_data,
     _plasma_data,

@@ -2,7 +2,21 @@ from ..renderers import Renderer
 
 
 class Viewport:
-    """Defines a rectangular area on a renderer."""
+    """A rectangular area on a renderer.
+
+    Parameters
+    ----------
+    renderer : Renderer
+        The renderer on which the viewport should be defined.
+    rect : tuple, [4]
+        The viewport rect (x, y, w, h). If None, it is set to the full size of
+        the renderer's canvas.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Viewport
+
+    """
 
     def __init__(self, renderer, rect=None):
         if not isinstance(renderer, Renderer):

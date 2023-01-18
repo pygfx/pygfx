@@ -7,19 +7,19 @@ import sys
 import numpy as np
 import warnings
 
-from .. import (
+from ..objects import (
     Background,
-    BackgroundMaterial,
-    WgpuRenderer,
     WorldObject,
     Scene,
-    PerspectiveCamera,
-    OrbitController,
     AmbientLight,
     DirectionalLight,
     Light,
-    Camera,
 )
+
+from ..cameras import Camera, PerspectiveCamera
+from ..controllers import OrbitController
+from ..materials import BackgroundMaterial
+from ..renderers import WgpuRenderer
 
 
 class Display:
@@ -54,6 +54,10 @@ class Display:
     draw_function : Callable
         Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Display
 
     """
 
@@ -236,6 +240,10 @@ def show(
     If you want to display multiple objects, use :class:`gfx.Group
     <pygfx.Group>` instead of :class:`gfx.Scene <pygfx.Scene>` if you
     want lights and background to be added.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.show
 
     """
 

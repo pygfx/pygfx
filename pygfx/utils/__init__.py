@@ -5,13 +5,12 @@ Utility functions for pygfx.
     :toctree: utils/
 
     Color
-    load_scene
-    show
-    Display
-    Viewport
-    font_manager
+    load.load_scene
+    show.show
+    show.Display
+    viewport.Viewport
+    text.font_manager
     cm
-    logger
 
 """
 
