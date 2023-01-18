@@ -4,21 +4,85 @@ from .. import linalg
 
 
 class Group(WorldObject):
-    """A Group is almost identical to a WorldObject. Its purpose is
-    to make working with groups of objects syntactically clearer.
+    """A group of objects.
+
+    A Group is useful when manipulating the scene graph as children can be
+    jointly moved/scaled/rotated. It typically has no visual properties.
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Group
+
     """
 
 
 class Scene(Group):
-    """The scene is a WorldObject that represents the root of a scene graph.
-    It hold certain attributes that relate to the scene, such as the background color,
-    fog, and environment map. Camera's and lights can also be part of a scene.
+    """Root of the scene graph.
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    The scene holds scene-level information (background color, fog, environment
+    map) as well as all objects that take part in the rendering process as either
+    direct or indirect children/nested objects.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Scene
+
     """
 
 
 class Background(WorldObject):
-    """An object representing a scene background.
+    """The scene's background.
+
+    @almarklein: how come this is an independent object and not part of Scene?
+
     Can be e.g. a gradient, a static image or a skybox.
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The geometry to use when rendering the background.
+    material : Material
+        The material to use when rendering the background.
+    kwargs : Any
+        Additional kwargs are forwarded to the object's :class:`base class
+        <pygfx.objects.WorldObject>`.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Background
+
     """
 
     def __init__(self, geometry=None, material=None, **kwargs):
@@ -28,51 +92,141 @@ class Background(WorldObject):
 
 
 class Line(WorldObject):
-    """An object consisting of a line represented by a list of vertices
-    (3D positions). Some materials will render the line as a continuous line,
-    while other materials will consider each pair of points a segment.
+    """A line.
 
-    The picking info of a Line (the result of
-    ``renderer.get_pick_info()``) will for most materials include
-    ``vertex_index`` (int) and ``segment_coord`` (float, sub-segment coordinate).
+    An object representing a line using a list of vertices (3D positions). Some
+    materials will render the line as a continuous line, while other materials
+    will consider each pair of consequtive points a segment.
+
+    The picking info of a Line (the result of ``renderer.get_pick_info()``) will
+    for most materials include ``vertex_index`` (int) and ``segment_coord``
+    (float, sub-segment coordinate).
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Line
+
     """
 
 
 class Points(WorldObject):
-    """An object consisting of points represented by vertices (3D positions).
+    """A point cloud.
+
+    An object consisting of points represented by vertices (3D positions).
 
     The picking info of a Points object (the result of
     ``renderer.get_pick_info()``) will for most materials include
-    ``vertex_index`` (int) and ``point_coord`` (tuple of 2 float coordinates
-    in logical pixels).
+    ``vertex_index`` (int) and ``point_coord`` (tuple of 2 float coordinates in
+    logical pixels).
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Points
+
     """
 
 
 class Mesh(WorldObject):
-    """An object consisting of triangular faces, represented by vertices
-    (3D positions) and an index that defines the connectivity.
+    """A mesh.
 
-    The picking info of a Mesh (the result of
-    ``renderer.get_pick_info()``) will for most materials include
-    ``instance_index`` (int), ``face_index`` (int), and ``face_coord``
-    (tuple of 3 floats). The latter are the barycentric coordinates for
-    each vertex of the face (with values 0..1).
+    An object consisting of triangular faces represented by a set of vertices
+    (3D positions) and a set of vertex indices indicating which vertex triplets
+    form mesh triangles.
+
+    The picking info of a Mesh (the result of ``renderer.get_pick_info()``) will
+    for most materials include ``instance_index`` (int), ``face_index`` (int),
+    and ``face_coord`` (tuple of 3 floats). The latter are the barycentric
+    coordinates for each vertex of the face (with values 0..1).
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Mesh
+
     """
 
 
 class Image(WorldObject):
-    """An object representing a 2D image in space.
+    """A 2D image.
 
-    The geometry for this object consists only of `geometry.grid`: a
+    The geometry for this object consists only of ``geometry.grid``: a
     texture with the 2D data.
 
     If no colormap is applied to the material, the data are interpreted as
     colors in sRGB space. To use physical space instead, set the texture's
-    colorspace property to "physical".
+    colorspace property to ``"physical"``.
 
     The picking info of an Image (the result of ``renderer.get_pick_info()``)
-    will for most materials include ``index`` (tuple of 2 int),
-    and ``pixel_coord`` (tuple of float subpixel coordinates).
+    will for most materials include ``index`` (tuple of 2 int), and
+    ``pixel_coord`` (tuple of float subpixel coordinates).
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Mesh
+
     """
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -91,14 +245,35 @@ class Image(WorldObject):
 
 
 class Volume(WorldObject):
-    """An object representing a 3D image in space (a volume).
+    """A 3D image.
 
-    The geometry for this object consists only of `geometry.grid`: a
-    texture with the 3D data.
+    The geometry for this object consists only of ``geometry.grid``: a texture
+    with the 3D data.
 
     The picking info of a Volume (the result of ``renderer.get_pick_info()``)
-    will for most materials include ``index`` (tuple of 3 int),
-    and ``voxel_coord`` (tuple of float subpixel coordinates).
+    will for most materials include ``index`` (tuple of 3 int), and
+    ``voxel_coord`` (tuple of float subpixel coordinates).
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Volume
+
     """
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -118,7 +293,31 @@ class Volume(WorldObject):
 
 
 class Text(WorldObject):
-    """An object representing text. See ``TextGeometry`` for details."""
+    """A text.
+
+    See :class:``pygfx.TextGeometry`` for details.
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The data defining the shape of the object.
+    material : Material
+        The data defining the appearence of the object.
+    visible : bool
+        Whether the object is visible.
+    render_order : int
+        The render order (when applicable for the renderer's blend mode).
+    render_mask : str
+        Determines the render passes that the object is rendered in. It's
+        recommended to let the renderer decide, using "auto".
+    position : Vector
+        The position of the object in the world. Default (0, 0, 0).
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Volume
+
+    """
 
     uniform_type = dict(
         rot_scale_transform="4x4xf4",
