@@ -243,14 +243,13 @@ class TextGeometry(Geometry):
         -------
         screen_space : bool
             If False, text size uses the unit of the local frame (e.g. cm).
-            Otherwise it is uses the logical screen's units (e.g. px).
+            Otherwise it is uses the logical screen's units (e.g. px). The
+            latter mode is typically used for annotations.
 
         Notes
         -----
         Regardless of choice, the local object's rotation and scale will still
         transform the text.
-
-        This mode is typically used for annotations.
 
         """
         return self._store.screen_space

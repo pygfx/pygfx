@@ -71,7 +71,6 @@ class BoxHelper(Line):
 
         super().__init__(geometry, material)
 
-    # should this become a classmethod? (alternative constructor)
     def set_transform_by_aabb(self, aabb, scale=1.0):
         """Align with axis aligned bounding box.
 

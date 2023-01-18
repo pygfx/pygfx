@@ -198,12 +198,6 @@ class SpotLightHelper(Line):
 
     """
 
-    # @almarklein: What is the expected shape of this indicator? Also, could we
-    # combine its code path with that for the spot light, but make the Mesh a
-    # cone that points into the opposite direction of the light source (ie. in
-    # such a way that the bottom of the cone has the light coming out, like a
-    # lamp)
-
     def __init__(self, color=None):
         self._color = color
 

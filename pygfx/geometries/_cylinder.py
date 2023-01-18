@@ -145,9 +145,6 @@ def cylinder_geometry(
 ):
     """Generate a cylinder or a cylinder segment.
 
-    .. @almarklein @korjin: isn't this inconsistend
-    .. with our convnetion that the z-axis is forward?
-
     This function generates a cylinder or a cylinder segment. The cylinder's
     axis runs along the local z-axis, and its midpoint is located at the local
     origin. The cylinder's faces (top and bottom cap) are approximated by
