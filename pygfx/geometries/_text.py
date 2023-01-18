@@ -250,8 +250,6 @@ class TextGeometry(Geometry):
         Regardless of choice, the local object's rotation and scale will still
         transform the text.
 
-        This mode is typically used for annotations.
-
         """
         return self._store.screen_space
 

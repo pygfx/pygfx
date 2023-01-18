@@ -1,6 +1,6 @@
 """ Helper functions.
 
-This module contains a collection of useful helpers.
+This module contains a collection of useful helper objects.
 
 
 .. currentmodule:: pygfx.helpers
