@@ -20,11 +20,7 @@ Currently this includes the following classes, which comprise the public API:
 
 
 .. from .resources import *
-.. from .objects import *
-.. from .geometries import *
-.. from .materials import *
 .. from .cameras import *
-.. from .helpers import *
 .. from .controllers import *
 
 .. from .renderers import *

@@ -3,17 +3,28 @@ from ..materials import Material
 
 
 class Renderer:
-    """Base class for all renderers. The purpose of a renderer is to
-    render (i.e. draw) a scene to a canvas.
+    """Renderer base class.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.Renderer
+
     """
 
     pass
 
 
 class RenderFunctionRegistry:
-    """A registry for render functions capable of rendering specific
+    """Storage for available rendering functions.
+
+    A registry for render functions capable of rendering specific
     object-material combinations. This registry allows for a scalable
     plugin-like system for a renderer's capabilities.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.RenderFunctionRegistry
+
     """
 
     def __init__(self):

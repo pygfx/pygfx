@@ -11,7 +11,20 @@ registry = RenderFunctionRegistry()
 
 
 def register_wgpu_render_function(wobject_cls, material_cls):
-    """Decorator to register a WGPU render function."""
+    """Decorator for SVG rendering functions.
+
+    Parameters
+    ----------
+    wobject_cls : WorldObject
+        The world object that this function knows how to render.
+    material_cls : Material
+        The world object that this function knows how to render.
+
+    Examples
+    --------
+    .. minigallery:: pygfx.register_svg_render_function
+
+    """
 
     def _register_wgpu_renderer(f):
         registry.register(wobject_cls, material_cls, f)
