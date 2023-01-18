@@ -32,7 +32,7 @@ extras_require = {
     ],
     "examples": [
         "pytest",
-        "PySide6",
+        "PySide6-Essentials",
         "imageio",
         "imageio-ffmpeg>=0.4.7",
         "scikit-image",
