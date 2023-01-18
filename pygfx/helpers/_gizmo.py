@@ -333,12 +333,6 @@ class TransformGizmo(WorldObject):
 
         """
 
-        # @almarklein: Assuming I interpreted above docstring correctly,
-        # wouldn't it be easier to make the gizmo a child of the controlled
-        # object and let the transform/linalg engine take care of the moving?
-        # (as its will move together with its parent, who's position the gizmo
-        # updates.)
-
         # Note that we almost always update the transform (scale,
         # rotation, position) which means the matrix changed, and so
         # does the world_matrix of all children. In effect the uniforms
