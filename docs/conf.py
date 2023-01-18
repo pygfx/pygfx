@@ -21,42 +21,6 @@ def _ignore_offscreen_run():
 os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 _ignore_offscreen_run()
 
-# ----------------------------------------------------------------------------
-
-import pygfx  # noqa: E402
-
-
-def _check_objects_are_documented():
-
-    with open(os.path.join(ROOT_DIR, "docs", "reference.rst"), "rb") as f:
-        text = f.read().decode()
-
-    # Find what classes are documented
-    objects_in_docs = set()
-    for line in text.splitlines():
-        if line.startswith(".. autoclass::"):
-            name = line.split("::")[-1].strip()
-            if name.startswith("pygfx."):
-                name = name[6:]
-            objects_in_docs.add(name)
-
-    # Check world objects
-    for name in dir(pygfx):
-        ob = getattr(pygfx, name)
-        if isinstance(ob, type) and issubclass(ob, pygfx.WorldObject):
-            if name not in objects_in_docs:
-                raise RuntimeError(f"World object {name} is not documented.")
-
-
-# TODO: @almarklein it is a bit odd to have a test like this in the config file
-# that will build the docs in particular because it runs before the docs are
-# built ... could we make it a "normal" unit test in something like `test_docs`?
-# Also: this breaks when we autogenerate the docs, because there will be no
-# explicit `.. autoclass::` line anymore. I could work out how to adapt this
-# function though, if you think it is worth keeping.
-# _check_objects_are_documented()
-
-
 # -- Project information -----------------------------------------------------
 
 project = "pygfx"
