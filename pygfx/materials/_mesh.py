@@ -48,10 +48,6 @@ class MeshBasicMaterial(Material):
     direction of the face. If this is not the case for your mesh, adjust its
     geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.MeshBasicMaterial
-
     """
 
     # @almarklein: Could we be more precise on what "physical space" means for
@@ -233,10 +229,6 @@ class MeshPhongMaterial(MeshBasicMaterial):
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.MeshPhongMaterial
-
     """
 
     # For reference:
@@ -357,10 +349,6 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.MeshNormalLinesMaterial
-
     """
 
     uniform_type = dict(
@@ -403,10 +391,6 @@ class MeshSliceMaterial(MeshBasicMaterial):
     kwargs : Any
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.MeshSliceMaterial
 
     """
 
@@ -469,10 +453,6 @@ class MeshStandardMaterial(MeshBasicMaterial):
     kwargs : Any
         Additional kwargs will be passed to the :class:`base class
         <pygfx.MeshBasicMaterial>`.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.MeshStandardMaterial
 
     """
 

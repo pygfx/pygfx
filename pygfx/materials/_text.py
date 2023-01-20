@@ -31,10 +31,6 @@ class TextMaterial(Material):
     units thicker, to counter the psychological effect that such text *looks*
     thinner than a light text on a dark background.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.TextMaterial
-
     """
 
     uniform_type = dict(

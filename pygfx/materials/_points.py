@@ -30,10 +30,6 @@ class PointsMaterial(Material):
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
 
-    Examples
-    --------
-    .. minigallery:: PointsMaterial
-
     """
 
     uniform_type = dict(

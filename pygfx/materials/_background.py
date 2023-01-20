@@ -23,10 +23,6 @@ class BackgroundMaterial(Material):
         Additional kwargs are passed to the base constructor
         (:class:`pygfx.materials.Material`).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.BackgroundMaterial
-
     """
 
     uniform_type = dict(
@@ -127,10 +123,6 @@ class BackgroundImageMaterial(BackgroundMaterial):
         Additional kwargs are passed to the base constructor
         (:class:`pygfx.materials.Material`).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.BackgroundImageMaterial
-
     """
 
     def __init__(self, map=None, **kwargs):
@@ -161,10 +153,6 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
         A Vector3 defining what way is up. Can be set to e.g. the controller's
         up vector. The given vector is "rounded" to the closest vector that is
         fully in one dimension.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.BackgroundSkyboxMaterial
 
     """
 

@@ -27,10 +27,6 @@ class LineMaterial(Material):
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
 
-    Examples
-    --------
-    .. minigallery:: LineMaterial
-
     """
 
     uniform_type = dict(

@@ -18,10 +18,6 @@ class ImageBasicMaterial(Material):
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.ImageBasicMaterial
-
     """
 
     uniform_type = dict(

@@ -24,10 +24,6 @@ def pillow_image(image, dim=2, **kwargs):
     image_texture : Texture
         A texture object representing the given image.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.pillow_image
-
     """
 
     # @almarklein: It's a bit odd that we have a texture generating function in
@@ -61,10 +57,6 @@ def trimesh_material(material):
     -------
     converted : Material
         The converted material.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.trimesh_material
 
     """
     from trimesh.visual.material import PBRMaterial  # noqa
