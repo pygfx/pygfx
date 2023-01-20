@@ -19,10 +19,6 @@ def trimesh_geometry(mesh):
     converted_mesh : Geometry
         A Geometry object representing the given mesh.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.trimesh_geometry
-
     """
     from trimesh import Trimesh  # noqa
 

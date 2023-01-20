@@ -3,38 +3,6 @@ Containers for geometry data.
 
 .. currentmodule:: pygfx.geometries
 
-.. rubric:: Basic Geometry
-.. autosummary::
-    :toctree: geometry/
-
-    box_geometry
-    cylinder_geometry
-    cone_geometry
-    sphere_geometry
-    plane_geometry
-    Geometry
-
-.. rubric:: Text Geometry
-.. autosummary::
-    :toctree: geometry/
-
-    TextGeometry
-    TextItem
-
-.. rubric:: Other/Special Geometry
-.. autosummary::
-    :toctree: geometry/
-
-    trimesh_geometry
-    octahedron_geometry
-    icosahedron_geometry
-    dodecahedron_geometry
-    tetrahedron_geometry
-    torus_knot_geometry
-    klein_bottle_geometry
-
-.. rubric:: Implementation Details
-
 A geometry object contains the data that defines (the shape of) the object, such
 as positions, plus data associated with these positions (normals, texcoords,
 colors, etc.).
@@ -61,6 +29,39 @@ The standardized names are:
 * ``sizes``: Scalar size per-vertex.
 * ``grid``: A 2D or 3D Texture/TextureView that contains a regular grid of
     data. I.e. for images and volumes.
+
+.. rubric:: Basic Geometry
+.. autosummary::
+    :toctree: geometry/
+    :template: ../_templates/clean_class.rst
+
+    box_geometry
+    cylinder_geometry
+    cone_geometry
+    sphere_geometry
+    plane_geometry
+    Geometry
+
+.. rubric:: Text Geometry
+.. autosummary::
+    :toctree: geometry/
+    :template: ../_templates/clean_class.rst
+
+    TextGeometry
+    TextItem
+
+.. rubric:: Other/Special Geometry
+.. autosummary::
+    :toctree: geometry/
+    :template: ../_templates/clean_class.rst
+
+    trimesh_geometry
+    octahedron_geometry
+    icosahedron_geometry
+    dodecahedron_geometry
+    tetrahedron_geometry
+    torus_knot_geometry
+    klein_bottle_geometry
 
 """
 

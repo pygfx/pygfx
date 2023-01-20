@@ -23,10 +23,6 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
     tetrahedron : Geometry
         A geometry object representing the desired tetrahedron.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.tetrahedron_geometry
-
     """
     positions = np.array(
         [
@@ -70,10 +66,6 @@ def octahedron_geometry(radius=1.0, subdivisions=0):
     -------
     octahedron : Geometry
         A geometry object representing the desired octahedron.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.octahedron_geometry
 
     """
     positions = np.array(
@@ -124,10 +116,6 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
     -------
     icosahedron : Geometry
         A geometry object representing the desired icosahedron.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.icosahedron_geometry
 
     """
     t = (1 + np.sqrt(5)) / 2
@@ -198,10 +186,6 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
     -------
     dodecahedron : Geometry
         A geometry object representing the desired dodecahedron.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.dodecahedron_geometry
 
     """
     t = (1 + np.sqrt(5)) / 2

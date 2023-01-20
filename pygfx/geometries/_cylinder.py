@@ -182,10 +182,6 @@ def cylinder_geometry(
     cylinder : Geometry
         A geometry object representing a cylinder.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.cylinder_geometry
-
     """
 
     assert radial_segments > 0
@@ -282,10 +278,6 @@ def cone_geometry(
     See Also
     --------
     pygfx.cylinder_geometry
-
-    Examples
-    --------
-    .. minigallery:: pygfx.cone_geometry
 
     """
 

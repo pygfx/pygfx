@@ -24,10 +24,6 @@ def klein_bottle_geometry(scale=1.0):
     klein_bottle : Geometry
         A geometry object representing the requested klein bottle.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.klein_bottle_geometry
-
     """
 
     # This is an interesting object for mathematicians. For us it's
@@ -110,23 +106,27 @@ def torus_knot_geometry(
     defined by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
 
-    Parameters:
-        scale (float): the scale of the torus, default 1.
-        tube (float): the radius of the tube. Default 0.4.
-        tubular_segments (int): default is 64.
-        radial_segments (int): default is 8.
-        p (int): how many times the geometry winds around its axis of
-            rotational symmetry. Default 2.
-        q (int): how many times the geometry winds around a circle in
-            the interior of the torus. Default 3.
+    Parameters
+    ----------
+    scale : float
+        The scale of the torus, default 1.
+    tube : float
+        The radius of the tube. Default 0.4.
+    tubular_segments : int
+        default is 64.
+    radial_segments : int
+        default is 8.
+    p : int
+        How many times the geometry winds around its axis of
+        rotational symmetry. Default 2.
+    q : int
+        How many times the geometry winds around a circle in
+        the interior of the torus. Default 3.
 
-    Returns:
-        torus (Geometry): A geometry object representing the requested torus.
-
-    Examples
-    --------
-
-    .. minigallery:: pygfx.torus_know_geometry
+    Returns
+    -------
+    torus : Geometry
+        A geometry object representing the requested torus.
 
     """
 

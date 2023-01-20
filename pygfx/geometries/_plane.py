@@ -64,10 +64,6 @@ def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
     plane : Geometry
         A geometry object representing the requested plane.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.plane_geometry
-
     """
 
     positions, normals, texcoords, indices = generate_plane(

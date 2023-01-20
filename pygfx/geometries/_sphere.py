@@ -50,10 +50,6 @@ def sphere_geometry(
     sphere : Geometry
         A geometry object that represents the requested sphere or sphere segment.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.sphere_geometry
-
     """
 
     # create grid of spherical coordinates

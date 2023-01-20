@@ -7,6 +7,7 @@ This module contains a collection of useful helper objects.
 
 .. autosummary::
     :toctree: helpers/
+    :template: ../_templates/clean_class.rst
 
     AxesHelper
     GridHelper

@@ -41,10 +41,6 @@ def box_geometry(
     box : Geometry
         A geometry object containing the requested box shape.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.box_geometry
-
     """
 
     cube_dim = np.array([width, height, depth], dtype=np.float32)

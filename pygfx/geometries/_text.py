@@ -58,10 +58,6 @@ class TextItem:
     allow_break : bool
         If True, allow a linebreak to be placed after this piece of text.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.TextItem
-
     """
 
     def __init__(
@@ -175,10 +171,6 @@ class TextGeometry(Geometry):
         The text direction. By default the text direction is determined
         automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
         'ttb' or 'btt'.
-
-    Examples
-    --------
-    .. minigallery: pygfx.TextGeometry
 
     """
 
