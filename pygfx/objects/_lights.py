@@ -45,10 +45,6 @@ class Light(WorldObject):
     a Light, and `receive_shadow` on the illuminated object. Shadows will only
     be displayed if both are set to True.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Light
-
     """
 
     # Note that for lights and shadows, the uniform data is stored on the environment.
@@ -137,10 +133,6 @@ class AmbientLight(Light):
         The light intensity. A value of ``0.2`` corresponds to a dimly lit
         scene.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.AmbientLight
-
     """
 
     def __init__(self, color="#ffffff", intensity=0.2):
@@ -174,10 +166,6 @@ class PointLight(Light):
     When setting ``decay`` to a non-zero value you likely probably have to
     increase intensity (a lot) as light decays following an inverse-square
     profile.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.PointLight
 
     """
 
@@ -270,10 +258,6 @@ class DirectionalLight(Light):
     a Light, and `receive_shadow` on the illuminated object. Shadows will only
     be displayed if both are set to True.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.DirectionalLight
-
     """
 
     uniform_type = dict(
@@ -356,10 +340,6 @@ class SpotLight(Light):
     When setting ``decay`` to a non-zero value you likely probably have to
     increase intensity (a lot) as light decays following an inverse-square
     profile.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.SpotLight
 
     """
 
@@ -503,10 +483,6 @@ class LightShadow:
         the scene; objects occluded by other objects from the light's
         perspective will receive shadow.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.LightShadow
-
     """
 
     def __init__(self, camera: Camera) -> None:
@@ -568,13 +544,7 @@ class LightShadow:
 
 
 class DirectionalLightShadow(LightShadow):
-    """Shadow map utility for directional lights.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.DirectionalLightShadow
-
-    """
+    """Shadow map utility for directional lights."""
 
     def __init__(self) -> None:
         # OrthographicCamera for directional light
@@ -587,13 +557,7 @@ class DirectionalLightShadow(LightShadow):
 
 
 class SpotLightShadow(LightShadow):
-    """Shadow map utility for spot light sources.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.SpotLightShadow
-
-    """
+    """Shadow map utility for spot light sources."""
 
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
@@ -617,13 +581,7 @@ class SpotLightShadow(LightShadow):
 
 
 class PointLightShadow(LightShadow):
-    """Shadow map utility for point light sources.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.PointLightShadow
-
-    """
+    """Shadow map utility for point light sources."""
 
     _cube_directions = [
         Vector3(1, 0, 0),

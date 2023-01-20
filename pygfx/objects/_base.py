@@ -107,10 +107,6 @@ class WorldObject(EventTarget, RootTrackable):
     Use :class:`Group` to collect multiple world objects into a single empty
     world object.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.WorldObject
-
     """
 
     # The uniform type describes the structured info for this object, which represents

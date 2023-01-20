@@ -25,10 +25,6 @@ class Group(WorldObject):
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Group
-
     """
 
 
@@ -55,10 +51,6 @@ class Scene(Group):
     map) as well as all objects that take part in the rendering process as either
     direct or indirect children/nested objects.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Scene
-
     """
 
 
@@ -78,10 +70,6 @@ class Background(WorldObject):
     kwargs : Any
         Additional kwargs are forwarded to the object's :class:`base class
         <pygfx.objects.WorldObject>`.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.Background
 
     """
 
@@ -118,10 +106,6 @@ class Line(WorldObject):
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Line
-
     """
 
 
@@ -150,10 +134,6 @@ class Points(WorldObject):
         recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
-
-    Examples
-    --------
-    .. minigallery:: pygfx.Points
 
     """
 
@@ -185,10 +165,6 @@ class Mesh(WorldObject):
         recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
-
-    Examples
-    --------
-    .. minigallery:: pygfx.Mesh
 
     """
 
@@ -222,10 +198,6 @@ class Image(WorldObject):
         recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
-
-    Examples
-    --------
-    .. minigallery:: pygfx.Mesh
 
     """
 
@@ -270,10 +242,6 @@ class Volume(WorldObject):
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Volume
-
     """
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -312,10 +280,6 @@ class Text(WorldObject):
         recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
-
-    Examples
-    --------
-    .. minigallery:: pygfx.Volume
 
     """
 

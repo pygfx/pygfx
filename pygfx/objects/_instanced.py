@@ -22,10 +22,6 @@ class InstancedMesh(Mesh):
         Additional kwargs get forwarded to the :class:`base class
         <pygfx.objects.Mesh>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.InstancedMesh
-
     """
 
     def __init__(self, geometry, material, count, **kwargs):

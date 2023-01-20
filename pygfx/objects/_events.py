@@ -57,10 +57,6 @@ class Event:
     event_type : str
         Unused.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Event
-
     """
 
     def __init__(
@@ -156,10 +152,6 @@ class KeyboardEvent(Event):
         Additional keyword arguments are forward to the :class:`base class
         <pygfx.objects.Event>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.KeyboardEvent
-
     """
 
     def __init__(self, *args, key, modifiers=None, **kwargs):
@@ -199,10 +191,6 @@ class PointerEvent(Event):
     kwargs : Any
         Additional keyword arguments are forward to the :class:`base class
         <pygfx.objects.Event>`.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.PointerEvent
 
     """
 
@@ -272,10 +260,6 @@ class WheelEvent(PointerEvent):
         Additional keyword arguments are forward to the :class:`base class
         <pygfx.objects.Event>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.WheelEvent
-
     """
 
     def __init__(self, *args, dx, dy, **kwargs):
@@ -302,10 +286,6 @@ class WindowEvent(Event):
         Additional keyword arguments are forward to the :class:`base class
         <pygfx.objects.Event>`.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.WheelEvent
-
     """
 
     def __init__(self, *args, width=None, height=None, pixel_ratio=None, **kwargs):
@@ -327,10 +307,6 @@ class EventTarget:
         Arguments are forwarded to allow multiple inheritance.
     kwargs : Any
         Kwargs are forwarded to allow multiple inheritance.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.EventTarget
 
     """
 
@@ -440,10 +416,6 @@ class RootEventHandler(EventTarget):
     """Pygfx event handler.
 
     Root event handler for the Pygfx event system.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.RootEventHandler
 
     """
 
