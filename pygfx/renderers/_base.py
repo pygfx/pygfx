@@ -3,13 +3,7 @@ from ..materials import Material
 
 
 class Renderer:
-    """Renderer base class.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.Renderer
-
-    """
+    """Renderer base class."""
 
     pass
 
@@ -20,10 +14,6 @@ class RenderFunctionRegistry:
     A registry for render functions capable of rendering specific
     object-material combinations. This registry allows for a scalable
     plugin-like system for a renderer's capabilities.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.RenderFunctionRegistry
 
     """
 

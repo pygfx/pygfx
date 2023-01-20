@@ -21,10 +21,6 @@ def register_svg_render_function(wobject_cls, material_cls):
     material_cls : Material
         The world object that this function knows how to render.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.register_svg_render_function
-
     """
 
     def _register_svg_render_function(f):
@@ -45,10 +41,6 @@ class SvgRenderer(Renderer):
         The height of the resulting image.
     filename : str
         The name of the location to which to write the image.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.SvgRenderer
 
     """
 

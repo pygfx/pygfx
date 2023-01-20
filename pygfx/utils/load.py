@@ -20,10 +20,6 @@ def load_scene(path):
     meshes : list
         A list of loaded meshes.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.load_scene
-
     """
 
     import trimesh  # noqa

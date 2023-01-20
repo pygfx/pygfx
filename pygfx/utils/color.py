@@ -73,10 +73,6 @@ class Color:
         The color specification. Check the docstring of this function for
         details on available format options.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Color
-
     """
 
     # Internally, the color is a ctypes float array

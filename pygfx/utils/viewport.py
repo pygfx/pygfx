@@ -12,10 +12,6 @@ class Viewport:
         The viewport rect (x, y, w, h). If None, it is set to the full size of
         the renderer's canvas.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Viewport
-
     """
 
     def __init__(self, renderer, rect=None):

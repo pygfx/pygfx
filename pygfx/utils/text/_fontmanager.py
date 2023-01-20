@@ -119,10 +119,6 @@ class FontManager:
     message is produced, that includes a link to where the font can be installed
     from.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.FontManager
-
     """
 
     def __init__(self):

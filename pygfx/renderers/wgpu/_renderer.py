@@ -112,10 +112,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         The gamma correction to apply in the final render stage. Typically a
         number between 0.0 and 2.0. A value of 1.0 indicates no correction.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.WgpuRenderer
-
     References
     ----------
     [1] McGuire 2013 @almarklein: can we give a fully qualified reference here?

@@ -55,10 +55,6 @@ class Display:
         Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Display
-
     """
 
     def __init__(
@@ -240,10 +236,6 @@ def show(
     If you want to display multiple objects, use :class:`gfx.Group
     <pygfx.Group>` instead of :class:`gfx.Scene <pygfx.Scene>` if you
     want lights and background to be added.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.show
 
     """
 

@@ -37,10 +37,6 @@ class Buffer(Resource):
         pygfx format specifier, e.g. "3xf4", but can also be a format specific
         to the render backend if necessary (e.g. from ``wgpu.VertexFormat``).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Buffer
-
     """
 
     def __init__(

@@ -35,10 +35,6 @@ class Texture(Resource):
             If True, automatically generates mipmaps when transfering data to
             the GPU.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.Texture
-
     """
 
     def __init__(
@@ -327,10 +323,6 @@ class TextureView(Resource):
         @almarklein: this is an odd parameter choice. Why `range` and not `slice`?
     layer_range : range
         A range object specifying the array layers to view.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.TextureView
 
     """
 
