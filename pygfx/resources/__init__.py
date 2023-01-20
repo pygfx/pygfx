@@ -5,6 +5,7 @@ Resource handlers for GPU objects.
 
 .. autosummary::
     :toctree: texture/
+    :template: ../_templates/clean_class.rst
 
     Resource
     Buffer

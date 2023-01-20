@@ -7,6 +7,7 @@ Materials define how an object is rendered, subject to certain properties.
 
 .. autosummary::
     :toctree: materials/
+    :template: ../_templates/clean_class.rst
 
     Material
     pillow_image

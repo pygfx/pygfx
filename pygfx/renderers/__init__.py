@@ -29,6 +29,7 @@ canvas, averaging neighbouring fragments for anti-aliasing.
 
 .. autosummary::
     :toctree: renderers/
+    :template: ../_templates/clean_class.rst
 
     Renderer
     RenderFunctionRegistry

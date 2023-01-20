@@ -3,6 +3,7 @@
 .. rubric:: Objects
 .. autosummary::
     :toctree: objects/
+    :template: ../_templates/clean_class.rst
     
     WorldObject
     id_provider
@@ -31,6 +32,7 @@
 .. rubric:: Events
 .. autosummary::
     :toctree: objects/
+    :template: ../_templates/clean_class.rst
 
     Event
     EventTarget

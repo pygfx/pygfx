@@ -3,6 +3,7 @@ Utility functions for pygfx.
 
 .. autosummary::
     :toctree: utils/
+    :template: ../_templates/clean_class.rst
 
     Color
     load.load_scene
