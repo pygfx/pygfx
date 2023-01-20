@@ -31,10 +31,6 @@ class GridHelper(Line):
     thickness : int
         The thickness in screen units (pixels).
 
-    Examples
-    --------
-    .. minigallery:: pygfx.GridHelper
-
     """
 
     def __init__(

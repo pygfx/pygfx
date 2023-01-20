@@ -17,10 +17,6 @@ class BoxHelper(Line):
     color : Color
         The color of the box.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.BoxHelper
-
     """
 
     # @almarklein: Should we move this to geometry._box? It clearly has a

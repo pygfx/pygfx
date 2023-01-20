@@ -27,9 +27,6 @@ class AxesHelper(Line):
     thickness : float
         The thickness of the lines in (onscreen) pixels.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.AxesHelper
     """
 
     def __init__(self, size=1.0, thickness=2):

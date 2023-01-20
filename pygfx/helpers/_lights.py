@@ -31,10 +31,6 @@ class PointLightHelper(Mesh):
     color : Color
         The color of the sphere. If None, match the color of the light.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.PointLightHelper
-
     """
 
     def __init__(self, size=1, geometry=None, color=None):
@@ -72,10 +68,6 @@ class DirectionalLightHelper(Line):
         The color of the arrows. If None, match the color of the light.
     show_shadow_extent : bool
         If True, indicate the extent of the shadow map.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.DirectionalLightHelper
 
     """
 
@@ -191,10 +183,6 @@ class SpotLightHelper(Line):
     ----------
     color : Color
         The color of the arrows. If None, match the color of the light.
-
-    Examples
-    --------
-    .. minigallery:: pygfx.SpotLightHelper
 
     """
 

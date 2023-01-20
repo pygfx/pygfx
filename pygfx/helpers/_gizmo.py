@@ -46,10 +46,6 @@ class TransformGizmo(WorldObject):
     screen_size : float
         The approximate size of the widget in logical pixels. Default 100.
 
-    Examples
-    --------
-    .. minigallery:: pygfx.TransformGizmo
-
     """
 
     def __init__(self, object=None, screen_size=100):
