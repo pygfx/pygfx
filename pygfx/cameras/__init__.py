@@ -1,3 +1,15 @@
+""" Objects to view a scene.
+
+.. autosummary::
+
+    Camera
+    NDCCamera
+    ScreenCoordsCamera
+    PerspectiveCamera
+    OrthographicCamera
+
+"""
+
 # flake8: noqa
 
 from ._base import Camera, NDCCamera, ScreenCoordsCamera
