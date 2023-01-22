@@ -1,32 +1,6 @@
 API Reference
 =============
 
-.. rubric:: Public API
-
-The primary way of accessing pygfx is by using the members of its top-level namespace.
-Currently this includes the following classes, which comprise the public API:
-
-.. autosummary::
-
-    pygfx.objects.WorldObject
-    pygfx.utils.color.Color
-    pygfx.utils.load.load_scene
-    pygfx.utils.show.show
-    pygfx.utils.show.Display
-    pygfx.utils.viewport.Viewport
-    pygfx.utils.text.font_manager
-    pygfx.utils.cm
-    pygfx.utils.logger
-
-
-.. from .resources import *
-.. from .cameras import *
-.. from .controllers import *
-
-.. from .renderers import *
-
-
-
 .. rubric:: Sub-Packages
 
 Internally, pygfx is structured into several sub-packages that provide the
@@ -48,29 +22,133 @@ you can read more about them here:
     pygfx.resources
     pygfx.utils
 
+.. rubric:: Public API
 
-Camera objects
---------------
+The primary way of accessing pygfx is by using the members of its top-level namespace.
+Currently this includes the following classes, which comprise the public API:
 
-.. autoclass:: pygfx.Camera
-    :members:
-    :member-order: bysource
+.. autosummary::
 
-.. autoclass:: pygfx.NDCCamera
-    :members:
-    :member-order: bysource
+    ~pygfx.geometries.box_geometry
+    ~pygfx.geometries.cylinder_geometry
+    ~pygfx.geometries.cone_geometry
+    ~pygfx.geometries.sphere_geometry
+    ~pygfx.geometries.plane_geometry
+    ~pygfx.geometries.Geometry
+    ~pygfx.geometries.TextGeometry
+    ~pygfx.geometries.TextItem
+    ~pygfx.geometries.trimesh_geometry
+    ~pygfx.geometries.octahedron_geometry
+    ~pygfx.geometries.icosahedron_geometry
+    ~pygfx.geometries.dodecahedron_geometry
+    ~pygfx.geometries.tetrahedron_geometry
+    ~pygfx.geometries.torus_knot_geometry
+    ~pygfx.geometries.klein_bottle_geometry
+    ~pygfx.helpers.AxesHelper
+    ~pygfx.helpers.GridHelper
+    ~pygfx.helpers.BoxHelper
+    ~pygfx.helpers.TransformGizmo
+    ~pygfx.helpers.PointLightHelper
+    ~pygfx.helpers.DirectionalLightHelper
+    ~pygfx.helpers.SpotLightHelper
 
-.. autoclass:: pygfx.ScreenCoordsCamera
-    :members:
-    :member-order: bysource
+    ~pygfx.materials.Material
+    ~pygfx.materials.pillow_image
+    ~pygfx.materials.trimesh_material
+    ~pygfx.materials.MeshBasicMaterial
+    ~pygfx.materials.MeshPhongMaterial
+    ~pygfx.materials.MeshNormalMaterial
+    ~pygfx.materials.MeshNormalLinesMaterial
+    ~pygfx.materials.MeshSliceMaterial
+    ~pygfx.materials.MeshStandardMaterial
+    ~pygfx.materials.PointsMaterial
+    ~pygfx.materials.GaussianPointsMaterial
+    ~pygfx.materials.LineMaterial
+    ~pygfx.materials.LineThinMaterial
+    ~pygfx.materials.LineThinSegmentMaterial
+    ~pygfx.materials.LineSegmentMaterial
+    ~pygfx.materials.LineArrowMaterial
+    ~pygfx.materials.ImageBasicMaterial
+    ~pygfx.materials.VolumeBasicMaterial
+    ~pygfx.materials.VolumeSliceMaterial
+    ~pygfx.materials.VolumeRayMaterial
+    ~pygfx.materials.VolumeMipMaterial
+    ~pygfx.materials.BackgroundMaterial
+    ~pygfx.materials.BackgroundImageMaterial
+    ~pygfx.materials.BackgroundSkyboxMaterial
+    ~pygfx.materials.TextMaterial
 
-.. autoclass:: pygfx.OrthographicCamera
-    :members:
-    :member-order: bysource
+    ~pygfx.objects.WorldObject
+    ~pygfx.objects.id_provider
+    ~pygfx.objects.Group
+    ~pygfx.objects.Scene
+    ~pygfx.objects.Background
+    ~pygfx.objects.Points
+    ~pygfx.objects.Line
+    ~pygfx.objects.Mesh
+    ~pygfx.objects.Image
+    ~pygfx.objects.Volume
+    ~pygfx.objects.Text
+    ~pygfx.objects.InstancedMesh
+    ~pygfx.objects.Light
+    ~pygfx.objects.PointLight
+    ~pygfx.objects.DirectionalLight
+    ~pygfx.objects.AmbientLight
+    ~pygfx.objects.SpotLight
+    ~pygfx.objects.LightShadow
+    ~pygfx.objects.DirectionalLightShadow
+    ~pygfx.objects.SpotLightShadow
+    ~pygfx.objects.PointLightShadow
 
-.. autoclass:: pygfx.PerspectiveCamera
-    :members:
-    :member-order: bysource
+    ~pygfx.renderers.Renderer
+    ~pygfx.renderers.RenderFunctionRegistry
+    ~pygfx.renderers.WgpuRenderer
+    ~pygfx.renderers.SvgRenderer
+    ~pygfx.renderers.register_wgpu_render_function
+    ~pygfx.renderers.register_svg_render_function
+
+    ~pygfx.resources.Resource
+    ~pygfx.resources.Buffer
+    ~pygfx.resources.Texture
+    ~pygfx.resources.TextureView
+
+    ~pygfx.utils.color.Color
+    ~pygfx.utils.load.load_scene
+    ~pygfx.utils.show.show
+    ~pygfx.utils.show.Display
+    ~pygfx.utils.viewport.Viewport
+    ~pygfx.utils.text.font_manager
+    ~pygfx.utils.cm
+    ~pygfx.utils.logger
+
+
+.. from .resources import *
+.. from .cameras import *
+.. from .controllers import *
+
+
+.. Camera objects
+.. --------------
+
+.. .. autoclass:: pygfx.Camera
+..     :members:
+..     :member-order: bysource
+
+.. .. autoclass:: pygfx.NDCCamera
+..     :members:
+..     :member-order: bysource
+
+.. .. autoclass:: pygfx.ScreenCoordsCamera
+..     :members:
+..     :member-order: bysource
+
+.. .. autoclass:: pygfx.OrthographicCamera
+..     :members:
+..     :member-order: bysource
+
+.. .. autoclass:: pygfx.PerspectiveCamera
+..     :members:
+..     :member-order: bysource
 
 
 .. Controllers
