@@ -1,6 +1,7 @@
-""" Helper functions.
+"""Helpers for visual debugging of scenes.
 
-This module contains a collection of useful helper objects.
+This module contains a collection of WorldObjects that can be useful to have
+when debugging a scene or to create reference points within a scene.
 
 
 .. currentmodule:: pygfx.helpers

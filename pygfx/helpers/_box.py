@@ -19,10 +19,6 @@ class BoxHelper(Line):
 
     """
 
-    # @almarklein: Should we move this to geometry._box? It clearly has a
-    # usecase as a aabb helper, but seems to have merit outside of this context,
-    # too.
-
     def __init__(self, size=1.0, thickness=1, color="white"):
 
         self._size = float(size)
