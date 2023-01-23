@@ -1,6 +1,7 @@
 """ Objects to view a scene.
 
 .. autosummary::
+    :toctree: cameras/
 
     Camera
     NDCCamera
