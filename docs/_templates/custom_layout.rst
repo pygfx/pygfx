@@ -4,6 +4,8 @@
 
 {% if objtype == "function" %}
 .. autofunction:: {{ objname }}
+{% elif objtype == "module" %}
+.. automodule:: {{ fullname }}
 {% else %}
 .. autoclass:: {{ objname }}
    {% block methods %}
@@ -54,5 +56,7 @@
    {% endblock %}
 
 {% endif %}
+{% if objtype != "module" %}
    .. rubric:: Examples
    .. minigallery:: pygfx.{{name}}
+{% endif %}

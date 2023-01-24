@@ -10,6 +10,7 @@ you can read more about them here:
 
 .. autosummary::
     :toctree: _autosummary/
+    :template: custom_module.rst
 
     pygfx.cameras
     pygfx.controllers
