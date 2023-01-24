@@ -57,8 +57,6 @@ class Scene(Group):
 class Background(WorldObject):
     """The scene's background.
 
-    @almarklein: how come this is an independent object and not part of Scene?
-
     Can be e.g. a gradient, a static image or a skybox.
 
     Parameters
