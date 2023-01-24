@@ -159,6 +159,3 @@ class LineArrowMaterial(LineSegmentMaterial):
     """Arrow (vector) line material.
 
     A material that renders line segments that look like little vectors."""
-
-    # @almarklein: This is a thin (1:1) wrapper around LineMaterial. Out of
-    # curiosity, how does it do more than the base class?
