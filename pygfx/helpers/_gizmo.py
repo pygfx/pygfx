@@ -533,8 +533,6 @@ class TransformGizmo(WorldObject):
         self._viewport = viewport
         self._camera = camera
 
-        # @almarklein: out of curiosity, what happens if we have more than one
-        # gizmo? Will events alias/collide?
         self.add_event_handler(
             self.process_event, "pointer_down", "pointer_move", "pointer_up", "wheel"
         )
