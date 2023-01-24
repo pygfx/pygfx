@@ -13,7 +13,7 @@ from ..utils import Color
 
 
 class AxesHelper(Line):
-    """Generate an axis indicator.
+    """A WorldObject to indicate the scene's axes.
 
     Generates three arrows starting at the local origin and pointing into the
     direction of the local x, y, and z-axis respectively. Each arrow is colored

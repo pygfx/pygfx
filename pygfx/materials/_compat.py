@@ -26,9 +26,6 @@ def pillow_image(image, dim=2, **kwargs):
 
     """
 
-    # @almarklein: It's a bit odd that we have a texture generating function in
-    # materials. Could we think of a better place for this, e.g., resources?
-
     from PIL.Image import Image  # noqa
 
     if not isinstance(image, Image):
@@ -44,9 +41,7 @@ def pillow_image(image, dim=2, **kwargs):
 
 
 def trimesh_material(material):
-    """Trimesh material.
-
-    Converts a trimesh material into a pygfx material.
+    """Convert a trimesh material into a pygfx material.
 
     Parameters
     ----------

@@ -315,9 +315,8 @@ class TextureView(Resource):
         The dimensionality of the array (1, 2 or 3). If None, use the texture's
         dimension. Or e.g. get a "2d" slice view from a 3d texture, or e.g.
         "cube" or "2d-array".
-    aspect : str
-        Omit or pass None to use the default.
-        @almarklein: What does this do?
+    aspect : Enum
+        The `wgpu.TextureAspect` for this view. Omit or pass None to use the default.
     mip_range : range
         A range object specifying the viewed mip levels.
         @almarklein: this is an odd parameter choice. Why `range` and not `slice`?

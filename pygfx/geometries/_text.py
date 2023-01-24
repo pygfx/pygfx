@@ -134,7 +134,7 @@ class GlyphItem:
 
 
 class TextGeometry(Geometry):
-    """Generate Text.
+    """Geometry specific for representing text.
 
     The TextGeometry creates and stores the geometry to render a piece of text.
     It can be provided as plain text or in markdown to support basic formatting.

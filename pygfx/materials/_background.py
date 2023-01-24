@@ -116,7 +116,7 @@ class BackgroundImageMaterial(BackgroundMaterial):
 
     Parameters
     ----------
-    map : @almarklein what type does map have?
+    map : Texture
         If map is a 2D texture, it is used as static background image. If map is
         a cube texture, it is used as a skybox.
     kwargs : Any
@@ -147,8 +147,8 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
 
     Parameters
     ----------
-    map : Any
-        @almarklein: same as above. Could you suggest a suitable description?
+    map : Texture
+        A texture cube.
     up : tuple, Vector3
         A Vector3 defining what way is up. Can be set to e.g. the controller's
         up vector. The given vector is "rounded" to the closest vector that is

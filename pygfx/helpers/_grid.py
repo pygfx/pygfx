@@ -7,7 +7,7 @@ DTYPE = "f4"
 
 
 class GridHelper(Line):
-    """Generate a grid-shaped wireframe.
+    """A WorldObject that shows a grid-shaped wireframe.
 
     The generated grid will be in the xz-plane centered at the origin. To
     position the grid, manipulate its parent's position, rotation, etc.

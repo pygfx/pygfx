@@ -132,8 +132,5 @@ class GaussianPointsMaterial(PointsMaterial):
     deviation of 1/6 of the size.
     """
 
-    # @almarklein: Where does the implementation for this live?
-
-
 # idea: a MarkerMaterial with more options for the shape, and an edge around the shape.
 # Though perhaps such a material should be part of a higher level plotting lib.

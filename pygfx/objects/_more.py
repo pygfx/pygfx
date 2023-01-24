@@ -80,10 +80,9 @@ class Background(WorldObject):
 
 
 class Line(WorldObject):
-    """A line.
-
-    An object representing a line using a list of vertices (3D positions). Some
-    materials will render the line as a continuous line, while other materials
+    """An object representing a line using a list of vertices (3D positions).
+    
+    Some materials will render the line as a continuous line, while other materials
     will consider each pair of consequtive points a segment.
 
     The picking info of a Line (the result of ``renderer.get_pick_info()``) will
@@ -267,8 +266,8 @@ class Text(WorldObject):
 
     Parameters
     ----------
-    geometry : Geometry
-        The data defining the shape of the object.
+    geometry : TextGeometry
+        The data defining the glyphs that make up the text.
     material : Material
         The data defining the appearence of the object.
     visible : bool

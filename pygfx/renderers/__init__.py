@@ -31,8 +31,6 @@ canvas, averaging neighbouring fragments for anti-aliasing.
     :toctree: renderers/
     :template: ../_templates/clean_class.rst
 
-    Renderer
-    RenderFunctionRegistry
     WgpuRenderer
     SvgRenderer
 

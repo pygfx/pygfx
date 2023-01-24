@@ -1,4 +1,4 @@
-""" Containers for World Objects and Events.
+""" World Objects and Events.
 
 .. rubric:: Objects
 .. autosummary::

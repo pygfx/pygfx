@@ -4,7 +4,7 @@ from ._base import Geometry
 
 
 def klein_bottle_geometry(scale=1.0):
-    """Generate a (Almar ^.^) klein bottle.
+    """Generate a Klein bottle.
 
     The Klein bottle is a surface for which the inside and outside
     are the same, similar to a Möbius strip. In fact, a Klein bottle

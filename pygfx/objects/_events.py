@@ -281,7 +281,7 @@ class WindowEvent(Event):
     height : int
         The new height of the application window in screen space (px).
     pixel_ratio : float
-        The new pixel ratio. (@almarklein: is this aspect ratio or dpi or something else?)
+        The new ratio between logical pixels and physical pixels.
     kwargs : Any
         Additional keyword arguments are forward to the :class:`base class
         <pygfx.objects.Event>`.

@@ -4,7 +4,7 @@ from .. import Geometry, Line, LineSegmentMaterial
 
 
 class BoxHelper(Line):
-    """Generate a box-shaped wireframe.
+    """A WorldObject that shows a box-shaped wireframe.
 
     Commonly used to visualize bounding boxes.
 

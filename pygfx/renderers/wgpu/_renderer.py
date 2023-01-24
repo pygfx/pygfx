@@ -114,7 +114,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     References
     ----------
-    [1] McGuire 2013 @almarklein: can we give a fully qualified reference here?
+    [1] Morgan McGuire and Louis Bavoil, Weighted Blended Order-Independent Transparency, Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 2013
 
     """
 

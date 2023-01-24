@@ -1,6 +1,6 @@
 """Helpers for visual debugging of scenes.
 
-This module contains a collection of WorldObjects that can be useful to have
+This module contains a collection of WorldObjects that can be useful
 when debugging a scene or to create reference points within a scene.
 
 
