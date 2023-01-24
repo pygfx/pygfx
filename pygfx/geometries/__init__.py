@@ -33,7 +33,7 @@ The standardized names are:
 .. rubric:: Basic Geometry
 .. autosummary::
     :toctree: geometry/
-    :template: ../_templates/clean_class.rst
+    :template: ../_templates/custom_layout.rst
 
     box_geometry
     cylinder_geometry
@@ -45,7 +45,7 @@ The standardized names are:
 .. rubric:: Text Geometry
 .. autosummary::
     :toctree: geometry/
-    :template: ../_templates/clean_class.rst
+    :template: ../_templates/custom_layout.rst
 
     TextGeometry
     TextItem
@@ -53,7 +53,7 @@ The standardized names are:
 .. rubric:: Other/Special Geometry
 .. autosummary::
     :toctree: geometry/
-    :template: ../_templates/clean_class.rst
+    :template: ../_templates/custom_layout.rst
 
     trimesh_geometry
     octahedron_geometry

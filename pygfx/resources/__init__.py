@@ -7,7 +7,7 @@ In pygfx, data is stored in buffers and textures. We collectively call these res
 
 .. autosummary::
     :toctree: texture/
-    :template: ../_templates/clean_class.rst
+    :template: ../_templates/custom_layout.rst
 
     Resource
     Buffer

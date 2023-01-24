@@ -2,6 +2,9 @@
 
 .. currentmodule:: {{ module }}
 
+{% if objtype == "function" %}
+.. autofunction:: {{ objname }}
+{% else %}
 .. autoclass:: {{ objname }}
    {% block methods %}
    {% if methods %}
@@ -50,5 +53,6 @@
    {% endif %}
    {% endblock %}
 
+{% endif %}
    .. rubric:: Examples
    .. minigallery:: pygfx.{{name}}

@@ -8,7 +8,7 @@ when debugging a scene or to create reference points within a scene.
 
 .. autosummary::
     :toctree: helpers/
-    :template: ../_templates/clean_class.rst
+    :template: ../_templates/custom_layout.rst
 
     AxesHelper
     GridHelper
