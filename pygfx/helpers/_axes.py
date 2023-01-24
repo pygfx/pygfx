@@ -42,7 +42,6 @@ class AxesHelper(Line):
             dtype="f4",
         )
 
-        # TODO: maybe change to colors that are friendly for colorblind users.
         colors = np.array(
             [
                 [1, 0, 0, 1],
