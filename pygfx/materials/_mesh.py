@@ -328,6 +328,7 @@ class MeshNormalMaterial(MeshBasicMaterial):
     The ``flat_shading`` property can be used to show face normals.
     """
 
+
 class MeshNormalLinesMaterial(MeshBasicMaterial):
     """Render surface normals as lines.
 

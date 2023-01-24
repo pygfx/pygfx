@@ -79,7 +79,7 @@ class Background(WorldObject):
 
 class Line(WorldObject):
     """An object representing a line using a list of vertices (3D positions).
-    
+
     Some materials will render the line as a continuous line, while other materials
     will consider each pair of consequtive points a segment.
 

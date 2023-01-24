@@ -39,33 +39,33 @@ class Color:
     instantiated in a variety of ways. E.g. by providing the color components as
     values between 0 and 1:
 
-    * `Color(r, g, b, a)` providing rgba values.
-    * `Color(r, g, b)` providing rgb, alpha is 1.
-    * `Color(gray, a)` grayscale intensity and alpha.
-    * `Color(gray)` grayscale intensity.
+        * `Color(r, g, b, a)` providing rgba values.
+        * `Color(r, g, b)` providing rgb, alpha is 1.
+        * `Color(gray, a)` grayscale intensity and alpha.
+        * `Color(gray)` grayscale intensity.
 
     The above variations can also be supplied as a single tuple/list, or
     anything that:
 
-    * `Color((r, g, b))`.
+        * `Color((r, g, b))`.
 
     Named colors:
 
-    * `Color("red")` base color names.
-    * `Color("cornflowerblue")` CSS color names.
-    * `Color("m")` Matlab color chars.
+        * `Color("red")` base color names.
+        * `Color("cornflowerblue")` CSS color names.
+        * `Color("m")` Matlab color chars.
 
     Hex colors:
 
-    * `Color("#ff0000")` the commmon hex format.
-    * `Color("#ff0000ff")` the hex format that includes alpha.
-    * `Color("#ff0")` the short form hex format.
-    * `Color("#ff0f")` the short form hex format that includes alpha.
+        * `Color("#ff0000")` the commmon hex format.
+        * `Color("#ff0000ff")` the hex format that includes alpha.
+        * `Color("#ff0")` the short form hex format.
+        * `Color("#ff0f")` the short form hex format that includes alpha.
 
     CSS color functions:
 
-    * `Color("rgb(255, 0, 0)")`.
-    * `Color("rgba(255, 0, 0, 1.0)")`.
+        * `Color("rgb(255, 0, 0)")`.
+        * `Color("rgba(255, 0, 0, 1.0)")`.
 
     Parameters
     ----------

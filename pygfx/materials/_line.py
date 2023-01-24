@@ -132,7 +132,7 @@ class LineThinMaterial(LineMaterial):
     While you probably don't want to use this property in your application (its
     width is inconsistent and looks *very* thin on HiDPI monitors), it can be
     useful for debugging as it is more performant than other line materials.
-    
+
     """
 
 
