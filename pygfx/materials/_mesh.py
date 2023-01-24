@@ -40,7 +40,8 @@ class MeshBasicMaterial(Material):
     Notes
     -----
     The color format of the map is assumed to be sRGB. To use physical space
-    instead, set the texture's colorspace property to "physical".
+    instead, set the texture's colorspace property to "physical". To learn more
+    about this, check out the :ref:`colorspace documentation <colorspaces>`
 
     The direction of a face is determined using Counter-clockwise (CCW) winding;
     i.e., if the fingers of your curled hand match the direction in which the
@@ -49,9 +50,6 @@ class MeshBasicMaterial(Material):
     geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
 
     """
-
-    # @almarklein: Could we be more precise on what "physical space" means for
-    # the map's color format?
 
     uniform_type = dict(
         color="4xf4",
