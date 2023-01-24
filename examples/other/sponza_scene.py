@@ -15,7 +15,7 @@ import pygfx as gfx
 # run the following command in the root of this repo
 # git clone https://github.com/KhronosGroup/glTF-Sample-Models ../glTF-Sample-Models
 # so that the paths will be set up correctly
-repo_root = Path(__file__).parent.parent
+repo_root = Path(__file__).parents[1]
 gltf_samples_repo = repo_root.parent / "glTF-Sample-Models"
 gltf_path = gltf_samples_repo / "2.0" / "Sponza" / "glTF" / "Sponza.gltf"
 
@@ -39,7 +39,7 @@ def configure(obj):
 
 
 # Load scene
-meshes = gfx.load_scene(gltf_path)
+meshes = gfx.load_scene(gltf_path.as_posix())
 scene.add(*meshes)
 scene.traverse(configure)
 
