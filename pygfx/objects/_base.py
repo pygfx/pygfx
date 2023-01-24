@@ -14,8 +14,6 @@ from ._events import EventTarget
 
 
 class IdProvider:
-    # @almarklein: if it is for internal use, maybe we can exclude it from the
-    # public docs?
     """Object for internal use to manage world object id's."""
 
     def __init__(self):
