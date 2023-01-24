@@ -18,9 +18,6 @@ class Buffer(Resource):
     storage buffer. You can provide (and update data for it), or use it as a
     placeholder for a buffer with no representation on the CPU.
 
-    @almarklein: does this mean we differentiate between paged, pinned, and
-    device (GPU) memory?
-
     Parameters
     ----------
     data : array
