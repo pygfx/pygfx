@@ -319,7 +319,6 @@ class TextureView(Resource):
         The `wgpu.TextureAspect` for this view. Omit or pass None to use the default.
     mip_range : range
         A range object specifying the viewed mip levels.
-        @almarklein: this is an odd parameter choice. Why `range` and not `slice`?
     layer_range : range
         A range object specifying the array layers to view.
 
