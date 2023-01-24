@@ -129,11 +129,11 @@ class LineThinMaterial(LineMaterial):
     A simple line, drawn with line_strip primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
-    You probably want to avoid this material, because its width is
-    inconsistent and looks *very* thin on HiDPI monitors.
+    While you probably don't want to use this property in your application (its
+    width is inconsistent and looks *very* thin on HiDPI monitors), it can be
+    useful for debugging as it is more performant than other line materials.
+    
     """
-
-    # @almarklein: The docs advise to avoid this. Depricate before 1.0?
 
 
 class LineThinSegmentMaterial(LineMaterial):
@@ -142,11 +142,11 @@ class LineThinSegmentMaterial(LineMaterial):
     Simple line segments, drawn with line primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
-    You probably want to avoid this material, because its width is
-    inconsistent and looks *very* thin on HiDPI monitors.
-    """
+    While you probably don't want to use this property in your application (its
+    width is inconsistent and looks *very* thin on HiDPI monitors), it can be
+    useful for debugging as it is more performant than other line materials.
 
-    # @almarklein: The docs advise to avoid this. Depricate before 1.0?
+    """
 
 
 class LineSegmentMaterial(LineMaterial):
