@@ -6,7 +6,7 @@ from ..linalg.utils import aabb_to_sphere
 
 
 class Geometry(Trackable):
-    """Base class for Geometry Subtypes.
+    """Generic container for Geometry data.
 
     Parameters
     ----------
