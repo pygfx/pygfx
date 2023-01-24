@@ -173,24 +173,30 @@ class PointerEvent(Event):
     y : int
         Thy y position of the cursor or touch in screen space (px).
     button : int
-        @almarklein: where can I find the description of this attribute?
+        The integer value of the button being pushed.
     buttons : str
-        @almarklein: where can I find the description of this attribute?
+        The string name of the button being pushed.
     modifiers : list
         The modifiers that were pressed while the key was pressed.
     ntouches : int
         The total number of syncronous touches.
     touches : list
         A list of all currently occuring touches.
-    pick_info : Any
-        @almarklein: where can I find the description of this attribute?
+    pick_info : dict
+        Values of pickable fields. The exact content is specific to the
+        WorldObject triggering the event.
     clicks : int
         The total number of syncronous clicks.
     pointer_id : Any
-        @almarklein: where can I find the description of this attribute?
+        The value set by `set_pointer_capture()`.
     kwargs : Any
         Additional keyword arguments are forward to the :class:`base class
         <pygfx.objects.Event>`.
+
+    Notes
+    -----
+    The values of this event follow the convention used by jupyter rfb. You can read
+    about them `here <https://jupyter-rfb.readthedocs.io/en/latest/events.html>`_.
 
     """
 
