@@ -54,8 +54,6 @@ class BoxHelper(Line):
         )
         positions -= 0.5
 
-        # @almarklein: does this mean we currently don't support non-isotropic scale?
-        # otherwise we may want to update this to set the tranform's scale instead.
         positions *= self._size
 
         geometry = Geometry(positions=positions)
