@@ -46,7 +46,8 @@ class Background(WorldObject):
     Parameters
     ----------
     geometry : Geometry
-        The geometry to use when rendering the background.
+        Must be ``None``. Exists for compliance with the generic WorldObject
+        API.
     material : Material
         The material to use when rendering the background.
     kwargs : Any
