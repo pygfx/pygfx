@@ -12,7 +12,16 @@ registry = RenderFunctionRegistry()
 
 
 def register_svg_render_function(wobject_cls, material_cls):
-    """Decorator to register an SVG render function."""
+    """Decorator for SVG rendering functions.
+
+    Parameters
+    ----------
+    wobject_cls : WorldObject
+        The world object that this function knows how to render.
+    material_cls : Material
+        The world object that this function knows how to render.
+
+    """
 
     def _register_svg_render_function(f):
         registry.register(wobject_cls, material_cls, f)
@@ -22,7 +31,18 @@ def register_svg_render_function(wobject_cls, material_cls):
 
 
 class SvgRenderer(Renderer):
-    """A renderer that generates an SVG."""
+    """Turns scenes into SVG images.
+
+    Parameters
+    ----------
+    width : int
+        The width of the resulting image.
+    height : int
+        The height of the resulting image.
+    filename : str
+        The name of the location to which to write the image.
+
+    """
 
     def __init__(self, width, height, filename):
         self._width = width

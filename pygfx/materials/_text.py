@@ -3,7 +3,35 @@ from ..utils import unpack_bitfield, Color
 
 
 class TextMaterial(Material):
-    """The default material used by Text."""
+    """Basic text material.
+
+    Parameters
+    ----------
+    color : Color
+        The color of the text.
+    outline_color : Color
+        The color of the outline of the text.
+    outline_thickness : int
+        A value indicating the relative width of the outline. Valid values are
+        between 0.0 and 0.5.
+    weight_offset : int
+        A value representing an offset to the font weight. Font weights are in
+        the range 100-900, so this value should be in the same order of
+        magnitude. Can be negative to make text thinner. Default zero.
+    aa : bool
+        If True, use anti-aliasing while rendering glyphs. Aliasing gives
+        prettier results, but may affect performance for very large texts.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    Notes
+    -----
+    One use-case for weight_offset is to make dark text on a light background 50
+    units thicker, to counter the psychological effect that such text *looks*
+    thinner than a light text on a dark background.
+
+    """
 
     uniform_type = dict(
         color="4xf4",

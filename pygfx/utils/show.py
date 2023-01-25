@@ -7,19 +7,19 @@ import sys
 import numpy as np
 import warnings
 
-from .. import (
+from ..objects import (
     Background,
-    BackgroundMaterial,
-    WgpuRenderer,
     WorldObject,
     Scene,
-    PerspectiveCamera,
-    OrbitController,
     AmbientLight,
     DirectionalLight,
     Light,
-    Camera,
 )
+
+from ..cameras import Camera, PerspectiveCamera
+from ..controllers import OrbitController
+from ..materials import BackgroundMaterial
+from ..renderers import WgpuRenderer
 
 
 class Display:

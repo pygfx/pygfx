@@ -1,7 +1,7 @@
 """
-This module implements text geometry. This is where the text rendering
-comes together. Most steps in the text rendering process come from
-pygfx.utils.text, though most of the alignment is implemented here.
+This module implements text geometry. This is where the text rendering comes
+together. Most steps in the text rendering process come from pygfx.utils.text,
+though most of the alignment is implemented here.
 
 For details about the text rendering process, see pygfx/utils/text/README.md
 """
@@ -39,10 +39,25 @@ WHITESPACE_EXTENTS = {}  # A cache
 
 
 class TextItem:
-    """A text item represents a unit piece of text that is formatted
-    in a specific way. The TextGeometry converts these into GlyphItem's,
-    and positions these so that they together display the intended total
-    text.
+    """A formatted piece of text.
+
+    A text item represents a unit piece of text that is formatted in a specific
+    way. The TextGeometry converts these into GlyphItem's, and positions these
+    so that they together display the intended total text.
+
+    Parameters
+    ----------
+    text : str
+        The text to display.
+    font_props : textmodule.FontProps
+        Format information for this text item.
+    ws_before : str
+        Whitespace before the text.
+    ws_after : str
+        Whitespace after the text.
+    allow_break : bool
+        If True, allow a linebreak to be placed after this piece of text.
+
     """
 
     def __init__(
@@ -85,7 +100,7 @@ class TextItem:
 
     @property
     def ws_after(self):
-        """The whitespace text in front of this item."""
+        """The whitespace text after this item."""
         return self._ws_after
 
     @property
@@ -119,31 +134,44 @@ class GlyphItem:
 
 
 class TextGeometry(Geometry):
-    """The textGeometry creates and stores the geometry to render a piece of text.
+    """Geometry specific for representing text.
 
-    Text can be provided as plain text or in markdown to support basic formatting.
+    The TextGeometry creates and stores the geometry to render a piece of text.
+    It can be provided as plain text or in markdown to support basic formatting.
 
-    Parameters:
-        text (str): the plain text to render (optional).
-        markdown (str): the text to render, formatted as markdown (optional).
-            See ``set_markdown()`` for details on the supported formatting.
-        screen_space (bool): whether the text is rendered in screen space,
-            in contrast to world space. Default False.
-        font_size (float): the size of the font, in object coordinates or pixel screen
-            coordinates, depending on the value of the ``screen_space`` property. Default 12.
-        anchor (str): the position of the origin of the text. Default "middle-center".
-        max_width (float): the maximum width of the text. Words are wrapped if necessary.
-            A value of zero means no wrapping. Default zero.
-        line_height (float): a factor to scale the distance between lines. A value
-            of 1 means the "native" font's line distance. Default 1.2.
-        text_align (str): How to align the text. Not implemented.
-        family (str, tuple): the name(s) of the font to prefer. If multiple names
-            are given, they are preferred in the given order. Characters that are
-            not supported by any of the given fonts are rendered with the default
-            font (from the Noto Sans collection).
-        direction (str): The text direction. By default the text direction is
-            determined automatically, but is always horizontal. Can be set to
-            'lrt', 'rtl', 'ttb' or 'btt'.
+    Parameters
+    ----------
+    text : str
+        The plain text to render (optional).
+    markdown : str
+        The text to render, formatted as markdown (optional). See
+        ``set_markdown()`` for details on the supported formatting.
+    screen_space : bool
+        Whether the text is rendered in screen space, in contrast to world
+        space.
+    font_size : float
+        The size of the font, in object coordinates or pixel screen coordinates,
+        depending on the value of the ``screen_space`` property. Default 12.
+    anchor : str
+        The position of the origin of the text. Default "middle-center".
+    max_width : float
+        The maximum width of the text. Words are wrapped if necessary. A value
+        of zero means no wrapping. Default zero.
+    line_height : float
+        A factor to scale the distance between lines. A value of 1 means the
+        "native" font's line distance. Default 1.2.
+    text_align : str
+        How to align the text. Not implemented.
+    family : str, tuple
+        The name(s) of the font to prefer. If multiple names are given, they are
+        preferred in the given order. Characters that are not supported by any
+        of the given fonts are rendered with the default font (from the Noto
+        Sans collection).
+    direction : str
+        The text direction. By default the text direction is determined
+        automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
+        'ttb' or 'btt'.
+
     """
 
     def __init__(
@@ -201,14 +229,20 @@ class TextGeometry(Geometry):
 
     @property
     def screen_space(self):
-        """Whether the text is rendered in screen space (in contrast to world space).
+        """Text size unit (screen vs local).
 
-        If ``False`` (default), the text occupies the world (i.e. scene) as
-        objects normally do, and sizes are expressed in object
-        coordinates. If ``True``, the text is rendered in logical screen
-        coordinates at the object's point in the world. The object's
-        local rotation and scale can still be used to rotate and scale
-        the text. This mode is typically used for annotations.
+        Returns
+        -------
+        screen_space : bool
+            If False, text size uses the unit of the local frame (e.g. cm).
+            Otherwise it is uses the logical screen's units (e.g. px). The
+            latter mode is typically used for annotations.
+
+        Notes
+        -----
+        Regardless of choice, the local object's rotation and scale will still
+        transform the text.
+
         """
         return self._store.screen_space
 
@@ -217,15 +251,21 @@ class TextGeometry(Geometry):
         self._store.screen_space = bool(value)
 
     def set_text_items(self, text_items):
-        """Provide new text in the form of a list of TextItem objects.
+        """Update the text using one or more TextItems.
 
-        This is considered a low level function to provide more control.
-        Use ``set_text`` or ``set_markdown`` for more convenience.
+        .. note::
+            This is considered a low level function to provide more control. Use
+            ``set_text`` or ``set_markdown`` for more convenience.
 
-        A note on performance: if the new text consists of more glyphs
-        than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaced, but
-        simply not fully used.
+        Parameters
+        ----------
+        text_items : list
+            A list of :class:`pygfx.TextItem`s to update the text with.
+
+        Notes
+        -----
+        If the new text has more glyphs than the current one a new (larger)
+        buffer is created. Otherwise, the previous buffers are reused.
         """
 
         # This function can be considered the core of the text rendering.
@@ -318,22 +358,27 @@ class TextGeometry(Geometry):
     # %%%%% Entrypoint and itemization
 
     def set_text(self, text, family=None, style=None, weight=None):
-        """Update the geometry's text.
+        """Update the text.
 
-        Parameters:
-            text (str): the text to render.
-            family (str, tuple): the name(s) of the font to prefer (optional).
-                If multiple names are given, they are preferred in the
-                given order. Characters that are not supported by any
-                of the given fonts are rendered with the default font.
-            style (str): The style of the font (normal, italic, oblique). Default "normal"
-            weight (str, int): The weight of the font. E.g. "normal" or "bold" or a
-                number between 100 and 900. Default "normal".
+        Parameters
+        ----------
+        text : str
+            The new text.
+        family : str, tuple
+            The name(s) of the preferred font(s) to prefer. If multiple names are
+            given, they are preferred in the given order. Characters that are
+            not supported by any of the given fonts are rendered with the
+            default font.
+        style : str
+            The style of the font (normal, italic, oblique). Default "normal".
+        weight : str, int
+            The weight of the font. E.g. "normal" or "bold" or a number between
+            100 and 900. Default "normal".
 
-        A note on performance: if the new text consists of more glyphs
-        than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaced, but
-        simply not fully used.
+        See Also
+        --------
+        TextGeometry.set_text_items
+
         """
 
         if not isinstance(text, str):
@@ -359,23 +404,26 @@ class TextGeometry(Geometry):
         return self
 
     def set_markdown(self, markdown, family=None):
-        """Update the geometry's text using markdown formatting.
+        """Update the text using markdown formatting.
 
-        The supported subset of markdown is limited to surrounding
-        pieces of text with single and double stars for slanted and
-        bold text respectively.
+        The supported subset of markdown is limited to surrounding pieces of
+        text with single and double stars for slanted and bold text
+        respectively.
 
-        Parameters:
-            markdown (str): the markdown to render.
-            family (str, tuple): the name(s) of the font to prefer (optional).
-                If multiple names are given, they are preferred in the
-                given order. Characters that are not supported by any
-                of the given fonts are rendered with the default font.
+        Parameters
+        ----------
+        markdown : str
+            The new text (including markdown).
+        family : str, tuple
+            The name(s) of the font(s) to prefer. If multiple names are given,
+            they are preferred in the given order. Characters that are not
+            supported by any of the given fonts are rendered with the default
+            font.
 
-        A note on performance: if the new text consists of more glyphs
-        than the current, new (larger) buffers are created. If the
-        number of glyphs is smaller, the buffers are not replaced, but
-        simply not fully used.
+        See Also
+        --------
+        TextGeometry.set_text_items
+
         """
 
         if not isinstance(markdown, str):
@@ -586,7 +634,7 @@ class TextGeometry(Geometry):
         self.positions.update_range(0, i2)
 
     def apply_layout(self):
-        """Apply the layout algorithm to position the (internal) glyph items.
+        """Update the internal contained glyphs.
 
         To overload this with a custom layout, overload ``_apply_layout()``.
         """
@@ -596,20 +644,23 @@ class TextGeometry(Geometry):
 
     @property
     def font_size(self):
-        """The size of the text.
+        """The text size.
 
         For text rendered in screen space (``screen_space`` property is set),
-        the size is in logical pixels, and the object's local transform
-        affects the final text size.
+        the size is in logical pixels, and the object's local transform affects
+        the final text size.
 
-        For text rendered in world space (``screen_space`` property is *not* set),
-        the size is in object coordinates, and the the object's
+        For text rendered in world space (``screen_space`` property is *not*
+        set), the size is in object coordinates, and the the object's
         world-transform affects the final text size.
 
-        Note that the font size is an indicative size depending on the
-        font family. Most glyphs are smaller, and some may be larger.
-        Also, some pieces of the text may have a different size due to
-        formatting.
+        Notes
+        -----
+        Font size is indicative only. Final glyph size further depends on the
+        font family, as glyphs may be smaller (or larger) than the indicative
+        size. Final glyph size may further vary based on additional formatting
+        applied a particular subsection.
+
         """
         return self._font_size
 

@@ -4,7 +4,30 @@ from ..utils import unpack_bitfield, Color
 
 
 class LineMaterial(Material):
-    """The default material to draw lines."""
+    """Basic line material.
+
+    Parameters
+    ----------
+    color : Color
+        The uniform color of the line. Ignored if ``vertex_colors`` is True.
+    thickness : float
+        The line thickness expressed in logical pixels.
+    vertex_colors : bool
+        Whether to use the vertex colors provided in the geometry to color the
+        line. If True, color will be ignored.
+    map : TextureView
+        The texture map specifying the color for each texture coordinate. The
+        dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+    aa : bool
+        Whether or not the line should be anti-aliased. Aliasing gives prettier
+        results, but may affect performance for very large datasets. Default
+        True.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    """
 
     uniform_type = dict(
         color="4xf4",
@@ -101,26 +124,38 @@ class LineMaterial(Material):
 
 
 class LineThinMaterial(LineMaterial):
-    """A simple line, drawn with line_strip primitives that has a thickness
+    """Thin line material.
+
+    A simple line, drawn with line_strip primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
-    You probably want to avoid this material, because its width is
-    inconsistent and looks *very* thin on HiDPI monitors.
+    While you probably don't want to use this property in your application (its
+    width is inconsistent and looks *very* thin on HiDPI monitors), it can be
+    useful for debugging as it is more performant than other line materials.
+
     """
 
 
 class LineThinSegmentMaterial(LineMaterial):
-    """Simple line segments, drawn with line primitives that has a thickness
+    """Thin line segment material.
+
+    Simple line segments, drawn with line primitives that has a thickness
     of one physical pixel (the thickness property is ignored).
 
-    You probably want to avoid this material, because its width is
-    inconsistent and looks *very* thin on HiDPI monitors.
+    While you probably don't want to use this property in your application (its
+    width is inconsistent and looks *very* thin on HiDPI monitors), it can be
+    useful for debugging as it is more performant than other line materials.
+
     """
 
 
 class LineSegmentMaterial(LineMaterial):
-    """A material that renders line segments between each two subsequent points."""
+    """Line segment material.
+
+    A material that renders line segments between each two subsequent points."""
 
 
 class LineArrowMaterial(LineSegmentMaterial):
-    """A material that renders line segments that look like little vectors."""
+    """Arrow (vector) line material.
+
+    A material that renders line segments that look like little vectors."""

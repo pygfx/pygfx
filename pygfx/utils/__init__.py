@@ -1,3 +1,21 @@
+"""
+Utility functions for pygfx.
+
+.. autosummary::
+    :toctree: utils/
+    :template: ../_templates/custom_layout.rst
+
+    Color
+    load.load_scene
+    show.show
+    show.Display
+    viewport.Viewport
+    text.font_manager
+    cm
+
+"""
+
+
 import os
 import logging
 
