@@ -129,7 +129,7 @@ class WireframeShader(WorldObjectShader):
             let afwidth = fwidth( center.xyz );
             let thickness = u_material.thickness;
 
-            let edge3 = smoothStep( ( thickness - 1.0 ) * afwidth, thickness * afwidth, center.xyz );
+            let edge3 = smoothstep( ( thickness - 1.0 ) * afwidth, thickness * afwidth, center.xyz );
 
             let edge = 1.0 - min( min( edge3.x, edge3.y ), edge3.z );
 
