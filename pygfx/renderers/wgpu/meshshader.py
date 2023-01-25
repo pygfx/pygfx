@@ -197,7 +197,7 @@ class MeshShader(WorldObjectShader):
             return sign(determinant(m3));
         }
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             // Get world transform
@@ -319,7 +319,7 @@ class MeshShader(WorldObjectShader):
     def code_fragment(self):
         return """
 
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
             // Get the surface normal from the geometry.
@@ -566,7 +566,7 @@ class MeshNormalLinesShader(MeshShader):
         };
 
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
             let index = i32(in.vertex_index);
             let r = index % 2;
@@ -683,7 +683,7 @@ class MeshSliceShader(WorldObjectShader):
         struct VertexInput {
             @builtin(vertex_index) vertex_index : u32,
         };
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
             // This vertex shader uses VertexId and storage buffers instead of
             // vertex buffers. It creates 6 vertices for each face in the mesh,
@@ -820,7 +820,7 @@ class MeshSliceShader(WorldObjectShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
             // Discart fragments that are too far from the centerline. This makes round caps.

@@ -173,7 +173,7 @@ class VolumeSliceShader(BaseVolumeShader):
         };
 
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             // Our geometry is implicitly defined by the volume dimensions.
@@ -325,7 +325,7 @@ class VolumeSliceShader(BaseVolumeShader):
     def code_fragment(self):
         return """
 
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             let sizef = vec3<f32>(textureDimensions(t_img));
             let value = sample_vol(varyings.texcoord.xyz, sizef);
@@ -409,7 +409,7 @@ class VolumeRayShader(BaseVolumeShader):
             @builtin(vertex_index) vertex_index : u32,
         };
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             // Our geometry is implicitly defined by the volume dimensions.
@@ -458,7 +458,7 @@ class VolumeRayShader(BaseVolumeShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Get size of the volume

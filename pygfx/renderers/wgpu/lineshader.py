@@ -198,7 +198,7 @@ class LineShader(WorldObjectShader):
         return (
             core
             + """
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.index);
@@ -376,7 +376,7 @@ class LineShader(WorldObjectShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Discard fragments outside of the radius. This is what makes round
@@ -648,7 +648,7 @@ class ThinLineShader(WorldObjectShader):
             @builtin(vertex_index) index : u32,
         };
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             let i0 = i32(in.index);
@@ -689,7 +689,7 @@ class ThinLineShader(WorldObjectShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             $$ if color_mode == 'vertex'
