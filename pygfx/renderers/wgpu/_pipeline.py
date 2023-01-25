@@ -115,7 +115,7 @@ class Binding:
                 "buffer": {
                     "type": getattr(wgpu.BufferBindingType, subtype),
                     "has_dynamic_offset": False,
-                    "min_binding_size": 0,
+                    "min_binding_size": None,
                 },
             }
         elif self.type.startswith("sampler/"):
@@ -677,11 +677,7 @@ class RenderPipelineContainer(PipelineContainer):
                     "front_face": wgpu.FrontFace.ccw,
                     "cull_mode": cull_mode,
                 },
-                depth_stencil={
-                    **depth_descriptor,
-                    "stencil_front": {},  # use defaults
-                    "stencil_back": {},  # use defaults
-                },
+                depth_stencil=depth_descriptor,
                 multisample={
                     "count": 1,
                     "mask": 0xFFFFFFFF,

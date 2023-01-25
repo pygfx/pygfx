@@ -614,11 +614,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=color_attachments,
-                depth_stencil_attachment={
-                    **depth_attachment,
-                    "stencil_load_op": wgpu.LoadOp.load,
-                    "stencil_store_op": wgpu.StoreOp.store,
-                },
+                depth_stencil_attachment=depth_attachment,
                 occlusion_query_set=None,
             )
             render_pass.set_viewport(*physical_viewport)

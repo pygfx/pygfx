@@ -55,7 +55,7 @@ class SquareShader(WorldObjectShader):
 
     def code_vertex(self):
         return """
-        @stage(vertex)
+        @vertex
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
             var positions = array<vec3<f32>, 4>(
                 vec3<f32>(-1.0, -1.0, 0.5), vec3<f32>(-1.0, 1.0, 1.5), vec3<f32>(1.0, -1.0, -0.5), vec3<f32>(1.0, 1.0, 0.5)
@@ -73,7 +73,7 @@ class SquareShader(WorldObjectShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
             out.color = varyings.color;

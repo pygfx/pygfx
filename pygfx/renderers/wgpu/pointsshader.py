@@ -111,7 +111,7 @@ class PointsShader(WorldObjectShader):
         };
 
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.vertex_index);
@@ -181,7 +181,7 @@ class PointsShader(WorldObjectShader):
         # Also see See https://github.com/vispy/vispy/blob/master/vispy/visuals/markers.py
         return """
 
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var final_color : vec4<f32>;
 

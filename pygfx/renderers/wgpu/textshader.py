@@ -102,7 +102,7 @@ class TextShader(WorldObjectShader):
         @group(1) @binding(0)
         var<storage,read> s_glyph_infos: array<GlyphInfo>;
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
@@ -225,7 +225,7 @@ class TextShader(WorldObjectShader):
             return t * t * ( 3.0 - 2.0 * t );
         }
 
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
             // Get the float texcoord

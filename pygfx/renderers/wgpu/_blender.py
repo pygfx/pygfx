@@ -245,7 +245,7 @@ class SimpleTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_op": wgpu.LoadOp.load,
+            "depth_load_op": wgpu.LoadOp.clear,
             "depth_store_op": wgpu.StoreOp.discard,
         }
 
@@ -344,7 +344,7 @@ class WeightedTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_op": wgpu.LoadOp.load,
+            "depth_load_op": wgpu.LoadOp.clear,
             "depth_store_op": wgpu.StoreOp.discard,
         }
 
@@ -511,10 +511,21 @@ class BaseFragmentBlender:
         return self.passes[pass_index].get_color_attachments(self, clear_color)
 
     def get_depth_descriptor(self, pass_index):
-        return self.passes[pass_index].get_depth_descriptor(self)
+        return {
+            **self.passes[pass_index].get_depth_descriptor(self),
+            "stencil_read_mask": 0,
+            "stencil_write_mask": 0,
+            "stencil_front": {},  # use defaults
+            "stencil_back": {},  # use defaults
+        }
 
     def get_depth_attachment(self, pass_index):
-        return self.passes[pass_index].get_depth_attachment(self)
+        return {
+            **self.passes[pass_index].get_depth_attachment(self),
+            "stencil_read_only": True,
+            "stencil_load_op": wgpu.LoadOp.clear,
+            "stencil_store_op": wgpu.StoreOp.discard,
+        }
 
     def get_shader_kwargs(self, pass_index):
         return {
