@@ -56,7 +56,7 @@ sphinx_gallery_conf = {
     "examples_dirs": "../examples",
     "gallery_dirs": "_gallery",
     "backreferences_dir": "_gallery/backreferences",
-    "exclude_implicit_doc": {r"Resource"},
+    "exclude_implicit_doc": {"WgpuRenderer", "Resource", "WorldObject", "Geometry", "Material", "Controller", "Camera", "show", "Display", "Group", "Scene", "Light"},
     "doc_module": ("pygfx",),
     "image_scrapers": ("pygfx",),
     "subsection_order": ExplicitOrder(
