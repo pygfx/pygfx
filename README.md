@@ -1,11 +1,48 @@
+# pygfx
 [![CI](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)](https://github.com/pygfx/pygfx/actions)
 [![Documentation Status](https://readthedocs.org/projects/pygfx/badge/?version=latest)](https://pygfx.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/pygfx.svg)](https://badge.fury.io/py/pygfx)
 
-# pygfx
+A python render engine targeting Vulkan/Metal/DX12.
 
-A render engine, inspired by ThreeJS, but for Python and targeting Vulkan/Metal/DX12 (via wgpu).
+<center>
 
+<img src="./docs/_static/sponza.png" alt="drawing" width="200"/><img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="200"/><img src="./docs/_static/torus_knot_wire.png" alt="drawing" width="200"/>
+</center>
+
+
+## Installation
+
+If you are just starting out, or have no requirement for the canvas use
+
+```bash
+pip install -U pygfx glfw
+```
+
+If you already have a wgpu-compatible canvas (e.g., Qt, pyside, wx) installed
+you may choose to not install glfw. Similarly, if you only wish to use offscreen
+rendering (eg. in CI) you will also not need glfw.
+
+## Example
+```python
+import pygfx as gfx
+
+cube = gfx.Mesh(
+    gfx.box_geometry(200, 200, 200),
+    gfx.MeshPhongMaterial(color="#336699"),
+)
+
+def animate():
+    rot = gfx.linalg.Quaternion().set_from_euler(
+            gfx.linalg.Euler(0, 0.01)
+        )
+    cube.rotation.multiply(rot)
+
+if __name__ == "__main__":
+    gfx.show(cube, before_render=animate)
+
+```
+<img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="400"/>
 
 ## Introduction
 
@@ -72,17 +109,6 @@ The material of an object defines how an object is rendered. Usually
 each WorldObject class has one or more materials associated with it.
 E.g. a line can be drawn solid, segmented or with arrows. A volume can
 be rendered as a slice, MIP, or something else.
-
-
-## Installation
-
-```bash
-pip install -U pygfx
-```
-Or, to get the latest from GitHub:
-```bash
-pip install -U https://github.com/pygfx/pygfx/archive/main.zip
-```
 
 
 ## Current status
