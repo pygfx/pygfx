@@ -265,7 +265,8 @@ class VolumeSliceShader(BaseVolumeShader):
             // In ed2pl[i][0], the 0 could also be a one. It would mean that we'd
             // move around the box in the other direction.
             var plane_index: i32 = 0;
-            for (var i:i32=0; i<12; i=i+1) {
+            var i:i32;
+            for (i=0; i<12; i=i+1) {
                 if (intersect_flags[i] == 1) {
                     plane_index = ed2pl[i][0];
                     vertices[0] = intersect_positions[i];
@@ -567,9 +568,9 @@ class VolumeRayShader(BaseVolumeShader):
             for (var iter=0.0; iter<nstepsf; iter=iter+1.0) {
                 let coord = start_coord + iter * step_coord;
                 let value = sample_vol(coord, sizef);
-                let ref = value.r;
-                if (ref > the_ref) {
-                    the_ref = ref;
+                let reff = value.r;
+                if (reff > the_ref) {
+                    the_ref = reff;
                     the_coord = coord;
                     the_value = value;
                 }
