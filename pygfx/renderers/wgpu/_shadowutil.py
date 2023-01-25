@@ -11,13 +11,13 @@ from ...objects import PointLight
 
 shadow_vertex_shader = """
     struct Matrix4x4 {
-        matrix : mat4x4<f32>
+        m : mat4x4<f32>
     };
     @group(0) @binding(0) var<uniform> light_view_projection : Matrix4x4;
     @group(1) @binding(0) var<uniform> model_transform : Matrix4x4;
-    @stage(vertex)
+    @vertex
     fn vs_main(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
-        return light_view_projection.matrix * model_transform.matrix * vec4<f32>(position, 1.0);
+        return light_view_projection.m * model_transform.m * vec4<f32>(position, 1.0);
     }
 """
 
@@ -91,6 +91,8 @@ class ShadowUtil:
                 "format": wgpu.TextureFormat.depth32float,
                 "depth_write_enabled": True,
                 "depth_compare": wgpu.CompareFunction.less,
+                "stencil_read_mask": 0,
+                "stencil_write_mask": 0,
             },
         )
 
@@ -118,11 +120,13 @@ class ShadowUtil:
                         color_attachments=[],
                         depth_stencil_attachment={
                             "view": shadow_map,
+                            "depth_read_only": False,
                             "depth_clear_value": 1.0,
                             "depth_load_op": wgpu.LoadOp.clear,
                             "depth_store_op": wgpu.StoreOp.store,
+                            "stencil_read_only": True,
                             "stencil_load_op": wgpu.LoadOp.clear,
-                            "stencil_store_op": wgpu.StoreOp.store,
+                            "stencil_store_op": wgpu.StoreOp.discard,
                         },
                     )
 
