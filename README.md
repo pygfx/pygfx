@@ -5,15 +5,19 @@
 
 A python render engine targeting Vulkan/Metal/DX12.
 
-<center>
 
-<img src="./docs/_static/sponza.png" alt="drawing" width="200"/><img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="200"/><img src="./docs/_static/torus_knot_wire.png" alt="drawing" width="200"/>
-</center>
-
+<p align="center">
+<img src="./docs/_static/sponza.png" alt="drawing" width="200"/>
+<img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="200"/>
+<img src="./docs/_static/torus_knot_wire.png" alt="drawing" width="200"/><br />
+</p>
+<p align="center">
+(Check out the <a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">example gallery</a> for more renders.)
+</p>
 
 ## Installation
 
-If you are just starting out, or have no requirement for the canvas use
+If you are just starting out, or have no requirement on the canvas use
 
 ```bash
 pip install -U pygfx glfw
@@ -24,6 +28,13 @@ you may choose to not install glfw. Similarly, if you only wish to use offscreen
 rendering (eg. in CI) you will also not need glfw.
 
 ## Example
+
+> **Note**
+> A walkthrough of this example can be found in [the guide](https://pygfx.readthedocs.io/en/latest/guide.html#how-to-use-pygfx).
+
+.. note::
+    A detailed
+
 ```python
 import pygfx as gfx
 
@@ -80,16 +91,6 @@ but it also has a big advantage for us Pythoneers: the amount of code per-draw-p
 is very limited. This means we can have *a lot* of objects and still be fast.
 
 As an example, see `collections_line.py`: drawing 1000 line objects with 30k points each at 57 FPS (on my laptop).
-
-
-## How to build a visialization
-
-See also the examples, they all do something like this:
-
-* Instantiate a renderer and a canvas to render to.
-* Create a scene and populate it with world objects.
-* Create a camera (and maybe a control).
-* Define an  animate function that calls: `renderer.render(scene, camera)`
 
 
 ## On world objects, materials, and geometry
