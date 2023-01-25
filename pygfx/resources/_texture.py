@@ -18,11 +18,10 @@ class Texture(Resource):
             The dimensionality of the array (1, 2 or 3).
         size : tuple, [3]
             The extent ``(width, height, depth)`` of the array. If None, it is
-            derived from dim and the shape of the data. By creating a 2D array
-            with ``depth > 1``, a view can be created with format 'd2_array' or
-            'cube'.
-            @almarklein: I don't understand this behavior. Can you elaborate so
-            I can come up with a better docstring?
+            derived from `dim` and the shape of the data. The texture can also
+            represent a stack of images by setting `dim=2` and `depth > 1`. Any
+            derived texture views must then have a `view_dim` of  either
+            'd2_array' or 'cube'.
         format : str
             A format string describing the texture layout. If None, this is
             automatically set from the data. This must be a pygfx format
