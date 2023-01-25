@@ -21,6 +21,7 @@ default_config = {
     # GIF settings
     "duration": 3,  # how many seconds to record
     "loop": 0,  # loop forever
+    "lossless": True  # whether to compress the result
 }
 
 
@@ -95,7 +96,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
             frames,
             duration=33,
             loop=scraper_config["loop"],
-            lossless=True,
+            lossless=scraper_config["lossless"],
         )
         images.append(img_path)
 
