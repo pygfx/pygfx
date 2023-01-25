@@ -23,20 +23,29 @@ THICKNESS = 3
 
 
 class TransformGizmo(WorldObject):
-    """
-    A gizmo object that can be used to manipulate (i.e. transform) a world object.
+    """Gizmo to manipulate a WorldObject.
 
-    Aguments:
-        object (WorldObject): the object to transform with the gizmo.
-        screen_size (float): the approximate size of the widget in logical pixels. Default 100.
+    This Gizmo allows to interactively control WorldObjects with the mouse
+    inside a canvas. It can translate and rotate objects relative to the world
+    frame, local frame, or camera frame (screen space).
 
     To control the Gizmo:
-    * Click the center sphere to toggle between object-space, world-space and screen-space.
+
+    * Click the center sphere to toggle between object-space, world-space and
+      screen-space.
     * Grab the center sphere for uniform scaling.
     * Grab the cubes for one-directional scaling (only in object-space).
     * Grab the arrows to translate in one direction.
     * Grab the planes to translate in two directions.
     * Grab the spheres to rotate.
+
+    Parameters
+    ----------
+    object : WorldObject
+        The controlled world object.
+    screen_size : float
+        The approximate size of the widget in logical pixels. Default 100.
+
     """
 
     def __init__(self, object=None, screen_size=100):
@@ -59,16 +68,32 @@ class TransformGizmo(WorldObject):
         self.set_object(object)
 
     def set_object(self, object):
-        """Set the WorldObject to control with the gizmo."""
+        """Update the controlled object.
+
+        Parameters
+        ----------
+        object : WorldObject
+            The new controlled object.
+
+        """
+
         if object is None or isinstance(object, WorldObject):
             self._object_to_control = object
         else:
             raise ValueError("The object must be None or a WorldObject instance.")
 
     def toggle_mode(self, mode=None):
-        """Toggle between modes. If the mode is omitted, will move to the next mode.
-        Must be one of "object", "world", or "screen".
+        """Switch the reference frame.
+
+        Parameters
+        ----------
+        mode : str
+            The reference frame to switch to. Must be one of  ``"object"``
+            (local frame), ``"world"`` (world frame), or ``"screen"`` (camera
+            frame). If None the next mode (following this order) is selected.
+
         """
+
         modes = "object", "world", "screen"
         if not mode:
             mode = {"object": "world", "world": "screen"}.get(self._mode, "object")
@@ -297,10 +322,13 @@ class TransformGizmo(WorldObject):
     # %% Updating before each draw
 
     def update_matrix_world(self, *args, **kwargs):
-        """We overload this method, which gets called by the renderer
-        just before rendering. This allows us to prep the gizmo just
-        in time.
+        """Update the Gizmo's transform.
+
+        This method is overloaded from the base class to "attach" the gizmo to
+        the controlling object.
+
         """
+
         # Note that we almost always update the transform (scale,
         # rotation, position) which means the matrix changed, and so
         # does the world_matrix of all children. In effect the uniforms
@@ -494,11 +522,13 @@ class TransformGizmo(WorldObject):
     # %% Event handling
 
     def add_default_event_handlers(self, viewport, camera):
+        """Register Gizmo callbacks."""
+
         # Store objects that we need outside the event handling. In
         # contrast to e.g. a controller, the Gizmo also needs to do
         # some calculation at draw time (or right before a draw, to be
         # precise), and for these calculations it needs the viewport
-        # cand camera.
+        # and camera.
         viewport = Viewport.from_viewport_or_renderer(viewport)
         self._viewport = viewport
         self._camera = camera
@@ -508,7 +538,7 @@ class TransformGizmo(WorldObject):
         )
 
     def process_event(self, event):
-        """The event handler."""
+        """Callback to handle gizmo-related events."""
 
         # No interaction if there is no object to control
         if not self._object_to_control:

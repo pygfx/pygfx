@@ -4,8 +4,25 @@ from ..linalg import Vector3
 
 
 class BackgroundMaterial(Material):
-    """A background material that draws the background is a uniform color
+    """Solid/Gradient background color.
+
+    A background material that draws the background is a uniform color
     or in a gradient. The positional arguments are passed to ``set_colors()``.
+
+    Parameters
+    ----------
+    colors : list
+        A list of 0, 1, 2, or 4 colors to use in the background. If zero,
+        defaults to monochrome black. If one, the background will be monochrome
+        using the given color. If two, the background will be a gradient from
+        bottom to top using the given colors. If four, the background will be a
+        gradient with each corner set to a different color. The value at a given
+        position is then based on the relative distance of that position to each
+        corner.
+    kwargs : Any
+        Additional kwargs are passed to the base constructor
+        (:class:`pygfx.materials.Material`).
+
     """
 
     uniform_type = dict(
@@ -91,9 +108,21 @@ class BackgroundMaterial(Material):
 
 
 class BackgroundImageMaterial(BackgroundMaterial):
-    """A background material that displays an image. If map is a 2D
+    """Image/Skybox background.
+
+    A background material that displays an image. If map is a 2D
     texture view, it is used as a static background. If it is a cube
     texture view, (on a NxMx6 texture) it is used as a skybox.
+
+    Parameters
+    ----------
+    map : Texture
+        If map is a 2D texture, it is used as static background image. If map is
+        a cube texture, it is used as a skybox.
+    kwargs : Any
+        Additional kwargs are passed to the base constructor
+        (:class:`pygfx.materials.Material`).
+
     """
 
     def __init__(self, map=None, **kwargs):
@@ -111,8 +140,20 @@ class BackgroundImageMaterial(BackgroundMaterial):
 
 
 class BackgroundSkyboxMaterial(BackgroundImageMaterial):
-    """A cube image background, resulting in a skybox.
+    """Skybox background.
+
+    A cube image background, resulting in a skybox.
     Use the up property to orient the skybox.
+
+    Parameters
+    ----------
+    map : Texture
+        A texture cube.
+    up : tuple, Vector3
+        A Vector3 defining what way is up. Can be set to e.g. the controller's
+        up vector. The given vector is "rounded" to the closest vector that is
+        fully in one dimension.
+
     """
 
     uniform_type = dict(

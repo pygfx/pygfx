@@ -20,12 +20,31 @@ def get_pos_from_camera_parent_or_target(light):
 
 
 class Light(WorldObject):
-    """The base light object.
+    """Light Base Class.
 
-    Parameters:
-        color (Color): The base color of the light.
-        intensity (float): The light intensity.
-        cast_shadow (bool): Whether the light can cast shadows. Default False.
+    Parameters
+    ----------
+    color : Color
+        The color of the light emitted.
+    intensity : float
+        The light's intensity. Its units depend on the type of light. For point
+        and spot lights it represents the luminous intensity of the light
+        measured in candela (cd).
+    cast_shadow : bool
+        If True, the light can cast shadows. Otherwise it doesn't.
+
+    Notes
+    -----
+    The light's intensity scales the color in the physical colorspace, as if
+    scaling the number of photons. Note that an intensity of 0.5 is not
+    equivalent to halving the color value. This is because the srgb color is
+    perceptually linear, while intensity is physically linear. Values over 1.0
+    make perfect sense - it's just a brighter light.
+
+    There are two booleans that control the behavior of shadow: `cast_shadow` on
+    a Light, and `receive_shadow` on the illuminated object. Shadows will only
+    be displayed if both are set to True.
+
     """
 
     # Note that for lights and shadows, the uniform data is stored on the environment.
@@ -102,11 +121,18 @@ class Light(WorldObject):
 
 
 class AmbientLight(Light):
-    """A light that globally illuminates all objects in the scene equally.
+    """Ambient light source.
 
-    Parameters:
-        color (Color): The base color of the light. Default white.
-        intensity (float): The light intensity. Default 0.2, corresponding to a dimly lit scene.
+    A light that omnidirectionally illuminates all objects in the scene equally.
+
+    Parameters
+    ----------
+    color : Color
+        The color of the emitted light.
+    intensity : float
+        The light intensity. A value of ``0.2`` corresponds to a dimly lit
+        scene.
+
     """
 
     def __init__(self, color="#ffffff", intensity=0.2):
@@ -114,17 +140,33 @@ class AmbientLight(Light):
 
 
 class PointLight(Light):
-    """A light that gets emitted from a single point in all directions.
+    """Radial point light source.
 
-    Parameters:
-        color (Color): The base color of the light. Default white.
-        intensity (float): The light intensity. Default 3, resulting in a well lit scene.
-        cast_shadow (bool): Whether the light can cast shadows. Default False.
-        distance (float): The maximum distance that the light shines.
-            Default is 0 which means it shines infinitely far.
-        decay (float): The amount the light dims along the distance of the light.
-            Default 0, no decay. A decay of 2 is physically correct. Note that you
-            probably need to increase the intensity (a lot) when setting this to nonzero.
+    A light that gets emitted from a single point in all directions.
+
+    Parameters
+    ----------
+    color : Color
+        The color of the emitted light.
+    intensity : float
+        The light intensity. A value of ``3`` corresponds to a well lit
+        scene.
+    cast_shadow : bool
+        If True, the light can cast shadows. Otherwise it doesn't.
+    distance : float
+        The maximum distance at which objects are considered illuminated by the
+        light. Limiting this may increase performance in large scenes. A value
+        of ``0`` means that all objects are considered.
+    decay : float
+        The rate at which the light dims as it travels. A value of ``0`` means
+        no decay. A decay of ``2`` is physically correct.
+
+    Notes
+    -----
+    When setting ``decay`` to a non-zero value you likely probably have to
+    increase intensity (a lot) as light decays following an inverse-square
+    profile.
+
     """
 
     uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
@@ -188,15 +230,34 @@ class PointLight(Light):
 
 
 class DirectionalLight(Light):
-    """A light that gets emitted in a direction, specified by its
-    position and a target. If attached to a camera, the camera view
-    direction is followed.
+    """Directional light source.
 
-    Parameters:
-        color (Color): The base color of the light. Default white.
-        intensity (float): The light intensity. Default 3, resulting in a well lit scene.
-        cast_shadow (bool): Whether the light can cast shadows. Default False.
-        target (WorldObject): The object to direct the light at.
+    A light that gets emitted in a direction, specified by its position and a
+    target. This is equivalent to an infinitely large softbox.
+
+    Parameters
+    ----------
+    color : Color
+        The color of the light emitted.
+    intensity : float
+        The light intensity. A value of ``3`` corresponds to a well lit
+        scene.
+    cast_shadow : bool
+        If True, the light can cast shadows. Otherwise it doesn't.
+    target : WorldObject
+        The object used to determine the light's direction. The light will shine
+        from it's position toward's the direction of the target except when the
+        light's parent is a camera, in which case target is ignored.
+
+    Notes
+    -----
+    If this light is attached to a camera it's direction will follow the camera
+    view direction.
+
+    There are two booleans that control the behavior of shadow: `cast_shadow` on
+    a Light, and `receive_shadow` on the illuminated object. Shadows will only
+    be displayed if both are set to True.
+
     """
 
     uniform_type = dict(
@@ -240,22 +301,46 @@ class DirectionalLight(Light):
 
 
 class SpotLight(Light):
-    """A light that gets emitted from a single point in one direction,
-    along a cone that increases in size the further from the light it
-    gets. If attached to a camera, the camera view direction is followed.
+    """Directional point light source.
 
-    Parameters:
-        color (Color): The base color of the light. Default white.
-        intensity (float): The light intensity. Default 3, resulting in a well lit scene.
-        cast_shadow (bool): Whether the light can cast shadows. Default False.
-        distance (float): The maximum distance that the light shines.
-            Default is 0 which means it shines infinitely far.
-        decay (float): The amount the light dims along the distance of the light.
-            Default 0, no decay. A decay of 2 is physically correct. Note that you
-            probably need to increase the intensity (a lot) when setting this to nonzero.
-        angle (float): The maximum extent of the spotlight, in radians. Default Math.PI/3.
-        penumbra (float): Percent of the spotlight cone that is attenuated due
-            to penumbra. Takes values between zero and 1. Default is zero.
+    A light that gets emitted from a single point in one direction, along a cone
+    that increases in size the further from the light it gets.
+
+    Parameters
+    ----------
+    color : Color
+        The color of the light emitted.
+    intensity : float
+        The light intensity. A value of ``3`` corresponds to a well lit
+        scene.
+    cast_shadow : bool
+        If True, the light can cast shadows. Otherwise it doesn't.
+    distance : float
+        The maximum distance at which objects are considered illuminated by the
+        light. Limiting this may increase performance in large scenes. A value
+        of ``0`` means that all objects are considered.
+    decay : float
+        The rate at which the light dims as it travels. A value of ``0`` means
+        no decay. A decay of ``2`` is physically correct.
+    angle : float
+        The central angle (in rad) of the light's cone.
+    penumbra : float
+        Percent of the spotlight cone that is attenuated due
+        to penumbra. Takes values between zero and 1. Default is zero.
+
+    Notes
+    -----
+    If this light is attached to a camera it's direction will follow the camera
+    view direction.
+
+    There are two booleans that control the behavior of shadow: `cast_shadow` on
+    a Light, and `receive_shadow` on the illuminated object. Shadows will only
+    be displayed if both are set to True.
+
+    When setting ``decay`` to a non-zero value you likely probably have to
+    increase intensity (a lot) as light decays following an inverse-square
+    profile.
+
     """
 
     uniform_type = dict(
@@ -386,14 +471,18 @@ shadow_uniform_type = dict(light_view_proj_matrix="4x4xf4")
 
 
 class LightShadow:
-    """
-    A shadow map for a light. This is usually created automatically by
-    a light, and can be accessed through the light's shadow property.
+    """Shadow map utility base class.
 
-    Parameters:
-        camera: The light's view of the world. This is used to generate
-            a depth map of the scene; objects behind other objects from
-            the light's perspective will be in shadow.
+    This is usually created automatically by a light, and can be accessed
+    through the light's shadow property.
+
+    Parameters
+    ----------
+    camera : Camera
+        The light's view of the scene. This is used to generate a depth map of
+        the scene; objects occluded by other objects from the light's
+        perspective will receive shadow.
+
     """
 
     def __init__(self, camera: Camera) -> None:
@@ -455,7 +544,7 @@ class LightShadow:
 
 
 class DirectionalLightShadow(LightShadow):
-    """A shadow for a directional light source."""
+    """Shadow map utility for directional lights."""
 
     def __init__(self) -> None:
         # OrthographicCamera for directional light
@@ -468,7 +557,7 @@ class DirectionalLightShadow(LightShadow):
 
 
 class SpotLightShadow(LightShadow):
-    """A shadow for a spot light source."""
+    """Shadow map utility for spot light sources."""
 
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
@@ -492,7 +581,7 @@ class SpotLightShadow(LightShadow):
 
 
 class PointLightShadow(LightShadow):
-    """A shadow for a point light source."""
+    """Shadow map utility for point light sources."""
 
     _cube_directions = [
         Vector3(1, 0, 0),

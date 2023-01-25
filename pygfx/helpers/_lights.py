@@ -16,8 +16,21 @@ from .. import (
 
 
 class PointLightHelper(Mesh):
-    """Helper class to visualize a point light using a sphere (by default).
-    The helper object should be a parent of the light object.
+    """Light source indicator for point lights.
+
+    Helper class to visualize a point light using some geometry (sphere by
+    default). The helper object should be a parent of the light object.
+
+    Parameters
+    ----------
+    size : float
+        If geometry is None, the size of the indicator. Ignored otherwise.
+    geometry : Geometry
+        The geometry used to visualize the location of the light source. If None,
+        a sphere will be used.
+    color : Color
+        The color of the sphere. If None, match the color of the light.
+
     """
 
     def __init__(self, size=1, geometry=None, color=None):
@@ -40,10 +53,22 @@ class PointLightHelper(Mesh):
 
 
 class DirectionalLightHelper(Line):
-    """Helper class to visualize a directional light. It shows arrows eminating
-    from the light's position. If show_shadow_extent is True, it also shows
-    the vector to the target and the extent of the shadowmap.
-    The helper object should be a parent of the light object.
+    """Light source indicator for directional lights.
+
+    Helper class to visualize a directional light. It shows arrows eminating
+    from the light's position. If show_shadow_extent is True, it also shows the
+    vector to the target and the extent of the shadowmap. The helper object
+    should be a child of the light object.
+
+    Parameters
+    ----------
+    ray_length : float
+        The length of the indicator arrows.
+    color : Color
+        The color of the arrows. If None, match the color of the light.
+    show_shadow_extent : bool
+        If True, indicate the extent of the shadow map.
+
     """
 
     def __init__(self, ray_length=1, color=None, show_shadow_extent=False):
@@ -149,8 +174,16 @@ class DirectionalLightHelper(Line):
 
 
 class SpotLightHelper(Line):
-    """Helper class to visualize a spot light.
-    The helper object should be a parent of the light object.
+    """Light source indicator for spot lights.
+
+    Helper class to visualize a spot light. The helper object should be a child
+    of the light object.
+
+    Parameters
+    ----------
+    color : Color
+        The color of the arrows. If None, match the color of the light.
+
     """
 
     def __init__(self, color=None):

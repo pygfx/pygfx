@@ -4,12 +4,19 @@ from .. import Geometry, Line, LineSegmentMaterial
 
 
 class BoxHelper(Line):
-    """A line box object. Commonly used to visualize bounding boxes.
+    """A WorldObject that shows a box-shaped wireframe.
 
-    Parameters:
-        size (float): The length of the box' edges (default 1).
-        thickness (float): the thickness of the lines (default 1 px).
-        color (Color): the color of the box.
+    Commonly used to visualize bounding boxes.
+
+    Parameters
+    ----------
+    size : float
+        The length of the box' edges in local space.
+    thickness : float
+        The thickness of the lines in (onscreen) pixels.
+    color : Color
+        The color of the box.
+
     """
 
     def __init__(self, size=1.0, thickness=1, color="white"):
@@ -46,6 +53,7 @@ class BoxHelper(Line):
             dtype="f4",
         )
         positions -= 0.5
+
         positions *= self._size
 
         geometry = Geometry(positions=positions)
@@ -54,19 +62,22 @@ class BoxHelper(Line):
         super().__init__(geometry, material)
 
     def set_transform_by_aabb(self, aabb, scale=1.0):
-        """Set the position and scale attributes
-        based on a given bounding box.
+        """Align with axis aligned bounding box.
 
-        Parameters:
-            aabb (ndarray): The position and scale attributes
-                will be configured such that the helper
-                will match the given bounding box. The array
-                is expected to have shape (2, 3), where the
-                two vectors represent the minimum and maximum
-                coordinates of the axis-aligned bounding box.
-            scale (float): the relative size of the box (oversize for
-                a bit of margin).
+        The position and scale attributes will be configured such that the
+        helper will match the given bounding box.
+
+        Parameters
+        ----------
+        aabb : ndarray, [2, 3]
+            The bounding box to align with. The two vectors represent the
+            minimum and maximum coordinates of the axis-aligned bounding box.
+        scale : float
+            Scale multiplier of the final wireframe. Useful for adding margin to the
+            box.
+
         """
+
         aabb = np.asarray(aabb)
         if aabb.shape != (2, 3):
             raise ValueError(
@@ -84,39 +95,39 @@ class BoxHelper(Line):
         self.scale.set(*full_scale)
 
     def set_transform_by_object(self, object, space="world", scale=1.0):
-        """Set the position and scale attributes
-        based on the bounding box of another object.
+        """Align with WorldObject.
 
-        Parameters:
-            object (WorldObject): The position and scale attributes
-                will be configured such that the helper
-                will match the bounding box of the given object.
-            space (string, optional): If set to "world"
-                (the default) the world space bounding box will
-                be used as reference. If equal to "local", the
-                object's local space bounding box of its geometry
-                will be used instead.
-            scale (float): the relative size of the box (oversize for
-                a bit of margin).
+        Set the position and scale attributes based on the bounding box of
+        another object.
 
-        :Examples:
+        Parameters
+        ----------
+        object : WorldObject
+            The object to wrap inside this wireframe.
+        space : str
+            If "world", the wire will be aligned to the world's axes. If
+            "local", the wire will be aligned to the local axes.
+        scale : float
+            Scale multiplier of the final wireframe. Useful for adding margin to the
+            box.
 
-        World-space bounding box visualization:
+        Examples
+        --------
 
-        .. code-block:: py
+        World-space bounding box visualization::
 
             box = gfx.BoxHelper()
             box.set_transform_by_object(mesh)
             scene.add(box)
 
-        Local-space bounding box visualization:
-
-        .. code-block:: py
+        Local-space bounding box visualization::
 
             box = gfx.BoxHelper()
             box.set_transform_by_object(mesh, space="local")
             mesh.add(box)
+
         """
+
         aabb = None
         if space not in {"world", "local"}:
             raise ValueError(

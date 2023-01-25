@@ -1,3 +1,50 @@
+""" World Objects and Events.
+
+.. rubric:: Objects
+.. autosummary::
+    :toctree: objects/
+    :template: ../_templates/custom_layout.rst
+    
+    WorldObject
+    id_provider
+    Group
+    Scene
+    Background
+    Points
+    Line
+    Mesh
+    Image
+    Volume
+    Text
+    InstancedMesh
+    Light
+    PointLight
+    DirectionalLight
+    AmbientLight
+    SpotLight
+    LightShadow
+    DirectionalLightShadow
+    SpotLightShadow
+    PointLightShadow
+
+.. currentmodule:: pygfx.objects
+
+.. rubric:: Events
+.. autosummary::
+    :toctree: objects/
+    :template: ../_templates/custom_layout.rst
+
+    Event
+    EventTarget
+    EventType
+    PointerEvent
+    KeyboardEvent
+    RootEventHandler
+    WheelEvent
+    WindowEvent
+
+"""
+
 # flake8: noqa
 
 from ._base import WorldObject, id_provider

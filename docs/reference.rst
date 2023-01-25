@@ -1,168 +1,123 @@
-The pygfx reference
-===================
+API Reference
+=============
 
+.. rubric:: Sub-Packages
 
-Resources
----------
+Internally, pygfx is structured into several sub-packages that provide the
+functionality exposed in the top-level namespace. At times, you may wish to
+search the docs of these sub-packages for additional information. In that case,
+you can read more about them here:
 
-.. automodule:: pygfx.resources
-    :members:
-    :member-order: bysource
+.. autosummary::
+    :toctree: _autosummary/
+    :template: custom_module.rst
 
+    pygfx.cameras
+    pygfx.controllers
+    pygfx.geometries
+    pygfx.helpers
+    pygfx.linalg
+    pygfx.materials
+    pygfx.objects
+    pygfx.renderers
+    pygfx.resources
+    pygfx.utils
 
-World objects
--------------
+.. rubric:: Public API
 
-.. autoclass:: pygfx.WorldObject
-    :members:
-    :member-order: bysource
+The primary way of accessing pygfx is by using the members of its top-level namespace.
+Currently this includes the following classes, which comprise the public API:
 
-.. autoclass:: pygfx.Group
-    :members:
-    :member-order: bysource
+.. autosummary::
 
-.. autoclass:: pygfx.Scene
-    :members:
-    :member-order: bysource
+    ~pygfx.geometries.box_geometry
+    ~pygfx.geometries.cylinder_geometry
+    ~pygfx.geometries.cone_geometry
+    ~pygfx.geometries.sphere_geometry
+    ~pygfx.geometries.plane_geometry
+    ~pygfx.geometries.Geometry
+    ~pygfx.geometries.TextGeometry
+    ~pygfx.geometries.TextItem
+    ~pygfx.geometries.trimesh_geometry
+    ~pygfx.geometries.octahedron_geometry
+    ~pygfx.geometries.icosahedron_geometry
+    ~pygfx.geometries.dodecahedron_geometry
+    ~pygfx.geometries.tetrahedron_geometry
+    ~pygfx.geometries.torus_knot_geometry
+    ~pygfx.geometries.klein_bottle_geometry
+    ~pygfx.helpers.AxesHelper
+    ~pygfx.helpers.GridHelper
+    ~pygfx.helpers.BoxHelper
+    ~pygfx.helpers.TransformGizmo
+    ~pygfx.helpers.PointLightHelper
+    ~pygfx.helpers.DirectionalLightHelper
+    ~pygfx.helpers.SpotLightHelper
 
+    ~pygfx.materials.Material
+    ~pygfx.materials.pillow_image
+    ~pygfx.materials.trimesh_material
+    ~pygfx.materials.MeshBasicMaterial
+    ~pygfx.materials.MeshPhongMaterial
+    ~pygfx.materials.MeshNormalMaterial
+    ~pygfx.materials.MeshNormalLinesMaterial
+    ~pygfx.materials.MeshSliceMaterial
+    ~pygfx.materials.MeshStandardMaterial
+    ~pygfx.materials.PointsMaterial
+    ~pygfx.materials.GaussianPointsMaterial
+    ~pygfx.materials.LineMaterial
+    ~pygfx.materials.LineThinMaterial
+    ~pygfx.materials.LineThinSegmentMaterial
+    ~pygfx.materials.LineSegmentMaterial
+    ~pygfx.materials.LineArrowMaterial
+    ~pygfx.materials.ImageBasicMaterial
+    ~pygfx.materials.VolumeBasicMaterial
+    ~pygfx.materials.VolumeSliceMaterial
+    ~pygfx.materials.VolumeRayMaterial
+    ~pygfx.materials.VolumeMipMaterial
+    ~pygfx.materials.BackgroundMaterial
+    ~pygfx.materials.BackgroundImageMaterial
+    ~pygfx.materials.BackgroundSkyboxMaterial
+    ~pygfx.materials.TextMaterial
 
-Camera objects
---------------
+    ~pygfx.objects.WorldObject
+    ~pygfx.objects.id_provider
+    ~pygfx.objects.Group
+    ~pygfx.objects.Scene
+    ~pygfx.objects.Background
+    ~pygfx.objects.Points
+    ~pygfx.objects.Line
+    ~pygfx.objects.Mesh
+    ~pygfx.objects.Image
+    ~pygfx.objects.Volume
+    ~pygfx.objects.Text
+    ~pygfx.objects.InstancedMesh
+    ~pygfx.objects.Light
+    ~pygfx.objects.PointLight
+    ~pygfx.objects.DirectionalLight
+    ~pygfx.objects.AmbientLight
+    ~pygfx.objects.SpotLight
+    ~pygfx.objects.LightShadow
+    ~pygfx.objects.DirectionalLightShadow
+    ~pygfx.objects.SpotLightShadow
+    ~pygfx.objects.PointLightShadow
 
-.. autoclass:: pygfx.Camera
-    :members:
-    :member-order: bysource
+    ~pygfx.renderers.Renderer
+    ~pygfx.renderers.RenderFunctionRegistry
+    ~pygfx.renderers.WgpuRenderer
+    ~pygfx.renderers.SvgRenderer
+    ~pygfx.renderers.register_wgpu_render_function
+    ~pygfx.renderers.register_svg_render_function
 
-.. autoclass:: pygfx.NDCCamera
-    :members:
-    :member-order: bysource
+    ~pygfx.resources.Resource
+    ~pygfx.resources.Buffer
+    ~pygfx.resources.Texture
+    ~pygfx.resources.TextureView
 
-.. autoclass:: pygfx.ScreenCoordsCamera
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.OrthographicCamera
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.PerspectiveCamera
-    :members:
-    :member-order: bysource
-
-
-Light objects
---------------
-
-.. autoclass:: pygfx.Light
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.AmbientLight
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.PointLight
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.DirectionalLight
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.SpotLight
-    :members:
-    :member-order: bysource
-
-
-Specific world objects
-----------------------
-
-.. autoclass:: pygfx.Background
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Line
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Mesh
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.InstancedMesh
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Points
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Image
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Volume
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.Text
-    :members:
-    :member-order: bysource
-
-
-Helper objects
---------------
-
-.. autoclass:: pygfx.AxesHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.BoxHelper
-    :members:
-    :member-order: bysource
-
-    .. automethod:: __init__
-
-.. autoclass:: pygfx.GridHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.TransformGizmo
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.PointLightHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.DirectionalLightHelper
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.SpotLightHelper
-    :members:
-    :member-order: bysource
-
-
-Geometries
-----------
-
-.. automodule:: pygfx.geometries
-    :members:
-    :member-order: bysource
-
-
-Materials
----------
-
-.. automodule:: pygfx.materials
-    :members:
-    :member-order: bysource
-
-
-Controllers
------------
-
-.. automodule:: pygfx.controllers
-    :members:
-    :member-order: bysource
+    ~pygfx.utils.color.Color
+    ~pygfx.utils.load.load_scene
+    ~pygfx.utils.show.show
+    ~pygfx.utils.show.Display
+    ~pygfx.utils.viewport.Viewport
+    ~pygfx.utils.text.font_manager
+    ~pygfx.utils.cm
+    ~pygfx.utils.logger

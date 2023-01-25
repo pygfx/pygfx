@@ -3,6 +3,22 @@ from ._base import Material
 
 
 class ImageBasicMaterial(Material):
+    """Rasterized image material.
+
+    Parameters
+    ----------
+    clim : tuple
+        The contrast limits to scale the data values with. Default (0, 1).
+    map : TextureView
+        The colormap to turn the image values into its final color. If not given
+        or None, the values themselves represents the color. The dimensionality
+        of the map can be 1D, 2D or 3D, but should match the number of channels
+        in the image.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    """
 
     uniform_type = dict(
         clim="2xf4",

@@ -270,6 +270,8 @@ it's dimension should match the number of channels in the data. Again,
 both direct and colormapped colors can be 1-4 values.
 
 
+.. _colorspaces:
+
 Colorspaces
 ===========
 

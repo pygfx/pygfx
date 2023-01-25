@@ -143,7 +143,46 @@ def cylinder_geometry(
     theta_length=np.pi * 2,
     open_ended=False,
 ):
-    """Create geometry representing a cylinder."""
+    """Generate a cylinder or a cylinder segment.
+
+    This function generates a cylinder or a cylinder segment. The cylinder's
+    axis runs along the local z-axis, and its midpoint is located at the local
+    origin. The cylinder's faces (top and bottom cap) are approximated by
+    regular N-sided polygons, with corners on a circle of the given radius.
+
+    Optionally, the cylinder's faces may be replaced with polygon approximations
+    of two circle segments. In this case, a cylinder segment will be created,
+    and each segment's arc is constructed from N equal-length line segments
+    closed by a line along the segments cord.
+
+    Parameters
+    ----------
+    radius_bottom : float
+        The radius at the bottom of the cyliner.
+    radius_top : float
+        The radius at the top of the cyliner.
+    height : float
+        The height of the cylinder.
+    radial_segments : int
+        The number of segments to use when approximating the circle/arc.
+    height_segments : int
+        The number of evenly spaced segments into which the mantle should be
+        split.
+    theta_start : float
+        The angle (in rad) at which to start the circle segment. Zero points
+        into the direction of the local x-axis.
+    theta_length : float
+        The arc's central angle (in rad). Defaults to a full circle.
+    open_ended : bool
+        If True, the cylinder's faces are not added and the resulting geometry
+        only contains the mantle.
+
+    Returns
+    -------
+    cylinder : Geometry
+        A geometry object representing a cylinder.
+
+    """
 
     assert radial_segments > 0
     assert height_segments > 0
@@ -201,7 +240,47 @@ def cone_geometry(
     theta_length=np.pi * 2,
     open_ended=False,
 ):
-    """Create geometry representing a cone."""
+    """Generate a cone or a cone segment.
+
+    This function generates a cone or a cone segment. The cone's
+    axis runs along the local z-axis, and its midpoint is located at the local
+    origin.
+
+    The function is a thin wrapper around
+    :func:`pygfx.geometries.cylinder_geometry` with ``radius_top = 0.0`` and
+    slightly renamed arguments. For details, see the wrapped function.
+
+    Parameters
+    ----------
+    radius : float
+        The radius of the cone's bottom face.
+    height : float
+        The height of the cone.
+    radial_segments : int
+        The number of segments to use when approximating the circle/arc.
+    height_segments : int
+        The number of evenly spaced segments into which the mantle should be
+        split.
+    theta_start : float
+        The angle (in rad) at which to start the circle segment. Zero points
+        into the direction of the local x-axis.
+    theta_length : float
+        The arc's central angle (in rad). Defaults to a full circle.
+    open_ended : bool
+        If True, the cone's faces are not added and the resulting geometry
+        only contains the mantle.
+
+    Returns
+    -------
+    cylinder : Geometry
+        A geometry object representing a cylinder.
+
+    See Also
+    --------
+    pygfx.cylinder_geometry
+
+    """
+
     return cylinder_geometry(
         radius_bottom=radius,
         radius_top=0.0,
