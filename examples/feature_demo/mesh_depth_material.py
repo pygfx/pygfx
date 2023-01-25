@@ -71,7 +71,7 @@ class DepthShader(MeshShader):
             @builtin(vertex_index) vertex_index : u32,
         };
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             let vertex_index = i32(in.vertex_index);
@@ -92,7 +92,7 @@ class DepthShader(MeshShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
             let depth = 1.0 - varyings.position.z; // Invert depth - could also do logarithmic depth

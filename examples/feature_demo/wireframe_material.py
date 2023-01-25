@@ -94,7 +94,7 @@ class WireframeShader(WorldObjectShader):
             @builtin(vertex_index) vertex_index : u32,
         };
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.vertex_index);
@@ -122,7 +122,7 @@ class WireframeShader(WorldObjectShader):
     def code_fragment(self):
         return """
 
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
             let center = varyings.center;
             var out: FragmentOutput;
