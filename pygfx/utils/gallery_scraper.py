@@ -21,7 +21,7 @@ default_config = {
     # GIF settings
     "duration": 3,  # how many seconds to record
     "loop": 0,  # loop forever
-    "lossless": True  # whether to compress the result
+    "lossless": True,  # whether to compress the result
 }
 
 

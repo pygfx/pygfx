@@ -7,9 +7,9 @@ A python render engine targeting Vulkan/Metal/DX12.
 
 
 <p align="center">
-<img src="./docs/_static/sponza.png" alt="drawing" width="200"/>
-<img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="200"/>
-<img src="./docs/_static/torus_knot_wire.png" alt="drawing" width="200"/><br />
+<img src="./docs/_static/readme_sponza.png" alt="drawing" width="300"/>
+<img src="./docs/_static/readme_pbr_example.webp" alt="drawing" width="300"/>
+<img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="300"/><br />
 </p>
 <p align="center">
 (Check out the <a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">example gallery</a> for more renders.)
@@ -54,6 +54,10 @@ if __name__ == "__main__":
 
 ```
 <img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="400"/>
+
+
+> **Note**
+> Under construction from here.
 
 ## Introduction
 
