@@ -7,51 +7,35 @@ class Group(WorldObject):
     """A group of objects.
 
     A Group is useful when manipulating the scene graph as children can be
-    jointly moved/scaled/rotated. It typically has no visual properties.
+    jointly moved/scaled/rotated. It has no visual properties.
 
     Parameters
     ----------
-    geometry : Geometry
-        The data defining the shape of the object.
-    material : Material
-        The data defining the appearence of the object.
     visible : bool
-        Whether the object is visible.
-    render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
+        If true, the object and its children are visible.
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
 
     """
+
+    def __init__(self, *, visible=True, position=None):
+        super().__init__(
+            visible=visible,
+            position=position,
+        )
 
 
 class Scene(Group):
     """Root of the scene graph.
 
-    Parameters
-    ----------
-    geometry : Geometry
-        The data defining the shape of the object.
-    material : Material
-        The data defining the appearence of the object.
-    visible : bool
-        Whether the object is visible.
-    render_order : int
-        The render order (when applicable for the renderer's blend mode).
-    render_mask : str
-        Determines the render passes that the object is rendered in. It's
-        recommended to let the renderer decide, using "auto".
-    position : Vector
-        The position of the object in the world. Default (0, 0, 0).
-
     The scene holds scene-level information (background color, fog, environment
-    map) as well as all objects that take part in the rendering process as either
-    direct or indirect children/nested objects.
+    map) as well as all objects that take part in the rendering process as
+    either direct or indirect children/nested objects.
 
     """
+
+    def __init__(self):
+        super().__init__()
 
 
 class Background(WorldObject):
