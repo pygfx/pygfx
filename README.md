@@ -32,9 +32,6 @@ rendering (eg. in CI) you will also not need glfw.
 > **Note**
 > A walkthrough of this example can be found in [the guide](https://pygfx.readthedocs.io/en/latest/guide.html#how-to-use-pygfx).
 
-.. note::
-    A detailed
-
 ```python
 import pygfx as gfx
 
