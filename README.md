@@ -68,16 +68,26 @@ if __name__ == "__main__":
 Some of pygfx's key features are:
 
 - Native support for High Resolution screens.
-- Builtin anti-aliasing and picking
+- Builtin anti-aliasing 
+- event system with built-in picking
 
 @almarklein: A few suggestions and feature discussions
-- fast draws (57 FPS @ 30M vertices from 1k lines on a . . .) (@almarklein: what
-  specs does your laptop have? Also, do we have a polygon count benchmark?)
-- (approximate) order-independent transparency (OIT). (is this implemented now?)
-- Custom post-processing. (do the examples for this need updating?)
-- Easy shader templating
+- high-performance plotting
+- order-independent transparency (OIT)
+- a shader templating system
 - built atop [WGPU](https://github.com/pygfx/wgpu-py) (>= OpenGL)
 - semantically similar to TreeJS (WorldObjects, decoupled rendering backend, ...)
+- SDF-based text rendering
+- Ambient, Directional, Spot and Point lights including shadow casting support
+- Texture and color mapping supporting 1D, 2D and 3D data
+- Volume and image rendering
+- Thick point and line rendering
+- Mesh and volume slicing
+- Support for lights and shadows.
+- Physically based rendering.
+- Text rendering.
+- Supports scientific visualizations with features like colormaps, volume rendering, mesh- and volume slices, and the possibility to write custom shaders.
+
 
 And more! Check out our [feature
 demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
