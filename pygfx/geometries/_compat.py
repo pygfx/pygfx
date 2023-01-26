@@ -4,7 +4,22 @@ from ._base import Geometry
 
 
 def trimesh_geometry(mesh):
-    """Create geometry from a trimesh.Trimesh."""
+    """Convert geometry from Trimesh.
+
+    Creates a Geometry object from the given `trimesh.Trimesh
+    <https://trimsh.org/trimesh.html#trimesh.Trimesh>`_ object.
+
+    Parameters
+    ----------
+    mesh : Trimesh
+        The mesh to be converted into a geometry.
+
+    Returns
+    -------
+    converted_mesh : Geometry
+        A Geometry object representing the given mesh.
+
+    """
     from trimesh import Trimesh  # noqa
 
     if not isinstance(mesh, Trimesh):

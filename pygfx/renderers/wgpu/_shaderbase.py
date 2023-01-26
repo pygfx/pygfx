@@ -214,22 +214,22 @@ def resolve_depth_output(wgsl):
     # do early depth testing; the fragment shader must be run for the
     # depth to be known.
     depth_is_set = False
-    struct_linrnr = -1
+    struct_linenr = -1
     for linenr, line in enumerate(lines):
         if line.lstrip().startswith("struct FragmentOutput {"):
-            struct_linrnr = linenr
+            struct_linenr = linenr
         elif re_depth_setter.match(line):
             depth_is_set = True
-            if struct_linrnr >= 0:
+            if struct_linenr >= 0:
                 break
 
     if depth_is_set:
-        if struct_linrnr < 0:
+        if struct_linenr < 0:
             raise TypeError("FragmentOutput definition not found.")
         depth_field = "    @builtin(frag_depth) depth : f32,"
-        line = lines[struct_linrnr]
+        line = lines[struct_linenr]
         indent = line[: len(line) - len(line.lstrip())]
-        lines.insert(struct_linrnr + 1, indent + depth_field)
+        lines.insert(struct_linenr + 1, indent + depth_field)
 
     return "\n".join(lines)
 

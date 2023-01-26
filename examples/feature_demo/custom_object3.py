@@ -127,7 +127,7 @@ class TriangleShader(WorldObjectShader):
 
     def code_vertex(self):
         return """
-        @stage(vertex)
+        @vertex
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
 
             let vertex_index = i32(index) / 3;
@@ -156,7 +156,7 @@ class TriangleShader(WorldObjectShader):
 
     def code_fragment(self):
         return """
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
             let a = u_material.color.a * u_material.opacity;

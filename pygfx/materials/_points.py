@@ -4,8 +4,32 @@ from ..utils import unpack_bitfield, Color
 
 
 class PointsMaterial(Material):
-    """The default material used by Points. Renders (antialiased) disks
-    of the given size and color.
+    """Point default material.
+
+    Renders (antialiased) disks of the given size and color.
+
+    Parameters
+    ----------
+    color : Color
+        The (uniform) color of the points. Ignored if either map or vertex_color
+        are set.
+    size : int
+        The size (diameter) of the points in screen space (px). Ignored if
+        vertex_size is True.
+    vertex_color : bool
+        If True, use the vertex colors provided in the geometry to set point
+        colors.
+    vertex_sizes : bool
+        If True, use the vertex sizes provided in the geometry to set point
+        sizes.
+    map : TextureView
+        The texture map specifying the color for each texture coordinate. The
+        dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
     """
 
     uniform_type = dict(

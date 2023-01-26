@@ -57,48 +57,64 @@ def _get_sort_function(camera: Camera):
 
 
 class WgpuRenderer(RootEventHandler, Renderer):
-    """Object used to render scenes using wgpu.
+    """Turns Scenes into rasterized images using wgpu.
 
-    The purpose of a renderer is to render (i.e. draw) a scene to a
-    canvas or texture. It also provides picking, defines the
-    anti-aliasing parameters, and any post processing effects.
+    The current implementation supports various ``blend_modes`` which control how
+    transparency is handled during the rendering process. The following modes exist:
 
-    A renderer is directly associated with its target and can only render
-    to that target. Different renderers can render to the same target though.
+        * "default" or None: Select the default: currently this is "ordered2".
+        * "opaque": single-pass approach that ignores transparency.
+        * "ordered1": single-pass approach that blends fragments (using alpha
+          blending). Can only produce correct results if fragments are drawn
+          from back to front.
+        * "ordered2": two-pass approach that first processes all opaque
+          fragments and then blends transparent fragments (using alpha blending)
+          with depth-write disabled. The visual results are usually better than
+          ordered1, but still depend on the drawing order.
+        * "weighted": two-pass approach for order independent transparency based
+          on alpha weights.
+        * "weighted_depth": two-pass approach for order independent transparency
+          based on alpha weights and depth [1]. Note that the depth range
+          affects the (quality of the) visual result.
+        * "weighted_plus": three-pass approach for order independent
+          transparency, in wich the front-most transparent layer is rendered
+          correctly, while transparent layers behind it are blended using alpha
+          weights.
 
-    It provides a ``.render()`` method that can be called one or more
-    times to render scenes. This creates a visual representation that
-    is stored internally, and is finally rendered into its render target
-    (the canvas or texture).
-                                  __________
-                                 | blender  |
-        [scenes] -- render() --> |  state   | -- flush() --> [target]
-                                 |__________|
+    Parameters
+    ----------
+    target : WgpuCanvas or Texture
+        The target to render to. It is also used to determine the size of the
+        render buffer.
+    pixel_ratio : float, optional
+        The ratio between the number of pixels in the render buffer versus the
+        number of pixels in the display buffer. If None, this will be 1 for
+        high-res canvases and 2 otherwise. If greater than 1, SSAA
+        (supersampling anti-aliasing) is applied while converting a render
+        buffer to a display buffer. If smaller than 1, pixels from the render
+        buffer are replicated while converting to a display buffer. This has
+        positive performance implications.
+    show_fps : bool
+        Whether to display the frames per second. Beware that
+        depending on the GUI toolkit, the canvas may impose a frame rate limit.
+    blend_mode : str
+        The method for handling transparency. If None, use ``"ordered2"``.
+    sort_objects : bool
+        If True, sort all objects in the scene before rendering them. The sort
+        uses a hierarchical index based on the object's (1) ``render_order``,
+        (2) distance to the camera (based on the local frame's origin), (3) the
+        position in the scene graph (flattened depth-first). If False, the
+        rendering order is based on the position in the scene graph (flattened
+        in depth-first order).
+    enable_events : bool
+        If True, forward wgpu events to pygfx's event system.
+    gamma_correction : float
+        The gamma correction to apply in the final render stage. Typically a
+        number between 0.0 and 2.0. A value of 1.0 indicates no correction.
 
-    The internal representation is managed by the blender object. The
-    internal render textures are typically at a higher resolution to
-    reduce aliasing (SSAA). The blender has auxilary buffers such as a
-    depth buffer, pick buffer, and buffers for transparent fragments.
-    Depending on the blend mode, a single render call may consist of
-    multiple passes (to deal with semi-transparent fragments).
-
-    The flush-step resolves the internal representation into the target
-    texture or canvas, averaging neighbouring fragments for anti-aliasing.
-
-    Parameters:
-        target (WgpuCanvas or Texture): The target to render to, and what
-            determines the size of the render buffer.
-        pixel_ratio (float, optional): How large the physical size of the render
-            buffer is in relation to the target's physical size, for antialiasing.
-            See the corresponding property for details.
-        show_fps (bool): Whether to display the frames per second. Beware that
-            depending on the GUI toolkit, the canvas may impose a frame rate limit.
-        blend_mode (str): The method for handling transparency. See the blend_mode
-            property for details.
-        sort_objects (bool): Whether to sort world objects before rendering. Default False.
-        enable_events (bool): Whether to enable user interaction events. Default True.
-        gamma_correction (float): The gamma correction to apply in the final render stage.
-            Typically a number between 0.0 and 2.0. Default 1.0 (no correction).
+    References
+    ----------
+    [1] Morgan McGuire and Louis Bavoil, Weighted Blended Order-Independent Transparency, Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 2013
 
     """
 
@@ -598,11 +614,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=color_attachments,
-                depth_stencil_attachment={
-                    **depth_attachment,
-                    "stencil_load_op": wgpu.LoadOp.load,
-                    "stencil_store_op": wgpu.StoreOp.store,
-                },
+                depth_stencil_attachment=depth_attachment,
                 occlusion_query_set=None,
             )
             render_pass.set_viewport(*physical_viewport)

@@ -4,19 +4,25 @@ from ._base import Geometry
 
 
 def tetrahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a tetrahedron, centered
-    around the origin.
+    """Generate a tetrahedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Creates a tetrahedron that is centered around local origin. Its vertices
+    lie on the surface of a sphere of the given radius. Its faces are optionally
+    subdivided if subdivisions>0.
 
-    Parameters:
-        radius (int): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the tetrahedron
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
+
+    Returns
+    -------
+    tetrahedron : Geometry
+        A geometry object representing the desired tetrahedron.
+
     """
     positions = np.array(
         [
@@ -42,19 +48,25 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def octahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a octahedron, centered
-    around the origin.
+    """Generate a octahedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Creates an octahedron that is centered around the local origin. It has its
+    vertices lie on the surface of a sphere of the given radius. Its faces are
+    optionally subdivided if subdivisions>0.
 
-    Parameters:
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
+
+    Returns
+    -------
+    octahedron : Geometry
+        A geometry object representing the desired octahedron.
+
     """
     positions = np.array(
         [
@@ -86,19 +98,25 @@ def octahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def icosahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a icosahedron, centered
-    around the origin.
+    """Generate a icosahedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Creates an icosahedron that is centered around the local origin. It has its
+    vertices lie on the surface of a sphere of the given radius. Its faces are
+    optionally subdivided if subdivisions>0.
 
-    Parameters:
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
+
+    Returns
+    -------
+    icosahedron : Geometry
+        A geometry object representing the desired icosahedron.
+
     """
     t = (1 + np.sqrt(5)) / 2
 
@@ -150,19 +168,25 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
 
 
 def dodecahedron_geometry(radius=1.0, subdivisions=0):
-    """Create geometry representing a dodecahedron, centered
-    around the origin.
+    """Generate a dodecahedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Creates an dodecahedron that is centered around the local origin. It has its
+    vertices lie on the surface of a sphere of the given radius. Its faces are
+    optionally subdivided if subdivisions>0.
 
-    Parameters:
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    radius : int
+        The radius of a sphere that has the vertices on its surface.
+    subdivisions: int
+        The amount of times each face will be subdivided, where 0
+        (the default) means no subdivision.
+
+    Returns
+    -------
+    dodecahedron : Geometry
+        A geometry object representing the desired dodecahedron.
+
     """
     t = (1 + np.sqrt(5)) / 2
     r = 1 / t
@@ -241,23 +265,29 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
 def polyhedron_geometry(
     positions: np.ndarray, indices: np.ndarray, radius: float, subdivisions: int
 ):
-    """Procedurally generate geometry representing a polyhedron, centered
-    around the origin.
+    """Generate a Polyhedron.
 
-    The vertices lie on the surface of a sphere of the
-    given radius. The faces are optionally subdivided
-    if subdivisions>0.
+    Procedurally generate geometry representing a polyhedron, centered around
+    the origin. The vertices lie on the surface of a sphere of the given radius.
+    The faces are optionally subdivided if subdivisions>0.
 
-    Parameters:
-        positions (ndarray): The vertices used to initialize polyhedron
-            generation.
-        indices (ndarray): The face index used to initialize polyhedron
-            generation.
-        radius (float): The vertices lie on the surface of a sphere
-            with this radius.
-        subdivisions (int): The amount of times the
-            faces will be subdivided, where 0 (the default)
-            means no subdivision.
+    Parameters
+    ----------
+    positions : ndarray
+        The vertices used to initialize polyhedron generation.
+    indices : ndarray
+        The face index used to initialize polyhedron generation.
+    radius : float
+        The vertices lie on the surface of a sphere with this radius.
+    subdivisions : int
+        The amount of times the faces will be subdivided, where 0 (the
+        default) means no subdivision.
+
+    Returns
+    -------
+    polyhedron : Geometry
+        A geometry object representing the requested polyhedron.
+
     """
     # subdivide faces
     faces = positions[indices]

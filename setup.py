@@ -6,13 +6,16 @@ from setuptools import find_packages, setup
 NAME = "pygfx"
 SUMMARY = "A threejs-like render engine based on wgpu"
 
-with open(f"{NAME}/__init__.py") as fh:
-    VERSION = re.search(r"__version__ = \"(.*?)\"", fh.read()).group(1)
+with open(f"{NAME}/__init__.py", "rb") as fh:
+    init_text = fh.read().decode()
+    VERSION = re.search(r"__version__ = \"(.*?)\"", init_text).group(1)
+    match = re.search(r"__wgpu_version_range__ = \"(.*?)\", \"(.*?)\"", init_text)
+    wgpu_min_ver, wgpu_max_ver = match.group(1), match.group(2)
 
 
 runtime_deps = [
     "numpy",
-    "wgpu>=0.8.4,<0.9.0",
+    f"wgpu>={wgpu_min_ver},<{wgpu_max_ver}",
     "freetype-py",
     "uharfbuzz",
     "Jinja2",
@@ -46,6 +49,12 @@ extras_require = {
         "sphinx-gallery",
         "imageio",
         "matplotlib",
+        # duplicate example dependencies to avoid pyside6
+        "pytest",
+        "imageio",
+        "imageio-ffmpeg>=0.4.7",
+        "scikit-image",
+        "trimesh",
     ],
 }
 

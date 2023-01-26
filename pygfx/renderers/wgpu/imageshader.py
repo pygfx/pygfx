@@ -200,7 +200,7 @@ class ImageShader(BaseImageShader):
         };
 
 
-        @stage(vertex)
+        @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
             var geo = get_im_geometry();
@@ -225,7 +225,7 @@ class ImageShader(BaseImageShader):
     def code_fragment(self):
         return """
 
-        @stage(fragment)
+        @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             let sizef = vec2<f32>(textureDimensions(t_img));
             let value = sample_im(varyings.texcoord.xy, sizef);

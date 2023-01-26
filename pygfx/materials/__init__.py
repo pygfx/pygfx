@@ -1,3 +1,54 @@
+"""
+Containers for Material data.
+
+Materials define how a WorldObject is rendered. Many objects support multiple
+different materials, e.g. the materials that can be applied to a Mesh object
+mostly determine how the object is affected by lighs. Further, the materials
+have properties to influence the rendering, like colors, line thickness,
+colormaps, the strength of specular reflections, etc.
+
+.. currentmodule:: pygfx.materials
+
+.. autosummary::
+    :toctree: materials/
+    :template: ../_templates/custom_layout.rst
+
+    Material
+    pillow_image
+    trimesh_material
+
+    MeshBasicMaterial
+    MeshPhongMaterial
+    MeshNormalMaterial
+    MeshNormalLinesMaterial
+    MeshSliceMaterial
+    MeshStandardMaterial
+
+    PointsMaterial
+    GaussianPointsMaterial
+
+    LineMaterial
+    LineThinMaterial
+    LineThinSegmentMaterial
+    LineSegmentMaterial
+    LineArrowMaterial
+
+    ImageBasicMaterial
+
+    VolumeBasicMaterial
+    VolumeSliceMaterial
+    VolumeRayMaterial
+    VolumeMipMaterial
+
+    BackgroundMaterial
+    BackgroundImageMaterial
+    BackgroundSkyboxMaterial
+
+    TextMaterial
+
+"""
+
+
 # flake8: noqa
 
 from ._base import Material

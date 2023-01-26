@@ -84,7 +84,7 @@ var r_sampler: sampler;
 @group(1) @binding(1)
 var r_tex: texture_2d<f32>;
 
-@stage(vertex)
+@vertex
 fn vs_main(@builtin(vertex_index) index: u32) -> VertexOutput {
     var positions = array<vec2<f32>, 4>(vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0));
     let pos = positions[index];
@@ -94,7 +94,7 @@ fn vs_main(@builtin(vertex_index) index: u32) -> VertexOutput {
     return out;
 }
 
-@stage(fragment)
+@fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput {
     let u_render_time = 0.0;
     let u_render_noise = 1.0;

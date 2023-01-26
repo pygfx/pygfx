@@ -7,7 +7,31 @@ DTYPE = "f4"
 
 
 class GridHelper(Line):
-    """An object indicating the z=0 plane."""
+    """A WorldObject that shows a grid-shaped wireframe.
+
+    The generated grid will be in the xz-plane centered at the origin. To
+    position the grid, manipulate its parent's position, rotation, etc.
+
+    Parameters
+    ----------
+    size : float
+        The size of the wireframe in the direction of the x-, and y-axis.
+    divisions : int
+        The number of (evenly spaced) divisions to perform along each axis.
+    color1 : int, float, str, tuple
+        The color of the center lines. This is a either a single int or float
+        (gray), a 4-tuple ``(r,g,b,a)`` of ints or floats, or a hex-coded color
+        string in one of the following formats: ``#RGB``, ``#RGBA``,
+        ``#RRGGBB``, ``#RRGGBBAA``.
+    color2 : int, float, str, tuple
+        The color of non-center lines. This is a either a single int or float
+        (gray), a 4-tuple ``(r,g,b,a)`` of ints or floats, or a hex-coded color
+        string in one of the following formats: ``#RGB``, ``#RGBA``,
+        ``#RRGGBB``, ``#RRGGBBAA``.
+    thickness : int
+        The thickness in screen units (pixels).
+
+    """
 
     def __init__(
         self,

@@ -20,7 +20,7 @@ FULL_QUAD_SHADER = """
 
     BINDINGS_CODE
 
-    @stage(vertex)
+    @vertex
     fn vs_main(in: VertexInput) -> Varyings {
         var positions = array<vec2<f32>,4>(
             vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0)
@@ -32,7 +32,7 @@ FULL_QUAD_SHADER = """
         return varyings;
     }
 
-    @stage(fragment)
+    @fragment
     fn fs_main(varyings: Varyings) -> FragmentOutput {
         var out : FragmentOutput;
         let texcoord = varyings.texcoord;  // for textureSample
@@ -152,6 +152,7 @@ class RenderFlusher:
         self._uniform_data["gamma"] = gamma
 
     def _render(self, dst_color_tex, dst_format):
+
         device = self._device
         _, bind_group, render_pipeline = self._pipelines[dst_format]
 

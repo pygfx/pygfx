@@ -6,27 +6,34 @@ STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
 
 class Resource(Trackable):
+    """Resource base class."""
+
     pass
 
 
 class Buffer(Resource):
-    """A buffer object represents a piece of memory to the GPU, that can be
-    used as index buffer, vertex buffer, uniform buffer, or storage buffer.
-    You can provide (and update data for it), or use it as a placeholder
-    for a buffer with no representation on the CPU.
+    """A contigous piece of GPU memory.
 
-    Parameters:
-        data (array, optional): Array data of any type that supports the
-            buffer-protocol, (e.g. a bytes or numpy array). If not given
-            or None, nbytes and nitems must be provided. The data is
-            copied if it's float64 or not contiguous.
-        nbytes (int): The number of bytes. If data is given, it is derived.
-        nitems (int): The number of items. If data is given, it is derived.
-        format (str): The format to use when used as a vertex buffer.
-            By default this is automatically set from the data. This
-            must be a pygfx format specifier, e.g. "3xf4", but can also
-            be a format specific to the render backend if necessary
-            (e.g. from ``wgpu.VertexFormat``).
+    Buffers can be used as index buffer, vertex buffer, uniform buffer, or
+    storage buffer. You can provide (and update data for it), or use it as a
+    placeholder for a buffer with no representation on the CPU.
+
+    Parameters
+    ----------
+    data : array
+        The initial data of the array data. It must support the buffer-protocol,
+        (e.g. a bytes or numpy array). If None, nbytes and nitems must be
+        provided. The data is copied if it's not float32 or not contiguous.
+    nbytes : int
+        The size of the buffer in bytes. Ignored if ``data`` is used.
+    nitems : int
+        The number of elements in the buffer. Ignored if ``data`` is used.
+    format : str
+        A format string describing the buffer layout when used as a vertex
+        buffer. If None, this is automatically set from the data. This must be a
+        pygfx format specifier, e.g. "3xf4", but can also be a format specific
+        to the render backend if necessary (e.g. from ``wgpu.VertexFormat``).
+
     """
 
     def __init__(
@@ -91,8 +98,8 @@ class Buffer(Resource):
         """The data for this buffer. Can be None if the data only
         exists on the GPU.
 
-        Note: the data is the same reference that was given to instantiate this object,
-        but this may change.
+        Note: the data is the same reference that was given to instantiate this
+        object, but this may change.
         """
         return self._data
 

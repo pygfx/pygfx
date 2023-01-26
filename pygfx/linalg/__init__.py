@@ -1,5 +1,14 @@
 # flake8: noqa
 
+"""
+Linear Algebra Routines (deprecated)
+
+.. warning::
+    This module is deprecated and will be replaced by `pylinalg
+    <https://github.com/pygfx/pylinalg>`_ in a future version.
+
+"""
+
 from .utils import *
 from .cylindrical import *
 from .euler import *

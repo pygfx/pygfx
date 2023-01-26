@@ -6,7 +6,23 @@ from ..resources import Buffer
 
 
 class InstancedMesh(Mesh):
-    """An instanced mesh with a matrix for each instance."""
+    """Display a mesh multiple times using instances.
+
+    An instanced mesh with a matrix for each instance.
+
+    Parameters
+    ----------
+    geometry : Geometry
+        The mesh's geometry data.
+    material : Material
+        The material with which to render the mesh.
+    count : int
+        The number of instances to create.
+    kwargs : Any
+        Additional kwargs get forwarded to the :class:`base class
+        <pygfx.objects.Mesh>`.
+
+    """
 
     def __init__(self, geometry, material, count, **kwargs):
         super().__init__(geometry, material, **kwargs)
