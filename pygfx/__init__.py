@@ -23,6 +23,26 @@ from .utils import cm, logger
 __version__ = "0.1.10"
 version_info = tuple(map(int, __version__.split(".")))
 
+__wgpu_version_range__ = "0.9.0", "0.10.0"
+
+
+def _test_wgpu_version():
+    import wgpu  # noqa
+
+    min_ver, max_ver = __wgpu_version_range__
+    min_ver_info = tuple(map(int, min_ver.split(".")))
+    max_ver_info = tuple(map(int, max_ver.split(".")))
+    detected = f"Detected {wgpu.__version__}, need >={min_ver}, <{max_ver} ."
+    if wgpu.version_info < min_ver_info:
+        raise RuntimeError(
+            f"Incompatible version of wgpu-py:\n    {detected}\n    To update, use e.g. `pip install -U wgpu`."
+        )
+    elif wgpu.version_info >= max_ver_info:
+        print(f"Possible incompatible version of wgpu-py:\n    {detected}")
+
+
+_test_wgpu_version()
+
 
 def _get_sg_image_scraper():
     import sphinx_gallery.scrapers
