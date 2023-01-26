@@ -1,7 +1,11 @@
 # pygfx
-[![CI](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)](https://github.com/pygfx/pygfx/actions)
-[![Documentation Status](https://readthedocs.org/projects/pygfx/badge/?version=latest)](https://pygfx.readthedocs.io/en/latest/?badge=latest)
-[![PyPI version](https://badge.fury.io/py/pygfx.svg)](https://badge.fury.io/py/pygfx)
+[![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
+](https://github.com/pygfx/pygfx/actions)
+[![Documentation Status
+](https://readthedocs.org/projects/pygfx/badge/?version=latest)
+](https://pygfx.readthedocs.io/en/latest/?badge=latest)
+[![PyPI version ](https://badge.fury.io/py/pygfx.svg)
+](https://badge.fury.io/py/pygfx)
 
 A python render engine targeting Vulkan/Metal/DX12.
 
@@ -12,7 +16,9 @@ A python render engine targeting Vulkan/Metal/DX12.
 <img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
 </p>
 <p align="center">
-(Check out the <a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">example gallery</a> for more renders.)
+(Check out the 
+<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html"> example 
+gallery </a> for more renders.)
 </p>
 
 ## Installation
@@ -61,22 +67,24 @@ Some of pygfx's key features are:
 - Support for picking objects and parts within objects.
 
 @almarklein: A few suggestions and feature discussions
-- fast draws (57 FPS @ 30M vertices from 1k lines on a . . .) (@almarklein: what specs does your laptop have? Also, do we have a polygon count benchmark?)
+- fast draws (57 FPS @ 30M vertices from 1k lines on a . . .) (@almarklein: what
+  specs does your laptop have? Also, do we have a polygon count benchmark?)
 - (approximate) order-independent transparency (OIT). (is this implemented now?)
 - Custom post-processing. (do the examples for this need updating?)
 - Easy shader templating
 - built atop [WGPU](https://github.com/pygfx/wgpu-py) (>= OpenGL)
 - semantically similar to TreeJS (WorldObjects, decoupled rendering backend, ...)
 
-And more ... check out the [feature demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
+And more! Check out our [feature
+demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
 
 ## License
 
 Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This means:
 
-- :white_check_mark: It is free (and open source) forever :cupid:
-- :white_check_mark: You _can_ use it commercially
-- :white_check_mark: You _can_ make changes and distribute it
+- :white_check_mark: It is free (and open source) forever. :cupid:
+- :white_check_mark: You _can_ use it commercially.
+- :white_check_mark: You _can_ distribute it and freely make changes.
 - :x: You _can not_ hold us accountable the results of using pygfx.
 
 ## Contributing
@@ -84,11 +92,11 @@ We use a very similar setup to many other open-source libraries in the python
 ecosystem. If you have contributed to open-source in the past, a lot of this
 should look familiar.
 
-**GitHub Workflow**
+### GitHub Workflow
 We use a PR-based workflow. Each contributor has his/her own fork of the project
 inside of which he/she maintains a branch containing the changes that should be
 incorporated into the project. These changes are presented as a [pull request
-(PR)](https://github.com/pygfx/pygfx/pulls) on GitHub where we discuss changes,
+(PR)](https://github.com/pygfx/pygfx/pulls) on GitHub where we discuss them,
 review code, and eventually merge the work. 
 
 When you begin working on pygfx you would typically do something like:
@@ -115,12 +123,13 @@ git push main
 git merge main
 ```
 
-## Testing examples
+This way the main repo, your fork, and your local main stay in sync which
+prevents surprises later on, e.g., when starting a new PR.
 
-> **Note**
-> Under construction (TODO)
+### Testing
 
-The test suite is divided into two parts; unit tests for the core, and unit tests for the examples.
+The test suite is divided into two parts; unit tests for the core, and unit
+tests for the examples.
 
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
