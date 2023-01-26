@@ -17,15 +17,14 @@ A python render engine targeting Vulkan/Metal/DX12.
 
 ## Installation
 
-If you are just starting out, or have no requirement on the canvas use
-
 ```bash
 pip install -U pygfx glfw
 ```
 
-If you already have a wgpu-compatible canvas (e.g., Qt, pyside, wx) installed
-you may choose to not install glfw. Similarly, if you only wish to use offscreen
-rendering (eg. in CI) you will also not need glfw.
+Pygfx needs _some_ window to render to. Glfw is one lightweight option, but
+others do exist. If you only use pygfx for offscreen, or notebook rendering you
+may choose to omit this. Similarly, you can (of course) swap it for any other
+wgpu-compatible canvas, e.g., PyQt, PySide, or wx.
 
 ## Example
 
@@ -53,10 +52,10 @@ if __name__ == "__main__":
 <img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="400"/>
 
 
-> **Note**
-> Under construction from here.
+## Features
 
-## Introduction
+> **Note**
+> Under construction (TODO)
 
 This is a Python render engine build on top of [WGPU](https://github.com/pygfx/wgpu-py) (instead of OpenGL).
 
@@ -74,87 +73,28 @@ Further we aim for a few niceties:
 * (approximate) order-independent transparency (OIT) (not implemented yet).
 
 
-## WGPU is awesome (but also very new)
-
-Working with the WGPU API feels so much nicer than OpenGL. It's well
-defined, no global state, we can use compute shaders, use storage
-buffers (random access), etc.
-
-Fair enough, the WGPU API is very new and is still changing a lot, but
-eventually it will become stable. One of the biggest downsides right
-now is the lack of software rendering. No luck trying to run wgpu on a
-VM or CI.
-
-Because of how Vulkan et. al. work, the WGPU API is aimed at predefining
-objects and pipelines and then executing these. Almost everything is
-"prepared". The main reasoning for this is consistency and stable drivers,
-but it also has a big advantage for us Pythoneers: the amount of code per-draw-per-object
-is very limited. This means we can have *a lot* of objects and still be fast.
-
 As an example, see `collections_line.py`: drawing 1000 line objects with 30k points each at 57 FPS (on my laptop).
 
+## License
 
-## On world objects, materials, and geometry
+Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This means:
 
-There are a few different world object classes. The class defines
-(semantically) the kind of object being drawn, e.g. `Line`, `Image`,
-`Mesh`, `Volume`. World objects have a position and orientation in the
-scene, and can have children (other world objects), creating a tree.
-World objects can also have a geometry and/or a material.
+- :white_check_mark: It is free (and open source) forever :cupid:
+- :white_check_mark: You _can_ use it commercially
+- :white_check_mark: You _can_ make changes and distribute it
+- :x: You _can not_ hold us accountable the results of using pygfx.
 
-The geometry of an object defines its base data, usually per-vertex
-attributes such as positions, normals, and texture coordinates. There
-are several pre-defined geometries, most of which simply define certain
-3D shapes.
+## Contributing
 
-The material of an object defines how an object is rendered. Usually
-each WorldObject class has one or more materials associated with it.
-E.g. a line can be drawn solid, segmented or with arrows. A volume can
-be rendered as a slice, MIP, or something else.
-
-
-## Current status
-
-Under development, many things can change.
-
+> **Note**
+> Under construction (TODO)
 
 ## Testing examples
+
+> **Note**
+> Under construction (TODO)
 
 The test suite is divided into two parts; unit tests for the core, and unit tests for the examples.
 
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
-
-There are two types of tests for examples included with pygfx:
-
-### Type 1: Checking if examples can run
-
-When running the test suite, pytest will run every example in a subprocess,
-to see if it can run and exit cleanly. You can opt out of this mechanism by including the comment
-`# run_example = false` in the module.
-
-### Type 2: Checking if examples output an image
-
-You can also (independently) opt-in to output testing for examples, by including the comment
-`# test_example = true` in the module. Output testing means the test suite will
-attempt to import the `renderer` instance global from your example, and call it
-to see if an image is produced.
-
-To support this type of testing, ensure the following requirements are met:
-
-* The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
-* The `renderer` instance is exposed as a global in the module.
-* A rendering callback has been registered with `renderer.request_draw(fn)`.
-
-Reference screenshots are stored in the `examples/screenshots` folder,
-the test suite will compare the rendered image with the reference.
-
-Note: this step will be skipped when not running on CI. Since images will have subtle differences
-depending on the system on which they are rendered, that would make the tests unreliable.
-
-For every test that fails on screenshot verification, diffs will be generated for the rgb and alpha channels
-and made available in the `examples/screenshots/diffs` folder. On CI, the `examples/screenshots` folder
-will be published as a build artifact so you can download and inspect the differences.
-
-If you want to update the reference screenshot for a given example, you can grab those from the
-build artifacts as well and commit them to your branch.
