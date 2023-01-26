@@ -80,7 +80,6 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 - :x: You _can not_ hold us accountable the results of using pygfx.
 
 ## Contributing
-
 We use a very similar setup to many other open-source libraries in the python
 ecosystem. If you have contributed to open-source in the past, a lot of this
 should look familiar.
@@ -106,25 +105,15 @@ git push --set-upstream origin <branch_name>
 # Make changes and discuss on GH.
 ```
 
-While you work, other PRs may finish and get merged, which will require you to
-either merge with main or rebase. There are different ways to do this, and the
-most convenient that I know is
+While your work is ongoing, other PRs may finish and get merged, which will
+require you to either merge with main or rebase. There are different ways to do
+this, and the most convenient that I know of is
 
 ```bash
 git fetch upstream main:main
+git push main
 git merge main
 ```
-
-**Dev Install**
-This will give you a _full_ installation of pygfx, which will allow you to contribute
-to any open issue or PR.
-```bash
-git clone <your_fork> <target_folder>
-cd <target_folder>
-pip install -e .[dev,docs,examples]
-
-```
-
 
 ## Testing examples
 
