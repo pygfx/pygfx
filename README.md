@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/_static/pygfx.png" width="50"/></p>
+<p align="center"><img src="docs/_static/pygfx.png" width="100"/></p>
 
 # pygfx
 A python render engine targeting Vulkan/Metal/DX12.
