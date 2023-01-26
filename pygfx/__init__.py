@@ -32,13 +32,13 @@ def _test_wgpu_version():
     min_ver, max_ver = __wgpu_version_range__
     min_ver_info = tuple(map(int, min_ver.split(".")))
     max_ver_info = tuple(map(int, max_ver.split(".")))
-    detected = f"Detected {wgpu.__version__}, need >={min_ver}, <{max_ver} ."
+    detected = f"Detected {wgpu.__version__}, need >={min_ver}, <{max_ver}."
     if wgpu.version_info < min_ver_info:
-        raise RuntimeError(
+        logger.error(
             f"Incompatible version of wgpu-py:\n    {detected}\n    To update, use e.g. `pip install -U wgpu`."
         )
     elif wgpu.version_info >= max_ver_info:
-        print(f"Possible incompatible version of wgpu-py:\n    {detected}")
+        logger.warning(f"Possible incompatible version of wgpu-py:\n    {detected}")
 
 
 _test_wgpu_version()
