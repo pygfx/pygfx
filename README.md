@@ -23,13 +23,14 @@ pip install -U pygfx glfw
 
 Pygfx needs _some_ window to render to. Glfw is one lightweight option, but
 others do exist. If you only use pygfx for offscreen, or notebook rendering you
-may choose to omit this. Similarly, you can (of course) swap it for any other
+may choose to omit glfw. Similarly, you can (of course) swap it for any other
 wgpu-compatible canvas, e.g., PyQt, PySide, or wx.
 
 ## Example
 
 > **Note**
-> A walkthrough of this example can be found in [the guide](https://pygfx.readthedocs.io/en/latest/guide.html#how-to-use-pygfx).
+> A walkthrough of this example can be found in [the
+> guide](https://pygfx.readthedocs.io/en/latest/guide.html#how-to-use-pygfx).
 
 ```python
 import pygfx as gfx
@@ -53,27 +54,21 @@ if __name__ == "__main__":
 
 
 ## Features
+Some of pygfx's key features are:
 
-> **Note**
-> Under construction (TODO)
+- Native support for High Resolution screens.
+- Builtin anti-aliasing.
+- Support for picking objects and parts within objects.
 
-This is a Python render engine build on top of [WGPU](https://github.com/pygfx/wgpu-py) (instead of OpenGL).
+@almarklein: A few suggestions and feature discussions
+- fast draws (57 FPS @ 30M vertices from 1k lines on a . . .) (@almarklein: what specs does your laptop have? Also, do we have a polygon count benchmark?)
+- (approximate) order-independent transparency (OIT). (is this implemented now?)
+- Custom post-processing. (do the examples for this need updating?)
+- Easy shader templating
+- built atop [WGPU](https://github.com/pygfx/wgpu-py) (>= OpenGL)
+- semantically similar to TreeJS (WorldObjects, decoupled rendering backend, ...)
 
-We take a lot of inspiration from ThreeJS, e.g.:
-
-* Materials and Geometry are combined in world objects.
-* Decoupled cameras and controllers.
-* The code for the render engines is decoupled from the objects, allowing multiple render engines (e.g. wgpu and svg).
-
-Further we aim for a few niceties:
-* Proper support for high-res screens.
-* Builtin anti-aliasing.
-* Custom post-processing steps.
-* Support for picking objects and parts within objects.
-* (approximate) order-independent transparency (OIT) (not implemented yet).
-
-
-As an example, see `collections_line.py`: drawing 1000 line objects with 30k points each at 57 FPS (on my laptop).
+And more ... check out the [feature demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
 
 ## License
 
@@ -86,8 +81,50 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 
 ## Contributing
 
-> **Note**
-> Under construction (TODO)
+We use a very similar setup to many other open-source libraries in the python
+ecosystem. If you have contributed to open-source in the past, a lot of this
+should look familiar.
+
+**GitHub Workflow**
+We use a PR-based workflow. Each contributor has his/her own fork of the project
+inside of which he/she maintains a branch containing the changes that should be
+incorporated into the project. These changes are presented as a [pull request
+(PR)](https://github.com/pygfx/pygfx/pulls) on GitHub where we discuss changes,
+review code, and eventually merge the work. 
+
+When you begin working on pygfx you would typically do something like:
+
+```bash
+# Click the Fork button on GitHub and navigate to your fork
+git clone <address_of_your_fork>
+cd pygfx
+git remote add upstream git@github.com:pygfx/pygfx.git
+pip install -e .[dev,docs,examples]
+git checkout -b <branch_name>
+git push --set-upstream origin <branch_name>
+# Go to https://github.com/pygfx/pygfx/pulls and open a new PR
+# Make changes and discuss on GH.
+```
+
+While you work, other PRs may finish and get merged, which will require you to
+either merge with main or rebase. There are different ways to do this, and the
+most convenient that I know is
+
+```bash
+git fetch upstream main:main
+git merge main
+```
+
+**Dev Install**
+This will give you a _full_ installation of pygfx, which will allow you to contribute
+to any open issue or PR.
+```bash
+git clone <your_fork> <target_folder>
+cd <target_folder>
+pip install -e .[dev,docs,examples]
+
+```
+
 
 ## Testing examples
 
