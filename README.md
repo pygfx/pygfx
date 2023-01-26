@@ -1,4 +1,8 @@
+<center><img src="docs/_static/pygfx.png" width="300"/></center>
+
 # pygfx
+A python render engine targeting Vulkan/Metal/DX12.
+
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
 ](https://github.com/pygfx/pygfx/actions)
 [![Documentation Status
@@ -7,18 +11,15 @@
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
-A python render engine targeting Vulkan/Metal/DX12.
-
-
 <p align="center">
 <img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
 <img src="./docs/_static/readme_pbr_example.webp" alt="drawing" width="200"/>
 <img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
 </p>
 <p align="center">
-(Check out the 
-<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html"> example 
-gallery </a> for more renders.)
+[<a href="https://pygfx.readthedocs.io/en/latest/guide.html">User Guide </a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">Example Gallery </a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/reference.html">API Reference </a>]
 </p>
 
 ## Installation
@@ -32,7 +33,11 @@ others do exist. If you only use pygfx for offscreen, or notebook rendering you
 may choose to omit glfw. Similarly, you can (of course) swap it for any other
 wgpu-compatible canvas, e.g., PyQt, PySide, or wx.
 
-## Example
+In addition there are some [platform
+requirements](https://github.com/pygfx/wgpu-py#platform-requirements). In
+essense, you need modern (enough) graphics drivers, and `pip >= 20.3`.
+
+## Usage Example
 
 > **Note**
 > A walkthrough of this example can be found in [the
@@ -63,8 +68,7 @@ if __name__ == "__main__":
 Some of pygfx's key features are:
 
 - Native support for High Resolution screens.
-- Builtin anti-aliasing.
-- Support for picking objects and parts within objects.
+- Builtin anti-aliasing and picking
 
 @almarklein: A few suggestions and feature discussions
 - fast draws (57 FPS @ 30M vertices from 1k lines on a . . .) (@almarklein: what
