@@ -1,7 +1,5 @@
 <h1 align="center"><img src="docs/_static/pygfx_with_name.svg" width="600"/></h1>
 
-A python render engine targeting Vulkan/Metal/DX12.
-
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
 ](https://github.com/pygfx/pygfx/actions)
 [![Documentation Status
@@ -9,6 +7,8 @@ A python render engine targeting Vulkan/Metal/DX12.
 ](https://pygfx.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
+
+A python render engine targeting Vulkan/Metal/DX12.
 
 <p align="center">
 <img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
