@@ -64,33 +64,31 @@ if __name__ == "__main__":
 <img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="400"/>
 
 
-## Features
+## Feature Highlights
 Some of pygfx's key features are:
 
-- Native support for High Resolution screens.
-- Builtin anti-aliasing 
-- event system with built-in picking
-
-@almarklein: A few suggestions and feature discussions
-- high-performance plotting
-- order-independent transparency (OIT)
-- a shader templating system
-- built atop [WGPU](https://github.com/pygfx/wgpu-py) (>= OpenGL)
-- semantically similar to TreeJS (WorldObjects, decoupled rendering backend, ...)
-- SDF-based text rendering
-- Ambient, Directional, Spot and Point lights including shadow casting support
-- Texture and color mapping supporting 1D, 2D and 3D data
-- Volume and image rendering
-- Thick point and line rendering
-- Mesh and volume slicing
-- Support for lights and shadows.
-- Physically based rendering.
-- Text rendering.
-- Supports scientific visualizations with features like colormaps, volume rendering, mesh- and volume slices, and the possibility to write custom shaders.
+- SDF based rendering (example)
+- order-independent transparency (OIT) (example)
+- a shader templating system (example)
+- event system with built-in picking (example)
+- Texture and color mapping supporting 1D, 2D and **3D data** (example)
 
 
-And more! Check out our [feature
+And many more! Check out our [feature
 demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
+
+## About pygfx
+
+Pygfx is a graphics library that uses WGPU (the successor of OpenGL) to provide
+GPU acceleration to rendering workloads. It mimics the ThreeJS API and is geared
+towards scientific and medical visualization. At the same time, is mature enough
+to serve as a general-purpose rendering engine. (Yes, you _can_ write a game
+with it.) Thanks to it's low level of abstraction it is flexible and can be
+adapted to various use-cases. In other words, pygfx emphasizes on hackability
+and correctness while maintaining the level of performance you would expect from
+a GPU accelerated library.
+
+@almarklein: ? citation ?
 
 ## License
 
