@@ -1,6 +1,5 @@
-<p align="center"><img src="docs/_static/pygfx.svg" width="100"/></p>
+<h1 align="center"><img src="docs/_static/pygfx_with_name.svg" width="600"/></h1>
 
-# pygfx
 A python render engine targeting Vulkan/Metal/DX12.
 
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
