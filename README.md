@@ -102,43 +102,23 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 - :x: You _can not_ hold us accountable the results of using pygfx.
 
 ## Contributing
-We use a very similar setup to many other open-source libraries in the python
-ecosystem. If you have contributed to open-source in the past, a lot of this
-should look familiar.
+We use a pull request (PR) based workflow similar to many other open-source
+libraries in the python ecosystem. You can read more about this workflow
+[here](https://docs.github.com/en/get-started/quickstart/github-flow); however,
+if you have previously contributed to open-source, a lot of this will look
+familiar already.
 
-### GitHub Workflow
-We use a PR-based workflow. Each contributor has his/her own fork of the project
-inside of which he/she maintains a branch containing the changes that should be
-incorporated into the project. These changes are presented as a [pull request
-(PR)](https://github.com/pygfx/pygfx/pulls) on GitHub where we discuss them,
-review code, and eventually merge the work. 
-
-When you begin working on pygfx you would typically do something like:
+### Development Install
+To get a working dev install of pygfx you can use the following steps:
 
 ```bash
 # Click the Fork button on GitHub and navigate to your fork
 git clone <address_of_your_fork>
 cd pygfx
-git remote add upstream git@github.com:pygfx/pygfx.git
+# if you use a venv, create and activate it
 pip install -e .[dev,docs,examples]
-git checkout -b <branch_name>
-git push --set-upstream origin <branch_name>
-# Go to https://github.com/pygfx/pygfx/pulls and open a new PR
-# Make changes and discuss on GH.
+pytest
 ```
-
-While your work is ongoing, other PRs may finish and get merged, which will
-require you to either merge with main or rebase. There are different ways to do
-this, and the most convenient that I know of is
-
-```bash
-git fetch upstream main:main
-git push main
-git merge main
-```
-
-This way the main repo, your fork, and your local main stay in sync which
-prevents surprises later on, e.g., when starting a new PR.
 
 ### Testing
 
