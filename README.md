@@ -16,9 +16,9 @@ A python render engine targeting Vulkan/Metal/DX12.
 <img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
 </p>
 <p align="center">
-[<a href="https://pygfx.readthedocs.io/en/latest/guide.html">User Guide </a>]
-[<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">Example Gallery </a>]
-[<a href="https://pygfx.readthedocs.io/en/latest/reference.html">API Reference </a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/guide.html">User Guide</a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">Example Gallery</a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/reference.html">API Reference</a>]
 </p>
 
 ## Installation
