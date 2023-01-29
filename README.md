@@ -27,10 +27,11 @@ A python render engine targeting Vulkan/Metal/DX12.
 pip install -U pygfx glfw
 ```
 
-Pygfx needs _some_ window to render to. Glfw is one lightweight option, but
-others do exist. If you only use pygfx for offscreen, or notebook rendering you
-may choose to omit glfw. Similarly, you can (of course) swap it for any other
-wgpu-compatible canvas, e.g., PyQt, PySide, or wx.
+To work correctly, pygfx needs _some_ window to render to. Glfw is one
+lightweight option, but there are others, too. If you only use pygfx for
+offscreen, or notebook rendering you may choose to omit glfw. Similarly, you can
+(of course) swap it for any other wgpu-compatible canvas, e.g., PyQt, PySide, or
+wx.
 
 In addition there are some [platform
 requirements](https://github.com/pygfx/wgpu-py#platform-requirements). In
