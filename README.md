@@ -84,7 +84,7 @@ https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
 
 ## About pygfx
 
-Pygfx is a graphics library that uses WGPU (the successor of OpenGL) to provide
+pygfx is a graphics library that uses WGPU (the successor of OpenGL) to provide
 GPU acceleration to rendering workloads that takes inspiration from the ThreeJS
 API. It is mature enough to serve as a general-purpose rendering engine (Yes,
 you _can_ write a game with it.) while being geared towards scientific and
