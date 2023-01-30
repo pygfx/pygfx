@@ -35,7 +35,7 @@ wx.
 
 In addition there are some [platform
 requirements](https://github.com/pygfx/wgpu-py#platform-requirements). In
-essense, you need modern (enough) graphics drivers, and `pip >= 20.3`.
+essense, you need modern (enough) graphics drivers, and `pip>=20.3`.
 
 ## Usage Example
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 ## Feature Highlights
 Some of pygfx's key features are:
 
-- SDF based rendering (example)
+- SDF based rendering ([example](https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
 - order-independent transparency (OIT) (example)
 - a shader templating system (example)
 - event system with built-in picking (example)
@@ -80,13 +80,13 @@ demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
 ## About pygfx
 
 Pygfx is a graphics library that uses WGPU (the successor of OpenGL) to provide
-GPU acceleration to rendering workloads. It mimics the ThreeJS API and is geared
-towards scientific and medical visualization. At the same time, is mature enough
-to serve as a general-purpose rendering engine. (Yes, you _can_ write a game
-with it.) Thanks to it's low level of abstraction it is flexible and can be
-adapted to various use-cases. In other words, pygfx emphasizes on hackability
-and correctness while maintaining the level of performance you would expect from
-a GPU accelerated library.
+GPU acceleration to rendering workloads that takes inspiration from the ThreeJS
+API. It is mature enough to serve as a general-purpose rendering engine (Yes,
+you _can_ write a game with it.) while being geared towards scientific and
+medical visualization. Thanks to its low level of abstraction it is flexible and
+can be adapted to various use-cases. In other words, pygfx emphasizes on
+hackability and correctness while maintaining the level of performance you would
+expect from a GPU accelerated library.
 
 @almarklein: ? citation ?
 
