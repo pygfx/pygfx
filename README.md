@@ -29,7 +29,7 @@ pip install -U pygfx glfw
 
 To work correctly, pygfx needs _some_ window to render to. Glfw is one
 lightweight option, but there are others, too. If you only use pygfx for
-offscreen, or notebook rendering you may choose to omit glfw. Similarly, you can
+offscreen or notebook rendering you may choose to omit glfw. Similarly, you can
 (of course) swap it for any other wgpu-compatible canvas, e.g., PyQt, PySide, or
 wx.
 
@@ -67,9 +67,9 @@ if __name__ == "__main__":
 ## Feature Highlights
 Some of pygfx's key features are:
 
-- SDF based rendering ([example](https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
+- SDF based text rendering (example)
 - order-independent transparency (OIT) (example)
-- a shader templating system (example)
+- lights, shadows, and physically based rendering (PBR)
 - event system with built-in picking (example)
 - Texture and color mapping supporting 1D, 2D and **3D data** (example)
 
@@ -102,7 +102,7 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 ## Contributing
 We use a pull request (PR) based workflow similar to many other open-source
 libraries in the python ecosystem. You can read more about this workflow
-[here](https://docs.github.com/en/get-started/quickstart/github-flow); however,
+[here](https://docs.github.com/en/get-started/quickstart/github-flow);
 if you have previously contributed to open-source, a lot of this will look
 familiar already.
 
