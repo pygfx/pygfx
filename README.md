@@ -67,7 +67,7 @@ if __name__ == "__main__":
 ## Feature Highlights
 Some of pygfx's key features are:
 
-- SDF based text rendering (example)
+- SDF based text rendering ([example](https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
 - order-independent transparency (OIT) (example)
 - lights, shadows, and physically based rendering (PBR)
 - event system with built-in picking (example)
