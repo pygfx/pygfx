@@ -67,15 +67,20 @@ if __name__ == "__main__":
 ## Feature Highlights
 Some of pygfx's key features are:
 
-- SDF based text rendering ([example](https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
-- order-independent transparency (OIT) (example)
-- lights, shadows, and physically based rendering (PBR)
-- event system with built-in picking (example)
-- Texture and color mapping supporting 1D, 2D and **3D data** (example)
+- SDF based text rendering ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
+- order-independent transparency (OIT) ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/transparency2.html))
+- lights, shadows, and physically based rendering (PBR) ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/pbr.html))
+- event system with built-in picking ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/picking_points.html))
+- Texture and color mapping supporting 1D, 2D and **3D data** ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/colormap_channels.html))
 
 
-And many more! Check out our [feature
-demos](https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
+And many more! Check out our [feature demos](
+https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
 
 ## About pygfx
 
