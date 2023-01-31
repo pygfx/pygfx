@@ -75,7 +75,7 @@ Some of pygfx's key features are:
   https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/pbr.html))
 - event system with built-in picking ([example](
   https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/picking_points.html))
-- Texture and color mapping supporting 1D, 2D and **3D data** ([example](
+- texture and color mapping supporting 1D, 2D and 3D data ([example](
   https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/colormap_channels.html))
 
 
