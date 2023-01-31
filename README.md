@@ -93,8 +93,6 @@ can be adapted to various use-cases. In other words, pygfx emphasizes on
 hackability and correctness while maintaining the level of performance you would
 expect from a GPU accelerated library.
 
-@almarklein: ? citation ?
-
 ## License
 
 Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This means:
