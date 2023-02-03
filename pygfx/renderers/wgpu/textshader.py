@@ -8,7 +8,6 @@ from ...utils.text._shaper import REF_GLYPH_SIZE
 
 @register_wgpu_render_function(Text, TextMaterial)
 class TextShader(WorldObjectShader):
-
     type = "render"
 
     def __init__(self, wobject):
@@ -19,7 +18,6 @@ class TextShader(WorldObjectShader):
         self["aa"] = material.aa
 
     def get_bindings(self, wobject, shared):
-
         geometry = wobject.geometry
         material = wobject.material
 
@@ -87,7 +85,6 @@ class TextShader(WorldObjectShader):
         )
 
     def code_vertex(self):
-
         return """
 
         struct VertexInput {

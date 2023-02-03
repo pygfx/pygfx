@@ -65,7 +65,6 @@ for i in range(100):
 
 
 def animate():
-
     garbage_collect = True
 
     # Let them fall

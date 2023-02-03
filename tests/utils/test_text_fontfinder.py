@@ -11,7 +11,6 @@ from pygfx.utils.text import _fontfinder
 
 
 def test_font_file():
-
     ff1 = _fontfinder.FontFile("x", "Foo Sans", "Regular", {1, 2, 3})
     assert ff1.filename == "x"
     assert ff1.name == "FooSans-Regular"
@@ -148,7 +147,6 @@ class StubFace:
 
 
 def test_get_system_fonts():
-
     # Prepare a clean temp dir
     tmpdir = os.path.join(tempfile.gettempdir(), "pygfx_test")
     shutil.rmtree(tmpdir, ignore_errors=True)
@@ -190,7 +188,6 @@ def test_get_system_fonts():
     cache_filename = tmpdir + "/font_cache.json"
 
     try:
-
         # No cache
         assert len(counter) == 0
         assert not os.path.isfile(cache_filename)

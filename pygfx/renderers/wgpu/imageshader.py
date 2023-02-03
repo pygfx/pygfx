@@ -99,7 +99,6 @@ class BaseImageShader(WorldObjectShader):
 
 @register_wgpu_render_function(Image, ImageBasicMaterial)
 class ImageShader(BaseImageShader):
-
     type = "render"
 
     def get_bindings(self, wobject, shared):

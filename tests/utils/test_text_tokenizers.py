@@ -2,7 +2,6 @@ from pygfx.utils.text import tokenize_text, tokenize_markdown
 
 
 def test_tokenize_text():
-
     text = "foo bar  spam\teggs"
     parts = list(tokenize_text(text))
     assert text == "".join(p[1] for p in parts), "total is not original"
@@ -18,7 +17,6 @@ def test_tokenize_text():
 
 
 def test_tokenize_markdown():
-
     # Test regular text
     text = "foo bar  spam\teggs"
     parts = list(tokenize_markdown(text))

@@ -72,7 +72,6 @@ class Overlay(QtWidgets.QWidget):
         self.setAutoFillBackground(False)
 
     def paintEvent(self, event):  # noqa: N802
-
         painter = QtGui.QPainter()
         if not painter.begin(self):
             return

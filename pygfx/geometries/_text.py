@@ -69,7 +69,6 @@ class TextItem:
         ws_after="",
         allow_break=True,
     ):
-
         if not isinstance(text, str):
             raise TypeError("TextItem text must be str.")
         if font_props is None:

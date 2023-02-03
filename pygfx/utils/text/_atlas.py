@@ -250,7 +250,6 @@ class GlyphAtlas(RectPacker):
         resized if necessary.
         """
         with self._lock:
-
             # Select a region
             rect = self._select_region(w, h)
 
@@ -326,7 +325,6 @@ class GlyphAtlas(RectPacker):
     def store_region_with_hash(self, hash, region, offset=(0, 0)):
         """Set the region corresponding to the given hash, and return the index."""
         with self._lock:
-
             # Sanitize
             assert isinstance(region, np.ndarray)
             assert hash not in self._hash2index

@@ -42,7 +42,6 @@ renderer_uniform_type = dict(last_i="i4")
 
 @register_wgpu_render_function(Line, LineMaterial)
 class LineShader(WorldObjectShader):
-
     type = "render"
 
     def __init__(self, wobject):
@@ -575,7 +574,6 @@ class LineArrowShader(LineShader):
 
 @register_wgpu_render_function(Line, LineThinMaterial)
 class ThinLineShader(WorldObjectShader):
-
     type = "render"
 
     def get_bindings(self, wobject, shared):

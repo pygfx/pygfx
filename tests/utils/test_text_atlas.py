@@ -29,7 +29,6 @@ def test_sizes():
 
 
 def test_atlas_resize_edge_cases():
-
     # Create a small atlas 16x16
     atlas = GlyphAtlas(256, 16)
 
@@ -48,7 +47,6 @@ def test_atlas_resize_edge_cases():
 
 
 def test_atlas_resize():
-
     # Test the exact points of resize with controlled allocs
 
     # Create a small atlas 16x16
@@ -97,7 +95,6 @@ def test_atlas_resize():
 
 
 def test_atlas_alloc_resize_with_freeing():
-
     # Test the exact points of resize, now with freeing regions
 
     def get_index_in_use():

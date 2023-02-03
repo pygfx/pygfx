@@ -95,7 +95,6 @@ layout()
 
 
 def animate():
-
     controller1.update_camera(camera1)
     controller2.update_camera(camera2)
     controller3.update_camera(camera3)

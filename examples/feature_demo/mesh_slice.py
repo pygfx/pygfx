@@ -48,7 +48,6 @@ light2.visible = True
 
 
 def animate():
-
     dist = material2.plane[3]
     dist += 0.02
     if dist > 2.2:

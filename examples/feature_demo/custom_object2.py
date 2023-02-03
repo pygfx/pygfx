@@ -30,7 +30,6 @@ class Triangle(gfx.WorldObject):
 
 
 class TriangleMaterial(gfx.Material):
-
     uniform_type = dict(
         color="4xf4",
     )
@@ -52,7 +51,6 @@ class TriangleMaterial(gfx.Material):
 
 @gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
 class TriangleShader(WorldObjectShader):
-
     type = "render"
 
     def get_bindings(self, wobject, shared):

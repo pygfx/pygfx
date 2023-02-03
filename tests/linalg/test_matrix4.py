@@ -464,7 +464,6 @@ def test_make_rotation_x():
 
 
 def test_make_rotation_y():
-
     a = Matrix4()
     b = sqrt(3) / 2
     c = Matrix4().set(b, 0, 0.5, 0, 0, 1, 0, 0, -0.5, 0, b, 0, 0, 0, 0, 1)
@@ -474,7 +473,6 @@ def test_make_rotation_y():
 
 
 def test_make_rotation_z():
-
     a = Matrix4()
     b = sqrt(3) / 2
     c = Matrix4().set(b, -0.5, 0, 0, 0.5, b, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
