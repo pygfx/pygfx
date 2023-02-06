@@ -163,7 +163,7 @@ def test_text_geometry_direction_rtl():
     # middle of Latin. In a text editor it looks like the first Arabic
     # word is longer than the second, but in fact the word after "foo"
     # is the shorter one. Try stepping your cursor through the string.
-    # PyGfx should re-order the items so they appear as they should
+    # Pygfx should re-order the items so they appear as they should
     # again. That's what we test here.
     text = "foo عدد النبات baaaar"
 

@@ -169,7 +169,7 @@ def get_all_fonts():
 
 
 def get_builtin_fonts():
-    """Get a list of fonts that are shipped with PyGfx."""
+    """Get a list of fonts that are shipped with pygfx."""
     dir_paths, file_paths = find_fonts_paths(get_resources_dir(), False)
     return {FontFile(p) for p in file_paths}
 
