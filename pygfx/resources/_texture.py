@@ -242,7 +242,6 @@ class Texture(Resource):
 
 
 def format_from_memoryview(mem, size):
-
     formatmap = {
         "b": "i1",
         "B": "u1",

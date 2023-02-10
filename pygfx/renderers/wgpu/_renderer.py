@@ -575,7 +575,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         physical_viewport,
         clear_color,
     ):
-
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
         # all world objects, and over stuff in each object. But that's
@@ -605,7 +604,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._shadow_util.render_shadow_maps(lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):
-
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
             depth_attachment = blender.get_depth_attachment(pass_index)
             render_mask = blender.passes[pass_index].render_mask
@@ -699,7 +697,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         return info
 
     def _copy_pixel(self, encoder, render_texture, float_pos, buf_offset):
-
         # Map position to the texture index
         w, h, d = render_texture.size
         x = max(0, min(w - 1, int(float_pos[0] * w)))

@@ -13,7 +13,6 @@ vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 class BaseVolumeShader(WorldObjectShader):
     def get_bindings(self, wobject, shared):
-
         geometry = wobject.geometry
         material = wobject.material  # noqa
 
@@ -130,7 +129,6 @@ class BaseVolumeShader(WorldObjectShader):
 
 @register_wgpu_render_function(Volume, VolumeSliceMaterial)
 class VolumeSliceShader(BaseVolumeShader):
-
     type = "render"
 
     def get_pipeline_info(self, wobject, shared):
@@ -363,7 +361,6 @@ class VolumeSliceShader(BaseVolumeShader):
 
 @register_wgpu_render_function(Volume, VolumeRayMaterial)
 class VolumeRayShader(BaseVolumeShader):
-
     type = "render"
 
     def get_bindings(self, wobject, shared):
@@ -546,7 +543,6 @@ class VolumeRayShader(BaseVolumeShader):
         return preamble + f()
 
     def render_mode_mip(self):
-
         # Ideas for improvement:
         # * We could textureLoad() the 27 voxels surrounding the initial location
         #   and sample from that in the refinement step. Less texture loads and we

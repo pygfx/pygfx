@@ -36,7 +36,6 @@ class Geometry(Trackable):
         self._bsphere_rev = None
 
         for name, val in kwargs.items():
-
             # Get resource object
             if isinstance(val, Resource):
                 resource = val

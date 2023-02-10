@@ -79,7 +79,6 @@ class Color:
     __slots__ = ["_val"]
 
     def __init__(self, *args):
-
         if len(args) == 1:
             color = args[0]
             if isinstance(color, (int, float)):

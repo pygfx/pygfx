@@ -3,7 +3,6 @@ from pytest import raises
 
 
 def test_varying_basics():
-
     assert resolve_varyings("") == ""
     assert resolve_varyings("foo") == "foo\n"
     assert resolve_varyings("\nfoo\n") == "foo\n"

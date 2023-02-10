@@ -20,7 +20,6 @@ class BoxHelper(Line):
     """
 
     def __init__(self, size=1.0, thickness=1, color="white"):
-
         self._size = float(size)
 
         positions = np.array(

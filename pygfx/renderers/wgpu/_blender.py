@@ -272,7 +272,6 @@ class WeightedTransparencyPass(BasePass):
     render_mask = 2  # transparent only
 
     def __init__(self, weight_func):
-
         if weight_func == "alpha":
             weight_code = """
                 let weight = alpha;
@@ -442,7 +441,6 @@ class BaseFragmentBlender:
     passes = []
 
     def __init__(self):
-
         # The size (2D in pixels) of the frame textures.
         self.size = (0, 0)
 
@@ -641,7 +639,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         )
 
     def _create_combination_pipeline(self, device):
-
         binding_layouts = [
             {
                 "binding": 0,
@@ -745,7 +742,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         )
 
     def _create_combination_pipeline(self, device):
-
         binding_layouts = [
             {
                 "binding": 0,

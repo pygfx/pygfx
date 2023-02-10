@@ -193,7 +193,6 @@ class Buffer(Resource):
 
 
 def format_from_memoryview(mem):
-
     formatmap = {
         "b": "i1",
         "B": "u1",

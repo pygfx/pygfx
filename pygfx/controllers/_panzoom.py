@@ -120,7 +120,6 @@ class PanZoomController(Controller):
         viewport: Viewport,
         camera: Camera,
     ) -> Controller:
-
         x, y, w, h = viewport.rect
         offset = x, y
         size = w, h

@@ -39,7 +39,6 @@ class Fullquad(gfx.WorldObject):
 
 
 class NoiseMaterial(gfx.materials.Material):
-
     # Note that this inherits fields from the base Material
     uniform_type = {
         "time": "f4",

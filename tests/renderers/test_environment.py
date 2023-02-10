@@ -84,7 +84,6 @@ def prepare_for_cleanup():
 
 
 def test_environment_cleanup_noop():
-
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     env2 = environment_manager.get_environment(renderer2, scene2)
@@ -93,7 +92,6 @@ def test_environment_cleanup_noop():
 
 
 def test_environment_cleanup_by_scene_del():
-
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     del scene1
@@ -105,7 +103,6 @@ def test_environment_cleanup_by_scene_del():
 
 
 def test_environment_cleanup_by_renderer_del():
-
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     del renderer1
@@ -117,14 +114,12 @@ def test_environment_cleanup_by_renderer_del():
 
 
 def test_environment_cleanup_by_scene_change():
-
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     # cannot test this yet, as currently the scene does not result in state
 
 
 def test_environment_cleanup_by_renderer_change():
-
     renderer1, renderer2, scene1, scene2, env1, env2 = prepare_for_cleanup()
 
     renderer1.blend_mode = "weighted"

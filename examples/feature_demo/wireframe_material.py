@@ -37,7 +37,6 @@ class WireframeMaterial(gfx.Material):
 
 @gfx.renderers.wgpu.register_wgpu_render_function(gfx.WorldObject, WireframeMaterial)
 class WireframeShader(WorldObjectShader):
-
     type = "render"
 
     def get_bindings(self, wobject, shared):

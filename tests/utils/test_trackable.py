@@ -134,7 +134,6 @@ def test_changes_on_sub_sub_sub():
 
 
 def make_changes_on_sub(root, parent, t1, t2):
-
     parent.sub1 = t1
 
     # -- all the same as above
@@ -538,7 +537,6 @@ def test_track_trackables_typing2():
 
 
 def test_track_externals():
-
     root1 = MyRootTrackable()
     root2 = MyRootTrackable()
     root3 = MyRootTrackable()

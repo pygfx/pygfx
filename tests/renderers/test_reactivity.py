@@ -163,7 +163,6 @@ def test_reactivity_mesh3():
 
 
 def test_change_blend_mode():
-
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
@@ -210,7 +209,6 @@ def test_two_renders_with_same_blend_modes():
 
 
 def test_two_renders_with_different_blend_modes():
-
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),

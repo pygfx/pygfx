@@ -5,7 +5,6 @@ from pygfx.utils.text import font_manager, shape_text, glyph_atlas
 
 
 def test_generate_glyph():
-
     text = "helloFooBar"
 
     font = font_manager._fallback_font
@@ -42,7 +41,6 @@ def test_glyph_size():
 
 
 def check_speed():
-
     text = "HelloWorld"
 
     font = font_manager._fallback_font

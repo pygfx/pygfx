@@ -297,7 +297,6 @@ class BaseShader:
         self.kwargs.update(kwargs)
 
         try:
-
             code1 = self.get_code()
             t = jinja_env.from_string(code1)
 
@@ -342,7 +341,6 @@ class BaseShader:
             )
 
     def _define_uniform(self, bindgroup, index, binding):
-
         resource = binding.resource
         if isinstance(resource, dict):
             dtype_struct = array_from_shadertype(resource).dtype
@@ -397,7 +395,6 @@ class BaseShader:
         self._binding_codes[binding.name] = code
 
     def _define_buffer(self, bindgroup, index, binding):
-
         # Get format, and split in the scalar part and the number of channels
         fmt = to_vertex_format(binding.resource.format)
         if "x" in fmt:

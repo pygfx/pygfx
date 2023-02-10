@@ -23,7 +23,6 @@ def get_cache_dir():
 
 
 def _get_data_dir(xdg_name):
-
     # Set by user
     dir = os.getenv("PYGFX_DATA_DIR")
     if dir:
