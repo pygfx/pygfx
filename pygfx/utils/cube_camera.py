@@ -13,7 +13,6 @@ def _is_cube_texture(texture):
 
 class _CubeCameraRenderer(WgpuRenderer):
     def __init__(self, target, blend_mode="default"):
-
         assert _is_cube_texture(target), "target must be a cube texture"
 
         super().__init__(target, blend_mode=blend_mode)

@@ -23,7 +23,6 @@ from ...utils import normals_from_vertices
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 class MeshShader(WorldObjectShader):
-
     type = "render"
 
     def __init__(self, wobject):
@@ -59,7 +58,6 @@ class MeshShader(WorldObjectShader):
             self["vertex_color_channels"] = 0
 
     def get_bindings(self, wobject, shared):
-
         geometry = wobject.geometry
         material = wobject.material
 
@@ -443,7 +441,6 @@ class MeshStandardShader(MeshShader):
         self["lighting"] = "pbr"
 
     def get_bindings(self, wobject, shared):
-
         result = super().get_bindings(wobject, shared)
 
         geometry = wobject.geometry
@@ -453,7 +450,6 @@ class MeshStandardShader(MeshShader):
 
         # We need uv to use the maps, so if uv not exist, ignore all maps
         if geometry.texcoords is not None:
-
             # Texcoords must always be nx2 since it used for all texture maps.
             if not (
                 geometry.texcoords.data.ndim == 2

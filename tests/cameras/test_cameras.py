@@ -3,7 +3,6 @@ import pygfx as gfx
 
 
 def test_otho_camera_near_far():
-
     for near, far in [
         (0, 100),
         (0, 10000),
@@ -13,7 +12,6 @@ def test_otho_camera_near_far():
         (-400, -300),
         (300, 500),
     ]:
-
         camera = gfx.OrthographicCamera(20, 20, near, far)
         camera.update_projection_matrix()
         assert camera.near == near
@@ -22,7 +20,6 @@ def test_otho_camera_near_far():
 
 
 def test_perspective_camera_near_far():
-
     for near, far in [
         (0.1, 100),
         (0.1, 10000),
@@ -30,7 +27,6 @@ def test_perspective_camera_near_far():
         (200, 300),
         (490, 500),
     ]:
-
         camera = gfx.PerspectiveCamera(50, 1, near, far)
         camera.update_projection_matrix()
         assert camera.near == near

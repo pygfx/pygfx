@@ -148,7 +148,6 @@ def test_quaternion_set_from_euler_euler_from_quaternion():
 def test_matrix4_set_from_euler_euler_from_rotation_matrix():
     test_values = [euler_zero, euler_axyz, euler_azyx]
     for i in range(len(test_values)):
-
         v = test_values[i]
         m = Matrix4().make_rotation_from_euler(v)
 

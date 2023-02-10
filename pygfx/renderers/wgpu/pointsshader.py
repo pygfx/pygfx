@@ -7,7 +7,6 @@ from ...materials import PointsMaterial, GaussianPointsMaterial
 
 @register_wgpu_render_function(Points, PointsMaterial)
 class PointsShader(WorldObjectShader):
-
     # Notes:
     # In WGPU, the pointsize attribute can no longer be larger than 1 because
     # of restriction in some hardware/backend API's. So we use our storage-buffer

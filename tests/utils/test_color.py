@@ -12,7 +12,6 @@ class TColor(Color):
 
 
 def test_color_basics():
-
     c = Color(0.1, 0.2, 0.3)
     assert repr(c) == "Color(0.1, 0.2, 0.3, 1.0)"
     c = Color(0.012345, 0.2, 0.3, 0.8)
@@ -23,7 +22,6 @@ def test_color_basics():
 
 
 def test_color_tuples():
-
     # Test setting with values
     assert TColor(0).matches(0, 0, 0, 1)
     assert TColor(1).matches(1, 1, 1, 1)
@@ -49,7 +47,6 @@ def test_color_tuples():
 
 
 def test_color_iterable():
-
     # Accepts any kind of iterable, like tuples and lists
     assert TColor((0.1, 0.2, 0.3)).matches(0.1, 0.2, 0.3, 1)
     assert TColor([0.1, 0.2, 0.3]).matches(0.1, 0.2, 0.3, 1)
@@ -86,7 +83,6 @@ def test_color_iterable():
 
 
 def test_color_attr():
-
     c = Color(0.1, 0.2, 0.3, 0.8)
 
     assert c.rgb == c.rgba[:3]
@@ -101,7 +97,6 @@ def test_color_attr():
 
 
 def test_color_indexing():
-
     c = Color(0.1, 0.2, 0.3, 0.8)
 
     assert c.r == c[0]
@@ -111,7 +106,6 @@ def test_color_indexing():
 
 
 def test_color_numpy():
-
     # Map an array to the color data
     c = Color(0.1, 0.2, 0.3, 0.8)
     a = np.array(c, copy=False)
@@ -127,7 +121,6 @@ def test_color_numpy():
 
 
 def test_color_hex():
-
     # Hex -> tuple
     assert TColor("#000000").matches(0, 0, 0, 1)
     assert TColor("#ffffff").matches(1, 1, 1, 1)
@@ -167,7 +160,6 @@ def test_color_hex():
 
 
 def test_color_css():
-
     assert Color("rgb(10, 20, 30)").hexa == "#0a141eff"
     assert Color("rgba(10, 20, 30, 0.5)").hexa == "#0a141e80"
     assert TColor("rgb(10%, 20%, 30%)").matches(0.1, 0.2, 0.3, 1)
@@ -183,7 +175,6 @@ def test_color_css():
 
 
 def test_color_min_max():
-
     assert np.allclose(Color(1.1, 1.2, 1.3).rgb, (1.1, 1.2, 1.3))
     assert Color(1.1, 1.2, 1.3).clip().rgb == (1, 1, 1)
     assert Color(1.1, 1.2, 1.3).hex == "#ffffff"
@@ -201,7 +192,6 @@ def test_color_min_max():
 
 
 def test_color_named():
-
     assert Color("red").hexa == "#ff0000ff"
     assert Color("y").hexa == "#ffff00ff"
 
@@ -214,7 +204,6 @@ def test_color_named():
 
 
 def test_color_compare():
-
     c1 = Color("#f00")
     c2 = Color("#ff0000")
     c3 = Color("#333")
@@ -233,7 +222,6 @@ def test_color_compare():
 
 
 def test_color_combine():
-
     c = Color("rgb(20, 30, 200)") * 2
     assert c.css == "rgb(40,60,400)"
     c = Color("rgb(20, 30, 200)") / 2

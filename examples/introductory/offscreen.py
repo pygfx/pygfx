@@ -38,7 +38,6 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
 if __name__ == "__main__":
-
     # The offscreen canvas has a draw method that returns a numpy array.
     # Use this to obtain what you normally see on-screen. You should
     # only use an offscreen canvas for e.g. testing or generating images.

@@ -57,11 +57,9 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
         )
 
     def get_mipmap_pipeline(self, format) -> "wgpu.GPURenderPipeline":
-
         pipeline = self.pipelines.get(format, None)
 
         if pipeline is None:
-
             pipeline = self.device.create_render_pipeline(
                 layout=self._create_pipeline_layout(),
                 vertex={
@@ -118,7 +116,6 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
         mip_level_count,
         base_array_layer=0,
     ):
-
         pipeline = self.get_mipmap_pipeline(format)
 
         command_encoder: "wgpu.GPUCommandEncoder" = self.device.create_command_encoder()
@@ -132,7 +129,6 @@ fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
         )
 
         for i in range(1, mip_level_count):
-
             dst_view = texture_gpu.create_view(
                 base_mip_level=i,
                 mip_level_count=1,
