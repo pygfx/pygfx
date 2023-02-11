@@ -1,6 +1,6 @@
-# Text rendering in PyGfx
+# Text rendering in pygfx
 
-Text rendering is a notoriously complex task. In PyGfx we draw inspiration
+Text rendering is a notoriously complex task. In pygfx we draw inspiration
 from Vispy, Matplotlib and the work of Nicolas Rougier
 (https://www.slideshare.net/NicolasRougier1/siggraph-2018-digital-typography).
 
@@ -78,7 +78,7 @@ breaks, text wrapping, alignment, justification, anchoring, etc. The
 re-ordering of items (if LTR scripts are used) can be seen as
 pre-processing for the layout procedure.
 
-The result of this step is a complete PyGfx geometry ready for rendering.
+The result of this step is a complete pygfx geometry ready for rendering.
 
 ### Rendering
 

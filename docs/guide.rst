@@ -22,7 +22,7 @@ or install the bleeding edge from Github:
 What is pygfx?
 --------------
 
-PyGfx is a render engine. It renders objects that are organized in a scene, and
+Pygfx is a render engine. It renders objects that are organized in a scene, and
 provides a way to define what the appearance of these objects should be.
 For the actual renderering, multiple render backends are available, but the
 main one is based on WGPU.
@@ -60,7 +60,7 @@ more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
 Starting off with the most important building bock, a `Scene` is the world or
 scenario to render. It has at least three components: an `object` with some
 visual properties, a `Light` source, and a `Camera` to view the scene. Once we
-defined those three things, we can position them within our scene and render it. 
+defined those three things, we can position them within our scene and render it.
 
 Let's look at an example of how this works and recreate the above example. We
 begin by defining an empty `Scene`::
@@ -148,7 +148,7 @@ any good artist, a `Renderer` is never seen without its `Canvas`, so to create a
 
     canvas = WgpuCanvas()
     renderer = gfx.renderers.WgpuRenderer(canvas)
-    
+
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
@@ -275,7 +275,7 @@ both direct and colormapped colors can be 1-4 values.
 Colorspaces
 ===========
 
-All colors in PyGfx are interpreted as sRGB by default. This is the same
+All colors in pygfx are interpreted as sRGB by default. This is the same
 how webbrowsers interpret colors. Internally, all calculations are performed
 in the physical colorspace (sometimes called Linear sRGB) so that these
 calculations are physically correct.

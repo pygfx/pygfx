@@ -299,7 +299,7 @@ class Color:
         With the physical colorspace we mean what is sometimes called
         Linear-sRGB. It has the same gamut as sRGB, but where sRGB is
         linear w.r.t. human perception, Linear-sRGB is linear w.r.t.
-        lumen and photon counts. Calculations on colors in PyGfx's shaders
+        lumen and photon counts. Calculations on colors in pygfx's shaders
         are done in the physical colorspace.
         """
         return Color(_physical2srgb(r), _physical2srgb(g), _physical2srgb(b), a)
