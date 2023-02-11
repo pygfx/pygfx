@@ -32,8 +32,13 @@ class Shared(Trackable):
     The renderer instantiates and stores the singleton shared object.
     """
 
+    _instance = None
+
     def __init__(self, canvas):
         super().__init__()
+
+        assert Shared._instance is None
+        Shared._instance = self
 
         # Create adapter and device objects - there should be just one per canvas.
         # Having a global device provides the benefit that we can draw any object
@@ -94,3 +99,42 @@ class Shared(Trackable):
     def glyph_atlas_info_buffer(self):
         """A buffer containing per-glyph metadata (rects and more)."""
         return self._store.glyph_atlas_info_buffer
+
+
+def print_wgpu_report():
+    """Print a report on the internal status of WGPU. Can be useful
+    in debugging, and for providing details when making a bug report.
+    """
+    shared = Shared._instance
+    adapter = device = None
+    if shared:
+        adapter = shared.adapter
+        device = shared.device
+
+    if adapter:
+        print()
+        print("ADAPTER INFO:")
+        for key, val in adapter.request_adapter_info().items():
+            print(f"{key.rjust(50)}: {val}")
+    else:
+        print()
+        print("ADAPTER INFO:")
+        print("        pygfx has not created an adapter yet")
+
+    if adapter and device:
+        print()
+        print("FEATURES:".ljust(50), "adapter".rjust(8), "device".rjust(8))
+        for key in adapter.features:
+            device_has_it = "Y" if key in device.features else "-"
+            print(f"{key}:".rjust(50), "Y".rjust(8), device_has_it.rjust(8))
+
+    if adapter and device:
+        print()
+        print("LIMITS:".ljust(50), "adapter".rjust(10), "device".rjust(10))
+        for key in adapter.limits.keys():
+            val1 = adapter.limits[key]
+            val2 = device.limits.get(key, "-")
+            print(f"{key}:".rjust(50), str(val1).rjust(10), str(val2).rjust(10))
+
+    print()
+    wgpu.print_report()

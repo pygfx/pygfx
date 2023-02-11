@@ -11,7 +11,7 @@ registry = RenderFunctionRegistry()
 
 
 def register_wgpu_render_function(wobject_cls, material_cls):
-    """Decorator for SVG rendering functions.
+    """Decorator for WGPU rendering functions.
 
     Parameters
     ----------
