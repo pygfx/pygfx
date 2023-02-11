@@ -247,7 +247,7 @@ class TextShader(WorldObjectShader):
             let softness = clamp(0.0, max_softness, 2.0 / (f32(REF_GLYPH_SIZE) * varyings.atlas_pixel_scale));
 
             // Turns out that how thick a font looks depends on a number of factors:
-            // - In PyGfx the size of the font for which the sdf was created affects the output a bit.
+            // - In pygfx the size of the font for which the sdf was created affects the output a bit.
             // - In a browser, the type of browser seems to affect the output a bit.
             // - In a browser, the OS matters more (e.g. Windows and MacOS handle aa and pixel alignment differently).
             // - The blurry edge for aa affects the perception of the weight.
