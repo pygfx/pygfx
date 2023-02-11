@@ -94,7 +94,6 @@ def update_texture_view(device, resource):
 
 
 def update_texture(device, resource):
-
     texture = getattr(resource, "_wgpu_texture", (-1, None))[1]
     pending_uploads = resource._pending_uploads
     resource._pending_uploads = []

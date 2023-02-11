@@ -46,7 +46,6 @@ FULL_QUAD_SHADER = """
 
 
 def _create_pipeline(device, binding_layouts, bindings, targets, wgsl):
-
     shader_module = device.create_shader_module(code=wgsl)
 
     bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
@@ -152,7 +151,6 @@ class RenderFlusher:
         self._uniform_data["gamma"] = gamma
 
     def _render(self, dst_color_tex, dst_format):
-
         device = self._device
         _, bind_group, render_pipeline = self._pipelines[dst_format]
 

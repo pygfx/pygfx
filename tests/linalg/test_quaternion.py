@@ -106,7 +106,6 @@ def test_y():
 
 
 def test_z():
-
     a = Quaternion()
     assert a.z == 0
 
@@ -160,7 +159,6 @@ def test_set():
 
 
 def test_clone():
-
     a = Quaternion().clone()
     assert a.x == 0
     assert a.y == 0

@@ -18,7 +18,6 @@ class DepthMaterial(gfx.MeshBasicMaterial):
 
 @gfx.renderers.wgpu.register_wgpu_render_function(gfx.Mesh, DepthMaterial)
 class DepthShader(MeshShader):
-
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 

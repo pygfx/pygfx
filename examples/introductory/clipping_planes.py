@@ -19,7 +19,6 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 
 
 def create_scene(clipping_planes, clipping_mode):
-
     maxsize = 221
     scene = gfx.Scene()
     for n in range(20, maxsize, 50):
@@ -50,7 +49,6 @@ controller.add_default_event_handlers(renderer, camera)
 
 
 def animate():
-
     controller.update_camera(camera)
 
     w, h = canvas.get_logical_size()

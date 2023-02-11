@@ -9,7 +9,6 @@ from ...resources import Texture, TextureView
 
 @register_wgpu_render_function(Background, BackgroundMaterial)
 class BackgroundShader(WorldObjectShader):
-
     type = "render"
 
     def get_bindings(self, wobject, shared):

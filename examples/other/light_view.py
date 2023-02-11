@@ -34,7 +34,6 @@ class LightViewer(QtWidgets.QWidget):
         self.init_gui()
 
     def init_gui(self):
-
         self.mesh_flat_checkbox = self.create_checkbox(
             "Flat Shading", self.mesh.material, "flat_shading"
         )

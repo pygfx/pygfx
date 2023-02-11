@@ -74,7 +74,6 @@ class Environment(Trackable):
             self.wgpu_bind_group = self._collect_bindings()
 
     def _setup_light_resources(self):
-
         (
             self.point_lights_num,
             self.dir_lights_num,
@@ -489,7 +488,6 @@ get_environment = environment_manager.get_environment
 
 
 def get_hash_and_state(renderer, scene):
-
     state = {}
 
     # For renderer

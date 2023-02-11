@@ -310,9 +310,7 @@ class Root:
                 self._trackable_values[name] = ref_value, comp_value
 
     def _track_set_follow_tree(self, old_value, new_value):
-
         if isinstance(old_value, Trackable):
-
             # Get names of stuff we track on the old trackable store
             id = old_value._store["_trackable_id"]
             sub_names = [n for n in self._trackable_names.keys() if n[0] == id]

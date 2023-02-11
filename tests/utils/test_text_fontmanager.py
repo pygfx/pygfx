@@ -6,7 +6,6 @@ from pygfx.utils.text import font_manager, FontManager, FontProps, FontFile
 
 
 def test_font_props():
-
     # Defaults
     fp = FontProps()
     assert fp.family == ()
@@ -41,7 +40,6 @@ def test_font_props():
 
 
 def test_select_font():
-
     # A simple text, that can be rendered with the main font
     text = "HelloWorld"
 
@@ -65,7 +63,6 @@ def test_select_font():
 
 
 def test_font_fallback1():
-
     # The preferred order of fonts. The default font is implicitly appended.
     # The nonexistint font will always be skipped.
     families = "DoesNotExist Sans", "Humor Sans"
@@ -103,7 +100,6 @@ def test_font_fallback1():
 
 
 def test_font_fallback2():
-
     # A text that requires the Arabic font, with a dash in between.
     # That dash is supported by the Arabic font, but also by Noto Sans.
     text = "مرحبا-مرحبا"
@@ -148,7 +144,6 @@ def test_font_fallback2():
 
 
 def test_tofu():
-
     fallback_font = font_manager._fallback_font
 
     # Multiple unsupported chars should be kept together
@@ -237,7 +232,6 @@ class FakeFontFile(FontFile):
 
 
 def test_add_font_file():
-
     with raises(TypeError):
         font_manager.add_font_file(42)
     with raises(Exception):  # FreeType error
@@ -249,7 +243,6 @@ def test_add_font_file():
 
 
 def test_selecting_font_props():
-
     font_manager = FontManager()
 
     codepoints = {ord(c) for c in "abcdefghijklmnopqrtsuvwxyz"}

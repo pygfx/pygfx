@@ -250,7 +250,6 @@ class GlyphAtlas(RectPacker):
         resized if necessary.
         """
         with self._lock:
-
             # Select a region
             rect = self._select_region(w, h)
 
@@ -326,7 +325,6 @@ class GlyphAtlas(RectPacker):
     def store_region_with_hash(self, hash, region, offset=(0, 0)):
         """Set the region corresponding to the given hash, and return the index."""
         with self._lock:
-
             # Sanitize
             assert isinstance(region, np.ndarray)
             assert hash not in self._hash2index
@@ -347,7 +345,7 @@ class GlyphAtlas(RectPacker):
 
     def free_region(self, index):
         """Free up a region slot."""
-        # We mask the index to only use the first 24 bits. In PyGfx we use
+        # We mask the index to only use the first 24 bits. In pygfx we use
         # the upper 8 bits to store font-prop info for the shader.
         index = int(index) & 0x0FFF
         with self._lock:
@@ -381,7 +379,7 @@ class GlyphAtlas(RectPacker):
                             self._set_new_glyphs_array(new_size)
 
 
-class PyGfxGlyphAtlas(GlyphAtlas):
+class PygfxGlyphAtlas(GlyphAtlas):
     """A textured pygfx-specific subclass of the GlyphAtlas."""
 
     @property
@@ -429,4 +427,4 @@ class PyGfxGlyphAtlas(GlyphAtlas):
             self._infos_buffer.update_range(index, index + 1)
 
 
-glyph_atlas = PyGfxGlyphAtlas()
+glyph_atlas = PygfxGlyphAtlas()

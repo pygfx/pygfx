@@ -5,7 +5,6 @@ import numpy as np
 
 
 def test_text_geometry_text():
-
     # Let's try some special cases first
 
     # Must specify either text or markdown
@@ -53,7 +52,6 @@ def test_text_geometry_text():
 
 
 def test_text_geometry_items():
-
     geo = TextGeometry()
 
     items = [TextItem("foo"), TextItem("baar")]
@@ -161,12 +159,11 @@ def test_text_geometry_direction_ttb():
 
 
 def test_text_geometry_direction_rtl():
-
     # This is a very adversary/weird text: two words of Arabic in the
     # middle of Latin. In a text editor it looks like the first Arabic
     # word is longer than the second, but in fact the word after "foo"
     # is the shorter one. Try stepping your cursor through the string.
-    # PyGfx should re-order the items so they appear as they should
+    # Pygfx should re-order the items so they appear as they should
     # again. That's what we test here.
     text = "foo عدد النبات baaaar"
 
@@ -185,7 +182,6 @@ def test_text_geometry_direction_rtl():
 
 
 def check_speed():
-
     t = TextGeometry(text="HelloWorld")
 
     t0 = time.perf_counter()

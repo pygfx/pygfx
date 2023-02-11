@@ -39,7 +39,6 @@ class ShadowUtil:
         )
 
     def get_shadow_pipeline(self, wobject):
-
         # shadow pipeline only depends on the object's geometry info (Vertex Buffer)
         # TODO: now it only depends on the positions, but for instanced meshes, it also needs instance buffer
         #  Maybe for future skinned meshes , morph buffer is also needed
@@ -58,7 +57,6 @@ class ShadowUtil:
         return self.pipelines[hash]
 
     def _create_shadow_pipeline(self, array_stride, vertex_format):
-
         vertex_buffer_descriptor = [
             {
                 "array_stride": array_stride,
@@ -103,7 +101,6 @@ class ShadowUtil:
 
         for light in lights:
             if light.cast_shadow:
-
                 if isinstance(light, PointLight):
                     for buffer in light.shadow._gfx_matrix_buffer:
                         update_buffer(self.device, buffer)
@@ -131,7 +128,6 @@ class ShadowUtil:
                     )
 
                     if not hasattr(light.shadow, f"__shadow_bind_group_{i}"):
-
                         buffer = (
                             light.shadow._gfx_matrix_buffer[i]._wgpu_buffer[1]
                             if isinstance(light, PointLight)

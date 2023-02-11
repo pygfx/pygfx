@@ -31,7 +31,6 @@ class FontProps:
         style=None,
         weight=None,
     ):
-
         # Check family
         if family is None:
             family = font_manager.default_font_props.family
@@ -160,7 +159,6 @@ class FontManager:
         return ff
 
     def _load_fonts(self):
-
         # Populate the dict of font objects
         for ff in get_all_fonts():
             self.add_font_file(ff)
@@ -171,7 +169,6 @@ class FontManager:
         self._fallback_font = FontFile(ff.filename, ff.family, ff.variant)
 
     def _load_default_font_index(self):
-
         # Load the json
         index_filename = os.path.join(get_resources_dir(), "noto_default_index.json")
         with open(index_filename, "rt", encoding="utf-8") as f:
@@ -322,7 +319,6 @@ class FontManager:
         return fonts
 
     def _produce_font_warning(self, *failed_texts):
-
         # Get the codepoints that failed
         codepoints = list({ord(c) for c in "".join(failed_texts)})
 

@@ -43,13 +43,11 @@ def foo3():
 
 
 def test_render_registry_api():
-
     assert gfx.renderers.register_wgpu_render_function
     assert gfx.renderers.register_svg_render_function
 
 
 def test_render_registry_fails():
-
     r = gfx.renderers.RenderFunctionRegistry()
 
     # This is ok
@@ -89,7 +87,6 @@ def test_render_registry_fails():
 
 
 def test_render_registry_selection():
-
     r = gfx.renderers.RenderFunctionRegistry()
 
     # Register one combo
