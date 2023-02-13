@@ -103,8 +103,6 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.renderers.Renderer
     ~pygfx.renderers.WgpuRenderer
     ~pygfx.renderers.SvgRenderer
-    ~pygfx.renderers.register_wgpu_render_function
-    ~pygfx.renderers.register_svg_render_function
 
     ~pygfx.resources.Resource
     ~pygfx.resources.Buffer

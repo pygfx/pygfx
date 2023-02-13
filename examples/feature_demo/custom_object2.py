@@ -19,7 +19,7 @@ It demonstrates:
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu import Binding, WorldObjectShader, RenderMask
+from pygfx.renderers.wgpu import Binding, WorldObjectShader, RenderMask, register_wgpu_render_function
 
 
 # %% Custom object, material, and matching render function
@@ -49,7 +49,7 @@ class TriangleMaterial(gfx.Material):
         self.uniform_buffer.update_range(0, 99999)
 
 
-@gfx.renderers.wgpu.register_wgpu_render_function(Triangle, TriangleMaterial)
+@register_wgpu_render_function(Triangle, TriangleMaterial)
 class TriangleShader(WorldObjectShader):
     type = "render"
 
