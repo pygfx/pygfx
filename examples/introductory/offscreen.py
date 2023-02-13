@@ -16,7 +16,7 @@ from wgpu.gui.offscreen import WgpuCanvas
 
 
 # Create offscreen canvas, renderer and scene
-canvas = WgpuCanvas(640, 480, 1)
+canvas = WgpuCanvas(size=(640, 480), pixel_ratio=1)
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
