@@ -101,7 +101,6 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.objects.PointLightShadow
 
     ~pygfx.renderers.Renderer
-    ~pygfx.renderers.RenderFunctionRegistry
     ~pygfx.renderers.WgpuRenderer
     ~pygfx.renderers.SvgRenderer
     ~pygfx.renderers.register_wgpu_render_function
