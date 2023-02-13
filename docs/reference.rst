@@ -54,7 +54,6 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.helpers.SpotLightHelper
 
     ~pygfx.materials.Material
-    ~pygfx.materials.pillow_image
     ~pygfx.materials.trimesh_material
     ~pygfx.materials.MeshBasicMaterial
     ~pygfx.materials.MeshPhongMaterial

@@ -14,7 +14,6 @@ colormaps, the strength of specular reflections, etc.
     :template: ../_templates/custom_layout.rst
 
     Material
-    pillow_image
     trimesh_material
 
     MeshBasicMaterial
@@ -52,7 +51,7 @@ colormaps, the strength of specular reflections, etc.
 # flake8: noqa
 
 from ._base import Material
-from ._compat import pillow_image, trimesh_material
+from ._compat import trimesh_material
 from ._mesh import (
     MeshBasicMaterial,
     MeshPhongMaterial,
@@ -93,4 +92,4 @@ __all__ = [
 __all__.sort()
 __all__.remove("Material")
 __all__.insert(0, "Material")
-__all__.extend(["pillow_image", "trimesh_material"])
+__all__.extend(["trimesh_material"])

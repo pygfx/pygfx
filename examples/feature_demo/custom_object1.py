@@ -17,7 +17,12 @@ It demonstrates:
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu import Binding, WorldObjectShader, RenderMask, register_wgpu_render_function
+from pygfx.renderers.wgpu import (
+    Binding,
+    WorldObjectShader,
+    RenderMask,
+    register_wgpu_render_function,
+)
 
 
 # %% Custom object, material, and matching render function

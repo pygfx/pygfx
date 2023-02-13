@@ -12,7 +12,11 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 # test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run
-from pygfx.renderers.wgpu import Binding, WorldObjectShader, register_wgpu_render_function
+from pygfx.renderers.wgpu import (
+    Binding,
+    WorldObjectShader,
+    register_wgpu_render_function,
+)
 import pygfx as gfx
 
 
