@@ -1,5 +1,5 @@
-Writing pygfx shaders
-=====================
+Writing custom shaders
+======================
 
 This document explains how to write shaders for pygfx for the WgpuRenderer.
 This may be useful if you want to improve the existing shaders, add new
@@ -340,21 +340,3 @@ Other functions
 Other function that can be used in wgsl are:
 
 * ``ndc_to_world_pos(vec4<f32>) -> vec3<f32>``
-
-
-Reference docs
---------------
-
-.. autofunction:: pygfx.renderers.wgpu.register_wgpu_render_function
-
-.. autoclass:: pygfx.renderers.wgpu.Binding
-    :members:
-    :member-order: bysource
-
-.. autoclass:: pygfx.renderers.wgpu.WorldObjectShader
-    :members:
-    :inherited-members:
-
-.. autoclass:: pygfx.renderers.wgpu.Shared
-    :members:
-    :member-order: bysource

@@ -13,7 +13,7 @@ Contents
    Guide <guide.rst>
    Gallery <_gallery/index.rst>
    Reference <reference.rst>
-   Writing shaders <shaders.rst>
+   Advanced <advanced.rst>
 
 
 Indices and tables
