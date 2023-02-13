@@ -12,7 +12,6 @@ Utility functions for pygfx.
     viewport.Viewport
     text.font_manager
     cm
-    texture_from_pillow_image
 
 """
 
@@ -25,7 +24,6 @@ import numpy as np
 from .color import Color  # noqa: F401
 from . import cm  # noqa: F401
 from ._dirs import get_resources_dir, get_cache_dir  # noqa: F401
-from .conv import texture_from_pillow_image
 
 logger = logging.getLogger("pygfx")
 

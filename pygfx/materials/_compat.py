@@ -1,5 +1,6 @@
 from ._mesh import MeshStandardMaterial
-from ..utils import Color, texture_from_pillow_image
+from ..utils.color import Color
+from ..utils.conv import texture_from_pillow_image
 
 
 def trimesh_material(material):
