@@ -80,7 +80,6 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.materials.TextMaterial
 
     ~pygfx.objects.WorldObject
-    ~pygfx.objects.id_provider
     ~pygfx.objects.Group
     ~pygfx.objects.Scene
     ~pygfx.objects.Background
