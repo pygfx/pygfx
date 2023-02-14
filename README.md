@@ -33,9 +33,9 @@ wgpu-compatible window manager or only render offscreen you may choose to omit
 glfw. Examples of alternatives include: jupyter_rfb (rendering in jupyter),
 PyQt, PySide, or wx.
 
-In addition there are some [platform
-requirements](https://github.com/pygfx/wgpu-py#platform-requirements). In
-essense, you need modern (enough) graphics drivers, and `pip>=20.3`.
+In addition there are some platform
+requirements, see the [wgpu docs](https://wgpu-py.readthedocs.io/en/stable/start.html). In
+essence, you need modern (enough) graphics drivers, and `pip>=20.3`.
 
 ## Usage Example
 
