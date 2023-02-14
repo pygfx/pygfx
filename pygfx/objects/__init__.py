@@ -4,9 +4,8 @@
 .. autosummary::
     :toctree: objects/
     :template: ../_templates/custom_layout.rst
-    
+
     WorldObject
-    id_provider
     Group
     Scene
     Background
@@ -47,7 +46,7 @@
 
 # flake8: noqa
 
-from ._base import WorldObject, id_provider
+from ._base import WorldObject
 from ._events import (
     Event,
     EventTarget,

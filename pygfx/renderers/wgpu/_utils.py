@@ -4,7 +4,7 @@ Utils for the wgpu renderer.
 
 import wgpu
 
-from .. import RenderFunctionRegistry
+from .._base import RenderFunctionRegistry
 
 
 registry = RenderFunctionRegistry()

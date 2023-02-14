@@ -32,8 +32,8 @@ def load_scene(path):
 
     return [
         gfx.Mesh(
-            gfx.trimesh_geometry(m),
-            gfx.trimesh_material(m.visual.material),
+            gfx.geometry_from_trimesh(m),
+            gfx.material_from_trimesh(m.visual.material),
         )
         for m in scene.geometry.values()
     ]

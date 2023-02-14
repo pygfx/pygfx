@@ -1,7 +1,7 @@
 import os
 import io
 
-from .. import Renderer, RenderFunctionRegistry
+from .._base import Renderer, RenderFunctionRegistry
 
 from ...objects import WorldObject
 from ...cameras import Camera
