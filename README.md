@@ -1,132 +1,130 @@
-[![CI](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)](https://github.com/pygfx/pygfx/actions)
-[![Documentation Status](https://readthedocs.org/projects/pygfx/badge/?version=latest)](https://pygfx.readthedocs.io/en/latest/?badge=latest)
-[![PyPI version](https://badge.fury.io/py/pygfx.svg)](https://badge.fury.io/py/pygfx)
+<h1 align="center"><img src="docs/_static/pygfx_with_name.svg" width="600"/></h1>
 
-# pygfx
+[![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
+](https://github.com/pygfx/pygfx/actions)
+[![Documentation Status
+](https://readthedocs.org/projects/pygfx/badge/?version=latest)
+](https://pygfx.readthedocs.io/en/latest/?badge=latest)
+[![PyPI version ](https://badge.fury.io/py/pygfx.svg)
+](https://badge.fury.io/py/pygfx)
 
-A render engine, inspired by ThreeJS, but for Python and targeting Vulkan/Metal/DX12 (via wgpu).
+A python render engine targeting Vulkan/Metal/DX12.
 
-
-## Introduction
-
-This is a Python render engine build on top of [WGPU](https://github.com/pygfx/wgpu-py) (instead of OpenGL).
-
-We take a lot of inspiration from ThreeJS, e.g.:
-
-* Materials and Geometry are combined in world objects.
-* Decoupled cameras and controllers.
-* The code for the render engines is decoupled from the objects, allowing multiple render engines (e.g. wgpu and svg).
-
-Further we aim for a few niceties:
-* Proper support for high-res screens.
-* Builtin anti-aliasing.
-* Custom post-processing steps.
-* Support for picking objects and parts within objects.
-* (approximate) order-independent transparency (OIT) (not implemented yet).
-
-
-## WGPU is awesome (but also very new)
-
-Working with the WGPU API feels so much nicer than OpenGL. It's well
-defined, no global state, we can use compute shaders, use storage
-buffers (random access), etc.
-
-Fair enough, the WGPU API is very new and is still changing a lot, but
-eventually it will become stable. One of the biggest downsides right
-now is the lack of software rendering. No luck trying to run wgpu on a
-VM or CI.
-
-Because of how Vulkan et. al. work, the WGPU API is aimed at predefining
-objects and pipelines and then executing these. Almost everything is
-"prepared". The main reasoning for this is consistency and stable drivers,
-but it also has a big advantage for us Pythoneers: the amount of code per-draw-per-object
-is very limited. This means we can have *a lot* of objects and still be fast.
-
-As an example, see `collections_line.py`: drawing 1000 line objects with 30k points each at 57 FPS (on my laptop).
-
-
-## How to build a visialization
-
-See also the examples, they all do something like this:
-
-* Instantiate a renderer and a canvas to render to.
-* Create a scene and populate it with world objects.
-* Create a camera (and maybe a control).
-* Define an  animate function that calls: `renderer.render(scene, camera)`
-
-
-## On world objects, materials, and geometry
-
-There are a few different world object classes. The class defines
-(semantically) the kind of object being drawn, e.g. `Line`, `Image`,
-`Mesh`, `Volume`. World objects have a position and orientation in the
-scene, and can have children (other world objects), creating a tree.
-World objects can also have a geometry and/or a material.
-
-The geometry of an object defines its base data, usually per-vertex
-attributes such as positions, normals, and texture coordinates. There
-are several pre-defined geometries, most of which simply define certain
-3D shapes.
-
-The material of an object defines how an object is rendered. Usually
-each WorldObject class has one or more materials associated with it.
-E.g. a line can be drawn solid, segmented or with arrows. A volume can
-be rendered as a slice, MIP, or something else.
-
+<p align="center">
+<img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
+<img src="./docs/_static/readme_pbr_example.webp" alt="drawing" width="200"/>
+<img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
+</p>
+<p align="center">
+[<a href="https://pygfx.readthedocs.io/en/latest/guide.html">User Guide</a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">Example Gallery</a>]
+[<a href="https://pygfx.readthedocs.io/en/latest/reference.html">API Reference</a>]
+</p>
 
 ## Installation
 
 ```bash
-pip install -U pygfx
+pip install -U pygfx glfw
 ```
-Or, to get the latest from GitHub:
+
+To work correctly, pygfx needs _some_ window to render to. Glfw is one
+lightweight option, but there are others, too. If you use a different
+wgpu-compatible window manager or only render offscreen you may choose to omit
+glfw. Examples of alternatives include: jupyter_rfb (rendering in jupyter),
+PyQt, PySide, or wx.
+
+In addition there are some platform
+requirements, see the [wgpu docs](https://wgpu-py.readthedocs.io/en/stable/start.html). In
+essence, you need modern (enough) graphics drivers, and `pip>=20.3`.
+
+## Usage Example
+
+> **Note**
+> A walkthrough of this example can be found in [the
+> guide](https://pygfx.readthedocs.io/en/latest/guide.html#how-to-use-pygfx).
+
+```python
+import pygfx as gfx
+
+cube = gfx.Mesh(
+    gfx.box_geometry(200, 200, 200),
+    gfx.MeshPhongMaterial(color="#336699"),
+)
+
+def animate():
+    rot = gfx.linalg.Quaternion().set_from_euler(
+            gfx.linalg.Euler(0, 0.01)
+        )
+    cube.rotation.multiply(rot)
+
+if __name__ == "__main__":
+    gfx.show(cube, before_render=animate)
+
+```
+<img src="./docs/_static/guide_rotating_cube.gif" alt="drawing" width="400"/>
+
+
+## Feature Highlights
+Some of pygfx's key features are:
+
+- SDF based text rendering ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
+- order-independent transparency (OIT) ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/transparency2.html))
+- lights, shadows, and physically based rendering (PBR) ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/pbr.html))
+- event system with built-in picking ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/picking_points.html))
+- texture and color mapping supporting 1D, 2D and 3D data ([example](
+  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/colormap_channels.html))
+
+
+And many more! Check out our [feature demos](
+https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
+
+## About pygfx
+
+pygfx is a ThreeJS inspired graphics library that uses WGPU (the successor of
+OpenGL) to provide GPU acceleration to rendering workloads. It is mature enough
+to serve as a general-purpose rendering engine (Yes, you _can_ write a game with
+it.) while being geared towards scientific and medical visualization. Thanks to
+its low level of abstraction it is flexible and can be adapted to various
+use-cases. In other words, pygfx emphasizes on hackability and correctness while
+maintaining the level of performance you would expect from a GPU accelerated
+library.
+
+## License
+
+Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This means:
+
+- :white_check_mark: It is free (and open source) forever. :cupid:
+- :white_check_mark: You _can_ use it commercially.
+- :white_check_mark: You _can_ distribute it and freely make changes.
+- :x: You _can not_ hold us accountable for the results of using pygfx.
+
+## Contributing
+We use a pull request (PR) based workflow similar to many other open-source
+libraries in the python ecosystem. You can read more about this workflow
+[here](https://docs.github.com/en/get-started/quickstart/github-flow);
+if you have previously contributed to open-source, a lot of this will look
+familiar already.
+
+### Development Install
+To get a working dev install of pygfx you can use the following steps:
+
 ```bash
-pip install -U https://github.com/pygfx/pygfx/archive/main.zip
+# Click the Fork button on GitHub and navigate to your fork
+git clone <address_of_your_fork>
+cd pygfx
+# if you use a venv, create and activate it
+pip install -e .[dev,docs,examples]
+pytest
 ```
 
+### Testing
 
-## Current status
-
-Under development, many things can change.
-
-
-## Testing examples
-
-The test suite is divided into two parts; unit tests for the core, and unit tests for the examples.
+The test suite is divided into two parts; unit tests for the core, and unit
+tests for the examples.
 
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
-
-There are two types of tests for examples included with pygfx:
-
-### Type 1: Checking if examples can run
-
-When running the test suite, pytest will run every example in a subprocess,
-to see if it can run and exit cleanly. You can opt out of this mechanism by including the comment
-`# run_example = false` in the module.
-
-### Type 2: Checking if examples output an image
-
-You can also (independently) opt-in to output testing for examples, by including the comment
-`# test_example = true` in the module. Output testing means the test suite will
-attempt to import the `renderer` instance global from your example, and call it
-to see if an image is produced.
-
-To support this type of testing, ensure the following requirements are met:
-
-* The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
-* The `renderer` instance is exposed as a global in the module.
-* A rendering callback has been registered with `renderer.request_draw(fn)`.
-
-Reference screenshots are stored in the `examples/screenshots` folder,
-the test suite will compare the rendered image with the reference.
-
-Note: this step will be skipped when not running on CI. Since images will have subtle differences
-depending on the system on which they are rendered, that would make the tests unreliable.
-
-For every test that fails on screenshot verification, diffs will be generated for the rgb and alpha channels
-and made available in the `examples/screenshots/diffs` folder. On CI, the `examples/screenshots` folder
-will be published as a build artifact so you can download and inspect the differences.
-
-If you want to update the reference screenshot for a given example, you can grab those from the
-build artifacts as well and commit them to your branch.
