@@ -84,14 +84,14 @@ https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
 
 ## About pygfx
 
-pygfx is a graphics library that uses WGPU (the successor of OpenGL) to provide
-GPU acceleration to rendering workloads that takes inspiration from the ThreeJS
-API. It is mature enough to serve as a general-purpose rendering engine (Yes,
-you _can_ write a game with it.) while being geared towards scientific and
-medical visualization. Thanks to its low level of abstraction it is flexible and
-can be adapted to various use-cases. In other words, pygfx emphasizes on
-hackability and correctness while maintaining the level of performance you would
-expect from a GPU accelerated library.
+pygfx is a ThreeJS inspired graphics library that uses WGPU (the successor of
+OpenGL) to provide GPU acceleration to rendering workloads. It is mature enough
+to serve as a general-purpose rendering engine (Yes, you _can_ write a game with
+it.) while being geared towards scientific and medical visualization. Thanks to
+its low level of abstraction it is flexible and can be adapted to various
+use-cases. In other words, pygfx emphasizes on hackability and correctness while
+maintaining the level of performance you would expect from a GPU accelerated
+library.
 
 ## License
 
@@ -100,7 +100,7 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 - :white_check_mark: It is free (and open source) forever. :cupid:
 - :white_check_mark: You _can_ use it commercially.
 - :white_check_mark: You _can_ distribute it and freely make changes.
-- :x: You _can not_ hold us accountable the results of using pygfx.
+- :x: You _can not_ hold us accountable for the results of using pygfx.
 
 ## Contributing
 We use a pull request (PR) based workflow similar to many other open-source
