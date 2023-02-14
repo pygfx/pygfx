@@ -22,7 +22,7 @@ import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu import Binding
+from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 
 
 raise RuntimeError("Post-processing needs to be redesigned")
@@ -109,7 +109,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
 
 # Tell pygfx to use this render function for a Fullquad with NoiseMaterial.
-@gfx.renderers.wgpu.register_wgpu_render_function(Fullquad, NoiseMaterial)
+@register_wgpu_render_function(Fullquad, NoiseMaterial)
 def triangle_render_function(wobject, render_info):
     return [
         {

@@ -8,7 +8,7 @@ A custom material for drawing geometry by depth
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu import Binding
+from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 from pygfx.renderers.wgpu.meshshader import MeshShader
 
 
@@ -16,7 +16,7 @@ class DepthMaterial(gfx.MeshBasicMaterial):
     pass
 
 
-@gfx.renderers.wgpu.register_wgpu_render_function(gfx.Mesh, DepthMaterial)
+@register_wgpu_render_function(gfx.Mesh, DepthMaterial)
 class DepthShader(MeshShader):
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"

@@ -3,8 +3,8 @@ import numpy as np
 from ._base import Geometry
 
 
-def trimesh_geometry(mesh):
-    """Convert geometry from Trimesh.
+def geometry_from_trimesh(mesh):
+    """Convert a Trimesh geometry object to pygfx geometry.
 
     Creates a Geometry object from the given `trimesh.Trimesh
     <https://trimsh.org/trimesh.html#trimesh.Trimesh>`_ object.

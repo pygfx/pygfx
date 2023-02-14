@@ -11,7 +11,7 @@ import numpy as np
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-from pygfx.renderers.wgpu import Binding
+from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 from pygfx.resources import Buffer
 from pygfx.renderers.wgpu.meshshader import WorldObjectShader
 
@@ -35,7 +35,7 @@ class WireframeMaterial(gfx.Material):
         self.uniform_buffer.update_range(0, 1)
 
 
-@gfx.renderers.wgpu.register_wgpu_render_function(gfx.WorldObject, WireframeMaterial)
+@register_wgpu_render_function(gfx.WorldObject, WireframeMaterial)
 class WireframeShader(WorldObjectShader):
     type = "render"
 

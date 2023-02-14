@@ -12,8 +12,8 @@ import wgpu.backends.rs
 
 from .. import Renderer
 from ...linalg import Matrix4, Vector3
+from ...objects._base import id_provider
 from ...objects import (
-    id_provider,
     KeyboardEvent,
     RootEventHandler,
     PointerEvent,

@@ -38,7 +38,7 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.geometries.Geometry
     ~pygfx.geometries.TextGeometry
     ~pygfx.geometries.TextItem
-    ~pygfx.geometries.trimesh_geometry
+    ~pygfx.geometries.geometry_from_trimesh
     ~pygfx.geometries.octahedron_geometry
     ~pygfx.geometries.icosahedron_geometry
     ~pygfx.geometries.dodecahedron_geometry
@@ -54,8 +54,7 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.helpers.SpotLightHelper
 
     ~pygfx.materials.Material
-    ~pygfx.materials.pillow_image
-    ~pygfx.materials.trimesh_material
+    ~pygfx.materials.material_from_trimesh
     ~pygfx.materials.MeshBasicMaterial
     ~pygfx.materials.MeshPhongMaterial
     ~pygfx.materials.MeshNormalMaterial
@@ -80,7 +79,6 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.materials.TextMaterial
 
     ~pygfx.objects.WorldObject
-    ~pygfx.objects.id_provider
     ~pygfx.objects.Group
     ~pygfx.objects.Scene
     ~pygfx.objects.Background
@@ -102,11 +100,8 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.objects.PointLightShadow
 
     ~pygfx.renderers.Renderer
-    ~pygfx.renderers.RenderFunctionRegistry
     ~pygfx.renderers.WgpuRenderer
     ~pygfx.renderers.SvgRenderer
-    ~pygfx.renderers.register_wgpu_render_function
-    ~pygfx.renderers.register_svg_render_function
 
     ~pygfx.resources.Resource
     ~pygfx.resources.Buffer

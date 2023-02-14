@@ -40,7 +40,7 @@ TEAPOT = model_dir / "teapot.stl"
 teapot = trimesh.load(TEAPOT)
 
 mesh = gfx.Mesh(
-    gfx.trimesh_geometry(teapot),
+    gfx.geometry_from_trimesh(teapot),
     gfx.MeshPhongMaterial(),
 )
 

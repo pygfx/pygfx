@@ -55,7 +55,7 @@ The standardized names are:
     :toctree: geometry/
     :template: ../_templates/custom_layout.rst
 
-    trimesh_geometry
+    geometry_from_trimesh
     octahedron_geometry
     icosahedron_geometry
     dodecahedron_geometry
@@ -69,7 +69,7 @@ The standardized names are:
 
 from ._base import Geometry
 from ._box import box_geometry
-from ._compat import trimesh_geometry
+from ._compat import geometry_from_trimesh
 from ._cylinder import cylinder_geometry, cone_geometry
 from ._sphere import sphere_geometry
 from ._plane import plane_geometry
@@ -93,3 +93,4 @@ __all__.sort()
 __all__.remove("Geometry")
 __all__.insert(0, "Geometry")
 __all__.insert(__all__.index("TextGeometry") + 1, "TextItem")
+__all__.append("geometry_from_trimesh")
