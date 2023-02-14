@@ -24,7 +24,7 @@ _ignore_offscreen_run()
 # -- Project information -----------------------------------------------------
 
 project = "pygfx"
-copyright = "2021, Almar Klein, Korijn van Golen"
+copyright = "2021-2023, Almar Klein, Korijn van Golen"
 author = "Almar Klein, Korijn van Golen"
 
 # The full version, including alpha/beta/rc tags
