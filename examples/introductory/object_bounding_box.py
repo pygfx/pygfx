@@ -41,7 +41,7 @@ scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 mesh = gfx.Mesh(
-    gfx.trimesh_geometry(teapot),
+    gfx.geometry_from_trimesh(teapot),
     gfx.MeshPhongMaterial(),
 )
 mesh.rotation.set_from_euler(gfx.linalg.Euler(0.71, 0.91))
