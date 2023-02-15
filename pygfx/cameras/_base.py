@@ -5,8 +5,11 @@ from ..objects._base import WorldObject
 class Camera(WorldObject):
     """Abstract base camera.
 
+    Camera's are world objects and be placed in the scene, but this is not required.
+
     The purpose of a camera is to define the viewpoint for rendering a scene.
-    This viewpoint consists of its position (in the world) and its projection.
+    This viewpoint consists of its position and orientation (in the world) and
+    its projection.
 
     In other words, it covers the projection of world coordinates to
     normalized device coordinates (NDC), by the (inverse of) the
@@ -14,18 +17,63 @@ class Camera(WorldObject):
     The former represent the camera's position, the latter is specific
     to the type of camera.
 
-    Note that we follow the NDC coordinate system of WGPU, where
-    x and y are in the range 0..1, z is in the range 0..1, and (-1, -1, 0)
-    represents the bottom left corner.
-
+    Parameters
+    ----------
+    dist : float
+        The view distance factor. This represents at what distance from
+        the camera the objects of interest are. It is used to set the
+        near and far clipping planes, and controllers can use it as an
+        indication of what is being looked at.
+    up : Vector3
+        The vector that is considered up in the world space. Think of it
+        as pointing in the opposite direction as gravity. Default (0, 1, 0).
+    zoom : float
+        The zoom factor. Intended to temporary focus on a particular area. Default 1.
     """
 
-    def __init__(self):
+    def __init__(self, dist=1, up=(0, 1, 0), zoom=1):
         super().__init__()
+
+        self.dist = dist or 1
+        self.up = up or (0, 1, 0)
+        self.zoom = zoom or 1
 
         self.matrix_world_inverse = Matrix4()
         self.projection_matrix = Matrix4()
         self.projection_matrix_inverse = Matrix4()
+
+    @property
+    def dist(self):
+        """ The view distance factor. """
+        return self._dist
+
+    @dist.setter
+    def dist(self, value):
+        self._dist = float(value)
+
+    @property
+    def up(self):
+        """The vector that is considered up (or minus gravity) in the world space."""
+        return self._up
+
+    @up.setter
+    def up(self, value):
+        if not isinstance(value, Vector3):
+            self._up = Vector3(*value)
+        else:
+            self._up = value.clone()
+
+    @property
+    def zoom(self):
+        """The camera zoom level. """
+        return self._zoom
+
+    @zoom.setter
+    def zoom(self, value):
+        self._zoom = float(value)
+
+    def _get_near_and_far_plane(self):
+        raise NotImplementedError()
 
     def set_view_size(self, width, height):
         # In logical pixels
@@ -41,21 +89,21 @@ class Camera(WorldObject):
     def show_object(
         self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=2
     ):
-        """Utility function to position and rotate the camera to ensure
-        a particular world object is in view.
+        """Position the camera such that the given world object in is in view.
 
-        Parameters:
-            target: WorldObject
-                The object to look at
-            view_dir: 3-tuple of float or Vector3
-                Look at the object in this direction
-            distance_weight: float
-                The camera distance to the object's world position is
-                its bounding sphere radius multiplied by this weight
+        Parameters
+        ----------
+        target: WorldObject
+            The object to look at.
+        view_dir: 3-tuple of float or Vector3
+            Look at the object from this direction.
+        distance_weight: float
+            The camera distance to the object's world position is
+            its bounding sphere radius multiplied by this weight.
 
         Returns:
             pos: Vector3
-                The world coordinate the camera is looking at
+                The world coordinate the camera is looking at.
         """
         if not isinstance(view_dir, Vector3):
             view_dir = Vector3(*view_dir)
@@ -79,12 +127,14 @@ class Camera(WorldObject):
 
 
 class NDCCamera(Camera):
-    """A Camera operating in NDC coordinates: its projection matrix
-    is the identity transform (but its matrix_world can still be set).
+    """A Camera operating in NDC coordinates.
+
+    Its projection matrix is the identity transform (but its position and rotation can still be set).
 
     In the NDC coordinate system of WGPU (and pygfx), x and y are in
-    the range 0..1, z is in the range 0..1, and (-1, -1, 0) represents
-    the bottom left corner."""
+    the range -1..1, z is in the range 0..1, and (-1, -1, 0) represents
+    the bottom left corner.
+    """
 
     def update_projection_matrix(self):
         eye = 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
@@ -93,8 +143,9 @@ class NDCCamera(Camera):
 
 
 class ScreenCoordsCamera(Camera):
-    """A Camera operating in screen coordinates. The depth range is the same
-    as in NDC (0 to 1).
+    """A Camera operating in screen coordinates.
+
+    The depth range is the same as in NDC (0 to 1).
     """
 
     def __init__(self):
