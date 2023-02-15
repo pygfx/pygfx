@@ -20,7 +20,7 @@ from .utils.text import font_manager
 from .utils import cm, logger
 
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"
 version_info = tuple(map(int, __version__.split(".")))
 
 __wgpu_version_range__ = "0.9.0", "0.10.0"
