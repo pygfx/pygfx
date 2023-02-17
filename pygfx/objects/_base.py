@@ -436,7 +436,7 @@ class WorldObject(EventTarget, RootTrackable):
             self.update_matrix()
         if self._matrix_world_dirty or force:
             if self.parent is None:
-                self._matrix_world.copy(self._matrix)
+                self._matrix_world.identity()
             else:
                 self._matrix_world.multiply_matrices(
                     self.parent._matrix_world, self._matrix

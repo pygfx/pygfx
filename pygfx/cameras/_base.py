@@ -33,7 +33,11 @@ class Camera(WorldObject):
 
     def update_matrix_world(self, *args, **kwargs):
         super().update_matrix_world(*args, **kwargs)
-        self.matrix_world_inverse.get_inverse(self.matrix_world)
+        if self.parent is None:
+            # Camera is not in a scene, so does not have a valid world matrix.
+            self.matrix_world_inverse.get_inverse(self.matrix)
+        else:
+            self.matrix_world_inverse.get_inverse(self.matrix_world)
 
     def update_projection_matrix(self):
         raise NotImplementedError()
