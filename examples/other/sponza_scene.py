@@ -60,18 +60,24 @@ sunlight = gfx.DirectionalLight()
 sunlight.position.set(-14.5, 31, 4.5)
 sunlight.target.position.set(5.3, -1.4, -2.5)
 sunlight.cast_shadow = True
+sunlight.shadow.camera.near = 0
+sunlight.shadow.camera.far = 50
+sunlight.shadow.camera.update_projection_matrix()
 scene.add(sunlight)
 
 # Add torches
 for pos in [
-    [-5.0, 1.09, -1.75],
-    [-5.0, 1.09, 1.15],
-    [3.8, 1.09, -1.75],
-    [3.8, 1.09, 1.15],
+    [-5.0, 1.12, -1.75],
+    [-5.0, 1.12, 1.15],
+    [3.8, 1.12, -1.75],
+    [3.8, 1.12, 1.15],
 ]:
     torch = gfx.PointLight("#ff7700", decay=2.5)
     torch.position.set(*pos)
     torch.cast_shadow = True
+    torch.shadow.camera.near = 0.01
+    torch.shadow.camera.update_projection_matrix()
+    # torch.add(gfx.PointLightHelper(size=0.01))
     scene.add(torch)
 
 
