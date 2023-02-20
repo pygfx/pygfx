@@ -11,6 +11,7 @@ decorate an object in another scene.
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
+import numpy as np
 import pygfx as gfx
 from wgpu.gui.offscreen import WgpuCanvas
 
