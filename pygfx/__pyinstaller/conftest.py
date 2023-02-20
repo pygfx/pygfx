@@ -1,1 +1,1 @@
-from PyInstaller.utils.conftest import *
+from PyInstaller.utils.conftest import *  # noqa
