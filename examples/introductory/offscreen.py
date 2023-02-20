@@ -11,6 +11,7 @@ decorate an object in another scene.
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
+import numpy as np
 import pygfx as gfx
 from wgpu.gui.offscreen import WgpuCanvas
 
@@ -38,10 +39,10 @@ canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
 if __name__ == "__main__":
-    # The offscreen canvas has a draw method that returns a numpy array.
+    # The offscreen canvas has a draw method that returns a memoryview.
     # Use this to obtain what you normally see on-screen. You should
     # only use an offscreen canvas for e.g. testing or generating images.
-    im1 = canvas.draw()
+    im1 = np.asarray(canvas.draw())
     print("image from canvas.draw():", im1.shape)  # (480, 640, 4)
 
     # The renderer also has a snapshot utility. With this you get a snapshot
