@@ -68,7 +68,7 @@ setup(
     packages=find_packages(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
-    package_data={f"{NAME}.pkg_resources": resources_globs},
+    package_data={f"{NAME}.data_files": resources_globs},
     python_requires=">=3.7.0",
     install_requires=runtime_deps,
     extras_require=extras_require,

@@ -14,7 +14,7 @@ except Exception:  # Exceptions thrown by home() are not specified...
 
 def get_resources_dir():
     """Get the path to the directory of builtin resources."""
-    return resource_filename("pygfx.pkg_resources", "")
+    return resource_filename("pygfx.data_files", "")
 
 
 def get_cache_dir():
