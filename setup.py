@@ -32,6 +32,8 @@ extras_require = {
         "wheel",
         "twine",
         "imageio",
+        "psutil",
+        "pyinstaller>=4",
     ],
     "examples": [
         "pytest",
@@ -87,4 +89,10 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Visualization",
     ],
+    entry_points={
+        "pyinstaller40": [
+            "hook-dirs = pygfx.__pyinstaller:get_hook_dirs",
+            "tests = pygfx.__pyinstaller:get_test_dirs",
+        ],
+    },
 )
