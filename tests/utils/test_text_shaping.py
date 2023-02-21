@@ -166,7 +166,7 @@ def check_mem_to_store_face_objects():
 
     font = font_manager._fallback_font
     font_filename = font.filename
-    # font_filename = "/Users/almar/dev/py/pygfx/pygfx/pkg_resources/fonts/noto_cjk_man/NotoSansSC-Regular.otf"
+    # font_filename = "/Users/almar/dev/py/pygfx/pygfx/data_files/fonts/noto_cjk_man/NotoSansSC-Regular.otf"
 
     m0 = psutil.Process(os.getpid()).memory_info().rss / 1024
     ft_faces = []
