@@ -17,7 +17,7 @@ diffs_dir = screenshots_dir / "diffs"
 example_globs = ["*.py", "introductory/*.py", "feature_demo/*.py", "validation/*.py"]
 
 
-def wgpu_backend_endswith(query):
+def get_wgpu_backend():
     """
     Query the configured wgpu backend driver.
     """
@@ -33,13 +33,13 @@ def wgpu_backend_endswith(query):
         universal_newlines=True,
         cwd=ROOT,
     )
-    return (
-        result.stdout.strip().endswith(query)
-        and "traceback" not in result.stderr.lower()
-    )
+    out = result.stdout.strip()
+    err = result.stderr.strip()
+    return err if "traceback" in err.lower() else out
 
 
-is_lavapipe = wgpu_backend_endswith("CPU Vulkan")
+wgpu_backend = get_wgpu_backend()
+is_lavapipe = wgpu_backend.endswith("CPU Vulkan")
 
 
 def find_examples(query=None, negative_query=None, return_stems=False):
