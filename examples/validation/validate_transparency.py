@@ -40,13 +40,14 @@ t = gfx.Text(
 t.position.set(0, 40, 0)
 
 scene.add(plane1, plane2, plane3, sphere, t)
-
 scene.add(gfx.AmbientLight(1, 1))
 
 
-@canvas.request_draw
 def animate():
     renderer.render(scene, camera)
+
+
+canvas.request_draw(animate)
 
 
 if __name__ == "__main__":
