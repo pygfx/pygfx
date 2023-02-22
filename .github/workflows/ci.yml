@@ -128,7 +128,7 @@ jobs:
         python -c "from examples.tests.testutils import wgpu_backend; print(wgpu_backend)"
     - name: Test examples
       env:
-        PYGFX_EXPECT_LAVAPIPE=true
+        PYGFX_EXPECT_LAVAPIPE:true
       run: |
         pytest -v examples
     - uses: actions/upload-artifact@v3
