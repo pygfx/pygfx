@@ -15,6 +15,9 @@ import pygfx as gfx
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(500, 500)))
 scene = gfx.Scene()
 
+# Disable aa to avoid that this produces a void image on current Ubuntu-default Lavapipe
+renderer.blend_mode = "opaque"
+
 
 def add_text(anchor, pos):
     obj = gfx.Text(
