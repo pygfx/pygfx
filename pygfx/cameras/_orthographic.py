@@ -28,12 +28,14 @@ class OrthographicCamera(Camera):
 
     """
 
-    def __init__(self, width, height, dist=1, up=(0, 1, 0), *, zoom=1, maintain_aspect=True):
+    def __init__(
+        self, width, height, dist=1, up=(0, 1, 0), *, zoom=1, maintain_aspect=True
+    ):
         super().__init__(dist, up, zoom)
         # Reminder: these width and height represent the view-plane in world coordinates
         # and has little to do with the canvas/viewport size.
         self.width = width
-        self.height =height
+        self.height = height
         self.maintain_aspect = maintain_aspect
 
         self.set_view_size(1, 1)
@@ -46,7 +48,7 @@ class OrthographicCamera(Camera):
 
     @property
     def width(self):
-        """ The (minimum) width of the view-cube."""
+        """The (minimum) width of the view-cube."""
         return self._width
 
     @width.setter
@@ -55,7 +57,7 @@ class OrthographicCamera(Camera):
 
     @property
     def height(self):
-        """ The (minimum) height of the view-cube."""
+        """The (minimum) height of the view-cube."""
         return self._height
 
     @height.setter
@@ -64,7 +66,7 @@ class OrthographicCamera(Camera):
 
     @property
     def maintain_aspect(self):
-        """Whether the aspect ration is maintained as the window size changes. """
+        """Whether the aspect ration is maintained as the window size changes."""
         return self._maintain_aspect
 
     @maintain_aspect.setter
@@ -100,9 +102,7 @@ class OrthographicCamera(Camera):
         # The linalg ortho projection puts xyz in the range -1..1, but
         # in the coordinate system of wgpu (and this lib) the depth is
         # expressed in 0..1, so we also correct for that.
-        self.projection_matrix.make_orthographic(
-            left, right, top, bottom, near, far
-        )
+        self.projection_matrix.make_orthographic(left, right, top, bottom, near, far)
         self.projection_matrix.premultiply(
             Matrix4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1)
         )

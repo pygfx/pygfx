@@ -44,7 +44,7 @@ class Camera(WorldObject):
 
     @property
     def dist(self):
-        """ The view distance factor. """
+        """The view distance factor."""
         return self._dist
 
     @dist.setter
@@ -58,14 +58,16 @@ class Camera(WorldObject):
 
     @up.setter
     def up(self, value):
-        if not isinstance(value, Vector3):
+        if isinstance(value, Vector3):
+            self._up = value.clone()
+        elif isinstance(value, (tuple, list)) and len(value) == 3:
             self._up = Vector3(*value)
         else:
-            self._up = value.clone()
+            raise TypeError(f"Invalid up vector: {value}")
 
     @property
     def zoom(self):
-        """The camera zoom level. """
+        """The camera zoom level."""
         return self._zoom
 
     @zoom.setter
@@ -85,6 +87,12 @@ class Camera(WorldObject):
 
     def update_projection_matrix(self):
         raise NotImplementedError()
+
+    def look_at(self, target):
+        if isinstance(target, tuple) and len(target) == 3:
+            target = Vector3(*target)
+        super().look_at(target)
+        self.dist = self.position.distance_to(target)
 
     def show_object(
         self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=2

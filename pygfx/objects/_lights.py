@@ -548,7 +548,7 @@ class DirectionalLightShadow(LightShadow):
 
     def __init__(self) -> None:
         # OrthographicCamera for directional light
-        super().__init__(OrthographicCamera(1000, 1000, -500, 500))
+        super().__init__(OrthographicCamera(1000, 1000, 1000))
 
     def _update_matrix(self, light):
         camera = self.camera
@@ -560,7 +560,7 @@ class SpotLightShadow(LightShadow):
     """Shadow map utility for spot light sources."""
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
+        super().__init__(PerspectiveCamera(50, 1, 1))
         self._focus = 1
 
     def _update_matrix(self, light):
@@ -602,7 +602,7 @@ class PointLightShadow(LightShadow):
     ]
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
+        super().__init__(PerspectiveCamera(90, 1, 1))
 
         self._gfx_matrix_buffer = []
 

@@ -5,32 +5,54 @@ from ..utils.viewport import Viewport
 from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 from ._base import Controller, get_screen_vectors_in_world_cords
 
+import numpy as np
+import pylinalg.func as la
+
+
+def get_axis_aligned_up_vector(up):
+    ref_up, largest_dot = None, 0
+    for up_vec in [(1, 0, 0), (0, 1, 0), (0, 0, 1)]:
+        up_vec = np.array(up_vec)
+        v = np.dot(up_vec, up)
+        if v > largest_dot:
+            ref_up, largest_dot = up_vec, v
+    return ref_up
+
 
 class OrbitController(Controller):
-    """A class implementing an orbit camera controller, where the camera is
-    rotated around a center position (orbiting around it).
+    """A controller to move a camera in an orbit around a center position.
+
+    The direction of rotation is defined such that it feels like you're
+    grabbing onto something in the foreground; if you move the mouse
+    to the right, the objects in the foreground move to the right, and
+    those in the background (on the opposite side of the center of
+    rotation) move to the left.
     """
 
     def __init__(
         self,
-        eye: Vector3 = None,
-        target: Vector3 = None,
-        up: Vector3 = None,
+        camera=None,
+        # eye: Vector3 = None,
+        # target: Vector3 = None,
+        # up: Vector3 = None,
         *,
         zoom_changes_distance=True,
         min_zoom: float = 0.0001,
         auto_update: bool = True,
     ) -> None:
-        super().__init__()
+        super().__init__(camera)
+
         self.rotation = Quaternion()
         self.target = Vector3()
         self.up = Vector3()
-        if eye is None:
-            eye = Vector3(50.0, 50.0, 50.0)
-        if target is None:
-            target = Vector3()
-        if up is None:
-            up = Vector3(0.0, 1.0, 0.0)
+
+        # if eye is None:
+        #     eye = Vector3(50.0, 50.0, 50.0)
+        # if target is None:
+        #     target = Vector3()
+        # if up is None:
+        #     up = Vector3(0.0, 1.0, 0.0)
+
         self.zoom_changes_distance = bool(zoom_changes_distance)
         self.zoom_value = 1
         self.min_zoom = min_zoom
@@ -47,53 +69,60 @@ class OrbitController(Controller):
         self._orbit_up = Vector3(0, 1, 0)
         self._s = Spherical()
 
-        # Initialize orientation
-        self.look_at(eye, target, up)
-        self._initial_distance = self.distance
+        # # Initialize orientation
+        # self.look_at(eye, target, up)
+        # self._initial_distance = self.distance
+        #
+        # # Save initial state
+        # self.save_state()
 
-        # Save initial state
-        self.save_state()
-
-    def save_state(self):
-        self._saved_state = {
-            "rotation": self.rotation.clone(),
-            "distance": self.distance,
-            "target": self.target.clone(),
-            "up": self.up.clone(),
-            "zoom_changes_distance": self.zoom_changes_distance,
-            "zoom_value": self.zoom_value,
-            "min_zoom": self.min_zoom,
-            "initial_distance": self._initial_distance,
-        }
-        return self._saved_state
-
-    def load_state(self, state=None):
-        state = state or self._saved_state
-        self.rotation = state["rotation"].clone()
-        self.distance = state["distance"]
-        self.target = state["target"].clone()
-        self.up = state["up"].clone()
-        self.zoom_changes_distance = state["zoom_changes_distance"]
-        self.zoom_value = state["zoom_value"]
-        self.min_zoom = state["min_zoom"]
-        self.initial_distance = state["initial_distance"]
-        self._update_up_quats()
+    # def save_state(self):
+    #     self._saved_state = {
+    #         "rotation": self.rotation.clone(),
+    #         "distance": self.distance,
+    #         "target": self.target.clone(),
+    #         "up": self.up.clone(),
+    #         "zoom_changes_distance": self.zoom_changes_distance,
+    #         "zoom_value": self.zoom_value,
+    #         "min_zoom": self.min_zoom,
+    #         "initial_distance": self._initial_distance,
+    #     }
+    #     return self._saved_state
+    #
+    # def load_state(self, state=None):
+    #     state = state or self._saved_state
+    #     self.rotation = state["rotation"].clone()
+    #     self.distance = state["distance"]
+    #     self.target = state["target"].clone()
+    #     self.up = state["up"].clone()
+    #     self.zoom_changes_distance = state["zoom_changes_distance"]
+    #     self.zoom_value = state["zoom_value"]
+    #     self.min_zoom = state["min_zoom"]
+    #     self.initial_distance = state["initial_distance"]
+    #     self._update_up_quats()
 
     def _update_up_quats(self):
         self._up_quat = Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
         self._up_quat_inv = self._up_quat.clone().inverse()
 
-    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
-        self.distance = eye.distance_to(target)
-        self.target.copy(target)
-        self.up.copy(up)
-        self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
-        self._update_up_quats()
-        return self
-
     def pan(self, vec3: Vector3) -> Controller:
         """Pan in 3D world coordinates."""
-        self.target.add(vec3)
+        if isinstance(vec3, tuple):
+            vec3 = Vector3(*vec3)
+
+        # Calculate new position
+        # position -> pos2target -> target
+        if self._cameras:
+            camera = self._cameras[0]
+            pos2target = Vector3(0, 0, -camera.dist).apply_quaternion(camera.rotation)
+            target = camera.position.clone().add(pos2target)
+            target = target.add(vec3.negate())
+            new_pos = target.add(pos2target.negate())
+
+        # Apply to all cameas
+        for camera in self._cameras:
+            camera.position = new_pos.clone()
+
         return self
 
     def pan_start(
@@ -104,8 +133,15 @@ class OrbitController(Controller):
     ) -> Controller:
         """Start a panning operation based (2D) screen coordinates."""
         scene_size = viewport.logical_size
-        vecx, vecy = get_screen_vectors_in_world_cords(self.target, scene_size, camera)
-        self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+        if self._cameras:
+            # Get target from main camera
+            camera = self._cameras[0]
+            pos2target = Vector3(0, 0, camera.dist).apply_quaternion(camera.rotation)
+            target = camera.position.clone().add(pos2target)
+            # Store pan info
+            vecx, vecy = get_screen_vectors_in_world_cords(target, scene_size, camera)
+            self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+
         return self
 
     def pan_stop(self) -> Controller:
@@ -127,29 +163,49 @@ class OrbitController(Controller):
         return self
 
     def rotate(self, theta: float, phi: float) -> Controller:
-        """Rotate using angles (in radians). theta and phi are also known
-        as azimuth and elevation.
+        """Rotate using angles (in radians). The theta and phi are also known
+        as azimuth and elevation, respectively.
         """
-        # offset
-        self._v.set(0, 0, self.distance).apply_quaternion(self.rotation)
-        # to neutral up
-        self._v.apply_quaternion(self._up_quat)
-        # to spherical
-        self._s.set_from_vector3(self._v)
-        # apply delta
-        self._s.theta -= theta
-        self._s.phi -= phi
-        # clip
-        self._s.make_safe()
-        # back to cartesian
-        self._v.set_from_spherical(self._s)
-        # back to camera up
-        self._v.apply_quaternion(self._up_quat_inv)
-        # compute new rotation
-        self.rotation.set_from_rotation_matrix(
-            self._m.look_at(self._v, self._origin, self.up)
-        )
+        if self._cameras:
+            camera = self._cameras[0]
+            self._rotate(
+                theta,
+                phi,
+                camera.position.to_array(),
+                camera.rotation.to_array(),
+                camera.up.to_array(),
+            )
         return self
+
+    def _rotate(self, theta, phi, position, rotation, up, dist):
+        # # Obtain the current elevation by taking the angle between forward and up
+        # forward = la.quaternion_rotate((0, 0, -1), rotation)
+        # elevation = np.pi - la.vector_angle_between(forward, up)
+        #
+        # # Get a reference vector, that is orthogonal to up,
+        # # and use that to calculate the azimuth.
+        # aligned_up = get_axis_aligned_up_vector(up)
+        # orthogonal_vec = np.cross(up, np.roll(aligned_up, 1))
+        # azimuth = la.vector_angle_between(forward, orthogonal_vec)
+
+        # todo: are these axii local or must they change as up changes?
+        r_theta = la.quaternion_make_from_axis_angle((0, -1, 0), theta)
+        r_phi = la.quaternion_make_from_axis_angle((-1, 0, 0), phi)
+
+        # Get rotations
+        rot1 = rotation
+        rot2 = la.quaternion_multiply(r_theta, la.quaternion_multiply(rot1, r_phi))
+
+        # Calculate new position
+        pos1 = position
+        pos2target1 = la.quaternion_rotate((0, 0, -dist), rot1)
+        pos2target2 = la.quaternion_rotate((0, 0, -dist), rot2)
+        pos2 = pos1 + pos2target1 - pos2target2
+
+        # Apply to all cameas
+        for camera in self._cameras:
+            camera.position.set(*pos2)
+            camera.rotation = Quaternion(*rot2)
 
     def rotate_start(
         self,
@@ -158,7 +214,14 @@ class OrbitController(Controller):
         camera: Camera,
     ) -> Controller:
         """Start a rotation operation based (2D) screen coordinates."""
-        self._rotate_info = {"last": pos}
+        # Store the start-state.
+        self._rotate_info = {
+            "pos": pos,
+            "position": camera.position.to_array(),
+            "rotation": camera.rotation.to_array(),
+            "up": camera.up.to_array(),
+            "dist": camera.dist,
+        }
         return self
 
     def rotate_stop(self) -> Controller:
@@ -173,9 +236,17 @@ class OrbitController(Controller):
         """
         if self._rotate_info is None:
             return
-        delta = tuple((pos[i] - self._rotate_info["last"][i]) * speed for i in range(2))
-        self.rotate(*delta)
-        self._rotate_info["last"] = pos
+        theta, phi = tuple(
+            (pos[i] - self._rotate_info["pos"][i]) * speed for i in range(2)
+        )
+        self._rotate(
+            theta,
+            phi,
+            self._rotate_info["position"],
+            self._rotate_info["rotation"],
+            self._rotate_info["up"],
+            self._rotate_info["dist"],
+        )
         return self
 
     def zoom(self, multiplier: float) -> Controller:

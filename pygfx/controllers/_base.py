@@ -7,41 +7,49 @@ from ..cameras import Camera
 
 
 class Controller:
-    """Base camera controller."""
+    """The base camera controller.
 
-    def get_view(self) -> Tuple[Vector3, Vector3, float]:
-        """
-        Returns view parameters with which a camera can be updated.
+    The purpose of a controller is to provide an API to control a camera,
+    and to convert user (mouse) events into camera adjustments.
+    """
 
-        Returns:
-            rotation: Vector3
-                Rotation of camera
-            position: Vector3
-                Position of camera
-            zoom: float
-                Zoom value for camera
-        """
-        raise NotImplementedError()
+    def __init__(self, camera=None):
+        self._cameras = []
+        if camera is not None:
+            self.add_camera(camera)
+
+    def cameras(self):
+        """A tuple with the cameras under control, in the order that they were added."""
+        return tuple(self._cameras)
+
+    def add_camera(self, camera):
+        """Add a camera to control."""
+        if not isinstance(camera, Camera):
+            raise TypeError("Controller.add_camera expects a Camera object.")
+        self.remove_camera(camera)
+        self._cameras.append(camera)
+
+    def remove_camera(self, camera):
+        """Remove a camera from the list of cameras to control."""
+        if not isinstance(camera, Camera):
+            raise TypeError("Controller.remove_camera expects a Camera object.")
+        while camera in self._cameras:
+            self._cameras.remove(camera)
 
     def handle_event(self, event, viewport, camera):
         raise NotImplementedError()
 
-    def save_state(self):
-        raise NotImplementedError()
-
-    def load_state(self, state=None):
-        raise NotImplementedError()
-
-    def show_object(self, camera, target):
-        raise NotImplementedError()
-
-    def update_camera(self, camera: Camera) -> "Controller":
-        """Update the transform of the camera with the internal transform."""
-        rot, pos, zoom = self.get_view()
-        camera.rotation.copy(rot)
-        camera.position.copy(pos)
-        camera.zoom = zoom
-        return self
+    # todo: these must all be on the camera object
+    # def get_view(self)
+    #      ...
+    # def save_state(self):
+    #     raise NotImplementedError()
+    #
+    # def load_state(self, state=None):
+    #     raise NotImplementedError()
+    #
+    # def show_object(self, camera, target):
+    #     raise NotImplementedError()
 
     def add_default_event_handlers(
         self, viewport: Union[Viewport, Renderer], camera: Camera

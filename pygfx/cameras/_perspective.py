@@ -40,7 +40,7 @@ class PerspectiveCamera(Camera):
 
     @property
     def fov(self):
-        """  The field of view (in degrees)."""
+        """The field of view (in degrees)."""
         return self._fov
 
     @fov.setter
@@ -84,9 +84,7 @@ class PerspectiveCamera(Camera):
         # The linalg perspective projection puts xyz in the range -1..1,
         # but in the coordinate system of wgpu (and this lib) the depth
         # is expressed in 0..1, so we also correct for that.
-        self.projection_matrix.make_perspective(
-            left, right, top, bottom, near, far
-        )
+        self.projection_matrix.make_perspective(left, right, top, bottom, near, far)
         self.projection_matrix.premultiply(
             Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)
         )

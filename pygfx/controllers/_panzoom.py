@@ -7,7 +7,7 @@ from ._base import Controller, get_screen_vectors_in_world_cords
 
 
 class PanZoomController(Controller):
-    """A class implementing two-dimensional pan-zoom camera controller."""
+    """A controller to move a camera in a 2D plane."""
 
     def __init__(
         self,
