@@ -43,14 +43,16 @@ for pos, color, geometry in spheres:
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(6, 16, -22)
+camera.look_at((0, 0, 0))
 scene.add(gfx.AmbientLight())
 scene.add(camera.add(gfx.DirectionalLight()))
-controller = gfx.OrbitController(camera.position.clone())
+
+controller = gfx.OrbitController(camera)
 controller.add_default_event_handlers(renderer, camera)
 
 
 def animate():
-    controller.update_camera(camera)
+    # controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

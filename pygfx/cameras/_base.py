@@ -133,6 +133,16 @@ class Camera(WorldObject):
         self.look_at(pos)
         return pos
 
+    def get_state(self):
+        """Get the state of the camera as a dict."""
+        return {}
+
+    def set_state(self, state):
+        """Set the state of the camera from a dict obtained with ``get_state``
+        from a camera of the same type.
+        """
+        pass
+
 
 class NDCCamera(Camera):
     """A Camera operating in NDC coordinates.

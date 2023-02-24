@@ -162,39 +162,47 @@ class OrbitController(Controller):
         self._pan_info["last"] = pos
         return self
 
-    def rotate(self, theta: float, phi: float) -> Controller:
-        """Rotate using angles (in radians). The theta and phi are also known
-        as azimuth and elevation, respectively.
-        """
+    def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:
+        """Rotate using angles (in radians)."""
         if self._cameras:
             camera = self._cameras[0]
-            self._rotate(
-                theta,
-                phi,
-                camera.position.to_array(),
-                camera.rotation.to_array(),
-                camera.up.to_array(),
-            )
+            self._rotate(delta_azimuth, delta_elevation, camera.get_state())
         return self
 
-    def _rotate(self, theta, phi, position, rotation, up, dist):
-        # # Obtain the current elevation by taking the angle between forward and up
-        # forward = la.quaternion_rotate((0, 0, -1), rotation)
-        # elevation = np.pi - la.vector_angle_between(forward, up)
-        #
+    def _rotate(self, delta_azimuth, delta_elevation, camera_state):
+        position = camera_state["position"]
+        rotation = camera_state["rotation"]
+        up = camera_state["up"]
+        dist = camera_state["dist"]
+
         # # Get a reference vector, that is orthogonal to up,
         # # and use that to calculate the azimuth.
         # aligned_up = get_axis_aligned_up_vector(up)
         # orthogonal_vec = np.cross(up, np.roll(aligned_up, 1))
         # azimuth = la.vector_angle_between(forward, orthogonal_vec)
+        # -> we currently don't use the azimuth
+
+        # Obtain the current elevation by taking the angle between forward and up
+        forward = la.quaternion_rotate((0, 0, -1), rotation)
+        elevation = la.vector_angle_between(forward, up) - 0.5 * np.pi
+
+        # Apply boundaries to the elevation
+        new_elevation = elevation + delta_elevation
+        bounds = -89 * np.pi / 180, 89 * np.pi / 180
+        if new_elevation < bounds[0]:
+            delta_elevation = bounds[0] - elevation
+        elif new_elevation > bounds[1]:
+            delta_elevation = bounds[1] - elevation
 
         # todo: are these axii local or must they change as up changes?
-        r_theta = la.quaternion_make_from_axis_angle((0, -1, 0), theta)
-        r_phi = la.quaternion_make_from_axis_angle((-1, 0, 0), phi)
+        r_azimuth = la.quaternion_make_from_axis_angle((0, -1, 0), delta_azimuth)
+        r_elevation = la.quaternion_make_from_axis_angle((-1, 0, 0), delta_elevation)
 
         # Get rotations
         rot1 = rotation
-        rot2 = la.quaternion_multiply(r_theta, la.quaternion_multiply(rot1, r_phi))
+        rot2 = la.quaternion_multiply(
+            r_azimuth, la.quaternion_multiply(rot1, r_elevation)
+        )
 
         # Calculate new position
         pos1 = position
@@ -202,10 +210,10 @@ class OrbitController(Controller):
         pos2target2 = la.quaternion_rotate((0, 0, -dist), rot2)
         pos2 = pos1 + pos2target1 - pos2target2
 
-        # Apply to all cameas
+        # Apply new state to all cameras
+        new_camera_state = {**camera_state, "position": pos2, "rotation": rot2}
         for camera in self._cameras:
-            camera.position.set(*pos2)
-            camera.rotation = Quaternion(*rot2)
+            camera.set_state(new_camera_state)
 
     def rotate_start(
         self,
@@ -214,14 +222,9 @@ class OrbitController(Controller):
         camera: Camera,
     ) -> Controller:
         """Start a rotation operation based (2D) screen coordinates."""
-        # Store the start-state.
-        self._rotate_info = {
-            "pos": pos,
-            "position": camera.position.to_array(),
-            "rotation": camera.rotation.to_array(),
-            "up": camera.up.to_array(),
-            "dist": camera.dist,
-        }
+        # Store the start-state, and the mouse pos
+        self._rotate_info = camera.get_state()
+        self._rotate_info["mouse_pos"] = pos
         return self
 
     def rotate_stop(self) -> Controller:
@@ -236,17 +239,9 @@ class OrbitController(Controller):
         """
         if self._rotate_info is None:
             return
-        theta, phi = tuple(
-            (pos[i] - self._rotate_info["pos"][i]) * speed for i in range(2)
-        )
-        self._rotate(
-            theta,
-            phi,
-            self._rotate_info["position"],
-            self._rotate_info["rotation"],
-            self._rotate_info["up"],
-            self._rotate_info["dist"],
-        )
+        delta_azimuth = (pos[0] - self._rotate_info["mouse_pos"][0]) * speed
+        delta_elevation = (pos[1] - self._rotate_info["mouse_pos"][1]) * speed
+        self._rotate(delta_azimuth, delta_elevation, self._rotate_info)
         return self
 
     def zoom(self, multiplier: float) -> Controller:

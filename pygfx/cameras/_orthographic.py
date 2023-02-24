@@ -77,6 +77,22 @@ class OrthographicCamera(Camera):
         d = self._dist
         return -500 * d, 500 * d
 
+    def get_state(self):
+        return {
+            "position": tuple(self.position.to_array()),
+            "rotation": tuple(self.rotation.to_array()),
+            "scale": tuple(self.scale.to_array()),
+            "width": self.width,
+            "height": self.height,
+            "dist": self.dist,
+            "up": tuple(self.up.to_array()),
+            "maintain_aspect": self.maintain_aspect,
+            "zoom": self.zoom,
+        }
+
+    def set_state(self, state):
+        raise NotImplementedError()
+
     def set_view_size(self, width, height):
         self._view_aspect = width / height
 

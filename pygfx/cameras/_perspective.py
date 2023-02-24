@@ -60,6 +60,28 @@ class PerspectiveCamera(Camera):
         d = self._dist
         return d / 1000, 1000 * d
 
+    def get_state(self):
+        return {
+            "position": tuple(self.position.to_array()),
+            "rotation": tuple(self.rotation.to_array()),
+            "scale": tuple(self.scale.to_array()),
+            "up": tuple(self.up.to_array()),
+            "fov": self.fov,
+            "aspect": self.aspect,
+            "dist": self.dist,
+            "zoom": self.zoom,
+        }
+
+    def set_state(self, state):
+        self.position.set(*state["position"])
+        self.rotation.set(*state["rotation"])
+        self.scale.set(*state["scale"])
+        self.up.set(*state["up"])
+        self.fov = state["fov"]
+        self.aspect = state["aspect"]
+        self.dist = state["dist"]
+        self.zoom = state["zoom"]
+
     def set_view_size(self, width, height):
         self._view_aspect = width / height
 
