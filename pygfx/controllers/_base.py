@@ -1,6 +1,7 @@
 from typing import Tuple, Union
 
-from ..linalg import Vector3
+import pylinalg.func as la
+
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
 from ..cameras import Camera
@@ -63,21 +64,37 @@ class Controller:
             "pointer_down",
             "pointer_move",
             "pointer_up",
+            "key_down",
             "wheel",
         )
 
 
 def get_screen_vectors_in_world_cords(
-    center_world: Vector3, scene_size: Tuple[float, float], camera: Camera
-) -> Tuple[Vector3, Vector3]:
+    center_world: Tuple[float, float, float], scene_size: Tuple[float, float], camera: Camera
+):
     """Given a reference center location (in 3D world coordinates)
     Get the vectors corresponding to the x and y direction in screen coordinates.
     These vectors are scaled so that they can simply be multiplied with the
     delta x and delta y.
     """
-    center = center_world.clone().project(camera)
-    pos1 = Vector3(100, 0, center.z).unproject(camera)
-    pos2 = Vector3(0, 100, center.z).unproject(camera)
-    pos1.multiply_scalar(0.02 / scene_size[0])
-    pos2.multiply_scalar(0.02 / scene_size[1])
-    return pos1, pos2  # now they're vecs, really
+
+    # Linalg conv
+    camera_world = camera.matrix_world.to_ndarray()
+    camera_world_inverse = camera.matrix_world_inverse.to_ndarray()
+    camera_projection = camera.projection_matrix.to_ndarray()
+    camera_projection_inverse = camera.projection_matrix_inverse.to_ndarray()
+
+    # Get project / unproject matrices
+    project = la.matrix_combine([camera_projection, camera_world_inverse])
+    unproject = la.matrix_combine([camera_projection_inverse, camera_world])
+
+    # Get center location on screen
+    center = la.vector_apply_matrix(la.vector_apply_matrix(center_world, camera_world_inverse), camera_projection)
+
+    # Get vectors
+    screen_dist = 100
+    pos1 = la.vector_apply_matrix(la.vector_apply_matrix((screen_dist, 0, center[2]), camera_projection_inverse), camera_world)
+    pos2 = la.vector_apply_matrix(la.vector_apply_matrix((0, screen_dist, center[2]), camera_projection_inverse), camera_world)
+
+    # Return scaled
+    return pos1 * 0.02 / scene_size[0], pos2 * 0.02 / scene_size[1]

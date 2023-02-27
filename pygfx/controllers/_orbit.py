@@ -1,12 +1,11 @@
 from typing import Tuple
 
-from ..cameras import Camera
-from ..utils.viewport import Viewport
-from ..linalg import Vector3, Matrix4, Quaternion, Spherical
-from ._base import Controller, get_screen_vectors_in_world_cords
-
 import numpy as np
 import pylinalg.func as la
+
+from ..cameras import Camera
+from ..utils.viewport import Viewport
+from ._base import Controller, get_screen_vectors_in_world_cords
 
 
 def get_axis_aligned_up_vector(up):
@@ -32,26 +31,12 @@ class OrbitController(Controller):
     def __init__(
         self,
         camera=None,
-        # eye: Vector3 = None,
-        # target: Vector3 = None,
-        # up: Vector3 = None,
         *,
         zoom_changes_distance=True,
         min_zoom: float = 0.0001,
         auto_update: bool = True,
     ) -> None:
         super().__init__(camera)
-
-        self.rotation = Quaternion()
-        self.target = Vector3()
-        self.up = Vector3()
-
-        # if eye is None:
-        #     eye = Vector3(50.0, 50.0, 50.0)
-        # if target is None:
-        #     target = Vector3()
-        # if up is None:
-        #     up = Vector3(0.0, 1.0, 0.0)
 
         self.zoom_changes_distance = bool(zoom_changes_distance)
         self.zoom_value = 1
@@ -62,68 +47,21 @@ class OrbitController(Controller):
         self._pan_info = None
         self._rotate_info = None
 
-        # Temp objects (to avoid garbage collection)
-        self._m = Matrix4()
-        self._v = Vector3()
-        self._origin = Vector3()
-        self._orbit_up = Vector3(0, 1, 0)
-        self._s = Spherical()
-
-        # # Initialize orientation
-        # self.look_at(eye, target, up)
-        # self._initial_distance = self.distance
-        #
-        # # Save initial state
-        # self.save_state()
-
-    # def save_state(self):
-    #     self._saved_state = {
-    #         "rotation": self.rotation.clone(),
-    #         "distance": self.distance,
-    #         "target": self.target.clone(),
-    #         "up": self.up.clone(),
-    #         "zoom_changes_distance": self.zoom_changes_distance,
-    #         "zoom_value": self.zoom_value,
-    #         "min_zoom": self.min_zoom,
-    #         "initial_distance": self._initial_distance,
-    #     }
-    #     return self._saved_state
-    #
-    # def load_state(self, state=None):
-    #     state = state or self._saved_state
-    #     self.rotation = state["rotation"].clone()
-    #     self.distance = state["distance"]
-    #     self.target = state["target"].clone()
-    #     self.up = state["up"].clone()
-    #     self.zoom_changes_distance = state["zoom_changes_distance"]
-    #     self.zoom_value = state["zoom_value"]
-    #     self.min_zoom = state["min_zoom"]
-    #     self.initial_distance = state["initial_distance"]
-    #     self._update_up_quats()
-
-    def _update_up_quats(self):
-        self._up_quat = Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
-        self._up_quat_inv = self._up_quat.clone().inverse()
-
-    def pan(self, vec3: Vector3) -> Controller:
+    def pan(self, vec3) -> Controller:
         """Pan in 3D world coordinates."""
-        if isinstance(vec3, tuple):
-            vec3 = Vector3(*vec3)
-
-        # Calculate new position
-        # position -> pos2target -> target
         if self._cameras:
             camera = self._cameras[0]
-            pos2target = Vector3(0, 0, -camera.dist).apply_quaternion(camera.rotation)
-            target = camera.position.clone().add(pos2target)
-            target = target.add(vec3.negate())
-            new_pos = target.add(pos2target.negate())
-
-        # Apply to all cameas
-        for camera in self._cameras:
-            camera.position = new_pos.clone()
-
+            self._pan(vec3, camera.get_state())
         return self
+
+    def _pan(self, vec3, camera_state):
+        # Get new position
+        position = camera_state["position"]
+        new_position = position + vec3
+        # Apply new state to all cameras
+        new_camera_state = {**camera_state, "position": new_position}
+        for camera in self._cameras:
+            camera.set_state(new_camera_state)
 
     def pan_start(
         self,
@@ -132,15 +70,22 @@ class OrbitController(Controller):
         camera: Camera,
     ) -> Controller:
         """Start a panning operation based (2D) screen coordinates."""
+
+        # Get camera state
+        self._pan_info = camera_state = camera.get_state()
+        position = camera_state["position"]
+        rotation = camera_state["rotation"]
+        dist = camera_state["dist"]
+
+        # Get target, the reference location where translations should map to screen distances
+        target = position + la.quaternion_rotate((0, 0, -dist), rotation)
+
+        # Get the vectors that point in the axis direction
         scene_size = viewport.logical_size
-        if self._cameras:
-            # Get target from main camera
-            camera = self._cameras[0]
-            pos2target = Vector3(0, 0, camera.dist).apply_quaternion(camera.rotation)
-            target = camera.position.clone().add(pos2target)
-            # Store pan info
-            vecx, vecy = get_screen_vectors_in_world_cords(target, scene_size, camera)
-            self._pan_info = {"last": pos, "vecx": vecx, "vecy": vecy}
+        vecx, vecy = get_screen_vectors_in_world_cords(target, scene_size, camera)
+
+        # Store pan info
+        self._pan_info.update({"mouse_pos": pos, "vecx": vecx, "vecy": vecy})
 
         return self
 
@@ -152,14 +97,10 @@ class OrbitController(Controller):
         """Pan the center of rotation, based on a (2D) screen location. Call pan_start first."""
         if self._pan_info is None:
             return
-        delta = tuple((pos[i] - self._pan_info["last"][i]) for i in range(2))
-        self.pan(
-            self._pan_info["vecx"]
-            .clone()
-            .multiply_scalar(-delta[0])
-            .add_scaled_vector(self._pan_info["vecy"], +delta[1])
-        )
-        self._pan_info["last"] = pos
+        original_pos = self._pan_info["mouse_pos"]
+        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
+        vec3 = - self._pan_info["vecx"] * delta[0] + self._pan_info["vecy"] * delta[1]
+        self._pan(vec3, self._pan_info)
         return self
 
     def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:
@@ -250,24 +191,6 @@ class OrbitController(Controller):
             self.distance = self._initial_distance / self.zoom_value
         return self
 
-    def get_view(self) -> Tuple[Vector3, Vector3, float]:
-        """
-        Returns view parameters with which a camera can be updated.
-
-        Returns:
-            rotation: Vector3
-                Rotation of camera
-            position: Vector3
-                Position of camera
-            zoom: float
-                Zoom value for camera
-        """
-        self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
-            self.target
-        )
-        zoom = 1 if self.zoom_changes_distance else self.zoom_value
-        return self.rotation, self._v, zoom
-
     def handle_event(self, event, viewport, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
@@ -301,6 +224,9 @@ class OrbitController(Controller):
             self.zoom(f)
             if self.auto_update:
                 viewport.renderer.request_draw()
+        elif type == "key_down":
+            if event.key == "Escape":
+                pass  # todo: cancel camera action
 
     def show_object(self, camera, target):
         target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
@@ -319,9 +245,6 @@ class OrbitOrthoController(OrbitController):
 
     def __init__(
         self,
-        eye: Vector3 = None,
-        target: Vector3 = None,
-        up: Vector3 = None,
         *,
         min_zoom: float = 0.0001,
         auto_update: bool = True,
