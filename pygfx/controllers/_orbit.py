@@ -32,15 +32,13 @@ class OrbitController(Controller):
         self,
         camera=None,
         *,
-        zoom_changes_distance=True,
-        min_zoom: float = 0.0001,
         auto_update: bool = True,
     ) -> None:
         super().__init__(camera)
 
-        self.zoom_changes_distance = bool(zoom_changes_distance)
-        self.zoom_value = 1
-        self.min_zoom = min_zoom
+        # The zoom value when doing quickzoom
+        self._zoom_value = 4
+
         self.auto_update = auto_update
 
         # State info used during a pan or rotate operation
@@ -99,7 +97,7 @@ class OrbitController(Controller):
             return
         original_pos = self._pan_info["mouse_pos"]
         delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
-        vec3 = - self._pan_info["vecx"] * delta[0] + self._pan_info["vecy"] * delta[1]
+        vec3 = -self._pan_info["vecx"] * delta[0] + self._pan_info["vecy"] * delta[1]
         self._pan(vec3, self._pan_info)
         return self
 
@@ -186,10 +184,38 @@ class OrbitController(Controller):
         return self
 
     def zoom(self, multiplier: float) -> Controller:
-        self.zoom_value = max(self.min_zoom, float(multiplier) * self.zoom_value)
-        if self.zoom_changes_distance:
-            self.distance = self._initial_distance / self.zoom_value
+        # todo: maybe this can have a name similar to dist?
+        # todo: though I'm not 100% sure about the dist prop either
+        if self._cameras:
+            # Get current state
+            camera_state = self._cameras[0].get_state()
+            position = camera_state["position"]
+            rotation = camera_state["rotation"]
+            dist = camera_state["dist"]
+            # Get new dist and new position
+            new_dist = dist * (1 / multiplier)
+            target = position + la.quaternion_rotate((0, 0, -dist), rotation)
+            new_position = target - la.quaternion_rotate((0, 0, -new_dist), rotation)
+            # Apply new state to all cameras
+            new_camera_state = {
+                **camera_state,
+                "position": new_position,
+                "dist": new_dist,
+            }
+            for camera in self._cameras:
+                camera.set_state(new_camera_state)
+
         return self
+
+    def quick_zoom(self, zoom):
+        """Use the camera's zoom prop to zoom in, as if using binoculars."""
+        if self._cameras:
+            # Get current state
+            camera_state = self._cameras[0].get_state()
+            # Apply new state to all cameras
+            new_camera_state = {**camera_state, "zoom": zoom}
+            for camera in self._cameras:
+                camera.set_state(new_camera_state)
 
     def handle_event(self, event, viewport, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
@@ -202,11 +228,15 @@ class OrbitController(Controller):
                 self.rotate_start(xy, viewport, camera)
             elif event.button == 2:
                 self.pan_start(xy, viewport, camera)
+            elif event.button == 3:
+                self.quick_zoom(self._zoom_value)
         elif type == "pointer_up":
             if event.button == 1:
                 self.rotate_stop()
             elif event.button == 2:
                 self.pan_stop()
+            elif event.button == 3:
+                self.quick_zoom(1)
         elif type == "pointer_move":
             xy = event.x, event.y
             if 1 in event.buttons:

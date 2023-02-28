@@ -65,12 +65,15 @@ class Controller:
             "pointer_move",
             "pointer_up",
             "key_down",
+            "key_up",
             "wheel",
         )
 
 
 def get_screen_vectors_in_world_cords(
-    center_world: Tuple[float, float, float], scene_size: Tuple[float, float], camera: Camera
+    center_world: Tuple[float, float, float],
+    scene_size: Tuple[float, float],
+    camera: Camera,
 ):
     """Given a reference center location (in 3D world coordinates)
     Get the vectors corresponding to the x and y direction in screen coordinates.
@@ -84,17 +87,21 @@ def get_screen_vectors_in_world_cords(
     camera_projection = camera.projection_matrix.to_ndarray()
     camera_projection_inverse = camera.projection_matrix_inverse.to_ndarray()
 
-    # Get project / unproject matrices
-    project = la.matrix_combine([camera_projection, camera_world_inverse])
-    unproject = la.matrix_combine([camera_projection_inverse, camera_world])
-
     # Get center location on screen
-    center = la.vector_apply_matrix(la.vector_apply_matrix(center_world, camera_world_inverse), camera_projection)
+    center = la.vector_apply_matrix(
+        la.vector_apply_matrix(center_world, camera_world_inverse), camera_projection
+    )
 
     # Get vectors
     screen_dist = 100
-    pos1 = la.vector_apply_matrix(la.vector_apply_matrix((screen_dist, 0, center[2]), camera_projection_inverse), camera_world)
-    pos2 = la.vector_apply_matrix(la.vector_apply_matrix((0, screen_dist, center[2]), camera_projection_inverse), camera_world)
+    pos1 = la.vector_apply_matrix(
+        la.vector_apply_matrix((screen_dist, 0, center[2]), camera_projection_inverse),
+        camera_world,
+    )
+    pos2 = la.vector_apply_matrix(
+        la.vector_apply_matrix((0, screen_dist, center[2]), camera_projection_inverse),
+        camera_world,
+    )
 
     # Return scaled
     return pos1 * 0.02 / scene_size[0], pos2 * 0.02 / scene_size[1]
