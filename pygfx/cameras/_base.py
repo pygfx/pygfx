@@ -1,3 +1,6 @@
+import numpy as np
+import pylinalg as la
+
 from ..linalg import Matrix4, Vector3
 from ..objects._base import WorldObject
 
@@ -89,7 +92,24 @@ class Camera(WorldObject):
     def update_projection_matrix(self):
         raise NotImplementedError()
 
-    def look_at(self, target):
+    def look_towards(self, direction=None, up=None):
+        # Note: the logic here assumes that the camera does not have a parent with a transform.
+        # Let's fix that once we have an easier API to get object.forward and all that.
+        if up is not None:
+            self.up = up
+        position = self.position.to_array()
+        rotation = self.rotation.to_array()
+        if direction is None:
+            target = position + la.quaternion_rotate((0, 0, -self.dist), rotation)
+        else:
+            direction = np.asarray(direction)
+            target = position + direction * self.dist / np.linalg.norm(direction)
+        self.look_at(tuple(target))
+
+    def look_at(self, target, up=None):
+        # todo: the up arg makes this API different from WorldObject.look_at, but it's very convenient to be able to also set the up vector.
+        if up is not None:
+            self.up = up
         if isinstance(target, tuple) and len(target) == 3:
             target = Vector3(*target)
         self._look_at(target, self._up, True)
