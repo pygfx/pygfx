@@ -41,7 +41,9 @@ for pos, color, geometry in spheres:
     wobject.position.set(*pos)
     scene.add(wobject)
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
+# camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera = gfx.OrthographicCamera(100, 100)
+
 camera.position.set(6, 16, -22)
 camera.look_at((0, 0, 0))
 scene.add(gfx.AmbientLight())

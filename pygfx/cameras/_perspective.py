@@ -73,14 +73,15 @@ class PerspectiveCamera(Camera):
         }
 
     def set_state(self, state):
+        # Set the more complex props
         self.position.set(*state["position"])
         self.rotation.set(*state["rotation"])
         self.scale.set(*state["scale"])
         self.up.set(*state["up"])
-        self.fov = state["fov"]
-        self.aspect = state["aspect"]
-        self.dist = state["dist"]
-        self.zoom = state["zoom"]
+        # Set simple props
+        for key in ("fov", "aspect", "dist", "zoom"):
+            if key in state:
+                setattr(self, key, state[key])
 
     def set_view_size(self, width, height):
         self._view_aspect = width / height

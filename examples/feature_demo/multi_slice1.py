@@ -60,9 +60,7 @@ for axis in [0, 1, 2]:
 camera = gfx.OrthographicCamera(200, 200)
 camera.position.set(125, 125, 125)
 camera.look_at(gfx.linalg.Vector3())
-controller = gfx.OrbitOrthoController(
-    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1)
-)
+controller = gfx.OrbitController(camera)
 controller.add_default_event_handlers(renderer, camera)
 
 
@@ -73,7 +71,6 @@ def animate():
     plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
     plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
 
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

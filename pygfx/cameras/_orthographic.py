@@ -31,11 +31,11 @@ class OrthographicCamera(Camera):
     def __init__(
         self, width, height, dist=1, up=(0, 1, 0), *, zoom=1, maintain_aspect=True
     ):
+        self.width = width
+        self.height = height
         super().__init__(dist, up, zoom)
         # Reminder: these width and height represent the view-plane in world coordinates
         # and has little to do with the canvas/viewport size.
-        self.width = width
-        self.height = height
         self.maintain_aspect = maintain_aspect
 
         self.set_view_size(1, 1)
@@ -65,6 +65,16 @@ class OrthographicCamera(Camera):
         self._height = float(value)
 
     @property
+    def dist(self):
+        return 0.5 * (self._width + self.height)
+
+    @dist.setter
+    def dist(self, value):
+        factor = float(value) / self.dist
+        self._width *= factor
+        self._height *= factor
+
+    @property
     def maintain_aspect(self):
         """Whether the aspect ration is maintained as the window size changes."""
         return self._maintain_aspect
@@ -74,7 +84,7 @@ class OrthographicCamera(Camera):
         self._maintain_aspect = bool(value)
 
     def _get_near_and_far_plane(self):
-        d = self._dist
+        d = self.dist
         return -500 * d, 500 * d
 
     def get_state(self):
@@ -82,16 +92,24 @@ class OrthographicCamera(Camera):
             "position": tuple(self.position.to_array()),
             "rotation": tuple(self.rotation.to_array()),
             "scale": tuple(self.scale.to_array()),
+            "up": tuple(self.up.to_array()),
             "width": self.width,
             "height": self.height,
             "dist": self.dist,
-            "up": tuple(self.up.to_array()),
-            "maintain_aspect": self.maintain_aspect,
             "zoom": self.zoom,
+            "maintain_aspect": self.maintain_aspect,
         }
 
     def set_state(self, state):
-        raise NotImplementedError()
+        # Set the more complex props
+        self.position.set(*state["position"])
+        self.rotation.set(*state["rotation"])
+        self.scale.set(*state["scale"])
+        self.up.set(*state["up"])
+        # Set simple props
+        for key in ("width", "height", "dist", "zoom", "maintain_aspect"):
+            if key in state:
+                setattr(self, key, state[key])
 
     def set_view_size(self, width, height):
         self._view_aspect = width / height

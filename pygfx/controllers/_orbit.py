@@ -154,6 +154,13 @@ class OrbitController(Controller):
         for camera in self._cameras:
             camera.set_state(new_camera_state)
 
+        # Note that for ortho cameras, we also orbit around the scene,
+        # even though it could be positioned at the center (i.e.
+        # target). Doing it this way makes the code in the controllers
+        # easier. The only downside I can think of is that the far plane
+        # is now less far away but this effect is only 0.2%, since the
+        # far plane is 500 * dist.
+
     def rotate_start(
         self,
         pos: Tuple[float, float],
@@ -266,24 +273,3 @@ class OrbitController(Controller):
         else:
             # TODO: implement for orthographic camera
             raise NotImplementedError
-
-
-class OrbitOrthoController(OrbitController):
-    """An orbit controller for orthographic camera's (zooming is done
-    by projection, instead of changing the distance.
-    """
-
-    def __init__(
-        self,
-        *,
-        min_zoom: float = 0.0001,
-        auto_update: bool = True,
-    ):
-        super().__init__(
-            eye,
-            target,
-            up,
-            zoom_changes_distance=False,
-            min_zoom=min_zoom,
-            auto_update=auto_update,
-        )

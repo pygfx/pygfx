@@ -10,13 +10,12 @@ independent of any GUI toolkits.
     Controller
     PanZoomController
     OrbitController
-    OrbitOrthoController
 
 """
 
 from ._base import Controller
-from ._orbit import OrbitController, OrbitOrthoController
+from ._orbit import OrbitController
 from ._panzoom import PanZoomController
 
 
-__all__ = ["Controller", "PanZoomController", "OrbitController", "OrbitOrthoController"]
+__all__ = ["Controller", "PanZoomController", "OrbitController"]

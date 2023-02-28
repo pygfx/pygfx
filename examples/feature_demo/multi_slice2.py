@@ -56,7 +56,7 @@ for dim in [0, 1, 2]:  # xyz
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.OrthographicCamera(200, 200)
 camera.position.set(170, 170, 170)
-controller = gfx.OrbitOrthoController(
+controller = gfx.OrbitController(
     camera.position.clone(),
     gfx.linalg.Vector3(64, 64, 128),
     up=gfx.linalg.Vector3(0, 0, 1),

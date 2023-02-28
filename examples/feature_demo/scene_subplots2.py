@@ -72,7 +72,7 @@ controller3.add_default_event_handlers(viewport3, camera3)
 # Create view 4 - 3D
 viewport4 = gfx.Viewport(renderer)
 camera4 = gfx.OrthographicCamera(8, 8)
-controller4 = gfx.OrbitOrthoController(
+controller4 = gfx.OrbitController(
     gfx.linalg.Vector3(1, 1, 1),
     gfx.linalg.Vector3(0, 0, 0),
     gfx.linalg.Vector3(0, 0, 1),
