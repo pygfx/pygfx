@@ -73,6 +73,7 @@ class OrthographicCamera(Camera):
         factor = float(value) / self.dist
         self._width *= factor
         self._height *= factor
+        # todo: mmmm dist is also set in BaseCamera.look_at()
 
     @property
     def maintain_aspect(self):

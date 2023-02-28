@@ -58,6 +58,8 @@ for axis in [0, 1, 2]:
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.OrthographicCamera(200, 200)
+
+camera.up = 0, 0, 1
 camera.position.set(125, 125, 125)
 camera.look_at(gfx.linalg.Vector3())
 controller = gfx.OrbitController(camera)

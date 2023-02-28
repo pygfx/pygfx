@@ -53,7 +53,7 @@ class Camera(WorldObject):
 
     @property
     def up(self):
-        """The vector that is considered up (or minus gravity) in the world space."""
+        """The vector that is considered up (i.e. minus gravity) in the world space."""
         return self._up
 
     @up.setter
@@ -68,6 +68,7 @@ class Camera(WorldObject):
     @property
     def zoom(self):
         """The camera zoom level."""
+        # todo: this thing is a bit weird. On a perspective camera, zoom is best expressed as a change in vof
         return self._zoom
 
     @zoom.setter
@@ -91,7 +92,7 @@ class Camera(WorldObject):
     def look_at(self, target):
         if isinstance(target, tuple) and len(target) == 3:
             target = Vector3(*target)
-        super().look_at(target)
+        self._look_at(target, self._up, True)
         self.dist = self.position.distance_to(target)
 
     def show_object(

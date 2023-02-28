@@ -10,7 +10,7 @@ from ._base import Controller, get_screen_vectors_in_world_cords
 
 def get_axis_aligned_up_vector(up):
     ref_up, largest_dot = None, 0
-    for up_vec in [(1, 0, 0), (0, 1, 0), (0, 0, 1)]:
+    for up_vec in [(1, 0, 0), (0, 1, 0), (0, 0, 1), (-1, 0, 0), (0, -1, 0), (0, 0, -1)]:
         up_vec = np.array(up_vec)
         v = np.dot(up_vec, up)
         if v > largest_dot:
@@ -114,15 +114,16 @@ class OrbitController(Controller):
         up = camera_state["up"]
         dist = camera_state["dist"]
 
-        # # Get a reference vector, that is orthogonal to up,
-        # # and use that to calculate the azimuth.
+        # Where is the camera looking at right now
+        forward = la.quaternion_rotate((0, 0, -1), rotation)
+
+        # # Get a reference vector, that is orthogonal to up, in a deterministic way.
+        # # Might need this if we ever want the azimuth
         # aligned_up = get_axis_aligned_up_vector(up)
         # orthogonal_vec = np.cross(up, np.roll(aligned_up, 1))
-        # azimuth = la.vector_angle_between(forward, orthogonal_vec)
-        # -> we currently don't use the azimuth
 
-        # Obtain the current elevation by taking the angle between forward and up
-        forward = la.quaternion_rotate((0, 0, -1), rotation)
+        # Get current elevation, so we can clip it.
+        # We don't need the azimuth. When we do, it'd need more care to get a proper 0..2pi range
         elevation = la.vector_angle_between(forward, up) - 0.5 * np.pi
 
         # Apply boundaries to the elevation
@@ -133,9 +134,8 @@ class OrbitController(Controller):
         elif new_elevation > bounds[1]:
             delta_elevation = bounds[1] - elevation
 
-        # todo: are these axii local or must they change as up changes?
-        r_azimuth = la.quaternion_make_from_axis_angle((0, -1, 0), delta_azimuth)
-        r_elevation = la.quaternion_make_from_axis_angle((-1, 0, 0), delta_elevation)
+        r_azimuth = la.quaternion_make_from_axis_angle(up, -delta_azimuth)
+        r_elevation = la.quaternion_make_from_axis_angle((1, 0, 0), -delta_elevation)
 
         # Get rotations
         rot1 = rotation
@@ -153,6 +153,7 @@ class OrbitController(Controller):
         new_camera_state = {**camera_state, "position": pos2, "rotation": rot2}
         for camera in self._cameras:
             camera.set_state(new_camera_state)
+            # todo: we could set all state, or only a subset, allowing e.g. different fov for each camera.
 
         # Note that for ortho cameras, we also orbit around the scene,
         # even though it could be positioned at the center (i.e.

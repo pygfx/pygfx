@@ -457,9 +457,23 @@ class WorldObject(EventTarget, RootTrackable):
                 child.update_matrix_world()
 
     def look_at(self, target: Vector3):
+        """Orient the object so it looks at the given position.
+
+        The object's up-vector is taken into account as well.
+        By default all objects look at (0, 0, 1).
+        """
+        if isinstance(target, tuple) and len(target) == 3:
+            target = Vector3(*target)
+        self._look_at(target, self.up, False)
+
+    def _look_at(self, target, up, is_light_or_cam):
+        # Lower level look_at
         self.update_matrix_world(update_parents=True, update_children=False)
         self._v.set_from_matrix_position(self._matrix_world)
-        self._m.look_at(self._v, target, self.up)
+        if is_light_or_cam:
+            self._m.look_at(self._v, target, up)
+        else:
+            self._m.look_at(target, self._v, up)
         self.rotation.set_from_rotation_matrix(self._m)
         if self.parent:
             self._m.extract_rotation(self.parent._matrix_world)

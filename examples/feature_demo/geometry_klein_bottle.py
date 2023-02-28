@@ -32,8 +32,8 @@ scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
-    obj.rotation.multiply(rot)
+    # rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
+    # obj.rotation.multiply(rot)
 
     renderer.render(scene, camera)
     canvas.request_draw()
