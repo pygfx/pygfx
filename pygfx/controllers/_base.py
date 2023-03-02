@@ -1,6 +1,6 @@
 from typing import Tuple, Union
 
-import pylinalg.func as la
+import pylinalg as la
 
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
@@ -27,6 +27,7 @@ class Controller:
         """Add a camera to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
+        # todo: restrict camera types? Or otherwise document what a camera must do to be controller-able?
         self.remove_camera(camera)
         self._cameras.append(camera)
 

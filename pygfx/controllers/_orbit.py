@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import numpy as np
-import pylinalg.func as la
+import pylinalg as la
 
 from ..cameras import Camera
 from ..utils.viewport import Viewport
@@ -266,11 +266,11 @@ class OrbitController(Controller):
             if event.key == "Escape":
                 pass  # todo: cancel camera action
 
-    def show_object(self, camera, target):
-        target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
-        self.look_at(camera.position, target_pos, camera.up)
-        if self.zoom_changes_distance:
-            self.zoom_value = self._initial_distance / self.distance
-        else:
-            # TODO: implement for orthographic camera
-            raise NotImplementedError
+    # def show_object(self, camera, target):
+    #     target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
+    #     self.look_at(camera.position, target_pos, camera.up)
+    #     if self.zoom_changes_distance:
+    #         self.zoom_value = self._initial_distance / self.distance
+    #     else:
+    #         # TODO: implement for orthographic camera
+    #         raise NotImplementedError
