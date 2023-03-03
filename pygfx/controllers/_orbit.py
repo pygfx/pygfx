@@ -76,7 +76,8 @@ class OrbitController(Controller):
         dist = camera_state["dist"]
 
         # Get target, the reference location where translations should map to screen distances
-        target = position + la.quaternion_rotate((0, 0, -dist), rotation)
+        # target = position + la.quaternion_rotate((0, 0, -dist), rotation)
+        target = position + self._get_target_vec(camera_state)
 
         # Get the vectors that point in the axis direction
         scene_size = viewport.logical_size
@@ -145,8 +146,10 @@ class OrbitController(Controller):
 
         # Calculate new position
         pos1 = position
-        pos2target1 = la.quaternion_rotate((0, 0, -dist), rot1)
-        pos2target2 = la.quaternion_rotate((0, 0, -dist), rot2)
+        pos2target1 = self._get_target_vec(camera_state, rotation=rot1)
+        pos2target2 = self._get_target_vec(camera_state, rotation=rot2)
+        # pos2target1 = la.quaternion_rotate((0, 0, -dist), rot1)
+        # pos2target2 = la.quaternion_rotate((0, 0, -dist), rot2)
         pos2 = pos1 + pos2target1 - pos2target2
 
         # Apply new state to all cameras
@@ -202,8 +205,9 @@ class OrbitController(Controller):
             dist = camera_state["dist"]
             # Get new dist and new position
             new_dist = dist * (1 / multiplier)
-            target = position + la.quaternion_rotate((0, 0, -dist), rotation)
-            new_position = target - la.quaternion_rotate((0, 0, -new_dist), rotation)
+            pos2target1 = self._get_target_vec(camera_state, dist=dist)
+            pos2target2 = self._get_target_vec(camera_state, dist=new_dist)
+            new_position = position + pos2target1 - pos2target2
             # Apply new state to all cameras
             new_camera_state = {
                 **camera_state,
@@ -224,6 +228,29 @@ class OrbitController(Controller):
             new_camera_state = {**camera_state, "zoom": zoom}
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
+
+    def adjust_fov(self, delta):
+        if not self._cameras:
+            return self
+        camera = self._cameras[0]
+
+        # Get current state
+        camera_state = camera.get_state()
+        position = camera_state["position"]
+        fov = camera_state.get("fov", None)
+        if not fov:
+            return self
+
+        # Update fov and position
+        new_fov = min(max(fov + delta, 1), 179)
+        pos2target1 = self._get_target_vec(camera_state, fov=fov)
+        pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
+        new_position = position + pos2target1 - pos2target2
+
+        # Apply to cameras
+        new_camera_state = {**camera_state, "fov": new_fov, "position": new_position}
+        for camera in self._cameras:
+            camera.set_state(new_camera_state)
 
     def handle_event(self, event, viewport, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
@@ -256,12 +283,17 @@ class OrbitController(Controller):
                 if self.auto_update:
                     viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
-            xy = event.x, event.y
-            d = event.dy or event.dx
-            f = 2 ** (-d * 0.0015)
-            self.zoom(f)
-            if self.auto_update:
-                viewport.renderer.request_draw()
+            if not event.modifiers:
+                xy = event.x, event.y
+                d = event.dy or event.dx
+                f = 2 ** (-d * 0.0015)
+                self.zoom(f)
+                if self.auto_update:
+                    viewport.renderer.request_draw()
+            elif event.modifiers == ["Alt"]:
+                d = event.dy or event.dx
+                self.adjust_fov(d / 5)
+
         elif type == "key_down":
             if event.key == "Escape":
                 pass  # todo: cancel camera action

@@ -38,6 +38,18 @@ class Controller:
         while camera in self._cameras:
             self._cameras.remove(camera)
 
+    def _get_target_vec(self, camera_state, **kwargs):
+        rotation = kwargs.get("rotation", camera_state["rotation"])
+        extent = kwargs.get("dist", camera_state["dist"])
+        fov = kwargs.get("fov", camera_state.get("fov", None))
+
+        if fov:
+            distance = extent * 90 / fov
+        else:
+            distance = extent * 2
+
+        return la.quaternion_rotate((0, 0, -distance), rotation)
+
     def handle_event(self, event, viewport, camera):
         raise NotImplementedError()
 

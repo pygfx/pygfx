@@ -57,7 +57,7 @@ class PerspectiveCamera(Camera):
         self._aspect = float(value)
 
     def _get_near_and_far_plane(self):
-        d = self._dist
+        d = self._dist * 90 / self.fov
         return d / 1000, 1000 * d
 
     def get_state(self):

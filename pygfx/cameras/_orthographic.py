@@ -2,11 +2,6 @@ from ._base import Camera
 from ..linalg import Matrix4
 
 
-# todo: ortho and persp camera are not mutch different.
-# for ortho we could just as well use aspect and dist.
-# (or use width+height for perspective)
-
-
 class OrthographicCamera(Camera):
     """An orthographic camera, useful for non-perspective views and 2D content.
 
