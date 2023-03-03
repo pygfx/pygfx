@@ -116,7 +116,7 @@ class Camera(WorldObject):
         self.dist = self.position.distance_to(target)
 
     def show_object(
-        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=2
+        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=None
     ):
         """Position the camera such that the given world object in is in view.
 
@@ -141,17 +141,31 @@ class Camera(WorldObject):
 
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
-            pos, distance = Vector3(*bsphere[:3]), bsphere[3]
+            pos, size = Vector3(*bsphere[:3]), bsphere[3]
         else:
             pos = target.get_world_position()
             # whatever it is has no bounding sphere, so we just pick an
-            # arbitrary distance
-            distance = 100
-        distance *= distance_weight
-        self.position.copy(pos).add_scaled_vector(
-            view_dir.normalize().negate(), distance
-        )
-        self.look_at(pos)
+            # arbitrary size
+            size = 100
+
+        if hasattr(self, "_fov"):
+            if distance_weight is None:
+                distance = size * 90 / self._fov
+            else:
+                distance = size * distance_weight
+            self.position.copy(pos).add_scaled_vector(
+                view_dir.normalize().negate(), distance
+            )
+            self.look_at(pos)
+        elif hasattr(self, "_width"):
+            extent = size * 1.25
+            distance = extent * 1.5
+            self.position.copy(pos).add_scaled_vector(
+                view_dir.normalize().negate(), distance
+            )
+            self.look_at(pos)
+            self.width = self.height = extent
+
         return pos
 
     def get_state(self):

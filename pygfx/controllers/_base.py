@@ -4,7 +4,7 @@ import pylinalg as la
 
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
-from ..cameras import Camera
+from ..cameras import Camera, OrthographicCamera, PerspectiveCamera
 
 
 class Controller:
@@ -28,7 +28,10 @@ class Controller:
         """Add a camera to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
-        # todo: restrict camera types? Or otherwise document what a camera must do to be controller-able?
+        if not isinstance(camera, (OrthographicCamera, PerspectiveCamera)):
+            raise TypeError(
+                "Controller.add_camera expects an orthographic or perspective camera."
+            )
         self.remove_camera(camera)
         self._cameras.append(camera)
 
@@ -47,22 +50,14 @@ class Controller:
         if fov:
             distance = extent * 90 / fov
         else:
-            distance = extent * 2
+            # Put camera in equivalent position of persp cam with fov=60
+            distance = extent * 1.5
 
         return la.quaternion_rotate((0, 0, -distance), rotation)
 
     def handle_event(self, event, viewport, camera):
         raise NotImplementedError()
 
-    # todo: these must all be on the camera object
-    # def get_view(self)
-    #      ...
-    # def save_state(self):
-    #     raise NotImplementedError()
-    #
-    # def load_state(self, state=None):
-    #     raise NotImplementedError()
-    #
     # def show_object(self, camera, target):
     #     raise NotImplementedError()
 

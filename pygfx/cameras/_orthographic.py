@@ -20,6 +20,7 @@ class OrthographicCamera(Camera):
         The zoom factor. Intended to temporary focus on a particular area. Default 1.
     maintain_aspect : bool
         Whether the aspect ration is maintained as the window size changes. Default True.
+        If false, the dimensions are stretched to fit the window.
 
     """
 
