@@ -98,13 +98,16 @@ class BackgroundShader(WorldObjectShader):
                 // Store positions and the view direction in the world
                 varyings.position = vec4<f32>(ndc_pos1);
                 varyings.world_pos = vec3<f32>(wpos1);
-                let d = wpos1.xyz - wpos2.xyz;  // view direction in world space, also the cube map texcoord.
+                let d = wpos1.xyz - wpos2.xyz;  // view direction in world space.
+
+                // Transform the view direction to background object space, it's also the cubemap texcoord, so we can use it to sample the cubemap.
+                let texcoord = vec3<f32>((u_wobject.world_transform_inv * vec4<f32>(d, 0.0)).xyz);
 
                 // By convention, cube maps are specified in a coordinate system in which positive-x is to the right when looking at the positive-z axis,
                 // that is, it using a left-handed coordinate system.
                 // See https://www.khronos.org/opengl/wiki/Cubemap_Texture#Cubemap_coordinate_system
-                // Since pygfx uses a right-handed coordinate system, we need to flip the x coordinate when sampling from the cube map.
-                varyings.texcoord = vec3<f32>(-d.x, d.y, d.z);
+                // Since pygfx uses a right-handed coordinate system, we need to flip the x coordinate when sampling from the cubemap.
+                varyings.texcoord = vec3<f32>(-texcoord.x, texcoord.y, texcoord.z);
             $$ else
                 // Store positions and the view direction in the world
                 varyings.position = vec4<f32>(pos, 0.9999999, 1.0);
