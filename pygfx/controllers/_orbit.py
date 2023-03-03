@@ -3,7 +3,6 @@ from typing import Tuple
 import numpy as np
 import pylinalg as la
 
-from ..cameras import Camera
 from ..utils.viewport import Viewport
 from ._base import Controller
 from ._panzoom import PanZoomController
@@ -29,28 +28,21 @@ class OrbitController(PanZoomController):
     rotation) move to the left.
     """
 
-    def __init__(
-        self,
-        camera=None,
-        *,
-        auto_update: bool = True,
-    ) -> None:
+    def __init__(self, camera=None, *, auto_update: bool = True) -> None:
         super().__init__(camera)
-
-        # The zoom value when doing quickzoom
-        self._zoom_value = 4
 
         self.auto_update = auto_update
 
-        # State info used during a pan or rotate operation
-        self._pan_info = None
+        # State info used during a rotate operation
         self._rotate_info = None
 
     def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:
         """Rotate using angles (in radians)."""
         if self._cameras:
             camera = self._cameras[0]
+
             self._rotate(delta_azimuth, delta_elevation, camera.get_state())
+
         return self
 
     def _rotate(self, delta_azimuth, delta_elevation, camera_state):
@@ -106,16 +98,14 @@ class OrbitController(PanZoomController):
         # is now less far away but this effect is only 0.2%, since the
         # far plane is 500 * dist.
 
-    def rotate_start(
-        self,
-        pos: Tuple[float, float],
-        viewport: Viewport,
-        camera: Camera,
-    ) -> Controller:
+    def rotate_start(self, pos: Tuple[float, float], viewport: Viewport) -> Controller:
         """Start a rotation operation based (2D) screen coordinates."""
-        # Store the start-state, and the mouse pos
-        self._rotate_info = camera.get_state()
-        self._rotate_info["mouse_pos"] = pos
+        if self._cameras:
+            camera = self._cameras[0]
+
+            self._rotate_info = camera.get_state()
+            self._rotate_info["mouse_pos"] = pos
+
         return self
 
     def rotate_stop(self) -> Controller:
@@ -128,37 +118,41 @@ class OrbitController(PanZoomController):
         """Rotate, based on a (2D) screen location. Call rotate_start first.
         The speed is 1 degree per pixel by default.
         """
-        if self._rotate_info is None:
-            return
-        delta_azimuth = (pos[0] - self._rotate_info["mouse_pos"][0]) * speed
-        delta_elevation = (pos[1] - self._rotate_info["mouse_pos"][1]) * speed
-        self._rotate(delta_azimuth, delta_elevation, self._rotate_info)
+        if self._rotate_info:
+            delta_azimuth = (pos[0] - self._rotate_info["mouse_pos"][0]) * speed
+            delta_elevation = (pos[1] - self._rotate_info["mouse_pos"][1]) * speed
+            self._rotate(delta_azimuth, delta_elevation, self._rotate_info)
         return self
 
-    def adjust_fov(self, delta):
-        if not self._cameras:
-            return self
-        camera = self._cameras[0]
+    def adjust_fov(self, delta: float):
+        """Adjust the field of view with the given delta value (Limited to [1, 179])."""
+        if self._cameras:
+            camera = self._cameras[0]
 
-        # Get current state
-        camera_state = camera.get_state()
-        position = camera_state["position"]
-        fov = camera_state.get("fov", None)
-        if not fov:
-            return self
+            # Get current state
+            camera_state = camera.get_state()
+            position = camera_state["position"]
+            fov = camera_state.get("fov", None)
 
-        # Update fov and position
-        new_fov = min(max(fov + delta, 1), 179)
-        pos2target1 = self._get_target_vec(camera_state, fov=fov)
-        pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
-        new_position = position + pos2target1 - pos2target2
+            if fov:
+                # Update fov and position
+                new_fov = min(max(fov + delta, 1), 179)
+                pos2target1 = self._get_target_vec(camera_state, fov=fov)
+                pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
+                new_position = position + pos2target1 - pos2target2
 
-        # Apply to cameras
-        new_camera_state = {**camera_state, "fov": new_fov, "position": new_position}
-        for camera in self._cameras:
-            camera.set_state(new_camera_state)
+                # Apply to cameras
+                new_camera_state = {
+                    **camera_state,
+                    "fov": new_fov,
+                    "position": new_position,
+                }
+                for camera in self._cameras:
+                    camera.set_state(new_camera_state)
 
-    def handle_event(self, event, viewport, camera):
+        return self
+
+    def handle_event(self, event, viewport):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
@@ -166,11 +160,13 @@ class OrbitController(PanZoomController):
         if type == "pointer_down" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             if event.button == 1:
-                self.rotate_start(xy, viewport, camera)
+                self.rotate_start(xy, viewport)
             elif event.button == 2:
-                self.pan_start(xy, viewport, camera)
+                self.pan_start(xy, viewport)
             elif event.button == 3:
-                self.quickzoom_start(xy, camera, viewport)
+                self.quickzoom_start(xy, viewport)
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "pointer_up":
             xy = event.x, event.y
             if event.button == 1:
@@ -205,7 +201,7 @@ class OrbitController(PanZoomController):
                     viewport.renderer.request_draw()
             elif event.modifiers == ["Alt"]:
                 d = event.dy or event.dx
-                self.adjust_fov(d / 10)
+                self.adjust_fov(-d / 10)
 
         elif type == "key_down":
             if event.key == "Escape":

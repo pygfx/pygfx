@@ -19,6 +19,7 @@ class Controller:
         if camera is not None:
             self.add_camera(camera)
 
+    @property
     def cameras(self):
         """A tuple with the cameras under control, in the order that they were added."""
         return tuple(self._cameras)
@@ -65,15 +66,13 @@ class Controller:
     # def show_object(self, camera, target):
     #     raise NotImplementedError()
 
-    def add_default_event_handlers(
-        self, viewport: Union[Viewport, Renderer], camera: Camera
-    ):
+    def add_default_event_handlers(self, viewport: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
-        Needs either a viewport or renderer, pus the camera.
+        Needs either a viewport or renderer.
         """
         viewport = Viewport.from_viewport_or_renderer(viewport)
         viewport.renderer.add_event_handler(
-            lambda event: self.handle_event(event, viewport, camera),
+            lambda event: self.handle_event(event, viewport),
             "pointer_down",
             "pointer_move",
             "pointer_up",

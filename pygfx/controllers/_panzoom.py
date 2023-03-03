@@ -1,6 +1,5 @@
 from typing import Tuple
 
-from ..cameras import Camera
 from ..utils.viewport import Viewport
 from ._base import Controller, get_screen_vectors_in_world_cords
 
@@ -8,85 +7,100 @@ from ._base import Controller, get_screen_vectors_in_world_cords
 class PanZoomController(Controller):
     """A controller to move a camera in a 2D plane."""
 
-    def __init__(
-        self, camera, min_zoom: float = 0.0001, auto_update: bool = True
-    ) -> None:
+    def __init__(self, camera, *, auto_update: bool = True) -> None:
         super().__init__(camera)
 
-        self._min_zoom = min_zoom
         self.auto_update = auto_update
 
-        # State info used during a pan operation
+        # State info used during pan/zoom operations
         self._pan_info = None
+        self._quickzoom_info1 = None
+        self._quickzoom_info2 = None
 
-    def pan(self, vec3) -> Controller:
+    def pan(self, vec3: Tuple[float, float, float]) -> Controller:
         """Pan in 3D world coordinates."""
-        # Cannot pan in "controller space" (i.e. using 2D coords) because we
-        # need the screen size for get_screen_vectors_in_world_cords, and
-        # we only have that via an event.
+        # Note: cannot pan in "controller space" (i.e. using 2D coords)
+        # because we need the screen size for get_screen_vectors_in_world_cords,
+        # and we only have that via an event.
+
         if self._cameras:
             camera = self._cameras[0]
+
             self._pan(vec3, camera.get_state())
+
         return self
 
     def _pan(self, vec3, camera_state):
         # Get new position
         position = camera_state["position"]
         new_position = position + vec3
+
         # Apply new state to all cameras
         new_camera_state = {**camera_state, "position": new_position}
         for camera in self._cameras:
             camera.set_state(new_camera_state)
 
-    def pan_start(
-        self,
-        pos: Tuple[float, float],
-        viewport: Viewport,
-        camera: Camera,
-    ) -> Controller:
-        """Start a panning operation based (2D) screen coordinates."""
+    def pan_start(self, pos: Tuple[float, float], viewport: Viewport) -> Controller:
+        """Start a panning operation based on (2D) screen coordinates."""
 
-        # Get camera state
-        self._pan_info = camera_state = camera.get_state()
-        position = camera_state["position"]
+        if self._cameras:
+            camera = self._cameras[0]
 
-        # Get target, the reference location where translations should map to screen distances
-        target = position + self._get_target_vec(camera_state)
+            # Get camera state
+            self._pan_info = camera_state = camera.get_state()
+            position = camera_state["position"]
 
-        # Get the vectors that point in the axis direction
-        scene_size = viewport.logical_size
-        vecx, vecy = get_screen_vectors_in_world_cords(target, scene_size, camera)
+            # Get the vectors that point in the axis direction
+            target = position + self._get_target_vec(camera_state)
+            scene_size = viewport.logical_size
+            vecx, vecy = get_screen_vectors_in_world_cords(target, scene_size, camera)
 
-        # Store pan info
-        self._pan_info.update({"mouse_pos": pos, "vecx": vecx, "vecy": vecy})
+            # Store pan info
+            self._pan_info.update({"mouse_pos": pos, "vecx": vecx, "vecy": vecy})
 
         return self
 
     def pan_stop(self) -> Controller:
+        """Stop the current panning operation."""
         self._pan_info = None
         return self
 
     def pan_move(self, pos: Tuple[float, float]) -> Controller:
-        """Pan the center of rotation, based on a (2D) screen location. Call pan_start first."""
-        if self._pan_info is None:
-            return
-        original_pos = self._pan_info["mouse_pos"]
-        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
-        vec3 = -self._pan_info["vecx"] * delta[0] + self._pan_info["vecy"] * delta[1]
-        self._pan(vec3, self._pan_info)
+        """Handle mouse move during a panning operation. Call `pan_start()` first."""
+
+        if self._pan_info:
+            # Get state
+            original_pos = self._pan_info["mouse_pos"]
+            vecx = self._pan_info["vecx"]
+            vecy = self._pan_info["vecy"]
+
+            # Update
+            delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
+            vec3 = vecy * delta[1] - vecx * delta[0]
+            self._pan(vec3, self._pan_info)
+
         return self
 
     def zoom(self, multiplier: float) -> Controller:
+        """Zoom the view with the given multiplier.
+
+        Note that this sets the camera's width/height for an orthographic camera,
+        and distance from target for the perpective camera.
+        """
         if self._cameras:
+            camera = self._cameras[0]
+
             # Get current state
-            camera_state = self._cameras[0].get_state()
+            camera_state = camera.get_state()
             position = camera_state["position"]
             dist = camera_state["dist"]
+
             # Get new dist and new position
             new_dist = dist * (1 / multiplier)
             pos2target1 = self._get_target_vec(camera_state, dist=dist)
             pos2target2 = self._get_target_vec(camera_state, dist=new_dist)
             new_position = position + pos2target1 - pos2target2
+
             # Apply new state to all cameras
             new_camera_state = {
                 **camera_state,
@@ -95,11 +109,14 @@ class PanZoomController(Controller):
             }
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
+
         return self
 
     def _get_panning_to_compensate_zoom(self, multiplier, pos, viewport):
+        camera = self._cameras[0]
+
         # Get Target
-        camera_state = self._cameras[0].get_state()
+        camera_state = camera.get_state()
         position = camera_state["position"]
         target = position + self._get_target_vec(camera_state)
 
@@ -109,7 +126,7 @@ class PanZoomController(Controller):
         size = w, h
 
         # Calculate pan such that what was previously under the mouse is again under the mouse.
-        vecx, vecy = get_screen_vectors_in_world_cords(target, size, self._cameras[0])
+        vecx, vecy = get_screen_vectors_in_world_cords(target, size, camera)
         delta = tuple(pos[i] - offset[i] - size[i] / 2 for i in (0, 1))
         delta1 = vecx * delta[0] - vecy * delta[1]
         delta2 = delta1 / multiplier
@@ -117,95 +134,115 @@ class PanZoomController(Controller):
         return delta1 - delta2
 
     def zoom_to_point(
-        self,
-        multiplier: float,
-        pos,
-        viewport,
+        self, multiplier: float, pos: Tuple[float, float], viewport: Viewport
     ) -> Controller:
-        self.zoom(multiplier)
-        self.pan(self._get_panning_to_compensate_zoom(multiplier, pos, viewport))
+        """Zoom, but keep the spot that's at the cursor centered at the cursor."""
+        if self._cameras:
+            self.zoom(multiplier)
+            self.pan(self._get_panning_to_compensate_zoom(multiplier, pos, viewport))
         return self
 
-    def zoom_start(
-        self,
-        pos: Tuple[float, float],
-    ) -> Controller:
-        # Get camera state
-        self._zoom_info = self._cameras[0].get_state()
-        # Store pan info
-        self._zoom_info.update({"mouse_pos": pos})
+    def zoom_start(self, pos: Tuple[float, float], viewport=Viewport) -> Controller:
+        """Start a zoom operation.
+
+        Note that this sets the camera's width/height for an orthographic camera,
+        and distance from target for the perpective camera.
+        """
+        if self._cameras:
+            camera = self._cameras[0]
+
+            # Get camera state
+            self._zoom_info = camera.get_state()
+            # Store pan info
+            self._zoom_info.update({"mouse_pos": pos})
+
         return self
 
     def zoom_stop(self) -> Controller:
+        """Stop the current zoom operation."""
         self._zoom_info = None
         return self
 
     def zoom_move(self, pos: Tuple[float, float]) -> Controller:
-        if self._zoom_info is None:
-            return
+        """Handle mouse move during a zoom operation. Call `zoom_start()` first."""
+        if self._zoom_info:
+            # Get state
+            camera_state = self._zoom_info
+            original_pos = camera_state["mouse_pos"]
+            maintain_aspect = camera_state.get("maintain_aspect", True)
 
-        # Get state
-        camera_state = self._zoom_info
-        original_pos = camera_state["mouse_pos"]
-        maintain_aspect = camera_state.get("maintain_aspect", True)
+            # Calculate zoom factors
+            delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
+            fx = 2 ** (-delta[0] * 0.01)
+            fy = 2 ** (delta[1] * 0.01)
 
-        # Calculate zoom factors
-        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
-        fx = 2 ** (-delta[0] * 0.01)
-        fy = 2 ** (delta[1] * 0.01)
+            # todo: perspective camera zoom is now broken
+            # todo: for the perspective camera we should also change the distance
 
-        # Apply
-        if maintain_aspect:
-            # Use dist
-            dist = camera_state["dist"] * fy
-            new_camera_state = {
-                **camera_state,
-                "dist": dist,
-            }
-        else:
-            # Use width and height. Include dist, in case we control
-            # a mix of orthographic and perspective cameras.
-            width = camera_state["width"] * fx
-            height = camera_state["height"] * fy
-            dist = 0.5 * (width + height)
-            new_camera_state = {
-                **camera_state,
-                "width": width,
-                "height": height,
-                "dist": dist,
-            }
+            # Apply
+            if maintain_aspect:
+                # Use dist
+                dist = camera_state["dist"] * fy
+                new_camera_state = {
+                    **camera_state,
+                    "dist": dist,
+                }
+            else:
+                # Use width and height. Include dist, in case we control
+                # a mix of orthographic and perspective cameras.
+                width = camera_state["width"] * fx
+                height = camera_state["height"] * fy
+                dist = 0.5 * (width + height)
+                new_camera_state = {
+                    **camera_state,
+                    "width": width,
+                    "height": height,
+                    "dist": dist,
+                }
 
-        # Apply
-        for camera in self._cameras:
-            camera.set_state(new_camera_state)
-
-    def quickzoom_start(self, pos, camera, viewport) -> Controller:
-        multiplier = 4
-
-        # Get original state, we go back to this when quickzoom stops
-        self._quickzoom_info1 = self._cameras[0].get_state()
-
-        pan_vec = self._get_panning_to_compensate_zoom(multiplier, pos, viewport)
-
-        # Zoom in
-        new_camera_state = {**self._quickzoom_info1, "zoom": multiplier}
-        for camera in self._cameras:
-            camera.set_state(new_camera_state)
-
-        # Pan to focus on cursor pos
-        self.pan(pan_vec)
-
-        # Get state using the pan_start logic
-        # Becaue the projection matrix has not been set yet, the panning will
-        # be as it would normally be, so - being zoomed in - it'd be quite fast.
-        # This is deliberate as it is a sign that we're indeed zoomed in.
-        self.pan_start(pos, viewport, camera)
-        self._quickzoom_info2 = self._pan_info
-        self._pan_info = None
+            # Apply
+            for camera in self._cameras:
+                camera.set_state(new_camera_state)
 
         return self
 
-    def quickzoom_stop(self):
+    def quickzoom_start(
+        self, pos: Tuple[float, float], viewport: Viewport
+    ) -> Controller:
+        """Start a quickzoom operation.
+
+        In contrast to the other zoom methods, this actually uses the
+        camera zoom property.
+        """
+        multiplier = 4
+
+        if self._cameras:
+            camera = self._cameras[0]
+
+            # Get original state, we go back to this when quickzoom stops
+            self._quickzoom_info1 = camera.get_state()
+
+            # Zoom in
+            new_camera_state = {**self._quickzoom_info1, "zoom": multiplier}
+            for camera in self._cameras:
+                camera.set_state(new_camera_state)
+
+            # Pan to focus on cursor pos
+            pan_vec = self._get_panning_to_compensate_zoom(multiplier, pos, viewport)
+            self.pan(pan_vec)
+
+            # Get state using the pan_start logic
+            # Becaue the projection matrix has not been set yet, the panning will
+            # be as it would normally be, so - being zoomed in - it'd be quite fast.
+            # This is deliberate as it is a sign that we're indeed zoomed in.
+            self.pan_start(pos, viewport)
+            self._quickzoom_info2 = self._pan_info
+            self._pan_info = None
+
+        return self
+
+    def quickzoom_stop(self) -> Controller:
+        """Stop the current quickzoom operation."""
         if self._quickzoom_info1 is not None:
             for camera in self._cameras:
                 camera.set_state(self._quickzoom_info1)
@@ -213,19 +250,20 @@ class PanZoomController(Controller):
         self._quickzoom_info2 = None
         return self
 
-    def quickzoom_move(self, pos):
-        if self._quickzoom_info2 is None:
-            return self
-        original_pos = self._quickzoom_info2["mouse_pos"]
-        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
-        vec3 = (
-            -self._quickzoom_info2["vecx"] * delta[0]
-            + self._quickzoom_info2["vecy"] * delta[1]
-        )
-        self._pan(vec3, self._quickzoom_info2)
+    def quickzoom_move(self, pos: Tuple[float, float]) -> Controller:
+        """Handle mouse move during a quickzoom operation. Call `quickzoom_start()` first."""
+        if self._quickzoom_info2:
+            original_pos = self._quickzoom_info2["mouse_pos"]
+            delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
+            vec3 = (
+                -self._quickzoom_info2["vecx"] * delta[0]
+                + self._quickzoom_info2["vecy"] * delta[1]
+            )
+            self._pan(vec3, self._quickzoom_info2)
+
         return self
 
-    def handle_event(self, event, viewport, camera):
+    def handle_event(self, event, viewport):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
@@ -233,12 +271,12 @@ class PanZoomController(Controller):
         if type == "pointer_down" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
             if event.button == 1:
-                self.pan_start(xy, viewport, camera)
+                self.pan_start(xy, viewport)
             elif event.button == 2:
                 xy = event.x, event.y
-                self.zoom_start(xy)
+                self.zoom_start(xy, viewport)
             elif event.button == 3:
-                self.quickzoom_start(xy, camera, viewport)
+                self.quickzoom_start(xy, viewport)
                 if self.auto_update:
                     viewport.renderer.request_draw()
         elif type == "pointer_up":
