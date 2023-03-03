@@ -131,6 +131,59 @@ class PanZoomController(Controller):
 
         return self
 
+    def zoom_start(
+        self,
+        pos: Tuple[float, float],
+    ) -> Controller:
+        # Get camera state
+        self._zoom_info = self._cameras[0].get_state()
+        # Store pan info
+        self._zoom_info.update({"mouse_pos": pos})
+        return self
+
+    def zoom_stop(self) -> Controller:
+        self._zoom_info = None
+        return self
+
+    def zoom_move(self, pos: Tuple[float, float]) -> Controller:
+        if self._zoom_info is None:
+            return
+
+        # Get state
+        camera_state = self._zoom_info
+        original_pos = camera_state["mouse_pos"]
+        maintain_aspect = camera_state.get("maintain_aspect", True)
+
+        # Calculate zoom factors
+        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
+        fx = 2 ** (-delta[0] * 0.01)
+        fy = 2 ** (delta[1] * 0.01)
+
+        # Apply
+        if maintain_aspect:
+            # Use dist
+            dist = camera_state["dist"] * fy
+            new_camera_state = {
+                **camera_state,
+                "dist": dist,
+            }
+        else:
+            # Use width and height. Include dist, in case we control
+            # a mix of orthographic and perspective cameras.
+            width = camera_state["width"] * fx
+            height = camera_state["height"] * fy
+            dist = 0.5 * (width + height)
+            new_camera_state = {
+                **camera_state,
+                "width": width,
+                "height": height,
+                "dist": dist,
+            }
+
+        # Apply
+        for camera in self._cameras:
+            camera.set_state(new_camera_state)
+
     def handle_event(self, event, viewport, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
@@ -140,13 +193,23 @@ class PanZoomController(Controller):
             if event.button == 1:
                 xy = event.x, event.y
                 self.pan_start(xy, viewport, camera)
+            elif event.button == 2:
+                xy = event.x, event.y
+                self.zoom_start(xy)
         elif type == "pointer_up":
             if event.button == 1:
                 self.pan_stop()
+            elif event.button == 2:
+                self.zoom_stop()
         elif type == "pointer_move":
             if 1 in event.buttons:
                 xy = event.x, event.y
                 self.pan_move(xy)
+                if self.auto_update:
+                    viewport.renderer.request_draw()
+            if 2 in event.buttons:
+                xy = event.x, event.y
+                self.zoom_move(xy)
                 if self.auto_update:
                     viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):

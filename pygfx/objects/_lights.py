@@ -548,7 +548,7 @@ class DirectionalLightShadow(LightShadow):
 
     def __init__(self) -> None:
         # OrthographicCamera for directional light
-        super().__init__(OrthographicCamera(1000, 1000, 1000))
+        super().__init__(OrthographicCamera(1000, 1000))
 
     def _update_matrix(self, light):
         camera = self.camera

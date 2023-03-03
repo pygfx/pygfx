@@ -2,6 +2,11 @@ from ._base import Camera
 from ..linalg import Matrix4
 
 
+# todo: ortho and persp camera are not mutch different.
+# for ortho we could just as well use aspect and dist.
+# (or use width+height for perspective)
+
+
 class OrthographicCamera(Camera):
     """An orthographic camera, useful for non-perspective views and 2D content.
 
@@ -13,11 +18,6 @@ class OrthographicCamera(Camera):
     height : float
         The (minimum) height of the view-cube. The actual view
         may be height if the viewport is relatively heigh.
-    dist : float
-        The view distance factor. This represents at what distance from
-        the camera the objects of interest are. It is used to set the
-        near and far clipping planes, and controllers can use it as an
-        indication of what is being looked at.
     up : Vector3
         The vector that is considered up in the world space. Think of it
         as pointing in the opposite direction as gravity. Default (0, 1, 0).
@@ -28,12 +28,12 @@ class OrthographicCamera(Camera):
 
     """
 
-    def __init__(
-        self, width, height, dist=1, up=(0, 1, 0), *, zoom=1, maintain_aspect=True
-    ):
+    def __init__(self, width, height, up=(0, 1, 0), *, zoom=1, maintain_aspect=True):
+        self._width = self._height = 1
+        super().__init__(1, up, zoom)
         self.width = width
         self.height = height
-        super().__init__(dist, up, zoom)
+
         # Reminder: these width and height represent the view-plane in world coordinates
         # and has little to do with the canvas/viewport size.
         self.maintain_aspect = maintain_aspect
