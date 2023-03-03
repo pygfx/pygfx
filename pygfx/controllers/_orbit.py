@@ -5,7 +5,8 @@ import pylinalg as la
 
 from ..cameras import Camera
 from ..utils.viewport import Viewport
-from ._base import Controller, get_screen_vectors_in_world_cords
+from ._base import Controller
+from ._panzoom import PanZoomController
 
 
 def get_axis_aligned_up_vector(up):
@@ -18,7 +19,7 @@ def get_axis_aligned_up_vector(up):
     return ref_up
 
 
-class OrbitController(Controller):
+class OrbitController(PanZoomController):
     """A controller to move a camera in an orbit around a center position.
 
     The direction of rotation is defined such that it feels like you're
@@ -45,63 +46,6 @@ class OrbitController(Controller):
         self._pan_info = None
         self._rotate_info = None
 
-    def pan(self, vec3) -> Controller:
-        """Pan in 3D world coordinates."""
-        if self._cameras:
-            camera = self._cameras[0]
-            self._pan(vec3, camera.get_state())
-        return self
-
-    def _pan(self, vec3, camera_state):
-        # Get new position
-        position = camera_state["position"]
-        new_position = position + vec3
-        # Apply new state to all cameras
-        new_camera_state = {**camera_state, "position": new_position}
-        for camera in self._cameras:
-            camera.set_state(new_camera_state)
-
-    def pan_start(
-        self,
-        pos: Tuple[float, float],
-        viewport: Viewport,
-        camera: Camera,
-    ) -> Controller:
-        """Start a panning operation based (2D) screen coordinates."""
-
-        # Get camera state
-        self._pan_info = camera_state = camera.get_state()
-        position = camera_state["position"]
-        rotation = camera_state["rotation"]
-        dist = camera_state["dist"]
-
-        # Get target, the reference location where translations should map to screen distances
-        # target = position + la.quaternion_rotate((0, 0, -dist), rotation)
-        target = position + self._get_target_vec(camera_state)
-
-        # Get the vectors that point in the axis direction
-        scene_size = viewport.logical_size
-        vecx, vecy = get_screen_vectors_in_world_cords(target, scene_size, camera)
-
-        # Store pan info
-        self._pan_info.update({"mouse_pos": pos, "vecx": vecx, "vecy": vecy})
-
-        return self
-
-    def pan_stop(self) -> Controller:
-        self._pan_info = None
-        return self
-
-    def pan_move(self, pos: Tuple[float, float]) -> Controller:
-        """Pan the center of rotation, based on a (2D) screen location. Call pan_start first."""
-        if self._pan_info is None:
-            return
-        original_pos = self._pan_info["mouse_pos"]
-        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
-        vec3 = -self._pan_info["vecx"] * delta[0] + self._pan_info["vecy"] * delta[1]
-        self._pan(vec3, self._pan_info)
-        return self
-
     def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:
         """Rotate using angles (in radians)."""
         if self._cameras:
@@ -113,7 +57,6 @@ class OrbitController(Controller):
         position = camera_state["position"]
         rotation = camera_state["rotation"]
         up = camera_state["up"]
-        dist = camera_state["dist"]
 
         # Where is the camera looking at right now
         forward = la.quaternion_rotate((0, 0, -1), rotation)
@@ -148,8 +91,6 @@ class OrbitController(Controller):
         pos1 = position
         pos2target1 = self._get_target_vec(camera_state, rotation=rot1)
         pos2target2 = self._get_target_vec(camera_state, rotation=rot2)
-        # pos2target1 = la.quaternion_rotate((0, 0, -dist), rot1)
-        # pos2target2 = la.quaternion_rotate((0, 0, -dist), rot2)
         pos2 = pos1 + pos2target1 - pos2target2
 
         # Apply new state to all cameras
@@ -194,41 +135,6 @@ class OrbitController(Controller):
         self._rotate(delta_azimuth, delta_elevation, self._rotate_info)
         return self
 
-    def zoom(self, multiplier: float) -> Controller:
-        # todo: maybe this can have a name similar to dist?
-        # todo: though I'm not 100% sure about the dist prop either
-        if self._cameras:
-            # Get current state
-            camera_state = self._cameras[0].get_state()
-            position = camera_state["position"]
-            rotation = camera_state["rotation"]
-            dist = camera_state["dist"]
-            # Get new dist and new position
-            new_dist = dist * (1 / multiplier)
-            pos2target1 = self._get_target_vec(camera_state, dist=dist)
-            pos2target2 = self._get_target_vec(camera_state, dist=new_dist)
-            new_position = position + pos2target1 - pos2target2
-            # Apply new state to all cameras
-            new_camera_state = {
-                **camera_state,
-                "position": new_position,
-                "dist": new_dist,
-            }
-            for camera in self._cameras:
-                camera.set_state(new_camera_state)
-
-        return self
-
-    def quick_zoom(self, zoom):
-        """Use the camera's zoom prop to zoom in, as if using binoculars."""
-        if self._cameras:
-            # Get current state
-            camera_state = self._cameras[0].get_state()
-            # Apply new state to all cameras
-            new_camera_state = {**camera_state, "zoom": zoom}
-            for camera in self._cameras:
-                camera.set_state(new_camera_state)
-
     def adjust_fov(self, delta):
         if not self._cameras:
             return self
@@ -264,22 +170,29 @@ class OrbitController(Controller):
             elif event.button == 2:
                 self.pan_start(xy, viewport, camera)
             elif event.button == 3:
-                self.quick_zoom(self._zoom_value)
+                self.quickzoom_start(xy, camera, viewport)
         elif type == "pointer_up":
+            xy = event.x, event.y
             if event.button == 1:
                 self.rotate_stop()
             elif event.button == 2:
                 self.pan_stop()
             elif event.button == 3:
-                self.quick_zoom(1)
+                self.quickzoom_stop()
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "pointer_move":
             xy = event.x, event.y
             if 1 in event.buttons:
                 self.rotate_move(xy),
                 if self.auto_update:
                     viewport.renderer.request_draw()
-            if 2 in event.buttons:
+            elif 2 in event.buttons:
                 self.pan_move(xy),
+                if self.auto_update:
+                    viewport.renderer.request_draw()
+            elif 3 in event.buttons:
+                self.quickzoom_move(xy)
                 if self.auto_update:
                     viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
@@ -287,12 +200,12 @@ class OrbitController(Controller):
                 xy = event.x, event.y
                 d = event.dy or event.dx
                 f = 2 ** (-d * 0.0015)
-                self.zoom(f)
+                self.zoom_to_point(f, xy, viewport)
                 if self.auto_update:
                     viewport.renderer.request_draw()
             elif event.modifiers == ["Alt"]:
                 d = event.dy or event.dx
-                self.adjust_fov(d / 5)
+                self.adjust_fov(d / 10)
 
         elif type == "key_down":
             if event.key == "Escape":

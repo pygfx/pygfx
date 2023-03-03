@@ -1,7 +1,5 @@
 from typing import Tuple
 
-import pylinalg as la
-
 from ..cameras import Camera
 from ..utils.viewport import Viewport
 from ._base import Controller, get_screen_vectors_in_world_cords
@@ -21,9 +19,11 @@ class PanZoomController(Controller):
         # State info used during a pan operation
         self._pan_info = None
 
-    # todo: the pan logic for the orbit and panzoom is exactly the same -> move to base class
     def pan(self, vec3) -> Controller:
         """Pan in 3D world coordinates."""
+        # Cannot pan in "controller space" (i.e. using 2D coords) because we
+        # need the screen size for get_screen_vectors_in_world_cords, and
+        # we only have that via an event.
         if self._cameras:
             camera = self._cameras[0]
             self._pan(vec3, camera.get_state())
@@ -44,14 +44,14 @@ class PanZoomController(Controller):
         viewport: Viewport,
         camera: Camera,
     ) -> Controller:
+        """Start a panning operation based (2D) screen coordinates."""
+
         # Get camera state
         self._pan_info = camera_state = camera.get_state()
         position = camera_state["position"]
-        rotation = camera_state["rotation"]
-        dist = camera_state["dist"]
 
         # Get target, the reference location where translations should map to screen distances
-        target = position + la.quaternion_rotate((0, 0, -dist), rotation)
+        target = position + self._get_target_vec(camera_state)
 
         # Get the vectors that point in the axis direction
         scene_size = viewport.logical_size
@@ -67,7 +67,7 @@ class PanZoomController(Controller):
         return self
 
     def pan_move(self, pos: Tuple[float, float]) -> Controller:
-        """Pan the camera, based on a (2D) screen location. Call pan_start first."""
+        """Pan the center of rotation, based on a (2D) screen location. Call pan_start first."""
         if self._pan_info is None:
             return
         original_pos = self._pan_info["mouse_pos"]
@@ -76,20 +76,17 @@ class PanZoomController(Controller):
         self._pan(vec3, self._pan_info)
         return self
 
-    # def zoom(self, multiplier: float) -> Controller:
-    #     return self.zoom_to_point(multiplier, None, None)
-
     def zoom(self, multiplier: float) -> Controller:
         if self._cameras:
             # Get current state
             camera_state = self._cameras[0].get_state()
             position = camera_state["position"]
-            rotation = camera_state["rotation"]
             dist = camera_state["dist"]
             # Get new dist and new position
             new_dist = dist * (1 / multiplier)
-            target = position + la.quaternion_rotate((0, 0, -dist), rotation)
-            new_position = target - la.quaternion_rotate((0, 0, -new_dist), rotation)
+            pos2target1 = self._get_target_vec(camera_state, dist=dist)
+            pos2target2 = self._get_target_vec(camera_state, dist=new_dist)
+            new_position = position + pos2target1 - pos2target2
             # Apply new state to all cameras
             new_camera_state = {
                 **camera_state,
@@ -100,19 +97,11 @@ class PanZoomController(Controller):
                 camera.set_state(new_camera_state)
         return self
 
-    # todo: can we also have zoom-to-point in the orbit controller?
-    def zoom_to_point(
-        self,
-        multiplier: float,
-        pos,
-        viewport,
-    ) -> Controller:
+    def _get_panning_to_compensate_zoom(self, multiplier, pos, viewport):
         # Get Target
         camera_state = self._cameras[0].get_state()
         position = camera_state["position"]
-        rotation = camera_state["rotation"]
-        dist = camera_state["dist"]
-        target = position + la.quaternion_rotate((0, 0, -dist), rotation)
+        target = position + self._get_target_vec(camera_state)
 
         # Get viewport info
         x, y, w, h = viewport.rect
@@ -125,10 +114,16 @@ class PanZoomController(Controller):
         delta1 = vecx * delta[0] - vecy * delta[1]
         delta2 = delta1 / multiplier
 
-        # Apply
-        self.zoom(multiplier)
-        self.pan(delta1 - delta2)
+        return delta1 - delta2
 
+    def zoom_to_point(
+        self,
+        multiplier: float,
+        pos,
+        viewport,
+    ) -> Controller:
+        self.zoom(multiplier)
+        self.pan(self._get_panning_to_compensate_zoom(multiplier, pos, viewport))
         return self
 
     def zoom_start(
@@ -184,40 +179,100 @@ class PanZoomController(Controller):
         for camera in self._cameras:
             camera.set_state(new_camera_state)
 
+    def quickzoom_start(self, pos, camera, viewport) -> Controller:
+        multiplier = 4
+
+        # Get original state, we go back to this when quickzoom stops
+        self._quickzoom_info1 = self._cameras[0].get_state()
+
+        pan_vec = self._get_panning_to_compensate_zoom(multiplier, pos, viewport)
+
+        # Zoom in
+        new_camera_state = {**self._quickzoom_info1, "zoom": multiplier}
+        for camera in self._cameras:
+            camera.set_state(new_camera_state)
+
+        # Pan to focus on cursor pos
+        self.pan(pan_vec)
+
+        # Get state using the pan_start logic
+        # Becaue the projection matrix has not been set yet, the panning will
+        # be as it would normally be, so - being zoomed in - it'd be quite fast.
+        # This is deliberate as it is a sign that we're indeed zoomed in.
+        self.pan_start(pos, viewport, camera)
+        self._quickzoom_info2 = self._pan_info
+        self._pan_info = None
+
+        return self
+
+    def quickzoom_stop(self):
+        if self._quickzoom_info1 is not None:
+            for camera in self._cameras:
+                camera.set_state(self._quickzoom_info1)
+        self._quickzoom_info1 = None
+        self._quickzoom_info2 = None
+        return self
+
+    def quickzoom_move(self, pos):
+        if self._quickzoom_info2 is None:
+            return self
+        original_pos = self._quickzoom_info2["mouse_pos"]
+        delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
+        vec3 = (
+            -self._quickzoom_info2["vecx"] * delta[0]
+            + self._quickzoom_info2["vecy"] * delta[1]
+        )
+        self._pan(vec3, self._quickzoom_info2)
+        return self
+
     def handle_event(self, event, viewport, camera):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
         type = event.type
         if type == "pointer_down" and viewport.is_inside(event.x, event.y):
+            xy = event.x, event.y
             if event.button == 1:
-                xy = event.x, event.y
                 self.pan_start(xy, viewport, camera)
             elif event.button == 2:
                 xy = event.x, event.y
                 self.zoom_start(xy)
+            elif event.button == 3:
+                self.quickzoom_start(xy, camera, viewport)
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "pointer_up":
+            xy = event.x, event.y
             if event.button == 1:
                 self.pan_stop()
             elif event.button == 2:
                 self.zoom_stop()
+            elif event.button == 3:
+                self.quickzoom_stop()
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "pointer_move":
+            xy = event.x, event.y
             if 1 in event.buttons:
-                xy = event.x, event.y
                 self.pan_move(xy)
                 if self.auto_update:
                     viewport.renderer.request_draw()
-            if 2 in event.buttons:
-                xy = event.x, event.y
+            elif 2 in event.buttons:
                 self.zoom_move(xy)
                 if self.auto_update:
                     viewport.renderer.request_draw()
+            elif 3 in event.buttons:
+                self.quickzoom_move(xy)
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
-            xy = event.x, event.y
-            f = 2 ** (-event.dy * 0.0015)
-            self.zoom_to_point(f, xy, viewport)
-            if self.auto_update:
-                viewport.renderer.request_draw()
+            if not event.modifiers:
+                xy = event.x, event.y
+                d = event.dy or event.dx
+                f = 2 ** (-d * 0.0015)
+                self.zoom_to_point(f, xy, viewport)
+                if self.auto_update:
+                    viewport.renderer.request_draw()
 
     # def show_object(self, camera, target):
     #     # TODO: implement for perspective camera
