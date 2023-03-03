@@ -245,7 +245,7 @@ class SimpleTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_op": wgpu.LoadOp.clear,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.discard,
         }
 
@@ -343,7 +343,7 @@ class WeightedTransparencyPass(BasePass):
     def get_depth_attachment(self, blender):
         return {
             "view": blender.depth_view,
-            "depth_load_op": wgpu.LoadOp.clear,
+            "depth_load_op": wgpu.LoadOp.load,
             "depth_store_op": wgpu.StoreOp.discard,
         }
 
