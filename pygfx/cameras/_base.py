@@ -110,13 +110,13 @@ class Camera(WorldObject):
         # todo: the up arg makes this API different from WorldObject.look_at, but it's very convenient to be able to also set the up vector.
         if up is not None:
             self.up = up
-        if isinstance(target, tuple) and len(target) == 3:
+        if isinstance(target, (tuple, np.ndarray)) and len(target) == 3:
             target = Vector3(*target)
         self._look_at(target, self._up, True)
-        self.dist = self.position.distance_to(target)
+        # self.dist = self.position.distance_to(target)
 
     def show_object(
-        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=None
+        self, target: WorldObject, view_dir=(-1, -1, -1), *, up=None, size_weight=2
     ):
         """Position the camera such that the given world object in is in view.
 
@@ -126,47 +126,55 @@ class Camera(WorldObject):
             The object to look at.
         view_dir: 3-tuple of float or Vector3
             Look at the object from this direction.
-        distance_weight: float
-            The camera distance to the object's world position is
-            its bounding sphere radius multiplied by this weight.
+        up: 3-tuple of float or Vector3
+            Also set the up vector.
+        size_weight: float
+            How much extra space the camera must show.
+            The target's bounding sphere radius is multiplied by this weight.
+            Default 2. If you know your data is square and you look at it frontally,
+            you can set it to 1.5.
 
         Returns:
             pos: Vector3
                 The world coordinate the camera is looking at.
         """
-        if not isinstance(view_dir, Vector3):
-            view_dir = Vector3(*view_dir)
+
+        view_dir = tuple(view_dir)
+        if len(view_dir) == 1:
+            raise TypeError(f"Expected view_dir to be tuple, not {view_dir[0]}")
+        elif len(view_dir) != 3:
+            raise ValueError("Expected view_dir to be a tuple of 3 floats.")
+
+        if isinstance(target, WorldObject):
+            bsphere = target.get_world_bounding_sphere()
+            if bsphere is None:
+                pos = target.get_world_position().to_array()
+                bsphere = tuple(pos) + (1, )
+        elif isinstance(target, (tuple, list, np.ndarray)) and len(target) == 4:
+            bsphere = tuple(target)
         else:
-            view_dir = view_dir.clone()
+            raise TypeError("show_object target must be a world object, or a (x, y, z, radius) tuple.")
 
-        bsphere = target.get_world_bounding_sphere()
-        if bsphere is not None:
-            pos, size = Vector3(*bsphere[:3]), bsphere[3]
+
+        view_pos = bsphere[:3]
+        radius = bsphere[3]
+        extent = radius * size_weight
+
+        fov = getattr(self, "fov", None)
+
+        if fov:
+            fov_rad = fov * np.pi / 180
+            distance = 0.5 * extent / np.tan(0.5 * fov_rad)
         else:
-            pos = target.get_world_position()
-            # whatever it is has no bounding sphere, so we just pick an
-            # arbitrary size
-            size = 100
+            distance = extent * 1.0
 
-        if hasattr(self, "_fov"):
-            if distance_weight is None:
-                distance = size * 90 / self._fov
-            else:
-                distance = size * distance_weight
-            self.position.copy(pos).add_scaled_vector(
-                view_dir.normalize().negate(), distance
-            )
-            self.look_at(pos)
-        elif hasattr(self, "_width"):
-            extent = size * 1.25
-            distance = extent * 1.5
-            self.position.copy(pos).add_scaled_vector(
-                view_dir.normalize().negate(), distance
-            )
-            self.look_at(pos)
-            self.width = self.height = extent
+        camera_pos = view_pos - la.vector_normalize(view_dir) * distance
 
-        return pos
+        self.position.set(*camera_pos)
+        self.dist = extent
+        self.look_at(view_pos, up)
+
+        return view_pos
 
     def get_state(self):
         """Get the state of the camera as a dict."""

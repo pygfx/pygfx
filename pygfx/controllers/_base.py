@@ -1,6 +1,7 @@
 from typing import Tuple, Union
 
 import pylinalg as la
+import numpy as np
 
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
@@ -48,10 +49,10 @@ class Controller:
         fov = kwargs.get("fov", camera_state.get("fov", None))
 
         if fov:
-            distance = extent * 90 / fov
+            fov_rad = fov * np.pi / 180
+            distance = 0.5 * extent / np.tan(0.5 * fov_rad)
         else:
-            # Put camera in equivalent position of persp cam with fov=60
-            distance = extent * 1.5
+            distance = extent * 1.0
 
         return la.quaternion_rotate((0, 0, -distance), rotation)
 

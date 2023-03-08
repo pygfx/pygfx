@@ -202,7 +202,8 @@ class OrbitController(PanZoomController):
             elif event.modifiers == ["Alt"]:
                 d = event.dy or event.dx
                 self.adjust_fov(-d / 10)
-
+                if self.auto_update:
+                    viewport.renderer.request_draw()
         elif type == "key_down":
             if event.key == "Escape":
                 pass  # todo: cancel camera action

@@ -32,6 +32,7 @@ class PerspectiveCamera(Camera):
         self.fov = fov
         self.aspect = aspect
 
+        self.maintain_aspect = True
         self.set_view_size(1, 1)
         self.update_projection_matrix()
 
@@ -49,7 +50,7 @@ class PerspectiveCamera(Camera):
 
     @property
     def aspect(self):
-        """The field of view (in degrees)."""
+        """The aspect ratio."""
         return self._aspect
 
     @aspect.setter
@@ -57,7 +58,7 @@ class PerspectiveCamera(Camera):
         self._aspect = float(value)
 
     def _get_near_and_far_plane(self):
-        d = self._dist * 90 / self.fov
+        d = self._dist * 45 / self.fov
         return d / 1000, 1000 * d
 
     def get_state(self):
@@ -94,7 +95,9 @@ class PerspectiveCamera(Camera):
         width = size * self.aspect**0.5
         height = size / self.aspect**0.5
         # Increase eihter the width or height, depending on the view size
-        if self.aspect < self._view_aspect:
+        if not self.maintain_aspect:
+            pass
+        elif self.aspect < self._view_aspect:
             width *= self._view_aspect / self.aspect
         else:
             height *= self.aspect / self._view_aspect
