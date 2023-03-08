@@ -5,7 +5,7 @@ import numpy as np
 
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
-from ..cameras import Camera, OrthographicCamera, PerspectiveCamera
+from ..cameras import Camera, GenericCamera
 
 
 class Controller:
@@ -29,7 +29,7 @@ class Controller:
         """Add a camera to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
-        if not isinstance(camera, (OrthographicCamera, PerspectiveCamera)):
+        if not isinstance(camera, (GenericCamera)):
             raise TypeError(
                 "Controller.add_camera expects an orthographic or perspective camera."
             )
@@ -45,7 +45,7 @@ class Controller:
 
     def _get_target_vec(self, camera_state, **kwargs):
         rotation = kwargs.get("rotation", camera_state["rotation"])
-        extent = kwargs.get("dist", camera_state["dist"])
+        extent = kwargs.get("extent", camera_state["extent"])
         fov = kwargs.get("fov", camera_state.get("fov", None))
 
         if fov:

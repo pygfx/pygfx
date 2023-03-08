@@ -275,6 +275,20 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.material = material
 
     @property
+    def up(self):
+        """The vector that is considered up (i.e. minus gravity) in the world space."""
+        return self._up
+
+    @up.setter
+    def up(self, value):
+        if isinstance(value, Vector3):
+            self._up = value.clone()
+        elif isinstance(value, (tuple, list, np.ndarray)) and len(value) == 3:
+            self._up = Vector3(*value)
+        else:
+            raise TypeError(f"Invalid up vector: {value}")
+
+    @property
     def cast_shadow(self):
         """Whether this object casts shadows, i.e. whether it is rendered into
         a shadow map. Default False."""
@@ -462,7 +476,7 @@ class WorldObject(EventTarget, RootTrackable):
         The object's up-vector is taken into account as well.
         By default all objects look at (0, 0, 1).
         """
-        if isinstance(target, tuple) and len(target) == 3:
+        if isinstance(target, (tuple, list, np.ndarray)) and len(target) == 3:
             target = Vector3(*target)
         self._look_at(target, self.up, False)
 

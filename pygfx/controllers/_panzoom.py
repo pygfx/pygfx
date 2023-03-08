@@ -93,19 +93,19 @@ class PanZoomController(Controller):
             # Get current state
             camera_state = camera.get_state()
             position = camera_state["position"]
-            dist = camera_state["dist"]
+            extent = camera_state["extent"]
 
-            # Get new dist and new position
-            new_dist = dist * (1 / multiplier)
-            pos2target1 = self._get_target_vec(camera_state, dist=dist)
-            pos2target2 = self._get_target_vec(camera_state, dist=new_dist)
+            # Get new extent and new position
+            new_extent = extent * (1 / multiplier)
+            pos2target1 = self._get_target_vec(camera_state, extent=extent)
+            pos2target2 = self._get_target_vec(camera_state, extent=new_extent)
             new_position = position + pos2target1 - pos2target2
 
             # Apply new state to all cameras
             new_camera_state = {
                 **camera_state,
                 "position": new_position,
-                "dist": new_dist,
+                "extent": new_extent,
             }
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
@@ -171,7 +171,8 @@ class PanZoomController(Controller):
             position = camera_state["position"]
             original_pos = camera_state["mouse_pos"]
             maintain_aspect = camera_state.get("maintain_aspect", True)
-            dist = camera_state["dist"]
+            extent = camera_state["extent"]
+            aspect = camera_state["aspect"]
 
             # Calculate zoom factors
             delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
@@ -180,30 +181,33 @@ class PanZoomController(Controller):
 
             # Apply
             if maintain_aspect:
-                # Use dist
-                new_dist = dist * fy
+                # Use extent
+                new_extent = extent * fy
                 new_camera_state = {**camera_state}
             else:
-                # Use width and height. Include dist, in case we control
+                # Use width and height. Include extent, in case we control
                 # a mix of orthographic and perspective cameras.
-                width = camera_state["width"] * fx
-                height = camera_state["height"] * fy
-                new_dist = 0.5 * (width + height)
+                sqrt_aspect = aspect**0.5
+                width = extent * sqrt_aspect
+                height = extent / sqrt_aspect
+                new_width = width * fx
+                new_height = height * fy
+                new_extent = 0.5 * (new_width + new_height)
+                new_aspect = new_width / new_height
                 new_camera_state = {
                     **camera_state,
-                    "width": width,
-                    "height": height,
+                    "aspect": new_aspect,
                 }
 
             # Get  new position
-            pos2target1 = self._get_target_vec(camera_state, dist=dist)
-            pos2target2 = self._get_target_vec(camera_state, dist=new_dist)
+            pos2target1 = self._get_target_vec(camera_state, extent=extent)
+            pos2target2 = self._get_target_vec(camera_state, extent=new_extent)
             new_position = position + pos2target1 - pos2target2
 
             # Apply
             new_camera_state = {
                 **new_camera_state,
-                "dist": new_dist,
+                "extent": new_extent,
                 "position": new_position,
             }
             for camera in self._cameras:
