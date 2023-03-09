@@ -15,6 +15,37 @@ class PanZoomController(Controller):
         self._quickzoom_info1 = None
         self._quickzoom_info2 = None
 
+        self.mouse_zoom_factor = 0.005
+        self.scroll_zoom_factor = 0.0015
+        self.quick_zoom_factor = 4
+
+    @property
+    def mouse_zoom_factor(self):
+        """The factor to turn mouse motion (in logical pixels) to a zoom factor)."""
+        return self._mouse_zoom_factor
+
+    @mouse_zoom_factor.setter
+    def mouse_zoom_factor(self, value):
+        self._mouse_zoom_factor = float(value)
+
+    @property
+    def scroll_zoom_factor(self):
+        """The factor to turn mouse scrolling to a zoom factor)."""
+        return self._scroll_zoom_factor
+
+    @scroll_zoom_factor.setter
+    def scroll_zoom_factor(self, value):
+        self._scroll_zoom_factor = float(value)
+
+    @property
+    def quick_zoom_factor(self):
+        """The multiplier to use for quickzoom."""
+        return self._quick_zoom_factor
+
+    @quick_zoom_factor.setter
+    def quick_zoom_factor(self, value):
+        self._quick_zoom_factor = float(value)
+
     def pan(self, vec3: Tuple[float, float, float]) -> Controller:
         """Pan in 3D world coordinates."""
         # Note: cannot pan in "controller space" (i.e. using 2D coords)
@@ -91,10 +122,16 @@ class PanZoomController(Controller):
             # Get current state
             camera_state = camera.get_state()
             position = camera_state["position"]
-            extent = camera_state["extent"]
+            width = camera_state["width"]
+            height = camera_state["height"]
+            extent = 0.5 * (width + height)
 
-            # Get new extent and new position
-            new_extent = extent * (1 / multiplier)
+            # Get new width, height, and extent
+            new_width = width / multiplier
+            new_height = height / multiplier
+            new_extent = 0.5 * (new_width + new_height)
+
+            # Get new position
             pos2target1 = self._get_target_vec(camera_state, extent=extent)
             pos2target2 = self._get_target_vec(camera_state, extent=new_extent)
             new_position = position + pos2target1 - pos2target2
@@ -103,7 +140,8 @@ class PanZoomController(Controller):
             new_camera_state = {
                 **camera_state,
                 "position": new_position,
-                "extent": new_extent,
+                "width": new_width,
+                "height": new_height,
             }
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
@@ -169,43 +207,36 @@ class PanZoomController(Controller):
             position = camera_state["position"]
             original_pos = camera_state["mouse_pos"]
             maintain_aspect = camera_state.get("maintain_aspect", True)
-            extent = camera_state["extent"]
-            aspect = camera_state["aspect"]
+            width = camera_state["width"]
+            height = camera_state["height"]
+            extent = 0.5 * (width + height)
 
             # Calculate zoom factors
             delta = pos[0] - original_pos[0], pos[1] - original_pos[1]
-            fx = 2 ** (-delta[0] * 0.01)
-            fy = 2 ** (delta[1] * 0.01)
+            fx = 2 ** (-delta[0] * self.mouse_zoom_factor)
+            fy = 2 ** (delta[1] * self.mouse_zoom_factor)
 
             # Apply
             if maintain_aspect:
-                # Use extent
-                new_extent = extent * fy
-                new_camera_state = {**camera_state}
+                # Scale width and height equally
+                new_width = width * fy
+                new_height = height * fy
             else:
-                # Use width and height. Include extent, in case we control
-                # a mix of orthographic and perspective cameras.
-                sqrt_aspect = aspect**0.5
-                width = extent * sqrt_aspect
-                height = extent / sqrt_aspect
+                # Use width and height.
                 new_width = width * fx
                 new_height = height * fy
-                new_extent = 0.5 * (new_width + new_height)
-                new_aspect = new_width / new_height
-                new_camera_state = {
-                    **camera_state,
-                    "aspect": new_aspect,
-                }
 
             # Get  new position
+            new_extent = 0.5 * (new_width + new_height)
             pos2target1 = self._get_target_vec(camera_state, extent=extent)
             pos2target2 = self._get_target_vec(camera_state, extent=new_extent)
             new_position = position + pos2target1 - pos2target2
 
             # Apply
             new_camera_state = {
-                **new_camera_state,
-                "extent": new_extent,
+                **camera_state,
+                "width": new_width,
+                "height": new_height,
                 "position": new_position,
             }
             for camera in self._cameras:
@@ -221,7 +252,7 @@ class PanZoomController(Controller):
         In contrast to the other zoom methods, this actually uses the
         camera zoom property.
         """
-        multiplier = 4
+        multiplier = self.quick_zoom_factor
 
         if self._cameras:
             camera = self._cameras[0]
@@ -251,8 +282,9 @@ class PanZoomController(Controller):
     def quickzoom_stop(self) -> Controller:
         """Stop the current quickzoom operation."""
         if self._quickzoom_info1 is not None:
+            # Restore the zoom level (maintain the changed panning)
             for camera in self._cameras:
-                camera.set_state(self._quickzoom_info1)
+                camera.set_state({"zoom": self._quickzoom_info1["zoom"]})
         self._quickzoom_info1 = None
         self._quickzoom_info2 = None
         return self
@@ -313,7 +345,7 @@ class PanZoomController(Controller):
             if not event.modifiers:
                 xy = event.x, event.y
                 d = event.dy or event.dx
-                f = 2 ** (-d * 0.0015)
+                f = 2 ** (-d * self.scroll_zoom_factor)
                 self.zoom_to_point(f, xy, viewport)
                 need_update = True
 

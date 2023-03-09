@@ -29,30 +29,3 @@ class OrthographicCamera(GenericCamera):
 
     def __repr__(self) -> str:
         return f"OrthographicCamera({self.width}, {self.height})"
-
-    @property
-    def width(self):
-        """The (minimum) width of the view-cube."""
-        return self._width
-
-    @width.setter
-    def width(self, value):
-        self._width = float(value)
-
-    @property
-    def height(self):
-        """The (minimum) height of the view-cube."""
-        return self._height
-
-    @height.setter
-    def height(self, value):
-        self._height = float(value)
-
-    @property
-    def maintain_aspect(self):
-        """Whether the aspect ration is maintained as the window size changes."""
-        return self._maintain_aspect
-
-    @maintain_aspect.setter
-    def maintain_aspect(self, value):
-        self._maintain_aspect = bool(value)

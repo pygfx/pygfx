@@ -65,7 +65,8 @@ class Controller:
 
     def _get_target_vec(self, camera_state, **kwargs):
         rotation = kwargs.get("rotation", camera_state["rotation"])
-        extent = kwargs.get("extent", camera_state["extent"])
+        extent = 0.5 * (camera_state["width"] + camera_state["height"])
+        extent = kwargs.get("extent", extent)
         fov = kwargs.get("fov", camera_state.get("fov", None))
 
         if fov:

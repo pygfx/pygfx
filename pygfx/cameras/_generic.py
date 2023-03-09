@@ -64,8 +64,30 @@ class GenericCamera(Camera):
         self._fov = fov
 
     @property
+    def width(self):
+        """The (minimum) width of the view-cube.
+        Together with the `height`, this also defines the aspect and extent.
+        """
+        return self._width
+
+    @width.setter
+    def width(self, value):
+        self._width = float(value)
+
+    @property
+    def height(self):
+        """The (minimum) height of the view-cube.
+        Together with the `width`, this also defines the aspect and extent.
+        """
+        return self._height
+
+    @height.setter
+    def height(self, value):
+        self._height = float(value)
+
+    @property
     def aspect(self):
-        """The aspect ratio (the ratio between width and height)."""
+        """The aspect ratio. (The ratio between width and height.)"""
         return self._width / self._height
 
     @aspect.setter
@@ -74,14 +96,13 @@ class GenericCamera(Camera):
         if aspect <= 0:
             raise ValueError("aspect must be > 0")
         extent = self.extent
-        sqrt_aspect = aspect**0.5
-        self._width = extent * sqrt_aspect
-        self._height = extent / sqrt_aspect
+        self._height = 2 * extent / (1 + aspect)
+        self._width = self._height * aspect
 
     @property
     def extent(self):
         """A measure of the size of the scene that the camera observing.
-        This is also set by `show_object()`.
+        This is also set by `show_object()`. (The mean of width and height.)
         """
         return 0.5 * (self._width + self._height)
 
@@ -91,9 +112,8 @@ class GenericCamera(Camera):
         if extent <= 0:
             raise ValueError("extend must be > 0")
         aspect = self.aspect
-        sqrt_aspect = aspect**0.5
-        self._width = extent * sqrt_aspect
-        self._height = extent / sqrt_aspect
+        self._height = 2 * extent / (1 + aspect)
+        self._width = self._height * aspect
 
     @property
     def zoom(self):
@@ -104,6 +124,18 @@ class GenericCamera(Camera):
     def zoom(self, value):
         self._zoom = float(value)
 
+    @property
+    def maintain_aspect(self):
+        """Whether the aspect ration is maintained as the window size
+        changes. Default True. Note that it only make sense to set this
+        to False in combination with a panzoom controller.
+        """
+        return self._maintain_aspect
+
+    @maintain_aspect.setter
+    def maintain_aspect(self, value):
+        self._maintain_aspect = bool(value)
+
     def get_state(self):
         return {
             "position": tuple(self.position.to_array()),
@@ -111,21 +143,25 @@ class GenericCamera(Camera):
             "scale": tuple(self.scale.to_array()),
             "up": tuple(self.up.to_array()),
             "fov": self.fov,
-            "aspect": self.aspect,
-            "extent": self.extent,
+            "width": self.width,
+            "height": self.height,
             "zoom": self.zoom,
-            "maintain_aspect": self._maintain_aspect,
+            "maintain_aspect": self.maintain_aspect,
         }
 
     def set_state(self, state):
         # Set the more complex props
-        self.position.set(*state["position"])
-        self.rotation.set(*state["rotation"])
-        self.scale.set(*state["scale"])
-        self.up.set(*state["up"])
+        if "position" in state:
+            self.position.set(*state["position"])
+        if "rotation" in state:
+            self.rotation.set(*state["rotation"])
+        if "scale" in state:
+            self.scale.set(*state["scale"])
+        if "up" in state:
+            self.up.set(*state["up"])
         # Set simple props
-        for key in ("fov", "aspect", "extent", "zoom", "maintain_aspect"):
-            if key in state and hasattr(self, key):
+        for key in ("fov", "width", "height", "zoom", "maintain_aspect"):
+            if key in state:
                 setattr(self, key, state[key])
 
     def set_view_size(self, width, height):
@@ -171,8 +207,8 @@ class GenericCamera(Camera):
 
         else:
             # The reference view plane is scaled with the zoom factor
-            width = self.width / self.zoom
-            height = self.height / self.zoom
+            width = self._width / self.zoom
+            height = self._height / self.zoom
             # Increase either the width or height, depending on the viewport shape
             aspect = width / height
             if not self._maintain_aspect:
