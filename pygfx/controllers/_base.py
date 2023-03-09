@@ -1,7 +1,6 @@
 from typing import Tuple, Union
 
 import pylinalg as la
-import numpy as np
 
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
