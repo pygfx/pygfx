@@ -44,6 +44,10 @@ class OrbitController(PanZoomController):
         return self
 
     def _rotate(self, delta_azimuth, delta_elevation, camera_state):
+        # Note: this code does not use la.vector_euclidean_to_spherical and
+        # la.vector_spherical_to_euclidean, because those functions currently
+        # have a way to specify a different up vector.
+
         position = camera_state["position"]
         rotation = camera_state["rotation"]
         up = camera_state["up"]
