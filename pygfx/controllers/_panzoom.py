@@ -65,7 +65,7 @@ class PanZoomController(Controller):
         new_position = position + vec3
 
         # Apply new state to all cameras
-        new_camera_state = {**camera_state, "position": new_position}
+        new_camera_state = {"position": new_position}
         for camera in self._cameras:
             camera.set_state(new_camera_state)
 
@@ -138,10 +138,10 @@ class PanZoomController(Controller):
 
             # Apply new state to all cameras
             new_camera_state = {
-                **camera_state,
                 "position": new_position,
                 "width": new_width,
                 "height": new_height,
+                "fov": camera_state["fov"],
             }
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
@@ -234,10 +234,10 @@ class PanZoomController(Controller):
 
             # Apply
             new_camera_state = {
-                **camera_state,
                 "width": new_width,
                 "height": new_height,
                 "position": new_position,
+                "fov": camera_state["fov"],
             }
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
@@ -261,13 +261,13 @@ class PanZoomController(Controller):
             self._quickzoom_info1 = camera.get_state()
 
             # Zoom in
-            new_camera_state = {**self._quickzoom_info1, "zoom": multiplier}
+            new_camera_state = {"zoom": multiplier}
             for camera in self._cameras:
                 camera.set_state(new_camera_state)
 
-            # Pan to focus on cursor pos
-            pan_vec = self._get_panning_to_compensate_zoom(multiplier, pos, viewport)
-            self.pan(pan_vec)
+            # Pan to focus on cursor pos, commented, because it feels unnatural
+            # pan_vec = self._get_panning_to_compensate_zoom(multiplier, pos, viewport)
+            # self.pan(pan_vec)
 
             # Get state using the pan_start logic
             # Becaue the projection matrix has not been set yet, the panning will

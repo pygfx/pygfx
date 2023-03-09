@@ -88,10 +88,9 @@ class OrbitController(PanZoomController):
         pos2 = pos1 + pos2target1 - pos2target2
 
         # Apply new state to all cameras
-        new_camera_state = {**camera_state, "position": pos2, "rotation": rot2}
+        new_camera_state = {"position": pos2, "rotation": rot2}
         for camera in self._cameras:
             camera.set_state(new_camera_state)
-            # todo: we could set all state, or only a subset, allowing e.g. different fov for each camera.
 
         # Note that for ortho cameras, we also orbit around the scene,
         # even though it could be positioned at the center (i.e.
@@ -203,9 +202,6 @@ class OrbitController(PanZoomController):
                 d = event.dy or event.dx
                 self.adjust_fov(-d / 10)
                 need_update = True
-        elif type == "key_down":
-            if event.key == "Escape":
-                pass  # todo: cancel camera action
 
         if need_update and self.auto_update:
             viewport.renderer.request_draw()

@@ -207,8 +207,8 @@ class GenericCamera(Camera):
 
         else:
             # The reference view plane is scaled with the zoom factor
-            width = self._width / self.zoom
-            height = self._height / self.zoom
+            width = self.width / self.zoom
+            height = self.height / self.zoom
             # Increase either the width or height, depending on the viewport shape
             aspect = width / height
             if not self._maintain_aspect:
@@ -280,14 +280,7 @@ class GenericCamera(Camera):
         view_pos = bsphere[:3]
         radius = bsphere[3]
         extent = radius * size_weight
-
-        fov = getattr(self, "fov", None)
-
-        if fov:
-            fov_rad = fov * pi / 180
-            distance = 0.5 * extent / tan(0.5 * fov_rad)
-        else:
-            distance = extent * 1.0
+        distance = distance_from_fov_and_extent(self.fov, extent)
 
         camera_pos = view_pos - la.vector_normalize(view_dir) * distance
 
@@ -299,3 +292,12 @@ class GenericCamera(Camera):
         self.extent = extent
 
         return view_pos
+
+
+def distance_from_fov_and_extent(fov, extent):
+    # It's important that controller and camera use the same distance calculations,
+    if fov > 0:
+        fov_rad = fov * pi / 180
+        return 0.5 * extent / tan(0.5 * fov_rad)
+    else:
+        return extent * 1.0

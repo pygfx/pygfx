@@ -6,6 +6,7 @@ import numpy as np
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
 from ..cameras import Camera, GenericCamera
+from ..cameras._generic import distance_from_fov_and_extent
 
 
 class Controller:
@@ -33,7 +34,7 @@ class Controller:
             raise TypeError("Controller.add_camera expects a Camera object.")
         if not isinstance(camera, (GenericCamera)):
             raise TypeError(
-                "Controller.add_camera expects an orthographic or perspective camera."
+                "Controller.add_camera expects a generic, orthographic or perspective camera."
             )
         self.remove_camera(camera)
         self._cameras.append(camera)
@@ -69,12 +70,7 @@ class Controller:
         extent = kwargs.get("extent", extent)
         fov = kwargs.get("fov", camera_state.get("fov", None))
 
-        if fov:
-            fov_rad = fov * np.pi / 180
-            distance = 0.5 * extent / np.tan(0.5 * fov_rad)
-        else:
-            distance = extent * 1.0
-
+        distance = distance_from_fov_and_extent(fov, extent)
         return la.quaternion_rotate((0, 0, -distance), rotation)
 
     def handle_event(self, event, viewport, camera):
