@@ -5,7 +5,6 @@ import pylinalg as la
 
 from ._base import Camera
 from ..objects._base import WorldObject
-from ..linalg import Matrix4
 
 
 class GenericCamera(Camera):
@@ -193,14 +192,12 @@ class GenericCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            # The linalg perspective projection puts xyz in the range -1..1,
-            # but in the coordinate system of wgpu (and this lib) the depth
-            # is expressed in 0..1, so we also correct for that.
-            self.projection_matrix.make_perspective(left, right, top, bottom, near, far)
-            self.projection_matrix.premultiply(
-                Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)
+            proj = la.matrix_make_perspective(
+                left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix_inverse.get_inverse(self.projection_matrix)
+            proj_i = np.linalg.inv(proj)
+            self.projection_matrix.set(*proj.flat)
+            self.projection_matrix_inverse.set(*proj_i.flat)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -221,16 +218,12 @@ class GenericCamera(Camera):
             right = +0.5 * width
             near, far = self._get_near_and_far_plane()
             # Set matrices
-            # The linalg ortho projection puts xyz in the range -1..1, but
-            # in the coordinate system of wgpu (and this lib) the depth is
-            # expressed in 0..1, so we also correct for that.
-            self.projection_matrix.make_orthographic(
-                left, right, top, bottom, near, far
+            proj = la.matrix_make_orthographic(
+                left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix.premultiply(
-                Matrix4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1)
-            )
-            self.projection_matrix_inverse.get_inverse(self.projection_matrix)
+            proj_i = np.linalg.inv(proj)
+            self.projection_matrix.set(*proj.flat)
+            self.projection_matrix_inverse.set(*proj_i.flat)
 
     def look_at(self, target, *, up=None):
         """Look at the given position or object, without changing the camera's position.
