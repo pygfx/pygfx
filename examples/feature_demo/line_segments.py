@@ -1,5 +1,4 @@
 """
-
 Line Segments
 =============
 
@@ -17,8 +16,8 @@ renderer = gfx.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
 
-x = np.linspace(20, 620, 200, dtype=np.float32)
-y = np.sin(x / 10) * 100 + 200
+x = np.linspace(20, 980, 200, dtype=np.float32)
+y = np.sin(x / 30) * 4
 
 positions = np.column_stack([x, y, np.zeros_like(x)])
 colors = np.random.uniform(0, 1, (x.size, 4)).astype(np.float32)
@@ -30,7 +29,11 @@ material = gfx.LineSegmentMaterial(
 line = gfx.Line(geometry, material)
 scene.add(line)
 
-camera = gfx.ScreenCoordsCamera()
+camera = gfx.OrthographicCamera(maintain_aspect=False)
+camera.show_rect(0, 1000, -5, 5)
+
+controller = gfx.PanZoomController(camera)
+controller.add_default_event_handlers(renderer)
 
 
 if __name__ == "__main__":
