@@ -359,23 +359,3 @@ class PanZoomController(BasePanZoomController):
 
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
-
-    # def show_object(self, camera, target):
-    #     # TODO: implement for perspective camera
-    #     if not isinstance(camera, OrthographicCamera):
-    #         raise NotImplementedError
-    #
-    #     target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
-    #     self.look_at(camera.position, target_pos, camera.up)
-    #     bsphere = target.get_world_bounding_sphere()
-    #     if bsphere is not None:
-    #         radius = bsphere[3]
-    #         center_world_coord = Vector3(0, 0, 0).unproject(camera)
-    #         right_world_coord = Vector3(1, 0, 0).unproject(camera)
-    #         top_world_coord = Vector3(0, 1, 0).unproject(camera)
-    #
-    #         min_distance = min(
-    #             right_world_coord.distance_to(center_world_coord),
-    #             top_world_coord.distance_to(center_world_coord),
-    #         )
-    #         self.zoom_value = min_distance / radius * self.zoom_value

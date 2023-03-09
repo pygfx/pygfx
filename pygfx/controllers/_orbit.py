@@ -205,12 +205,3 @@ class OrbitController(BasePanZoomController):
 
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
-
-    # def show_object(self, camera, target):
-    #     target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)
-    #     self.look_at(camera.position, target_pos, camera.up)
-    #     if self.zoom_changes_distance:
-    #         self.zoom_value = self._initial_distance / self.distance
-    #     else:
-    #         # TODO: implement for orthographic camera
-    #         raise NotImplementedError
