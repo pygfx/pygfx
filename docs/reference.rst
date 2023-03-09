@@ -30,6 +30,17 @@ Currently this includes the following classes, which comprise the public API:
 
 .. autosummary::
 
+    ~pygfx.cameras.Camera
+    ~pygfx.cameras.NDCCamera
+    ~pygfx.cameras.ScreenCoordsCamera
+    ~pygfx.cameras.GenericCamera
+    ~pygfx.cameras.PerspectiveCamera
+    ~pygfx.cameras.OrthographicCamera
+
+    ~pygfx.controllers.Controller
+    ~pygfx.controllers.PanZoomController
+    ~pygfx.controllers.OrbitController
+
     ~pygfx.geometries.box_geometry
     ~pygfx.geometries.cylinder_geometry
     ~pygfx.geometries.cone_geometry

@@ -6,6 +6,7 @@ Controllers define how cameras can be interacted with. They are
 independent of any GUI toolkits.
 
 .. autosummary::
+    :toctree: controllers/
 
     Controller
     PanZoomController
@@ -14,8 +15,8 @@ independent of any GUI toolkits.
 """
 
 from ._base import Controller
-from ._orbit import OrbitController
 from ._panzoom import PanZoomController
+from ._orbit import OrbitController
 
 
 __all__ = ["Controller", "PanZoomController", "OrbitController"]
