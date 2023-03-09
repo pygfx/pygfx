@@ -34,6 +34,46 @@ def test_perspective_camera_near_far():
         _run_for_camera(camera, near, far, False)
 
 
+def test_generic_camera_change_extend():
+    camera = gfx.GenericCamera(0)
+    camera._width = 100
+    camera._height = 200
+
+    assert camera.extent == 150
+    assert camera.aspect == 0.5
+
+    camera.extent *= 2
+
+    assert camera.extent == 300
+    assert camera.aspect == 0.5
+
+    camera.extent /= 2
+
+    assert camera._width == 100
+    assert camera._height == 200
+
+
+def test_generic_camera_change_aspect():
+    camera = gfx.GenericCamera(0)
+    camera._width = 100
+    camera._height = 200
+
+    assert camera.extent == 150
+    assert camera.aspect == 0.5
+
+    camera.aspect = 2
+
+    assert camera.extent == 150
+    assert camera._width == 200
+    assert camera._height == 100
+
+    camera.aspect = 1
+
+    assert camera.extent == 150
+    assert camera._width == 150
+    assert camera._height == 150
+
+
 def _run_for_camera(camera, near, far, check_halfway):
     # Some notes:
     #
@@ -87,3 +127,5 @@ def _run_for_camera(camera, near, far, check_halfway):
 if __name__ == "__main__":
     test_otho_camera_near_far()
     test_perspective_camera_near_far()
+    test_generic_camera_change_extend()
+    test_generic_camera_change_aspect()
