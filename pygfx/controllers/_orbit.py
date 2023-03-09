@@ -133,23 +133,22 @@ class OrbitController(BasePanZoomController):
             # Get current state
             camera_state = camera.get_state()
             position = camera_state["position"]
-            fov = camera_state.get("fov", None)
+            fov = camera_state["fov"]
 
-            if fov:
-                # Update fov and position
-                new_fov = min(max(fov + delta, 1), 179)
-                pos2target1 = self._get_target_vec(camera_state, fov=fov)
-                pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
-                new_position = position + pos2target1 - pos2target2
+            # Update fov and position
+            new_fov = min(max(fov + delta, 0), 179)
+            pos2target1 = self._get_target_vec(camera_state, fov=fov)
+            pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
+            new_position = position + pos2target1 - pos2target2
 
-                # Apply to cameras
-                new_camera_state = {
-                    **camera_state,
-                    "fov": new_fov,
-                    "position": new_position,
-                }
-                for camera in self._cameras:
-                    camera.set_state(new_camera_state)
+            # Apply to cameras
+            new_camera_state = {
+                **camera_state,
+                "fov": new_fov,
+                "position": new_position,
+            }
+            for camera in self._cameras:
+                camera.set_state(new_camera_state)
 
         return self
 

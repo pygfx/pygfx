@@ -67,7 +67,7 @@ class Controller:
         rotation = kwargs.get("rotation", camera_state["rotation"])
         extent = 0.5 * (camera_state["width"] + camera_state["height"])
         extent = kwargs.get("extent", extent)
-        fov = kwargs.get("fov", camera_state.get("fov", None))
+        fov = kwargs.get("fov", camera_state.get("fov"))
 
         distance = distance_from_fov_and_extent(fov, extent)
         return la.quaternion_rotate((0, 0, -distance), rotation)
