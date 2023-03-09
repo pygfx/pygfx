@@ -28,10 +28,8 @@ class OrbitController(PanZoomController):
     rotation) move to the left.
     """
 
-    def __init__(self, camera=None, *, auto_update: bool = True) -> None:
-        super().__init__(camera)
-
-        self.auto_update = auto_update
+    def __init__(self, camera=None, *, enabled=True, auto_update=True) -> None:
+        super().__init__(camera, enabled=enabled, auto_update=auto_update)
 
         # State info used during a rotate operation
         self._rotate_info = None
@@ -156,6 +154,10 @@ class OrbitController(PanZoomController):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
+        if not self.enabled:
+            return
+        need_update = False
+
         type = event.type
         if type == "pointer_down" and viewport.is_inside(event.x, event.y):
             xy = event.x, event.y
@@ -165,8 +167,7 @@ class OrbitController(PanZoomController):
                 self.pan_start(xy, viewport)
             elif event.button == 3:
                 self.quickzoom_start(xy, viewport)
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
         elif type == "pointer_up":
             xy = event.x, event.y
             if event.button == 1:
@@ -175,38 +176,35 @@ class OrbitController(PanZoomController):
                 self.pan_stop()
             elif event.button == 3:
                 self.quickzoom_stop()
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
         elif type == "pointer_move":
             xy = event.x, event.y
             if 1 in event.buttons:
                 self.rotate_move(xy),
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
             elif 2 in event.buttons:
                 self.pan_move(xy),
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
             elif 3 in event.buttons:
                 self.quickzoom_move(xy)
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
             if not event.modifiers:
                 xy = event.x, event.y
                 d = event.dy or event.dx
                 f = 2 ** (-d * 0.0015)
                 self.zoom_to_point(f, xy, viewport)
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
             elif event.modifiers == ["Alt"]:
                 d = event.dy or event.dx
                 self.adjust_fov(-d / 10)
-                if self.auto_update:
-                    viewport.renderer.request_draw()
+                need_update = True
         elif type == "key_down":
             if event.key == "Escape":
                 pass  # todo: cancel camera action
+
+        if need_update and self.auto_update:
+            viewport.renderer.request_draw()
 
     # def show_object(self, camera, target):
     #     target_pos = camera.show_object(target, self.target.clone().sub(self._v), 1.2)

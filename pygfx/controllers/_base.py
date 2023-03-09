@@ -15,10 +15,12 @@ class Controller:
     and to convert user (mouse) events into camera adjustments.
     """
 
-    def __init__(self, camera=None):
+    def __init__(self, camera=None, *, enabled=True, auto_update=True):
         self._cameras = []
         if camera is not None:
             self.add_camera(camera)
+        self.enabled = enabled
+        self.auto_update = auto_update
 
     @property
     def cameras(self):
@@ -42,6 +44,24 @@ class Controller:
             raise TypeError("Controller.remove_camera expects a Camera object.")
         while camera in self._cameras:
             self._cameras.remove(camera)
+
+    @property
+    def enabled(self):
+        """Whether the controller responds to events."""
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self._enabled = bool(value)
+
+    @property
+    def auto_update(self):
+        """Whether the controller automatically requests a new draw at the canvas."""
+        return self._auto_update
+
+    @auto_update.setter
+    def auto_update(self, value):
+        self._auto_update = bool(value)
 
     def _get_target_vec(self, camera_state, **kwargs):
         rotation = kwargs.get("rotation", camera_state["rotation"])
