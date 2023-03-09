@@ -20,12 +20,9 @@ class OrthographicCamera(GenericCamera):
 
     _fov_range = 0, 0
 
-    def __init__(self, width, height, maintain_aspect=True):
+    def __init__(self, width=1, height=1, maintain_aspect=True):
         super().__init__(0)
 
         self.width = width
         self.height = height
         self.maintain_aspect = maintain_aspect
-
-    def __repr__(self) -> str:
-        return f"OrthographicCamera({self.width}, {self.height})"

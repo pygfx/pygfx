@@ -45,9 +45,6 @@ class GenericCamera(Camera):
         self.set_view_size(1, 1)
         self.update_projection_matrix()
 
-    def __repr__(self) -> str:
-        return f"GenericCamera({self.fov}, {self.aspect}, {self.extent})"
-
     @property
     def fov(self):
         """The field of view (in degrees), between 0-179."""
@@ -181,8 +178,8 @@ class GenericCamera(Camera):
             near, far = self._get_near_and_far_plane()
             size = 2 * near * tan(pi / 180 * 0.5 * self.fov) / self.zoom
             # Pre-apply the reference aspect ratio
-            width = size * self.aspect**0.5
-            height = size / self.aspect**0.5
+            height = 2 * size / (1 + self.aspect)
+            width = height * self.aspect
             # Increase eihter the width or height, depending on the view size
             if not self._maintain_aspect:
                 pass
@@ -235,69 +232,172 @@ class GenericCamera(Camera):
             )
             self.projection_matrix_inverse.get_inverse(self.projection_matrix)
 
-    def show_object(
-        self, target: WorldObject, view_dir=(-1, -1, -1), *, up=None, size_weight=2
-    ):
-        """Position the camera such that the given world object in is in view.
+    def look_at(self, target, *, up=None):
+        """Look at the given position or object, without changing the camera's position.
 
         Parameters
         ----------
-        target: WorldObject
+        target: WorldObject or a position (x, y, z)
+            The target to point the camera towards.
+        up: 3-tuple
+            If given, also sets the up vector of the camera.
+        """
+
+        # Get pos from target
+        if isinstance(target, WorldObject):
+            pos = target.position.to_array()
+        elif isinstance(target, (tuple, list, np.ndarray)) and len(target) in (3, 4):
+            pos = tuple(target)[:3]
+        else:
+            raise TypeError(
+                "look_at target must be a WorldObject, or a (x, y, z) tuple."
+            )
+
+        # Look at the provided position, taking up into account
+        if up is not None:
+            self.up = up
+        super().look_at(pos)
+
+        # Also set the extent. This way, a user can position the camera,
+        # use look_at to point it at the center of the scene, attach a controller,
+        # and everything works! Oh, and the near and far plane are also set this way.
+        distance = la.vector_distance_between(target, self.position.to_array())
+        self.extent = extent_from_fov_and_distance(self.fov, distance)
+
+    def show_object(
+        self, target: WorldObject, view_dir=None, *, up=None, size_weight=2
+    ):
+        """Position and orient the camera such that the given WorldObject in is in view.
+
+        This method is mainly intended for viewing 3D data. For 2D data
+        it is not uncommon that the margins may feel somewhat large.
+
+        Parameters
+        ----------
+        target: WorldObject or a sphere (x, y, z, r)
             The object to look at.
-        view_dir: 3-tuple of float or Vector3
-            Look at the object from this direction.
-        up: 3-tuple of float or Vector3
-            Also set the up vector.
+        view_dir: 3-tuple of float
+            Look at the object from this direction. If not given or None,
+            uses the current view direction.
+        up: 3-tuple
+            Sets the up vector of the camera. If not given or None, the
+            up property is not changed.
         size_weight: float
             How much extra space the camera must show.
             The target's bounding sphere radius is multiplied by this weight.
             Default 2. If you know your data is square and you look at it frontally,
             you can set it to 1.5.
 
-        Returns:
-            pos: Vector3
-                The world coordinate the camera is looking at.
         """
 
-        view_dir = tuple(view_dir)
-        if len(view_dir) == 1:
-            raise TypeError(f"Expected view_dir to be tuple, not {view_dir[0]}")
-        elif len(view_dir) != 3:
-            raise ValueError("Expected view_dir to be a tuple of 3 floats.")
-
+        # Get bounding sphere from target
         if isinstance(target, WorldObject):
             bsphere = target.get_world_bounding_sphere()
             if bsphere is None:
-                pos = target.get_world_position().to_array()
-                bsphere = tuple(pos) + (1,)
+                raise ValueError(
+                    "Given target does not have a bounding sphere, you should probably just provide a sphere (x, y, z, r) yourself."
+                )
         elif isinstance(target, (tuple, list, np.ndarray)) and len(target) == 4:
             bsphere = tuple(target)
         else:
             raise TypeError(
-                "show_object target must be a world object, or a (x, y, z, radius) tuple."
+                "show_object target must be a WorldObject, or a (x, y, z, radius) tuple."
             )
+
+        # Obtain view direction
+        if view_dir is None:
+            rotation = self.rotation.to_array()
+            view_dir = la.quaternion_rotate((0, 0, -1), rotation)
+        elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
+            view_dir = tuple(view_dir)
+        else:
+            raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
+        view_dir = la.vector_normalize(view_dir)
+
+        # Do the math ...
 
         view_pos = bsphere[:3]
         radius = bsphere[3]
         extent = radius * size_weight
         distance = distance_from_fov_and_extent(self.fov, extent)
 
-        camera_pos = view_pos - la.vector_normalize(view_dir) * distance
-
-        if up is not None:
-            self.up = up
+        camera_pos = view_pos - view_dir * distance
 
         self.position.set(*camera_pos)
-        self.look_at(view_pos)
+        self.look_at(view_pos, up=up)
         self.extent = extent
 
-        return view_pos
+    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
+        """Position and orient the camera such that the given rectangle in is in view.
+
+        The rectangle represents a plane in world coordinates, centered
+        at the origin of the world, and rotated to be orthogonal to the
+        view_dir.
+
+        This method is mainly intended for viewing 2D data, especially
+        when `maintain_aspect` is set to False, and is convenient
+        for setting the initial view before attaching a PanZoomController.
+
+        Parameters
+        ----------
+        left: float
+            The left boundary of the plane to show.
+        right: float
+            The right boundary of the plane to show.
+        top: float
+             The top boundary of the plane to show.
+        bottom: float
+             The bottom boundary of the plane to show.
+        view_dir: 3-tuple of float
+            Look at the rectang;e from this direction. If not given or None,
+            uses the current view direction.
+        up: 3-tuple
+            Sets the up vector of the camera. If not given or None, the
+            up property is not changed.
+
+        """
+
+        # Obtain view direction
+        if view_dir is None:
+            rotation = self.rotation.to_array()
+            view_dir = la.quaternion_rotate((0, 0, -1), rotation)
+        elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
+            view_dir = tuple(view_dir)
+        else:
+            raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
+        view_dir = la.vector_normalize(view_dir)
+
+        # Set bounds (note that this implicitly sets extent and aspect)
+        self.width = right - left
+        self.height = bottom - top
+        # extent = (self.width**2 + self.height ** 2)**0.5
+        # First move so we view towards the origin with the correct vector
+        distance = distance_from_fov_and_extent(self.fov, self.extent)
+        camera_pos = (0, 0, 0) - view_dir * distance
+        self.position.set(*camera_pos)
+        self.look_at((0, 0, 0), up=up)
+
+        # Now we have a rotation that we can use to orient our rect
+        position = self.position.to_array()
+        rotation = self.rotation.to_array()
+
+        offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
+        new_position = position + la.quaternion_rotate(offset, rotation)
+        self.position.set(*new_position)
+
+
+def fov_distance_factor(fov):
+    if fov > 0:
+        fov_rad = fov * pi / 180
+        return 0.5 / tan(0.5 * fov_rad)
+    else:
+        return 1.0
 
 
 def distance_from_fov_and_extent(fov, extent):
     # It's important that controller and camera use the same distance calculations,
-    if fov > 0:
-        fov_rad = fov * pi / 180
-        return 0.5 * extent / tan(0.5 * fov_rad)
-    else:
-        return extent * 1.0
+    return extent * fov_distance_factor(fov)
+
+
+def extent_from_fov_and_distance(fov, distance):
+    return distance / fov_distance_factor(fov)

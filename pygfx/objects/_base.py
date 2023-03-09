@@ -476,11 +476,11 @@ class WorldObject(EventTarget, RootTrackable):
         The object's up-vector is taken into account as well.
         By default all objects look at (0, 0, 1).
         """
-        if isinstance(target, (tuple, list, np.ndarray)) and len(target) == 3:
-            target = Vector3(*target)
         self._look_at(target, self.up, False)
 
     def _look_at(self, target, up, is_light_or_cam):
+        if isinstance(target, (tuple, list, np.ndarray)) and len(target) == 3:
+            target = Vector3(*target)
         # Lower level look_at
         self.update_matrix_world(update_parents=True, update_children=False)
         self._v.set_from_matrix_position(self._matrix_world)

@@ -1,6 +1,4 @@
-import numpy as np
-
-from ..linalg import Matrix4, Vector3
+from ..linalg import Matrix4
 from ..objects._base import WorldObject
 
 
@@ -50,8 +48,6 @@ class Camera(WorldObject):
 
     def look_at(self, target):
         # Camera's and lights look in -Z!
-        if isinstance(target, (tuple, list, np.ndarray)) and len(target) == 3:
-            target = Vector3(*target)
         self._look_at(target, self.up, True)
 
 

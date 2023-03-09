@@ -11,7 +11,7 @@ class BasePanZoomController(Controller):
 
     # This class helps make ``isinstance(an_orbit_controller, PanZoomController) == False``.
 
-    def __init__(self, camera, *, enabled=True, auto_update=True) -> None:
+    def __init__(self, camera=None, *, enabled=True, auto_update=True) -> None:
         super().__init__(camera, enabled=enabled, auto_update=auto_update)
 
         # State info used during pan/zoom operations

@@ -24,6 +24,3 @@ class PerspectiveCamera(GenericCamera):
 
     def __init__(self, fov=50, aspect=1, extent=1):
         super().__init__(fov, aspect, extent)
-
-    def __repr__(self) -> str:
-        return f"PerspectiveCamera({self.fov}, {self.aspect}, {self.extent})"

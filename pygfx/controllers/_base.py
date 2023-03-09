@@ -75,9 +75,6 @@ class Controller:
     def handle_event(self, event, viewport, camera):
         raise NotImplementedError()
 
-    # def show_object(self, camera, target):
-    #     raise NotImplementedError()
-
     def add_default_event_handlers(self, viewport: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
         Needs either a viewport or renderer.

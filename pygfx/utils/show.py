@@ -16,7 +16,7 @@ from ..objects import (
     Light,
 )
 
-from ..cameras import Camera, PerspectiveCamera
+from ..cameras import Camera, GenericCamera
 from ..controllers import OrbitController
 from ..materials import BackgroundMaterial
 from ..renderers import WgpuRenderer
@@ -80,7 +80,6 @@ class Display:
         if self.before_render is not None:
             self.before_render()
 
-        self.controller.update_camera(self.camera)
         self.renderer.render(self.scene, self.camera)
 
         if self.after_render is not None:
@@ -122,6 +121,8 @@ class Display:
                 "Can not show a closed canvas. Did you repeatedly call `show`?"
             )
 
+        # Process scene
+
         if isinstance(object, Scene):
             custom_scene = False
             scene = object
@@ -135,7 +136,7 @@ class Display:
 
             background = Background(None, BackgroundMaterial(light_gray, dark_gray))
             scene.add(background)
-            scene.add(AmbientLight(), DirectionalLight())
+            scene.add(AmbientLight())
         self.scene = scene
 
         if not any(scene.iter(lambda x: isinstance(x, Light))):
@@ -143,17 +144,7 @@ class Display:
                 "Your scene does not contain any lights. Some objects may not be visible"
             )
 
-        existing_camera = next(scene.iter(lambda x: isinstance(x, Camera)), None)
-        if self.camera:
-            pass
-        elif existing_camera is not None:
-            self.camera = existing_camera
-        elif custom_scene:
-            self.camera = PerspectiveCamera(70, 16 / 9)
-            self.camera.add(DirectionalLight())
-            self.scene.add(self.camera)
-        else:
-            self.camera = PerspectiveCamera(70, 16 / 9)
+        # Process renderer
 
         if self.renderer is None and self.canvas is None:
             from wgpu.gui.auto import WgpuCanvas
@@ -169,12 +160,29 @@ class Display:
         else:
             pass
 
+        # Process camera
+
+        existing_camera = next(scene.iter(lambda x: isinstance(x, Camera)), None)
+        if self.camera:
+            pass
+        elif existing_camera is not None:
+            self.camera = existing_camera
+        else:
+            self.camera = GenericCamera(70, 4 / 3)
+            self.camera.show_object(object, up=up, size_weight=2.7)
+        if custom_scene:
+            cam_has_light = next(self.camera.iter(lambda x: isinstance(x, Light)), None)
+            if not cam_has_light:
+                self.camera.add(DirectionalLight())
+            self.scene.add(self.camera)
+
+        # Process controller
+
         if self.controller is None:
-            look_at = self.camera.show_object(object)
-            self.controller = OrbitController(
-                self.camera.position.clone(), look_at, up=up
-            )
-            self.controller.add_default_event_handlers(self.renderer, self.camera)
+            self.controller = OrbitController()
+            self.controller.add_default_event_handlers(self.renderer)
+        if not self.controller.cameras:
+            self.controller.add_camera(self.camera)
 
         self.canvas.request_draw(self.draw_function)
         sys.modules[self.canvas.__module__].run()
