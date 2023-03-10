@@ -16,15 +16,22 @@ class OrthographicCamera(PerspectiveCamera):
         may be height if the viewport is relatively heigh.
     zoom: float
         An additional zoom factor, equivalent to attaching a zoom lens.
-    maintain_aspect : bool
+    maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
-
+    depth_range: 2-tuple
+        The values for the near and far clipping planes. If not given
+        or None, the clip planes will be calculated automatically based
+        on the fov and extent.
     """
 
     _fov_range = 0, 0
 
-    def __init__(self, width=1, height=1, *, zoom=1, maintain_aspect=True):
-        super().__init__(0, zoom=zoom, maintain_aspect=maintain_aspect)
+    def __init__(
+        self, width=1, height=1, *, zoom=1, maintain_aspect=True, depth_range=None
+    ):
+        super().__init__(
+            0, zoom=zoom, maintain_aspect=maintain_aspect, depth_range=depth_range
+        )
         self.width = width
         self.height = height

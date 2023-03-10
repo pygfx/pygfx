@@ -27,14 +27,20 @@ class PerspectiveCamera(Camera):
         determine what is being looked at.
     zoom: float
         An additional zoom factor, equivalent to attaching a zoom lens.
-    maintain_aspect : bool
+    maintain_aspect: bool
         Whether the aspect ration is maintained as the window size changes.
         Default True. If false, the dimensions are stretched to fit the window.
+    depth_range: 2-tuple
+        The values for the near and far clipping planes. If not given
+        or None, the clip planes will be calculated automatically based
+        on the fov and extent.
     """
 
     _fov_range = 0, 179
 
-    def __init__(self, fov, aspect=1, extent=1, *, zoom=1, maintain_aspect=True):
+    def __init__(
+        self, fov, aspect=1, extent=1, *, zoom=1, maintain_aspect=True, depth_range=None
+    ):
         super().__init__()
 
         self.fov = fov
@@ -44,6 +50,7 @@ class PerspectiveCamera(Camera):
         self.extent = extent
         self.zoom = zoom
         self.maintain_aspect = maintain_aspect
+        self.depth_range = depth_range
 
         self.set_view_size(1, 1)
         self.update_projection_matrix()
@@ -136,6 +143,51 @@ class PerspectiveCamera(Camera):
     def maintain_aspect(self, value):
         self._maintain_aspect = bool(value)
 
+    @property
+    def depth_range(self):
+        """The values for the near and far clip planes. If None, these values
+        are calculated from fov and extent.
+        """
+        return self._depth_range
+
+    @depth_range.setter
+    def depth_range(self, value):
+        if value is None:
+            self._depth_range = None
+        elif isinstance(value, (tuple, list)) and len(value) == 2:
+            self._depth_range = float(value[0]), float(value[1])
+        else:
+            raise TypeError("depth_range must be None or a 2-tuple.")
+
+    def _get_near_and_far_plane(self):
+        if self._depth_range:
+            return self._depth_range
+        elif self.fov > 0:
+            # Take the distance that the camera is likely from the objects being viewed
+            # Scale with a factor 1000
+            extent = self.extent
+            d = distance_from_fov_and_extent(self.fov, extent)
+            return d / 1000, d + 1000 * extent
+        else:
+            d = self.extent
+            return -449 * d, 501 * d
+
+    @property
+    def near(self):
+        """The location of the near clip plane.
+        Use `depth_range` so overload the computed value, if necessary.
+        """
+        near, far = self._get_near_and_far_plane()
+        return near
+
+    @property
+    def far(self):
+        """The location of the far clip plane.
+        Use `depth_range` so overload the computed value, if necessary.
+        """
+        near, far = self._get_near_and_far_plane()
+        return far
+
     def get_state(self):
         return {
             "position": tuple(self.position.to_array()),
@@ -147,6 +199,7 @@ class PerspectiveCamera(Camera):
             "height": self.height,
             "zoom": self.zoom,
             "maintain_aspect": self.maintain_aspect,
+            "depth_range": self.depth_range,
         }
 
     def set_state(self, state):
@@ -160,20 +213,12 @@ class PerspectiveCamera(Camera):
         if "up" in state:
             self.up.set(*state["up"])
         # Set simple props
-        for key in ("fov", "width", "height", "zoom", "maintain_aspect"):
+        for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
             if key in state:
                 setattr(self, key, state[key])
 
     def set_view_size(self, width, height):
         self._view_aspect = width / height
-
-    def _get_near_and_far_plane(self):
-        if self.fov > 0:
-            d = self.extent * 45 / self.fov
-            return d / 1000, 1000 * d
-        else:
-            d = self.extent
-            return -500 * d, 500 * d
 
     def update_projection_matrix(self):
         if self.fov > 0:
