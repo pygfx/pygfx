@@ -83,7 +83,7 @@ class ShadowUtil:
             },
             primitive={
                 "topology": wgpu.PrimitiveTopology.triangle_list,
-                "cull_mode": "front",
+                "cull_mode": "none",
             },
             depth_stencil={
                 "format": wgpu.TextureFormat.depth32float,
