@@ -5,9 +5,12 @@ from ._base import Controller, get_screen_vectors_in_world_cords
 
 
 class PanZoomController(Controller):
-    """A controller to pan and zoom a camera in a 2D plane."""
+    """A controller to pan and zoom a camera in a 2D plane.
 
-    # This class helps make ``isinstance(an_orbit_controller, PanZoomController) == False``.
+    Supports panning parallel to the screen, zooming
+    (also anisotropic if ``camera.maintain_aspect==False``).
+
+    """
 
     def __init__(self, camera=None, *, enabled=True, auto_update=True) -> None:
         super().__init__(camera, enabled=enabled, auto_update=auto_update)
@@ -53,6 +56,8 @@ class PanZoomController(Controller):
         # Note: cannot pan in "controller space" (i.e. using 2D coords)
         # because we need the screen size for get_screen_vectors_in_world_cords,
         # and we only have that via an event.
+        # -> the camera does have width/height of the viewport ...
+        # -> let's revisit when we have viewport etc. figured out?
 
         if self._cameras:
             camera = self._cameras[0]

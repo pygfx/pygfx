@@ -17,3 +17,11 @@
 from ._base import Camera, NDCCamera, ScreenCoordsCamera
 from ._perspective import PerspectiveCamera
 from ._orthographic import OrthographicCamera
+
+__all__ = [
+    "Camera",
+    "NDCCamera",
+    "ScreenCoordsCamera",
+    "PerspectiveCamera",
+    "OrthographicCamera",
+]

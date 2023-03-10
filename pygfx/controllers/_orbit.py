@@ -8,7 +8,8 @@ from ._base import Controller
 from ._panzoom import PanZoomController
 
 
-def get_axis_aligned_up_vector(up):
+def _get_axis_aligned_up_vector(up):
+    # Not actually used, but I have a feeling we might need it at some point :)
     ref_up, largest_dot = None, 0
     for up_vec in [(1, 0, 0), (0, 1, 0), (0, 0, 1), (-1, 0, 0), (0, -1, 0), (0, 0, -1)]:
         up_vec = np.array(up_vec)
@@ -20,6 +21,8 @@ def get_axis_aligned_up_vector(up):
 
 class OrbitController(PanZoomController):
     """A controller to move a camera in an orbit around a center position.
+
+    Supports panning parallel to the screen, zooming, orbiting.
 
     The direction of rotation is defined such that it feels like you're
     grabbing onto something in the foreground; if you move the mouse
@@ -57,7 +60,7 @@ class OrbitController(PanZoomController):
 
         # # Get a reference vector, that is orthogonal to up, in a deterministic way.
         # # Might need this if we ever want the azimuth
-        # aligned_up = get_axis_aligned_up_vector(up)
+        # aligned_up = _get_axis_aligned_up_vector(up)
         # orthogonal_vec = np.cross(up, np.roll(aligned_up, 1))
 
         # Get current elevation, so we can clip it.

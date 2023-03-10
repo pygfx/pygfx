@@ -64,6 +64,7 @@ class Controller:
         self._auto_update = bool(value)
 
     def _get_target_vec(self, camera_state, **kwargs):
+        """Method used by the controler implementations to determine the "target"."""
         rotation = kwargs.get("rotation", camera_state["rotation"])
         extent = 0.5 * (camera_state["width"] + camera_state["height"])
         extent = kwargs.get("extent", extent)

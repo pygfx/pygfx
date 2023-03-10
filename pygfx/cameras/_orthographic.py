@@ -4,7 +4,7 @@ from ._perspective import PerspectiveCamera
 class OrthographicCamera(PerspectiveCamera):
     """An orthographic camera, useful for orthograpic views and 2D content.
 
-    This is really just a PerspectiveCamera with the fov locked to zero.
+    Technically, this is a PerspectiveCamera with the fov locked to zero.
 
     Parameters
     ----------
