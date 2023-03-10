@@ -303,6 +303,7 @@ events by connecting it to the renderer or a viewport.
 
 There are currently two controllers: the :class:`~pygfx.controllers.PanZoomController`
 is for 2D content or in-plane visualization, and the :class:`~pygfx.controllers.OrbitController` is for 3D content.
+All controllers work with both perspective and orthographic cameras.
 
 
 Colors
