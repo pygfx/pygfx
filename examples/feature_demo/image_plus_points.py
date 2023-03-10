@@ -36,7 +36,7 @@ points = gfx.Points(
 )
 scene.add(points)
 
-camera = gfx.GenericCamera(0)
+camera = gfx.PerspectiveCamera(0)
 camera.scale.y = -1
 camera.show_object(scene)
 

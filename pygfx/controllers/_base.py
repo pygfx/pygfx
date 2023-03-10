@@ -4,8 +4,8 @@ import pylinalg as la
 
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
-from ..cameras import Camera, GenericCamera
-from ..cameras._generic import distance_from_fov_and_extent
+from ..cameras import Camera, PerspectiveCamera
+from ..cameras._perspective import distance_from_fov_and_extent
 
 
 class Controller:
@@ -31,9 +31,9 @@ class Controller:
         """Add a camera to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
-        if not isinstance(camera, (GenericCamera)):
+        if not isinstance(camera, PerspectiveCamera):
             raise TypeError(
-                "Controller.add_camera expects a generic, orthographic or perspective camera."
+                "Controller.add_camera expects a perspective or orthographic camera."
             )
         self.remove_camera(camera)
         self._cameras.append(camera)

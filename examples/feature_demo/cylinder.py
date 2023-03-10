@@ -54,8 +54,8 @@ for pos, color, geometry in cylinders:
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.set(0, 50, 50)
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera)
+controller.add_default_event_handlers(renderer)
 
 scene.add(gfx.AmbientLight())
 light = gfx.PointLight(position=(0, 70, 0))
@@ -72,7 +72,6 @@ scene.add(ground)
 
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
 
 

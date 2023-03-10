@@ -6,7 +6,6 @@
     Camera
     NDCCamera
     ScreenCoordsCamera
-    GenericCamera
     PerspectiveCamera
     OrthographicCamera
 
@@ -15,6 +14,5 @@
 # flake8: noqa
 
 from ._base import Camera, NDCCamera, ScreenCoordsCamera
-from ._generic import GenericCamera
 from ._perspective import PerspectiveCamera
 from ._orthographic import OrthographicCamera

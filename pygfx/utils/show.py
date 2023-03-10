@@ -16,7 +16,7 @@ from ..objects import (
     Light,
 )
 
-from ..cameras import Camera, GenericCamera
+from ..cameras import Camera, PerspectiveCamera
 from ..controllers import OrbitController
 from ..materials import BackgroundMaterial
 from ..renderers import WgpuRenderer
@@ -168,7 +168,7 @@ class Display:
         elif existing_camera is not None:
             self.camera = existing_camera
         else:
-            self.camera = GenericCamera(70, 4 / 3)
+            self.camera = PerspectiveCamera(70, 4 / 3)
             self.camera.show_object(object, up=up, size_weight=2.7)
         if custom_scene:
             cam_has_light = next(self.camera.iter(lambda x: isinstance(x, Light)), None)
