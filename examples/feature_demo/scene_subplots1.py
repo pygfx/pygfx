@@ -29,7 +29,7 @@ material1 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1.0))
 cube1 = gfx.Mesh(geometry1, material1)
 scene1.add(cube1)
 
-camera1 = gfx.PerspectiveCamera(70, 16 / 9)
+camera1 = gfx.PerspectiveCamera(70, 16 / 9, 200)
 camera1.position.z = 400
 scene1.add(camera1.add(gfx.DirectionalLight()))
 

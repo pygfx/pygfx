@@ -290,6 +290,8 @@ class PerspectiveCamera(Camera):
             pos = target.position.to_array()
         elif isinstance(target, (tuple, list, np.ndarray)) and len(target) in (3, 4):
             pos = tuple(target)[:3]
+        elif hasattr(target, "to_array"):
+            pos = target.to_array()
         else:
             raise TypeError(
                 "look_at target must be a WorldObject, or a (x, y, z) tuple."
@@ -303,7 +305,7 @@ class PerspectiveCamera(Camera):
         # Also set the extent. This way, a user can position the camera,
         # use look_at to point it at the center of the scene, attach a controller,
         # and everything works! Oh, and the near and far plane are also set this way.
-        distance = la.vector_distance_between(target, self.position.to_array())
+        distance = la.vector_distance_between(pos, self.position.to_array())
         self.extent = extent_from_fov_and_distance(self.fov, distance)
 
     def show_object(

@@ -38,7 +38,7 @@ scene.add(points)
 
 camera = gfx.PerspectiveCamera(0)
 camera.scale.y = -1
-camera.show_object(scene)
+camera.show_rect(-10, 522, -10, 522)
 
 controller = gfx.PanZoomController(camera)
 controller.add_default_event_handlers(renderer)

@@ -57,13 +57,13 @@ for axis in [0, 1, 2]:
     # else: XY plane
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera = gfx.OrthographicCamera(200, 200)
-
+camera = gfx.PerspectiveCamera(0)
 camera.up = 0, 0, 1
-camera.position.set(125, 125, 125)
-camera.look_at(gfx.linalg.Vector3())
+camera.position.set(200, 200, 200)
+camera.look_at((0, 0, 0))
+
 controller = gfx.OrbitController(camera)
-controller.add_default_event_handlers(renderer, camera)
+controller.add_default_event_handlers(renderer)
 
 
 def animate():
