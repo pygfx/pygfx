@@ -304,6 +304,33 @@ class PanZoomController(Controller):
 
         return self
 
+    def adjust_fov(self, delta: float):
+        """Adjust the field of view with the given delta value (Limited to [1, 179])."""
+        if self._cameras:
+            camera = self._cameras[0]
+
+            # Get current state
+            camera_state = camera.get_state()
+            position = camera_state["position"]
+            fov = camera_state["fov"]
+
+            # Update fov and position
+            new_fov = min(max(fov + delta, camera._fov_range[0]), camera._fov_range[1])
+            pos2target1 = self._get_target_vec(camera_state, fov=fov)
+            pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
+            new_position = position + pos2target1 - pos2target2
+
+            # Apply to cameras
+            new_camera_state = {
+                **camera_state,
+                "fov": new_fov,
+                "position": new_position,
+            }
+            for camera in self._cameras:
+                camera.set_state(new_camera_state)
+
+        return self
+
     def handle_event(self, event, viewport):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
