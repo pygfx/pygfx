@@ -560,7 +560,7 @@ class SpotLightShadow(LightShadow):
     """Shadow map utility for spot light sources."""
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(50, 1, 1))
+        super().__init__(PerspectiveCamera(50))
         self._focus = 1
 
     def _update_matrix(self, light):
@@ -569,12 +569,12 @@ class SpotLightShadow(LightShadow):
         fov = 180 / math.pi * 2 * light.angle * self._focus
 
         aspect = 1
-        far = light.distance or camera.far
+        far = (light.distance * 10) or camera.far
 
         if fov != camera.fov or far != camera.far:
             camera.fov = fov
             camera.aspect = aspect
-            camera.far = far
+            camera.depth_range = far / 1000000, far
             camera.update_projection_matrix()
 
         super()._update_matrix(light)
@@ -602,7 +602,7 @@ class PointLightShadow(LightShadow):
     ]
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(90, 1, 1))
+        super().__init__(PerspectiveCamera(90))
 
         self._gfx_matrix_buffer = []
 
@@ -614,10 +614,10 @@ class PointLightShadow(LightShadow):
     def _update_matrix(self, light: Light) -> None:
         camera = self.camera
 
-        far = light.distance or camera.far
+        far = (light.distance * 10) or camera.far
 
         if far != camera.far:
-            camera.far = far
+            camera.depth_range = far / 1000000, far
             camera.update_projection_matrix()
 
         for i in range(6):

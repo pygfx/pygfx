@@ -12,7 +12,7 @@ def test_otho_camera_near_far():
         (-400, -300),
         (300, 500),
     ]:
-        camera = gfx.OrthographicCamera(20, 20, near, far)
+        camera = gfx.OrthographicCamera(20, 20, depth_range=(near, far))
         camera.update_projection_matrix()
         assert camera.near == near
         assert camera.far == far
@@ -27,7 +27,7 @@ def test_perspective_camera_near_far():
         (200, 300),
         (490, 500),
     ]:
-        camera = gfx.PerspectiveCamera(50, 1, near, far)
+        camera = gfx.PerspectiveCamera(50, 1, depth_range=(near, far))
         camera.update_projection_matrix()
         assert camera.near == near
         assert camera.far == far
@@ -35,7 +35,7 @@ def test_perspective_camera_near_far():
 
 
 def test_generic_camera_change_extend():
-    camera = gfx.GenericCamera(0)
+    camera = gfx.PerspectiveCamera(0)
     camera._width = 100
     camera._height = 200
 
@@ -54,7 +54,7 @@ def test_generic_camera_change_extend():
 
 
 def test_generic_camera_change_aspect():
-    camera = gfx.GenericCamera(0)
+    camera = gfx.PerspectiveCamera(0)
     camera._width = 100
     camera._height = 200
 

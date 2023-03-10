@@ -118,7 +118,7 @@ class BasePanZoomController(Controller):
         """Zoom the view with the given multiplier.
 
         Note that this sets the camera's width/height for an orthographic camera,
-        and distance from target for the perpective camera.
+        and distance from target for the perspective camera.
         """
         if self._cameras:
             camera = self._cameras[0]
@@ -186,7 +186,7 @@ class BasePanZoomController(Controller):
         """Start a zoom operation.
 
         Note that this sets the camera's width/height for an orthographic camera,
-        and distance from target for the perpective camera.
+        and distance from target for the perspective camera.
         """
         if self._cameras:
             camera = self._cameras[0]
