@@ -99,3 +99,6 @@ sphinx_gallery_conf = {
 html_static_path = ["_static"]
 html_favicon = "_static/pygfx.ico"
 html_logo = "_static/pygfx.svg"
+
+if not (os.getenv("READTHEDOCS") or os.getenv("CI")):
+    html_theme = "sphinx_rtd_theme"
