@@ -33,7 +33,6 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.cameras.Camera
     ~pygfx.cameras.NDCCamera
     ~pygfx.cameras.ScreenCoordsCamera
-    ~pygfx.cameras.GenericCamera
     ~pygfx.cameras.PerspectiveCamera
     ~pygfx.cameras.OrthographicCamera
 

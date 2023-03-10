@@ -5,7 +5,7 @@ import pylinalg as la
 
 from ..utils.viewport import Viewport
 from ._base import Controller
-from ._panzoom import BasePanZoomController
+from ._panzoom import PanZoomController
 
 
 def get_axis_aligned_up_vector(up):
@@ -18,7 +18,7 @@ def get_axis_aligned_up_vector(up):
     return ref_up
 
 
-class OrbitController(BasePanZoomController):
+class OrbitController(PanZoomController):
     """A controller to move a camera in an orbit around a center position.
 
     The direction of rotation is defined such that it feels like you're

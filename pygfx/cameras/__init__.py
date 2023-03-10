@@ -2,6 +2,7 @@
 
 .. autosummary::
     :toctree: cameras/
+    :template: ../_templates/custom_layout.rst
 
     Camera
     NDCCamera

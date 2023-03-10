@@ -4,10 +4,8 @@ from ..utils.viewport import Viewport
 from ._base import Controller, get_screen_vectors_in_world_cords
 
 
-class BasePanZoomController(Controller):
-    """Controller that implements panning and zooming, forming the basis for
-    the PanZoom and the Orbit controllers.
-    """
+class PanZoomController(Controller):
+    """A controller to pan and zoom a camera in a 2D plane."""
 
     # This class helps make ``isinstance(an_orbit_controller, PanZoomController) == False``.
 
@@ -305,10 +303,6 @@ class BasePanZoomController(Controller):
             self._pan(vec3, self._quickzoom_info2)
 
         return self
-
-
-class PanZoomController(BasePanZoomController):
-    """A controller to move a camera in a 2D plane."""
 
     def handle_event(self, event, viewport):
         """Implements a default interaction mode that consumes wgpu autogui events

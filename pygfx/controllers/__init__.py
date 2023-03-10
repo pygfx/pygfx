@@ -7,6 +7,7 @@ independent of any GUI toolkits.
 
 .. autosummary::
     :toctree: controllers/
+    :template: ../_templates/custom_layout.rst
 
     Controller
     PanZoomController
