@@ -247,7 +247,7 @@ The second argument is the aspect ratio. A window on screen is usually a rectang
 with 4/3 or 16/9 aspect. The aspect can be set so the contents better fit the window.
 
 When the fov is zero, the camera operates in orthographic mode, where there is
-no perspective. In this case it'd be good to also specify a 3d argument: the extent
+no perspective. In this case it'd be good to also specify a 3rd argument: the extent
 specifies the size of the thing being viewed. So if your scene is about 400 units in size:
 
 .. code-block:: python
@@ -258,7 +258,7 @@ specifies the size of the thing being viewed. So if your scene is about 400 unit
 **Orthographic camera**
 
 The second camera of interest is the :class:`~pygfx.cameras.OrthographicCamera`. It's similar
-to the perspective camera, except it's fov is always zero. It can be instantiated like this:
+to the perspective camera, except its fov is always zero. It can be instantiated like this:
 
 .. code-block:: python
 
