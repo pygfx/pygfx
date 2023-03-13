@@ -79,9 +79,8 @@ light3.cast_shadow = True
 scene.add(light3)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.x = 0
-camera.position.y = 0
 camera.position.z = 350
+camera.show_pos((0, 0, 0))
 
 
 canvas.request_draw(lambda: renderer.render(scene, camera))

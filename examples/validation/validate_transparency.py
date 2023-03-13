@@ -15,11 +15,6 @@ canvas = WgpuCanvas(size=(600, 600))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 renderer.blend_mode = "weighted_plus"
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.set(30, 40, 50)
-camera.look_at(gfx.linalg.Vector3(0, 0, 0))
-
-
 scene = gfx.Scene()
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
@@ -41,6 +36,9 @@ t.position.set(0, 40, 0)
 
 scene.add(plane1, plane2, plane3, sphere, t)
 scene.add(gfx.AmbientLight(1, 1))
+
+camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera.show_object(scene, (-3, -4, -5))
 
 
 def animate():

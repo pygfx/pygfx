@@ -16,8 +16,8 @@ colors2 = ["#000000", "#333333", "#666666", "#999999", "#cccccc", "#ffffff"]
 
 canvas = WgpuCanvas()
 renderer = gfx.WgpuRenderer(canvas, gamma_correction=1.0)
-camera = gfx.OrthographicCamera(6, 2)
-camera.position.set(2.5, 1, 0)
+camera = gfx.OrthographicCamera()
+camera.show_rect(-0.5, 5.5, -0.5, 1.5)
 scene = gfx.Scene()
 
 plane = gfx.plane_geometry()
