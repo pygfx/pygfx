@@ -225,7 +225,7 @@ groups or cameras.) For each type of object there are typically a few
 different material classes, e.g. for meshes you have a
 ``MeshBasicMaterial`` that is not affected by lights, a
 ``MeshPhongMaterial`` that applies the Phong light model, and the
-``MeshStandardMaterial`` that implements the most realistic light model.
+``MeshStandardMaterial`` that implements a physically-based light model.
 Materials also have properties to tune things like color,
 line thickness, colormap, etc. Multiple world objects may share the same material
 object, so their appearance can be changed simultaneously.
