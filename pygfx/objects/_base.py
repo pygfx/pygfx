@@ -187,6 +187,27 @@ class WorldObject(EventTarget, RootTrackable):
         return self._root_tracker
 
     @property
+    def visible(self):
+        """Wheter is object is rendered or not. Default True."""
+        return self._store.visible
+
+    @visible.setter
+    def visible(self, visible):
+        self._store.visible = bool(visible)
+
+    @property
+    def render_order(self):
+        """This value allows the default rendering order of scene graph
+        objects to be controlled. Default 0. See ``Renderer.sort_objects``
+        for details.
+        """
+        return self._store.render_order
+
+    @render_order.setter
+    def render_order(self, value):
+        self._store.render_order = float(value)
+
+    @property
     def render_mask(self):
         """Indicates in what render passes to render this object:
 
@@ -230,6 +251,33 @@ class WorldObject(EventTarget, RootTrackable):
             raise TypeError(
                 f"WorldObject.render_mask must be int or str, not {type(value)}"
             )
+
+    @property
+    def geometry(self):
+        """The object's geometry, the data that defines (the shape of) this object."""
+        return self._store.geometry
+
+    @geometry.setter
+    def geometry(self, geometry):
+        self._store.geometry = geometry
+
+    @property
+    def receive_shadow(self):
+        """Whether this object receives shadows. Default False."""
+        return self._store.receive_shadow
+
+    @receive_shadow.setter
+    def receive_shadow(self, value):
+        self._store.receive_shadow = bool(value)
+
+    @property
+    def material(self):
+        """Wheter is object is rendered or not. Default True."""
+        return self._store.material
+
+    @material.setter
+    def material(self, material):
+        self._store.material = material
 
     @property
     def parent(self) -> "WorldObject":
