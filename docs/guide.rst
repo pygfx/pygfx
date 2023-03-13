@@ -219,9 +219,16 @@ Multiple world objects may share a geometry.
 
 **Materials**
 
-All visible world objects have a material. This material object defines the
-appearance of the object. Examples can be its color, how it behaves under lighting,
-what render-mode is applied, etc. Multiple world objects may share a material.
+All world objects that have an appearance, have a material that defines
+that apperance. (Objects that do not have an apperance are for example
+groups or cameras.) For each type of object there are typically a few
+different material classes, e.g. for meshes you have a
+``MeshBasicMaterial`` that is not affected by lights, a
+``MeshPhongMaterial`` that applies the Phong light model, and the
+``MeshStandardMaterial`` that implements the most realistic light model.
+Materials also have properties to tune things like color,
+line thickness, colormap, etc. Multiple world objects may share the same material
+object, so their appearance can be changed simultaneously.
 
 
 Cameras and controllers
