@@ -139,6 +139,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.transform = AffineTransform()
         self.cache = None
 
+        # @almarklein: Can we delete this one? It feels out of place.
         if position is not None:
             self.transform.position = position
 
