@@ -178,17 +178,20 @@ class PerspectiveCamera(Camera):
             raise TypeError("depth_range must be None or a 2-tuple.")
 
     def _get_near_and_far_plane(self):
+        # Dept range explicitly given?
         if self._depth_range:
             return self._depth_range
+
+        # Put 1000 units between the near and far plane, scaled by extent
         extent = 0.5 * (self._width + self._height)
         if self.fov > 0:
-            # Take the distance that the camera is likely from the objects being viewed
-            # Scale with a factor 1000
-            d = distance_from_fov_and_extent(self.fov, extent)
-            return d / 1000, d + 1000 * extent
+            # Scale near plane with the fov to compensate for the fact
+            # that with very small fov you're probably looking at something
+            # in the far distance.
+            f = fov_distance_factor(self.fov)
+            return (extent * f) / 1000, 1000 * extent
         else:
-            d = extent
-            return -449 * d, 501 * d
+            return -500 * extent, 500 * extent
 
     @property
     def near(self):
@@ -326,7 +329,7 @@ class PerspectiveCamera(Camera):
 
         # Update extent
         distance = la.vector_distance_between(pos, self.position.to_array())
-        self._set_extent(distance / distance_from_fov_and_extent(self.fov, 1))
+        self._set_extent(distance / fov_distance_factor(self.fov))
 
     def show_object(
         self, target: WorldObject, view_dir=None, *, up=None, size_weight=2
@@ -387,7 +390,7 @@ class PerspectiveCamera(Camera):
         view_pos = bsphere[:3]
         radius = bsphere[3]
         extent = radius * size_weight
-        distance = distance_from_fov_and_extent(self.fov, extent)
+        distance = fov_distance_factor(self.fov) * extent
 
         camera_pos = view_pos - view_dir * distance
 
@@ -443,7 +446,7 @@ class PerspectiveCamera(Camera):
         self.height = bottom - top
         extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
-        distance = distance_from_fov_and_extent(self.fov, extent)
+        distance = fov_distance_factor(self.fov) * extent
         camera_pos = (0, 0, 0) - view_dir * distance
         self.position.set(*camera_pos)
         self.look_at((0, 0, 0), up=up)
@@ -457,11 +460,11 @@ class PerspectiveCamera(Camera):
         self.position.set(*new_position)
 
 
-def distance_from_fov_and_extent(fov, extent):
+def fov_distance_factor(fov):
     # It's important that controller and camera use the same distance calculations
     if fov > 0:
         fov_rad = fov * pi / 180
         factor = 0.5 / tan(0.5 * fov_rad)
     else:
         factor = 1.0
-    return extent * factor
+    return factor

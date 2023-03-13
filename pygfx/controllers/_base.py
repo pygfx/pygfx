@@ -5,7 +5,7 @@ import pylinalg as la
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
 from ..cameras import Camera, PerspectiveCamera
-from ..cameras._perspective import distance_from_fov_and_extent
+from ..cameras._perspective import fov_distance_factor
 
 
 class Controller:
@@ -70,7 +70,7 @@ class Controller:
         extent = kwargs.get("extent", extent)
         fov = kwargs.get("fov", camera_state.get("fov"))
 
-        distance = distance_from_fov_and_extent(fov, extent)
+        distance = fov_distance_factor(fov) * extent
         return la.quaternion_rotate((0, 0, -distance), rotation)
 
     def handle_event(self, event, viewport, camera):

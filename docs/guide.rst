@@ -315,6 +315,21 @@ A similar method, geared towards 2D data is :func:`.show_rect()<pygfx.cameras.Pe
 in which you specify a rectangle instead of an object.
 
 
+**The near and far clip planes**
+
+Camera's cannot see infinitely far; they have a near and far clip plane. Only the space
+between these planes can be seen. To get a bit more technical, this space is mapped
+to a value between 0 and 1 (NDC coordinates), and this is converted to a depth value.
+Since the number of bits for depth values is limited, it's important for the near
+and far clip planes to have reasonable values, otherwise you may observe "z fighting",
+or objects may simply not be visible.
+
+If you use the recommended ``show`` methods mentioned above, the near
+and far plane are positioned about 1000 units apart, scaled with the
+mean of the camera's width and height. If needed, the clip planes can be
+specified explicitly using the ``depth_range`` property.
+
+
 **Controlling the camera**
 
 A controller allows you to interact with the camera using the mouse. You simply
