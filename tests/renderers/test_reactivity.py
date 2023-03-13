@@ -19,7 +19,7 @@ renderer1.blend_mode = "ordered1"
 renderer2.blend_mode = "weighted"
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.transform.position = (0, 0, 400)
 
 
 class Handler(logging.Handler):

@@ -1,9 +1,10 @@
 from math import pi
 from unittest.mock import Mock, call
 from weakref import ref
+import pylinalg as pla
+import numpy as np
 
 from pygfx import WorldObject
-from pygfx.linalg import Euler, Vector3, Quaternion
 
 
 def test_traverse():
@@ -57,58 +58,39 @@ def test_remove():
 
 def test_update_matrix():
     root = WorldObject()
-    root.position.set(3, 6, 8)
-    root.scale.set(1, 1.2, 1)
-    root.rotation.set_from_euler(Euler(pi / 2, 0, 0))
-    root.update_matrix()
+    root.transform.position = (3, 6, 8)
+    root.transform.scale = (1, 1.2, 1)
+    root.transform.rotation = pla.quaternion_make_from_euler_angles((pi / 2, 0, 0))
 
-    t, r, s = Vector3(), Quaternion(), Vector3()
-    root.matrix.decompose(t, r, s)
-    assert t == root.position
-    # todo: do somehting like np.allclose
-    # assert r == root.rotation  # close, but not quite the same
-    # assert s == root.scale
-    assert root.matrix_world_dirty
+    pos, rot, scale = pla.matrix_decompose(root.transform.matrix)
+    assert np.allclose(pos, root.transform.position)
+    assert np.allclose(rot, root.transform.rotation)
+    assert np.allclose(scale, root.transform.scale)
 
 
 def test_update_matrix_world():
     root = WorldObject()
-    root.position.set(-5, 8, 0)
-    root.rotation.set_from_euler(Euler(pi / 4, 0, 0))
-    root.update_matrix()
+    root.transform.position = (-5, 8, 0)
+    root.transform.rotation = pla.quaternion_make_from_euler_angles((pi / 4, 0, 0))
 
     child1 = WorldObject()
-    child1.position.set(0, 0, 5)
+    child1.transform.position = (0, 0, 5)
     root.add(child1)
 
     child2 = WorldObject()
-    child2.rotation.set_from_euler(Euler(0, -pi / 4, 0))
+    child2.transform.rotation = pla.quaternion_make_from_euler_angles((0, -pi / 4, 0))
     child1.add(child2)
 
-    objs = [root, child1, child2]
-    assert all(obj.matrix_world_dirty for obj in objs)
-
-    # test both updating parents and children
-    child1.update_matrix_world(update_parents=True)
-    assert all(not obj.matrix_world_dirty for obj in objs)
-
-    p = Vector3(10, 10, 10)
-    p.apply_matrix4(child2.matrix)
-    p.apply_matrix4(child1.matrix)
-    p.apply_matrix4(root.matrix)
-
-    x = Vector3(10, 10, 10)
-    x.apply_matrix4(child2.matrix_world)
+    expected = (
+        root.transform
+        @ child1.transform
+        @ child2.transform
+        @ pla.vector_make_homogeneous((10, 10, 10))
+    )
+    actual = child2.world_transform @ pla.vector_make_homogeneous((10, 10, 10))
 
     # if there is a difference it's a floating point error
-    assert Vector3().sub_vectors(p, x).length() < 0.00000000001
-
-    # reorganize such that child1 and 2 become siblings
-    child1.remove(child2)
-    root.add(child2)
-    assert not child1.matrix_world_dirty
-    # child2 should be flagged as dirty again now
-    assert child2.matrix_world_dirty
+    assert np.allclose(actual, expected)
 
 
 def test_reparenting():
@@ -158,28 +140,25 @@ def test_adjust_children_order():
 
     root.add(child1, child2)
 
-    assert root.children == (child1, child2)
+    expected_children = (child1, child2)
+    assert len(root.children) == len(expected_children)
+    for actual, expected in zip(root.children, expected_children):
+        assert actual == expected
 
     root.add(child2, before=child1)
 
-    assert root.children == (child2, child1)
+    expected_children = (child2, child1)
+    assert len(root.children) == len(expected_children)
+    for actual, expected in zip(root.children, expected_children):
+        assert actual == expected
 
     child3 = WorldObject()
     root.add(child3, child1, before=child2)
 
-    assert root.children == (child3, child1, child2)
-
-    # Assert that nothing happens when adding the same element
-    # before itself
-    root.add(child1, before=child1)
-    assert root.children == (child3, child1, child2)
-
-    non_child = WorldObject()
-
-    # Append item at end when the `before` parameter
-    # is not in children
-    root.add(child1, before=non_child)
-    assert root.children == (child3, child2, child1)
+    expected_children = (child3, child1, child2)
+    assert len(root.children) == len(expected_children)
+    for actual, expected in zip(root.children, expected_children):
+        assert actual == expected
 
 
 def test_iter():

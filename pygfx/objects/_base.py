@@ -2,15 +2,18 @@ import random
 import weakref
 import threading
 import enum
+from typing import List
+import pylinalg as pla
 
 import numpy as np
 
-from ..linalg import Vector3, Matrix4, Quaternion
+from ..linalg import Vector3, Matrix4
 from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
+from ..utils.transform import AffineTransform
 
 
 class IdProvider:
@@ -119,10 +122,6 @@ class WorldObject(EventTarget, RootTrackable):
         id="i4",
     )
 
-    _v = Vector3()
-    _m = Matrix4()
-    _q = Quaternion()
-
     def __init__(
         self,
         geometry=None,
@@ -134,6 +133,14 @@ class WorldObject(EventTarget, RootTrackable):
         position=None,
     ):
         super().__init__()
+        self._parent: weakref.ReferenceType[WorldObject] = None
+        self.children: List[WorldObject] = []
+
+        self.transform = AffineTransform()
+        self.cache = None
+
+        if position is not None:
+            self.transform.position = position
 
         self.geometry = geometry
         self.material = material
@@ -142,18 +149,6 @@ class WorldObject(EventTarget, RootTrackable):
         self.visible = visible
         self.render_order = render_order
         self.render_mask = render_mask
-
-        # Init parent and children
-        self._parent_ref = None
-        self._children = []
-
-        position = (0, 0, 0) if position is None else position
-        self.position = (
-            Vector3(*position) if isinstance(position, (tuple, list)) else position
-        )
-        self.rotation = Quaternion()
-        self.scale = Vector3(1, 1, 1)
-        self._transform_hash = ()
 
         self.up = Vector3(0, 1, 0)
 
@@ -189,27 +184,6 @@ class WorldObject(EventTarget, RootTrackable):
     @property
     def tracker(self):
         return self._root_tracker
-
-    @property
-    def visible(self):
-        """Wheter is object is rendered or not. Default True."""
-        return self._store.visible
-
-    @visible.setter
-    def visible(self, visible):
-        self._store.visible = bool(visible)
-
-    @property
-    def render_order(self):
-        """This value allows the default rendering order of scene graph
-        objects to be controlled. Default 0. See ``Renderer.sort_objects``
-        for details.
-        """
-        return self._store.render_order
-
-    @render_order.setter
-    def render_order(self, value):
-        self._store.render_order = float(value)
 
     @property
     def render_mask(self):
@@ -257,100 +231,56 @@ class WorldObject(EventTarget, RootTrackable):
             )
 
     @property
-    def geometry(self):
-        """The object's geometry, the data that defines (the shape of) this object."""
-        return self._store.geometry
+    def parent(self) -> "WorldObject":
+        if self._parent is None:
+            return None
+        else:
+            return self._parent()
 
-    @geometry.setter
-    def geometry(self, geometry):
-        self._store.geometry = geometry
-
-    @property
-    def material(self):
-        """Wheter is object is rendered or not. Default True."""
-        return self._store.material
-
-    @material.setter
-    def material(self, material):
-        self._store.material = material
-
-    @property
-    def cast_shadow(self):
-        """Whether this object casts shadows, i.e. whether it is rendered into
-        a shadow map. Default False."""
-        return self._cast_shadow  # does not affect any shaders
-
-    @cast_shadow.setter
-    def cast_shadow(self, value):
-        self._cast_shadow = bool(value)
-
-    @property
-    def receive_shadow(self):
-        """Whether this object receives shadows. Default False."""
-        return self._store.receive_shadow
-
-    @receive_shadow.setter
-    def receive_shadow(self, value):
-        self._store.receive_shadow = bool(value)
-
-    @property
-    def parent(self):
-        """Object's parent in the scene graph (read-only).
-        An object can have at most one parent.
-        """
-        return self._parent_ref and self._parent_ref()
-
-    @property
-    def children(self):
-        """The child objects of this wold object (read-only tuple).
-        Use ``.add()`` and ``.remove()`` to change this list.
-        """
-        return tuple(self._children)
+    @parent.setter
+    def parent(self, value: "WorldObject"):
+        if value is None:
+            self._parent = None
+        else:
+            self._parent = weakref.ref(value)
 
     def add(self, *objects, before=None):
         """Adds object as child of this object. Any number of
         objects may be added. Any current parent on an object passed
         in here will be removed, since an object can have at most one
         parent.
-        If ``before`` argument is given (and present in children), then
-        the items are inserted before the given element.
+        If ``before`` argument is given, then the items are inserted before the
+        given element.
+
         """
-        idx = len(self._children)
-        if before:
-            try:
-                idx = self._children.index(before)
-            except ValueError:
-                pass
+
+        obj: WorldObject
         for obj in objects:
-            assert isinstance(obj, WorldObject)
-            # orphan if needed
-            if obj._parent_ref is not None:
-                obj._parent_ref().remove(obj)
-            # attach to scene graph
-            obj._parent_ref = weakref.ref(self)
-            self._children.insert(idx, obj)
-            idx += 1
-            # flag world matrix as dirty
-            obj._matrix_world_dirty = True
-        return self
+            # added for backwards compatibility
+            # (I feel like we should raise instead if the object is already part
+            # of the scene graph)
+            if obj.parent is not None:
+                obj.parent.remove(obj)
+
+            if before is not None:
+                idx = self.children.index(before)
+            else:
+                idx = len(self.children)
+
+            obj.parent = self
+            self.children.insert(idx, obj)
 
     def remove(self, *objects):
-        """Removes object as child of this object. Any number of objects may be removed.
-        If a given object is not a child, it is ignored.
-        """
+        """Removes object as child of this object. Any number of objects may be removed."""
+
+        obj: WorldObject
         for obj in objects:
-            try:
-                self._children.remove(obj)
-                obj._parent_ref = None
-            except ValueError:
-                pass
-        return self
+            obj.parent = None
+            self.children.remove(obj)
 
     def clear(self):
         """Removes all children."""
-        for child in self._children:
-            child._parent_ref = None
-        self._children.clear()
+        self.remove(*self.children)
 
     def traverse(self, callback, skip_invisible=False):
         """Executes the callback on this object and all descendants.
@@ -377,138 +307,52 @@ class WorldObject(EventTarget, RootTrackable):
         elif filter_fn(self):
             yield self
 
-        for child in self._children:
+        for child in self.children:
             yield from child.iter(filter_fn, skip_invisible)
 
-    def update_matrix(self):
-        p, r, s = self.position, self.rotation, self.scale
-        hash = p.x, p.y, p.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z
-        if hash != self._transform_hash:
-            self._transform_hash = hash
-            self._matrix.compose(self.position, self.rotation, self.scale)
-            self._matrix_world_dirty = True
+    @property
+    def world_transform(self) -> AffineTransform:
+        if self.parent is None:
+            world_matrix = self.transform.matrix
+        else:
+            world_matrix = self.parent.world_transform.matrix @ self.transform.matrix
+
+        return AffineTransform(world_matrix)
 
     @property
-    def matrix(self):
-        """The (settable) transformation matrix."""
-        return self._matrix
+    def bounding_box(self):
+        partial_aabb = np.zeros((len(self.children) + 1, 2, 3), dtype=float)
+        for idx, child in enumerate(self.children):
+            aabb = child.bounding_box
+            trafo = child.transform.matrix
+            partial_aabb[idx] = pla.aabb_transform(aabb, trafo)
+        partial_aabb[-1] = self.geometry.bounding_box()
 
-    @matrix.setter
-    def matrix(self, matrix):
-        self._matrix.copy(matrix)
-        self._matrix.decompose(self.position, self.rotation, self.scale)
-        self._matrix_world_dirty = True
-
-    @property
-    def matrix_world(self):
-        """The world matrix (local matrix composed with any parent matrices)."""
-        return self._matrix_world
+        final_aabb = np.zeros((2, 3), dtype=float)
+        final_aabb[0] = np.min(partial_aabb[:, 0, :], axis=0)
+        final_aabb[1] = np.max(partial_aabb[:, 1, :], axis=0)
+        return final_aabb
 
     @property
-    def matrix_auto_update(self):
-        """Whether or not the matrix auto-updates."""
-        return self._matrix_auto_update
-
-    @matrix_auto_update.setter
-    def matrix_auto_update(self, value):
-        self._matrix_auto_update = bool(value)
+    def bounding_sphere(self):
+        return pla.aabb_to_sphere(self.bounding_box)
 
     @property
-    def matrix_world_dirty(self):
-        """Whether or not the matrix needs updating (readonly)."""
-        return self._matrix_world_dirty
-
-    def apply_matrix(self, matrix):
-        if self._matrix_auto_update:
-            self.update_matrix()
-        self._matrix.premultiply(matrix)
-        self._matrix.decompose(self.position, self.rotation, self.scale)
-        self._matrix_world_dirty = True
-
-    def update_matrix_world(
-        self, force=False, update_children=True, update_parents=False
-    ):
-        if update_parents and self.parent:
-            self.parent.update_matrix_world(
-                force=force, update_children=False, update_parents=True
-            )
-        if self._matrix_auto_update:
-            self.update_matrix()
-        if self._matrix_world_dirty or force:
-            if self.parent is None:
-                self._matrix_world.copy(self._matrix)
-            else:
-                self._matrix_world.multiply_matrices(
-                    self.parent._matrix_world, self._matrix
-                )
-            self.uniform_buffer.data[
-                "world_transform"
-            ].flat = self._matrix_world.elements
-            tmp_inv_matrix = Matrix4().get_inverse(self._matrix_world)
-            self.uniform_buffer.data[
-                "world_transform_inv"
-            ].flat = tmp_inv_matrix.elements
-            self.uniform_buffer.update_range(0, 1)
-            self._matrix_world_dirty = False
-            for child in self._children:
-                child._matrix_world_dirty = True
-        if update_children:
-            for child in self._children:
-                child.update_matrix_world()
-
-    def look_at(self, target: Vector3):
-        self.update_matrix_world(update_parents=True, update_children=False)
-        self._v.set_from_matrix_position(self._matrix_world)
-        self._m.look_at(self._v, target, self.up)
-        self.rotation.set_from_rotation_matrix(self._m)
-        if self.parent:
-            self._m.extract_rotation(self.parent._matrix_world)
-            self._q.set_from_rotation_matrix(self._m)
-            self.rotation.premultiply(self._q.inverse())
-
-    def get_world_position(self):
-        self.update_matrix_world(update_parents=True, update_children=False)
-        self._v.set_from_matrix_position(self._matrix_world)
-        return self._v.clone()
-
-    def get_world_bounding_box(self):
+    def world_bounding_box(self):
         """Updates all parent and children world matrices, and returns
         a single world-space axis-aligned bounding box for this object's
         geometry and all of its children (recursively)."""
-        self.update_matrix_world(update_parents=True, update_children=True)
-        return self._get_world_bounding_box()
 
-    def _get_world_bounding_box(self):
-        """Returns a world-space axis-aligned bounding box for this object's
-        geometry and all of its children (recursively)."""
-        boxes = []
-        if self._store.geometry:
-            aabb = self._store.geometry.bounding_box()
-            aabb_world = transform_aabb(aabb, self._matrix_world.to_ndarray())
-            boxes.append(aabb_world)
-        if self._children:
-            boxes.extend(
-                [
-                    b
-                    for b in (c.get_world_bounding_box() for c in self._children)
-                    if b is not None
-                ]
-            )
-        if len(boxes) == 1:
-            return boxes[0]
-        if boxes:
-            boxes = np.array(boxes)
-            return np.array([boxes[:, 0].min(axis=0), boxes[:, 1].max(axis=0)])
+        return pla.aabb_transform(self.bounding_box, self.world_transform.matrix)
 
-    def get_world_bounding_sphere(self):
+    @property
+    def world_bounding_sphere(self):
         """Returns a world-space bounding sphere by converting an
         axis-aligned bounding box to a sphere.
 
         See WorldObject.get_world_bounding_box.
         """
-        aabb = self.get_world_bounding_box()
-        if aabb is not None:
-            return aabb_to_sphere(aabb)
+        return pla.aabb_transform(self.world_bounding_box)
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
