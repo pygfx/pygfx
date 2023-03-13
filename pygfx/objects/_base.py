@@ -107,6 +107,8 @@ class WorldObject(EventTarget, RootTrackable):
 
     """
 
+    _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
+
     # The uniform type describes the structured info for this object, which represents
     # every "propery" that a renderer would need to know in order to visualize it.
     # Put larger items first for alignment, also note that host-sharable structs
@@ -470,24 +472,24 @@ class WorldObject(EventTarget, RootTrackable):
             for child in self._children:
                 child.update_matrix_world()
 
-    def look_at(self, target: Vector3):
+    def look_at(self, target: Vector3, *, up=None):
         """Orient the object so it looks at the given position.
 
-        The object's up-vector is taken into account as well.
-        By default all objects look at (0, 0, 1).
+        By default all objects (except cameras ans lights) look at (0, 0, 1).
+        This takes the object's up vector into account. If up is given
+        as an argument, it also updates the object's up vector.
         """
-        self._look_at(target, self.up, False)
-
-    def _look_at(self, target, up, is_light_or_cam):
         if isinstance(target, (tuple, list, np.ndarray)) and len(target) == 3:
             target = Vector3(*target)
+        if up is not None:
+            self.up = up
         # Lower level look_at
         self.update_matrix_world(update_parents=True, update_children=False)
         self._v.set_from_matrix_position(self._matrix_world)
-        if is_light_or_cam:
-            self._m.look_at(self._v, target, up)
+        if self._FORWARD_IS_MINUS_Z:
+            self._m.look_at(self._v, target, self.up)
         else:
-            self._m.look_at(target, self._v, up)
+            self._m.look_at(target, self._v, self.up)
         self.rotation.set_from_rotation_matrix(self._m)
         if self.parent:
             self._m.extract_rotation(self.parent._matrix_world)

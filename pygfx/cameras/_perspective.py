@@ -19,12 +19,12 @@ class PerspectiveCamera(Camera):
     aspect: float
         The desired aspect ratio, which is used to determine the vision pyramid's
         boundaries depending on the viewport size. Common values are 16/9 or 4/3. Default 1.
-    extent: float
-        A measure for the size of the scene that the camera is
-        observing. This is also set by `show_object()`. When the fov
-        is zero, it defines the view frustrum. It is also used to set
-        the near and far clipping planes, and controllers use it to
-        determine what is being looked at.
+    width: float
+        The width of the scene to view. If omitted or None, the width
+        is derived from aspect and height.
+    height : float
+        The height of the scene to view. If omitted or None, the height
+        is derived from aspect and width.
     zoom: float
         An additional zoom factor, equivalent to attaching a zoom lens.
     maintain_aspect: bool
@@ -33,21 +33,44 @@ class PerspectiveCamera(Camera):
     depth_range: 2-tuple
         The values for the near and far clipping planes. If not given
         or None, the clip planes will be calculated automatically based
-        on the fov and extent.
+        on the fov, width, and height.
+
+    The width and/or height should be set when using a fov of zero,
+    when you want to manipulate the camera with a controller, or when
+    you want to make use of the automatic depth_range. However, if you
+    also call ``show_pos``, ``show_object``, or ``show_rect`` you can omit
+    width and height, because these methods set them for you.
+
     """
 
     _fov_range = 0, 179
 
     def __init__(
-        self, fov, aspect=1, extent=1, *, zoom=1, maintain_aspect=True, depth_range=None
+        self,
+        fov,
+        aspect=1,
+        width=None,
+        height=None,
+        *,
+        zoom=1,
+        maintain_aspect=True,
+        depth_range=None,
     ):
         super().__init__()
 
         self.fov = fov
-        self._width = 1
-        self._height = 1
-        self.aspect = aspect
-        self.extent = extent
+
+        # Set width and height. Note that if both width and height are given, it overrides aspect
+        aspect = aspect or 1
+        if width is None and height is None:
+            width, height = aspect, 1
+        elif width is None:
+            width = height * aspect
+        elif height is None:
+            height = width / aspect
+        self.width = width
+        self.height = height
+
         self.zoom = zoom
         self.maintain_aspect = maintain_aspect
         self.depth_range = depth_range
@@ -73,7 +96,7 @@ class PerspectiveCamera(Camera):
     @property
     def width(self):
         """The (minimum) width of the view-cube.
-        Together with the `height`, this also defines the aspect and extent.
+        Changing the width changes the aspect, but but not the height.
         """
         return self._width
 
@@ -84,7 +107,7 @@ class PerspectiveCamera(Camera):
     @property
     def height(self):
         """The (minimum) height of the view-cube.
-        Together with the `width`, this also defines the aspect and extent.
+        Changing the height changes the aspect, but but not the width.
         """
         return self._height
 
@@ -94,7 +117,9 @@ class PerspectiveCamera(Camera):
 
     @property
     def aspect(self):
-        """The aspect ratio. (The ratio between width and height.)"""
+        """The aspect ratio (the ratio between width and height).
+        Setting the aspect updates width and height such that their mean is unchanged.
+        """
         return self._width / self._height
 
     @aspect.setter
@@ -102,22 +127,15 @@ class PerspectiveCamera(Camera):
         aspect = float(value)
         if aspect <= 0:
             raise ValueError("aspect must be > 0")
-        extent = self.extent
+        extent = 0.5 * (self._width + self._height)
         self._height = 2 * extent / (1 + aspect)
         self._width = self._height * aspect
 
-    @property
-    def extent(self):
-        """A measure of the size of the scene that the camera observing.
-        This is also set by `show_object()`. (The mean of width and height.)
-        """
-        return 0.5 * (self._width + self._height)
-
-    @extent.setter
-    def extent(self, value):
-        extent = float(value)
+    def _set_extent(self, extent):
+        """Set the mean of width and height while maintaining aspect."""
+        extent = float(extent)
         if extent <= 0:
-            raise ValueError("extend must be > 0")
+            raise ValueError("extent must be > 0")
         aspect = self.aspect
         self._height = 2 * extent / (1 + aspect)
         self._width = self._height * aspect
@@ -146,7 +164,7 @@ class PerspectiveCamera(Camera):
     @property
     def depth_range(self):
         """The values for the near and far clip planes. If None, these values
-        are calculated from fov and extent.
+        are calculated from fov, width, amd heiht.
         """
         return self._depth_range
 
@@ -162,14 +180,14 @@ class PerspectiveCamera(Camera):
     def _get_near_and_far_plane(self):
         if self._depth_range:
             return self._depth_range
-        elif self.fov > 0:
+        extent = 0.5 * (self._width + self._height)
+        if self.fov > 0:
             # Take the distance that the camera is likely from the objects being viewed
             # Scale with a factor 1000
-            extent = self.extent
             d = distance_from_fov_and_extent(self.fov, extent)
             return d / 1000, d + 1000 * extent
         else:
-            d = self.extent
+            d = extent
             return -449 * d, 501 * d
 
     @property
@@ -274,8 +292,12 @@ class PerspectiveCamera(Camera):
             self.projection_matrix.set(*proj.flat)
             self.projection_matrix_inverse.set(*proj_i.flat)
 
-    def look_at(self, target, *, up=None):
-        """Look at the given position or object, without changing the camera's position.
+    def show_pos(self, target, *, up=None):
+        """Look at the given position or object.
+
+        This is similar to `look_at()`, but it also sets the width and
+        height (while honoring aspect). So if you e.g. use an orbit
+        controller on this camera, it rotates around the given target.
 
         Parameters
         ----------
@@ -294,27 +316,29 @@ class PerspectiveCamera(Camera):
             pos = target.to_array()
         else:
             raise TypeError(
-                "look_at target must be a WorldObject, or a (x, y, z) tuple."
+                "show_position target must be a WorldObject, or a (x, y, z) tuple."
             )
 
         # Look at the provided position, taking up into account
         if up is not None:
             self.up = up
-        super().look_at(pos)
+        self.look_at(pos)
 
-        # Also set the extent. This way, a user can position the camera,
-        # use look_at to point it at the center of the scene, attach a controller,
-        # and everything works! Oh, and the near and far plane are also set this way.
+        # Update extent
         distance = la.vector_distance_between(pos, self.position.to_array())
-        self.extent = extent_from_fov_and_distance(self.fov, distance)
+        self._set_extent(distance / distance_from_fov_and_extent(self.fov, 1))
 
     def show_object(
         self, target: WorldObject, view_dir=None, *, up=None, size_weight=2
     ):
-        """Position and orient the camera such that the given WorldObject in is in view.
+        """Orientate the camera such that the given target in is in view.
+
+        Sets the position and rotation of the camera, and adjusts
+        width and height to the target's size (while honoring aspect).
 
         This method is mainly intended for viewing 3D data. For 2D data
-        it is not uncommon that the margins may feel somewhat large.
+        it is not uncommon that the margins may feel somewhat large. Also
+        see `show_rect()`.
 
         Parameters
         ----------
@@ -324,7 +348,7 @@ class PerspectiveCamera(Camera):
             Look at the object from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-            Sets the up vector of the camera. If not given or None, the
+            If given, also sets the up vector of the camera.
             up property is not changed.
         size_weight: float
             How much extra space the camera must show.
@@ -369,14 +393,17 @@ class PerspectiveCamera(Camera):
 
         self.position.set(*camera_pos)
         self.look_at(view_pos, up=up)
-        self.extent = extent
+        self._set_extent(extent)
 
     def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
-        """Position and orient the camera such that the given rectangle in is in view.
+        """Orientate the camera such that the given rectangle in is in view.
 
         The rectangle represents a plane in world coordinates, centered
         at the origin of the world, and rotated to be orthogonal to the
         view_dir.
+
+        Sets the position and rotation of the camera, and adjusts
+        width and height to the rectangle (thus also changing the aspect).
 
         This method is mainly intended for viewing 2D data, especially
         when `maintain_aspect` is set to False, and is convenient
@@ -411,12 +438,12 @@ class PerspectiveCamera(Camera):
             raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
         view_dir = la.vector_normalize(view_dir)
 
-        # Set bounds (note that this implicitly sets extent and aspect)
+        # Set bounds, note that this implicitly sets width, height (and aspect)
         self.width = right - left
         self.height = bottom - top
-        # extent = (self.width**2 + self.height ** 2)**0.5
+        extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
-        distance = distance_from_fov_and_extent(self.fov, self.extent)
+        distance = distance_from_fov_and_extent(self.fov, extent)
         camera_pos = (0, 0, 0) - view_dir * distance
         self.position.set(*camera_pos)
         self.look_at((0, 0, 0), up=up)
@@ -430,18 +457,11 @@ class PerspectiveCamera(Camera):
         self.position.set(*new_position)
 
 
-def fov_distance_factor(fov):
+def distance_from_fov_and_extent(fov, extent):
+    # It's important that controller and camera use the same distance calculations
     if fov > 0:
         fov_rad = fov * pi / 180
-        return 0.5 / tan(0.5 * fov_rad)
+        factor = 0.5 / tan(0.5 * fov_rad)
     else:
-        return 1.0
-
-
-def distance_from_fov_and_extent(fov, extent):
-    # It's important that controller and camera use the same distance calculations,
-    return extent * fov_distance_factor(fov)
-
-
-def extent_from_fov_and_distance(fov, distance):
-    return distance / fov_distance_factor(fov)
+        factor = 1.0
+    return extent * factor

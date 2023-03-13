@@ -247,53 +247,72 @@ like this:
 
     camera = gfx.PerspectiveCamera(50, 4/3)
 
-The first argument is the fov (field of view) in degrees. This is a value between 0 and 179,
-with typical values < 100.
-
-The second argument is the aspect ratio. A window on screen is usually a rectangle
-with 4/3 or 16/9 aspect. The aspect can be set so the contents better fit the window.
-
-When the fov is zero, the camera operates in orthographic mode, where there is
-no perspective. In this case it'd be good to also specify a 3rd argument: the extent
-specifies the size of the thing being viewed. So if your scene is about 400 units in size:
-
-.. code-block:: python
-
-    camera = gfx.PerspectiveCamera(0, 1, 400)
+The first argument is the fov (field of view) in degrees. This is a
+value between 0 and 179, with typical values < 100. The second argument
+is the aspect ratio. A window on screen is usually a rectangle with 4/3
+or 16/9 aspect. The aspect can be set so the contents better fit the
+window. When the fov is zero, the camera operates in orthographic mode.
 
 
 **Orthographic camera**
 
-The second camera of interest is the :class:`~pygfx.cameras.OrthographicCamera`. It's similar
-to the perspective camera, except its fov is always zero. It can be instantiated like this:
+The second camera of interest is the :class:`~pygfx.cameras.OrthographicCamera`. Technically
+it's a perspective camera with the fov fixed to zero. It is also instantiated differently:
 
 .. code-block:: python
 
-    camera = gfx.OrthographicCamera(400, 400, maintain_aspect=False)
+    camera = gfx.OrthographicCamera(500, 400, maintain_aspect=False)
 
 
-The two first arguments are the `width` and `height`, which are
-typically used to initialize an orthographic camera. They have a direct
-relation with aspect and extent. (The extent is their mean, and aspect their ratio.)
-
-The `maintain_aspect` argument can be set to False if the dimensions
-do not represent a physical dimension, e.g. for plotting data. The contents
+The first two arguments are the `width` and `height`, which are
+typically used to initialize an orthographic camera. This implicitly
+sets the aspect (which is the width divided by the height). The
+`maintain_aspect` argument can be set to False if the dimensions do not
+represent a physical dimension, e.g. for plotting data. The contents
 of the view are then stretched to fill the window.
 
 
 **Orienting cameras**
 
 Camera's can be oriented manually by setting their position, and then set their rotation
-to have them look in the correct direction. This last bit can be tricky, unless you use
-the :func:`.look_at()<pygfx.cameras.PerspectiveCamera.look_at>` method. This also sets
-the extend (based on what's visible at the target location), so you can now attach
-a controller and interact!
+to have them look in the correct direction, e.g. using :func:`.look_at()<pygfx.WorldObject.look_at>.
+In this case you should probably set the width in addition to fov and aspect.
 
-Even easier is using :func:`.show_object()<pygfx.cameras.PerspectiveCamera.show_object>`.
-With this method you specify an object (e.g. the scene) and optionally a direction,
-and the camera is positioned and oriented to look at the scene from the given direction.
-This is also what ``show()`` calls internally.
-A similar method, geared more towards 2D data is :func:`.show_rect()<pygfx.cameras.PerspectiveCamera.show_rect>`.
+.. code-block:: python
+
+    # Manual orientation
+    camera = gfx.PerspectiveCamera(50, 4/3, width=100)
+    camera.position.set(30, 40, 50)
+    camera.look_at(0, 0, 0)
+
+However, we strongly recommend using one of the ``show`` methods, since these
+also set the ``width`` and ``height``. Therefore they better prepare the
+camera for controllers, and the near and far clip planes are
+automatically set.
+
+.. code-block:: python
+
+    # Create a camera, in either way
+    camera = gfx.PerspectiveCamera(50, 4/3)
+    camera = gfx.OrthographicCamera()
+
+    # Convenient orientation: similar to look_at
+    camera.position.set(30, 40, 50)
+    camera.show_pos(0, 0, 0)
+
+    # Convenient orientation: show an object
+    camera.show_object(target, view_dir=(-1, -1, -1))
+
+    # Convenient orientation: show a rectangle
+    camera.show_rect(0, 1000, -5, 5, view_dir=(0, 0, -1))
+
+The :func:`.show_pos()<pygfx.cameras.PerspectiveCamera.show_pos>` method
+is the convenient alternative for ``look_at``. Even easier is using
+:func:`.show_object()<pygfx.cameras.PerspectiveCamera.show_object>`, which allows
+you to specify an object (e.g. the scene) and optionally a direction.
+The camera is then positioned and rotated to look at the scene from the given direction.
+A similar method, geared towards 2D data is :func:`.show_rect()<pygfx.cameras.PerspectiveCamera.show_rect>`
+in which you specify a rectangle instead of an object.
 
 
 **Controlling the camera**

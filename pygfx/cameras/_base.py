@@ -18,6 +18,8 @@ class Camera(WorldObject):
     to the type of camera.
     """
 
+    _FORWARD_IS_MINUS_Z = True
+
     def __init__(self):
         super().__init__()
 
@@ -45,10 +47,6 @@ class Camera(WorldObject):
         from a camera of the same type.
         """
         pass
-
-    def look_at(self, target):
-        # Camera's and lights look in -Z!
-        self._look_at(target, self.up, True)
 
 
 class NDCCamera(Camera):

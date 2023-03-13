@@ -8,12 +8,12 @@ class OrthographicCamera(PerspectiveCamera):
 
     Parameters
     ----------
-    width : float
+    width: float
         The (minimum) width of the view-cube. The actual view
         may be wider if the viewport is relatively wide.
-    height : float
+    height: float
         The (minimum) height of the view-cube. The actual view
-        may be height if the viewport is relatively heigh.
+        may be heigher if the viewport is relatively heigh.
     zoom: float
         An additional zoom factor, equivalent to attaching a zoom lens.
     maintain_aspect: bool
@@ -22,7 +22,7 @@ class OrthographicCamera(PerspectiveCamera):
     depth_range: 2-tuple
         The values for the near and far clipping planes. If not given
         or None, the clip planes will be calculated automatically based
-        on the fov and extent.
+        on the fov, width, and height.
     """
 
     _fov_range = 0, 0
@@ -31,7 +31,11 @@ class OrthographicCamera(PerspectiveCamera):
         self, width=1, height=1, *, zoom=1, maintain_aspect=True, depth_range=None
     ):
         super().__init__(
-            0, zoom=zoom, maintain_aspect=maintain_aspect, depth_range=depth_range
+            0,
+            None,
+            width,
+            height,
+            zoom=zoom,
+            maintain_aspect=maintain_aspect,
+            depth_range=depth_range,
         )
-        self.width = width
-        self.height = height

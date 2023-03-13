@@ -60,7 +60,7 @@ for axis in [0, 1, 2]:
 camera = gfx.PerspectiveCamera(0)
 camera.up = 0, 0, 1
 camera.position.set(200, 200, 200)
-camera.look_at((0, 0, 0))
+camera.show_pos((0, 0, 0))
 
 controller = gfx.OrbitController(camera)
 controller.add_default_event_handlers(renderer)
