@@ -57,11 +57,6 @@ class PerspectiveCamera(Camera):
         # but in the coordinate system of wgpu (and this lib) the depth
         # is expressed in 0..1, so we also correct for that.
         self.projection_matrix = pla.matrix_make_perspective(
-            left, right, top, bottom, self.near, self.far
+            left, right, top, bottom, self.near, self.far, depth_range=(0, 1)
         )
-
-        shear = np.diag([1, 1, 0.5, 1])
-        shear[3, 2] = 0.5
-
-        self.projection_matrix = shear @ self.projection_matrix
         self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)

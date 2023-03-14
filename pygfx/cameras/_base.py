@@ -1,5 +1,6 @@
-from ..linalg import Matrix4, Vector3
+from ..linalg import Vector3
 from ..objects._base import WorldObject
+import numpy as np
 
 
 class Camera(WorldObject):
@@ -23,17 +24,16 @@ class Camera(WorldObject):
     def __init__(self):
         super().__init__()
 
-        self.matrix_world_inverse = Matrix4()
-        self.projection_matrix = Matrix4()
-        self.projection_matrix_inverse = Matrix4()
+        self.matrix_world_inverse = np.eye(4, dtype=float)
+        self.projection_matrix = np.eye(4, dtype=float)
+        self.projection_matrix_inverse = np.eye(4, dtype=float)
 
     def set_view_size(self, width, height):
         # In logical pixels
         pass
 
     def update_matrix_world(self, *args, **kwargs):
-        super().update_matrix_world(*args, **kwargs)
-        self.matrix_world_inverse.get_inverse(self.matrix_world)
+        self.matrix_world_inverse = np.linalg.inv(self.world_transform)
 
     def update_projection_matrix(self):
         raise NotImplementedError()

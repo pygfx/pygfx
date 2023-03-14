@@ -60,11 +60,6 @@ class OrthographicCamera(Camera):
         # in the coordinate system of wgpu (and this lib) the depth is
         # expressed in 0..1, so we also correct for that.
         self.projection_matrix = pla.matrix_make_orthographic(
-            left, right, top, bottom, self.near, self.far
+            left, right, top, bottom, self.near, self.far, depth_range=(0, 1)
         )
-
-        correction_matrix = np.array(
-            (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1)
-        ).reshape(4, 4)
-        self.projection_matrix = correction_matrix @ self.projection_matrix
         self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)

@@ -1,5 +1,6 @@
 import numpy as np
 import pygfx as gfx
+import pylinalg as pla
 
 
 def test_otho_camera_near_far():
@@ -34,7 +35,7 @@ def test_perspective_camera_near_far():
         _run_for_camera(camera, near, far, False)
 
 
-def _run_for_camera(camera, near, far, check_halfway):
+def _run_for_camera(camera: gfx.Camera, near, far, check_halfway):
     # Some notes:
     #
     # * We use positions with negative z, because NDC looks down the
@@ -52,36 +53,30 @@ def _run_for_camera(camera, near, far, check_halfway):
     # pos_ndc2 = t1 @ np.array([0, 0, 0.5 * (near + far), 1])
     # pos_ndc3 = t1 @ np.array([0, 0, far, 1])
 
-    pos_ndc1 = gfx.linalg.Vector3(0, 0, -near).apply_matrix4(camera.projection_matrix)
-    pos_ndc2 = gfx.linalg.Vector3(0, 0, -0.5 * (near + far)).apply_matrix4(
-        camera.projection_matrix
+    pos_ndc1 = pla.vector_apply_matrix((0, 0, -near), camera.projection_matrix)
+    pos_ndc2 = pla.vector_apply_matrix(
+        (0, 0, -0.5 * (near + far)), camera.projection_matrix
     )
-    pos_ndc3 = gfx.linalg.Vector3(0, 0, -far).apply_matrix4(camera.projection_matrix)
+    pos_ndc3 = pla.vector_apply_matrix((0, 0, -far), camera.projection_matrix)
 
     print("------", camera)
     print(pos_ndc1)
     print(pos_ndc2)
     print(pos_ndc3)
 
-    assert np.allclose(pos_ndc1.to_array(), [0, 0, 0])
-    assert np.allclose(pos_ndc3.to_array(), [0, 0, 1])
+    assert np.allclose(pos_ndc1, [0, 0, 0])
+    assert np.allclose(pos_ndc3, [0, 0, 1])
     if check_halfway:
-        assert np.allclose(pos_ndc2.to_array(), [0, 0, 0.5])
+        assert np.allclose(pos_ndc2, [0, 0, 0.5])
 
-    pos_world1 = gfx.linalg.Vector3(0, 0, 0).apply_matrix4(
-        camera.projection_matrix_inverse
-    )
-    pos_world2 = gfx.linalg.Vector3(0, 0, 0.5).apply_matrix4(
-        camera.projection_matrix_inverse
-    )
-    pos_world3 = gfx.linalg.Vector3(0, 0, 1).apply_matrix4(
-        camera.projection_matrix_inverse
-    )
+    pos_world1 = pla.vector_apply_matrix((0, 0, 0), camera.projection_matrix_inverse)
+    pos_world2 = pla.vector_apply_matrix((0, 0, 0.5), camera.projection_matrix_inverse)
+    pos_world3 = pla.vector_apply_matrix((0, 0, 1), camera.projection_matrix_inverse)
 
-    assert np.allclose(pos_world1.to_array(), [0, 0, -near])
-    assert np.allclose(pos_world3.to_array(), [0, 0, -far])
+    assert np.allclose(pos_world1, [0, 0, -near])
+    assert np.allclose(pos_world3, [0, 0, -far])
     if check_halfway:
-        assert np.allclose(pos_world2.to_array(), [0, 0, -0.5 * (near + far)])
+        assert np.allclose(pos_world2, [0, 0, -0.5 * (near + far)])
 
 
 if __name__ == "__main__":
