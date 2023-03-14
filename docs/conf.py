@@ -32,7 +32,6 @@ author = "Almar Klein, Korijn van Golen"
 # The full version, including alpha/beta/rc tags
 # release = '0.1.0'
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -104,6 +103,3 @@ sphinx_gallery_conf = {
 html_static_path = ["_static"]
 html_favicon = "_static/pygfx.ico"
 html_logo = "_static/pygfx.svg"
-
-if not (os.getenv("READTHEDOCS") or os.getenv("CI")):
-    html_theme = "sphinx_rtd_theme"
