@@ -24,24 +24,28 @@ __version__ = "0.1.12"
 version_info = tuple(map(int, __version__.split(".")))
 
 __wgpu_version_range__ = "0.9.4", "0.10.0"
+__pylinalg_version_range__ = "0.3.0", "0.4.0"
 
 
-def _test_wgpu_version():
-    import wgpu  # noqa
+def _check_lib_version(libname, pipname, version_range):
+    import importlib  # noqa
 
-    min_ver, max_ver = __wgpu_version_range__
+    lib = importlib.import_module(libname)
+
+    min_ver, max_ver = version_range
     min_ver_info = tuple(map(int, min_ver.split(".")))
     max_ver_info = tuple(map(int, max_ver.split(".")))
-    detected = f"Detected {wgpu.__version__}, need >={min_ver}, <{max_ver}."
-    if wgpu.version_info < min_ver_info:
+    detected = f"Detected {lib.__version__}, need >={min_ver}, <{max_ver}."
+    if lib.version_info < min_ver_info:
         logger.error(
-            f"Incompatible version of wgpu-py:\n    {detected}\n    To update, use e.g. `pip install -U wgpu`."
+            f"Incompatible version of {libname}:\n    {detected}\n    To update, use e.g. `pip install -U {pipname}`."
         )
-    elif wgpu.version_info >= max_ver_info:
-        logger.warning(f"Possible incompatible version of wgpu-py:\n    {detected}")
+    elif lib.version_info >= max_ver_info:
+        logger.warning(f"Possible incompatible version of {libname}:\n    {detected}")
 
 
-_test_wgpu_version()
+_check_lib_version("wgpu", "wgpu", __wgpu_version_range__)
+_check_lib_version("pylinalg", "pylinalg", __pylinalg_version_range__)
 
 
 def _get_sg_image_scraper():
