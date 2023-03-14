@@ -1,7 +1,8 @@
 from math import tan, pi
+import numpy as np
 
 from ._base import Camera
-from ..linalg import Matrix4
+import pylinalg as pla
 
 
 class PerspectiveCamera(Camera):
@@ -55,10 +56,12 @@ class PerspectiveCamera(Camera):
         # The linalg perspective projection puts xyz in the range -1..1,
         # but in the coordinate system of wgpu (and this lib) the depth
         # is expressed in 0..1, so we also correct for that.
-        self.projection_matrix.make_perspective(
+        self.projection_matrix = pla.matrix_make_perspective(
             left, right, top, bottom, self.near, self.far
         )
-        self.projection_matrix.premultiply(
-            Matrix4(1, 0, 0.0, 0, 0, 1, 0.0, 0, 0.0, 0.0, 0.5, 0.0, 0, 0, 0.5, 1)
-        )
-        self.projection_matrix_inverse.get_inverse(self.projection_matrix)
+
+        shear = np.diag([1, 1, 0.5, 1])
+        shear[3, 2] = 0.5
+
+        self.projection_matrix = shear @ self.projection_matrix
+        self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
