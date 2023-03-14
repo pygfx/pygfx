@@ -72,7 +72,7 @@ setup(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
     package_data={f"{NAME}.data_files": resources_globs},
-    python_requires=">=3.7.0",
+    python_requires=">=3.8.0",
     install_requires=runtime_deps,
     extras_require=extras_require,
     license="BSD 2-Clause",
