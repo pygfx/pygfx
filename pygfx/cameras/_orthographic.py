@@ -33,8 +33,8 @@ class OrthographicCamera(PerspectiveCamera):
         super().__init__(
             0,
             None,
-            width,
-            height,
+            width=width,
+            height=height,
             zoom=zoom,
             maintain_aspect=maintain_aspect,
             depth_range=depth_range,

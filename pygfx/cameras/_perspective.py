@@ -15,7 +15,7 @@ class PerspectiveCamera(Camera):
     fov: float
         The field of view as an angle in degrees. Higher values give a
         wide-angle lens effect. This value is limited between 0 and
-        179. If zero, it operates in orthographic mode.
+        179. If zero, it operates in orthographic mode. Default 50.
     aspect: float
         The desired aspect ratio, which is used to determine the vision pyramid's
         boundaries depending on the viewport size. Common values are 16/9 or 4/3. Default 1.
@@ -47,11 +47,11 @@ class PerspectiveCamera(Camera):
 
     def __init__(
         self,
-        fov,
+        fov=50,
         aspect=1,
+        *,
         width=None,
         height=None,
-        *,
         zoom=1,
         maintain_aspect=True,
         depth_range=None,
