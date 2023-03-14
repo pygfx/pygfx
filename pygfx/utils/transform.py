@@ -1,42 +1,97 @@
 import numpy as np
 import pylinalg as pla
 from datetime import datetime
+from functools import wraps
 
 from typing import List
 
 OUTDATED = datetime(1900, 1, 1)  # some date in the past
 
 
+class cached:
+    """Cache for computed properties.
+
+    This descriptor implements a minimal timestamp-based cache for computed
+    properties. The value of the property is computed using ``update_fn`` and
+    the result is cached until ``obj.last_modified`` advances. At this point the
+    value of the computed property is recomputed upon the next read.
+
+
+
+    Example
+    -------
+
+    class Foobar:
+        def __init__(self, x):
+            self._value = 0
+            self.last_modified = datetime.now()
+
+        @property
+        def value(self):
+            return self._value
+
+        @value.setter
+        def value(self, new_value):
+            self._value = new_value
+            self.last_modified = datetime.now()
+
+        @property
+        @cached
+        def double(self):
+            print("Computed value of double..")
+            return 2*x
+
+    """
+
+    def __init__(self, update_fn=None) -> None:
+        self.update_fn = update_fn
+        self.last_updated = None
+        self.cached_value = None
+
+    def __get__(self, obj: "AffineBase", objtype=None):
+        if obj is None:
+            return self
+
+        if self.last_updated is None or obj.last_modified > self.last_updated:
+            self.cached_value = self.update_fn(obj)
+            self.last_updated = obj.last_modified
+
+        return self.cached_value
+
+    def __call__(self, obj):
+        """Helper to allow interoperability with @property."""
+        return self.__get__(obj)
+
+
 class AffineBase:
     last_modified: datetime
     matrix: np.ndarray
-    position: np.ndarray
-    rotation: np.ndarray
-    scale: np.ndarray
-
-    def __init__(self) -> None:
-        self._components_age = OUTDATED
-        self._matrix: np.ndarray = None
-        self._position: np.ndarray = None
-        self._rotation: np.ndarray = None
-        self._scale: np.ndarray = None
-
-        self._inverse_age = OUTDATED
-        self._inverse_matrix: np.ndarray = None
-
-    def _update_inverse(self):
-        if self.last_modified < self._inverse_age:
-            return
-
-        self._inverse_matrix = np.linalg.inv(self.matrix)
 
     @property
+    @cached
     def inverse_matrix(self):
-        self._update_inverse()
-        return self._inverse_matrix
+        return np.linalg.inv(self.matrix)
+
+    @property
+    @cached
+    def position(self) -> np.ndarray:
+        pos, _, _ = pla.matrix_decompose(self.matrix)
+        return pos
+
+    @property
+    @cached
+    def rotation(self) -> np.ndarray:
+        _, rot, _ = pla.matrix_decompose(self.matrix)
+        return rot
 
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
+
+    @property
+    @cached
+    def scale(self) -> np.ndarray:
+        _, _, scale = pla.matrix_decompose(self.matrix)
+        return scale
 
 
 class AffineTransform(AffineBase):
@@ -65,22 +120,12 @@ class AffineTransform(AffineBase):
     def flag_update(self):
         self.last_modified = datetime.now()
 
-    @property
-    def position(self) -> np.ndarray:
-        self._update_cache()
-        return self._position
-
-    @position.setter
+    @AffineBase.position.setter
     def position(self, value):
         self.matrix[:-1, -1] = value
         self.last_modified = datetime.now()
 
-    @property
-    def rotation(self) -> np.ndarray:
-        self._update_cache()
-        return self._rotation
-
-    @rotation.setter
+    @AffineBase.rotation.setter
     def rotation(self, value):
         position = self.position
         scale = self.scale
@@ -88,32 +133,13 @@ class AffineTransform(AffineBase):
         pla.matrix_make_transform(position, value, scale, out=self.matrix)
         self.last_modified = datetime.now()
 
-    @property
-    def scale(self) -> np.ndarray:
-        self._update_cache()
-        return self._scale
-
-    @scale.setter
+    @AffineBase.scale.setter
     def scale(self, value):
         position = self.position
         rotation = self.rotation
 
         pla.matrix_make_transform(position, rotation, value, out=self.matrix)
         self.last_modified = datetime.now()
-
-    def _update_cache(self):
-        if self.last_modified < self._components_age:
-            return
-
-        if self._position is None:
-            self._position = np.zeros(3, dtype=float)
-            self._rotation = np.zeros(4, dtype=float)
-            self._scale = np.zeros(3, dtype=float)
-
-        pla.matrix_decompose(
-            self.matrix, out=(self._position, self._rotation, self._scale)
-        )
-        self._components_age = datetime.now()
 
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
@@ -141,44 +167,14 @@ class ChainedTransform(AffineBase):
 
         return candidate
 
-    def _update_cache(self):
-        if self._components_age > self.last_modified:
-            return
-
-        if self._matrix is None:
-            self._matrix = np.ones((4, 4), dtype=float)
-            self._position = np.zeros(3, dtype=float)
-            self._rotation = np.zeros(4, dtype=float)
-            self._scale = np.zeros(3, dtype=float)
-
-        self._matrix = np.eye(4, dtype=float)
-        for transform in self.sequence:
-            np.matmul(self._matrix, transform, out=self._matrix)
-
-        pla.matrix_decompose(
-            self._matrix, out=(self._position, self._rotation, self._scale)
-        )
-        self._components_age = datetime.now()
-
     @property
+    @cached
     def matrix(self):
-        self._update_cache()
-        return self._matrix
+        result = np.eye(4, dtype=float)
+        for transform in self.sequence:
+            np.matmul(result, transform, out=result)
 
-    @property
-    def position(self):
-        self._update_cache()
-        return self._position
-
-    @property
-    def rotation(self):
-        self._update_cache()
-        return self._rotation
-
-    @property
-    def scale(self):
-        self._update_cache()
-        return self._scale
+        return result
 
     def __matmul__(self, other):
         if isinstance(other, ChainedTransform):
@@ -199,15 +195,17 @@ class LinkedTransform(AffineBase):
     ) -> None:
         super().__init__()
 
-        self.before = AffineTransform()
-        self.after = AffineTransform()
         self.linked = linked_transform
 
         if before is not None:
             self.before = before
+        else:
+            self.before = AffineTransform()
 
         if after is not None:
             self.after = after
+        else:
+            self.after = AffineTransform()
 
     @property
     def last_modified(self):
@@ -221,26 +219,9 @@ class LinkedTransform(AffineBase):
 
         return value
 
-    def _update_cache(self):
-        if self._components_age > self.last_modified:
-            return
-
-        if self._matrix is None:
-            self._matrix = np.ones((4, 4), dtype=float)
-            self._position = np.zeros(3, dtype=float)
-            self._rotation = np.zeros(4, dtype=float)
-            self._scale = np.zeros(3, dtype=float)
-
-        self._matrix = (self.before @ self.linked @ self.after).matrix
-        pla.matrix_decompose(
-            self._matrix, out=(self._position, self._rotation, self._scale)
-        )
-        self._components_age = datetime.now()
-
     @property
     def matrix(self):
-        self._update_cache()
-        return self._matrix
+        return (self.before @ self.linked @ self.after).matrix
 
     @matrix.setter
     def matrix(self, value):
@@ -250,32 +231,17 @@ class LinkedTransform(AffineBase):
         self.linked.matrix = new_link
         self.linked.last_modified = datetime.now()
 
-    @property
-    def position(self):
-        self._update_cache()
-        return self._position
-
-    @position.setter
+    @AffineBase.position.setter
     def position(self, value):
         total_transform = pla.matrix_make_transform(value, self.rotation, self.scale)
         self.matrix = total_transform
 
-    @property
-    def rotation(self):
-        self._update_cache()
-        return self._rotation
-
-    @rotation.setter
+    @AffineBase.rotation.setter
     def rotation(self, value):
         total_transform = pla.matrix_make_transform(self.position, value, self.scale)
         self.matrix = total_transform
 
-    @property
-    def scale(self):
-        self._update_cache()
-        return self._scale
-
-    @scale.setter
+    @AffineBase.scale.setter
     def scale(self, value):
         total_transform = pla.matrix_make_transform(self.position, self.rotation, value)
         self.matrix = total_transform
