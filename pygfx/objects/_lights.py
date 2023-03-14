@@ -1,6 +1,8 @@
 import math
 
 import wgpu
+import pylinalg as pla
+import numpy as np
 
 from ._base import WorldObject
 from ..utils.color import Color
@@ -11,12 +13,13 @@ from ..cameras import OrthographicCamera, PerspectiveCamera
 from ..utils import array_from_shadertype
 
 
-def get_pos_from_camera_parent_or_target(light):
+def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
-        p = light.position.clone().add(Vector3(0, 0, -1))
-        return p.apply_matrix4(light.parent.matrix_world)
+        return (light.parent.world_transform @ pla.vector_make_homogeneous((0, 0, -1)))[
+            :-1
+        ]
     else:
-        return light.target.get_world_position()
+        return light.target.world_transform.position
 
 
 class Light(WorldObject):
@@ -288,16 +291,20 @@ class DirectionalLight(Light):
         self._target = target
 
     def _gfx_update_uniform_buffer(self):
-        pos1 = self.get_world_position()
+        pos1 = self.world_transform.position
         pos2 = get_pos_from_camera_parent_or_target(self)
-        origin_to_target = Vector3().sub_vectors(pos2, pos1)
-        self._gfx_distance_to_target = origin_to_target.length()
+        origin_to_target = pos2 - pos1
+        self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
         if self._gfx_distance_to_target > 0:
-            direction = origin_to_target.normalize()
+            direction = origin_to_target / self._gfx_distance_to_target
         else:
-            direction = Vector3(0, 0, -1)  # ill-defined direction -> look neg z-axis
-        self.uniform_buffer.data["direction"].flat = direction.to_array()
-        self.look_at(pos2)
+            direction = np.array(
+                (0, 0, -1), dtype=float
+            )  # ill-defined direction -> look neg z-axis
+        self.uniform_buffer.data["direction"].flat = direction
+        # note: we are doing computation in world space but then apply look_at
+        # in local space is this what we want?
+        self.transform.look_at(pos1 + direction)
 
 
 class SpotLight(Light):
@@ -377,16 +384,21 @@ class SpotLight(Light):
         self._shadow = SpotLightShadow()
 
     def _gfx_update_uniform_buffer(self):
-        pos1 = self.get_world_position()
+        pos1 = self.world_transform.position
         pos2 = get_pos_from_camera_parent_or_target(self)
-        origin_to_target = Vector3().sub_vectors(pos2, pos1)
-        self._gfx_distance_to_target = origin_to_target.length()
+        origin_to_target = pos1 - pos2
+        self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
         if self._gfx_distance_to_target > 0:
-            direction = origin_to_target.normalize()
+            direction = origin_to_target / self._gfx_distance_to_target
         else:
-            direction = Vector3(0, 0, -1)  # ill-defined direction -> look neg z-axis
-        self.uniform_buffer.data["direction"].flat = direction.to_array()
-        self.look_at(pos2)
+            direction = np.array(
+                (0, 0, -1), dtype=float
+            )  # ill-defined direction -> look neg z-axis
+        self.uniform_buffer.data["direction"].flat = direction
+
+        # Note: we are doing computation world space but apply look_at in local space.
+        # is this what we want?
+        self.transform.look_at(pos1 + direction)
 
     @property
     def power(self):
@@ -524,23 +536,17 @@ class LightShadow:
 
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
-        shadow_camera.position.set_from_matrix_position(light.matrix_world)
-        _look_target.copy(get_pos_from_camera_parent_or_target(light))
-        shadow_camera.look_at(_look_target)
+        shadow_camera.transform.position = light.world_transform.position
+        target = get_pos_from_camera_parent_or_target(light)
+        shadow_camera.transform.look_at(target)
         shadow_camera.update_matrix_world()
 
-        _proj_screen_matrix.multiply_matrices(
-            shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
-        )
+        transform = shadow_camera.projection_matrix @ shadow_camera.matrix_world_inverse
 
-        self._gfx_matrix_buffer.data[
-            "light_view_proj_matrix"
-        ].flat = _proj_screen_matrix.elements
+        self._gfx_matrix_buffer.data["light_view_proj_matrix"].flat = transform.ravel()
         self._gfx_matrix_buffer.update_range(0, 1)
 
-        light.uniform_buffer.data[
-            "light_view_proj_matrix"
-        ].flat = _proj_screen_matrix.elements
+        light.uniform_buffer.data["light_view_proj_matrix"].flat = transform.ravel()
 
 
 class DirectionalLightShadow(LightShadow):

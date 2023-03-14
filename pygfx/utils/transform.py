@@ -22,18 +22,18 @@ class AffineBase:
         self._scale: np.ndarray = None
 
         self._inverse_age = OUTDATED
-        self._inverse_matrix:np.ndarray = None
+        self._inverse_matrix: np.ndarray = None
 
     def _update_inverse(self):
         if self.last_modified < self._inverse_age:
             return
-        
+
         self._inverse_matrix = np.linalg.inv(self.matrix)
 
     @property
     def inverse_matrix(self):
         self._update_inverse()
-        return self._inverse_matrix        
+        return self._inverse_matrix
 
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
