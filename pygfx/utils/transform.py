@@ -1,11 +1,8 @@
 import numpy as np
 import pylinalg as pla
 from datetime import datetime
-from functools import wraps
 
 from typing import List
-
-OUTDATED = datetime(1900, 1, 1)  # some date in the past
 
 
 class cached:

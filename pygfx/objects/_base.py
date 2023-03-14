@@ -394,7 +394,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         See WorldObject.get_world_bounding_box.
         """
-        return pla.aabb_transform(self.world_bounding_box)
+        return pla.aabb_to_sphere(self.world_bounding_box)
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
