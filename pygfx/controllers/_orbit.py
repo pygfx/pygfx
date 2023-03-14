@@ -28,11 +28,10 @@ class OrbitController(PanZoomController):
     grabbing onto something in the foreground; if you move the mouse
     to the right, the objects in the foreground move to the right, and
     those in the background (on the opposite side of the center of
-    rotation) move to the left.
     """
 
-    def __init__(self, camera=None, *, enabled=True, auto_update=True) -> None:
-        super().__init__(camera, enabled=enabled, auto_update=auto_update)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # State info used during a rotate operation
         self._rotate_info = None

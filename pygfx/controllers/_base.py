@@ -12,15 +12,30 @@ class Controller:
     """The base camera controller.
 
     The purpose of a controller is to provide an API to control a camera,
-    and to convert user (mouse) events into camera adjustments.
+    and to convert user (mouse) events into camera adjustments
+
+    Parameters
+    ----------
+    camera: Camera
+        The camera to control (optional). Must be a perspective or orthographic camera.
+    enabled: bool
+        Whether the controller is enabled (i.e. responds to events).
+    auto_update : bool
+        Whether the controller requests a new draw when the camera has changed.
+    register_events: Renderer or Viewport
+        If given and not None, will call ``.register_events()``..
     """
 
-    def __init__(self, camera=None, *, enabled=True, auto_update=True):
+    def __init__(
+        self, camera=None, *, enabled=True, auto_update=True, register_events=None
+    ):
         self._cameras = []
         if camera is not None:
             self.add_camera(camera)
         self.enabled = enabled
         self.auto_update = auto_update
+        if register_events is not None:
+            self.register_events(register_events)
 
     @property
     def cameras(self):
@@ -76,11 +91,16 @@ class Controller:
     def handle_event(self, event, viewport, camera):
         raise NotImplementedError()
 
-    def add_default_event_handlers(self, viewport: Union[Viewport, Renderer]):
+    def add_default_event_handlers(self, *args):
+        raise DeprecationWarning(
+            "add_default_event_handlers(viewport, camera) -> register_events(viewport)"
+        )
+
+    def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
         Needs either a viewport or renderer.
         """
-        viewport = Viewport.from_viewport_or_renderer(viewport)
+        viewport = Viewport.from_viewport_or_renderer(viewport_or_renderer)
         viewport.renderer.add_event_handler(
             lambda event: self.handle_event(event, viewport),
             "pointer_down",

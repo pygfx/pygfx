@@ -9,11 +9,10 @@ class PanZoomController(Controller):
 
     Supports panning parallel to the screen, zooming
     (also anisotropic if ``camera.maintain_aspect==False``).
-
     """
 
-    def __init__(self, camera=None, *, enabled=True, auto_update=True) -> None:
-        super().__init__(camera, enabled=enabled, auto_update=auto_update)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # State info used during pan/zoom operations
         self._pan_info = None
