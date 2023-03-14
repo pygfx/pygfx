@@ -128,7 +128,6 @@ class WorldObject(EventTarget, RootTrackable):
         visible=True,
         render_order=0,
         render_mask="auto",
-        position=None,
     ):
         super().__init__()
         self._parent: weakref.ReferenceType[WorldObject] = None
@@ -136,10 +135,6 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.transform = AffineTransform()
         self.cache = None
-
-        # @almarklein: Can we delete this one? It feels out of place.
-        if position is not None:
-            self.transform.position = position
 
         self.geometry = geometry
         self.material = material
@@ -359,9 +354,12 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def world_transform(self) -> AffineTransform:
-        return LinkedTransform(
-            self.transform, before=ChainedTransform(self.transform_sequence[:-1])
-        )
+        if self.parent is not None:
+            before = ChainedTransform(self.transform_sequence[:-1])
+        else:
+            before = None
+
+        return LinkedTransform(self.transform, before=before)
 
     @property
     def bounding_box(self):

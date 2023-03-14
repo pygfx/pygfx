@@ -18,11 +18,8 @@ class Group(WorldObject):
 
     """
 
-    def __init__(self, *, visible=True, position=None):
-        super().__init__(
-            visible=visible,
-            position=position,
-        )
+    def __init__(self, *, visible=True):
+        super().__init__(visible=visible)
 
 
 class Scene(Group):
