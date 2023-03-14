@@ -7,13 +7,11 @@ import pylinalg as pla
 
 import numpy as np
 
-from ..linalg import Vector3, Matrix4
-from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
-from ..utils.transform import AffineTransform
+from ..utils.transform import AffineTransform, ChainedTransform, LinkedTransform
 
 
 class IdProvider:
@@ -150,13 +148,6 @@ class WorldObject(EventTarget, RootTrackable):
         self.visible = visible
         self.render_order = render_order
         self.render_mask = render_mask
-
-        self.up = Vector3(0, 1, 0)
-
-        self._matrix = Matrix4()
-        self._matrix_auto_update = True
-        self._matrix_world = Matrix4()
-        self._matrix_world_dirty = True
 
         # Compose complete uniform type
         self.uniform_type = {}
@@ -360,13 +351,17 @@ class WorldObject(EventTarget, RootTrackable):
             yield from child.iter(filter_fn, skip_invisible)
 
     @property
-    def world_transform(self) -> AffineTransform:
+    def transform_sequence(self) -> List[AffineTransform]:
         if self.parent is None:
-            world_matrix = self.transform.matrix
+            return [self.transform]
         else:
-            world_matrix = self.parent.world_transform.matrix @ self.transform.matrix
+            return self.parent.transform_sequence + [self.transform]
 
-        return AffineTransform(world_matrix)
+    @property
+    def world_transform(self) -> AffineTransform:
+        return LinkedTransform(
+            self.transform, before=ChainedTransform(self.transform_sequence[:-1])
+        )
 
     @property
     def bounding_box(self):

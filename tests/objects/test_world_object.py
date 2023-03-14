@@ -87,6 +87,7 @@ def test_update_matrix_world():
         @ child2.transform
         @ pla.vector_make_homogeneous((10, 10, 10))
     )
+
     actual = child2.world_transform @ pla.vector_make_homogeneous((10, 10, 10))
 
     # if there is a difference it's a floating point error
