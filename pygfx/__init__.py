@@ -19,6 +19,10 @@ from .utils.viewport import Viewport
 from .utils.text import font_manager
 from .utils import cm, logger
 
+# Temp fix for pyinstaller to pick up pylinalg
+import pylinalg
+
+del pylinalg
 
 __version__ = "0.1.12"
 version_info = tuple(map(int, __version__.split(".")))
