@@ -48,8 +48,7 @@ camera.show_object(scene, (-1, -1, -1), up=(0, 1, 0))
 scene.add(camera.add(gfx.DirectionalLight()))
 scene.add(gfx.AmbientLight())
 
-controller = gfx.OrbitController(camera)
-controller.add_default_event_handlers(renderer)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():

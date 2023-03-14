@@ -62,8 +62,7 @@ camera.up = 0, 0, 1
 camera.position.set(200, 200, 200)
 camera.show_pos((0, 0, 0))
 
-controller = gfx.OrbitController(camera)
-controller.add_default_event_handlers(renderer)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():

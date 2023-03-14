@@ -40,8 +40,7 @@ camera = gfx.PerspectiveCamera(0)
 camera.scale.y = -1
 camera.show_rect(-10, 522, -10, 522)
 
-controller = gfx.PanZoomController(camera)
-controller.add_default_event_handlers(renderer)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 if __name__ == "__main__":
     canvas.request_draw(lambda: renderer.render(scene, camera))

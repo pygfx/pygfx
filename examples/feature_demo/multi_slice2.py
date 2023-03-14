@@ -56,8 +56,7 @@ for dim in [0, 1, 2]:  # xyz
 camera = gfx.PerspectiveCamera(50)
 camera.show_object(scene, (-1, -1, -1), up=(0, 0, 1))
 
-controller = gfx.OrbitController(camera)
-controller.add_default_event_handlers(renderer)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 # Add a slight tilt. This is to show that the slices are still orthogonal
 # to the world coordinates.

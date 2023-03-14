@@ -32,8 +32,7 @@ scene.add(line)
 camera = gfx.OrthographicCamera(maintain_aspect=False)
 camera.show_rect(0, 1000, -5, 5)
 
-controller = gfx.PanZoomController(camera)
-controller.add_default_event_handlers(renderer)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ class PanZoomController(Controller):
 
         # State info used during pan/zoom operations
         self._pan_info = None
+        self._zoom_info = None
         self._quickzoom_info1 = None
         self._quickzoom_info2 = None
 
