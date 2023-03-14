@@ -62,8 +62,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Test py37
-            pyversion: '3.7'
           - name: Test py38
             pyversion: '3.8'
           - name: Test py39
