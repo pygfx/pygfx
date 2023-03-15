@@ -2,7 +2,7 @@ import numpy as np
 import pylinalg as pla
 from time import perf_counter_ns
 
-from typing import List
+from typing import List, Tuple
 
 
 class cached:
@@ -43,27 +43,26 @@ class AffineBase:
     @cached
     def inverse_matrix(self):
         return np.linalg.inv(self.matrix)
+    
+    @cached
+    def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return pla.matrix_decompose(self.matrix)
 
     @property
-    @cached
     def position(self) -> np.ndarray:
-        pos, _, _ = pla.matrix_decompose(self.matrix)
-        return pos
+        return self._decomposed[0]
 
     @property
-    @cached
     def rotation(self) -> np.ndarray:
-        _, rot, _ = pla.matrix_decompose(self.matrix)
-        return rot
+        return self._decomposed[1]
+
+    @property
+    def scale(self) -> np.ndarray:
+        return self._decomposed[2]
 
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
 
-    @property
-    @cached
-    def scale(self) -> np.ndarray:
-        _, _, scale = pla.matrix_decompose(self.matrix)
-        return scale
 
 
 class AffineTransform(AffineBase):
