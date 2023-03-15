@@ -1,6 +1,6 @@
 import numpy as np
 import pylinalg as pla
-from datetime import datetime
+from time import perf_counter_ns
 
 from typing import List
 
@@ -9,39 +9,14 @@ class cached:
     """Cache for computed properties.
 
     This descriptor implements a minimal timestamp-based cache for computed
-    properties. The value of the property is computed using ``update_fn`` and
+    properties. The value of the property is computed using ``compute_fn`` and
     the result is cached until ``obj.last_modified`` advances. At this point the
     value of the computed property is recomputed upon the next read.
 
-
-
-    Example
-    -------
-
-    class Foobar:
-        def __init__(self, x):
-            self._value = 0
-            self.last_modified = datetime.now()
-
-        @property
-        def value(self):
-            return self._value
-
-        @value.setter
-        def value(self, new_value):
-            self._value = new_value
-            self.last_modified = datetime.now()
-
-        @property
-        @cached
-        def double(self):
-            print("Computed value of double..")
-            return 2*x
-
     """
 
-    def __init__(self, update_fn=None) -> None:
-        self.update_fn = update_fn
+    def __init__(self, compute_fn=None) -> None:
+        self.compute_fn = compute_fn
         self.last_updated = None
         self.cached_value = None
 
@@ -50,18 +25,18 @@ class cached:
             return self
 
         if self.last_updated is None or obj.last_modified > self.last_updated:
-            self.cached_value = self.update_fn(obj)
+            self.cached_value = self.compute_fn(obj)
             self.last_updated = obj.last_modified
 
         return self.cached_value
 
     def __call__(self, obj):
-        """Helper to allow interoperability with @property."""
+        """Helper to support wrapping by @property."""
         return self.__get__(obj)
 
 
 class AffineBase:
-    last_modified: datetime
+    last_modified: int
     matrix: np.ndarray
 
     @property
@@ -98,7 +73,7 @@ class AffineTransform(AffineBase):
         self, matrix=None, /, *, position=None, rotation=None, scale=None
     ) -> None:
         super().__init__()
-        self.last_modified = datetime.now()
+        self.last_modified = perf_counter_ns()
 
         if matrix is None:
             matrix = np.eye(4, dtype=float)
@@ -115,12 +90,12 @@ class AffineTransform(AffineBase):
             self.scale = scale
 
     def flag_update(self):
-        self.last_modified = datetime.now()
+        self.last_modified = perf_counter_ns()
 
     @AffineBase.position.setter
     def position(self, value):
         self.matrix[:-1, -1] = value
-        self.last_modified = datetime.now()
+        self.last_modified = perf_counter_ns()
 
     @AffineBase.rotation.setter
     def rotation(self, value):
@@ -128,7 +103,7 @@ class AffineTransform(AffineBase):
         scale = self.scale
 
         pla.matrix_make_transform(position, value, scale, out=self.matrix)
-        self.last_modified = datetime.now()
+        self.last_modified = perf_counter_ns()
 
     @AffineBase.scale.setter
     def scale(self, value):
@@ -136,7 +111,7 @@ class AffineTransform(AffineBase):
         rotation = self.rotation
 
         pla.matrix_make_transform(position, rotation, value, out=self.matrix)
-        self.last_modified = datetime.now()
+        self.last_modified = perf_counter_ns()
 
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
@@ -222,11 +197,10 @@ class LinkedTransform(AffineBase):
 
     @matrix.setter
     def matrix(self, value):
-        new_link = (
+        self.linked.matrix = (
             self.before.inverse_matrix @ np.asarray(value) @ self.after.inverse_matrix
         )
-        self.linked.matrix = new_link
-        self.linked.last_modified = datetime.now()
+        self.linked.last_modified = perf_counter_ns()
 
     @AffineBase.position.setter
     def position(self, value):
