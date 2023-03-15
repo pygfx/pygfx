@@ -131,12 +131,7 @@ class ChainedTransform(AffineBase):
 
     @property
     def last_modified(self):
-        candidate = self.sequence[0].last_modified
-        for transform in self.sequence:
-            if transform.last_modified > candidate:
-                candidate = transform.last_modified
-
-        return candidate
+        return max(self.sequence, key=lambda transform: transform.last_modified)
 
     @property
     @cached
