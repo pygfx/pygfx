@@ -1,5 +1,5 @@
 import numpy as np
-import pylinalg as pla
+import pylinalg as la
 from time import perf_counter_ns
 
 from typing import List, Tuple
@@ -37,16 +37,19 @@ class cached:
 
 class AffineBase:
     last_modified: int
-    matrix: np.ndarray
+
+    @property
+    def matrix(self):
+        raise NotImplementedError()
 
     @property
     @cached
     def inverse_matrix(self):
         return np.linalg.inv(self.matrix)
-    
+
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return pla.matrix_decompose(self.matrix)
+        return la.matrix_decompose(self.matrix)
 
     @property
     def position(self) -> np.ndarray:
@@ -64,7 +67,6 @@ class AffineBase:
         return self.matrix.astype(dtype)
 
 
-
 class AffineTransform(AffineBase):
     """An affine tranformation"""
 
@@ -77,7 +79,7 @@ class AffineTransform(AffineBase):
         if matrix is None:
             matrix = np.eye(4, dtype=float)
 
-        self.matrix = np.asarray(matrix)
+        self.untracked_matrix = np.asarray(matrix)
 
         if position is not None:
             self.position = position
@@ -91,26 +93,30 @@ class AffineTransform(AffineBase):
     def flag_update(self):
         self.last_modified = perf_counter_ns()
 
+    @property
+    @cached
+    def matrix(self):
+        view_array = self.untracked_matrix.view()
+        view_array.flags.writeable = False
+        return view_array
+
+    @matrix.setter
+    def matrix(self, value):
+        self.untracked_matrix[:] = value
+        self.flag_update()
+
     @AffineBase.position.setter
     def position(self, value):
-        self.matrix[:-1, -1] = value
-        self.last_modified = perf_counter_ns()
+        self.untracked_matrix[:-1, -1] = value
+        self.flag_update()
 
     @AffineBase.rotation.setter
     def rotation(self, value):
-        position = self.position
-        scale = self.scale
-
-        pla.matrix_make_transform(position, value, scale, out=self.matrix)
-        self.last_modified = perf_counter_ns()
+        self.matrix = la.matrix_make_transform(self.position, value, self.scale)
 
     @AffineBase.scale.setter
     def scale(self, value):
-        position = self.position
-        rotation = self.rotation
-
-        pla.matrix_make_transform(position, rotation, value, out=self.matrix)
-        self.last_modified = perf_counter_ns()
+        self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
 
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
@@ -119,9 +125,9 @@ class AffineTransform(AffineBase):
         return np.asarray(self) @ other
 
     def look_at(self, target) -> None:
-        rotation = pla.matrix_make_look_at(self.position, target, (0, 1, 0))
-        rotation = pla.matrix_to_quaternion(rotation)
-        self.rotation = pla.quaternion_multiply(rotation, self.rotation)
+        rotation = la.matrix_make_look_at(self.position, target, (0, 1, 0))
+        rotation = la.matrix_to_quaternion(rotation)
+        self.rotation = la.quaternion_multiply(rotation, self.rotation)
 
 
 class ChainedTransform(AffineBase):
@@ -131,7 +137,9 @@ class ChainedTransform(AffineBase):
 
     @property
     def last_modified(self):
-        return max(self.sequence, key=lambda transform: transform.last_modified)
+        return max(
+            self.sequence, key=lambda transform: transform.last_modified
+        ).last_modified
 
     @property
     @cached
@@ -186,6 +194,7 @@ class LinkedTransform(AffineBase):
         return value
 
     @property
+    @cached
     def matrix(self):
         return (self.before @ self.linked @ self.after).matrix
 
@@ -194,19 +203,15 @@ class LinkedTransform(AffineBase):
         self.linked.matrix = (
             self.before.inverse_matrix @ np.asarray(value) @ self.after.inverse_matrix
         )
-        self.linked.last_modified = perf_counter_ns()
 
     @AffineBase.position.setter
     def position(self, value):
-        total_transform = pla.matrix_make_transform(value, self.rotation, self.scale)
-        self.matrix = total_transform
+        self.matrix = la.matrix_make_transform(value, self.rotation, self.scale)
 
     @AffineBase.rotation.setter
     def rotation(self, value):
-        total_transform = pla.matrix_make_transform(self.position, value, self.scale)
-        self.matrix = total_transform
+        self.matrix = la.matrix_make_transform(self.position, value, self.scale)
 
     @AffineBase.scale.setter
     def scale(self, value):
-        total_transform = pla.matrix_make_transform(self.position, self.rotation, value)
-        self.matrix = total_transform
+        self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
