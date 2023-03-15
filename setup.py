@@ -11,11 +11,14 @@ with open(f"{NAME}/__init__.py", "rb") as fh:
     VERSION = re.search(r"__version__ = \"(.*?)\"", init_text).group(1)
     match = re.search(r"__wgpu_version_range__ = \"(.*?)\", \"(.*?)\"", init_text)
     wgpu_min_ver, wgpu_max_ver = match.group(1), match.group(2)
+    match = re.search(r"__pylinalg_version_range__ = \"(.*?)\", \"(.*?)\"", init_text)
+    pylinalg_min_ver, pylinalg_max_ver = match.group(1), match.group(2)
 
 
 runtime_deps = [
     "numpy",
     f"wgpu>={wgpu_min_ver},<{wgpu_max_ver}",
+    f"pylinalg>={pylinalg_min_ver},<{pylinalg_max_ver}",
     "freetype-py",
     "uharfbuzz",
     "Jinja2",
@@ -69,7 +72,7 @@ setup(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
     package_data={f"{NAME}.data_files": resources_globs},
-    python_requires=">=3.7.0",
+    python_requires=">=3.8.0",
     install_requires=runtime_deps,
     extras_require=extras_require,
     license="BSD 2-Clause",
