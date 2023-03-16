@@ -63,7 +63,8 @@ class PerspectiveCamera(Camera):
         # Set width and height. Note that if both width and height are given, it overrides aspect
         aspect = aspect or 1
         if width is None and height is None:
-            width, height = aspect, 1
+            height = 100  # 100 produces safer near plane for most use-cases than 1
+            width = height * aspect
         elif width is None:
             width = height * aspect
         elif height is None:

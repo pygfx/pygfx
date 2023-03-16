@@ -179,8 +179,7 @@ class Display:
         # Process controller
 
         if self.controller is None:
-            self.controller = OrbitController()
-            self.controller.add_default_event_handlers(self.renderer)
+            self.controller = OrbitController(register_events=self.renderer)
         if not self.controller.cameras:
             self.controller.add_camera(self.camera)
 

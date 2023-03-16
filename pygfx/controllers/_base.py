@@ -88,14 +88,6 @@ class Controller:
         distance = fov_distance_factor(fov) * extent
         return la.quaternion_rotate((0, 0, -distance), rotation)
 
-    def handle_event(self, event, viewport, camera):
-        raise NotImplementedError()
-
-    def add_default_event_handlers(self, *args):
-        raise DeprecationWarning(
-            "add_default_event_handlers(viewport, camera) -> register_events(viewport)"
-        )
-
     def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
         Needs either a viewport or renderer.
@@ -110,6 +102,17 @@ class Controller:
             "key_up",
             "wheel",
         )
+
+    def handle_event(self, event, viewport, camera):
+        raise NotImplementedError()
+
+    def add_default_event_handlers(self, *args):
+        raise DeprecationWarning(
+            "controller.add_default_event_handlers(viewport, camera) -> controller.register_events(viewport)"
+        )
+
+    def update_camera(self, *args):
+        raise DeprecationWarning("controller.update_camera() is no longer necessary")
 
 
 def get_screen_vectors_in_world_cords(
