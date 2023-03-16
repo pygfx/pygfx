@@ -386,7 +386,7 @@ class SpotLight(Light):
     def _gfx_update_uniform_buffer(self):
         pos1 = self.world_transform.position
         pos2 = get_pos_from_camera_parent_or_target(self)
-        origin_to_target = pos1 - pos2
+        origin_to_target = pos2 - pos1
         self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
         if self._gfx_distance_to_target > 0:
             direction = origin_to_target / self._gfx_distance_to_target
