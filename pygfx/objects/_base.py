@@ -274,6 +274,9 @@ class WorldObject(EventTarget, RootTrackable):
 
     @parent.setter
     def parent(self, value: "WorldObject"):
+        if self._parent is not None:
+            self._parent().remove(self)
+
         if value is None:
             self._parent = None
         else:
@@ -291,12 +294,6 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
-            # added for backwards compatibility
-            # (I feel like we should raise instead if the object is already part
-            # of the scene graph)
-            if obj.parent is not None:
-                obj.parent.remove(obj)
-
             if before is not None:
                 idx = self.children.index(before)
             else:
