@@ -275,7 +275,7 @@ of the view are then stretched to fill the window.
 **Orienting cameras**
 
 Camera's can be oriented manually by setting their position, and then set their rotation
-to have them look in the correct direction, e.g. using :func:`.look_at()<pygfx.WorldObject.look_at>.
+to have them look in the correct direction, e.g. using :func:`.look_at()<pygfx.WorldObject.look_at>`.
 In this case you should probably set the width in addition to fov and aspect.
 
 .. code-block:: python
@@ -283,7 +283,7 @@ In this case you should probably set the width in addition to fov and aspect.
     # Manual orientation
     camera = gfx.PerspectiveCamera(50, 4/3, width=100)
     camera.position.set(30, 40, 50)
-    camera.look_at(0, 0, 0)
+    camera.look_at((0, 0, 0))
 
 However, we strongly recommend using one of the ``show`` methods, since these
 also set the ``width`` and ``height``. Therefore they better prepare the
@@ -298,7 +298,7 @@ automatically set.
 
     # Convenient orientation: similar to look_at
     camera.position.set(30, 40, 50)
-    camera.show_pos(0, 0, 0)
+    camera.show_pos((0, 0, 0))
 
     # Convenient orientation: show an object
     camera.show_object(target, view_dir=(-1, -1, -1))

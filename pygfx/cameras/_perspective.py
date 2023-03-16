@@ -22,7 +22,7 @@ class PerspectiveCamera(Camera):
     width: float
         The width of the scene to view. If omitted or None, the width
         is derived from aspect and height.
-    height : float
+    height: float
         The height of the scene to view. If omitted or None, the height
         is derived from aspect and width.
     zoom: float
@@ -35,6 +35,8 @@ class PerspectiveCamera(Camera):
         or None, the clip planes will be calculated automatically based
         on the fov, width, and height.
 
+    Note
+    ----
     The width and/or height should be set when using a fov of zero,
     when you want to manipulate the camera with a controller, or when
     you want to make use of the automatic depth_range. However, if you
@@ -305,10 +307,11 @@ class PerspectiveCamera(Camera):
 
         Parameters
         ----------
-        target: WorldObject or a position (x, y, z)
+        target: WorldObject or (x, y, z)
             The target to point the camera towards.
         up: 3-tuple
             If given, also sets the up vector of the camera.
+
         """
 
         # Get pos from target
@@ -351,9 +354,9 @@ class PerspectiveCamera(Camera):
             uses the current view direction.
         up: 3-tuple
             If given, also sets the up vector of the camera.
-            up property is not changed.
         scale: float
             Scale the size of what's shown. Default 1.
+
         """
 
         # Get bounding sphere from target
@@ -421,8 +424,7 @@ class PerspectiveCamera(Camera):
             Look at the rectang;e from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-            Sets the up vector of the camera. If not given or None, the
-            up property is not changed.
+           If given, also sets the up vector of the camera.
 
         """
 
