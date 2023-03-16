@@ -187,15 +187,7 @@ class LinkedTransform(AffineBase):
 
     @property
     def last_modified(self):
-        value = self.linked.last_modified
-
-        if value < self.before.last_modified:
-            value = self.before.last_modified
-
-        if value < self.after.last_modified:
-            value = self.after.last_modified
-
-        return value
+        return max(t.last_modified for t in (self.linked, self.before, self.after))
 
     @cached
     def _matrix(self):
