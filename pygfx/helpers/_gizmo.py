@@ -699,11 +699,13 @@ class TransformGizmo(WorldObject):
         dim = self._ref["dim"]
 
         # Get how the mouse has moved
-        screen_moved = np.array((
-            event.x - self._ref["event_pos"][0],
-            event.y - self._ref["event_pos"][1],
-            0,
-        ))
+        screen_moved = np.array(
+            (
+                event.x - self._ref["event_pos"][0],
+                event.y - self._ref["event_pos"][1],
+                0,
+            )
+        )
 
         if dim is None:
             # Uniform scale
@@ -732,11 +734,13 @@ class TransformGizmo(WorldObject):
         dims = [(1, 2), (2, 0), (0, 1)][dim]
 
         # Get how the mouse has moved
-        screen_moved = np.array((
-            event.x - self._ref["event_pos"][0],
-            event.y - self._ref["event_pos"][1],
-            0,
-        ))
+        screen_moved = np.array(
+            (
+                event.x - self._ref["event_pos"][0],
+                event.y - self._ref["event_pos"][1],
+                0,
+            )
+        )
 
         # Calculate axis of rotation
         world_dir = self._ref["world_directions"][dim]

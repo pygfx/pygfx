@@ -125,7 +125,7 @@ class AffineTransform(AffineBase):
             return AffineTransform(self.matrix @ other.matrix)
 
         return np.asarray(self) @ other
-    
+
     def __array__(self, dtype=None):
         return self.untracked_matrix.astype(dtype, copy=False)
 
@@ -192,7 +192,7 @@ class LinkedTransform(AffineBase):
     @cached
     def _matrix(self):
         return (self.before @ self.linked @ self.after).matrix
-    
+
     @property
     def matrix(self):
         return self._matrix

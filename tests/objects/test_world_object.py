@@ -179,6 +179,7 @@ def test_iter():
     root.add(Foo(), WorldObject(), Foo())
     assert len(list(root.iter(lambda x: isinstance(x, Foo)))) == 2
 
+
 def test_setting_world_transform():
     root = gfx.WorldObject()
     root.transform.position = (1, 2, 3)

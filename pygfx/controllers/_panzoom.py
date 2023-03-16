@@ -66,7 +66,9 @@ class PanZoomController(Controller):
         self.zoom_value = state["zoom_value"]
         self.min_zoom = state["min_zoom"]
 
-    def look_at(self, eye: np.ndarray, target: np.ndarray, up: np.ndarray) -> Controller:
+    def look_at(
+        self, eye: np.ndarray, target: np.ndarray, up: np.ndarray
+    ) -> Controller:
         self.distance = eye.distance_to(target)
         self.target.copy(target)
         self.up.copy(up)
@@ -179,7 +181,9 @@ class PanZoomController(Controller):
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
             radius = bsphere[3]
-            center_world_coord = la.vector_unproject((0, 0, 0), camera.projection_matrix)
+            center_world_coord = la.vector_unproject(
+                (0, 0, 0), camera.projection_matrix
+            )
             right_world_coord = la.vector_unproject((1, 0, 0), camera.projection_matrix)
             top_world_coord = la.vector_unproject((0, 1, 0), camera.projection_matrix)
 
