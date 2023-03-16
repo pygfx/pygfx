@@ -169,7 +169,7 @@ class Display:
             self.camera = existing_camera
         else:
             self.camera = PerspectiveCamera(70, 4 / 3)
-            self.camera.show_object(object, up=up, size_weight=2.7)
+            self.camera.show_object(object, up=up, scale=1.4)
         if custom_scene:
             cam_has_light = next(self.camera.iter(lambda x: isinstance(x, Light)), None)
             if not cam_has_light:

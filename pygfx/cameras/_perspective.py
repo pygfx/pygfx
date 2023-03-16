@@ -332,9 +332,7 @@ class PerspectiveCamera(Camera):
         distance = la.vector_distance_between(pos, self.position.to_array())
         self._set_extent(distance / fov_distance_factor(self.fov))
 
-    def show_object(
-        self, target: WorldObject, view_dir=None, *, up=None, size_weight=2
-    ):
+    def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
         """Orientate the camera such that the given target in is in view.
 
         Sets the position and rotation of the camera, and adjusts
@@ -354,12 +352,8 @@ class PerspectiveCamera(Camera):
         up: 3-tuple
             If given, also sets the up vector of the camera.
             up property is not changed.
-        size_weight: float
-            How much extra space the camera must show.
-            The target's bounding sphere radius is multiplied by this weight.
-            Default 2. If you know your data is square and you look at it frontally,
-            you can set it to 1.5.
-
+        scale: float
+            Scale the size of what's shown. Default 1.
         """
 
         # Get bounding sphere from target
@@ -390,7 +384,7 @@ class PerspectiveCamera(Camera):
 
         view_pos = bsphere[:3]
         radius = bsphere[3]
-        extent = radius * size_weight
+        extent = radius * 2 * scale
         distance = fov_distance_factor(self.fov) * extent
 
         camera_pos = view_pos - view_dir * distance
