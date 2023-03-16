@@ -11,7 +11,6 @@ import numpy as np
 import wgpu.backends.rs
 
 from .. import Renderer
-from ...linalg import Matrix4, Vector3
 from ...objects._base import id_provider
 from ...objects import (
     KeyboardEvent,
@@ -24,6 +23,7 @@ from ...objects import (
 from ...cameras import Camera
 from ...resources import Texture, TextureView
 from ...utils import Color
+import pylinalg as la
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
@@ -41,16 +41,13 @@ def _get_sort_function(camera: Camera):
     """Given a scene object, get a function to sort wobject-tuples"""
 
     def sort_func(wobject: WorldObject):
-        z = (
-            Vector3()
-            .set_from_matrix_position(wobject.matrix_world)
-            .apply_matrix4(proj_screen_matrix)
-            .z
-        )
+        z = la.vector_apply_matrix(
+            wobject.world_transform.position, proj_screen_matrix
+        )[2]
         return wobject.render_order, z
 
-    proj_screen_matrix = Matrix4().multiply_matrices(
-        camera.projection_matrix, camera.matrix_world_inverse
+    proj_screen_matrix = (
+        camera.projection_matrix @ camera.world_transform.inverse_matrix
     )
 
     return sort_func

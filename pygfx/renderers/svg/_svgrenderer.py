@@ -1,11 +1,11 @@
 import os
 import io
+import pylinalg as la
 
 from .._base import Renderer, RenderFunctionRegistry
 
 from ...objects import WorldObject
 from ...cameras import Camera
-from ...linalg import Matrix4, Vector3
 
 
 registry = RenderFunctionRegistry()
@@ -62,8 +62,8 @@ class SvgRenderer(Renderer):
         camera.update_projection_matrix()
 
         # Get the sorted list of objects to render (guaranteed to be visible and having a material)
-        proj_screen_matrix = Matrix4().multiply_matrices(
-            camera.projection_matrix, camera.matrix_world_inverse
+        proj_screen_matrix = (
+            camera.projection_matrix @ camera.world_transform.inverse_matrix
         )
         q = self.get_render_list(scene, proj_screen_matrix)
 
@@ -89,7 +89,7 @@ class SvgRenderer(Renderer):
         with open(self._filename, "wb") as f2:
             f2.write(f.getvalue().encode())
 
-    def get_render_list(self, scene: WorldObject, proj_screen_matrix: Matrix4):
+    def get_render_list(self, scene: WorldObject, proj_screen_matrix):
         """Given a scene object, get a list of objects to render."""
 
         # start by gathering everything that is visible and has a material
@@ -104,12 +104,9 @@ class SvgRenderer(Renderer):
 
         # next, sort them from back-to-front
         def sort_func(wobject: WorldObject):
-            z = (
-                Vector3()
-                .set_from_matrix_position(wobject.matrix_world)
-                .apply_matrix4(proj_screen_matrix)
-                .z
-            )
+            z = la.vector_apply_matrix(
+                wobject.world_transform.position, proj_screen_matrix
+            )[2]
             return wobject.render_order, z
 
         return list(sorted(q, key=sort_func))

@@ -1,12 +1,11 @@
 import math
 
 import wgpu
-import pylinalg as pla
+import pylinalg as la
 import numpy as np
 
 from ._base import WorldObject
 from ..utils.color import Color
-from ..linalg import Matrix4, Vector3
 from ..cameras import Camera
 from ..resources import Buffer
 from ..cameras import OrthographicCamera, PerspectiveCamera
@@ -15,7 +14,7 @@ from ..utils import array_from_shadertype
 
 def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
-        return (light.parent.world_transform @ pla.vector_make_homogeneous((0, 0, -1)))[
+        return (light.parent.world_transform @ la.vector_make_homogeneous((0, 0, -1)))[
             :-1
         ]
     else:
@@ -474,11 +473,6 @@ class SpotLight(Light):
 
 
 # shadows
-
-_look_target = Vector3()
-_proj_screen_matrix = Matrix4()
-
-
 shadow_uniform_type = dict(light_view_proj_matrix="4x4xf4")
 
 
@@ -589,23 +583,29 @@ class SpotLightShadow(LightShadow):
 class PointLightShadow(LightShadow):
     """Shadow map utility for point light sources."""
 
-    _cube_directions = [
-        Vector3(1, 0, 0),
-        Vector3(-1, 0, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, -1, 0),
-        Vector3(0, 0, 1),
-        Vector3(0, 0, -1),
-    ]
+    _cube_directions = np.array(
+        [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ],
+        dtype=float,
+    )
 
-    _cube_up = [
-        Vector3(0, 1, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, 0, 1),
-        Vector3(0, 0, -1),
-    ]
+    _cube_up = np.array(
+        [
+            (0, 1, 0),
+            (0, 1, 0),
+            (0, 1, 0),
+            (0, 1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ],
+        dtype=float,
+    )
 
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
@@ -629,23 +629,18 @@ class PointLightShadow(LightShadow):
         for i in range(6):
             camera.position.set_from_matrix_position(light.matrix_world)
 
-            _look_target.copy(camera.position)
-            _look_target.add(self._cube_directions[i])
-
             camera.up.copy(self._cube_up[i])
 
-            camera.look_at(_look_target)
+            camera.look_at(camera.transform.position + self._cube_directions[i])
             camera.update_matrix_world()
 
-            _proj_screen_matrix.multiply_matrices(
-                camera.projection_matrix, camera.matrix_world_inverse
-            )
+            screen_matrix = camera.projection_matrix @ camera.matrix_world_inverse
 
             light.uniform_buffer.data[f"light_view_proj_matrix"][
                 i
-            ].flat = _proj_screen_matrix.elements
+            ].flat = screen_matrix.ravel()
 
             self._gfx_matrix_buffer[i].data[
                 "light_view_proj_matrix"
-            ].flat = _proj_screen_matrix.elements
+            ].flat = screen_matrix.ravel()
             self._gfx_matrix_buffer[i].update_range(0, 1)

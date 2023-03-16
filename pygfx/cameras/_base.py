@@ -1,6 +1,6 @@
-from ..linalg import Vector3
 from ..objects._base import WorldObject
 import numpy as np
+import pylinalg as pla
 
 
 class Camera(WorldObject):
@@ -47,34 +47,32 @@ class Camera(WorldObject):
         Parameters:
             target: WorldObject
                 The object to look at
-            view_dir: 3-tuple of float or Vector3
+            view_dir: 3-tuple of float or ndarray
                 Look at the object in this direction
             distance_weight: float
                 The camera distance to the object's world position is
                 its bounding sphere radius multiplied by this weight
 
         Returns:
-            pos: Vector3
+            pos: ndarray
                 The world coordinate the camera is looking at
         """
-        if not isinstance(view_dir, Vector3):
-            view_dir = Vector3(*view_dir)
-        else:
-            view_dir = view_dir.clone()
 
-        bsphere = target.get_world_bounding_sphere()
+        view_dir = np.asarray(view_dir)
+
+        bsphere = target.world_bounding_sphere
         if bsphere is not None:
-            pos, distance = Vector3(*bsphere[:3]), bsphere[3]
+            pos, distance = bsphere[:3], bsphere[3]
         else:
-            pos = target.get_world_position()
+            pos = target.world_transform.position
             # whatever it is has no bounding sphere, so we just pick an
             # arbitrary distance
             distance = 100
+
         distance *= distance_weight
-        self.position.copy(pos).add_scaled_vector(
-            view_dir.normalize().negate(), distance
-        )
-        self.look_at(pos)
+        self.transform.position -= distance * pla.vector_normalize(view_dir)
+        self.transform.look_at(pos)
+
         return pos
 
 

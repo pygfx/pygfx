@@ -1,6 +1,7 @@
+import pylinalg as la
+
 from ._base import WorldObject
 from ..utils import unpack_bitfield
-from .. import linalg
 
 
 class Group(WorldObject):
@@ -274,6 +275,5 @@ class Text(WorldObject):
         # position. Therefore, we also keep a transform containing the
         # local rotation and scale, so that these can be applied to the
         # text in screen coordinates.
-        matrix = linalg.Matrix4()
-        matrix.compose(linalg.Vector3(0, 0, 0), self.rotation, self.scale)
-        self.uniform_buffer.data["rot_scale_transform"].flat = matrix.elements
+        matrix = la.matrix_make_transform((0, 0, 0), self.transform.rotation, self.transform.scale)
+        self.uniform_buffer.data["rot_scale_transform"].flat = matrix.ravel()

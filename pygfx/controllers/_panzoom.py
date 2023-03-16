@@ -1,8 +1,9 @@
 from typing import Tuple
+import numpy as np
+import pylinalg as la
 
 from ..cameras import Camera, OrthographicCamera
 from ..utils.viewport import Viewport
-from ..linalg import Vector3, Matrix4, Quaternion
 from ._base import Controller, get_screen_vectors_in_world_cords
 
 
@@ -11,23 +12,23 @@ class PanZoomController(Controller):
 
     def __init__(
         self,
-        eye: Vector3 = None,
-        target: Vector3 = None,
-        up: Vector3 = None,
+        eye: np.ndarray = None,
+        target: np.ndarray = None,
+        up: np.ndarray = None,
         zoom: float = 1.0,
         min_zoom: float = 0.0001,
         auto_update: bool = True,
     ) -> None:
         super().__init__()
-        self.rotation = Quaternion()
-        self.target = Vector3()
-        self.up = Vector3()
+        self.rotation = np.array((0, 0, 0, 1), dtype=float)
+        self.target = np.array((0, 0, 0), dtype=float)
+        self.up = np.array((0, 0, 0), dtype=float)
         if eye is None:
-            eye = Vector3(0, 0, 0)
+            eye = np.array((0, 0, 0), dtype=float)
         if target is None:
-            target = Vector3(eye.x, eye.y, eye.z - 100)
+            target = eye - (0, 0, 100)
         if up is None:
-            up = Vector3(0.0, 1.0, 0.0)
+            up = np.array((0, 1, 0), dtype=float)
         self.zoom_value = zoom
         self.min_zoom = min_zoom
         self.auto_update = True
@@ -36,8 +37,8 @@ class PanZoomController(Controller):
         self._pan_info = None
 
         # Temp objects (to avoid garbage collection)
-        self._m = Matrix4()
-        self._v = Vector3()
+        self._m = np.eye(4, dtype=float)
+        self._v = np.array((0, 0, 0), dtype=float)
 
         # Initialize orientation
         self.look_at(eye, target, up)
@@ -65,14 +66,14 @@ class PanZoomController(Controller):
         self.zoom_value = state["zoom_value"]
         self.min_zoom = state["min_zoom"]
 
-    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
+    def look_at(self, eye: np.ndarray, target: np.ndarray, up: np.ndarray) -> Controller:
         self.distance = eye.distance_to(target)
         self.target.copy(target)
         self.up.copy(up)
         self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
         return self
 
-    def pan(self, vec3: Vector3) -> Controller:
+    def pan(self, vec3: np.ndarray) -> Controller:
         """Pan in 3D world coordinates."""
         self.target.add(vec3)
         return self
@@ -137,7 +138,7 @@ class PanZoomController(Controller):
         self.pan(delta1.sub(delta2))
         return self
 
-    def get_view(self) -> Tuple[Vector3, Vector3, float]:
+    def get_view(self) -> Tuple[np.ndarray, np.ndarray, float]:
         self._v.set(0, 0, self.distance).apply_quaternion(self.rotation).add(
             self.target
         )
@@ -178,9 +179,9 @@ class PanZoomController(Controller):
         bsphere = target.get_world_bounding_sphere()
         if bsphere is not None:
             radius = bsphere[3]
-            center_world_coord = Vector3(0, 0, 0).unproject(camera)
-            right_world_coord = Vector3(1, 0, 0).unproject(camera)
-            top_world_coord = Vector3(0, 1, 0).unproject(camera)
+            center_world_coord = la.vector_unproject((0, 0, 0), camera.projection_matrix)
+            right_world_coord = la.vector_unproject((1, 0, 0), camera.projection_matrix)
+            top_world_coord = la.vector_unproject((0, 1, 0), camera.projection_matrix)
 
             min_distance = min(
                 right_world_coord.distance_to(center_world_coord),

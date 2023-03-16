@@ -307,7 +307,6 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
-            obj.parent = None
             self.children.remove(obj)
 
     def clear(self):

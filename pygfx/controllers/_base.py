@@ -1,6 +1,7 @@
 from typing import Tuple, Union
+import numpy as np
+import pylinalg as la
 
-from ..linalg import Vector3
 from ..utils.viewport import Viewport
 from ..renderers import Renderer
 from ..cameras import Camera
@@ -9,14 +10,14 @@ from ..cameras import Camera
 class Controller:
     """Base camera controller."""
 
-    def get_view(self) -> Tuple[Vector3, Vector3, float]:
+    def get_view(self) -> Tuple[np.ndarray, np.ndarray, float]:
         """
         Returns view parameters with which a camera can be updated.
 
         Returns:
-            rotation: Vector3
+            rotation: ndarray
                 Rotation of camera
-            position: Vector3
+            position: ndarray
                 Position of camera
             zoom: float
                 Zoom value for camera
@@ -60,16 +61,16 @@ class Controller:
 
 
 def get_screen_vectors_in_world_cords(
-    center_world: Vector3, scene_size: Tuple[float, float], camera: Camera
-) -> Tuple[Vector3, Vector3]:
+    center_world: np.ndarray, scene_size: Tuple[float, float], camera: Camera
+) -> Tuple[np.ndarray, np.ndarray]:
     """Given a reference center location (in 3D world coordinates)
     Get the vectors corresponding to the x and y direction in screen coordinates.
     These vectors are scaled so that they can simply be multiplied with the
     delta x and delta y.
     """
-    center = center_world.clone().project(camera)
-    pos1 = Vector3(100, 0, center.z).unproject(camera)
-    pos2 = Vector3(0, 100, center.z).unproject(camera)
-    pos1.multiply_scalar(0.02 / scene_size[0])
-    pos2.multiply_scalar(0.02 / scene_size[1])
+
+    scalar = 0.02 / scene_size[0]
+    center = la.vector_apply_matrix(center_world, camera.projection_matrix)
+    pos1 = scalar * la.vector_unproject((100, 0, center[2]), camera.projection_matrix)
+    pos2 = scalar * la.vector_unproject((0, 100, center[2]), camera.projection_matrix)
     return pos1, pos2  # now they're vecs, really

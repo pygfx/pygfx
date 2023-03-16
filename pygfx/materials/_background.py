@@ -1,6 +1,7 @@
+import numpy as np
+
 from ._base import Material
 from ..utils import Color
-from ..linalg import Vector3
 
 
 class BackgroundMaterial(Material):
@@ -149,8 +150,8 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
     ----------
     map : Texture
         A texture cube.
-    up : tuple, Vector3
-        A Vector3 defining what way is up. Can be set to e.g. the controller's
+    up : tuple, ndarray
+        A ndarray defining what way is up. Can be set to e.g. the controller's
         up vector. The given vector is "rounded" to the closest vector that is
         fully in one dimension.
 
@@ -167,7 +168,7 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
 
     @property
     def up(self):
-        """A Vector3 defining what way is up. Can be set to e.g. the
+        """A ndarray defining what way is up. Can be set to e.g. the
         controller's up vector. The given vector is "rounded" to the
         closest vector that is fully in one dimension.
         """
@@ -175,10 +176,10 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
 
     @up.setter
     def up(self, value):
-        if isinstance(value, (tuple, list)):
-            value = Vector3(*value)
+        value = np.asarray(value)
+
         best_score = 0
-        best_up = Vector3(0, 1, 0)
+        best_up = np.array((0, 1, 0), dtype=float)
         best_index = (0, 1, 2)
         best_scale = -1
         for dir, index in [
@@ -187,7 +188,7 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
             ((0, 0, 1), (0, 2, 1)),
         ]:
             for scale in [-1, 1]:
-                ref = Vector3(*[scale * v for v in dir])
+                ref = scale * np.array(dir)
                 score = ref.dot(value)
                 if score > best_score:
                     best_score = score

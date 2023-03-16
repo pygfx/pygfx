@@ -1,4 +1,3 @@
-from ..linalg import Vector3
 from ..objects._base import WorldObject
 from ..cameras import PerspectiveCamera
 from ..resources import Texture
@@ -53,32 +52,32 @@ class CubeCamera(WorldObject):
 
         camera_px = PerspectiveCamera(fov, aspect, near, far)
         camera_px.up.set(0, 1, 0)
-        camera_px.look_at(Vector3(-1, 0, 0))
+        camera_px.transform.look_at((-1, 0, 0))
         self.add(camera_px)
 
         camera_nx = PerspectiveCamera(fov, aspect, near, far)
         camera_nx.up.set(0, 1, 0)
-        camera_nx.look_at(Vector3(1, 0, 0))
+        camera_nx.transform.look_at((1, 0, 0))
         self.add(camera_nx)
 
         camera_py = PerspectiveCamera(fov, aspect, near, far)
         camera_py.up.set(0, 0, -1)
-        camera_py.look_at(Vector3(0, 1, 0))
+        camera_py.transform.look_at((0, 1, 0))
         self.add(camera_py)
 
         camera_ny = PerspectiveCamera(fov, aspect, near, far)
         camera_ny.up.set(0, 0, 1)
-        camera_ny.look_at(Vector3(0, -1, 0))
+        camera_ny.transform.look_at((0, -1, 0))
         self.add(camera_ny)
 
         camera_pz = PerspectiveCamera(fov, aspect, near, far)
         camera_pz.up.set(0, 1, 0)
-        camera_pz.look_at(Vector3(0, 0, 1))
+        camera_pz.transform.look_at((0, 0, 1))
         self.add(camera_pz)
 
         camera_nz = PerspectiveCamera(fov, aspect, near, far)
         camera_nz.up.set(0, 1, 0)
-        camera_nz.look_at(Vector3(0, 0, -1))
+        camera_nz.transform.look_at((0, 0, -1))
         self.add(camera_nz)
 
     @property

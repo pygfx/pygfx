@@ -1,8 +1,9 @@
 from typing import Tuple
+import numpy as np
+import pylinalg as la
 
 from ..cameras import Camera
 from ..utils.viewport import Viewport
-from ..linalg import Vector3, Matrix4, Quaternion, Spherical
 from ._base import Controller, get_screen_vectors_in_world_cords
 
 
@@ -13,24 +14,24 @@ class OrbitController(Controller):
 
     def __init__(
         self,
-        eye: Vector3 = None,
-        target: Vector3 = None,
-        up: Vector3 = None,
+        eye: np.ndarray = None,
+        target: np.ndarray = None,
+        up: np.ndarray = None,
         *,
         zoom_changes_distance=True,
         min_zoom: float = 0.0001,
         auto_update: bool = True,
     ) -> None:
         super().__init__()
-        self.rotation = Quaternion()
-        self.target = Vector3()
-        self.up = Vector3()
+        self.rotation = np.array((0, 0, 0, 0), dtype=float)
+        self.target = np.array((0, 0, 0), dtype=float)
+        self.up = np.array((0, 0, 0), dtype=float)
         if eye is None:
-            eye = Vector3(50.0, 50.0, 50.0)
+            eye = np.array((50.0, 50.0, 50.0), dtype=float)
         if target is None:
-            target = Vector3()
+            target = np.array((0, 0, 0), dtype=float)
         if up is None:
-            up = Vector3(0.0, 1.0, 0.0)
+            up = np.array((0.0, 1.0, 0.0), dtype=float)
         self.zoom_changes_distance = bool(zoom_changes_distance)
         self.zoom_value = 1
         self.min_zoom = min_zoom
@@ -41,11 +42,10 @@ class OrbitController(Controller):
         self._rotate_info = None
 
         # Temp objects (to avoid garbage collection)
-        self._m = Matrix4()
-        self._v = Vector3()
-        self._origin = Vector3()
-        self._orbit_up = Vector3(0, 1, 0)
-        self._s = Spherical()
+        self._m = np.eye(4, dtype=float)
+        self._v = np.array((0, 0, 0), dtype=float)
+        self._origin = np.array((0, 0, 0), dtype=float)
+        self._orbit_up = np.array((0, 1, 0), dtype=float)
 
         # Initialize orientation
         self.look_at(eye, target, up)
@@ -80,18 +80,21 @@ class OrbitController(Controller):
         self._update_up_quats()
 
     def _update_up_quats(self):
-        self._up_quat = Quaternion().set_from_unit_vectors(self.up, self._orbit_up)
+        self._up_quat = la.quaternion_make_from_unit_vectors(self.up, self._orbit_up)
         self._up_quat_inv = self._up_quat.clone().inverse()
 
-    def look_at(self, eye: Vector3, target: Vector3, up: Vector3) -> Controller:
-        self.distance = eye.distance_to(target)
-        self.target.copy(target)
-        self.up.copy(up)
-        self.rotation.set_from_rotation_matrix(self._m.look_at(eye, target, up))
+    def look_at(
+        self, eye: np.ndarray, target: np.ndarray, up: np.ndarray
+    ) -> Controller:
+        self.distance = la.vector_distance_between(eye, target)
+        self.target = target
+        self.up = up
+        self.rotation = la.matrix_make_look_at(eye, target, up)
         self._update_up_quats()
+
         return self
 
-    def pan(self, vec3: Vector3) -> Controller:
+    def pan(self, vec3) -> Controller:
         """Pan in 3D world coordinates."""
         self.target.add(vec3)
         return self
@@ -130,25 +133,18 @@ class OrbitController(Controller):
         """Rotate using angles (in radians). theta and phi are also known
         as azimuth and elevation.
         """
-        # offset
-        self._v.set(0, 0, self.distance).apply_quaternion(self.rotation)
-        # to neutral up
-        self._v.apply_quaternion(self._up_quat)
-        # to spherical
-        self._s.set_from_vector3(self._v)
-        # apply delta
-        self._s.theta -= theta
-        self._s.phi -= phi
-        # clip
-        self._s.make_safe()
-        # back to cartesian
-        self._v.set_from_spherical(self._s)
-        # back to camera up
-        self._v.apply_quaternion(self._up_quat_inv)
-        # compute new rotation
-        self.rotation.set_from_rotation_matrix(
-            self._m.look_at(self._v, self._origin, self.up)
-        )
+
+        offset = np.array((0, 0, self.distance))
+        offset = la.vector_apply_quaternion(offset, self.rotation)
+        offset = la.vector_apply_quaternion(offset, self._up_quat)
+        offset = la.vector_euclidean_to_spherical(offset)
+        offset -= (0, theta, phi)
+        offset = la.vector_make_spherical_safe(offset)
+        offset = la.vector_spherical_to_euclidean(offset)
+        offset = la.vector_apply_quaternion(offset, self._up_quat_inv)
+
+        self.rotation = la.matrix_make_look_at(offset, self._origin, self.up)
+
         return self
 
     def rotate_start(
@@ -184,14 +180,14 @@ class OrbitController(Controller):
             self.distance = self._initial_distance / self.zoom_value
         return self
 
-    def get_view(self) -> Tuple[Vector3, Vector3, float]:
+    def get_view(self):
         """
         Returns view parameters with which a camera can be updated.
 
         Returns:
-            rotation: Vector3
+            rotation: ndarray, [4]
                 Rotation of camera
-            position: Vector3
+            position: ndarray, [3]
                 Position of camera
             zoom: float
                 Zoom value for camera
@@ -253,9 +249,9 @@ class OrbitOrthoController(OrbitController):
 
     def __init__(
         self,
-        eye: Vector3 = None,
-        target: Vector3 = None,
-        up: Vector3 = None,
+        eye=None,
+        target=None,
+        up=None,
         *,
         min_zoom: float = 0.0001,
         auto_update: bool = True,

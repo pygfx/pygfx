@@ -105,7 +105,7 @@ class Display:
             The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
             then Display will wrap it into a new scene containing lights and a
             background.
-        up : gfx.Vector3
+        up : ndarray
             If set, and ``object`` does not contain a controller, set the camera
             controller's up vector to this value.
 
@@ -172,7 +172,7 @@ class Display:
         if self.controller is None:
             look_at = self.camera.show_object(object)
             self.controller = OrbitController(
-                self.camera.position.clone(), look_at, up=up
+                self.camera.transform.position, look_at, up=up
             )
             self.controller.add_default_event_handlers(self.renderer, self.camera)
 
@@ -204,7 +204,7 @@ def show(
         The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
         then Display will wrap it into a new scene containing lights and a
         background.
-    up : gfx.Vector3
+    up : ndarray
         If set, and ``object`` does not contain a controller, set the camera
         controller's up vector to this value.
         canvas : WgpuCanvas
