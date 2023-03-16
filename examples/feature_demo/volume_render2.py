@@ -32,19 +32,14 @@ vol2.scale.z = 0.5
 vol3.position.x = 150
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.y = 500
-controller = gfx.OrbitController(
-    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1)
-)
-controller.rotate(-0.5, -0.5)
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 # A clipping plane at z=0 - only the rotating volume will be affected
 material.clipping_planes = [(0, 0, 1, 0)]
 
 
 def animate():
-    controller.update_camera(camera)
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     vol3.rotation.multiply(rot)
 

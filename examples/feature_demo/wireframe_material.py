@@ -152,8 +152,6 @@ class WireframeShader(WorldObjectShader):
 # sphinx_gallery_pygfx_render = True
 
 renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
-camera = gfx.PerspectiveCamera(45, 640 / 480, 0.1, 100)
-camera.position.z = 10
 
 thickness = 4
 
@@ -170,15 +168,15 @@ mesh2.position.x = 1
 scene = gfx.Scene()
 scene.add(mesh1, mesh2)
 
+camera = gfx.PerspectiveCamera(45, 640 / 480)
+camera.show_object(scene)
+controller = gfx.OrbitController(camera, register_events=renderer)
+
 scene.add(gfx.AmbientLight())
 scene.add(camera.add(gfx.DirectionalLight(0.7)))
 
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
-
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     renderer.request_draw()
 

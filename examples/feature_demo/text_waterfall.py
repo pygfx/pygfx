@@ -36,7 +36,8 @@ camera = gfx.OrthographicCamera(200, 100)
 
 
 def character_generator():
-    font = gfx.utils.text.font_manager.select_fonts_for_codepoint(ord("a"), "")[0]
+    pieces = gfx.font_manager.select_font(" ", gfx.font_manager.default_font_props)
+    font = pieces[0][1]
     while True:
         for c in font.codepoints:
             yield chr(c)

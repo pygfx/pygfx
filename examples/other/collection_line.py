@@ -47,15 +47,12 @@ for row in range(rows):
         line.position.y = row
         scene.add(line)
 
-camera = gfx.OrthographicCamera(cols, rows)
-camera.maintain_aspect = False
-controller = gfx.PanZoomController(camera.position.clone())
-controller.pan(gfx.linalg.Vector3(cols / 2, rows / 2, 0))
-controller.add_default_event_handlers(renderer, camera)
+camera = gfx.OrthographicCamera(cols, rows, maintain_aspect=False)
+camera.show_object(scene)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
     t0 = time.perf_counter()  # noqa
     renderer.render(scene, camera)
     # print(time.perf_counter() - t0)

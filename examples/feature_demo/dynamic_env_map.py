@@ -39,10 +39,9 @@ torus = gfx.Mesh(gfx.torus_knot_geometry(8, 3, 128, 16), material2)
 scene.add(torus)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 75
+camera.show_object(scene, scale=2)
 
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 # Read cube image and turn it into a 3D image (a 4d array)
 env_img = iio.imread("imageio:meadow_cube.jpg")
@@ -78,7 +77,6 @@ material.env_map = gen_env_view
 
 
 def animate():
-    controller.update_camera(camera)
     t = time.time()
 
     cube.position.x = math.cos(t) * 30

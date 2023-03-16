@@ -24,9 +24,9 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.z = 400
+camera.show_pos(((0, 0, 0)))
 
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
@@ -97,7 +97,6 @@ def animate():
             obj.rotation.multiply(obj.random_rotation)
 
     scene.traverse(random_rot)
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

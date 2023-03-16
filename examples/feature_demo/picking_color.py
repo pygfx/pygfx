@@ -32,7 +32,7 @@ scene.add(cube)
 
 # camera = gfx.OrthographicCamera(300, 300)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.show_object(cube, scale=1.5)
 
 
 @renderer.add_event_handler("pointer_down")
