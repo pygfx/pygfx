@@ -28,7 +28,7 @@ scene.add(grid)
 box = gfx.BoxHelper(size=100, thickness=4, color="red")
 scene.add(box)
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
+camera = gfx.PerspectiveCamera(70, 16 / 9, depth_range=(0.1, 2000))
 camera.position.set(75, 75, 75)
 camera.show_pos((0, 0, 0))
 controller = gfx.OrbitController(camera, register_events=renderer)

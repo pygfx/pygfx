@@ -37,8 +37,9 @@ t.position.set(0, 40, 0)
 scene.add(plane1, plane2, plane3, sphere, t)
 scene.add(gfx.AmbientLight(1, 1))
 
-camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.show_object(scene, (-3, -4, -5))
+camera = gfx.PerspectiveCamera(70, 16 / 9, depth_range=(0.1, 2000))
+camera.position.set(30, 40, 50)
+camera.look_at((0, 0, 0))
 
 
 def animate():
