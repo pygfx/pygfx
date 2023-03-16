@@ -27,7 +27,17 @@ class OrbitController(PanZoomController):
     The direction of rotation is defined such that it feels like you're
     grabbing onto something in the foreground; if you move the mouse
     to the right, the objects in the foreground move to the right, and
-    those in the background (on the opposite side of the center of
+    those in the background (on the opposite side of the center of rotation)
+    move to the left.
+
+    Controls:
+
+    * Left mouse button: orbit / rotate.
+    * Right mouse button: pan.
+    * Middle mouse button: quick zoom.
+    * Scroll: zoom.
+    * Alt + Scroll: change FOV.
+
     """
 
     def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:

@@ -5,10 +5,15 @@ from ._base import Controller, get_screen_vectors_in_world_cords
 
 
 class PanZoomController(Controller):
-    """A controller to pan and zoom a camera in a 2D plane.
+    """A controller to pan and zoom a camera in a 2D plane  parallel to the screen.
 
-    Supports panning parallel to the screen, zooming
-    (also anisotropic if ``camera.maintain_aspect==False``).
+    Controls:
+
+    * Left mouse button: pan.
+    * Right mouse button: zoom (if `camera.maintain_aspect==False`, zooms in both dimensions).
+    * Middle mouse button: quick zoom.
+    * Scroll: zoom.
+
     """
 
     def __init__(self, *args, **kwargs) -> None:
