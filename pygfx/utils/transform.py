@@ -17,22 +17,26 @@ class cached:
 
     def __init__(self, compute_fn=None) -> None:
         self.compute_fn = compute_fn
-        self.last_updated = None
-        self.cached_value = None
+        self.name = None
 
-    def __get__(self, obj: "AffineBase", objtype=None):
-        if obj is None:
+    def __set_name__(self, clazz, name) -> None:
+        self.name = f"_{name}_cache"
+
+    def __get__(self, instance: "AffineBase", clazz=None):
+        if instance is None:
             return self
 
-        if self.last_updated is None or obj.last_modified > self.last_updated:
-            self.cached_value = self.compute_fn(obj)
-            self.last_updated = obj.last_modified
+        if not hasattr(instance, self.name):
+            cache = (instance.last_modified, self.compute_fn(instance))
+            setattr(instance, self.name, cache)
+        else:
+            cache = getattr(instance, self.name)
 
-        return self.cached_value
+        if instance.last_modified > cache[0]:
+            cache = (instance.last_modified, self.compute_fn(instance))
+            setattr(instance, self.name, cache)
 
-    def __call__(self, obj):
-        """Helper to support wrapping by @property."""
-        return self.__get__(obj)
+        return cache[1]
 
 
 class AffineBase:
@@ -42,7 +46,6 @@ class AffineBase:
     def matrix(self):
         raise NotImplementedError()
 
-    @property
     @cached
     def inverse_matrix(self):
         return np.linalg.inv(self.matrix)
@@ -94,7 +97,6 @@ class AffineTransform(AffineBase):
         self.last_modified = perf_counter_ns()
 
     @property
-    @cached
     def matrix(self):
         view_array = self.untracked_matrix.view()
         view_array.flags.writeable = False
@@ -123,6 +125,9 @@ class AffineTransform(AffineBase):
             return AffineTransform(self.matrix @ other.matrix)
 
         return np.asarray(self) @ other
+    
+    def __array__(self, dtype=None):
+        return self.untracked_matrix.astype(dtype, copy=False)
 
     def look_at(self, target) -> None:
         rotation = la.matrix_make_look_at(self.position, target, (0, 1, 0))
@@ -141,7 +146,6 @@ class ChainedTransform(AffineBase):
             self.sequence, key=lambda transform: transform.last_modified
         ).last_modified
 
-    @property
     @cached
     def matrix(self):
         result = np.eye(4, dtype=float)
@@ -193,10 +197,13 @@ class LinkedTransform(AffineBase):
 
         return value
 
-    @property
     @cached
-    def matrix(self):
+    def _matrix(self):
         return (self.before @ self.linked @ self.after).matrix
+    
+    @property
+    def matrix(self):
+        return self._matrix
 
     @matrix.setter
     def matrix(self, value):

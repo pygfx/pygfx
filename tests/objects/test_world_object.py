@@ -5,6 +5,7 @@ import pylinalg as pla
 import numpy as np
 
 from pygfx import WorldObject
+import pygfx as gfx
 
 
 def test_traverse():
@@ -177,3 +178,19 @@ def test_iter():
     root = WorldObject()
     root.add(Foo(), WorldObject(), Foo())
     assert len(list(root.iter(lambda x: isinstance(x, Foo)))) == 2
+
+def test_setting_world_transform():
+    root = gfx.WorldObject()
+    root.transform.position = (1, 2, 3)
+
+    child = gfx.WorldObject()
+    child.transform.position = (4, 4, 4)
+    root.add(child)
+
+    assert np.allclose(child.transform.position, (4, 4, 4))
+    assert np.allclose(child.world_transform.position, (5, 6, 7))
+
+    child.world_transform.position = (1, 2, 3)
+
+    assert np.allclose(child.transform.position, (0, 0, 0))
+    assert np.allclose(child.world_transform.position, (1, 2, 3))
