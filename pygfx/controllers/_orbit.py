@@ -30,14 +30,11 @@ class OrbitController(PanZoomController):
     those in the background (on the opposite side of the center of
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        # State info used during a rotate operation
-        self._rotate_info = None
-
     def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:
         """Rotate using angles (in radians)."""
+        if self._action:
+            return
+
         if self._cameras:
             camera = self._cameras[0]
 
@@ -103,16 +100,20 @@ class OrbitController(PanZoomController):
 
     def rotate_start(self, pos: Tuple[float, float], viewport: Viewport) -> Controller:
         """Start a rotation operation based (2D) screen coordinates."""
+        if self._action:
+            return
+
         if self._cameras:
             camera = self._cameras[0]
 
-            self._rotate_info = camera.get_state()
-            self._rotate_info["mouse_pos"] = pos
+            self._action = {"name": "rotate"}
+            self._action["camera_state"] = camera.get_state()
+            self._action["mouse_pos"] = pos
 
         return self
 
     def rotate_stop(self) -> Controller:
-        self._rotate_info = None
+        self._action = None
         return self
 
     def rotate_move(
@@ -121,10 +122,10 @@ class OrbitController(PanZoomController):
         """Rotate, based on a (2D) screen location. Call rotate_start first.
         The speed is 1 degree per pixel by default.
         """
-        if self._rotate_info:
-            delta_azimuth = (pos[0] - self._rotate_info["mouse_pos"][0]) * speed
-            delta_elevation = (pos[1] - self._rotate_info["mouse_pos"][1]) * speed
-            self._rotate(delta_azimuth, delta_elevation, self._rotate_info)
+        if self._action and self._action["name"] == "rotate":
+            delta_azimuth = (pos[0] - self._action["mouse_pos"][0]) * speed
+            delta_elevation = (pos[1] - self._action["mouse_pos"][1]) * speed
+            self._rotate(delta_azimuth, delta_elevation, self._action["camera_state"])
         return self
 
     def handle_event(self, event, viewport):
@@ -159,10 +160,10 @@ class OrbitController(PanZoomController):
             if 1 in event.buttons:
                 self.rotate_move(xy),
                 need_update = True
-            elif 2 in event.buttons:
+            if 2 in event.buttons:
                 self.pan_move(xy),
                 need_update = True
-            elif 3 in event.buttons:
+            if 3 in event.buttons:
                 self.quickzoom_move(xy)
                 need_update = True
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
