@@ -169,8 +169,8 @@ class OrbitController(PanZoomController):
             if not event.modifiers:
                 xy = event.x, event.y
                 d = event.dy or event.dx
-                f = 2 ** (-d * 0.0015)
-                self.zoom_to_point(f, xy, viewport)
+                f = 2 ** (-d * self.scroll_zoom_factor)
+                self.zoom(f)
                 need_update = True
             elif event.modifiers == ["Alt"]:
                 d = event.dy or event.dx
