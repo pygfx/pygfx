@@ -27,12 +27,6 @@ canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-# Create camera and controls
-camera = gfx.PerspectiveCamera(45, 640 / 480, 1, 2500)
-camera.position.set(0, 400, 400 * 3)
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
-
 # Lights
 scene.add(gfx.AmbientLight("#fff", 0.2))
 directional_light = gfx.DirectionalLight("#fff", 3)
@@ -96,10 +90,14 @@ while alpha <= 1.0:
         beta += step_size
     alpha += step_size
 
+# Create camera and controls
+camera = gfx.PerspectiveCamera(45, 640 / 480)
+camera.show_object(scene)
+controller = gfx.OrbitController(camera, register_events=renderer)
+
 
 def animate():
     timer = next(frame_idx) / 30
-    controller.update_camera(camera)
 
     point_light.position.x = math.sin(timer / 3 * (2 * np.pi)) * 300
     point_light.position.y = math.cos(timer * 2 / 3 * (2 * np.pi)) * 400

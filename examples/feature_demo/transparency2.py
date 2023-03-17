@@ -29,9 +29,8 @@ plane3.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), 1.571)
 scene.add(plane1, plane2, plane3, sphere)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 70
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene, view_dir=(-1, -2, -3))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 scene.add(camera.add(gfx.DirectionalLight()))
 
@@ -58,7 +57,6 @@ def handle_event(event):
 
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

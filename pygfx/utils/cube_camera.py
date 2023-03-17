@@ -45,38 +45,39 @@ class CubeCamera(WorldObject):
 
         fov = 90
         aspect = 1
+        depth_range = near, far
 
         # By convention, cube maps are specified in a coordinate system in which positive-x is to the right when looking at the positive-z axis,
         # that is, it using a left-handed coordinate system.
         # Since gfx uses a right-handed coordinate system, environment maps used in gfx will have pos-x and neg-x swapped.
         # so camrea_px is actually looking at the neg-x direction, and camera_nx is looking at the pos-x direction.
 
-        camera_px = PerspectiveCamera(fov, aspect, near, far)
+        camera_px = PerspectiveCamera(fov, aspect, depth_range=depth_range)
         camera_px.up.set(0, 1, 0)
         camera_px.look_at(Vector3(-1, 0, 0))
         self.add(camera_px)
 
-        camera_nx = PerspectiveCamera(fov, aspect, near, far)
+        camera_nx = PerspectiveCamera(fov, aspect, depth_range=depth_range)
         camera_nx.up.set(0, 1, 0)
         camera_nx.look_at(Vector3(1, 0, 0))
         self.add(camera_nx)
 
-        camera_py = PerspectiveCamera(fov, aspect, near, far)
+        camera_py = PerspectiveCamera(fov, aspect, depth_range=depth_range)
         camera_py.up.set(0, 0, -1)
         camera_py.look_at(Vector3(0, 1, 0))
         self.add(camera_py)
 
-        camera_ny = PerspectiveCamera(fov, aspect, near, far)
+        camera_ny = PerspectiveCamera(fov, aspect, depth_range=depth_range)
         camera_ny.up.set(0, 0, 1)
         camera_ny.look_at(Vector3(0, -1, 0))
         self.add(camera_ny)
 
-        camera_pz = PerspectiveCamera(fov, aspect, near, far)
+        camera_pz = PerspectiveCamera(fov, aspect, depth_range=depth_range)
         camera_pz.up.set(0, 1, 0)
         camera_pz.look_at(Vector3(0, 0, 1))
         self.add(camera_pz)
 
-        camera_nz = PerspectiveCamera(fov, aspect, near, far)
+        camera_nz = PerspectiveCamera(fov, aspect, depth_range=depth_range)
         camera_nz.up.set(0, 1, 0)
         camera_nz.look_at(Vector3(0, 0, -1))
         self.add(camera_nz)

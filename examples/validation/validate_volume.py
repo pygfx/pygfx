@@ -55,7 +55,7 @@ for slice in (slice1, slice2, slice3):
 scene2.add(slice1, slice2, slice3, box2)
 
 # Prepare a camera so we can see the result in 3D
-camera = gfx.PerspectiveCamera(90, 16 / 9)
+camera = gfx.PerspectiveCamera(90, 16 / 9, depth_range=(0.1, 2000))
 camera.position.z = 5
 camera.position.y = 4
 camera.position.x = 3

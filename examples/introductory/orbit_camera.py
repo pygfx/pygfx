@@ -37,18 +37,20 @@ background = gfx.Background(None, gfx.BackgroundMaterial(light_gray, dark_gray))
 scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.set(0, 0, 500)
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene)
+controller = gfx.OrbitController(camera, register_events=renderer)
+
+state = {}
 
 
 def on_key_down(event):
+    global state
     if event.key == "s":
-        controller.save_state()
+        state = camera.get_state()
     elif event.key == "l":
-        controller.load_state()
+        camera.set_state(state)
     elif event.key == "r":
-        controller.show_object(camera, scene)
+        camera.show_object(scene)
 
 
 renderer.add_event_handler(on_key_down, "key_down")
@@ -60,8 +62,6 @@ def animate():
             gfx.linalg.Euler(0.005 * i, 0.01 * i)
         )
         cube.rotation.multiply(rot)
-
-    controller.update_camera(camera)
 
     renderer.render(scene, camera)
     canvas.request_draw()

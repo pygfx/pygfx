@@ -79,13 +79,12 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.position.x = 100
 camera.position.y = 100
 camera.position.z = 350
+camera.show_pos((0, 0, 0))
 
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
     t = time.time() * 0.5
     scale = 150
 

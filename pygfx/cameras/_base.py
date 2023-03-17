@@ -1,24 +1,24 @@
-from ..linalg import Matrix4, Vector3
+from ..linalg import Matrix4
 from ..objects._base import WorldObject
 
 
 class Camera(WorldObject):
     """Abstract base camera.
 
+    Camera's are world objects and be placed in the scene, but this is not required.
+
     The purpose of a camera is to define the viewpoint for rendering a scene.
-    This viewpoint consists of its position (in the world) and its projection.
+    This viewpoint consists of its position and orientation (in the world) and
+    its projection.
 
     In other words, it covers the projection of world coordinates to
     normalized device coordinates (NDC), by the (inverse of) the
     camera's own world matrix and the camera's projection transform.
     The former represent the camera's position, the latter is specific
     to the type of camera.
-
-    Note that we follow the NDC coordinate system of WGPU, where
-    x and y are in the range 0..1, z is in the range 0..1, and (-1, -1, 0)
-    represents the bottom left corner.
-
     """
+
+    _FORWARD_IS_MINUS_Z = True
 
     def __init__(self):
         super().__init__()
@@ -28,7 +28,7 @@ class Camera(WorldObject):
         self.projection_matrix_inverse = Matrix4()
 
     def set_view_size(self, width, height):
-        # In logical pixels
+        # In logical pixels, called by the renderer to set the viewport size
         pass
 
     def update_matrix_world(self, *args, **kwargs):
@@ -38,53 +38,26 @@ class Camera(WorldObject):
     def update_projection_matrix(self):
         raise NotImplementedError()
 
-    def show_object(
-        self, target: WorldObject, view_dir=(-1, -1, -1), distance_weight=2
-    ):
-        """Utility function to position and rotate the camera to ensure
-        a particular world object is in view.
+    def get_state(self):
+        """Get the state of the camera as a dict."""
+        return {}
 
-        Parameters:
-            target: WorldObject
-                The object to look at
-            view_dir: 3-tuple of float or Vector3
-                Look at the object in this direction
-            distance_weight: float
-                The camera distance to the object's world position is
-                its bounding sphere radius multiplied by this weight
-
-        Returns:
-            pos: Vector3
-                The world coordinate the camera is looking at
+    def set_state(self, state):
+        """Set the state of the camera from a dict obtained with ``get_state``
+        from a camera of the same type.
         """
-        if not isinstance(view_dir, Vector3):
-            view_dir = Vector3(*view_dir)
-        else:
-            view_dir = view_dir.clone()
-
-        bsphere = target.get_world_bounding_sphere()
-        if bsphere is not None:
-            pos, distance = Vector3(*bsphere[:3]), bsphere[3]
-        else:
-            pos = target.get_world_position()
-            # whatever it is has no bounding sphere, so we just pick an
-            # arbitrary distance
-            distance = 100
-        distance *= distance_weight
-        self.position.copy(pos).add_scaled_vector(
-            view_dir.normalize().negate(), distance
-        )
-        self.look_at(pos)
-        return pos
+        pass
 
 
 class NDCCamera(Camera):
-    """A Camera operating in NDC coordinates: its projection matrix
-    is the identity transform (but its matrix_world can still be set).
+    """A Camera operating in NDC coordinates.
+
+    Its projection matrix is the identity transform (but its position and rotation can still be set).
 
     In the NDC coordinate system of WGPU (and pygfx), x and y are in
-    the range 0..1, z is in the range 0..1, and (-1, -1, 0) represents
-    the bottom left corner."""
+    the range -1..1, z is in the range 0..1, and (-1, -1, 0) represents
+    the bottom left corner.
+    """
 
     def update_projection_matrix(self):
         eye = 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
@@ -93,8 +66,9 @@ class NDCCamera(Camera):
 
 
 class ScreenCoordsCamera(Camera):
-    """A Camera operating in screen coordinates. The depth range is the same
-    as in NDC (0 to 1).
+    """A Camera operating in screen coordinates.
+
+    The depth range is the same as in NDC (0 to 1).
     """
 
     def __init__(self):
