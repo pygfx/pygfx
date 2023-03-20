@@ -108,6 +108,8 @@ class WorldObject(EventTarget, RootTrackable):
 
     """
 
+    _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
+
     # The uniform type describes the structured info for this object, which represents
     # every "propery" that a renderer would need to know in order to visualize it.
     # Put larger items first for alignment, also note that host-sharable structs
@@ -248,15 +250,6 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.geometry = geometry
 
     @property
-    def receive_shadow(self):
-        """Whether this object receives shadows. Default False."""
-        return self._store.receive_shadow
-
-    @receive_shadow.setter
-    def receive_shadow(self, value):
-        self._store.receive_shadow = bool(value)
-
-    @property
     def material(self):
         """Wheter is object is rendered or not. Default True."""
         return self._store.material
@@ -264,6 +257,25 @@ class WorldObject(EventTarget, RootTrackable):
     @material.setter
     def material(self, material):
         self._store.material = material
+
+    @property
+    def cast_shadow(self):
+        """Whether this object casts shadows, i.e. whether it is rendered into
+        a shadow map. Default False."""
+        return self._cast_shadow  # does not affect any shaders
+
+    @cast_shadow.setter
+    def cast_shadow(self, value):
+        self._cast_shadow = bool(value)
+
+    @property
+    def receive_shadow(self):
+        """Whether this object receives shadows. Default False."""
+        return self._store.receive_shadow
+
+    @receive_shadow.setter
+    def receive_shadow(self, value):
+        self._store.receive_shadow = bool(value)
 
     @property
     def parent(self) -> "WorldObject":

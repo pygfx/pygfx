@@ -36,10 +36,8 @@ scene = gfx.Scene()
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)
 camera.position.set(-10, 1.8, -0.3)
-# look down the hall, which is positive x
-target = camera.position.clone().add(gfx.linalg.Vector3(10))
-controller = gfx.OrbitController(camera.position.clone(), target)
-controller.add_default_event_handlers(renderer, camera)
+camera.show_pos((10, 10, 10))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def configure(obj):
@@ -81,11 +79,6 @@ for pos in [
     scene.add(torch)
 
 
-def animate():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
-
-
 if __name__ == "__main__":
-    renderer.request_draw(animate)
+    renderer.request_draw(lambda: renderer.render(scene, camera))
     run()

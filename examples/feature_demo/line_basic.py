@@ -41,16 +41,10 @@ scene.add(line)
 camera = gfx.OrthographicCamera(600, 500)
 camera.position.set(300, 250, 0)
 
-controller = gfx.PanZoomController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
-
-
-def animate():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 if __name__ == "__main__":
     renderer_svg.render(scene, camera)
-    canvas.request_draw(animate)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

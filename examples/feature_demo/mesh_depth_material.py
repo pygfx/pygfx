@@ -106,22 +106,20 @@ class DepthShader(MeshShader):
 # sphinx_gallery_pygfx_render = True
 
 renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
-camera = gfx.PerspectiveCamera(45, 640 / 480, 8, 12)
-camera.position.z = 10
 
-# camera = gfx.OrthographicCamera(8, 6, -1, 1)
+camera = gfx.PerspectiveCamera(45, 640 / 480, depth_range=(8, 12))
+camera.position.z = 10
+camera.show_pos((0, 0, 0))
 
 t = gfx.Mesh(gfx.torus_knot_geometry(1, 0.3, 128, 32), DepthMaterial())
 
 scene = gfx.Scene()
 scene.add(t)
 
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     renderer.request_draw()
 

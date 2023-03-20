@@ -133,7 +133,7 @@ class Geometry(Trackable):
             else:
                 grid_shape = self.grid.data.shape[: self.grid.dim]
             # create aabb in index/data space
-            aabb = np.array([np.zeros_like(grid_shape), grid_shape], dtype="f8")
+            aabb = np.array([np.zeros_like(grid_shape), grid_shape[::-1]], dtype="f8")
             # convert to local image space by aligning
             # center of voxel index (0, 0, 0) with origin (0, 0, 0)
             aabb -= 0.5

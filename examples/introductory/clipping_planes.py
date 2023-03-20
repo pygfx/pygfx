@@ -42,15 +42,11 @@ scene1.add(gfx.AmbientLight(), gfx.DirectionalLight(position=(1, 2, 3)))
 scene2.add(gfx.AmbientLight(), gfx.DirectionalLight(position=(1, 2, 3)))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 250
-
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene1)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
-
     w, h = canvas.get_logical_size()
     renderer.render(scene1, camera, flush=False, rect=(0, 0, w / 2, h))
     renderer.render(scene2, camera, flush=False, rect=(w / 2, 0, w / 2, h))

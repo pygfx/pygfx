@@ -39,14 +39,11 @@ scene.add(light2.add(gfx.PointLightHelper()))
 scene.add(gfx.AmbientLight("#fff", 0.2))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 60
-
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(cube, scale=1.5)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
     t = time.time() * 0.1
     scale = 30
 

@@ -85,13 +85,11 @@ def init_scene():
     renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 
     scene = gfx.Scene()
-    camera = gfx.PerspectiveCamera(35, 16 / 9, 1, 2000)
+    camera = gfx.PerspectiveCamera(35, 16 / 9)
     camera.position.set(46, 22, -21)
+    camera.show_pos((0, 0, 0))
 
-    controller = gfx.OrbitController(camera.position.clone())
-    controller.add_default_event_handlers(renderer, camera)
-
-    controller.target.set(0, 7, 0)
+    gfx.OrbitController(camera, register_events=renderer)
 
     floor = gfx.Mesh(
         gfx.plane_geometry(2000, 2000),
@@ -125,8 +123,6 @@ def init_scene():
     tweens = [Tween(spot_light1), Tween(spot_light2), Tween(spot_light3)]
 
     def animate():
-        controller.update_camera(camera)
-
         for tween in tweens:
             if tween.since_last_start > 5:
                 tween.to(

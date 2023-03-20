@@ -53,15 +53,10 @@ for dim in [0, 1, 2]:  # xyz
     scene.add(plane)
 
 
-# camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera = gfx.OrthographicCamera(200, 200)
-camera.position.set(170, 170, 170)
-controller = gfx.OrbitOrthoController(
-    camera.position.clone(),
-    gfx.linalg.Vector3(64, 64, 128),
-    up=gfx.linalg.Vector3(0, 0, 1),
-)
-controller.add_default_event_handlers(renderer, camera)
+camera = gfx.PerspectiveCamera(50)
+camera.show_object(scene, (-1, -1, -1), up=(0, 0, 1))
+
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 # Add a slight tilt. This is to show that the slices are still orthogonal
 # to the world coordinates.
@@ -74,7 +69,6 @@ def animate():
     planes[2].material.plane = 0, 0, -1, t * vol.shape[0]
     mesh.material.plane = 0, 0, -1, (1 - t) * vol.shape[0]
 
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

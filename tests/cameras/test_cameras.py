@@ -13,7 +13,7 @@ def test_otho_camera_near_far():
         (-400, -300),
         (300, 500),
     ]:
-        camera = gfx.OrthographicCamera(20, 20, near, far)
+        camera = gfx.OrthographicCamera(20, 20, depth_range=(near, far))
         camera.update_projection_matrix()
         assert camera.near == near
         assert camera.far == far
@@ -28,14 +28,56 @@ def test_perspective_camera_near_far():
         (200, 300),
         (490, 500),
     ]:
-        camera = gfx.PerspectiveCamera(50, 1, near, far)
+        camera = gfx.PerspectiveCamera(50, 1, depth_range=(near, far))
         camera.update_projection_matrix()
         assert camera.near == near
         assert camera.far == far
         _run_for_camera(camera, near, far, False)
 
 
-def _run_for_camera(camera: gfx.Camera, near, far, check_halfway):
+def test_generic_camera_change_aspect():
+    camera = gfx.PerspectiveCamera(0)
+    camera._width = 100
+    camera._height = 200
+
+    assert camera.aspect == 0.5
+    assert camera.width == 100
+    assert camera.height == 200
+
+    camera.aspect = 2
+
+    assert camera.width == 200
+    assert camera.height == 100
+
+    camera.aspect = 1
+
+    assert camera.width == 150
+    assert camera.height == 150
+
+
+def test_camera_show_methods():
+    camera = gfx.PerspectiveCamera(0)
+
+    # Show position
+    camera.show_pos((100, 0, 0))
+    assert camera.width == 100
+    assert camera.height == 100
+    assert camera.position.to_array() == [0, 0, 0]
+
+    # Show sphere with radius 200
+    camera.show_object((0, 0, 0, 200), view_dir=(0, 0, -1))
+    assert camera.width == 400
+    assert camera.height == 400
+    assert camera.position.to_array() == [0, 0, 400]
+
+    # Show rectangle
+    camera.show_rect(0, 500, 0, 600, view_dir=(0, 0, -1))
+    assert camera.width == 500
+    assert camera.height == 600
+    assert camera.position.to_array() == [250, 300, 550]
+
+
+def _run_for_camera(camera, near, far, check_halfway):
     # Some notes:
     #
     # * We use positions with negative z, because NDC looks down the
@@ -76,7 +118,7 @@ def _run_for_camera(camera: gfx.Camera, near, far, check_halfway):
     assert np.allclose(pos_world1, [0, 0, -near])
     assert np.allclose(pos_world3, [0, 0, -far])
     if check_halfway:
-        assert np.allclose(pos_world2, [0, 0, -0.5 * (near + far)])
+        assert np.allclose(pos_world2.to_array(), [0, 0, -0.5 * (near + far)])
 
 
 if __name__ == "__main__":

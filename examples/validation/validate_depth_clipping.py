@@ -29,10 +29,10 @@ scene = gfx.Scene()
 # Select camera and matchingclipping planes
 if True:
     near, far = -40, 300
-    camera = gfx.OrthographicCamera(2.2, 2.2, near, far)
+    camera = gfx.OrthographicCamera(2.2, 2.2, depth_range=(near, far))
 else:
     near, far = 5, 10
-    camera = gfx.PerspectiveCamera(50, 1, near, far)
+    camera = gfx.PerspectiveCamera(50, 1, depth_range=(near, far))
 
 
 # %% Create four planes near the z-clipping planes

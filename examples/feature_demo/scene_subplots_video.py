@@ -26,7 +26,7 @@ scenes = list()
 cameras = list()
 images = list()
 controllers = list()
-cntl_defaults = list()
+camera_defaults = list()
 viewports = list()
 
 for i in range(4):
@@ -48,7 +48,7 @@ for i in range(4):
 
     # create camera, set default position, add to list
     camera = gfx.OrthographicCamera(*dims)
-    camera.position.set(*center_cam_pos)
+    camera.show_rect(0, 512, 0, 512)
     cameras.append(camera)
 
     # create viewport for this image
@@ -56,12 +56,11 @@ for i in range(4):
     viewports.append(viewport)
 
     # controller for pan & zoom
-    controller = gfx.PanZoomController(camera.position.clone())
-    controller.add_default_event_handlers(viewport, camera)
+    controller = gfx.PanZoomController(camera, register_events=renderer)
     controllers.append(controller)
 
     # get the initial controller params so the camera can be reset later
-    cntl_defaults.append(controller.save_state())
+    camera_defaults.append(camera.get_state())
 
 
 @renderer.add_event_handler("resize")
@@ -83,10 +82,6 @@ def animate():
         img.geometry.grid.data[:] = np.random.rand(*dims).astype(np.float32) * 255
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
 
-    for camera, controller in zip(cameras, controllers):
-        # update with the pan & zoom params
-        controller.update_camera(camera)
-
     # render the viewports
     for viewport, s, c in zip(viewports, scenes, cameras):
         viewport.render(s, c)
@@ -97,8 +92,7 @@ def animate():
 
 def center_objects(ev):  # center objects upon double-click event
     for con, cam, img in zip(controllers, cameras, images):
-        con.show_object(cam, img)
-        con.zoom(1.3)
+        cam.show_object(img)
 
 
 renderer.add_event_handler(center_objects, "double_click")
