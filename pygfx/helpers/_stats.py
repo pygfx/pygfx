@@ -120,7 +120,7 @@ class Stats(Group):
         delta = round((t - self._tbegin) / 1_000_000)
         self._tmin = min(self._tmin, delta)
         self._tmax = max(self._tmax, delta)
-        self.ms.geometry.set_text(f"{delta} MS ({self._tmin}-{self._tmax})")
+        self.ms.geometry.set_text(f"{delta} ms ({self._tmin}-{self._tmax})")
 
         if t >= self._tprev + 1_000_000_000:
             # update FPS counter whenever a second has passed
@@ -129,7 +129,7 @@ class Stats(Group):
             self._frames = 0
             self._fmin = min(self._fmin, fps)
             self._fmax = max(self._fmax, fps)
-            self.fps.geometry.set_text(f"{fps} FPS ({self._fmin}-{self._fmax})")
+            self.fps.geometry.set_text(f"{fps} fps ({self._fmin}-{self._fmax})")
 
     def render(self, flush=True):
         self._viewport.render(self, self.camera, flush=flush)
