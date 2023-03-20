@@ -81,10 +81,15 @@ class Stats(Group):
             "resize",
         )
 
-        # trackers
+        # flag used to skip the first frame
+        # which typically has all the CPU->GPU transfer and
+        # shader compilation overhead
+        self._init = False
+
+        # performance trackers
         self._tmin = 1e10
         self._tmax = 0
-        self._tbegin = time.perf_counter_ns()
+        self._tbegin = None
         self._tprev = self._tbegin
         self._frames = 0
         self._fmin = 1e10
@@ -97,9 +102,18 @@ class Stats(Group):
         self.bg.position.set(0, height, 0.1)
 
     def start(self):
+        if not self._init:
+            return
+
         self._tbegin = time.perf_counter_ns()
+        if self._tprev is None:
+            self._tprev = self._tbegin
 
     def stop(self):
+        if not self._init:
+            self._init = True
+            return
+
         t = time.perf_counter_ns()
         self._frames += 1
 
