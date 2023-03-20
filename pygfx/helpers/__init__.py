@@ -17,6 +17,7 @@ when debugging a scene or to create reference points within a scene.
     PointLightHelper
     DirectionalLightHelper
     SpotLightHelper
+    Stats
 
 """
 
@@ -31,3 +32,4 @@ from ._lights import (
     DirectionalLightHelper,
     SpotLightHelper,
 )
+from ._stats import Stats

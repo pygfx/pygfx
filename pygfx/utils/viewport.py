@@ -71,8 +71,8 @@ class Viewport:
         vp = self.rect
         return vp[0] <= x <= vp[0] + vp[2] and vp[1] <= y <= vp[1] + vp[3]
 
-    def render(self, scene, camera):
+    def render(self, scene, camera, flush=False):
         """A shorthand for ``renderer.render(scene, camera)`` at the appropriate
-        viewport. Does not flush.
+        viewport. Does not flush by default.
         """
-        self.renderer.render(scene, camera, rect=self.rect, flush=False)
+        self.renderer.render(scene, camera, rect=self.rect, flush=flush)
