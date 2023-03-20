@@ -3,7 +3,7 @@ Stats helper (Display)
 ======================
 
 Demonstrates how to display performance statistics such as FPS
-and MS draw time on screen, using the Display utility.
+and draw time on screen, using the Display utility.
 """
 
 # sphinx_gallery_pygfx_render = True

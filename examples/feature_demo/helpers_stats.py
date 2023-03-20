@@ -3,7 +3,7 @@ Stats helper (Manual)
 =====================
 
 Demonstrates how to display performance statistics such as FPS
-and MS draw time on screen, by manually integrating it into
+and draw time on screen, by manually integrating it into
 the render loop.
 """
 from wgpu.gui.auto import WgpuCanvas, run

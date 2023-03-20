@@ -13,7 +13,8 @@ from .. import (
 
 
 class Stats(Group):
-    """A Stats helper that shows a text overlay with performance stats.
+    """A Stats helper which displays performance statistics such
+    as FPS and draw time on the screen.
 
     Parameters
     ----------
@@ -48,7 +49,7 @@ class Stats(Group):
                 opacity=0.9,
             ),
         )
-        # TODO: base the size on the text bounding boxes
+        # refactor once text bounding boxes are available
         self.bg.scale.set(90, self._line_height * 2.1, 1)
         self.ms = Text(
             TextGeometry(
@@ -80,7 +81,7 @@ class Stats(Group):
             "resize",
         )
 
-        # track timings
+        # trackers
         self._tmin = 1e10
         self._tmax = 0
         self._tbegin = time.perf_counter_ns()

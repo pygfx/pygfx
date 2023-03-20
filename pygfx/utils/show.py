@@ -56,8 +56,8 @@ class Display:
         Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
     stats : bool
-        Display performance statistics in the corner of the screen.
-        Defaults to False.
+        Display performance statistics such as FPS and draw time
+        in the corner of the screen. Defaults to False.
 
     """
 
