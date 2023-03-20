@@ -6,6 +6,8 @@ Demonstrates how to display performance statistics such as FPS
 and draw time on screen, using the Display utility.
 """
 
+# sphinx_gallery_pygfx_animate = True
+# sphinx_gallery_pygfx_duration = 3
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 
