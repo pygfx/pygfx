@@ -4,11 +4,13 @@ Stats helper (Display)
 
 Demonstrates how to display performance statistics such as FPS
 and draw time on screen, using the Display utility.
+
+(Note that the FPS in the gallery animation is low since it is
+ rendered on CI on a low-spec virtual machine.)
 """
 
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_duration = 3
-# sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 
 import pygfx as gfx

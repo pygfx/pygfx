@@ -7,8 +7,6 @@ and draw time on screen, by manually integrating it into
 the render loop.
 """
 
-# sphinx_gallery_pygfx_render = True
-
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
