@@ -1,8 +1,10 @@
 """
-Stats helper
-============
+Stats helper (Manual)
+=====================
 
-Example showing a stats helper.
+Demonstrates how to display performance statistics such as FPS
+and MS draw time on screen, by manually integrating it into
+the render loop.
 """
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -33,7 +35,9 @@ def animate():
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
     box.rotation.multiply(rot)
 
-    # Render stats as overlay
+    # Track the render time. You can enclose any
+    # other piece of code for which you want to see time
+    # statistics as well.
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()

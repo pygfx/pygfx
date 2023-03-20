@@ -1,6 +1,15 @@
 import time
 
-from .. import Group, TextGeometry, Text, TextMaterial, ScreenCoordsCamera
+from .. import (
+    plane_geometry,
+    Mesh,
+    Group,
+    TextGeometry,
+    Text,
+    TextMaterial,
+    ScreenCoordsCamera,
+    MeshBasicMaterial,
+)
 
 
 class Stats(Group):
@@ -24,7 +33,23 @@ class Stats(Group):
 
         self._line_height = 16
         font_size = 12
+        foreground = "#0f0"
+        background = "#020"
+        text_material = TextMaterial(color=foreground)
 
+        quad_geometry = plane_geometry()
+        quad_geometry.positions.data[..., :2] += [0.5, -0.5]
+
+        self.bg = Mesh(
+            quad_geometry,
+            MeshBasicMaterial(
+                color=background,
+                side="BOTH",
+                opacity=0.9,
+            ),
+        )
+        # TODO: base the size on the text bounding boxes
+        self.bg.scale.set(90, self._line_height * 2.1, 1)
         self.ms = Text(
             TextGeometry(
                 text="",
@@ -32,7 +57,7 @@ class Stats(Group):
                 font_size=font_size,
                 anchor="topleft",
             ),
-            TextMaterial(color="#0f4"),
+            text_material,
         )
         self.fps = Text(
             TextGeometry(
@@ -41,9 +66,9 @@ class Stats(Group):
                 font_size=font_size,
                 anchor="topleft",
             ),
-            TextMaterial(color="#0f4"),
+            text_material,
         )
-        self.add(self.ms, self.fps)
+        self.add(self.bg, self.ms, self.fps)
 
         self.camera = ScreenCoordsCamera()
 
@@ -65,9 +90,10 @@ class Stats(Group):
         self._fmax = 0
 
     def _update_positions(self, event=None):
-        height = self._viewport.logical_size[1]
+        _, height = self._viewport.logical_size
         self.ms.position.set(0, height, 0)
         self.fps.position.set(0, height - self._line_height, 0)
+        self.bg.position.set(0, height, 0.1)
 
     def start(self):
         self._tbegin = time.perf_counter_ns()
