@@ -20,6 +20,7 @@ from ..cameras import Camera, PerspectiveCamera
 from ..controllers import OrbitController
 from ..materials import BackgroundMaterial
 from ..renderers import WgpuRenderer
+from ..helpers import Stats
 
 
 class Display:
@@ -54,6 +55,9 @@ class Display:
     draw_function : Callable
         Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
+    stats : bool
+        Display performance statistics in the corner of the screen.
+        Defaults to False.
 
     """
 
@@ -66,6 +70,7 @@ class Display:
         before_render=None,
         after_render=None,
         draw_function=None,
+        stats=False,
     ) -> None:
         self.canvas = canvas
         self.renderer = renderer
@@ -75,12 +80,22 @@ class Display:
         self.before_render = before_render
         self.after_render = after_render
         self.draw_function = draw_function or self.default_draw
+        self.stats = stats
 
     def default_draw(self):
         if self.before_render is not None:
             self.before_render()
 
-        self.renderer.render(self.scene, self.camera)
+        flush = True
+        if self.stats:
+            flush = False
+            self.stats.start()
+
+        self.renderer.render(self.scene, self.camera, flush=flush)
+
+        if self.stats:
+            self.stats.stop()
+            self.stats.render()
 
         if self.after_render is not None:
             self.after_render()
@@ -159,6 +174,11 @@ class Display:
             raise ValueError("Display's render target differs from it's canvas.")
         else:
             pass
+
+        # Process stats
+
+        if self.stats is True:
+            self.stats = Stats(self.renderer)
 
         # Process camera
 

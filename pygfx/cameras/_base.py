@@ -80,6 +80,16 @@ class ScreenCoordsCamera(Camera):
         self._width = width
         self._height = height
 
+    @property
+    def width(self):
+        """The width of the view in pixels."""
+        return self._width
+
+    @property
+    def height(self):
+        """The height of the view in pixels."""
+        return self._height
+
     def update_projection_matrix(self):
         sx, sy, sz = 2 / self._width, 2 / self._height, 1
         dx, dy, dz = -1, -1, 0
