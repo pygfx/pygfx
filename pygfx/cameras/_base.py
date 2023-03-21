@@ -51,9 +51,13 @@ class Camera(WorldObject):
 
     def look_at(self, target) -> None:
         # flipped eye, target inputs because cameras look along negative Z
-        rotation = la.matrix_make_look_at(target, self.world_transform.position, (0, 1, 0))
+        rotation = la.matrix_make_look_at(
+            target, self.world_transform.position, (0, 1, 0)
+        )
         rotation = la.matrix_to_quaternion(rotation)
-        self.world_transform.rotation = la.quaternion_multiply(rotation, self.world_transform.rotation)
+        self.world_transform.rotation = la.quaternion_multiply(
+            rotation, self.world_transform.rotation
+        )
 
 
 class NDCCamera(Camera):
