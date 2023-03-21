@@ -1,4 +1,5 @@
 import numpy as np
+import pylinalg as la
 
 from ..objects._base import WorldObject
 
@@ -47,6 +48,12 @@ class Camera(WorldObject):
         from a camera of the same type.
         """
         pass
+
+    def look_at(self, target) -> None:
+        # flipped eye, target inputs because cameras look along negative Z
+        rotation = la.matrix_make_look_at(target, self.world_transform.position, (0, 1, 0))
+        rotation = la.matrix_to_quaternion(rotation)
+        self.world_transform.rotation = la.quaternion_multiply(rotation, self.world_transform.rotation)
 
 
 class NDCCamera(Camera):

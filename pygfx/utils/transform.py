@@ -129,11 +129,6 @@ class AffineTransform(AffineBase):
     def __array__(self, dtype=None):
         return self.untracked_matrix.astype(dtype, copy=False)
 
-    def look_at(self, target) -> None:
-        rotation = la.matrix_make_look_at(self.position, target, (0, 1, 0))
-        rotation = la.matrix_to_quaternion(rotation)
-        self.rotation = la.quaternion_multiply(rotation, self.rotation)
-
 
 class ChainedTransform(AffineBase):
     def __init__(self, transform_sequence: List[AffineTransform]) -> None:

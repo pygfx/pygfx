@@ -121,6 +121,12 @@ class Light(WorldObject):
     def cast_shadow(self, value: bool):
         self.uniform_buffer.data["cast_shadow"] = bool(value)
 
+    def look_at(self, target) -> None:
+        # flipped eye, target inputs because lights shine look along negative Z
+        rotation = la.matrix_make_look_at(target, self.world_transform.position, (0, 1, 0))
+        rotation = la.matrix_to_quaternion(rotation)
+        self.world_transform.rotation = la.quaternion_multiply(rotation, self.world_transform.rotation)
+
 
 class AmbientLight(Light):
     """Ambient light source.
@@ -303,7 +309,7 @@ class DirectionalLight(Light):
         self.uniform_buffer.data["direction"].flat = direction
         # note: we are doing computation in world space but then apply look_at
         # in local space is this what we want?
-        self.transform.look_at(pos1 + direction)
+        self.look_at(pos1 + direction)
 
 
 class SpotLight(Light):
@@ -397,7 +403,7 @@ class SpotLight(Light):
 
         # Note: we are doing computation world space but apply look_at in local space.
         # is this what we want?
-        self.transform.look_at(pos1 + direction)
+        self.look_at(pos1 + direction)
 
     @property
     def power(self):
@@ -532,7 +538,7 @@ class LightShadow:
         shadow_camera = self.camera
         shadow_camera.transform.position = light.world_transform.position
         target = get_pos_from_camera_parent_or_target(light)
-        shadow_camera.transform.look_at(target)
+        shadow_camera.look_at(target)
         shadow_camera.update_matrix_world()
 
         transform = shadow_camera.projection_matrix @ shadow_camera.matrix_world_inverse

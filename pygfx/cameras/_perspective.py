@@ -329,7 +329,7 @@ class PerspectiveCamera(Camera):
         # Look at the provided position, taking up into account
         if up is not None:
             self.up = up
-        self.transform.look_at(pos)
+        self.look_at(pos)
 
         # Update extent
         distance = la.vector_distance_between(pos, self.transform.position)
@@ -395,11 +395,7 @@ class PerspectiveCamera(Camera):
         camera_pos = view_pos - view_dir * distance
 
         self.transform.position = camera_pos
-        rotation = la.matrix_make_look_at(self.transform.position, view_pos, up)
-        rotation = la.matrix_to_quaternion(rotation)
-        self.transform.rotation = la.quaternion_multiply(
-            rotation, self.transform.rotation
-        )
+        self.look_at(view_pos)
         self._set_extent(extent)
 
     def show_rect(self, left, right, top, bottom, *, view_dir=None, up=(0, 1, 0)):
@@ -452,12 +448,7 @@ class PerspectiveCamera(Camera):
         distance = fov_distance_factor(self.fov) * extent
         camera_pos = (0, 0, 0) - view_dir * distance
         self.transform.position = camera_pos
-
-        rotation = la.matrix_make_look_at((0, 0, 0), self.transform.position, up)
-        rotation = la.matrix_to_quaternion(rotation)
-        self.transform.rotation = la.quaternion_multiply(
-            rotation, self.transform.rotation
-        )
+        self.look_at((0, 0, 0))
 
         # Now we have a rotation that we can use to orient our rect
         position = self.transform.position
