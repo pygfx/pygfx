@@ -215,10 +215,10 @@ class PerspectiveCamera(Camera):
 
     def get_state(self):
         return {
-            "position": tuple(self.position.to_array()),
-            "rotation": tuple(self.rotation.to_array()),
-            "scale": tuple(self.scale.to_array()),
-            "up": tuple(self.up.to_array()),
+            "position": tuple(self.transform.position),
+            "rotation": tuple(self.transform.rotation),
+            "scale": tuple(self.transform.scale),
+            "up": tuple(self.up),
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
@@ -270,8 +270,8 @@ class PerspectiveCamera(Camera):
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
             proj_i = np.linalg.inv(proj)
-            self.projection_matrix.set(*proj.flat)
-            self.projection_matrix_inverse.set(*proj_i.flat)
+            self.projection_matrix = proj
+            self.projection_matrix_inverse = proj_i
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -296,8 +296,8 @@ class PerspectiveCamera(Camera):
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
             proj_i = np.linalg.inv(proj)
-            self.projection_matrix.set(*proj.flat)
-            self.projection_matrix_inverse.set(*proj_i.flat)
+            self.projection_matrix = proj
+            self.projection_matrix_inverse = proj_i
 
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.
@@ -317,7 +317,7 @@ class PerspectiveCamera(Camera):
 
         # Get pos from target
         if isinstance(target, WorldObject):
-            pos = target.position.to_array()
+            pos = target.transform.position
         elif isinstance(target, (tuple, list, np.ndarray)) and len(target) in (3, 4):
             pos = tuple(target)[:3]
         elif hasattr(target, "to_array"):
@@ -330,13 +330,13 @@ class PerspectiveCamera(Camera):
         # Look at the provided position, taking up into account
         if up is not None:
             self.up = up
-        self.look_at(pos)
+        self.transform.look_at(pos)
 
         # Update extent
-        distance = la.vector_distance_between(pos, self.position.to_array())
+        distance = la.vector_distance_between(pos, self.transform.position)
         self._set_extent(distance / fov_distance_factor(self.fov))
 
-    def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
+    def show_object(self, target: WorldObject, view_dir=None, *, up=(0, 1, 0), scale=1):
         """Orientate the camera such that the given target in is in view.
 
         Sets the position and rotation of the camera, and adjusts
@@ -360,9 +360,11 @@ class PerspectiveCamera(Camera):
 
         """
 
+        up = np.asarray(up)
+
         # Get bounding sphere from target
         if isinstance(target, WorldObject):
-            bsphere = target.get_world_bounding_sphere()
+            bsphere = target.world_bounding_sphere
             if bsphere is None:
                 raise ValueError(
                     "Given target does not have a bounding sphere, you should probably just provide a sphere (x, y, z, r) yourself."
@@ -376,8 +378,8 @@ class PerspectiveCamera(Camera):
 
         # Obtain view direction
         if view_dir is None:
-            rotation = self.rotation.to_array()
-            view_dir = la.quaternion_rotate((0, 0, -1), rotation)
+            rotation = self.transform.rotation
+            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
         elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
             view_dir = tuple(view_dir)
         else:
@@ -393,11 +395,15 @@ class PerspectiveCamera(Camera):
 
         camera_pos = view_pos - view_dir * distance
 
-        self.position.set(*camera_pos)
-        self.look_at(view_pos, up=up)
+        self.transform.position = camera_pos
+        rotation = la.matrix_make_look_at(self.transform.position, view_pos, up)
+        rotation = la.matrix_to_quaternion(rotation)
+        self.transform.rotation = la.quaternion_multiply(
+            rotation, self.transform.rotation
+        )
         self._set_extent(extent)
 
-    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
+    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=(0, 1, 0)):
         """Orientate the camera such that the given rectangle in is in view.
 
         The rectangle represents a plane in world coordinates, centered
@@ -429,14 +435,14 @@ class PerspectiveCamera(Camera):
 
         """
 
+        up = np.asarray(up)
+
         # Obtain view direction
         if view_dir is None:
-            rotation = self.rotation.to_array()
-            view_dir = la.quaternion_rotate((0, 0, -1), rotation)
-        elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
-            view_dir = tuple(view_dir)
-        else:
-            raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
+            rotation = self.transform.rotation
+            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
+
+        # la will convert to ndarray internally
         view_dir = la.vector_normalize(view_dir)
 
         # Set bounds, note that this implicitly sets width, height (and aspect)
@@ -446,16 +452,21 @@ class PerspectiveCamera(Camera):
         # First move so we view towards the origin with the correct vector
         distance = fov_distance_factor(self.fov) * extent
         camera_pos = (0, 0, 0) - view_dir * distance
-        self.position.set(*camera_pos)
-        self.look_at((0, 0, 0), up=up)
+        self.transform.position = camera_pos
+
+        rotation = la.matrix_make_look_at((0, 0, 0), self.transform.position, up)
+        rotation = la.matrix_to_quaternion(rotation)
+        self.transform.rotation = la.quaternion_multiply(
+            rotation, self.transform.rotation
+        )
 
         # Now we have a rotation that we can use to orient our rect
-        position = self.position.to_array()
-        rotation = self.rotation.to_array()
+        position = self.transform.position
+        rotation = self.transform.rotation
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
-        new_position = position + la.quaternion_rotate(offset, rotation)
-        self.position.set(*new_position)
+        new_position = position + offset
+        self.transform.position = new_position
 
 
 def fov_distance_factor(fov):

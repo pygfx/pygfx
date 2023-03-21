@@ -109,11 +109,15 @@ def box_geometry(
             affine[:-1, :-1] = swap_axes
 
         plane_positions = la.vector_apply_matrix(plane_positions, affine)
-        plane_normals = la.vector_apply_matrix(plane_normals, affine, w=0)
+
+        affine[:-1, -1] = 0
+        plane_normals = la.vector_apply_matrix(plane_normals, affine)
 
         planes.append((plane_positions, plane_normals, plane_texcoords, plane_index))
 
     positions, normals, texcoords, indices = merge(planes)
+    positions = positions.astype(np.float32)
+    normals = normals.astype(np.float32)
 
     return Geometry(
         indices=indices, positions=positions, normals=normals, texcoords=texcoords

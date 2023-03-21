@@ -90,7 +90,7 @@ class Display:
     def show(
         self,
         object: WorldObject,
-        up=None,
+        up=(0, 1, 0),
     ):
         """Display a WorldObject
 

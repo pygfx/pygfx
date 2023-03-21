@@ -284,16 +284,6 @@ class WorldObject(EventTarget, RootTrackable):
         else:
             return self._parent()
 
-    @parent.setter
-    def parent(self, value: "WorldObject"):
-        if self._parent is not None:
-            self._parent().remove(self)
-
-        if value is None:
-            self._parent = None
-        else:
-            self._parent = weakref.ref(value)
-
     def add(self, *objects, before=None):
         """Adds object as child of this object. Any number of
         objects may be added. Any current parent on an object passed
@@ -306,12 +296,15 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
+            if obj.parent is not None:
+                obj.parent.remove(obj)
+
             if before is not None:
                 idx = self.children.index(before)
             else:
                 idx = len(self.children)
 
-            obj.parent = self
+            obj._parent = weakref.ref(self)
             self.children.insert(idx, obj)
 
     def remove(self, *objects):
@@ -319,6 +312,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
+            obj._parent = None
             self.children.remove(obj)
 
     def clear(self):
