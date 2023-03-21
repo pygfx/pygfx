@@ -143,11 +143,7 @@ class ChainedTransform(AffineBase):
 
     @cached
     def matrix(self):
-        result = np.eye(4, dtype=float)
-        for transform in self.sequence:
-            np.matmul(result, transform, out=result)
-
-        return result
+        return la.matrix_combine(self.sequence)
 
     def __matmul__(self, other):
         if isinstance(other, ChainedTransform):
@@ -158,45 +154,75 @@ class ChainedTransform(AffineBase):
             return np.asarray(self) @ other
 
 
-class LinkedTransform(AffineBase):
+class EmbeddedTransform(AffineBase):
     def __init__(
         self,
-        linked_transform: AffineTransform,
+        total_transform: AffineTransform = None,
         *,
         before: AffineBase = None,
         after: AffineBase = None,
     ) -> None:
-        super().__init__()
+        if total_transform is None:
+            total_transform = AffineTransform()
+        self._total = total_transform
 
-        self.linked = linked_transform
+        self._before = before
+        self._after = after
+        self._last_modified = 0
 
-        if before is not None:
-            self.before = before
-        else:
-            self.before = AffineTransform()
-
-        if after is not None:
-            self.after = after
-        else:
-            self.after = AffineTransform()
+    def flag_update(self):
+        self._last_modified = perf_counter_ns()
 
     @property
     def last_modified(self):
-        return max(t.last_modified for t in (self.linked, self.before, self.after))
+        return max(
+            (
+                self._last_modified,
+                self._total.last_modified,
+                self.before.last_modified,
+                self.after.last_modified,
+            )
+        )
 
     @cached
     def _matrix(self):
-        return (self.before @ self.linked @ self.after).matrix
+        return self._before.inverse_matrix @ self._total @ self._after.inverse_matrix
 
     @property
     def matrix(self):
         return self._matrix
 
     @matrix.setter
-    def matrix(self, value):
-        self.linked.matrix = (
-            self.before.inverse_matrix @ np.asarray(value) @ self.after.inverse_matrix
+    def matrix(self, value: np.ndarray):
+        # preserve buffer
+        self._total.untracked_matrix[:] = (
+            self._before.matrix @ np.asarray(value) @ self._after.matrix
         )
+        self._total.flag_update()
+
+    @property
+    def before(self) -> AffineBase:
+        if self._before is None:
+            self._before = AffineTransform()
+
+        return self._before
+
+    @before.setter
+    def before(self, value: AffineBase) -> None:
+        self._before = value
+        self.flag_update()
+
+    @property
+    def after(self) -> AffineBase:
+        if self._after is None:
+            self._after = AffineTransform()
+
+        return self._after
+
+    @after.setter
+    def after(self, value: AffineBase) -> None:
+        self._after = value
+        self.flag_update()
 
     @AffineBase.position.setter
     def position(self, value):
@@ -209,3 +235,6 @@ class LinkedTransform(AffineBase):
     @AffineBase.scale.setter
     def scale(self, value):
         self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
+
+    def __matmul__(self, other):
+        return np.asarray(self) @ other

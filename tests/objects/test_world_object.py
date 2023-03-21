@@ -182,11 +182,11 @@ def test_iter():
 
 def test_setting_world_transform():
     root = gfx.WorldObject()
-    root.transform.position = (1, 2, 3)
-
     child = gfx.WorldObject()
-    child.transform.position = (4, 4, 4)
     root.add(child)
+
+    root.transform.position = (1, 2, 3)
+    child.transform.position = (4, 4, 4)
 
     assert np.allclose(child.transform.position, (4, 4, 4))
     assert np.allclose(child.world_transform.position, (5, 6, 7))

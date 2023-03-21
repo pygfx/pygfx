@@ -201,7 +201,7 @@ class PerspectiveCamera(Camera):
         """The location of the near clip plane.
         Use `depth_range` so overload the computed value, if necessary.
         """
-        near, far = self._get_near_and_far_plane()
+        near, _ = self._get_near_and_far_plane()
         return near
 
     @property
@@ -209,7 +209,7 @@ class PerspectiveCamera(Camera):
         """The location of the far clip plane.
         Use `depth_range` so overload the computed value, if necessary.
         """
-        near, far = self._get_near_and_far_plane()
+        _, far = self._get_near_and_far_plane()
         return far
 
     def get_state(self):
@@ -265,12 +265,10 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.matrix_make_perspective(
+            self.projection_matrix = la.matrix_make_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = np.linalg.inv(proj)
-            self.projection_matrix = proj
-            self.projection_matrix_inverse = proj_i
+            self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor

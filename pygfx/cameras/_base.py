@@ -25,16 +25,12 @@ class Camera(WorldObject):
     def __init__(self):
         super().__init__()
 
-        self.matrix_world_inverse = np.eye(4, dtype=float)
         self.projection_matrix = np.eye(4, dtype=float)
         self.projection_matrix_inverse = np.eye(4, dtype=float)
 
     def set_view_size(self, width, height):
         # In logical pixels, called by the renderer to set the viewport size
         pass
-
-    def update_matrix_world(self, *args, **kwargs):
-        self.matrix_world_inverse = np.linalg.inv(self.world_transform)
 
     def update_projection_matrix(self):
         raise NotImplementedError()
@@ -59,6 +55,14 @@ class Camera(WorldObject):
             rotation, self.world_transform.rotation
         )
 
+    @property
+    def view_matrix(self):
+        return self.world_transform.inverse_matrix
+
+    @property
+    def camera_matrix(self):
+        return self.projection_matrix @ self.view_matrix
+
 
 class NDCCamera(Camera):
     """A Camera operating in NDC coordinates.
@@ -71,9 +75,9 @@ class NDCCamera(Camera):
     """
 
     def update_projection_matrix(self):
-        eye = 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
-        self.projection_matrix.set(*eye)
-        self.projection_matrix_inverse.set(*eye)
+        eye = np.array(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1).reshape(4, 4)
+        self.projection_matrix = eye
+        self.projection_matrix_inverse = eye
 
 
 class ScreenCoordsCamera(Camera):
@@ -95,5 +99,6 @@ class ScreenCoordsCamera(Camera):
         sx, sy, sz = 2 / self._width, 2 / self._height, 1
         dx, dy, dz = -1, -1, 0
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
-        self.projection_matrix.set(*m)
-        self.projection_matrix_inverse.get_inverse(self.projection_matrix)
+        proj_view = self.projection_matrix.ravel()
+        proj_view[:] = m
+        self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)

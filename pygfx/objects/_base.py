@@ -11,7 +11,7 @@ from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
-from ..utils.transform import AffineTransform, ChainedTransform, LinkedTransform
+from ..utils.transform import AffineTransform, ChainedTransform, EmbeddedTransform
 
 
 class IdProvider:
@@ -135,9 +135,6 @@ class WorldObject(EventTarget, RootTrackable):
         self._parent: weakref.ReferenceType[WorldObject] = None
         self.children: List[WorldObject] = []
 
-        self.transform = AffineTransform()
-        self.cache = None
-
         self.geometry = geometry
         self.material = material
 
@@ -151,6 +148,11 @@ class WorldObject(EventTarget, RootTrackable):
         for cls in reversed(self.__class__.mro()):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+
+        world_matrix = self.uniform_buffer.data["world_transform"]
+        world_matrix[:] = np.eye(4)
+        self.world_transform = AffineTransform(world_matrix)
+        self.transform = EmbeddedTransform(self.world_transform)
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -305,6 +307,7 @@ class WorldObject(EventTarget, RootTrackable):
                 idx = len(self.children)
 
             obj._parent = weakref.ref(self)
+            obj.transform.before = self.transform_sequence
             self.children.insert(idx, obj)
 
     def remove(self, *objects):
@@ -313,6 +316,7 @@ class WorldObject(EventTarget, RootTrackable):
         obj: WorldObject
         for obj in objects:
             obj._parent = None
+            obj.transform.before = None
             self.children.remove(obj)
 
     def clear(self):
@@ -348,20 +352,13 @@ class WorldObject(EventTarget, RootTrackable):
             yield from child.iter(filter_fn, skip_invisible)
 
     @property
-    def transform_sequence(self) -> List[AffineTransform]:
+    def transform_sequence(self) -> ChainedTransform:
+        own_sequence = ChainedTransform([self.transform])
+
         if self.parent is None:
-            return [self.transform]
+            return own_sequence
         else:
-            return self.parent.transform_sequence + [self.transform]
-
-    @property
-    def world_transform(self) -> AffineTransform:
-        if self.parent is not None:
-            before = ChainedTransform(self.transform_sequence[:-1])
-        else:
-            before = None
-
-        return LinkedTransform(self.transform, before=before)
+            return self.parent.transform_sequence @ own_sequence
 
     @property
     def bounding_box(self):
