@@ -5,7 +5,7 @@ from time import perf_counter_ns
 from typing import List, Tuple
 
 
-class cached:
+class cached:  # noqa: N801
     """Cache for computed properties.
 
     This descriptor implements a minimal timestamp-based cache for computed
