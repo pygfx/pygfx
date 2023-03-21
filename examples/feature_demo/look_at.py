@@ -6,7 +6,7 @@ This example shows how the look_at function can be used.
 """
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_target_name = "disp"
-from time import perf_counter_ns
+from time import perf_counter
 import numpy as np
 import pygfx as gfx
 
@@ -51,7 +51,7 @@ scene.add(cones)
 
 
 def animate():
-    t = perf_counter_ns() // 1_000_000 * 0.0005
+    t = perf_counter() / 0.5
     sphere.position.set(
         np.sin(t * 0.7) * 2000,
         np.cos(t * 0.5) * 2000,
@@ -65,5 +65,4 @@ def animate():
 if __name__ == "__main__":
     disp = gfx.Display()
     disp.before_render = animate
-    disp.stats = True
     disp.show(scene)
