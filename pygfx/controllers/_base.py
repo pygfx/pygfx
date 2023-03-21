@@ -86,7 +86,7 @@ class Controller:
         fov = kwargs.get("fov", camera_state.get("fov"))
 
         distance = fov_distance_factor(fov) * extent
-        return la.quaternion_rotate((0, 0, -distance), rotation)
+        return la.vector_apply_quaternion((0, 0, -distance), rotation)
 
     def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.

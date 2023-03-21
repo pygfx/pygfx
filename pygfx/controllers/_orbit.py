@@ -62,7 +62,7 @@ class OrbitController(PanZoomController):
         up = camera_state["up"]
 
         # Where is the camera looking at right now
-        forward = la.quaternion_rotate((0, 0, -1), rotation)
+        forward = la.vector_apply_quaternion((0, 0, -1), rotation)
 
         # # Get a reference vector, that is orthogonal to up, in a deterministic way.
         # # Might need this if we ever want the azimuth
