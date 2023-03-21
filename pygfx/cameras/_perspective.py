@@ -376,7 +376,7 @@ class PerspectiveCamera(Camera):
         # Obtain view direction
         if view_dir is None:
             rotation = self.rotation.to_array()
-            view_dir = la.quaternion_rotate((0, 0, -1), rotation)
+            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
         elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
             view_dir = tuple(view_dir)
         else:
@@ -431,7 +431,7 @@ class PerspectiveCamera(Camera):
         # Obtain view direction
         if view_dir is None:
             rotation = self.rotation.to_array()
-            view_dir = la.quaternion_rotate((0, 0, -1), rotation)
+            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
         elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
             view_dir = tuple(view_dir)
         else:
@@ -453,7 +453,7 @@ class PerspectiveCamera(Camera):
         rotation = self.rotation.to_array()
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
-        new_position = position + la.quaternion_rotate(offset, rotation)
+        new_position = position + la.vector_apply_quaternion(offset, rotation)
         self.position.set(*new_position)
 
 
