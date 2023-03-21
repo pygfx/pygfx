@@ -99,7 +99,7 @@ class PerspectiveCamera(Camera):
     @property
     def width(self):
         """The (minimum) width of the view-cube.
-        Changing the width changes the aspect, but but not the height.
+        Changing the width changes the aspect, but not the height.
         """
         return self._width
 
@@ -110,7 +110,7 @@ class PerspectiveCamera(Camera):
     @property
     def height(self):
         """The (minimum) height of the view-cube.
-        Changing the height changes the aspect, but but not the width.
+        Changing the height changes the aspect, but not the width.
         """
         return self._height
 
