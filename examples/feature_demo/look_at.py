@@ -42,9 +42,7 @@ cones = gfx.Group()
 
 for i in range(100):
     cone = gfx.Mesh(geometry, material)
-    cone.position.set(
-        *(np.random.rand(3) * 4000 - 2000)
-    )
+    cone.position.set(*(np.random.rand(3) * 4000 - 2000))
     cone.scale.set_scalar(np.random.rand() * 4 + 2)
     cone.receive_shadow = cone.cast_shadow = True
     cones.add(cone)
