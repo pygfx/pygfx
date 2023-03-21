@@ -1,6 +1,4 @@
 from typing import Tuple
-import numpy as np
-import pylinalg as la
 
 from ..utils.viewport import Viewport
 from ._base import Controller, get_screen_vectors_in_world_cords

@@ -1,6 +1,6 @@
-from ..objects._base import WorldObject
 import numpy as np
-import pylinalg as pla
+
+from ..objects._base import WorldObject
 
 
 class Camera(WorldObject):

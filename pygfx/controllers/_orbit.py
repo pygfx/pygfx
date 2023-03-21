@@ -1,6 +1,4 @@
 from typing import Tuple
-import numpy as np
-import pylinalg as la
 
 import numpy as np
 import pylinalg as la

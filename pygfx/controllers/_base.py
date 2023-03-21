@@ -1,11 +1,11 @@
 from typing import Tuple, Union
-import numpy as np
+
 import pylinalg as la
 
-from ..utils.viewport import Viewport
-from ..renderers import Renderer
 from ..cameras import Camera, PerspectiveCamera
 from ..cameras._perspective import fov_distance_factor
+from ..renderers import Renderer
+from ..utils.viewport import Viewport
 
 
 class Controller:

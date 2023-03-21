@@ -1,11 +1,10 @@
-from math import tan, pi
-import numpy as np
+from math import pi, tan
 
 import numpy as np
 import pylinalg as la
 
-from ._base import Camera
 from ..objects._base import WorldObject
+from ._base import Camera
 
 
 class PerspectiveCamera(Camera):
