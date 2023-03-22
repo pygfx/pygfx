@@ -498,7 +498,9 @@ class LightShadow:
         # self._radius = 1
         # self._map_size = [1024, 1024]
 
-        self.bias = 0
+        # TODO: move bias and cull_mode to Light so they can be reactive?
+        self._bias = 0
+        self._cull_mode = wgpu.CullMode.front
 
         self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
         self._gfx_matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
@@ -516,6 +518,20 @@ class LightShadow:
     @bias.setter
     def bias(self, value):
         self._bias = float(value)
+
+    @property
+    def cull_mode(self):
+        """
+        Shadow map cull_mode. When shadow mapping open meshes, set to 'none' and
+        increase ``bias`` value to avoid shadow acne.
+        """
+        return self._cull_mode
+
+    @cull_mode.setter
+    def cull_mode(self, value):
+        if value not in wgpu.CullMode:
+            raise ValueError(f"invalid cull_mode: '{value}'")
+        self._cull_mode = value
 
     def _gfx_update_uniform_buffer(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self._bias
