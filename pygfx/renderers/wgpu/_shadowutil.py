@@ -38,7 +38,7 @@ class ShadowUtil:
             entries=binding_layout
         )
 
-    def get_shadow_pipeline(self, wobject):
+    def get_shadow_pipeline(self, wobject, cull_mode):
         # shadow pipeline only depends on the object's geometry info (Vertex Buffer)
         # TODO: now it only depends on the positions, but for instanced meshes, it also needs instance buffer
         #  Maybe for future skinned meshes , morph buffer is also needed
@@ -47,16 +47,18 @@ class ShadowUtil:
         array_stride = positions.nbytes // positions.nitems
         vertex_format = to_vertex_format(positions.format)
 
-        hash = (array_stride, vertex_format)
+        hash = (array_stride, vertex_format, cull_mode)
 
         if hash not in self.pipelines:
             self.pipelines[hash] = self._create_shadow_pipeline(
-                array_stride, vertex_format
+                array_stride,
+                vertex_format,
+                cull_mode,
             )
 
         return self.pipelines[hash]
 
-    def _create_shadow_pipeline(self, array_stride, vertex_format):
+    def _create_shadow_pipeline(self, array_stride, vertex_format, cull_mode):
         vertex_buffer_descriptor = [
             {
                 "array_stride": array_stride,
@@ -83,7 +85,7 @@ class ShadowUtil:
             },
             primitive={
                 "topology": wgpu.PrimitiveTopology.triangle_list,
-                "cull_mode": "none",
+                "cull_mode": cull_mode,
             },
             depth_stencil={
                 "format": wgpu.TextureFormat.depth32float,
@@ -158,7 +160,9 @@ class ShadowUtil:
 
                     for wobject in wobjects:
                         if wobject.cast_shadow and wobject.geometry is not None:
-                            shadow_pipeline = self.get_shadow_pipeline(wobject)
+                            shadow_pipeline = self.get_shadow_pipeline(
+                                wobject, light.shadow.cull_mode
+                            )
 
                             if shadow_pipeline is not None:
                                 shadow_pass.set_pipeline(shadow_pipeline)

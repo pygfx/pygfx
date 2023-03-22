@@ -61,6 +61,8 @@ scene.add(gfx.AmbientLight())
 light = gfx.PointLight(position=(0, 70, 0))
 light.add(gfx.PointLightHelper())
 light.cast_shadow = True
+light.shadow.cull_mode = "none"
+light.shadow.bias = 0.00001
 scene.add(light)
 
 ground = gfx.Mesh(
