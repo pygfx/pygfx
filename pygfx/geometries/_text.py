@@ -259,7 +259,7 @@ class TextGeometry(Geometry):
         Parameters
         ----------
         text_items : list
-            A list of :class:`pygfx.TextItem`s to update the text with.
+            A list of :class:`pygfx.TextItem` objects to update the text with.
 
         Notes
         -----

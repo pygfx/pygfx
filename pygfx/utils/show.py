@@ -20,6 +20,7 @@ from ..cameras import Camera, PerspectiveCamera
 from ..controllers import OrbitController
 from ..materials import BackgroundMaterial
 from ..renderers import WgpuRenderer
+from ..helpers import Stats
 
 
 class Display:
@@ -54,6 +55,9 @@ class Display:
     draw_function : Callable
         Replaces the draw callback with a custom one. If set, both
         `before_render` and `after_render` will have no effect.
+    stats : bool
+        Display performance statistics such as FPS and draw time
+        in the corner of the screen. Defaults to False.
 
     """
 
@@ -66,6 +70,7 @@ class Display:
         before_render=None,
         after_render=None,
         draw_function=None,
+        stats=False,
     ) -> None:
         self.canvas = canvas
         self.renderer = renderer
@@ -75,13 +80,22 @@ class Display:
         self.before_render = before_render
         self.after_render = after_render
         self.draw_function = draw_function or self.default_draw
+        self.stats = stats
 
     def default_draw(self):
         if self.before_render is not None:
             self.before_render()
 
-        self.controller.update_camera(self.camera)
-        self.renderer.render(self.scene, self.camera)
+        flush = True
+        if self.stats:
+            flush = False
+            self.stats.start()
+
+        self.renderer.render(self.scene, self.camera, flush=flush)
+
+        if self.stats:
+            self.stats.stop()
+            self.stats.render()
 
         if self.after_render is not None:
             self.after_render()
@@ -122,6 +136,8 @@ class Display:
                 "Can not show a closed canvas. Did you repeatedly call `show`?"
             )
 
+        # Process scene
+
         if isinstance(object, Scene):
             custom_scene = False
             scene = object
@@ -135,7 +151,7 @@ class Display:
 
             background = Background(None, BackgroundMaterial(light_gray, dark_gray))
             scene.add(background)
-            scene.add(AmbientLight(), DirectionalLight())
+            scene.add(AmbientLight())
         self.scene = scene
 
         if not any(scene.iter(lambda x: isinstance(x, Light))):
@@ -143,17 +159,7 @@ class Display:
                 "Your scene does not contain any lights. Some objects may not be visible"
             )
 
-        existing_camera = next(scene.iter(lambda x: isinstance(x, Camera)), None)
-        if self.camera:
-            pass
-        elif existing_camera is not None:
-            self.camera = existing_camera
-        elif custom_scene:
-            self.camera = PerspectiveCamera(70, 16 / 9)
-            self.camera.add(DirectionalLight())
-            self.scene.add(self.camera)
-        else:
-            self.camera = PerspectiveCamera(70, 16 / 9)
+        # Process renderer
 
         if self.renderer is None and self.canvas is None:
             from wgpu.gui.auto import WgpuCanvas
@@ -169,12 +175,33 @@ class Display:
         else:
             pass
 
+        # Process stats
+
+        if self.stats is True:
+            self.stats = Stats(self.renderer)
+
+        # Process camera
+
+        existing_camera = next(scene.iter(lambda x: isinstance(x, Camera)), None)
+        if self.camera:
+            pass
+        elif existing_camera is not None:
+            self.camera = existing_camera
+        else:
+            self.camera = PerspectiveCamera(70, 4 / 3)
+            self.camera.show_object(object, up=up, scale=1.4)
+        if custom_scene:
+            cam_has_light = next(self.camera.iter(lambda x: isinstance(x, Light)), None)
+            if not cam_has_light:
+                self.camera.add(DirectionalLight())
+            self.scene.add(self.camera)
+
+        # Process controller
+
         if self.controller is None:
-            look_at = self.camera.show_object(object)
-            self.controller = OrbitController(
-                self.camera.position.clone(), look_at, up=up
-            )
-            self.controller.add_default_event_handlers(self.renderer, self.camera)
+            self.controller = OrbitController(register_events=self.renderer)
+        if not self.controller.cameras:
+            self.controller.add_camera(self.camera)
 
         self.canvas.request_draw(self.draw_function)
         sys.modules[self.canvas.__module__].run()

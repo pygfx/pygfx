@@ -12,6 +12,8 @@ set BUILDDIR=_build
 
 if "%1" == "" goto help
 
+if "%1" == "clean" goto clean
+
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (
 	echo.
@@ -30,6 +32,13 @@ goto end
 
 :help
 %SPHINXBUILD% -M help %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+goto end
+
+:clean
+rmdir /s/q "_build"
+rmdir /s/q "_autosummary"
+rmdir /s/q "_gallery"
+goto end
 
 :end
 popd

@@ -94,20 +94,12 @@ line = gfx.Line(
 
 scene.add(line, obj0, obj1, obj2, obj3, obj4, obj5, obj6)
 
-
-camera = gfx.OrthographicCamera(650, 400)
-camera.position.z = 30
-
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera = gfx.OrthographicCamera()
+camera.show_rect(-325, 325, -200, 200)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
-def animate():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
-
-
-renderer.request_draw(animate)
+renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
     print(__doc__)

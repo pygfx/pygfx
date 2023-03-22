@@ -35,9 +35,8 @@ plane = gfx.Mesh(geometry, material)
 scene.add(plane)
 
 camera = gfx.OrthographicCamera(512, 512)
-camera.position.set(0, 0, 500)
-controller = gfx.PanZoomController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene)
+controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def on_key_down(event):
@@ -52,13 +51,6 @@ def on_key_down(event):
 renderer.add_event_handler(on_key_down, "key_down")
 
 
-def render_scene():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
-    # NOTE: The controller requests new draws automatically
-    # so there is no need for an animation loop
-
-
 if __name__ == "__main__":
-    canvas.request_draw(render_scene)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

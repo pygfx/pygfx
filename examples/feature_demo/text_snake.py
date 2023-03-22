@@ -37,9 +37,8 @@ scene.add(text1)
 
 # Camera and controller
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 350
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(text1)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 # Put the scene in as box, with lights, for visual appeal.
 box = gfx.Mesh(
@@ -60,7 +59,6 @@ def handle_event(event):
 
 def animate():
     text1.geometry.apply_layout()
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     renderer.request_draw()
 

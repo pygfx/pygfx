@@ -34,12 +34,8 @@ for ob in (slice, vol):
     ob.position.set(*(-0.5 * i for i in voldata.shape[::-1]))
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 500
-controller = gfx.OrbitController(
-    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1)
-)
-controller.rotate(-0.5, -0.5)
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 @vol.add_event_handler("pointer_down")
@@ -55,7 +51,6 @@ def handle_event(event):
 
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

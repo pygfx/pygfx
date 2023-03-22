@@ -31,18 +31,13 @@ scene.add(vol1, vol2)
 vol2.position.x = 150
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.y = 500
-controller = gfx.OrbitController(
-    camera.position.clone(), up=gfx.linalg.Vector3(0, 0, 1)
-)
-controller.rotate(0.5, 0.3)
-controller.add_default_event_handlers(renderer, camera)
+camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 print("World bounding box:", scene.get_world_bounding_box())
 
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

@@ -6,17 +6,18 @@ Controllers define how cameras can be interacted with. They are
 independent of any GUI toolkits.
 
 .. autosummary::
+    :toctree: controllers/
+    :template: ../_templates/custom_layout.rst
 
     Controller
     PanZoomController
     OrbitController
-    OrbitOrthoController
 
 """
 
 from ._base import Controller
-from ._orbit import OrbitController, OrbitOrthoController
 from ._panzoom import PanZoomController
+from ._orbit import OrbitController
 
 
-__all__ = ["Controller", "PanZoomController", "OrbitController", "OrbitOrthoController"]
+__all__ = ["Controller", "PanZoomController", "OrbitController"]

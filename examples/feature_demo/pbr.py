@@ -42,12 +42,6 @@ canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-# Create camera and controller
-camera = gfx.PerspectiveCamera(45, 640 / 480, 0.25, 20)
-camera.position.set(-1.8, 0.6, 2.7)
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
-
 # Read cube image and turn it into a 3D image (a 4d array)
 env_img = iio.imread("imageio:meadow_cube.jpg")
 cube_size = env_img.shape[1]
@@ -76,12 +70,12 @@ m.material.env_map = env_view
 # Add extra light more or less where the sun seems to be in the skybox
 scene.add(gfx.SpotLight(color="#444", position=(-500, 1000, -1000)))
 
-
-def animate():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
+# Create camera and controller
+camera = gfx.PerspectiveCamera(45, 640 / 480)
+camera.show_object(m, view_dir=(1.8, -0.6, -2.7))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 if __name__ == "__main__":
-    renderer.request_draw(animate)
+    renderer.request_draw(lambda: renderer.render(scene, camera))
     run()
