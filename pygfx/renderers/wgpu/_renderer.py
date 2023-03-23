@@ -797,6 +797,7 @@ EVENT_TYPE_MAP = {
     "wheel": WheelEvent,
     "key_down": KeyboardEvent,
     "key_up": KeyboardEvent,
+    "before_draw": WindowEvent,
 }
 
 
@@ -809,4 +810,5 @@ EVENTS_TO_CONVERT = (
     "wheel",
     "close",
     "resize",
+    "before_draw",
 )

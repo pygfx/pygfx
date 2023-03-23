@@ -40,7 +40,7 @@ class OrbitController(PanZoomController):
 
     """
 
-    def rotate(self, delta_azimuth: float, delta_elevation: float) -> Controller:
+    def rotate(self, dx: float, dy: float) -> Controller:
         """Rotate using angles (in radians)."""
         if self._action:
             return
@@ -48,14 +48,14 @@ class OrbitController(PanZoomController):
         if self._cameras:
             camera = self._cameras[0]
 
-            self._rotate(delta_azimuth, delta_elevation, camera.get_state())
+            self._rotate(dx, dy, camera.get_state())
 
         return self
 
     def _rotate(self, delta_azimuth, delta_elevation, camera_state):
         # Note: this code does not use la.vector_euclidean_to_spherical and
         # la.vector_spherical_to_euclidean, because those functions currently
-        # have a way to specify a different up vector.
+        # have no way to specify a different up vector.
 
         position = camera_state["position"]
         rotation = camera_state["rotation"]
@@ -115,10 +115,13 @@ class OrbitController(PanZoomController):
 
         if self._cameras:
             camera = self._cameras[0]
+            cam_state = camera.get_state()
 
             self._action = {"name": "rotate"}
-            self._action["camera_state"] = camera.get_state()
-            self._action["mouse_pos"] = pos
+            self._action["camera_state"] = cam_state
+            self._action["last_cam_state"] = cam_state
+            self._action["ori_pos"] = pos
+            self._action["last_pos"] = pos
 
         return self
 
@@ -133,12 +136,19 @@ class OrbitController(PanZoomController):
         The speed is 1 degree per pixel by default.
         """
         if self._action and self._action["name"] == "rotate":
-            delta_azimuth = (pos[0] - self._action["mouse_pos"][0]) * speed
-            delta_elevation = (pos[1] - self._action["mouse_pos"][1]) * speed
-            self._rotate(delta_azimuth, delta_elevation, self._action["camera_state"])
+            dx = (pos[0] - self._action["ori_pos"][0]) * speed
+            dy = (pos[1] - self._action["ori_pos"][1]) * speed
+
+            self._action["last_pos"] = pos
+
+            new_state = self._rotate(dx, dy, self._action["camera_state"])
+
         return self
 
-    def handle_event(self, event, viewport):
+    def _move_rotate(self, pos, action):
+        dx, dy = action["ori_pos"] - pos
+
+    def xx_handle_event(self, event, viewport):
         """Implements a default interaction mode that consumes wgpu autogui events
         (compatible with the jupyter_rfb event specification).
         """
