@@ -54,7 +54,7 @@ class PerspectiveCamera(Camera):
         *,
         width=None,
         height=None,
-        zoom=0,
+        zoom=1,
         maintain_aspect=True,
         depth_range=None,
     ):
@@ -245,7 +245,7 @@ class PerspectiveCamera(Camera):
         self._view_aspect = width / height
 
     def update_projection_matrix(self):
-        zoom_factor = 2**self._zoom
+        zoom_factor = self._zoom
         near, far = self._get_near_and_far_plane()
 
         if self.fov > 0:

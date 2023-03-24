@@ -20,9 +20,10 @@ class PanZoomController(Controller):
         "mouse2": ("zoom", "drag", (0.005, -0.005)),
         "arrowLeft": ("pan", "repeat", (-4, 0)),
         "arrowRight": ("pan", "repeat", (+4, 0)),
-        "arrowUp": ("pan", "push", (0, +4)),
-        "z": ("quickzoom", "peak", 0.1),
-        "wheel": ("zoom_to_point", "push", (0.0015, 0.0015)),
+        "arrowUp": ("pan", "repeat", (0, -4)),
+        "arrowDown": ("pan", "repeat", (0, +4)),
+        "z": ("quickzoom", "peak", 2),
+        "wheel": ("zoom_to_point", "push", -0.001),
     }
 
     def __init__(self, *args, **kwargs) -> None:
@@ -90,7 +91,12 @@ class PanZoomController(Controller):
         position = cam_state["position"]
         if delta is None:
             delta = action.delta
-        new_position = position + vecy * delta[1] - vecx * delta[0]
+
+        # Update position, panning left means dragging the scene to the
+        # left, i.e. move the camera to the right, thus the minus. But
+        # since screen pixels go from top to bottom, while the camera's
+        # up vector points ... up, the y component is negated twice.
+        new_position = position - vecx * delta[0] + vecy * delta[1]
 
         self._apply_new_camera_state({"position": new_position})
 
@@ -200,8 +206,7 @@ class PanZoomController(Controller):
 
     def _update_quickzoom(self, action):
         zoom = action.last_cam_state["zoom"]
-        print(zoom)
-        new_cam_state = {"zoom": zoom + action.delta}
+        new_cam_state = {"zoom": zoom * 2**action.delta}
         self._apply_new_camera_state(new_cam_state)
 
     def adjust_fov(self, delta: float):

@@ -167,9 +167,10 @@ class Controller:
             if action_tuple:
                 need_update = True
                 if action_tuple[1] == "drag":
-                    # Todo: dont start drag action if another is going
-                    pos = event.x, event.y
-                    self._new_action_for_event(key, action_tuple, pos, pos, rect)
+                    # Dont start a new drag if there is one going
+                    if not any(a.mode == "drag" for a in self._actions.values()):
+                        pos = event.x, event.y
+                        self._new_action_for_event(key, action_tuple, pos, pos, rect)
                 else:
                     self._handle_button_down(key, action_tuple, viewport)
         elif type == "pointer_move":
