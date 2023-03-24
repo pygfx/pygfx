@@ -1,9 +1,6 @@
-from typing import Tuple
-
 import numpy as np
 
-from ..utils.viewport import Viewport
-from ._base import Controller, get_screen_vectors_in_world_cords
+from ._base import Controller
 
 
 class PanZoomController(Controller):
@@ -19,14 +16,13 @@ class PanZoomController(Controller):
     """
 
     _default_controls = {
-        "drag1": "pan(1)",
-        "drag2": "zoom(0.005, -0.005)",
-        "arrowleft*": "pan(-4, 0)",
-        "arrowright*": "pan(+4, 0)",
-        "z": "quickzoom(0.1)",
-        "x*": "quickzoom(0.1)",
-        "c!": "quickzoom(2)",
-        "wheel": "zoom_to_point(0.0015, 0.0015)",
+        "mouse1": ("pan", "drag", 1),
+        "mouse2": ("zoom", "drag", (0.005, -0.005)),
+        "arrowLeft": ("pan", "repeat", (-4, 0)),
+        "arrowRight": ("pan", "repeat", (+4, 0)),
+        "arrowUp": ("pan", "push", (0, +4)),
+        "z": ("quickzoom", "peak", 0.1),
+        "wheel": ("zoom_to_point", "push", (0.0015, 0.0015)),
     }
 
     def __init__(self, *args, **kwargs) -> None:

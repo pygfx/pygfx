@@ -9,6 +9,9 @@ from ..cameras import Camera, PerspectiveCamera
 from ..cameras._perspective import fov_distance_factor
 
 
+key_multiplier_factor = 10
+
+
 class Controller:
     """The base camera controller.
 
@@ -42,7 +45,9 @@ class Controller:
         self.auto_update = auto_update
 
         # Init controls config
-        action_names = set(self._default_controls.values())
+        action_names = set(
+            action_tuple[0] for action_tuple in self._default_controls.values()
+        )
         self._controls = Controls(*action_names)
         self._controls.update(self._default_controls)
 
@@ -150,62 +155,59 @@ class Controller:
             modifiers_prefix = "+".join(modifiers + [""])
 
         if type == "before_draw":
+            # Do a tick, updating all actions, and using them to update the camera state.
+            # Note that tick() removes actions that are done and have reached the target.
             if self._actions:
                 self.tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
-            # Start drag action
-            key1 = modifiers_prefix + f"drag{event.button}"
-            action_name = self._controls.get(key1)
-            # Todo: dont start drag action if another is going
-            if action_name:
-                pos = event.x, event.y
-                self._new_action_for_event(key1, action_name, pos, pos, rect)
+            # Start a drag, or an action with mode push/peak/repeat
+            key = modifiers_prefix + f"mouse{event.button}"
+            action_tuple = self._controls.get(key)
+            if action_tuple:
                 need_update = True
-            # Start button action
-            key2 = modifiers_prefix + f"mouse{event.button}"
-            need_update = self._handle_button_down(key2, viewport)
+                if action_tuple[1] == "drag":
+                    # Todo: dont start drag action if another is going
+                    pos = event.x, event.y
+                    self._new_action_for_event(key, action_tuple, pos, pos, rect)
+                else:
+                    self._handle_button_down(key, action_tuple, viewport)
         elif type == "pointer_move":
             # Update all drag actions
-            for key, action in self._actions.items():
-                if key.startswith("drag"):
-                    if not action.done:
-                        action.set_target(np.array((event.x, event.y)))
-                        need_update = True
+            for action in self._actions.values():
+                if action.mode == "drag" and not action.done:
+                    action.set_target(np.array((event.x, event.y)))
+                    need_update = True
         elif type == "pointer_up":
             # Stop all drag actions
-            for key, action in self._actions.items():
-                if key.startswith("drag"):
+            for action in self._actions.values():
+                if action.mode == "drag":
                     action.done = True
-            # Handle set-unset actions
+            # End button presses, regardless of modifier state
             need_update = self._handle_button_up(f"mouse{event.button}")
-
-            # key = modifiers_prefix + f"mouse{event.button}"
-            # action_name = self._controls.get(key)
-            # if action_name == self._action["name"]:
-            #     pos = event.x, event.y
-            #     self.mouse_stop(action_name, pos)
-            #     need_update = True
         elif type == "wheel" and viewport.is_inside(event.x, event.y):
+            # Wheel events. Technically there is horizontal and vertical scroll,
+            # but this does not work well cross-platform, so we consider it 1D.
             key = modifiers_prefix + "wheel"
-            action_name = self._controls.get(key)
-            if action_name:
-                d = -(event.dy or event.dx)
-                pos = event.x, event.y
-                if key in self._actions:
-                    action = self._actions[key]
-                    action.target_value += d
-                else:
-                    action = self._new_action_for_event(key, action_name, 0, pos, rect)
-                    action.set_target(d)
-                    action.done = True
+            action_tuple = self._controls.get(key)
+            if action_tuple:
                 need_update = True
-
+                d = event.dy or event.dx
+                pos = event.x, event.y
+                action = self._actions.get(key, None)
+                if action is None:
+                    action = self._new_action_for_event(key, action_tuple, 0, pos, rect)
+                    action.done = True
+                action.increase_target(d)
         elif type == "key_down":
-            key1 = modifiers_prefix + f"{event.key.lower()}"
-            need_update = self._handle_button_down(key1, viewport)
-
+            # Start an action with mode push/peak/repeat
+            key = modifiers_prefix + f"{event.key.lower()}"
+            action_tuple = self._controls.get(key)
+            if action_tuple:
+                need_update = True
+                self._handle_button_down(key, action_tuple, viewport)
         elif type == "key_up":
+            # End key presses, regardless of modifier state
             need_update = self._handle_button_up(f"{event.key.lower()}")
 
         if need_update and self.auto_update:
@@ -250,22 +252,19 @@ class Controller:
         if update_cameras:
             self._update_all_cameras()
 
-    ## Logic to make event input use public actions
+    # %% Logic to make event input use public actions
 
     def tick(self):
         factor = 0.5
         # todo: take fps into account (avoid slow fps to result in extra slow control)
         to_pop = []
         for key, action in self._actions.items():
-            if key.endswith("*") and not action.done:
-                action.set_target(action.target_value + 100)
-
+            if action.mode == "repeat" and not action.done:
+                action.increase_target(key_multiplier_factor)
             action.tick(factor)
             if action.is_at_target and action.done:
                 to_pop.append(key)
-
             self.apply_action(action, False)
-            # print("tick", action.current_value,  action.target_value, action.is_at_target)
 
         # Remove actions that are done
         for key in to_pop:
@@ -273,22 +272,22 @@ class Controller:
 
         self._update_all_cameras()
 
-    def _new_action_for_event(self, key, full_action_name, offset, screen_pos, rect):
+    def _new_action_for_event(self, key, action_tuple, offset, screen_pos, rect):
         if screen_pos is None:
             screen_pos = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
 
-        action_name, _, multiplier_str = full_action_name.rstrip(")").partition("(")
+        action_name, mode, multiplier = action_tuple
 
-        multiplier = np.array([float(v) for v in multiplier_str.split(",")])
-        if multiplier.shape == (1,):
-            multiplier.shape = ()
+        if isinstance(multiplier, tuple):
+            multiplier = np.array(multiplier, dtype=np.float64)
 
         func_name = "begin_" + action_name
         func = getattr(self, func_name)
         action = func(screen_pos, rect)
 
-        action.offset = offset
+        action.offset += offset
         action.done = False
+        action.mode = mode
         action.multiplier = multiplier
 
         self._actions[key] = action
@@ -296,76 +295,28 @@ class Controller:
         # self._dispatch_action(action)
         # self._update_all_cameras()
 
-    def xxx_create_new_action(
-        self, key, action_name, start_value, target_value, pos, rect
-    ):
-        # Collect info
-        camera = self._cameras[0]
-        cam_state = self._cameras[0].get_state()
-        position = cam_state["position"]
-        target = position + self._get_target_vec(cam_state)
-        vecx, vecy = get_screen_vectors_in_world_cords(target, rect[2:], camera)
+    def _handle_button_down(self, key, action_tuple, viewport):
+        mode = action_tuple[1]
+        action = self._actions.get(key, None)
+        if action is None:
+            action = self._new_action_for_event(
+                key, action_tuple, 0, None, viewport.rect
+            )
+            action.multiplier /= key_multiplier_factor
+            if mode == "push":
+                action.done = True
+            action.set_target(key_multiplier_factor)
+        if mode in ("push", "peak"):
+            action.set_target(key_multiplier_factor)
 
-        # Create action
-        action = {
-            "name": action_name,
-            "done": False,
-            "start_cam_state": cam_state,
-            "last_cam_state": None,
-            "pos": pos,
-            "start_value": start_value,
-            "last_value": start_value,
-            "target_value": target_value,
-            "current_value": start_value,
-            "rect": rect,
-            "vecx": vecx,
-            "vecy": vecy,
-        }
-
-        # Make sure that we have an uptodate cam_state
-        if not self._actions:
-            self._last_cam_state = cam_state
-        action["last_cam_state"] = self._last_cam_state
-
-        # Done
-        self._actions[key] = action
-
-        self._dispatch_action(action)
-        self._update_all_cameras()
-
-        return action
-
-    def _handle_button_down(self, key1, viewport):
-        need_update = False
-        key2 = key1 + "!"
-        key3 = key1 + "*"
-        for key in (key1, key2, key3):
-            action_name = self._controls.get(key)
-            if action_name:
-                need_update = True
-                if key.endswith("!") and self._actions.get(key, None):
-                    action = self._actions[key]
-                else:
-                    action = self._new_action_for_event(
-                        key, action_name, 0, None, viewport.rect
-                    )
-                    action.multiplier /= 100
-                    if not key.endswith(("!", "*")):
-                        action.done = True
-                action.set_target(100)
-
-        return need_update
-
-    def _handle_button_up(self, button_base):
-        exact_keys = (button_base + "!", button_base + "*")
-        key_ends = tuple("+" + k for k in exact_keys)
+    def _handle_button_up(self, button):
         need_update = False
         for key, action in self._actions.items():
-            if key in exact_keys or key.endswith(key_ends):
+            if key == button or key.endswith("+" + button):
                 need_update = True
                 action.done = True
-                if key.endswith("!"):
-                    action.set_target(0)
+                if action.mode == "peak":
+                    action.set_target(action.target_value * 0)
         return need_update
 
     def add_default_event_handlers(self, *args):
@@ -383,12 +334,12 @@ class Action:
         if isinstance(offset, (int, float)):
             offset = float(offset)
         elif isinstance(offset, (list, tuple)):
-            offset = np.array(offset)
+            offset = np.array(offset, dtype=np.float64)
         elif isinstance(offset, np.ndarray):
             if offset.size == 1:
                 offset = float(offset)
             else:
-                offset = offset.flatten()
+                offset = offset.flatten()  # makes copy
 
         # Derive the zero value
         if isinstance(offset, float):
@@ -403,8 +354,14 @@ class Action:
         self.current_value = zero
         self.multiplier = multiplier
 
+    def __repr__(self):
+        return f"<Action '{self.name}' {self.current_value}>"
+
     def set_target(self, value):
         self.target_value = value - self.offset
+
+    def increase_target(self, value):
+        self.target_value = self.target_value + value
 
     def tick(self, factor=1):
         new_value = (1 - factor) * self.current_value + factor * self.target_value
@@ -427,18 +384,11 @@ class Action:
 class Controls(dict):
     """Overloaded dict so we can validate when an item is set."""
 
-    _buttons = (
-        "mouse1",
-        "mouse2",
-        "mouse3",
-        "mouse4",
-        "mouse5",
-    )
-    _buttons += "drag1", "drag2", "drag3", "drag4", "drag5", "wheel"
+    _buttons = "mouse1", "mouse2", "mouse3", "mouse4", "mouse5", "wheel"
     _buttons += "arrowleft", "arrowright", "arrowup", "arrowdown"
     _buttons += "tab", "enter", "escape", "backspace", "delete"
 
-    _suffixes = "!*"
+    _modes = "drag", "push", "peak", "repeat"
 
     def __init__(self, *actions):
         self._actions = tuple(actions)
@@ -448,19 +398,18 @@ class Controls(dict):
         if not self:
             return "{}"
         s = "{"
-        for key, action in self.items():
-            s += f"\n    '{key}': '{action}',"
+        for key, action_tuple in self.items():
+            s += f"\n    '{key}': {repr(action_tuple)},"
         s += "\n}"
         return s
 
-    def __setitem__(self, key, action):
+    def __setitem__(self, key, action_tuple):
         # Check the button
         if not isinstance(key, str):
             raise TypeError("Controls key must be str")
         *modifiers, button = key.split("+")
         modifiers = sorted([m.lower() for m in modifiers])
-        suffix = button[-1] if button[-1] in self._suffixes else ""
-        button = button.lower().rstrip(self._suffixes)
+        button = button.lower()
         for m in modifiers:
             if m not in ("shift", "control", "alt"):
                 raise ValueError(f"Invalid key modifier '{m}'")
@@ -468,17 +417,33 @@ class Controls(dict):
             pass  # a key
         elif button not in self._buttons:
             raise ValueError(
-                f"Invalid button/key '{button}', pick one of {self._buttons}"
+                f"Invalid button/key '{button}', pick a char, or one of {self._buttons}"
             )
         # Check the action
-        if not isinstance(action, str):
-            raise TypeError("Controls action must be str")
-        if not action in self._actions:
+        if not (isinstance(action_tuple, (list, tuple)) and len(action_tuple) == 3):
+            raise TypeError("Controls action must be 3-element tuples")
+        action, mode, multiplier = action_tuple
+        if action not in self._actions:
             raise ValueError(f"Invalid action '{action}', pick one of {self._actions}")
+        if mode not in self._modes:
+            raise ValueError(f"Invalid mode '{mode}', pick one of {self._modes}")
+        if mode == "drag" and not key.startswith("mouse"):
+            raise ValueError("Drag mode only allowed for mouse buttons.")
+        if button == "wheel" and mode != "push":
+            raise ValueError("Only mode 'push' allowed with 'wheel'.")
+        if isinstance(multiplier, (int, float)):
+            multiplier = float(multiplier)
+        elif isinstance(multiplier, (list, tuple)):
+            multiplier = tuple(float(x) for x in multiplier)
+        elif isinstance(multiplier, np.ndarray):
+            if multiplier.size == 1:
+                multiplier = float(multiplier)
+            else:
+                multiplier = tuple(float(x) for x in multiplier)
         # Store
         modifiers_prefix = "+".join(modifiers + [""])
-        key = modifiers_prefix + button + suffix
-        super().__setitem__(key, action)
+        key = modifiers_prefix + button
+        super().__setitem__(key, (action, mode, multiplier))
 
     def setdefault(self, key, default):
         if key not in self:
