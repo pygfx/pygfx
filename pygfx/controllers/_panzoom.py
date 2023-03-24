@@ -18,10 +18,10 @@ class PanZoomController(Controller):
     _default_controls = {
         "mouse1": ("pan", "drag", 1),
         "mouse2": ("zoom", "drag", (0.005, -0.005)),
-        "arrowLeft": ("pan", "repeat", (-4, 0)),
-        "arrowRight": ("pan", "repeat", (+4, 0)),
-        "arrowUp": ("pan", "repeat", (0, -4)),
-        "arrowDown": ("pan", "repeat", (0, +4)),
+        "arrowLeft": ("pan", "repeat", (-50, 0)),
+        "arrowRight": ("pan", "repeat", (+50, 0)),
+        "arrowUp": ("pan", "repeat", (0, -50)),
+        "arrowDown": ("pan", "repeat", (0, +50)),
         "z": ("quickzoom", "peak", 2),
         "wheel": ("zoom_to_point", "push", -0.001),
     }

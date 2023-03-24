@@ -1,4 +1,5 @@
 from typing import Tuple, Union
+from time import perf_counter
 
 import numpy as np
 import pylinalg as la
@@ -24,6 +25,8 @@ class Controller:
         The camera to control (optional). Must be a perspective or orthographic camera.
     enabled: bool
         Whether the controller is enabled (i.e. responds to events).
+    damping: float
+        The amount of motion damping. Zero is no damping, 10 a lot. Default 4.
     auto_update : bool
         Whether the controller requests a new draw when the camera has changed.
     register_events: Renderer or Viewport
@@ -33,7 +36,13 @@ class Controller:
     _default_controls = {}
 
     def __init__(
-        self, camera=None, *, enabled=True, auto_update=True, register_events=None
+        self,
+        camera=None,
+        *,
+        enabled=True,
+        damping=4,
+        auto_update=True,
+        register_events=None,
     ):
         # Init cameras
         self._cameras = []
@@ -42,6 +51,7 @@ class Controller:
 
         # Props
         self.enabled = enabled
+        self.damping = damping
         self.auto_update = auto_update
 
         # Init controls config
@@ -54,6 +64,7 @@ class Controller:
         # State info used during interactions.
         self._actions = {}
         self._last_cam_state = {}
+        self._last_tick_time = 0
 
         # Maybe register events. The register_events arg must be a renderer or viewport.
         self._call_later = None
@@ -97,6 +108,17 @@ class Controller:
             self._actions = {}  # cancel any in-progress actions
 
     @property
+    def damping(self):
+        """The amount of motion damping (i.e. smoothing). Lower values
+        dampen less. Typical values would be below 10.
+        """
+        return self._damping
+
+    @damping.setter
+    def damping(self, value):
+        self._damping = max(0, float(value))
+
+    @property
     def auto_update(self):
         """Whether the controller automatically requests a new draw at the canvas."""
         return self._auto_update
@@ -109,6 +131,23 @@ class Controller:
     def controls(self):
         """A dictionary that maps buttons/keys to actions. Can be modified
         to configure how the controller reacts to events.
+
+        Possible keys include 'mouse1'  to `mouse5', single characters
+        for the corresponding key presses, and 'arrowleft',
+        'arrowright', 'arrowup', 'arrowdown' 'tab', 'enter', 'escape',
+        'backspace', 'delete'.
+
+        Each action is a tuple with 3 fields:
+
+        * The `action name`, e.g. 'pan', see ``controller.config.action_names``
+          for the possible names.
+        * The `mode`: 'drag', 'push', 'peak', 'repeat'. Drag represents mouse drag,
+          push means the action is performed as the key is pushed, peak
+          means that the action is undone once the key is released, and repeat
+          means that while the key is held down, the value updates with the given
+          amount per second.
+        * The `multiplier` is the value that the set value from the event is multiplied with.
+
         """
         return self._controls
 
@@ -121,8 +160,6 @@ class Controller:
 
         distance = fov_distance_factor(fov) * extent
         return la.vector_apply_quaternion((0, 0, -distance), rotation)
-
-    # def mouse_down
 
     def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
@@ -234,6 +271,7 @@ class Controller:
         # Make sure that we have an up-to-date cam_state
         if not self._actions:
             self._last_cam_state = self._cameras[0].get_state()
+            self._last_tick_time = perf_counter()
         action.last_cam_state = cam_state = self._last_cam_state
 
         # Get vectors orthogonal to camera axii, scaled by pixel unit
@@ -256,12 +294,24 @@ class Controller:
     # %% Logic to make event input use public actions
 
     def tick(self):
-        factor = 0.5
-        # todo: take fps into account (avoid slow fps to result in extra slow control)
+        # Get elapsed time since last frame
+        now = perf_counter()
+        elapsed_time = now - self._last_tick_time
+        self._last_tick_time = now
+
+        # Determine damping/smoothing factor to update action values. In the
+        # formula below the mul with elapsed_time is a division by fps.
+        # The mul with 50 is just so typical values for damping lay
+        # between 0..10 :)
+        factor = 1
+        if self.damping > 0:
+            factor = min(1, 50 * elapsed_time / self.damping)
+
         to_pop = []
         for key, action in self._actions.items():
             if action.mode == "repeat" and not action.done:
-                action.increase_target(key_multiplier_factor)
+                print(action.target_value)
+                action.increase_target(key_multiplier_factor * elapsed_time)
             action.tick(factor)
             if action.is_at_target and action.done:
                 to_pop.append(key)
@@ -306,7 +356,6 @@ class Controller:
             action.multiplier /= key_multiplier_factor
             if mode == "push":
                 action.done = True
-            action.set_target(key_multiplier_factor)
         if mode in ("push", "peak"):
             action.set_target(key_multiplier_factor)
 
@@ -330,6 +379,8 @@ class Controller:
 
 
 class Action:
+    """Simple value to represent a value to change an action with."""
+
     def __init__(self, name, offset=0.0, multiplier=1.0):
         # Clean up the offset
         if isinstance(offset, (int, float)):
@@ -404,6 +455,11 @@ class Controls(dict):
         s += "\n}"
         return s
 
+    @property
+    def action_names(self):
+        """The possible action names."""
+        return self._actions
+
     def __setitem__(self, key, action_tuple):
         # Check the button
         if not isinstance(key, str):
@@ -447,11 +503,13 @@ class Controls(dict):
         super().__setitem__(key, (action, mode, multiplier))
 
     def setdefault(self, key, default):
+        # Overloaded to make use of our implementation of __setitem__
         if key not in self:
             self[key] = default
         return self[key]
 
     def update(self, e, **f):
+        # Overloaded to make use of our implementation of __setitem__
         for k, v in e.items():
             self[k] = v
         for k, v in f.items():
