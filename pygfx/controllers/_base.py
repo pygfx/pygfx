@@ -24,7 +24,7 @@ class Controller:
         Whether the controller is enabled (i.e. responds to events).
     damping: float
         The amount of motion damping. Zero is no damping, 10 a lot. Default 4.
-    auto_update : bool
+    auto_update: bool
         Whether the controller requests a new draw when the camera has changed.
     register_events: Renderer or Viewport
         If given and not None, will call ``.register_events()``.
@@ -33,17 +33,14 @@ class Controller:
     -----
 
     There are multiple ways that the controller can be used.
-
     The easiest (and most common) approach is to use the pygfx event system and
     make the controller listen to viewport events (using ``register_events``).
 
     An alternative is to feed your own events into the ``handle_event()``
     method. You'd have to mimic or use pygfx event objects.
 
-    The controller can also be used programatically by calling "action
-    methods" like ``pan()``, ``zoom()`` and ``orbit()``.
-
-
+    The controller can also be used programatically by calling "action methods"
+    like ``pan()``, ``zoom()`` and ``rotate()``.
     """
 
     _default_controls = {}
@@ -122,8 +119,8 @@ class Controller:
 
     @property
     def damping(self):
-        """The amount of motion damping (i.e. smoothing). Lower values
-        dampen less. Typical values would be below 10.
+        """The amount of motion damping (i.e. smoothing).
+        Lower values dampen less. Typical values would be below 10.
         """
         return self._damping
 
@@ -145,24 +142,30 @@ class Controller:
         """A dictionary that maps buttons/keys to actions. Can be modified
         to configure how the controller reacts to events.
 
-        Possible keys include 'mouse1'  to `mouse5', single characters
+        Possible keys include 'mouse1' to 'mouse5', single characters
         for the corresponding key presses, and 'arrowleft',
-        'arrowright', 'arrowup', 'arrowdown' 'tab', 'enter', 'escape',
-        'backspace', 'delete'.
+        'arrowright', 'arrowup', 'arrowdown', 'tab', 'enter', 'escape',
+        'backspace', and 'delete'.
 
-        Each action is a tuple with 3 fields:
+        Each action value is a tuple with 3 fields:
 
-        * The `action name`, e.g. 'pan', see ``controller.config.action_names``
+        * The `action name`, e.g. 'pan', see ``controller.controls.action_names``
           for the possible names.
         * The `mode`: 'drag', 'push', 'peak', 'repeat'. Drag represents mouse drag,
           push means the action is performed as the key is pushed, peak
           means that the action is undone once the key is released, and repeat
           means that while the key is held down, the value updates with the given
           amount per second.
-        * The `multiplier` is the value that the set value from the event is multiplied with.
+        * The `multiplier` is the value that the set value from the event is
+          multiplied with.
 
         """
         return self._controls
+
+    @controls.setter
+    def controls(self, value):
+        self._controls.clear()
+        self._controls.update(value)
 
     def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
@@ -534,7 +537,7 @@ class Controls(dict):
             raise ValueError(f"Invalid action '{action}', pick one of {self._actions}")
         if mode not in self._modes:
             raise ValueError(f"Invalid mode '{mode}', pick one of {self._modes}")
-        if mode == "drag" and not key.startswith("mouse"):
+        if mode == "drag" and not button.startswith("mouse"):
             raise ValueError("Drag mode only allowed for mouse buttons.")
         if button == "wheel" and mode != "push":
             raise ValueError("Only mode 'push' allowed with 'wheel'.")

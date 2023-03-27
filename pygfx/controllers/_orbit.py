@@ -28,7 +28,7 @@ class OrbitController(PanZoomController):
     those in the background (on the opposite side of the center of rotation)
     move to the left.
 
-    Controls:
+    Default controls:
 
     * Left mouse button: orbit / rotate.
     * Right mouse button: pan.
