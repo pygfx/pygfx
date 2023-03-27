@@ -375,6 +375,8 @@ class Controller:
 
     def _create_action(self, key, action_tuple, offset, screen_pos, rect):
         """Creates an action object, which helps keep track of the operation."""
+
+        key = key or str(perf_counter())
         if screen_pos is None:
             screen_pos = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
 

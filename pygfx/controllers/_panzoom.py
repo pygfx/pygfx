@@ -60,10 +60,19 @@ class PanZoomController(Controller):
     def quick_zoom_factor(self, value):
         self._quick_zoom_factor = float(value)
 
-    def pan(self, delta, rect):
-        """Pan the camera (move relative to its local coordinate frame)."""
+    def pan(self, delta, rect, *, animate=False):
+        """Pan the camera (move relative to its local coordinate frame).
 
-        if self._cameras:
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
+
+        if animate:
+            action_tuple = ("pan", "push", (1.0, 1.0))
+            action = self._create_action(None, action_tuple, (0.0, 0.0), None, rect)
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
             vecx, vecy = self.get_camera_vecs(rect)
             self._update_pan(delta, vecx=vecx, vecy=vecy)
             self.update_cameras()
@@ -87,7 +96,7 @@ class PanZoomController(Controller):
 
         self.set_camera_state({"position": new_position})
 
-    def zoom(self, delta, rect):
+    def zoom(self, delta, rect, *, animate=False):
         """Zoom the view with the given amount.
 
         The delta can be either a scalar or 2-element tuple. The zoom
@@ -96,11 +105,19 @@ class PanZoomController(Controller):
 
         Note that the camera's distance, width, and height are adjusted,
         not its zoom property.
+
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
         """
 
-        if self._cameras:
+        if animate:
+            action_tuple = ("zoom", "push", (1.0, 1.0))
+            action = self._create_action(None, action_tuple, (0.0, 0.0), None, rect)
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
             self._update_zoom(delta)
-            self.update_cameras_cameras()
+            self.update_cameras()
 
     def _update_zoom(self, delta):
         if isinstance(delta, (int, float)):
@@ -112,11 +129,20 @@ class PanZoomController(Controller):
         new_cam_state = self._zoom(fx, fy, self.get_camera_state())
         self.set_camera_state(new_cam_state)
 
-    def zoom_to_point(self, zoom_value, pos, rect):
-        """Zoom the view while panning to keep the position under the cursor fixed."""
+    def zoom_to_point(self, delta, pos, rect, *, animate=False):
+        """Zoom the view while panning to keep the position under the cursor fixed.
 
-        if self._cameras:
-            self._update_zoom_to_point(zoom_value, screen_pos=pos, rect=rect)
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
+
+        if animate:
+            action_tuple = ("zoom_to_point", "push", 1.0)
+            action = self._create_action(None, action_tuple, (0.0, 0.0), None, rect)
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_zoom_to_point(delta, screen_pos=pos, rect=rect)
             self.update_cameras()
 
     def _update_zoom_to_point(self, delta, *, screen_pos, rect):
@@ -178,12 +204,21 @@ class PanZoomController(Controller):
         # because pixels take more/less space now.
         return tuple((delta_screen1 - delta_screen2) / multiplier)
 
-    def quickzoom(self, zoom_value):
+    def quickzoom(self, delta, *, animate=False):
         """Zoom the view using the camera's zoom property. This is intended
         for temporary zoom operations.
+
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
         """
-        if self._cameras:
-            self._update_quickzoom(zoom_value)
+
+        if animate:
+            action_tuple = ("quickzoom", "push", 1.0)
+            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_quickzoom(delta)
             self.update_cameras()
 
     def _update_quickzoom(self, delta):
