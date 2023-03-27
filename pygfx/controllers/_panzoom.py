@@ -26,40 +26,6 @@ class PanZoomController(Controller):
         "alt+wheel": ("fov", "push", -0.01),
     }
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self.mouse_zoom_factor = 0.005
-        self.scroll_zoom_factor = 0.0015
-        self.quick_zoom_factor = 4
-
-    @property
-    def mouse_zoom_factor(self):
-        """The factor to turn mouse motion (in logical pixels) to a zoom factor)."""
-        return self._mouse_zoom_factor
-
-    @mouse_zoom_factor.setter
-    def mouse_zoom_factor(self, value):
-        self._mouse_zoom_factor = float(value)
-
-    @property
-    def scroll_zoom_factor(self):
-        """The factor to turn mouse scrolling to a zoom factor)."""
-        return self._scroll_zoom_factor
-
-    @scroll_zoom_factor.setter
-    def scroll_zoom_factor(self, value):
-        self._scroll_zoom_factor = float(value)
-
-    @property
-    def quick_zoom_factor(self):
-        """The multiplier to use for quickzoom."""
-        return self._quick_zoom_factor
-
-    @quick_zoom_factor.setter
-    def quick_zoom_factor(self, value):
-        self._quick_zoom_factor = float(value)
-
     def pan(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Pan the camera (move relative to its local coordinate frame).
 
@@ -73,9 +39,9 @@ class PanZoomController(Controller):
             action.set_target(delta)
             action.done = True
         elif self._cameras:
-            vecx, vecy = self.get_camera_vecs(rect)
+            vecx, vecy = self._get_camera_vecs(rect)
             self._update_pan(delta, vecx=vecx, vecy=vecy)
-            self.update_cameras()
+            self._update_cameras()
 
     def _update_pan(self, delta, *, vecx, vecy):
         # These update methods all accept one positional arg: the delta.
@@ -85,7 +51,7 @@ class PanZoomController(Controller):
 
         assert isinstance(delta, tuple) and len(delta) == 2
 
-        cam_state = self.get_camera_state()
+        cam_state = self._get_camera_state()
         position = cam_state["position"]
 
         # Update position, panning left means dragging the scene to the
@@ -94,7 +60,7 @@ class PanZoomController(Controller):
         # up vector points ... up, the y component is negated twice.
         new_position = position - vecx * delta[0] + vecy * delta[1]
 
-        self.set_camera_state({"position": new_position})
+        self._set_camera_state({"position": new_position})
 
     def zoom(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Zoom the view with the given amount.
@@ -117,7 +83,7 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_zoom(delta)
-            self.update_cameras()
+            self._update_cameras()
 
     def _update_zoom(self, delta):
         if isinstance(delta, (int, float)):
@@ -126,8 +92,8 @@ class PanZoomController(Controller):
 
         fx = 2 ** delta[0]
         fy = 2 ** delta[1]
-        new_cam_state = self._zoom(fx, fy, self.get_camera_state())
-        self.set_camera_state(new_cam_state)
+        new_cam_state = self._zoom(fx, fy, self._get_camera_state())
+        self._set_camera_state(new_cam_state)
 
     def zoom_to_point(self, delta: float, pos: Tuple, rect: Tuple, *, animate=False):
         """Zoom the view while panning to keep the position under the cursor fixed.
@@ -143,7 +109,7 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_zoom_to_point(delta, screen_pos=pos, rect=rect)
-            self.update_cameras()
+            self._update_cameras()
 
     def _update_zoom_to_point(self, delta, *, screen_pos, rect):
         if isinstance(delta, tuple) and len(delta) == 2:
@@ -153,11 +119,11 @@ class PanZoomController(Controller):
         # Actuall only zoom in one direction
         fy = 2**delta
 
-        new_cam_state = self._zoom(fy, fy, self.get_camera_state())
-        self.set_camera_state(new_cam_state)
+        new_cam_state = self._zoom(fy, fy, self._get_camera_state())
+        self._set_camera_state(new_cam_state)
 
         pan_delta = self._get_panning_to_compensate_zoom(fy, screen_pos, rect)
-        vecx, vecy = self.get_camera_vecs(rect)
+        vecx, vecy = self._get_camera_vecs(rect)
         self._update_pan(pan_delta, vecx=vecx, vecy=vecy)
 
     def _zoom(self, fx, fy, cam_state):
@@ -219,13 +185,13 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_quickzoom(delta)
-            self.update_cameras()
+            self._update_cameras()
 
     def _update_quickzoom(self, delta):
         assert isinstance(delta, (int, float))
-        zoom = self.get_camera_state()["zoom"]
+        zoom = self._get_camera_state()["zoom"]
         new_cam_state = {"zoom": zoom * 2**delta}
-        self.set_camera_state(new_cam_state)
+        self._set_camera_state(new_cam_state)
 
     def update_fov(self, delta, *, animate):
         """Adjust the field of view with the given delta value (Limited to [1, 179]).
@@ -241,13 +207,13 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_fov(delta)
-            self.update_cameras()
+            self._update_cameras()
 
     def _update_fov(self, delta: float):
         fov_range = self._cameras[0]._fov_range
 
         # Get current state
-        cam_state = self.get_camera_state()
+        cam_state = self._get_camera_state()
         position = cam_state["position"]
         fov = cam_state["fov"]
 
@@ -258,4 +224,4 @@ class PanZoomController(Controller):
         new_position = position + pos2target1 - pos2target2
 
         # Apply to cameras
-        self.set_camera_state({"fov": new_fov, "position": new_position})
+        self._set_camera_state({"fov": new_fov, "position": new_position})

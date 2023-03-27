@@ -61,13 +61,13 @@ class OrbitController(PanZoomController):
             action.done = True
         elif self._cameras:
             self._update_rotate(delta)
-            self.update_cameras()
+            self._update_cameras()
 
     def _update_rotate(self, delta):
         assert isinstance(delta, tuple) and len(delta) == 2
 
         delta_azimuth, delta_elevation = delta
-        camera_state = self.get_camera_state()
+        camera_state = self._get_camera_state()
 
         # Note: this code does not use la.vector_euclidean_to_spherical and
         # la.vector_spherical_to_euclidean, because those functions currently
@@ -114,7 +114,7 @@ class OrbitController(PanZoomController):
 
         # Apply new state to all cameras
         new_camera_state = {"position": pos2, "rotation": rot2}
-        self.set_camera_state(new_camera_state)
+        self._set_camera_state(new_camera_state)
 
         # Note that for ortho cameras, we also orbit around the scene,
         # even though it could be positioned at the center (i.e.

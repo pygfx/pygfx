@@ -36,13 +36,12 @@ class Controller:
 
     The easiest (and most common) approach is to use the pygfx event system and
     make the controller listen to viewport events (using ``register_events``).
+
     An alternative is to feed your own events into the ``handle_event()``
     method. You'd have to mimic or use pygfx event objects.
 
     The controller can also be used programatically by calling "action
-    methods" like ``pan()``, ``zoom()`` and ``orbit()``. A lower-level
-    approach would be to use ``get_camera_state``, ``set_camera_state``
-    and ``update_camera``.
+    methods" like ``pan()``, ``zoom()`` and ``orbit()``.
 
 
     """
@@ -165,16 +164,6 @@ class Controller:
         """
         return self._controls
 
-    def _get_target_vec(self, camera_state, **kwargs):
-        """Method used by the controler implementations to determine the "target"."""
-        rotation = kwargs.get("rotation", camera_state["rotation"])
-        extent = 0.5 * (camera_state["width"] + camera_state["height"])
-        extent = kwargs.get("extent", extent)
-        fov = kwargs.get("fov", camera_state.get("fov"))
-
-        distance = fov_distance_factor(fov) * extent
-        return la.vector_apply_quaternion((0, 0, -distance), rotation)
-
     def register_events(self, viewport_or_renderer: Union[Viewport, Renderer]):
         """Apply the default interaction mechanism to a wgpu autogui canvas.
         Needs either a viewport or renderer.
@@ -191,7 +180,29 @@ class Controller:
             "before_draw",
         )
 
-    def get_camera_state(self):
+    def _get_target_vec(self, camera_state, **kwargs):
+        """Method used by the controler implementations to determine the "target"."""
+        rotation = kwargs.get("rotation", camera_state["rotation"])
+        extent = 0.5 * (camera_state["width"] + camera_state["height"])
+        extent = kwargs.get("extent", extent)
+        fov = kwargs.get("fov", camera_state.get("fov"))
+
+        distance = fov_distance_factor(fov) * extent
+        return la.vector_apply_quaternion((0, 0, -distance), rotation)
+
+    def _get_camera_vecs(self, rect):
+        """Get vectors orthogonal to camera axii."""
+        if not self._cameras:
+            raise ValueError("No cameras attached!")
+
+        camera = self._cameras[0]
+        cam_state = self._get_camera_state()
+        target = cam_state["position"] + self._get_target_vec(cam_state)
+        vecx, vecy = get_screen_vectors_in_world_cords(target, rect[2:], camera)
+
+        return vecx, vecy
+
+    def _get_camera_state(self):
         """Gets the first camera's state, or the internal state if
         the controller is currently interacting.
         """
@@ -202,25 +213,13 @@ class Controller:
         else:
             raise ValueError("No cameras attached!")
 
-    def get_camera_vecs(self, rect):
-        """Get vectors orthogonal to camera axii."""
-        if not self._cameras:
-            raise ValueError("No cameras attached!")
-
-        camera = self._cameras[0]
-        cam_state = self.get_camera_state()
-        target = cam_state["position"] + self._get_target_vec(cam_state)
-        vecx, vecy = get_screen_vectors_in_world_cords(target, rect[2:], camera)
-
-        return vecx, vecy
-
-    def set_camera_state(self, new_state):
+    def _set_camera_state(self, new_state):
         """Set the internal camera state. Camera state can be updated multiple times
         before updating the cameras.
         """
         self._last_cam_state.update(new_state)
 
-    def update_cameras(self):
+    def _update_cameras(self):
         """Update the cameras using the internally stored state."""
         for camera in self._cameras:
             camera.set_state(self._last_cam_state)
@@ -341,7 +340,7 @@ class Controller:
         for key in to_pop:
             self._actions.pop(key)
 
-        self.update_cameras()
+        self._update_cameras()
 
     def _handle_button_down(self, key, action_tuple, viewport):
         """Common code to handle key/mouse button presses."""
@@ -374,7 +373,7 @@ class Controller:
             screen_pos = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
 
         # Get vectors orthogonal to camera axii, scaled by pixel unit
-        vecx, vecy = self.get_camera_vecs(rect)
+        vecx, vecy = self._get_camera_vecs(rect)
 
         # Make sure that we have an up-to-date cam_state
         if not self._actions:
