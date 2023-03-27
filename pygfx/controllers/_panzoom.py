@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 
 from ._base import Controller
@@ -6,24 +8,22 @@ from ._base import Controller
 class PanZoomController(Controller):
     """A controller to pan and zoom a camera in a 2D plane  parallel to the screen.
 
-    Controls:
+    Default controls:
 
     * Left mouse button: pan.
     * Right mouse button: zoom (if `camera.maintain_aspect==False`, zooms in both dimensions).
-    * Middle mouse button: quick zoom.
-    * Scroll: zoom.
+    * Fourth mouse button: quickzoom
+    * wheel: zoom to point.
+    * alt+wheel: adjust fov.
 
     """
 
     _default_controls = {
         "mouse1": ("pan", "drag", (1, 1)),
         "mouse2": ("zoom", "drag", (0.005, -0.005)),
-        "arrowLeft": ("pan", "repeat", (-50, 0)),
-        "arrowRight": ("pan", "repeat", (+50, 0)),
-        "arrowUp": ("pan", "repeat", (0, -50)),
-        "arrowDown": ("pan", "repeat", (0, +50)),
-        "z": ("quickzoom", "peak", 2),
+        "mouse4": ("quickzoom", "peak", 2),
         "wheel": ("zoom_to_point", "push", -0.001),
+        "alt+wheel": ("fov", "push", -0.01),
     }
 
     def __init__(self, *args, **kwargs) -> None:
@@ -60,7 +60,7 @@ class PanZoomController(Controller):
     def quick_zoom_factor(self, value):
         self._quick_zoom_factor = float(value)
 
-    def pan(self, delta, rect, *, animate=False):
+    def pan(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Pan the camera (move relative to its local coordinate frame).
 
         If animate is True, the motion is damped. This requires the
@@ -96,7 +96,7 @@ class PanZoomController(Controller):
 
         self.set_camera_state({"position": new_position})
 
-    def zoom(self, delta, rect, *, animate=False):
+    def zoom(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Zoom the view with the given amount.
 
         The delta can be either a scalar or 2-element tuple. The zoom
@@ -129,7 +129,7 @@ class PanZoomController(Controller):
         new_cam_state = self._zoom(fx, fy, self.get_camera_state())
         self.set_camera_state(new_cam_state)
 
-    def zoom_to_point(self, delta, pos, rect, *, animate=False):
+    def zoom_to_point(self, delta: float, pos: Tuple, rect: Tuple, *, animate=False):
         """Zoom the view while panning to keep the position under the cursor fixed.
 
         If animate is True, the motion is damped. This requires the
@@ -204,7 +204,7 @@ class PanZoomController(Controller):
         # because pixels take more/less space now.
         return tuple((delta_screen1 - delta_screen2) / multiplier)
 
-    def quickzoom(self, delta, *, animate=False):
+    def quickzoom(self, delta: float, *, animate=False):
         """Zoom the view using the camera's zoom property. This is intended
         for temporary zoom operations.
 
@@ -227,33 +227,35 @@ class PanZoomController(Controller):
         new_cam_state = {"zoom": zoom * 2**delta}
         self.set_camera_state(new_cam_state)
 
-    def adjust_fov(self, delta: float):
-        """Adjust the field of view with the given delta value (Limited to [1, 179])."""
+    def update_fov(self, delta, *, animate):
+        """Adjust the field of view with the given delta value (Limited to [1, 179]).
 
-        if self._action:
-            return
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
 
-        if self._cameras:
-            camera = self._cameras[0]
+        if animate:
+            action_tuple = ("fov", "push", 1.0)
+            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_fov(delta)
+            self.update_cameras()
 
-            # Get current state
-            camera_state = camera.get_state()
-            position = camera_state["position"]
-            fov = camera_state["fov"]
+    def _update_fov(self, delta: float):
+        fov_range = self._cameras[0]._fov_range
 
-            # Update fov and position
-            new_fov = min(max(fov + delta, camera._fov_range[0]), camera._fov_range[1])
-            pos2target1 = self._get_target_vec(camera_state, fov=fov)
-            pos2target2 = self._get_target_vec(camera_state, fov=new_fov)
-            new_position = position + pos2target1 - pos2target2
+        # Get current state
+        cam_state = self.get_camera_state()
+        position = cam_state["position"]
+        fov = cam_state["fov"]
 
-            # Apply to cameras
-            new_camera_state = {
-                **camera_state,
-                "fov": new_fov,
-                "position": new_position,
-            }
-            for camera in self._cameras:
-                camera.set_state(new_camera_state)
+        # Update fov and position
+        new_fov = min(max(fov + delta, fov_range[0]), fov_range[1])
+        pos2target1 = self._get_target_vec(cam_state, fov=fov)
+        pos2target2 = self._get_target_vec(cam_state, fov=new_fov)
+        new_position = position + pos2target1 - pos2target2
 
-        return self
+        # Apply to cameras
+        self.set_camera_state({"fov": new_fov, "position": new_position})

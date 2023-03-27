@@ -3,8 +3,6 @@ from typing import Tuple
 import numpy as np
 import pylinalg as la
 
-from ..utils.viewport import Viewport
-from ._base import Controller
 from ._panzoom import PanZoomController
 
 
@@ -34,25 +32,43 @@ class OrbitController(PanZoomController):
 
     * Left mouse button: orbit / rotate.
     * Right mouse button: pan.
-    * Middle mouse button: quick zoom.
-    * Scroll: zoom.
-    * Alt + Scroll: change FOV.
+    * Fourth mouse button: quickzoom
+    * wheel: zoom to point.
+    * alt+wheel: adjust fov.
 
     """
 
-    def rotate(self, dx: float, dy: float) -> Controller:
-        """Rotate using angles (in radians)."""
-        if self._action:
-            return
+    _default_controls = {
+        "mouse1": ("rotate", "drag", (0.005, 0.005)),
+        "mouse2": ("pan", "drag", (1, 1)),
+        "mouse4": ("quickzoom", "peak", 2),
+        "wheel": ("zoom", "push", -0.001),
+        "alt+wheel": ("fov", "push", -0.01),
+    }
 
-        if self._cameras:
-            camera = self._cameras[0]
+    def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
+        """Rotate using two angles (in radians).
 
-            self._rotate(dx, dy, camera.get_state())
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
 
-        return self
+        if animate:
+            action_tuple = ("rotate", "push", (1.0, 1.0))
+            action = self._create_action(None, action_tuple, (0.0, 0.0), None, rect)
+            action.set_target(delta)
+            action.snap_distance = 0.01
+            action.done = True
+        elif self._cameras:
+            self._update_rotate(delta)
+            self.update_cameras()
 
-    def _rotate(self, delta_azimuth, delta_elevation, camera_state):
+    def _update_rotate(self, delta):
+        assert isinstance(delta, tuple) and len(delta) == 2
+
+        delta_azimuth, delta_elevation = delta
+        camera_state = self.get_camera_state()
+
         # Note: this code does not use la.vector_euclidean_to_spherical and
         # la.vector_spherical_to_euclidean, because those functions currently
         # have no way to specify a different up vector.
@@ -98,8 +114,7 @@ class OrbitController(PanZoomController):
 
         # Apply new state to all cameras
         new_camera_state = {"position": pos2, "rotation": rot2}
-        for camera in self._cameras:
-            camera.set_state(new_camera_state)
+        self.set_camera_state(new_camera_state)
 
         # Note that for ortho cameras, we also orbit around the scene,
         # even though it could be positioned at the center (i.e.
@@ -107,96 +122,3 @@ class OrbitController(PanZoomController):
         # easier. The only downside I can think of is that the far plane
         # is now less far away but this effect is only 0.2%, since the
         # far plane is 500 * dist.
-
-    def rotate_start(self, pos: Tuple[float, float], viewport: Viewport) -> Controller:
-        """Start a rotation operation based (2D) screen coordinates."""
-        if self._action:
-            return
-
-        if self._cameras:
-            camera = self._cameras[0]
-            cam_state = camera.get_state()
-
-            self._action = {"name": "rotate"}
-            self._action["camera_state"] = cam_state
-            self._action["last_cam_state"] = cam_state
-            self._action["ori_pos"] = pos
-            self._action["last_pos"] = pos
-
-        return self
-
-    def rotate_stop(self) -> Controller:
-        self._action = None
-        return self
-
-    def rotate_move(
-        self, pos: Tuple[float, float], speed: float = 0.0175
-    ) -> Controller:
-        """Rotate, based on a (2D) screen location. Call rotate_start first.
-        The speed is 1 degree per pixel by default.
-        """
-        if self._action and self._action["name"] == "rotate":
-            dx = (pos[0] - self._action["ori_pos"][0]) * speed
-            dy = (pos[1] - self._action["ori_pos"][1]) * speed
-
-            self._action["last_pos"] = pos
-
-            new_state = self._rotate(dx, dy, self._action["camera_state"])
-
-        return self
-
-    def _move_rotate(self, pos, action):
-        dx, dy = action["ori_pos"] - pos
-
-    def xx_handle_event(self, event, viewport):
-        """Implements a default interaction mode that consumes wgpu autogui events
-        (compatible with the jupyter_rfb event specification).
-        """
-        if not self.enabled:
-            return
-        need_update = False
-
-        type = event.type
-        if type == "pointer_down" and viewport.is_inside(event.x, event.y):
-            xy = event.x, event.y
-            if event.button == 1:
-                self.rotate_start(xy, viewport)
-            elif event.button == 2:
-                self.pan_start(xy, viewport)
-            elif event.button == 3:
-                self.quickzoom_start(xy, viewport)
-                need_update = True
-        elif type == "pointer_up":
-            xy = event.x, event.y
-            if event.button == 1:
-                self.rotate_stop()
-            elif event.button == 2:
-                self.pan_stop()
-            elif event.button == 3:
-                self.quickzoom_stop()
-                need_update = True
-        elif type == "pointer_move":
-            xy = event.x, event.y
-            if 1 in event.buttons:
-                self.rotate_move(xy),
-                need_update = True
-            if 2 in event.buttons:
-                self.pan_move(xy),
-                need_update = True
-            if 3 in event.buttons:
-                self.quickzoom_move(xy)
-                need_update = True
-        elif type == "wheel" and viewport.is_inside(event.x, event.y):
-            if not event.modifiers:
-                xy = event.x, event.y
-                d = event.dy or event.dx
-                f = 2 ** (-d * self.scroll_zoom_factor)
-                self.zoom(f)
-                need_update = True
-            elif event.modifiers == ["Alt"]:
-                d = event.dy or event.dx
-                self.adjust_fov(-d / 10)
-                need_update = True
-
-        if need_update and self.auto_update:
-            viewport.renderer.request_draw()

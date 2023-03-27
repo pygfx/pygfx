@@ -10,13 +10,6 @@ from ..cameras import Camera, PerspectiveCamera
 from ..cameras._perspective import fov_distance_factor
 
 
-# Internally, values from key presses are multiplied with this factor,
-# to get values in the order of mouse movements, so that in the
-# smoothing code, we can use the same simple mechanism to decide when
-# the target value has been reached.
-KEY_MULTIPLIER_FACTOR = 100
-
-
 class Controller:
     """The base camera controller.
 
@@ -338,7 +331,7 @@ class Controller:
         to_pop = []
         for key, action in self._actions.items():
             if action.mode == "repeat" and not action.done:
-                action.increase_target(KEY_MULTIPLIER_FACTOR * elapsed_time)
+                action.increase_target(elapsed_time)
             action.tick(factor)
             if action.is_at_target and action.done:
                 to_pop.append(key)
@@ -356,11 +349,11 @@ class Controller:
         action = self._actions.get(key, None)
         if action is None:
             action = self._create_action(key, action_tuple, 0, None, viewport.rect)
-            action.multiplier /= KEY_MULTIPLIER_FACTOR
+            action.snap_distance = 0.01
             if mode == "push":
                 action.done = True
         if mode in ("push", "peak"):
-            action.set_target(KEY_MULTIPLIER_FACTOR)
+            action.set_target(1)
 
     def _handle_button_up(self, button):
         """Common code to handle key/mouse button releases."""
@@ -438,6 +431,7 @@ class Action:
         self.target_value = zero
         self.current_value = zero
 
+        self.snap_distance = 0.5
         self.done = False
         self.mode = mode
         self.kwargs = kwargs or {}
@@ -470,7 +464,7 @@ class Action:
         self.current_value = new_value
         #
         dist_to_target = np.abs(self.target_value - self.current_value).max()
-        if dist_to_target < 0.5:
+        if dist_to_target < self.snap_distance:
             self.current_value = self.target_value * 1.0  # make a copy if array
 
     @property
