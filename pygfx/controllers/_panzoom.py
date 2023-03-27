@@ -60,28 +60,16 @@ class PanZoomController(Controller):
     def quick_zoom_factor(self, value):
         self._quick_zoom_factor = float(value)
 
-    def pan(self, dxdy, rect):
-        # action = self.begin_pan((0, 0), rect)
-        # self.update_pan(delta, action)
-        # self._update_all_cameras()
-
-        action = self.begin_pan((0, 0), rect)
-        action.set_target(dxdy)
+    def pan(self, delta, rect):
+        """Pan the camera (move relative to its local coordinate frame)."""
+        initial_value = (0, 0)
+        action = self._create_new_action("pan", initial_value, (0, 0), rect)
+        action.set_target(delta)
         action.tick(1)
         self.apply_action(action)
 
     def begin_pan(self, screen_pos, rect):
-        assert len(screen_pos) == 2
-
-        # # Get offset in correct shape
-        # if offset is None:
-        #     offset = (0, 0)
-        # else:
-        #     offset = tuple(offset)
-        #     assert len(offset) == 2
-
-        action = self._create_new_action("pan", (0, 0), screen_pos, rect)
-        return action
+        return self._create_new_action("pan", (0, 0), screen_pos, rect)
 
     def _update_pan(self, action, delta=None):
         cam_state = action.last_cam_state

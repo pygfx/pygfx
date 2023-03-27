@@ -10,14 +10,18 @@ from ..cameras import Camera, PerspectiveCamera
 from ..cameras._perspective import fov_distance_factor
 
 
-key_multiplier_factor = 10
+# Internally, values from key presses are multiplied with this factor,
+# to get values in the order of mouse movements, so that in the
+# smoothing code, we can use the same simple mechanism to decide when
+# the target value has been reached.
+KEY_MULTIPLIER_FACTOR = 100
 
 
 class Controller:
     """The base camera controller.
 
     The purpose of a controller is to provide an API to control a camera,
-    and to convert user (mouse) events into camera adjustments
+    and to convert user (mouse) events into camera adjustments.
 
     Parameters
     ----------
@@ -30,7 +34,22 @@ class Controller:
     auto_update : bool
         Whether the controller requests a new draw when the camera has changed.
     register_events: Renderer or Viewport
-        If given and not None, will call ``.register_events()``..
+        If given and not None, will call ``.register_events()``.
+
+    Usage
+    -----
+
+    There are multiple ways that the controller can be used.
+
+    The easiest (and most common) approach is to use the pygfx event system and
+    make the controller listen to viewport events (using ``register_events``).
+    An alternative is to feed your own events into the ``handle_event()``
+    method. You'd have to mimic or use pygfx event objects.
+
+    The controller can also be used programatically by calling "action
+    methods" like ``pan()``, ``zoom()`` and ``orbit()``.
+
+
     """
 
     _default_controls = {}
@@ -116,7 +135,7 @@ class Controller:
 
     @damping.setter
     def damping(self, value):
-        self._damping = max(0, float(value))
+        self._damping = max(0.0, float(value))
 
     @property
     def auto_update(self):
@@ -177,6 +196,8 @@ class Controller:
             "before_draw",
         )
 
+    # %% Builtin event handling
+
     def handle_event(self, event, viewport):
         if not self.enabled:
             return
@@ -195,7 +216,7 @@ class Controller:
             # Do a tick, updating all actions, and using them to update the camera state.
             # Note that tick() removes actions that are done and have reached the target.
             if self._actions:
-                self.tick()
+                self._on_tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
             # Start a drag, or an action with mode push/peak/repeat
@@ -205,7 +226,10 @@ class Controller:
                 need_update = True
                 if action_tuple[1] == "drag":
                     # Dont start a new drag if there is one going
-                    if not any(a.mode == "drag" for a in self._actions.values()):
+                    if not any(
+                        (a.mode == "drag" and not a.done)
+                        for a in self._actions.values()
+                    ):
                         pos = event.x, event.y
                         self._new_action_for_event(key, action_tuple, pos, pos, rect)
                 else:
@@ -251,14 +275,86 @@ class Controller:
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
 
+    def _on_tick(self):
+        """Should be called once before each draw."""
+
+        # Get elapsed time since last frame
+        now = perf_counter()
+        elapsed_time = now - self._last_tick_time
+        self._last_tick_time = now
+
+        # Determine damping/smoothing factor to update action values.
+        # In the formula below the mul with elapsed_time is equivalent
+        # to a division by fps. The mul with 50 is just so typical
+        # values for damping lay between 0..10 :)
+        factor = 1
+        if self.damping > 0:
+            factor = min(1, 50 * elapsed_time / self.damping)
+
+        to_pop = []
+        for key, action in self._actions.items():
+            if action.mode == "repeat" and not action.done:
+                action.increase_target(KEY_MULTIPLIER_FACTOR * elapsed_time)
+            action.tick(factor)
+            if action.is_at_target and action.done:
+                to_pop.append(key)
+            self.apply_action(action, False)
+
+        # Remove actions that are done
+        for key in to_pop:
+            self._actions.pop(key)
+
+        self._update_all_cameras()
+
+    def _handle_button_down(self, key, action_tuple, viewport):
+        """Common code to handle key/mouse button presses."""
+        mode = action_tuple[1]
+        action = self._actions.get(key, None)
+        if action is None:
+            action = self._new_action_for_event(
+                key, action_tuple, 0, None, viewport.rect
+            )
+            action.multiplier /= KEY_MULTIPLIER_FACTOR
+            if mode == "push":
+                action.done = True
+        if mode in ("push", "peak"):
+            action.set_target(KEY_MULTIPLIER_FACTOR)
+
+    def _handle_button_up(self, button):
+        """Common code to handle key/mouse button releases."""
+        need_update = False
+        for key, action in self._actions.items():
+            if key == button or key.endswith("+" + button):
+                need_update = True
+                action.done = True
+                if action.mode == "peak":
+                    action.set_target(action.target_value * 0)
+        return need_update
+
+    def _new_action_for_event(self, key, action_tuple, offset, screen_pos, rect):
+        if screen_pos is None:
+            screen_pos = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
+
+        action_name, mode, multiplier = action_tuple
+
+        if isinstance(multiplier, tuple):
+            multiplier = np.array(multiplier, dtype=np.float64)
+
+        func_name = "begin_" + action_name
+        func = getattr(self, func_name)
+        action = func(screen_pos, rect)
+
+        action.offset += offset
+        action.done = False
+        action.mode = mode
+        action.multiplier = multiplier
+
+        self._actions[key] = action
+        return action
+        # self._dispatch_action(action)
+        # self._update_all_cameras()
+
     # %% Logic used used by the public actions
-
-    def _apply_new_camera_state(self, new_state):
-        self._last_cam_state.update(new_state)
-
-    def _update_all_cameras(self):
-        for camera in self._cameras:
-            camera.set_state(self._last_cam_state)
 
     def _create_new_action(self, action_name, offset, screen_pos, rect):
         action = Action(action_name, offset)
@@ -284,90 +380,20 @@ class Controller:
 
         return action
 
+    def _apply_new_camera_state(self, new_state):
+        self._last_cam_state.update(new_state)
+
     def apply_action(self, action, update_cameras=True):
-        func_name = "_update_" + action.name
-        func = getattr(self, func_name)
+        func = getattr(self, "_update_" + action.name)
         func(action)
         if update_cameras:
             self._update_all_cameras()
 
-    # %% Logic to make event input use public actions
+    def _update_all_cameras(self):
+        for camera in self._cameras:
+            camera.set_state(self._last_cam_state)
 
-    def tick(self):
-        # Get elapsed time since last frame
-        now = perf_counter()
-        elapsed_time = now - self._last_tick_time
-        self._last_tick_time = now
-
-        # Determine damping/smoothing factor to update action values. In the
-        # formula below the mul with elapsed_time is a division by fps.
-        # The mul with 50 is just so typical values for damping lay
-        # between 0..10 :)
-        factor = 1
-        if self.damping > 0:
-            factor = min(1, 50 * elapsed_time / self.damping)
-
-        to_pop = []
-        for key, action in self._actions.items():
-            if action.mode == "repeat" and not action.done:
-                print(action.target_value)
-                action.increase_target(key_multiplier_factor * elapsed_time)
-            action.tick(factor)
-            if action.is_at_target and action.done:
-                to_pop.append(key)
-            self.apply_action(action, False)
-
-        # Remove actions that are done
-        for key in to_pop:
-            self._actions.pop(key)
-
-        self._update_all_cameras()
-
-    def _new_action_for_event(self, key, action_tuple, offset, screen_pos, rect):
-        if screen_pos is None:
-            screen_pos = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
-
-        action_name, mode, multiplier = action_tuple
-
-        if isinstance(multiplier, tuple):
-            multiplier = np.array(multiplier, dtype=np.float64)
-
-        func_name = "begin_" + action_name
-        func = getattr(self, func_name)
-        action = func(screen_pos, rect)
-
-        action.offset += offset
-        action.done = False
-        action.mode = mode
-        action.multiplier = multiplier
-
-        self._actions[key] = action
-        return action
-        # self._dispatch_action(action)
-        # self._update_all_cameras()
-
-    def _handle_button_down(self, key, action_tuple, viewport):
-        mode = action_tuple[1]
-        action = self._actions.get(key, None)
-        if action is None:
-            action = self._new_action_for_event(
-                key, action_tuple, 0, None, viewport.rect
-            )
-            action.multiplier /= key_multiplier_factor
-            if mode == "push":
-                action.done = True
-        if mode in ("push", "peak"):
-            action.set_target(key_multiplier_factor)
-
-    def _handle_button_up(self, button):
-        need_update = False
-        for key, action in self._actions.items():
-            if key == button or key.endswith("+" + button):
-                need_update = True
-                action.done = True
-                if action.mode == "peak":
-                    action.set_target(action.target_value * 0)
-        return need_update
+    # %% Deprecated
 
     def add_default_event_handlers(self, *args):
         raise DeprecationWarning(
