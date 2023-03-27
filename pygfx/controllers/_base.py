@@ -47,7 +47,9 @@ class Controller:
     method. You'd have to mimic or use pygfx event objects.
 
     The controller can also be used programatically by calling "action
-    methods" like ``pan()``, ``zoom()`` and ``orbit()``.
+    methods" like ``pan()``, ``zoom()`` and ``orbit()``. A lower-level
+    approach would be to use ``get_camera_state``, ``set_camera_state``
+    and ``update_camera``.
 
 
     """
@@ -196,6 +198,48 @@ class Controller:
             "before_draw",
         )
 
+    def get_camera_state(self):
+        """Gets the first camera's state, or the internal state if
+        the controller is currently interacting.
+        """
+        if self._actions:
+            return self._last_cam_state.copy()
+        elif self._cameras:
+            return self._cameras[0].get_state()
+        else:
+            raise ValueError("No cameras attached!")
+
+    def get_camera_vecs(self, rect):
+        """Get vectors orthogonal to camera axii."""
+        if not self._cameras:
+            raise ValueError("No cameras attached!")
+
+        camera = self._cameras[0]
+        cam_state = self.get_camera_state()
+        target = cam_state["position"] + self._get_target_vec(cam_state)
+        vecx, vecy = get_screen_vectors_in_world_cords(target, rect[2:], camera)
+
+        return vecx, vecy
+
+    def set_camera_state(self, new_state):
+        """Set the internal camera state. Camera state can be updated multiple times
+        before updating the cameras.
+        """
+        self._last_cam_state.update(new_state)
+
+    def update_cameras(self):
+        """Update the cameras using the internally stored state."""
+        for camera in self._cameras:
+            camera.set_state(self._last_cam_state)
+
+    def add_default_event_handlers(self, *args):
+        raise DeprecationWarning(
+            "controller.add_default_event_handlers(viewport, camera) -> controller.register_events(viewport)"
+        )
+
+    def update_camera(self, *args):
+        raise DeprecationWarning("controller.update_camera() is no longer necessary")
+
     # %% Builtin event handling
 
     def handle_event(self, event, viewport):
@@ -216,7 +260,7 @@ class Controller:
             # Do a tick, updating all actions, and using them to update the camera state.
             # Note that tick() removes actions that are done and have reached the target.
             if self._actions:
-                self._on_tick()
+                self._handle_tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
             # Start a drag, or an action with mode push/peak/repeat
@@ -231,7 +275,7 @@ class Controller:
                         for a in self._actions.values()
                     ):
                         pos = event.x, event.y
-                        self._new_action_for_event(key, action_tuple, pos, pos, rect)
+                        self._create_action(key, action_tuple, pos, pos, rect)
                 else:
                     self._handle_button_down(key, action_tuple, viewport)
         elif type == "pointer_move":
@@ -258,7 +302,7 @@ class Controller:
                 pos = event.x, event.y
                 action = self._actions.get(key, None)
                 if action is None:
-                    action = self._new_action_for_event(key, action_tuple, 0, pos, rect)
+                    action = self._create_action(key, action_tuple, 0, pos, rect)
                     action.done = True
                 action.increase_target(d)
         elif type == "key_down":
@@ -275,7 +319,7 @@ class Controller:
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
 
-    def _on_tick(self):
+    def _handle_tick(self):
         """Should be called once before each draw."""
 
         # Get elapsed time since last frame
@@ -298,22 +342,20 @@ class Controller:
             action.tick(factor)
             if action.is_at_target and action.done:
                 to_pop.append(key)
-            self.apply_action(action, False)
+            self._apply_action(action)
 
         # Remove actions that are done
         for key in to_pop:
             self._actions.pop(key)
 
-        self._update_all_cameras()
+        self.update_cameras()
 
     def _handle_button_down(self, key, action_tuple, viewport):
         """Common code to handle key/mouse button presses."""
         mode = action_tuple[1]
         action = self._actions.get(key, None)
         if action is None:
-            action = self._new_action_for_event(
-                key, action_tuple, 0, None, viewport.rect
-            )
+            action = self._create_action(key, action_tuple, 0, None, viewport.rect)
             action.multiplier /= KEY_MULTIPLIER_FACTOR
             if mode == "push":
                 action.done = True
@@ -331,93 +373,57 @@ class Controller:
                     action.set_target(action.target_value * 0)
         return need_update
 
-    def _new_action_for_event(self, key, action_tuple, offset, screen_pos, rect):
+    def _create_action(self, key, action_tuple, offset, screen_pos, rect):
+        """Creates an action object, which helps keep track of the operation."""
         if screen_pos is None:
             screen_pos = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
 
-        action_name, mode, multiplier = action_tuple
-
-        if isinstance(multiplier, tuple):
-            multiplier = np.array(multiplier, dtype=np.float64)
-
-        func_name = "begin_" + action_name
-        func = getattr(self, func_name)
-        action = func(screen_pos, rect)
-
-        action.offset += offset
-        action.done = False
-        action.mode = mode
-        action.multiplier = multiplier
-
-        self._actions[key] = action
-        return action
-        # self._dispatch_action(action)
-        # self._update_all_cameras()
-
-    # %% Logic used used by the public actions
-
-    def _create_new_action(self, action_name, offset, screen_pos, rect):
-        action = Action(action_name, offset)
-
-        action.screen_pos = screen_pos[0], screen_pos[1]
-        action.rect = rect
-        if not self._cameras:
-            return action
+        # Get vectors orthogonal to camera axii, scaled by pixel unit
+        vecx, vecy = self.get_camera_vecs(rect)
 
         # Make sure that we have an up-to-date cam_state
         if not self._actions:
             self._last_cam_state = self._cameras[0].get_state()
             self._last_tick_time = perf_counter()
-        action.last_cam_state = cam_state = self._last_cam_state
 
-        # Get vectors orthogonal to camera axii, scaled by pixel unit
-        camera = self._cameras[0]
-        position = cam_state["position"]
-        target = position + self._get_target_vec(cam_state)
-        action.vecx, action.vecy = get_screen_vectors_in_world_cords(
-            target, rect[2:], camera
-        )
+        # Create action
+        kwargs = dict(rect=rect, screen_pos=screen_pos, vecx=vecx, vecy=vecy)
+        action = Action(action_tuple, offset, kwargs)
 
+        self._actions[key] = action
         return action
 
-    def _apply_new_camera_state(self, new_state):
-        self._last_cam_state.update(new_state)
-
-    def apply_action(self, action, update_cameras=True):
+    def _apply_action(self, action):
+        """Apply the action by calling the appropriate update method."""
+        # Get function to call
         func = getattr(self, "_update_" + action.name)
-        func(action)
-        if update_cameras:
-            self._update_all_cameras()
 
-    def _update_all_cameras(self):
-        for camera in self._cameras:
-            camera.set_state(self._last_cam_state)
+        # Collect the kwargs that the function needs
+        code = func.__func__.__code__
+        assert code.co_argcount == 2  # self and delta
+        assert code.co_posonlyargcount == 0
+        kwargnames = code.co_varnames[2 : 2 + code.co_kwonlyargcount]
+        kwargs = {k: action.kwargs[k] for k in kwargnames}
 
-    # %% Deprecated
-
-    def add_default_event_handlers(self, *args):
-        raise DeprecationWarning(
-            "controller.add_default_event_handlers(viewport, camera) -> controller.register_events(viewport)"
-        )
-
-    def update_camera(self, *args):
-        raise DeprecationWarning("controller.update_camera() is no longer necessary")
+        # Call it!
+        func(action.delta, **kwargs)
 
 
 class Action:
     """Simple value to represent a value to change an action with."""
 
-    def __init__(self, name, offset=0.0, multiplier=1.0):
-        # Clean up the offset
-        if isinstance(offset, (int, float)):
-            offset = float(offset)
-        elif isinstance(offset, (list, tuple)):
-            offset = np.array(offset, dtype=np.float64)
-        elif isinstance(offset, np.ndarray):
-            if offset.size == 1:
-                offset = float(offset)
-            else:
-                offset = offset.flatten()  # makes copy
+    def __init__(self, action_tuple, offset=0.0, kwargs=None):
+        action_name, mode, multiplier = action_tuple
+
+        # The name of the action, used to dispatch to controller._update_xx()
+        self.name = action_name
+
+        # The offset defines the dimension of the input
+        self.offset = self._clean_up_value(offset)
+
+        # The multiplier defines the dimension of the ouput.
+        # If it's less than the input, the first input dimension(s) are dropped.
+        self.multiplier = self._clean_up_value(multiplier)
 
         # Derive the zero value
         if isinstance(offset, float):
@@ -425,12 +431,26 @@ class Action:
         else:
             zero = np.zeros_like(offset)
 
-        self.name = name
-        self.offset = offset
+        # Init the values
         self.last_value = zero
         self.target_value = zero
         self.current_value = zero
-        self.multiplier = multiplier
+
+        self.done = False
+        self.mode = mode
+        self.kwargs = kwargs or {}
+
+    def _clean_up_value(self, value):
+        # Turns value into either a float or a flat nd float array
+        if isinstance(value, (int, float)):
+            return float(value)
+        elif isinstance(value, (list, tuple)):
+            return np.array(value, dtype=np.float64)
+        elif isinstance(value, np.ndarray):
+            if value.size == 1:
+                return float(value)
+            else:
+                return value.flatten()  # makes copy
 
     def __repr__(self):
         return f"<Action '{self.name}' {self.current_value}>"
@@ -442,17 +462,26 @@ class Action:
         self.target_value = self.target_value + value
 
     def tick(self, factor=1):
+        # Update value
         new_value = (1 - factor) * self.current_value + factor * self.target_value
-        dist_to_target = np.abs(self.target_value - new_value).max()
-        if dist_to_target < 0.5:
-            new_value = self.target_value
-            # Update
         self.last_value = self.current_value
         self.current_value = new_value
+        #
+        dist_to_target = np.abs(self.target_value - self.current_value).max()
+        if dist_to_target < 0.5:
+            self.current_value = self.target_value * 1.0  # make a copy if array
 
     @property
     def delta(self):
-        return self.multiplier * (self.current_value - self.last_value)
+        """Get the delta value, multiplied with the multiplier."""
+        delta = self.multiplier * (self.current_value - self.last_value)
+        if not isinstance(delta, float):
+            delta = tuple(delta)
+            if isinstance(self.multiplier, float):
+                delta = delta[-1]
+            elif self.multiplier.size < len(delta):
+                delta = delta[-self.multiplier.size :]
+        return delta
 
     @property
     def is_at_target(self):

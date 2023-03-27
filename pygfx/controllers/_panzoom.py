@@ -16,7 +16,7 @@ class PanZoomController(Controller):
     """
 
     _default_controls = {
-        "mouse1": ("pan", "drag", 1),
+        "mouse1": ("pan", "drag", (1, 1)),
         "mouse2": ("zoom", "drag", (0.005, -0.005)),
         "arrowLeft": ("pan", "repeat", (-50, 0)),
         "arrowRight": ("pan", "repeat", (+50, 0)),
@@ -62,23 +62,22 @@ class PanZoomController(Controller):
 
     def pan(self, delta, rect):
         """Pan the camera (move relative to its local coordinate frame)."""
-        initial_value = (0, 0)
-        action = self._create_new_action("pan", initial_value, (0, 0), rect)
-        action.set_target(delta)
-        action.tick(1)
-        self.apply_action(action)
 
-    def begin_pan(self, screen_pos, rect):
-        return self._create_new_action("pan", (0, 0), screen_pos, rect)
+        if self._cameras:
+            vecx, vecy = self.get_camera_vecs(rect)
+            self._update_pan(delta, vecx=vecx, vecy=vecy)
+            self.update_cameras()
 
-    def _update_pan(self, action, delta=None):
-        cam_state = action.last_cam_state
-        vecx = action.vecx
-        vecy = action.vecy
+    def _update_pan(self, delta, *, vecx, vecy):
+        # These update methods all accept one positional arg: the delta.
+        # it can additionally require keyword args, from a set of names
+        # that new actions cache. These include:
+        # rect, screen_pos, vecx, vecy
 
+        assert isinstance(delta, tuple) and len(delta) == 2
+
+        cam_state = self.get_camera_state()
         position = cam_state["position"]
-        if delta is None:
-            delta = action.delta
 
         # Update position, panning left means dragging the scene to the
         # left, i.e. move the camera to the right, thus the minus. But
@@ -86,52 +85,54 @@ class PanZoomController(Controller):
         # up vector points ... up, the y component is negated twice.
         new_position = position - vecx * delta[0] + vecy * delta[1]
 
-        self._apply_new_camera_state({"position": new_position})
+        self.set_camera_state({"position": new_position})
 
-    def zoom(self, zoom_value, rect):
-        """Zoom the view with the given multipliers.
+    def zoom(self, delta, rect):
+        """Zoom the view with the given amount.
 
-        If the camera has maintain_aspect set to True, only fy is used.
-        The camera's distance, width, and height are adjusted, not its
-        zoom property.
+        The delta can be either a scalar or 2-element tuple. The zoom
+        multiplier is calculated using ``2**delta``. If the camera has
+        maintain_aspect set to True, only the second value is used.
+
+        Note that the camera's distance, width, and height are adjusted,
+        not its zoom property.
         """
 
-        if isinstance(zoom_value, (int, float)):
-            zoom_value = (zoom_value, zoom_value)
+        if self._cameras:
+            self._update_zoom(delta)
+            self.update_cameras_cameras()
 
-        action = self.begin_zoom((0, 0), rect)
-        action.set_target(zoom_value)
-        action.tick(1)
-        self.apply_action(action)
+    def _update_zoom(self, delta):
+        if isinstance(delta, (int, float)):
+            delta = (delta, delta)
+        assert isinstance(delta, tuple) and len(delta) == 2
 
-    def begin_zoom(self, screen_pos, rect):
-        action = self._create_new_action("zoom", (0, 0), screen_pos, rect)
-        return action
-
-    def _update_zoom(self, action):
-        delta = action.delta
         fx = 2 ** delta[0]
         fy = 2 ** delta[1]
-        new_cam_state = self._zoom(fx, fy, action.last_cam_state)
-        self._apply_new_camera_state(new_cam_state)
+        new_cam_state = self._zoom(fx, fy, self.get_camera_state())
+        self.set_camera_state(new_cam_state)
 
     def zoom_to_point(self, zoom_value, pos, rect):
-        if isinstance(zoom_value, (int, float)):
-            zoom_value = (zoom_value, zoom_value)
+        """Zoom the view while panning to keep the position under the cursor fixed."""
 
-    def begin_zoom_to_point(self, screen_pos, rect):
-        action = self._create_new_action("zoom_to_point", (0, 0), screen_pos, rect)
-        return action
+        if self._cameras:
+            self._update_zoom_to_point(zoom_value, screen_pos=pos, rect=rect)
+            self.update_cameras()
 
-    def _update_zoom_to_point(self, action):
-        fy = 2 ** action.delta[1]
-        new_cam_state = self._zoom(fy, fy, action.last_cam_state)
+    def _update_zoom_to_point(self, delta, *, screen_pos, rect):
+        if isinstance(delta, tuple) and len(delta) == 2:
+            delta = delta[1]
+        assert isinstance(delta, (int, float))
 
-        # new_cam_state["position"] -= pan_delta
-        self._apply_new_camera_state(new_cam_state)
+        # Actuall only zoom in one direction
+        fy = 2**delta
 
-        pan_delta = self._get_panning_to_compensate_zoom(fy, action)
-        self.pan(pan_delta, action.rect)
+        new_cam_state = self._zoom(fy, fy, self.get_camera_state())
+        self.set_camera_state(new_cam_state)
+
+        pan_delta = self._get_panning_to_compensate_zoom(fy, screen_pos, rect)
+        vecx, vecy = self.get_camera_vecs(rect)
+        self._update_pan(pan_delta, vecx=vecx, vecy=vecy)
 
     def _zoom(self, fx, fy, cam_state):
         position = cam_state["position"]
@@ -161,12 +162,9 @@ class PanZoomController(Controller):
             "fov": cam_state["fov"],
         }
 
-    def _get_panning_to_compensate_zoom(self, multiplier, action):
+    def _get_panning_to_compensate_zoom(self, multiplier, screen_pos, rect):
         # Get viewport info
-        x, y, w, h = action.rect
-
-        # The position that we want to keep in the same place
-        screen_pos = action.screen_pos
+        x, y, w, h = rect
 
         # Distance from the center of the rect
         delta_screen_x = screen_pos[0] - x - w / 2
@@ -178,24 +176,21 @@ class PanZoomController(Controller):
 
         # The amount to pan is the difference, but also scaled with the multiplier
         # because pixels take more/less space now.
-        return (delta_screen1 - delta_screen2) / multiplier
+        return tuple((delta_screen1 - delta_screen2) / multiplier)
 
-    def quickzoom(self, zoom_value, rect):
-        assert isinstance(zoom_value, (int, float))
+    def quickzoom(self, zoom_value):
+        """Zoom the view using the camera's zoom property. This is intended
+        for temporary zoom operations.
+        """
+        if self._cameras:
+            self._update_quickzoom(zoom_value)
+            self.update_cameras()
 
-        action = self.begin_quickzoom(0, rect)
-        action.set_target(zoom_value)
-        action.tick(1)
-        self.apply_action(action)
-
-    def begin_quickzoom(self, screen_pos, rect):
-        action = self._create_new_action("quickzoom", 0, screen_pos, rect)
-        return action
-
-    def _update_quickzoom(self, action):
-        zoom = action.last_cam_state["zoom"]
-        new_cam_state = {"zoom": zoom * 2**action.delta}
-        self._apply_new_camera_state(new_cam_state)
+    def _update_quickzoom(self, delta):
+        assert isinstance(delta, (int, float))
+        zoom = self.get_camera_state()["zoom"]
+        new_cam_state = {"zoom": zoom * 2**delta}
+        self.set_camera_state(new_cam_state)
 
     def adjust_fov(self, delta: float):
         """Adjust the field of view with the given delta value (Limited to [1, 179])."""
