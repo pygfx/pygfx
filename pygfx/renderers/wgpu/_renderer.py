@@ -465,6 +465,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
+        # Allow objects to prepare just in time
+        ev = WindowEvent(
+            "before_render",
+            target=None,
+            root=self,
+            width=logical_size[0],
+            height=logical_size[1],
+            pixel_ratio=self.pixel_ratio,
+        )
+        self.dispatch_event(ev)
+
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
         camera.set_view_size(*scene_lsize)
@@ -797,7 +808,6 @@ EVENT_TYPE_MAP = {
     "wheel": WheelEvent,
     "key_down": KeyboardEvent,
     "key_up": KeyboardEvent,
-    "before_draw": WindowEvent,
 }
 
 
@@ -810,5 +820,4 @@ EVENTS_TO_CONVERT = (
     "wheel",
     "close",
     "resize",
-    "before_draw",
 )

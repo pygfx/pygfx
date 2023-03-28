@@ -180,7 +180,7 @@ class Controller:
             "key_down",
             "key_up",
             "wheel",
-            "before_draw",
+            "before_render",
         )
 
     def _get_target_vec(self, camera_state, **kwargs):
@@ -251,7 +251,7 @@ class Controller:
             modifiers = sorted([m.lower() for m in event.modifiers])
             modifiers_prefix = "+".join(modifiers + [""])
 
-        if type == "before_draw":
+        if type == "before_render":
             # Do a tick, updating all actions, and using them to update the camera state.
             # Note that tick() removes actions that are done and have reached the target.
             if self._actions:
