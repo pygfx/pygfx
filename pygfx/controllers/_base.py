@@ -321,7 +321,6 @@ class Controller:
         now = perf_counter()
         elapsed_time = now - self._last_tick_time
         self._last_tick_time = now
-
         # Determine damping/smoothing factor to update action values.
         # In the formula below the mul with elapsed_time is equivalent
         # to a division by fps. The mul with 50 is just so typical

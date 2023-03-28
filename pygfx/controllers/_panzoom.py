@@ -33,6 +33,10 @@ class PanZoomController(Controller):
         controller to receive events from the renderer/viewport.
         """
 
+        # Note that we need that rect to determine mouse positions relative
+        # to the viewport. If all events were adjusted to the viewport
+        # than code like this would not have to care ...
+
         if animate:
             action_tuple = ("pan", "push", (1.0, 1.0))
             action = self._create_action(None, action_tuple, (0.0, 0.0), None, rect)

@@ -465,16 +465,19 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 "The viewport rect must be None or 4 elements (x, y, w, h)."
             )
 
-        # Allow objects to prepare just in time
-        ev = WindowEvent(
-            "before_render",
-            target=None,
-            root=self,
-            width=logical_size[0],
-            height=logical_size[1],
-            pixel_ratio=self.pixel_ratio,
-        )
-        self.dispatch_event(ev)
+        # Allow objects to prepare just in time. When doing multiple
+        # render calls, we don't want to spam. The clear_color flag is
+        # a good indicator to detect the first render call.
+        if clear_color:
+            ev = WindowEvent(
+                "before_render",
+                target=None,
+                root=self,
+                width=logical_size[0],
+                height=logical_size[1],
+                pixel_ratio=self.pixel_ratio,
+            )
+            self.dispatch_event(ev)
 
         # Ensure that matrices are up-to-date
         scene.update_matrix_world()
