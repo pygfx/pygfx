@@ -246,7 +246,7 @@ class SimpleTransparencyPass(BasePass):
         return {
             "view": blender.depth_view,
             "depth_load_op": wgpu.LoadOp.load,
-            "depth_store_op": wgpu.StoreOp.discard,
+            "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
@@ -344,7 +344,7 @@ class WeightedTransparencyPass(BasePass):
         return {
             "view": blender.depth_view,
             "depth_load_op": wgpu.LoadOp.load,
-            "depth_store_op": wgpu.StoreOp.discard,
+            "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
@@ -466,7 +466,7 @@ class BaseFragmentBlender:
         # The depth buffer is 32 bit - we need that precision.
         self._texture_info["depth"] = (
             wgpu.TextureFormat.depth32float,
-            usg.RENDER_ATTACHMENT | usg.COPY_SRC,
+            usg.RENDER_ATTACHMENT | usg.COPY_SRC | usg.TEXTURE_BINDING,
         )
 
         # The pick texture has 4 16bit channels, adding up to 64 bits.
