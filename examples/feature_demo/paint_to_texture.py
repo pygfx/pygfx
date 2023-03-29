@@ -18,7 +18,7 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background(None, gfx.BackgroundMaterial("#cde")))
 
-data = np.zeros((100, 2000), np.uint8)
+data = np.zeros((100, 500), np.uint8)
 tex = gfx.Texture(data, dim=2)
 
 image = gfx.Image(
