@@ -63,7 +63,6 @@ class PanZoomController(Controller):
         # since screen pixels go from top to bottom, while the camera's
         # up vector points ... up, the y component is negated twice.
         new_position = position - vecx * delta[0] + vecy * delta[1]
-
         self._set_camera_state({"position": new_position})
 
     def zoom(self, delta: Tuple, rect: Tuple, *, animate=False):

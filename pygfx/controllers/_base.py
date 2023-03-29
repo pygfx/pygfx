@@ -586,20 +586,23 @@ def get_screen_vectors_in_world_cords(
     camera_projection_inverse = camera.projection_matrix_inverse.to_ndarray()
 
     # Get center location on screen
-    center = la.vector_apply_matrix(
+    center_ndc = la.vector_apply_matrix(
         la.vector_apply_matrix(center_world, camera_world_inverse), camera_projection
     )
 
-    # Get vectors
-    screen_dist = 100
-    pos1 = la.vector_apply_matrix(
-        la.vector_apply_matrix((screen_dist, 0, center[2]), camera_projection_inverse),
+    # Step 1 NDC unit in x and y, and convert these positions back to world
+    posx_ndc = center_ndc + (1, 0, 0)
+    posy_ndc = center_ndc + (0, 1, 0)
+    posx_world = la.vector_apply_matrix(
+        la.vector_apply_matrix(posx_ndc, camera_projection_inverse),
         camera_world,
     )
-    pos2 = la.vector_apply_matrix(
-        la.vector_apply_matrix((0, screen_dist, center[2]), camera_projection_inverse),
+    posy_world = la.vector_apply_matrix(
+        la.vector_apply_matrix(posy_ndc, camera_projection_inverse),
         camera_world,
     )
 
-    # Return scaled
-    return pos1 * 0.02 / scene_size[0], pos2 * 0.02 / scene_size[1]
+    # Calculate the vectors, and scale to logical pixels.
+    vecx_world = posx_world - center_world
+    vecy_world = posy_world - center_world
+    return vecx_world * 2.0 / scene_size[0], vecy_world * 2.0 / scene_size[1]
