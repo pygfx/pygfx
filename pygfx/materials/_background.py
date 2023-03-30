@@ -1,6 +1,5 @@
 from ._base import Material
 from ..utils import Color
-from ..linalg import Vector3
 
 
 class BackgroundMaterial(Material):
@@ -143,59 +142,8 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
     """Skybox background.
 
     A cube image background, resulting in a skybox.
-    Use the up property to orient the skybox.
-
-    Parameters
-    ----------
-    map : Texture
-        A texture cube.
-    up : tuple, Vector3
-        A Vector3 defining what way is up. Can be set to e.g. the controller's
-        up vector. The given vector is "rounded" to the closest vector that is
-        fully in one dimension.
 
     """
 
-    uniform_type = dict(
-        tex_index="4xi4",
-        yscale="f4",
-    )
-
-    def __init__(self, map=None, up=(0, 1, 0), **kwargs):
+    def __init__(self, map=None, **kwargs):
         super().__init__(map=map, **kwargs)
-        self.up = up
-
-    @property
-    def up(self):
-        """A Vector3 defining what way is up. Can be set to e.g. the
-        controller's up vector. The given vector is "rounded" to the
-        closest vector that is fully in one dimension.
-        """
-        return self._up
-
-    @up.setter
-    def up(self, value):
-        if isinstance(value, (tuple, list)):
-            value = Vector3(*value)
-        best_score = 0
-        best_up = Vector3(0, 1, 0)
-        best_index = (0, 1, 2)
-        best_scale = -1
-        for dir, index in [
-            ((1, 0, 0), (1, 0, 2)),
-            ((0, 1, 0), (0, 1, 2)),
-            ((0, 0, 1), (0, 2, 1)),
-        ]:
-            for scale in [-1, 1]:
-                ref = Vector3(*[scale * v for v in dir])
-                score = ref.dot(value)
-                if score > best_score:
-                    best_score = score
-                    best_up = ref
-                    best_index = index
-                    best_scale = scale
-
-        self._up = best_up
-        self.uniform_buffer.data["tex_index"] = best_index + (0,)  # pad to vec4
-        self.uniform_buffer.data["yscale"] = best_scale
-        self.uniform_buffer.update_range(0, 1)
