@@ -2,6 +2,8 @@
 
 import os
 import sys
+import shutil
+
 from sphinx_gallery.sorting import ExplicitOrder
 import wgpu.gui.offscreen
 
@@ -30,7 +32,6 @@ author = "Almar Klein, Korijn van Golen"
 # The full version, including alpha/beta/rc tags
 # release = '0.1.0'
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -46,6 +47,9 @@ extensions = [
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
+
+# Just let autosummary produce a new version each time
+shutil.rmtree(os.path.join(os.path.dirname(__file__), "_autosummary"), True)
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

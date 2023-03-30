@@ -498,7 +498,9 @@ class LightShadow:
         # self._radius = 1
         # self._map_size = [1024, 1024]
 
-        self.bias = 0
+        # TODO: move bias and cull_mode to Light so they can be reactive?
+        self._bias = 0
+        self._cull_mode = wgpu.CullMode.front
 
         self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
         self._gfx_matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
@@ -516,6 +518,20 @@ class LightShadow:
     @bias.setter
     def bias(self, value):
         self._bias = float(value)
+
+    @property
+    def cull_mode(self):
+        """
+        Shadow map cull_mode. When shadow mapping open meshes, set to 'none' and
+        increase ``bias`` value to avoid shadow acne.
+        """
+        return self._cull_mode
+
+    @cull_mode.setter
+    def cull_mode(self, value):
+        if value not in wgpu.CullMode:
+            raise ValueError(f"invalid cull_mode: '{value}'")
+        self._cull_mode = value
 
     def _gfx_update_uniform_buffer(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self._bias
@@ -548,7 +564,7 @@ class DirectionalLightShadow(LightShadow):
 
     def __init__(self) -> None:
         # OrthographicCamera for directional light
-        super().__init__(OrthographicCamera(1000, 1000, -500, 500))
+        super().__init__(OrthographicCamera(1000, 1000, depth_range=(-500, 500)))
 
     def _update_matrix(self, light):
         camera = self.camera
@@ -560,7 +576,7 @@ class SpotLightShadow(LightShadow):
     """Shadow map utility for spot light sources."""
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(50, 1, 0.5, 500))
+        super().__init__(PerspectiveCamera(50, depth_range=(0.5, 500)))
         self._focus = 1
 
     def _update_matrix(self, light):
@@ -569,12 +585,12 @@ class SpotLightShadow(LightShadow):
         fov = 180 / math.pi * 2 * light.angle * self._focus
 
         aspect = 1
-        far = light.distance or camera.far
+        far = (light.distance * 10) or camera.far
 
         if fov != camera.fov or far != camera.far:
             camera.fov = fov
             camera.aspect = aspect
-            camera.far = far
+            camera.depth_range = far / 1000000, far
             camera.update_projection_matrix()
 
         super()._update_matrix(light)
@@ -602,7 +618,7 @@ class PointLightShadow(LightShadow):
     ]
 
     def __init__(self) -> None:
-        super().__init__(PerspectiveCamera(90, 1, 0.5, 500))
+        super().__init__(PerspectiveCamera(90))
 
         self._gfx_matrix_buffer = []
 
@@ -614,10 +630,10 @@ class PointLightShadow(LightShadow):
     def _update_matrix(self, light: Light) -> None:
         camera = self.camera
 
-        far = light.distance or camera.far
+        far = (light.distance * 10) or camera.far
 
         if far != camera.far:
-            camera.far = far
+            camera.depth_range = far / 1000000, far
             camera.update_projection_matrix()
 
         for i in range(6):

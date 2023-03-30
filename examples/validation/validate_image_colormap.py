@@ -30,8 +30,8 @@ image = gfx.Image(
 )
 scene.add(image)
 
-camera = gfx.OrthographicCamera(99, 99)
-camera.position.set(50, 50, 0)
+camera = gfx.OrthographicCamera()
+camera.show_rect(0.5, 99.5, 0.5, 99.5)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 

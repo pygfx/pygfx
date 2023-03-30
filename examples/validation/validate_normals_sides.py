@@ -40,7 +40,7 @@ scene.add(ob1.add(ob2, ob3))
 
 scene.add(gfx.DirectionalLight(), gfx.AmbientLight())
 
-camera = gfx.PerspectiveCamera(70, 1)
+camera = gfx.PerspectiveCamera(70, 1, depth_range=(0.1, 2000))
 camera.position.z = 4.5
 
 renderer.request_draw(lambda: renderer.render(scene, camera))

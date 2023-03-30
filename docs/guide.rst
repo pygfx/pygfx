@@ -196,29 +196,155 @@ the scene as desired::
 
 .. image:: _static/guide_rotating_cube.gif
 
+
 World objects
 -------------
+
+We've briefly mentioned world objects, materials, and geometry. But how do these relate?
 
 A world object represents an object in the world. It has a transform, by which the
 object can be positioned (translated, rotated, and scaled), and has a visibility property.
 These properties apply to the object itself as well as its children (and their children, etc.).
 
+All objects that have an appearance in the scene are world objects. But there
+are also helper objects, lights, and cameras. These are all world objects.
 
-Geometry
---------
+**Geometry**
 
-Each world object has a geometry. This geometry object contains the
+Most world objects have a geometry. This geometry object contains the
 data that defines (the shape of) the object, such as positions, plus
 data associated with these positions (normals, texcoords, colors, etc.).
 Multiple world objects may share a geometry.
 
 
-Materials
----------
+**Materials**
 
-Each world object also has a material. This material object defines the
-appearance of the object. Examples can be its color, how it behaves under lighting,
-what render-mode is applied, etc. Multiple world objects may share a material.
+All world objects that have an appearance, have a material that defines
+that apperance. (Objects that do not have an apperance are for example
+groups or cameras.) For each type of object there are typically a few
+different material classes, e.g. for meshes you have a
+``MeshBasicMaterial`` that is not affected by lights, a
+``MeshPhongMaterial`` that applies the Phong light model, and the
+``MeshStandardMaterial`` that implements a physically-based light model.
+Materials also have properties to tune things like color,
+line thickness, colormap, etc. Multiple world objects may share the same material
+object, so their appearance can be changed simultaneously.
+
+
+Cameras and controllers
+-----------------------
+
+We've already been using cameras, but let's look at them a bit closer!
+
+
+**Perspective camera**
+
+There are two main cameras of interest. The first is the :class:`~pygfx.cameras.PerspectiveCamera`,
+which is a generic camera intended for 3D content. You can instantiate one
+like this:
+
+.. code-block:: python
+
+    camera = gfx.PerspectiveCamera(50, 4/3)
+
+The first argument is the fov (field of view) in degrees. This is a
+value between 0 and 179, with typical values < 100. The second argument
+is the aspect ratio. A window on screen is usually a rectangle with 4/3
+or 16/9 aspect. The aspect can be set so the contents better fit the
+window. When the fov is zero, the camera operates in orthographic mode.
+
+
+**Orthographic camera**
+
+The second camera of interest is the :class:`~pygfx.cameras.OrthographicCamera`. Technically
+it's a perspective camera with the fov fixed to zero. It is also instantiated differently:
+
+.. code-block:: python
+
+    camera = gfx.OrthographicCamera(500, 400, maintain_aspect=False)
+
+
+The first two arguments are the `width` and `height`, which are
+typically used to initialize an orthographic camera. This implicitly
+sets the aspect (which is the width divided by the height). The
+`maintain_aspect` argument can be set to False if the dimensions do not
+represent a physical dimension, e.g. for plotting data. The contents
+of the view are then stretched to fill the window.
+
+
+**Orienting cameras**
+
+Camera's can be oriented manually by setting their position, and then set their rotation
+to have them look in the correct direction, e.g. using :func:`.look_at()<pygfx.WorldObject.look_at>`.
+In this case you should probably set the width in addition to fov and aspect.
+
+.. code-block:: python
+
+    # Manual orientation
+    camera = gfx.PerspectiveCamera(50, 4/3, width=100)
+    camera.position.set(30, 40, 50)
+    camera.look_at((0, 0, 0))
+
+However, we strongly recommend using one of the ``show`` methods, since these
+also set the ``width`` and ``height``. Therefore they better prepare the
+camera for controllers, and the near and far clip planes are
+automatically set.
+
+.. code-block:: python
+
+    # Create a camera, in either way
+    camera = gfx.PerspectiveCamera(50, 4/3)
+    camera = gfx.OrthographicCamera()
+
+    # Convenient orientation: similar to look_at
+    camera.position.set(30, 40, 50)
+    camera.show_pos((0, 0, 0))
+
+    # Convenient orientation: show an object
+    camera.show_object(target, view_dir=(-1, -1, -1))
+
+    # Convenient orientation: show a rectangle
+    camera.show_rect(0, 1000, -5, 5, view_dir=(0, 0, -1))
+
+The :func:`.show_pos()<pygfx.cameras.PerspectiveCamera.show_pos>` method
+is the convenient alternative for ``look_at``. Even easier is using
+:func:`.show_object()<pygfx.cameras.PerspectiveCamera.show_object>`, which allows
+you to specify an object (e.g. the scene) and optionally a direction.
+The camera is then positioned and rotated to look at the scene from the given direction.
+A similar method, geared towards 2D data is :func:`.show_rect()<pygfx.cameras.PerspectiveCamera.show_rect>`
+in which you specify a rectangle instead of an object.
+
+
+**The near and far clip planes**
+
+Camera's cannot see infinitely far; they have a near and far clip plane. Only the space
+between these planes can be seen. To get a bit more technical, this space is mapped
+to a value between 0 and 1 (NDC coordinates), and this is converted to a depth value.
+Since the number of bits for depth values is limited, it's important for the near
+and far clip planes to have reasonable values, otherwise you may observe "z fighting",
+or objects may simply not be visible.
+
+If you use the recommended ``show`` methods mentioned above, the near
+and far plane are positioned about 1000 units apart, scaled with the
+mean of the camera's width and height. If needed, the clip planes can be
+specified explicitly using the ``depth_range`` property.
+
+
+**Controlling the camera**
+
+A controller allows you to interact with the camera using the mouse. You simply
+pass the camera to control when you instantiate it, and then make it listen to
+events by connecting it to the renderer or a viewport.
+
+.. code-block:: python
+
+    controller = gfx.OrbitController(camera)
+    controller.add_default_event_handlers(renderer)
+
+
+There are currently two controllers: the :class:`~pygfx.controllers.PanZoomController`
+is for 2D content or in-plane visualization, and the :class:`~pygfx.controllers.OrbitController` is for 3D content.
+All controllers work with both perspective and orthographic cameras.
 
 
 Colors

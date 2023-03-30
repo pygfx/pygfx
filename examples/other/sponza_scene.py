@@ -36,10 +36,8 @@ scene = gfx.Scene()
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)
 camera.position.set(-10, 1.8, -0.3)
-# look down the hall, which is positive x
-target = camera.position.clone().add(gfx.linalg.Vector3(10))
-controller = gfx.OrbitController(camera.position.clone(), target)
-controller.add_default_event_handlers(renderer, camera)
+camera.show_pos((10, 10, 10))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def configure(obj):
@@ -60,8 +58,7 @@ sunlight = gfx.DirectionalLight()
 sunlight.position.set(-14.5, 31, 4.5)
 sunlight.target.position.set(5.3, -1.4, -2.5)
 sunlight.cast_shadow = True
-sunlight.shadow.camera.near = 0
-sunlight.shadow.camera.far = 50
+sunlight.shadow.camera.depth_range = (0, 250)
 sunlight.shadow.camera.update_projection_matrix()
 scene.add(sunlight)
 
@@ -75,17 +72,14 @@ for pos in [
     torch = gfx.PointLight("#ff7700", decay=2.5)
     torch.position.set(*pos)
     torch.cast_shadow = True
-    torch.shadow.camera.near = 0.01
+    torch.shadow.camera.depth_range = (0.01, 200)
     torch.shadow.camera.update_projection_matrix()
+    torch.shadow.cull_mode = "none"
+    torch.shadow.bias = 0.001
     # torch.add(gfx.PointLightHelper(size=0.01))
     scene.add(torch)
 
 
-def animate():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
-
-
 if __name__ == "__main__":
-    renderer.request_draw(animate)
+    renderer.request_draw(lambda: renderer.render(scene, camera))
     run()

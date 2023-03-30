@@ -53,13 +53,19 @@ for pos, color, geometry in cylinders:
     scene.add(wobject)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.set(0, 50, 50)
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+camera.position.set(50, 50, 50)
+camera.show_pos((0, 0, 0))
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 scene.add(gfx.AmbientLight())
 light = gfx.PointLight(position=(0, 70, 0))
+light.add(gfx.PointLightHelper())
 light.cast_shadow = True
+# since we are shadow mapping open meshes
+# disable front face culling to render backfaces to shadow maps
+# and set bias to avoid shadow acne
+light.shadow.cull_mode = "none"
+light.shadow.bias = 0.00001
 scene.add(light)
 
 ground = gfx.Mesh(
@@ -71,11 +77,6 @@ ground.receive_shadow = True
 scene.add(ground)
 
 
-def animate():
-    controller.update_camera(camera)
-    renderer.render(scene, camera)
-
-
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()

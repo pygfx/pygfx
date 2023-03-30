@@ -281,9 +281,9 @@ class LightViewer(QtWidgets.QWidget):
 
         camera = gfx.PerspectiveCamera(70, 16 / 9)
         camera.position.z = 50
+        camera.show_pos((0, 0, 0))
 
-        controller = gfx.OrbitController(camera.position.clone())
-        controller.add_default_event_handlers(renderer, camera)
+        gfx.OrbitController(camera, register_events=renderer)
 
         t1 = 0
         t2 = 0
@@ -303,8 +303,6 @@ class LightViewer(QtWidgets.QWidget):
                     gfx.linalg.Euler(0.01, 0.02)
                 )
                 self.mesh.rotation.multiply(rot)
-
-            controller.update_camera(camera)
 
             nonlocal t1, t2, scale
 

@@ -46,8 +46,8 @@ class Shaderlib:
         }
         struct IncidentLight {
             color: vec3<f32>,
-            direction: vec3<f32>,
             visible: bool,
+            direction: vec3<f32>,
         };
         struct ReflectedLight {
             direct_diffuse: vec3<f32>,
@@ -415,8 +415,8 @@ class Shaderlib:
 
         struct BlinnPhongMaterial {
             diffuse_color: vec3<f32>,
-            specular_color: vec3<f32>,
             specular_shininess: f32,
+            specular_color: vec3<f32>,
             specular_strength: f32,
         };
         fn RE_Direct_BlinnPhong(

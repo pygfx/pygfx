@@ -43,7 +43,7 @@ def MaterialClass(**kwargs):  # noqa
 
 geometry = get_geometry()
 
-camera = gfx.OrthographicCamera(16, 3)
+camera = gfx.OrthographicCamera(16, 3, depth_range=(-1000, 1000))
 
 reds = np.array([(0.1, 0, 0), (0.4, 0, 0), (0.6, 0, 0), (0.9, 0, 0)], np.float32)
 greens = np.array([(0, 0.1, 0), (0, 0.4, 0), (0, 0.6, 0), (0, 0.9, 0)], np.float32)

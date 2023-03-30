@@ -15,6 +15,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
+
 spheres = [
     (
         (0, 0, -7.5),
@@ -42,15 +43,15 @@ for pos, color, geometry in spheres:
     scene.add(wobject)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.set(6, 16, -22)
-scene.add(gfx.AmbientLight())
+camera.show_object(scene, (-1, -1, -1), up=(0, 1, 0))
+
 scene.add(camera.add(gfx.DirectionalLight()))
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+scene.add(gfx.AmbientLight())
+
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
     renderer.render(scene, camera)
     canvas.request_draw()
 

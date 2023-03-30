@@ -33,7 +33,7 @@ torus.position.x -= 150
 scene.add(torus)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.show_object(scene)
 
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
