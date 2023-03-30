@@ -39,12 +39,10 @@ camera = gfx.PerspectiveCamera(70)
 
 camera.position.set(0, 4, 20)
 
-controller = gfx.OrbitController(camera.position.clone())
-controller.add_default_event_handlers(renderer, camera)
+controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    controller.update_camera(camera)
     rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01, 0.01))
     scene.rotation.multiply(rot)
 
