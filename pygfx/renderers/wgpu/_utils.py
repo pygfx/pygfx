@@ -6,7 +6,6 @@ import wgpu
 
 from .._base import RenderFunctionRegistry
 
-
 registry = RenderFunctionRegistry()
 
 
@@ -192,15 +191,3 @@ def generate_uniform_struct(dtype_struct, structname):
     code += "\n        };"
 
     return code
-
-    # uniform_type_name = (
-    #     f"array<{structname}, {binding.resource.data.shape[0]}>" # array of struct
-    #     if isinstance(resource, Buffer) and resource.data.shape  # Buffer.items > 1
-    #     else structname
-    # )
-
-    # code = f"""
-    # @group({bindgroup}) @binding({index})
-    # var<uniform> {binding.name}: {uniform_type_name};
-    # """.rstrip()
-    # self._binding_codes[binding.name] = code

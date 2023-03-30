@@ -102,10 +102,6 @@ class Texture(Resource):
         """Whether to automatically generate mipmaps when uploading to the GPU."""
         return self._generate_mipmaps
 
-    def get_view(self, **kwargs):
-        """Get a new view on the this texture."""
-        return TextureView(self, **kwargs)
-
     @property
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
@@ -282,52 +278,18 @@ def format_from_memoryview(mem, size):
 # cube_array: I suppose you'd have an array of 6xn textures in this case?
 
 
-class TextureView(Resource):
-    """View into a Texture.
+# todo: move to renderers/wgpu?
+class TView:
+    """View onto a Texture. For internal use.
 
-    Similar to numpy views, a TextureView is a view into a textures data buffer
-    with a (potentially) modified sampling behavior and can specify a
-    selection/different view on the texture.
-
-    Passing no more than ``address_mode`` and ``filter`` will create a default
-    view on the texture with the given sampling parameters.
-
-    Parameters
-    ----------
-    texture : Texture
-        The texture to view.
-    address_mode : str
-        How to handle out of bounds access. Use "clamp", "mirror" or "repeat".
-        This value can also be set per-channel by providing multiple
-        comma-separated values, e.g., "clamp,clamp,repeat".
-    filter : str
-        Interpolation mode. Possible values are: "nearest" or "linear". This
-        value can also be set using three comma-separated values to control mag,
-        min and mipmap filters individually, e.g., "linear,linear,nearest".
-    format : str
-        A format string describing the texture layout. If None, use the same as
-        the underlying texture. This must be a pygfx format specifier, e.g.
-        "3xf4", but can also be a format specific to the render backend if
-        necessary (e.g. from ``wgpu.VertexFormat``).
-    view_dim : str
-        The dimensionality of the array (1, 2 or 3). If None, use the texture's
-        dimension. Or e.g. get a "2d" slice view from a 3d texture, or e.g.
-        "cube" or "2d-array".
-    aspect : Enum
-        The `wgpu.TextureAspect` for this view. Omit or pass None to use the default.
-    mip_range : range
-        A range object specifying the viewed mip levels.
-    layer_range : range
-        A range object specifying the array layers to view.
-
+    We use this to represent a wgpu.GPUTextureView object, because that object
+    does not hold properties to format, view_dim, etc.
     """
 
     def __init__(
         self,
         texture,
         *,
-        address_mode="clamp",
-        filter="nearest",
         format=None,
         view_dim=None,
         aspect=None,
@@ -335,13 +297,8 @@ class TextureView(Resource):
         layer_range=None,
     ):
         super().__init__()
-        self._rev = 1
         assert isinstance(texture, Texture)
         self._texture = texture
-        # Sampler parameters
-        self._address_mode = address_mode
-        self._filter = filter
-        # Texture view parameters
         self._format = format
         self._view_dim = view_dim
         self._aspect = aspect
@@ -364,16 +321,6 @@ class TextureView(Resource):
         )
 
     @property
-    def rev(self):
-        # This is not actually increased anywhere, but it's added for consistency
-        return self._rev
-
-    @property
-    def colorspace(self):
-        """Proxy for the texture's colorspace property."""
-        return self._texture.colorspace
-
-    @property
     def texture(self):
         """The Texture object holding the data for this texture view."""
         return self._texture
@@ -393,9 +340,8 @@ class TextureView(Resource):
         """The range of mip levels to view, as a range object.
         The step is always 1.
         """
-        return self._mip_range or range(
-            self.texture._mip_level_count
-        )  # "texture._mip_level_count" may be updated in auto mipmap generation
+        # Note: "texture._mip_level_count" may be updated in auto mipmap generation
+        return self._mip_range or range(self.texture._mip_level_count)
 
     @property
     def layer_range(self):
@@ -404,14 +350,137 @@ class TextureView(Resource):
         """
         return self._layer_range
 
-    @property
-    def address_mode(self):
-        """How to sample beyond the edges. Use "clamp",
-        "mirror" or "repeat". Default "clamp".
-        """
-        return self._address_mode
 
-    @property
-    def filter(self):
-        """Interpolation filter. Use "nearest" or "linear"."""
-        return self._filter
+# class TextureView(Resource):
+#     """View into a Texture.
+#
+#     Similar to numpy views, a TextureView is a view into a textures data buffer
+#     with a (potentially) modified sampling behavior and can specify a
+#     selection/different view on the texture.
+#
+#     Passing no more than ``address_mode`` and ``filter`` will create a default
+#     view on the texture with the given sampling parameters.
+#
+#     Parameters
+#     ----------
+#     texture : Texture
+#         The texture to view.
+#     address_mode : str
+#         How to handle out of bounds access. Use "clamp", "mirror" or "repeat".
+#         This value can also be set per-channel by providing multiple
+#         comma-separated values, e.g., "clamp,clamp,repeat".
+#     filter : str
+#         Interpolation mode. Possible values are: "nearest" or "linear". This
+#         value can also be set using three comma-separated values to control mag,
+#         min and mipmap filters individually, e.g., "linear,linear,nearest".
+#     format : str
+#         A format string describing the texture layout. If None, use the same as
+#         the underlying texture. This must be a pygfx format specifier, e.g.
+#         "3xf4", but can also be a format specific to the render backend if
+#         necessary (e.g. from ``wgpu.VertexFormat``).
+#     view_dim : str
+#         The dimensionality of the array (1, 2 or 3). If None, use the texture's
+#         dimension. Or e.g. get a "2d" slice view from a 3d texture, or e.g.
+#         "cube" or "2d-array".
+#     aspect : Enum
+#         The `wgpu.TextureAspect` for this view. Omit or pass None to use the default.
+#     mip_range : range
+#         A range object specifying the viewed mip levels.
+#     layer_range : range
+#         A range object specifying the array layers to view.
+#
+#     """
+#
+#     def __init__(
+#         self,
+#         texture,
+#         *,
+#         address_mode="clamp",
+#         filter="nearest",
+#         format=None,
+#         view_dim=None,
+#         aspect=None,
+#         mip_range=None,
+#         layer_range=None,
+#     ):
+#         super().__init__()
+#         self._rev = 1
+#         assert isinstance(texture, Texture)
+#         self._texture = texture
+#         # Sampler parameters
+#         self._address_mode = address_mode
+#         self._filter = filter
+#         # Texture view parameters
+#         self._format = format
+#         self._view_dim = view_dim
+#         self._aspect = aspect
+#         # The ranges
+#         if mip_range:
+#             assert isinstance(mip_range, range)
+#             assert mip_range.step == 1
+#             self._mip_range = mip_range
+#         else:
+#             self._mip_range = None  # None means all mip levels in the texture are used
+#         if layer_range:
+#             assert isinstance(layer_range, range)
+#             assert layer_range.step == 1
+#             self._layer_range = layer_range
+#         else:
+#             self._layer_range = range(texture.size[2])
+#
+#         self._is_default_view = all(
+#             x is None for x in [format, view_dim, aspect, mip_range, layer_range]
+#         )
+#
+#     @property
+#     def rev(self):
+#         # This is not actually increased anywhere, but it's added for consistency
+#         return self._rev
+#
+#     @property
+#     def colorspace(self):
+#         """Proxy for the texture's colorspace property."""
+#         return self._texture.colorspace
+#
+#     @property
+#     def texture(self):
+#         """The Texture object holding the data for this texture view."""
+#         return self._texture
+#
+#     @property
+#     def format(self):
+#         """The texture format."""
+#         return self._format or self.texture.format
+#
+#     @property
+#     def view_dim(self):
+#         """The dimensionality of this view: "1d", "2d" or "3d"."""
+#         return self._view_dim or f"{self.texture.dim}d"
+#
+#     @property
+#     def mip_range(self):
+#         """The range of mip levels to view, as a range object.
+#         The step is always 1.
+#         """
+#         return self._mip_range or range(
+#             self.texture._mip_level_count
+#         )  # "texture._mip_level_count" may be updated in auto mipmap generation
+#
+#     @property
+#     def layer_range(self):
+#         """The range of array layers to view, as a range object.
+#         The step is always 1.
+#         """
+#         return self._layer_range
+#
+#     @property
+#     def address_mode(self):
+#         """How to sample beyond the edges. Use "clamp",
+#         "mirror" or "repeat". Default "clamp".
+#         """
+#         return self._address_mode
+#
+#     @property
+#     def filter(self):
+#         """Interpolation filter. Use "nearest" or "linear"."""
+#         return self._filter

@@ -1,6 +1,6 @@
 import math
 import wgpu
-from ...resources._texture import TextureView
+from ...resources._texture import Texture
 
 
 class MipmapsUtil:
@@ -178,7 +178,6 @@ def get_mipmaps_util(device):
 
 
 def get_mip_level_count(texture):
-    if isinstance(texture, TextureView):
-        texture = texture.texture
+    assert isinstance(texture, Texture)
     width, height, _ = texture.size
     return math.floor(math.log2(max(width, height))) + 1

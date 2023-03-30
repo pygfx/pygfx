@@ -22,7 +22,7 @@ from ...objects import (
     WorldObject,
 )
 from ...cameras import Camera
-from ...resources import Texture, TextureView
+from ...resources import Texture
 from ...utils import Color
 
 from . import _blender as blender_module
@@ -135,9 +135,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
-        if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
+        if not isinstance(target, (Texture, wgpu.gui.WgpuCanvasBase)):
             raise TypeError(
-                f"Render target must be a canvas or texture (view), not a {target.__class__.__name__}"
+                f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
 
@@ -250,8 +250,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             return target.get_logical_size()
         elif isinstance(target, Texture):
             return target.size[:2]  # assuming pixel-ratio 1
-        elif isinstance(target, TextureView):
-            return target.texture.size[:2]  # assuming pixel-ratio 1
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
@@ -265,8 +263,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target_psize = target.get_physical_size()
         elif isinstance(target, Texture):
             target_psize = target.size[:2]
-        elif isinstance(target, TextureView):
-            target_psize = target.texture.size[:2]
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
@@ -526,8 +522,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.flush()
 
     def flush(self):
-        """Render the result into the target texture view. This method is
-        called automatically unless you use ``.render(..., flush=False)``.
+        """Render the result into the target. This method is called
+        automatically unless you use ``.render(..., flush=False)``.
         """
 
         # Note: we could, in theory, allow specifying a custom target here.
@@ -535,16 +531,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
             raw_texture_view = self._canvas_context.get_current_texture()
         else:
-            if isinstance(self._target, Texture):
-                texture_view = self._target.get_view()
-            elif isinstance(self._target, TextureView):
-                texture_view = self._target
-            update_texture(self._shared.device, texture_view.texture)
-            update_texture_view(self._shared.device, texture_view)
-            raw_texture_view = texture_view._wgpu_texture_view[1]
-
-            texture = texture_view.texture
-            needs_mipmaps = texture.generate_mipmaps
+            raw_texture_view = self._target_texture_view
+            needs_mipmaps = self._target.generate_mipmaps
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
@@ -559,6 +547,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.device.queue.submit(command_buffers)
 
         if needs_mipmaps:
+            # todo: fix this
             mipmaps_util = get_mipmaps_util(self.device)
             texture_gpu = texture._wgpu_texture[1]
             mipmaps_util.generate_mipmaps(

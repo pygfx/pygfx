@@ -1,6 +1,6 @@
 import math
 from ._base import Material
-from ..resources import TextureView
+from ..resources import Texture
 from ..utils import unpack_bitfield
 from ..utils.color import Color
 
@@ -17,10 +17,8 @@ class MeshBasicMaterial(Material):
         The (uniform) color of the mesh. Ignored if vertex_colors is True.
     vertex_colors : bool
         Whether to use the vertex colors provided in the geometry.
-    map : TextureView
-        The texture map specifying the color at each texture coordinate. The
-        dimensionality of the map can be 1D, 2D or 3D, but should match the
-        number of columns in the geometry's texcoords.
+    map : Texture
+        The texture map specifying the color at each texture coordinate. Optional.
     wireframe : bool
         If True, render geometry as a wireframe, i.e., only render edges.
     wireframe_thickness : int
@@ -122,8 +120,8 @@ class MeshBasicMaterial(Material):
     @property
     def map(self):
         """The texture map specifying the color for each texture coordinate.
-        The dimensionality of the map can be 1D, 2D or 3D, but should match the
-        number of columns in the geometry's texcoords.
+        The dimensionality of the map can be 1D, 2D or 3D, but should
+        match the number of columns in the geometry's texcoords.
 
         The colors in the map are assumed to be in sRGB space. To use
         physical space instead, set the texture's colorspace property
@@ -133,7 +131,7 @@ class MeshBasicMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, TextureView)
+        assert map is None or isinstance(map, Texture)
         self._store.map = map
 
     @property
@@ -529,8 +527,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._store.emissive_map
 
     @emissive_map.setter
-    def emissive_map(self, value):
-        self._store.emissive_map = value
+    def emissive_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.emissive_map = map
 
     @property
     def emissive_intensity(self):
@@ -570,8 +569,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._store.metalness_map
 
     @metalness_map.setter
-    def metalness_map(self, value):
-        self._store.metalness_map = value
+    def metalness_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.metalness_map = map
 
     @property
     def roughness(self):
@@ -592,8 +592,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._store.roughness_map
 
     @roughness_map.setter
-    def roughness_map(self, value):
-        self._store.roughness_map = value
+    def roughness_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.roughness_map = map
 
     @property
     def normal_scale(self):
@@ -618,8 +619,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._store.normal_map
 
     @normal_map.setter
-    def normal_map(self, value):
-        self._store.normal_map = value
+    def normal_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.normal_map = map
 
     @property
     def light_map(self):
@@ -627,8 +629,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._store.light_map
 
     @light_map.setter
-    def light_map(self, value):
-        self._store.light_map = value
+    def light_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.light_map = map
 
     @property
     def light_map_intensity(self):
@@ -648,8 +651,9 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._store.ao_map
 
     @ao_map.setter
-    def ao_map(self, value):
-        self._store.ao_map = value
+    def ao_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.ao_map = map
 
     @property
     def ao_map_intensity(self):
@@ -673,12 +677,13 @@ class MeshStandardMaterial(MeshBasicMaterial):
         return self._env_map
 
     @env_map.setter
-    def env_map(self, env_map):
-        self._env_map = env_map
-        if env_map is None:
+    def env_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._env_map = map
+        if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
-            width, height, _ = env_map.texture.size
+            width, height, _ = map.texture.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
         self.uniform_buffer.update_range(0, 1)

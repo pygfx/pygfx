@@ -19,6 +19,7 @@ class _CubeCameraRenderer(WgpuRenderer):
 
         # Pre generate views of different layers of the cube texture
         self._target_views = []
+        # todo: use wgpuTextureView objects. This means we must first update the texture so that a wgpu object exists for it.
         for layer in range(6):
             self._target_views.append(
                 target.get_view(view_dim="2d", layer_range=range(layer, layer + 1))

@@ -1,6 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
+from ._update import make_tex_sampler, make_tex_view
 from ...objects import Text
 from ...materials import TextMaterial
 from ...utils.text._shaper import REF_GLYPH_SIZE
@@ -31,9 +32,11 @@ class TextShader(WorldObjectShader):
             Binding("s_sizes", sbuffer, geometry.sizes, "VERTEX"),
         ]
 
-        view = shared.glyph_atlas_texture_view
-        bindings.append(Binding("s_atlas", "sampler/filtering", view, "FRAGMENT"))
-        bindings.append(Binding("t_atlas", "texture/auto", view, "FRAGMENT"))
+        tex = shared.glyph_atlas_texture
+        sampler = make_tex_sampler("linear")
+        tex_view = make_tex_view(tex)
+        bindings.append(Binding("s_atlas", "sampler/filtering", sampler, "FRAGMENT"))
+        bindings.append(Binding("t_atlas", "texture/auto", tex_view, "FRAGMENT"))
 
         # Let the shader generate code for our bindings
         bindings = {i: b for i, b in enumerate(bindings)}

@@ -383,11 +383,11 @@ class PygfxGlyphAtlas(GlyphAtlas):
     """A textured pygfx-specific subclass of the GlyphAtlas."""
 
     @property
-    def texture_view(self):
-        """The texture view for the atlas. The Shared object exposes this object
+    def texture(self):
+        """The texture for the atlas. The Shared object exposes this object
         in a trackable way.
         """
-        return self._texture_view
+        return self._texture
 
     @property
     def info_buffer(self):
@@ -401,7 +401,6 @@ class PygfxGlyphAtlas(GlyphAtlas):
         # Create wgpu object if needed
         if self._array is not array:
             self._texture = Texture(self._array, dim=2)
-            self._texture_view = self._texture.get_view(filter="linear")
         # Schedule an update. Note that the infos array is updated due to repacking.
         w, h = self._array.shape[1], self._array.shape[0]
         self._texture.update_range((0, 0, 0), (w, h, 1))

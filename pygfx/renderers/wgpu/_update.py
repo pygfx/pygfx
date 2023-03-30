@@ -5,6 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format
+from ._shared import Shared
 from ._mipmapsutil import get_mipmaps_util, get_mip_level_count
 
 
@@ -74,6 +75,7 @@ def update_buffer(device, resource):
 
 
 def update_texture_view(device, resource):
+    1 / 0
     if resource._is_default_view:
         texture_view = resource.texture._wgpu_texture[1].create_view()
     else:
@@ -178,6 +180,7 @@ def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_la
 
 
 def update_sampler(device, resource):
+    1 / 0
     # A sampler's info (and raw object) are stored on a TextureView
     amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
     while len(amodes) < 3:
@@ -198,3 +201,67 @@ def update_sampler(device, resource):
         # compare -> only not-None for comparison samplers!
     )
     resource._wgpu_sampler = resource.rev, sampler
+
+
+def make_tex_sampler(filter="nearest", address_mode="clamp"):
+    """Friendly version of device.create_sampler."""
+    device = Shared.get_instance().device
+    # A sampler's info (and raw object) are stored on a TextureView
+    amodes = address_mode.replace(",", " ").split() or ["clamp"]
+    while len(amodes) < 3:
+        amodes.append(amodes[-1])
+    filters = filter.replace(",", " ").split() or ["nearest"]
+    while len(filters) < 3:
+        filters.append(filters[-1])
+    ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
+    return device.create_sampler(
+        address_mode_u=ammap.get(amodes[0], amodes[0]),
+        address_mode_v=ammap.get(amodes[1], amodes[1]),
+        address_mode_w=ammap.get(amodes[2], amodes[2]),
+        mag_filter=filters[0],
+        min_filter=filters[1],
+        mipmap_filter=filters[2],
+        # lod_min_clamp -> use default 0
+        # lod_max_clamp -> use default inf
+        # compare -> only not-None for comparison samplers!
+    )
+
+
+def make_tex_view(texture, *, view_dim=None, aspect=None):
+    # Get raw texture
+    device = Shared.get_instance().device
+    update_texture(device, texture)
+    raw_texture = texture._wgpu_texture[1]
+
+    # Process view dim
+    native_view_dim = f"{texture.dim}d"
+    if isinstance(view_dim, int):
+        view_dim = f"{view_dim}d"
+    if view_dim == native_view_dim:
+        view_dim = None
+
+    if view_dim is None and aspect is None:
+        # Use all the defaults
+        view = raw_texture.create_view()
+        view.format = texture.format
+        view.view_dim = native_view_dim
+    else:
+        format = texture.format
+        fmt = to_texture_format(format)
+        fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
+
+        view = raw_texture.create_view(
+            format=fmt,
+            dimension=view_dim,
+            aspect=aspect,
+            base_mip_level=0,
+            mip_level_count=texture._mip_level_count,  # ??
+            base_array_layer=0,
+            array_layer_count=texture.size[2],
+        )
+
+        view.format = format
+        view.view_dim = view_dim
+
+    view.gfx_texture = texture
+    return view

@@ -1,5 +1,6 @@
-from ...resources import Buffer, Texture, TextureView
+from ...resources import Buffer, Texture
 from ._utils import to_vertex_format, to_texture_format
+from ._update import make_tex_sampler, make_tex_view
 from ._shaderbase import BaseShader
 
 
@@ -74,7 +75,7 @@ class WorldObjectShader(BaseShader):
 
     # ----- Colormap stuff
 
-    def define_vertex_colormap(self, texture_view, texcoords):
+    def define_vertex_colormap(self, texture, texcoords):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the per- vertex texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
@@ -82,12 +83,12 @@ class WorldObjectShader(BaseShader):
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        if isinstance(texture_view, Texture):
-            raise TypeError("texture_view is a Texture, but must be a TextureView")
-        elif not isinstance(texture_view, TextureView):
-            raise TypeError("texture_view must be a TextureView")
+        if not isinstance(texture, Texture):
+            raise TypeError("texture_view must be a Texture")
         elif not isinstance(texcoords, Buffer):
             raise ValueError("texture_view is present, but texcoords must be a buffer")
+        texture_view = make_tex_view(texture)
+        sampler = make_tex_sampler("nearest")
         # Dimensionality
         self["colormap_dim"] = view_dim = texture_view.view_dim
         if view_dim not in ("1d", "2d", "3d"):
@@ -112,12 +113,12 @@ class WorldObjectShader(BaseShader):
         self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
         # Return bindings
         return [
-            Binding("s_colormap", "sampler/filtering", texture_view, "FRAGMENT"),
+            Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
             Binding("s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"),
         ]
 
-    def define_img_colormap(self, texture_view):
+    def define_img_colormap(self, texture):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the image date.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
@@ -125,10 +126,10 @@ class WorldObjectShader(BaseShader):
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        if isinstance(texture_view, Texture):
-            raise TypeError("texture_view is a Texture, but must be a TextureView")
-        elif not isinstance(texture_view, TextureView):
-            raise TypeError("texture_view must be a TextureView")
+        if not isinstance(texture_view, Texture):
+            raise TypeError("texture_view must be a Texture")
+        texture_view = make_tex_view(texture)
+        sampler = make_tex_sampler("nearest")
         # Dimensionality
         self["colormap_dim"] = view_dim = texture_view.view_dim
         if texture_view.view_dim not in ("1d", "2d", "3d"):
@@ -150,7 +151,7 @@ class WorldObjectShader(BaseShader):
         self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
         # Return bindings
         return [
-            Binding("s_colormap", "sampler/filtering", texture_view, "FRAGMENT"),
+            Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
         ]
 
