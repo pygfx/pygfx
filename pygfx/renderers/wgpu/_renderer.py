@@ -516,7 +516,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             physical_viewport,
             clear_color,
         )
-        command_buffers += self._blender.perform_combine_pass(self._shared.device)
+        # command_buffers += self._blender.perform_combine_pass(self._shared.device)
         command_buffers
 
         # Collect commands and submit
@@ -551,7 +551,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         command_buffers = self._flusher.render(
             self._blender.color_view,
-            None,
+            self._blender.depth_view,
             raw_texture_view,
             self._target_tex_format,
             self._gamma_correction * self._gamma_correction_srgb,

@@ -107,7 +107,7 @@ class RenderFlusher:
     ):
         """Render the (internal) result of the renderer into a texture."""
         # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
-        assert src_depth_tex is None
+        # assert src_depth_tex is None
         assert isinstance(src_color_tex, wgpu.base.GPUTextureView)
         assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
 
@@ -116,7 +116,7 @@ class RenderFlusher:
         stored_hash = self._pipelines.get(dst_format, ["invalidhash"])[0]
         if hash != stored_hash:
             bind_group, render_pipeline = self._create_pipeline(
-                src_color_tex, dst_format
+                src_color_tex, src_depth_tex, dst_format
             )
             self._pipelines[dst_format] = hash, bind_group, render_pipeline
 
@@ -183,7 +183,7 @@ class RenderFlusher:
 
         return [command_encoder.finish()]
 
-    def _create_pipeline(self, src_texture_view, dst_format):
+    def _create_pipeline(self, src_texture_view, src_depth_texture_view, dst_format):
         device = self._device
 
         bindings_code = """
@@ -225,7 +225,10 @@ class RenderFlusher:
                     let dist = length(ref_index - vec2<f32>(index) - 0.5);
                     let t = dist / sigma;
                     let w = exp(-0.5 * t * t);
-                    val = val + textureLoad(r_color, index, 0) * w;
+                    let depth = textureLoad(r_color, index, 0).r;
+                    let depth2 = (1.0 - depth) * 200.0;
+                    //let depth2 = depth * 100.0;
+                    val = val + depth2 * w;
                     weight = weight + w;
                 }
             }
@@ -263,7 +266,7 @@ class RenderFlusher:
                     "size": self._uniform_data.nbytes,
                 },
             },
-            {"binding": 1, "resource": src_texture_view},
+            {"binding": 1, "resource": src_depth_texture_view},
         ]
 
         targets = [
