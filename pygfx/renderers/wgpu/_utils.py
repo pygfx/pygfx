@@ -191,3 +191,34 @@ def generate_uniform_struct(dtype_struct, structname):
     code += "\n        };"
 
     return code
+
+
+class GfxSampler:
+    """Simple wrapper for a GPUSampler. Should be considered read-only."""
+
+    def __init__(self, filter="nearest", address_mode="clamp"):
+        self.filter = filter
+        self.address_mode = address_mode
+
+
+class GfxTextureView:
+    """Simple wrapper for a GPUTextureView. Should be considered read-only."""
+
+    def __init__(self, texture, *, view_dim=None, aspect=None):
+        # Process view dim
+        native_view_dim = f"{texture.dim}d"
+        if view_dim is None:
+            view_dim = native_view_dim
+        elif isinstance(view_dim, int):
+            view_dim = f"{view_dim}d"
+
+        format = texture.format
+
+        # Is this a default view on the texture?
+        self.is_default_view = view_dim == native_view_dim and aspect is None
+
+        # Store attributes
+        self.texture = texture
+        self.format = format
+        self.view_dim = view_dim
+        self.aspect = aspect

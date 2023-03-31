@@ -1,8 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import to_texture_format
-from ._update import make_tex_view, make_tex_sampler
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ...objects import Image
 from ...materials import ImageBasicMaterial
 from ...resources import Texture
@@ -122,8 +121,8 @@ class ImageShader(BaseImageShader):
                 raise TypeError("Image.geometry.grid must be a Texture.")
             if geometry.grid.dim != 2:
                 raise TypeError("Image.geometry.grid must a 2D texture")
-            tex_view = make_tex_view(geometry.grid)
-            sampler = make_tex_sampler(material.interpolation)
+            tex_view = GfxTextureView(geometry.grid)
+            sampler = GfxSampler(material.interpolation, "clamp")
             self["colorspace"] = geometry.grid.colorspace
             # Sampling type
             fmt = to_texture_format(geometry.grid.format)

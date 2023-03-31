@@ -7,8 +7,7 @@ from . import (
     RenderMask,
     shaderlib,
 )
-from ._utils import to_texture_format
-from ._update import make_tex_view, make_tex_sampler
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ...objects import Mesh, InstancedMesh
 from ...materials import (
     MeshBasicMaterial,
@@ -18,7 +17,7 @@ from ...materials import (
     MeshSliceMaterial,
     MeshStandardMaterial,
 )
-from ...resources import Buffer
+from ...resources import Buffer, Texture
 from ...utils import normals_from_vertices
 
 
@@ -467,47 +466,47 @@ class MeshStandardShader(MeshShader):
 
             F = "FRAGMENT"  # noqa: N806
             sampling = "sampler/filtering"
-            sampler = make_tex_sampler("linear")
+            sampler = GfxSampler("linear", "repeat")
             texture = "texture/auto"
 
             if material.env_map is not None:
                 check_texture(material.env_map, 6)
-                view = make_tex_view(material.env_map, view_dir="cube")
+                view = GfxTextureView(material.env_map, view_dir="cube")
                 self["use_env_map"] = True
                 bindings.append(Binding("s_env_map", sampling, material.env_map, F))
                 bindings.append(Binding("t_env_map", view, material.env_map, F))
 
             if material.normal_map is not None:
                 check_texture(material.normal_map)
-                view = make_tex_view(material.normal_map, view_dir="2d")
+                view = GfxTextureView(material.normal_map, view_dir="2d")
                 self["use_normal_map"] = True
                 bindings.append(Binding("s_normal_map", sampling, sampler, F))
                 bindings.append(Binding("t_normal_map", texture, view, F))
 
             if material.roughness_map is not None:
                 check_texture(material.roughness_map)
-                view = make_tex_view(material.roughness_map, view_dir="2d")
+                view = GfxTextureView(material.roughness_map, view_dir="2d")
                 self["use_roughness_map"] = True
                 bindings.append(Binding("s_roughness_map", sampling, sampler, F))
                 bindings.append(Binding("t_roughness_map", texture, view, F))
 
             if material.metalness_map is not None:
                 check_texture(material.metalness_map)
-                view = make_tex_view(material.metalness_map, view_dir="2d")
+                view = GfxTextureView(material.metalness_map, view_dir="2d")
                 self["use_metalness_map"] = True
                 bindings.append(Binding("s_metalness_map", sampling, sampler, F))
                 bindings.append(Binding("t_metalness_map", texture, view, F))
 
             if material.emissive_map is not None:
                 check_texture(material.emissive_map)
-                view = make_tex_view(material.emissive_map, view_dir="2d")
+                view = GfxTextureView(material.emissive_map, view_dir="2d")
                 self["use_emissive_map"] = True
                 bindings.append(Binding("s_emissive_map", sampling, sampler, F))
                 bindings.append(Binding("t_emissive_map", texture, view, F))
 
             if material.ao_map is not None:
                 check_texture(material.ao_map)
-                view = make_tex_view(material.ao_map, view_dir="2d")
+                view = GfxTextureView(material.ao_map, view_dir="2d")
                 self["use_ao_map"] = True
                 bindings.append(Binding("s_ao_map", sampling, sampler, F))
                 bindings.append(Binding("t_ao_map", view, F))

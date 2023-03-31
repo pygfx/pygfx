@@ -1,8 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import to_texture_format
-from ._update import make_tex_view, make_tex_sampler
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ...objects import Background
 from ...materials import BackgroundMaterial, BackgroundImageMaterial
 from ...resources import Texture
@@ -25,13 +24,13 @@ class BackgroundShader(WorldObjectShader):
         if isinstance(material, BackgroundImageMaterial) and material.map is not None:
             if not isinstance(material.map, Texture):
                 raise TypeError("material.map must be a Texture")
-            sampler = make_tex_sampler("linear")
+            sampler = GfxSampler("linear", "clamp")
             # Select texture dimension
             if material.map.size[2] == 1:
-                tex_view = make_tex_view(material.map, view_dim="2d")
+                tex_view = GfxTextureView(material.map, view_dim="2d")
                 self["texture_dim"] = "2d"
             elif material.map.size[2] == 6:
-                tex_view = make_tex_view(material.map, view_dim="cube")
+                tex_view = GfxTextureView(material.map, view_dim="cube")
                 self["texture_dim"] = "cube"
             else:
                 raise ValueError(

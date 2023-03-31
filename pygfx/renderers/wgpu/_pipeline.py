@@ -10,8 +10,8 @@ import hashlib
 from ...resources import Buffer
 from ...utils import logger
 from ._shader import BaseShader
-from ._utils import to_texture_format
-from ._update import update_resource, ALTTEXFORMAT, make_tex_view
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
+from ._update import ensure_wgpu_object, update_resource, ALTTEXFORMAT
 from . import registry
 
 
@@ -62,7 +62,7 @@ class Binding:
         type: "buffer/subtype", "sampler/subtype", "texture/subtype", "storage_texture/subtype".
             The subtype depends on the type:
             BufferBindingType, SamplerBindingType, TextureSampleType, or StorageTextureAccess.
-        resource: the Buffer, GPUTextureView, or GPUSampler object.
+        resource: the Buffer, GfxTextureView, or GfxSampler object.
         visibility: wgpu.ShaderStage flag
         structname: the custom wgsl struct name, if any. otherwise will auto-generate.
 
@@ -119,8 +119,8 @@ class Binding:
                 },
             }
         elif self.type.startswith("sampler/"):
-            assert isinstance(resource, wgpu.GPUSampler)
-            binding = {"binding": slot, "resource": resource}
+            assert isinstance(resource, GfxSampler)
+            binding = {"binding": slot, "resource": ensure_wgpu_object(resource)}
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
@@ -129,8 +129,8 @@ class Binding:
                 },
             }
         elif self.type.startswith("texture/"):
-            assert isinstance(resource, wgpu.GPUTextureView)
-            binding = {"binding": slot, "resource": resource}
+            assert isinstance(resource, GfxTextureView)
+            binding = {"binding": slot, "resource": ensure_wgpu_object(resource)}
             dim = resource.view_dim
             dim = getattr(wgpu.TextureViewDimension, dim, dim)
             sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
@@ -164,8 +164,8 @@ class Binding:
                 },
             }
         elif self.type.startswith("storage_texture/"):
-            assert isinstance(resource, wgpu.GPUTextureView)
-            binding = {"binding": slot, "resource": resource}
+            assert isinstance(resource, GfxTextureView)
+            binding = {"binding": slot, "resource": ensure_wgpu_object(resource)}
             dim = resource.view_dim
             dim = getattr(wgpu.TextureViewDimension, dim, dim)
             fmt = to_texture_format(resource.format)
@@ -181,6 +181,7 @@ class Binding:
             }
 
         # shadow_texture's resource is internal wgpu.GPUTextureView
+        # todo: maybe change that to be consistent?
         elif self.type.startswith("shadow_texture/"):
             assert isinstance(resource, wgpu.GPUTextureView)
             binding = {"binding": slot, "resource": resource}
@@ -196,6 +197,7 @@ class Binding:
             }
 
         # shadow_sampler's resource is internal wgpu.GPUSampler
+        # todo: maybe make consistent?
         elif self.type.startswith("shadow_sampler/"):
             assert isinstance(resource, wgpu.GPUSampler)
             binding = {"binding": slot, "resource": resource}
@@ -484,19 +486,15 @@ class PipelineContainer:
                         else:
                             resource._wgpu_usage |= wgpu.BufferUsage.VERTEX
                 elif binding.type.startswith("sampler/"):
-                    assert isinstance(resource, wgpu.GPUSampler)
+                    assert isinstance(resource, GfxSampler)
                 elif binding.type.startswith("texture/"):
-                    assert isinstance(resource, wgpu.GPUTextureView)
-                    resource.gfx_texture._wgpu_usage |= (
-                        wgpu.TextureUsage.TEXTURE_BINDING
-                    )
-                    pipeline_resources.append(("texture", resource.gfx_texture))
+                    assert isinstance(resource, GfxTextureView)
+                    resource.texture._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
+                    pipeline_resources.append(("texture", resource.texture))
                 elif binding.type.startswith("storage_texture/"):
-                    assert isinstance(resource, wgpu.GPUTextureView)
-                    resource.gfx_texture._wgpu_usage |= (
-                        wgpu.TextureUsage.STORAGE_BINDING
-                    )
-                    pipeline_resources.append(("texture", resource.gfx_texture))
+                    assert isinstance(resource, GfxTextureView)
+                    resource.texture._wgpu_usage |= wgpu.TextureUsage.STORAGE_BINDING
+                    pipeline_resources.append(("texture", resource.texture))
                 else:
                     raise RuntimeError(
                         f"Unknown resource binding {binding.name} of type {binding.type}"

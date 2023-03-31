@@ -28,7 +28,7 @@ from ...utils import Color
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
-from ._update import update_buffer, update_texture, update_texture_view
+from ._update import update_buffer
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
@@ -547,15 +547,16 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.device.queue.submit(command_buffers)
 
         if needs_mipmaps:
-            # todo: fix this
+            # todo: restore this
             mipmaps_util = get_mipmaps_util(self.device)
-            texture_gpu = texture._wgpu_texture[1]
-            mipmaps_util.generate_mipmaps(
-                texture_gpu,
-                self._target_tex_format,
-                texture._mip_level_count,
-                texture_view.layer_range.start,
-            )
+            mipmaps_util
+            # texture_gpu = texture._wgpu_texture[1]
+            # mipmaps_util.generate_mipmaps(
+            #     texture_gpu,
+            #     self._target_tex_format,
+            #     texture._mip_level_count,
+            #     texture_view.layer_range.start,
+            # )
 
     def _render_recording(
         self,

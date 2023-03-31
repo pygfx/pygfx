@@ -4,7 +4,7 @@ Functions to update resources.
 
 import wgpu
 
-from ._utils import to_texture_format
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ._shared import Shared
 from ._mipmapsutil import get_mipmaps_util, get_mip_level_count
 
@@ -28,12 +28,8 @@ ALTTEXFORMAT = {
 def update_resource(device, resource, kind):
     if kind == "buffer":
         return update_buffer(device, resource)
-    elif kind == "texture_view":
-        return update_texture_view(device, resource)
     elif kind == "texture":
         return update_texture(device, resource)
-    elif kind == "sampler":
-        return update_sampler(device, resource)
     else:
         raise ValueError(f"Invalid resource kind: {kind}")
 
@@ -72,27 +68,6 @@ def update_buffer(device, resource):
             buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes
         )
         # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
-
-
-def update_texture_view(device, resource):
-    1 / 0
-    if resource._is_default_view:
-        texture_view = resource.texture._wgpu_texture[1].create_view()
-    else:
-        dim = resource._view_dim
-        fmt = to_texture_format(resource.format)
-        fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
-
-        texture_view = resource.texture._wgpu_texture[1].create_view(
-            format=fmt,
-            dimension=f"{dim}d" if isinstance(dim, int) else dim,
-            aspect=resource._aspect,
-            base_mip_level=resource.mip_range.start,
-            mip_level_count=len(resource.mip_range),
-            base_array_layer=resource.layer_range.start,
-            array_layer_count=len(resource.layer_range),
-        )
-    resource._wgpu_texture_view = resource.rev, texture_view
 
 
 def update_texture(device, resource):
@@ -179,89 +154,56 @@ def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_la
     )
 
 
-def update_sampler(device, resource):
-    1 / 0
-    # A sampler's info (and raw object) are stored on a TextureView
-    amodes = resource._address_mode.replace(",", " ").split() or ["clamp"]
-    while len(amodes) < 3:
-        amodes.append(amodes[-1])
-    filters = resource._filter.replace(",", " ").split() or ["nearest"]
-    while len(filters) < 3:
-        filters.append(filters[-1])
-    ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
-    sampler = device.create_sampler(
-        address_mode_u=ammap.get(amodes[0], amodes[0]),
-        address_mode_v=ammap.get(amodes[1], amodes[1]),
-        address_mode_w=ammap.get(amodes[2], amodes[2]),
-        mag_filter=filters[0],
-        min_filter=filters[1],
-        mipmap_filter=filters[2],
-        # lod_min_clamp -> use default 0
-        # lod_max_clamp -> use default inf
-        # compare -> only not-None for comparison samplers!
-    )
-    resource._wgpu_sampler = resource.rev, sampler
+def ensure_wgpu_object(resource):
+    wgpu_object = getattr(resource, "_wgpu_object", None)
+    if wgpu_object is not None:
+        return wgpu_object
 
-
-def make_tex_sampler(filter="nearest", address_mode="clamp"):
-    """Friendly version of device.create_sampler."""
     device = Shared.get_instance().device
-    # A sampler's info (and raw object) are stored on a TextureView
-    amodes = address_mode.replace(",", " ").split() or ["clamp"]
-    while len(amodes) < 3:
-        amodes.append(amodes[-1])
-    filters = filter.replace(",", " ").split() or ["nearest"]
-    while len(filters) < 3:
-        filters.append(filters[-1])
-    ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
-    return device.create_sampler(
-        address_mode_u=ammap.get(amodes[0], amodes[0]),
-        address_mode_v=ammap.get(amodes[1], amodes[1]),
-        address_mode_w=ammap.get(amodes[2], amodes[2]),
-        mag_filter=filters[0],
-        min_filter=filters[1],
-        mipmap_filter=filters[2],
-        # lod_min_clamp -> use default 0
-        # lod_max_clamp -> use default inf
-        # compare -> only not-None for comparison samplers!
-    )
 
+    # elif isinstance(resource, Buffer):
+    #
+    # elif isinstance(resource, Texture):
+    #
+    if isinstance(resource, GfxTextureView):
+        # todo: ensure_wgpu_object(resource.texture)
+        update_texture(device, resource.texture)
+        resource.texture._wgpu_object = resource.texture._wgpu_texture[1]
+        wgpu_texture = resource.texture._wgpu_object
 
-def make_tex_view(texture, *, view_dim=None, aspect=None):
-    # Get raw texture
-    device = Shared.get_instance().device
-    update_texture(device, texture)
-    raw_texture = texture._wgpu_texture[1]
+        if resource.is_default_view:
+            resource._wgpu_object = wgpu_texture.create_view()
+        else:
+            fmt = to_texture_format(resource.format)
+            fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
+            resource._wgpu_object = wgpu_texture.create_view(
+                format=fmt,
+                dimension=resource.view_dim,
+                aspect=resource.aspect,
+                base_mip_level=0,
+                mip_level_count=resource.texture._mip_level_count,  # ??
+                base_array_layer=0,
+                array_layer_count=resource.texture.size[2],
+            )
 
-    # Process view dim
-    native_view_dim = f"{texture.dim}d"
-    if isinstance(view_dim, int):
-        view_dim = f"{view_dim}d"
-    if view_dim == native_view_dim:
-        view_dim = None
-
-    if view_dim is None and aspect is None:
-        # Use all the defaults
-        view = raw_texture.create_view()
-        view.format = texture.format
-        view.view_dim = native_view_dim
-    else:
-        format = texture.format
-        fmt = to_texture_format(format)
-        fmt = ALTTEXFORMAT.get(fmt, [fmt])[0]
-
-        view = raw_texture.create_view(
-            format=fmt,
-            dimension=view_dim,
-            aspect=aspect,
-            base_mip_level=0,
-            mip_level_count=texture._mip_level_count,  # ??
-            base_array_layer=0,
-            array_layer_count=texture.size[2],
+    elif isinstance(resource, GfxSampler):
+        amodes = resource.address_mode.replace(",", " ").split() or ["clamp"]
+        while len(amodes) < 3:
+            amodes.append(amodes[-1])
+        filters = resource.filter.replace(",", " ").split() or ["nearest"]
+        while len(filters) < 3:
+            filters.append(filters[-1])
+        ammap = {"clamp": "clamp-to-edge", "mirror": "mirror-repeat"}
+        resource._wgpu_object = device.create_sampler(
+            address_mode_u=ammap.get(amodes[0], amodes[0]),
+            address_mode_v=ammap.get(amodes[1], amodes[1]),
+            address_mode_w=ammap.get(amodes[2], amodes[2]),
+            mag_filter=filters[0],
+            min_filter=filters[1],
+            mipmap_filter=filters[2],
+            # lod_min_clamp -> use default 0
+            # lod_max_clamp -> use default inf
+            # compare -> only not-None for comparison samplers!
         )
 
-        view.format = format
-        view.view_dim = view_dim
-
-    view.gfx_texture = texture
-    return view
+    return resource._wgpu_object

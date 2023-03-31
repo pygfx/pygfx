@@ -1,6 +1,5 @@
 from ...resources import Buffer, Texture
-from ._utils import to_vertex_format, to_texture_format
-from ._update import make_tex_sampler, make_tex_view
+from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureView
 from ._shaderbase import BaseShader
 
 
@@ -83,16 +82,17 @@ class WorldObjectShader(BaseShader):
         """
         from ._pipeline import Binding  # avoid recursive import
 
+        sampler = GfxSampler("linear", "repeat")
+
         if not isinstance(texture, Texture):
-            raise TypeError("texture_view must be a Texture")
+            raise TypeError("texture must be a Texture")
         elif not isinstance(texcoords, Buffer):
-            raise ValueError("texture_view is present, but texcoords must be a buffer")
-        texture_view = make_tex_view(texture)
-        sampler = make_tex_sampler("nearest")
+            raise ValueError("texture is present, but texcoords must be a buffer")
+        texture_view = GfxTextureView(texture)
         # Dimensionality
         self["colormap_dim"] = view_dim = texture_view.view_dim
         if view_dim not in ("1d", "2d", "3d"):
-            raise ValueError("Unexpected texture dimension")
+            raise ValueError(f"Unexpected texture dimension: '{view_dim}'")
         # Texture dim matches texcoords
         vert_fmt = to_vertex_format(texcoords.format)
         if view_dim == "1d" and "x" not in vert_fmt:
@@ -120,16 +120,17 @@ class WorldObjectShader(BaseShader):
 
     def define_img_colormap(self, texture):
         """Define the given texture view as the colormap to be used to
-        lookup the final color from the image date.
+        lookup the final color from the image data.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        if not isinstance(texture_view, Texture):
-            raise TypeError("texture_view must be a Texture")
-        texture_view = make_tex_view(texture)
-        sampler = make_tex_sampler("nearest")
+        sampler = GfxSampler("linear", "clamp")
+
+        if not isinstance(texture, Texture):
+            raise TypeError("texture must be a Texture")
+        texture_view = GfxTextureView(texture)
         # Dimensionality
         self["colormap_dim"] = view_dim = texture_view.view_dim
         if texture_view.view_dim not in ("1d", "2d", "3d"):
@@ -192,7 +193,7 @@ class WorldObjectShader(BaseShader):
                     let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
                 $$ endif
             $$ endif
-            // Depending on the number of channels we make grayscale, rgb, etc.
+            // Depending on the number of channels we makeGfxTextureView grayscale, rgb, etc.
             $$ if colormap_nchannels == 1
                 let color = vec4<f32>(color_value.rrr, 1.0);
             $$ elif colormap_nchannels == 2

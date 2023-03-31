@@ -1,8 +1,7 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import to_texture_format
-from ._update import make_tex_view, make_tex_sampler
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ...objects import Volume
 from ...materials import VolumeSliceMaterial, VolumeRayMaterial
 from ...resources import Texture
@@ -31,8 +30,8 @@ class BaseVolumeShader(WorldObjectShader):
         if geometry.dim != 3:
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
 
-        tex_view = make_tex_view(geometry.grid)
-        sampler = make_tex_sampler(material.interpolation)
+        tex_view = GfxTextureView(geometry.grid)
+        sampler = GfxSampler(material.interpolation, "clamp")
         self["colorspace"] = geometry.grid.colorspace
 
         # Sampling type
