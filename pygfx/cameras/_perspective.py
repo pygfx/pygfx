@@ -434,8 +434,10 @@ class PerspectiveCamera(Camera):
         if view_dir is None:
             rotation = self.transform.rotation
             view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
-
-        # la will convert to ndarray internally
+        elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
+            view_dir = tuple(view_dir)
+        else:
+            raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
         view_dir = la.vector_normalize(view_dir)
 
         # Set bounds, note that this implicitly sets width, height (and aspect)
@@ -453,7 +455,7 @@ class PerspectiveCamera(Camera):
         rotation = self.transform.rotation
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
-        new_position = position + offset
+        new_position = position + la.vector_apply_quaternion(offset, rotation)
         self.transform.position = new_position
 
 
