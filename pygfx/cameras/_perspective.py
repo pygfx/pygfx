@@ -397,7 +397,7 @@ class PerspectiveCamera(Camera):
         self._set_extent(extent)
 
     def show_rect(self, left, right, top, bottom, *, view_dir=None, up=(0, 1, 0)):
-        """Orientate the camera such that the given rectangle in is in view.
+        """Position the camera such that the given rectangle is in view.
 
         The rectangle represents a plane in world coordinates, centered
         at the origin of the world, and rotated to be orthogonal to the
@@ -432,12 +432,10 @@ class PerspectiveCamera(Camera):
 
         # Obtain view direction
         if view_dir is None:
-            rotation = self.transform.rotation
+            rotation = self.world_transform.rotation
             view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
-        elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
-            view_dir = tuple(view_dir)
-        else:
-            raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
+
+        # pylinalg will convert to numpy array or raise
         view_dir = la.vector_normalize(view_dir)
 
         # Set bounds, note that this implicitly sets width, height (and aspect)
@@ -446,17 +444,16 @@ class PerspectiveCamera(Camera):
         extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
         distance = fov_distance_factor(self.fov) * extent
-        camera_pos = (0, 0, 0) - view_dir * distance
-        self.transform.position = camera_pos
+        self.world_transform.position = (0, 0, 0) - view_dir * distance
         self.look_at((0, 0, 0))
 
         # Now we have a rotation that we can use to orient our rect
-        position = self.transform.position
-        rotation = self.transform.rotation
+        position = self.world_transform.position
+        rotation = self.world_transform.rotation
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
         new_position = position + la.vector_apply_quaternion(offset, rotation)
-        self.transform.position = new_position
+        self.world_transform.position = new_position
 
 
 def fov_distance_factor(fov):

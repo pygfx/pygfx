@@ -70,6 +70,8 @@ def test_camera_show_methods():
     assert camera.height == 400
     assert np.allclose(camera.transform.position, [0, 0, 400])
 
+    camera.transform.rotation = (0, 0, 0, 1)  # reset rotation
+
     # Show rectangle
     camera.show_rect(0, 500, 0, 600, view_dir=(0, 0, -1))
     assert camera.width == 500
