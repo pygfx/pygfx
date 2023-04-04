@@ -66,6 +66,6 @@ class ImageBasicMaterial(Material):
         return self._store.interpolation
 
     @interpolation.setter
-    def interpolation(self, interpolation):
-        assert interpolation in ("nearest", "linear")
-        self._store.interpolation = map
+    def interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.interpolation = value
