@@ -61,6 +61,7 @@ class PerspectiveCamera(Camera):
         super().__init__()
 
         self.fov = fov
+        self.up = np.array([0, 1, 0])
 
         # Set width and height. Note that if both width and height are given, it overrides aspect
         aspect = aspect or 1
@@ -454,6 +455,17 @@ class PerspectiveCamera(Camera):
         new_position = position + la.vector_apply_quaternion(offset, rotation)
         self.world_transform.position = new_position
 
+    @property
+    def frustum(self):
+        """Corner positions of the viewing frustum in world coordinates."""
+
+        world_corners = np.empty((2, 4, 3), dtype=float)
+        ndc_corners = np.array([(-1, -1), (-1, 1), (1, -1), (1, 1)])
+
+        la.vector_unproject(ndc_corners, self.projection_matrix, depth=self.near, out=world_corners[0])
+        la.vector_unproject(ndc_corners, self.projection_matrix, depth=self.far, out=world_corners[1])
+
+        return world_corners
 
 def fov_distance_factor(fov):
     # It's important that controller and camera use the same distance calculations
