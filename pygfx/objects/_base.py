@@ -121,6 +121,13 @@ class WorldObject(EventTarget, RootTrackable):
         id="i4",
     )
 
+    @classmethod
+    def _gfx_get_full_uniform_type(cls):
+        uniform_type = {}
+        for c in reversed(cls.mro()):
+            uniform_type.update(getattr(c, "uniform_type", {}))
+        return uniform_type
+
     _v = Vector3()
     _m = Matrix4()
     _q = Quaternion()
@@ -164,10 +171,8 @@ class WorldObject(EventTarget, RootTrackable):
         self._matrix_world = Matrix4()
         self._matrix_world_dirty = True
 
-        # Compose complete uniform type
-        self.uniform_type = {}
-        for cls in reversed(self.__class__.mro()):
-            self.uniform_type.update(getattr(cls, "uniform_type", {}))
+        # Compose complete uniform type, and buffer
+        self.uniform_type = self.__class__._gfx_get_full_uniform_type()
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         # Set id
