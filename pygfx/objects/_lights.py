@@ -170,7 +170,9 @@ class PointLight(Light):
     """
 
     uniform_type = Light.uniform_type | dict(
-        distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4"
+        distance="f4",
+        decay="f4",
+        light_view_proj_matrix="6*4x4xf4",
     )
 
     def __init__(
