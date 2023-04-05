@@ -28,11 +28,12 @@ from ...utils import Color
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
-from ._update import update_buffer
+from ._update import update_buffer, ensure_wgpu_object
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
 from ._mipmapsutil import get_mipmaps_util
+from ._utils import GfxTextureView
 
 logger = logging.getLogger("pygfx")
 
@@ -135,7 +136,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
-        if not isinstance(target, (Texture, wgpu.gui.WgpuCanvasBase)):
+        if not isinstance(target, (Texture, GfxTextureView, wgpu.gui.WgpuCanvasBase)):
             raise TypeError(
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
@@ -521,18 +522,29 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if flush:
             self.flush()
 
-    def flush(self):
+    def flush(self, target=None):
         """Render the result into the target. This method is called
         automatically unless you use ``.render(..., flush=False)``.
         """
 
-        # Note: we could, in theory, allow specifying a custom target here.
-        needs_mipmaps = False
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
-            raw_texture_view = self._canvas_context.get_current_texture()
+        need_mipmaps = False
+        if target is None:
+            target = self._target
+
+        # Get the wgpu texture view
+        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+            wgpu_tex_view = self._canvas_context.get_current_texture()
+        elif isinstance(target, Texture):
+            need_mipmaps = target.generate_mipmaps
+            wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
+            if wgpu_tex_view is None:
+                wgpu_tex_view = ensure_wgpu_object(GfxTextureView(target))
+                target._wgpu_default_view = wgpu_tex_view
+        elif isinstance(target, GfxTextureView):
+            need_mipmaps = target.texture.generate_mipmaps
+            wgpu_tex_view = ensure_wgpu_object(target)
         else:
-            raw_texture_view = self._target_texture_view
-            needs_mipmaps = self._target.generate_mipmaps
+            raise TypeError("Unexepcted target type.")
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
@@ -540,23 +552,29 @@ class WgpuRenderer(RootEventHandler, Renderer):
         command_buffers = self._flusher.render(
             self._blender.color_view,
             None,
-            raw_texture_view,
+            wgpu_tex_view,
             self._target_tex_format,
             self._gamma_correction * self._gamma_correction_srgb,
         )
         self.device.queue.submit(command_buffers)
 
-        if needs_mipmaps:
-            # todo: restore this
+        if need_mipmaps:
             mipmaps_util = get_mipmaps_util(self.device)
-            mipmaps_util
-            # texture_gpu = texture._wgpu_texture[1]
-            # mipmaps_util.generate_mipmaps(
-            #     texture_gpu,
-            #     self._target_tex_format,
-            #     texture._mip_level_count,
-            #     texture_view.layer_range.start,
-            # )
+            if isinstance(target, Texture):
+                mipmaps_util.generate_mipmaps(
+                    target._wgpu_texture[1],  # todo: use _wgpu_object
+                    target.format,
+                    target._mip_level_count,
+                    0,
+                )
+            elif isinstance(target, GfxTextureView):
+                # todo: use a convenience function instead of this util dance
+                mipmaps_util.generate_mipmaps(
+                    target.texture._wgpu_texture[1],
+                    target.format,
+                    target.texture._mip_level_count,
+                    target.layer_range[0],
+                )
 
     def _render_recording(
         self,

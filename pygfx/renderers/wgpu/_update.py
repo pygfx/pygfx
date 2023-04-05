@@ -143,8 +143,9 @@ def update_texture(device, resource):
             size,
         )
 
-        if needs_mipmaps:
-            generate_mipmaps(device, texture, fmt, mip_level_count, offset[2])
+    if needs_mipmaps:
+        for layer in range(resource.size[2]):
+            generate_mipmaps(device, texture, resource.format, mip_level_count, layer)
 
 
 def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_layer=0):
@@ -181,9 +182,9 @@ def ensure_wgpu_object(resource):
                 dimension=resource.view_dim,
                 aspect=resource.aspect,
                 base_mip_level=0,
-                mip_level_count=resource.texture._mip_level_count,  # ??
-                base_array_layer=0,
-                array_layer_count=resource.texture.size[2],
+                mip_level_count=resource.texture._mip_level_count,  # todo: ??
+                base_array_layer=resource.layer_range[0],
+                array_layer_count=(resource.layer_range[1] - resource.layer_range[0]),
             )
 
     elif isinstance(resource, GfxSampler):

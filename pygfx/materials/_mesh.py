@@ -683,7 +683,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
-            width, height, _ = map.texture.size
+            width, height, _ = map.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
         self.uniform_buffer.update_range(0, 1)

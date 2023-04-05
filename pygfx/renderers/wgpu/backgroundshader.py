@@ -24,7 +24,7 @@ class BackgroundShader(WorldObjectShader):
         if isinstance(material, BackgroundImageMaterial) and material.map is not None:
             if not isinstance(material.map, Texture):
                 raise TypeError("material.map must be a Texture")
-            sampler = GfxSampler("linear", "clamp")
+            sampler = GfxSampler("linear", "repeat")
             # Select texture dimension
             if material.map.size[2] == 1:
                 tex_view = GfxTextureView(material.map, view_dim="2d")

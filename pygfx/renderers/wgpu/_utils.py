@@ -204,21 +204,40 @@ class GfxSampler:
 class GfxTextureView:
     """Simple wrapper for a GPUTextureView. Should be considered read-only."""
 
-    def __init__(self, texture, *, view_dim=None, aspect=None):
-        # Process view dim
-        native_view_dim = f"{texture.dim}d"
+    def __init__(self, texture, *, view_dim=None, layer_range=None, aspect=None):
+        format = texture.format
+
+        # Check view_dim
+        default_view_dim = f"{texture.dim}d"
         if view_dim is None:
-            view_dim = native_view_dim
+            view_dim = default_view_dim
         elif isinstance(view_dim, int):
             view_dim = f"{view_dim}d"
 
-        format = texture.format
+        # Check layer_range (is half-open range)
+        default_layer_range = 0, texture.size[2]
+        if layer_range is None:
+            layer_range = default_layer_range
+        else:
+            assert isinstance(layer_range, tuple) and len(layer_range) == 2
+
+        # Check aspect
+        default_aspect = wgpu.TextureAspect.all
+        if aspect is None:
+            aspect = default_aspect
+        else:
+            assert aspect in wgpu.TextureAspect
 
         # Is this a default view on the texture?
-        self.is_default_view = view_dim == native_view_dim and aspect is None
+        self.is_default_view = (
+            view_dim == default_view_dim
+            and layer_range == default_layer_range
+            and aspect == default_aspect
+        )
 
         # Store attributes
         self.texture = texture
         self.format = format
         self.view_dim = view_dim
         self.aspect = aspect
+        self.layer_range = layer_range
