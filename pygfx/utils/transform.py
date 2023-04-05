@@ -47,7 +47,7 @@ class AffineBase:
         raise NotImplementedError()
 
     @cached
-    def inverse_matrix(self):
+    def inverse_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.matrix)
 
     @cached

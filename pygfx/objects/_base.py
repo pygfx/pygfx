@@ -152,7 +152,7 @@ class WorldObject(EventTarget, RootTrackable):
         world_matrix = self.uniform_buffer.data["world_transform"]
         world_matrix[:] = np.eye(4)
         self.world_transform = AffineTransform(
-            world_matrix, update_callback=lambda _: self.uniform_buffer.update_range()
+            world_matrix, update_callback=self.update_buffer_callback
         )
         self.transform = EmbeddedTransform(self.world_transform)
 
@@ -162,6 +162,12 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.cast_shadow = False
         self.receive_shadow = False
+
+    def update_buffer_callback(self, _):
+        self.uniform_buffer.data[
+            "world_transform_inv"
+        ] = self.world_transform.inverse_matrix
+        self.uniform_buffer.update_range()
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"

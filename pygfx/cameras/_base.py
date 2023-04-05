@@ -75,7 +75,7 @@ class NDCCamera(Camera):
     """
 
     def update_projection_matrix(self):
-        eye = np.array(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1).reshape(4, 4)
+        eye = np.eye(4)
         self.projection_matrix = eye
         self.projection_matrix_inverse = eye
 
