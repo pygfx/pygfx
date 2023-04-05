@@ -151,7 +151,9 @@ class WorldObject(EventTarget, RootTrackable):
 
         world_matrix = self.uniform_buffer.data["world_transform"]
         world_matrix[:] = np.eye(4)
-        self.world_transform = AffineTransform(world_matrix)
+        self.world_transform = AffineTransform(
+            world_matrix, update_callback=lambda _: self.uniform_buffer.update_range()
+        )
         self.transform = EmbeddedTransform(self.world_transform)
 
         # Set id

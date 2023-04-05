@@ -384,7 +384,6 @@ class PerspectiveCamera(Camera):
         view_dir = la.vector_normalize(view_dir)
 
         # Do the math ...
-
         view_pos = bsphere[:3]
         radius = bsphere[3]
         extent = radius * 2 * scale

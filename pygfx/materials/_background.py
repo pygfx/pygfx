@@ -1,5 +1,3 @@
-import numpy as np
-
 from ._base import Material
 from ..utils import Color
 

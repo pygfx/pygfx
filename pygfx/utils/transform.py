@@ -74,10 +74,18 @@ class AffineTransform(AffineBase):
     """An affine tranformation"""
 
     def __init__(
-        self, matrix=None, /, *, position=None, rotation=None, scale=None
+        self,
+        matrix=None,
+        /,
+        *,
+        position=None,
+        rotation=None,
+        scale=None,
+        update_callback=None,
     ) -> None:
         super().__init__()
         self.last_modified = perf_counter_ns()
+        self.update_callback = update_callback
 
         if matrix is None:
             matrix = np.eye(4, dtype=float)
@@ -95,6 +103,9 @@ class AffineTransform(AffineBase):
 
     def flag_update(self):
         self.last_modified = perf_counter_ns()
+
+        if self.update_callback is not None:
+            self.update_callback(self)
 
     @property
     def matrix(self):
