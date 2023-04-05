@@ -32,7 +32,8 @@ class PointsMaterial(Material):
 
     """
 
-    uniform_type = Material.uniform_type | dict(
+    uniform_type = dict(
+        Material.uniform_type,
         color="4xf4",
         size="f4",
     )
