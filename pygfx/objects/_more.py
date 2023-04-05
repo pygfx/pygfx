@@ -265,7 +265,7 @@ class Text(WorldObject):
 
     """
 
-    uniform_type = dict(
+    uniform_type = WorldObject.uniform_type | dict(
         rot_scale_transform="4x4xf4",
     )
 

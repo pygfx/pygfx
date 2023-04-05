@@ -33,7 +33,7 @@ class TextMaterial(Material):
 
     """
 
-    uniform_type = dict(
+    uniform_type = Material.uniform_type | dict(
         color="4xf4",
         weight_offset="f4",
         outline_thickness="f4",

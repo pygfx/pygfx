@@ -51,7 +51,7 @@ class MeshBasicMaterial(Material):
 
     """
 
-    uniform_type = dict(
+    uniform_type = Material.uniform_type | dict(
         color="4xf4",
         wireframe="f4",
     )
@@ -258,7 +258,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     # vertices. But we can also obtain it by calculating the face normal
     # using derivatives of the world pos.
 
-    uniform_type = dict(
+    uniform_type = MeshBasicMaterial.uniform_type | dict(
         emissive_color="4xf4",
         specular_color="4xf4",
         shininess="f4",
@@ -347,7 +347,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
 
     """
 
-    uniform_type = dict(
+    uniform_type = MeshBasicMaterial.uniform_type | dict(
         line_length="f4",
     )
 
@@ -390,7 +390,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
 
     """
 
-    uniform_type = dict(
+    uniform_type = MeshBasicMaterial.uniform_type | dict(
         plane="4xf4",
         thickness="f4",
     )
@@ -459,7 +459,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     # paper from Disney (by Brent Burley):
     # https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
-    uniform_type = dict(
+    uniform_type = MeshBasicMaterial.uniform_type | dict(
         emissive_color="4xf4",
         roughness="f4",
         metalness="f4",

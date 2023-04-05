@@ -35,10 +35,10 @@ class Environment(Trackable):
     pipeline.
     """
 
-    _ambient_uniform_type = AmbientLight._gfx_get_full_uniform_type()
-    _point_uniform_type = PointLight._gfx_get_full_uniform_type()
-    _dir_uniform_type = DirectionalLight._gfx_get_full_uniform_type()
-    _spot_uniform_type = SpotLight._gfx_get_full_uniform_type()
+    _ambient_uniform_type = AmbientLight.uniform_type
+    _point_uniform_type = PointLight.uniform_type
+    _dir_uniform_type = DirectionalLight.uniform_type
+    _spot_uniform_type = SpotLight.uniform_type
 
     def __init__(self, renderer_state_hash, scene_state_hash, device):
         super().__init__()

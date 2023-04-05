@@ -20,7 +20,7 @@ class VolumeBasicMaterial(Material):
 
     """
 
-    uniform_type = dict(
+    uniform_type = Material.uniform_type | dict(
         clim="2xf4",
     )
 
@@ -65,7 +65,7 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     This material is not affected by lights.
     """
 
-    uniform_type = dict(
+    uniform_type = VolumeBasicMaterial.uniform_type | dict(
         plane="4xf4",
     )
 

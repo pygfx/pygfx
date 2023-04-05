@@ -50,7 +50,7 @@ class Light(WorldObject):
     # Note that for lights and shadows, the uniform data is stored on the environment.
     # We can use the uniform_buffer as usual though. We'll just copy it over.
 
-    uniform_type = dict(
+    uniform_type = WorldObject.uniform_type | dict(
         color="4xf4",
         intensity="f4",
         cast_shadow="i4",
@@ -169,7 +169,9 @@ class PointLight(Light):
 
     """
 
-    uniform_type = dict(distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4")
+    uniform_type = Light.uniform_type | dict(
+        distance="f4", decay="f4", light_view_proj_matrix="6*4x4xf4"
+    )
 
     def __init__(
         self,
@@ -260,7 +262,7 @@ class DirectionalLight(Light):
 
     """
 
-    uniform_type = dict(
+    uniform_type = Light.uniform_type | dict(
         direction="4xf4",
     )
 
@@ -343,7 +345,7 @@ class SpotLight(Light):
 
     """
 
-    uniform_type = dict(
+    uniform_type = Light.uniform_type | dict(
         direction="4xf4",
         distance="f4",
         cone_cos="f4",

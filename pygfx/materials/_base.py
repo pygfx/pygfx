@@ -29,18 +29,9 @@ class Material(Trackable):
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
-    @classmethod
-    def _gfx_get_full_uniform_type(cls):
-        uniform_type = {}
-        for c in reversed(cls.mro()):
-            uniform_type.update(getattr(c, "uniform_type", {}))
-        return uniform_type
-
     def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
         super().__init__()
 
-        # Compose complete uniform type, and buffer
-        self.uniform_type = self.__class__._gfx_get_full_uniform_type()
         self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         self.opacity = opacity
