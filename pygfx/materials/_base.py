@@ -32,12 +32,6 @@ class Material(Trackable):
     def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
         super().__init__()
 
-        # Compose complete uniform type
-        self.uniform_type = {}
-        for cls in reversed(self.__class__.mro()):
-            self.uniform_type.update(getattr(cls, "uniform_type", {}))
-
-        # Create matching uniform buffer
         self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         self.opacity = opacity

@@ -25,6 +25,7 @@ class BackgroundMaterial(Material):
     """
 
     uniform_type = dict(
+        Material.uniform_type,
         color_bottom_left="4xf4",
         color_bottom_right="4xf4",
         color_top_left="4xf4",
