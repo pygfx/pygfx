@@ -144,17 +144,24 @@ class WorldObject(EventTarget, RootTrackable):
         self.render_mask = render_mask
 
         # Compose complete uniform type
+        # Note: buffer is a local variable to avoid a circular reference to self
+        # that would prevent garbage collection
         self.uniform_type = {}
         for cls in reversed(self.__class__.mro()):
             self.uniform_type.update(getattr(cls, "uniform_type", {}))
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        buffer = Buffer(array_from_shadertype(self.uniform_type))
 
-        world_matrix = self.uniform_buffer.data["world_transform"]
+        def buffer_callback(transform: AffineTransform):
+            buffer.data["world_transform_inv"] = transform.inverse_matrix
+            buffer.update_range()
+
+        world_matrix = buffer.data["world_transform"]
         world_matrix[:] = np.eye(4)
         self.world_transform = AffineTransform(
-            world_matrix, update_callback=self.update_buffer_callback
+            world_matrix, update_callback=buffer_callback
         )
         self.transform = EmbeddedTransform(self.world_transform)
+        self.uniform_buffer = buffer
 
         # Set id
         self._id = id_provider.claim_id(self)
@@ -162,12 +169,6 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.cast_shadow = False
         self.receive_shadow = False
-
-    def update_buffer_callback(self, _):
-        self.uniform_buffer.data[
-            "world_transform_inv"
-        ] = self.world_transform.inverse_matrix
-        self.uniform_buffer.update_range()
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"

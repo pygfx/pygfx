@@ -461,7 +461,6 @@ class PerspectiveCamera(Camera):
 
         world_corners = np.empty((2, 4, 3), dtype=float)
         ndc_corners = np.array([(-1, -1), (-1, 1), (1, -1), (1, 1)])
-
         la.vector_unproject(ndc_corners, self.projection_matrix, depth=self.near, out=world_corners[0])
         la.vector_unproject(ndc_corners, self.projection_matrix, depth=self.far, out=world_corners[1])
 
