@@ -27,7 +27,7 @@ class BaseVolumeShader(WorldObjectShader):
             raise ValueError("Volume.geometry must have a grid (texture).")
         if not isinstance(geometry.grid, Texture):
             raise TypeError("Volume.geometry.grid must be a Texture")
-        if geometry.dim != 3:
+        if geometry.grid.dim != 3:
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
 
         tex_view = GfxTextureView(geometry.grid)

@@ -13,7 +13,7 @@ class VolumeBasicMaterial(Material):
         The colormap to turn the voxel values into their final color.
     interpolation : str
         The method to interpolate the image data. Either 'nearest' or 'linear'.
-        Default 'nearest'.
+        Default 'linear'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -24,11 +24,14 @@ class VolumeBasicMaterial(Material):
         clim="2xf4",
     )
 
-    def __init__(self, clim=None, map=None, interpolation="nearest", **kwargs):
+    def __init__(self, clim=None, map=None, interpolation="linear", **kwargs):
         super().__init__(**kwargs)
         self.map = map
         self.clim = clim
-        interpolation = interpolation
+        # Note: the default volume interpolation is 'linear' while it's nearest
+        # for images. The ability to spot the individual voxels simply results in
+        # poor visual quality.
+        self.interpolation = interpolation
 
     @property
     def map(self):
