@@ -25,7 +25,11 @@ class Controller:
     damping: float
         The amount of motion damping. Zero is no damping, 10 a lot. Default 4.
     auto_update: bool
-        Whether the controller requests a new draw when the camera has changed.
+        When True (default), the controller is pretty much plug-and-play.
+        For more control, it can be set to False. The controller will
+        then not update the cameras automatically, and will not request
+        new draws. You will then need to periodically call ``tick()``, and
+        use the return value (a camera state dict).
     register_events: Renderer or Viewport
         If given and not None, will call ``.register_events()``.
 
@@ -183,6 +187,44 @@ class Controller:
             "before_render",
         )
 
+    def tick(self):
+        """Should be called periodically to keep the camera up to date.
+
+        If ``auto_update`` is True, this is done automatically. Returns
+        a dict with the new camera state, or None if there are no
+        running actions.
+        """
+
+        if not self._actions:
+            return None
+
+        # Get elapsed time since last frame
+        now = perf_counter()
+        elapsed_time = now - self._last_tick_time
+        self._last_tick_time = now
+        # Determine damping/smoothing factor to update action values.
+        # In the formula below the mul with elapsed_time is equivalent
+        # to a division by fps. The mul with 50 is just so typical
+        # values for damping lay between 0..10 :)
+        factor = 1
+        if self.damping > 0:
+            factor = min(1, 50 * elapsed_time / self.damping)
+
+        to_pop = []
+        for key, action in self._actions.items():
+            if action.mode == "repeat" and not action.done:
+                action.increase_target(elapsed_time)
+            action.tick(factor)
+            if action.is_at_target and action.done:
+                to_pop.append(key)
+            self._apply_action(action)
+
+        # Remove actions that are done
+        for key in to_pop:
+            self._actions.pop(key)
+
+        return self._update_cameras()
+
     def _get_target_vec(self, camera_state, **kwargs):
         """Method used by the controler implementations to determine the "target"."""
         rotation = kwargs.get("rotation", camera_state["rotation"])
@@ -223,9 +265,12 @@ class Controller:
         self._last_cam_state.update(new_state)
 
     def _update_cameras(self):
-        """Update the cameras using the internally stored state."""
+        """Update the cameras using the internally stored state. Should only
+        be called by code that knows that internally stored state is valid.
+        """
         for camera in self._cameras:
             camera.set_state(self._last_cam_state)
+        return self._last_cam_state
 
     def add_default_event_handlers(self, *args):
         raise DeprecationWarning(
@@ -255,7 +300,7 @@ class Controller:
             # Do a tick, updating all actions, and using them to update the camera state.
             # Note that tick() removes actions that are done and have reached the target.
             if self._actions:
-                self._handle_tick()
+                self.tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
             # Start a drag, or an action with mode push/peak/repeat
@@ -313,36 +358,6 @@ class Controller:
 
         if need_update and self.auto_update:
             viewport.renderer.request_draw()
-
-    def _handle_tick(self):
-        """Should be called once before each draw."""
-
-        # Get elapsed time since last frame
-        now = perf_counter()
-        elapsed_time = now - self._last_tick_time
-        self._last_tick_time = now
-        # Determine damping/smoothing factor to update action values.
-        # In the formula below the mul with elapsed_time is equivalent
-        # to a division by fps. The mul with 50 is just so typical
-        # values for damping lay between 0..10 :)
-        factor = 1
-        if self.damping > 0:
-            factor = min(1, 50 * elapsed_time / self.damping)
-
-        to_pop = []
-        for key, action in self._actions.items():
-            if action.mode == "repeat" and not action.done:
-                action.increase_target(elapsed_time)
-            action.tick(factor)
-            if action.is_at_target and action.done:
-                to_pop.append(key)
-            self._apply_action(action)
-
-        # Remove actions that are done
-        for key in to_pop:
-            self._actions.pop(key)
-
-        self._update_cameras()
 
     def _handle_button_down(self, key, action_tuple, viewport):
         """Common code to handle key/mouse button presses."""

@@ -37,6 +37,10 @@ class PanZoomController(Controller):
         # to the viewport. If all events were adjusted to the viewport
         # than code like this would not have to care ...
 
+        # Note how we return the result of _update_cameras when not animating.
+        # If auto_update is False, _update_cameras will do nothing. The return value
+        # is the camera state, which the calling code can then process further.
+
         if animate:
             action_tuple = ("pan", "push", (1.0, 1.0))
             action = self._create_action(None, action_tuple, (0.0, 0.0), None, rect)
@@ -45,7 +49,7 @@ class PanZoomController(Controller):
         elif self._cameras:
             vecx, vecy = self._get_camera_vecs(rect)
             self._update_pan(delta, vecx=vecx, vecy=vecy)
-            self._update_cameras()
+            return self._update_cameras()
 
     def _update_pan(self, delta, *, vecx, vecy):
         # These update methods all accept one positional arg: the delta.
@@ -86,7 +90,7 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_zoom(delta)
-            self._update_cameras()
+            return self._update_cameras()
 
     def _update_zoom(self, delta):
         if isinstance(delta, (int, float)):
@@ -112,7 +116,7 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_zoom_to_point(delta, screen_pos=pos, rect=rect)
-            self._update_cameras()
+            return self._update_cameras()
 
     def _update_zoom_to_point(self, delta, *, screen_pos, rect):
         if isinstance(delta, tuple) and len(delta) == 2:
@@ -188,7 +192,7 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_quickzoom(delta)
-            self._update_cameras()
+            return self._update_cameras()
 
     def _update_quickzoom(self, delta):
         assert isinstance(delta, (int, float))
@@ -210,7 +214,7 @@ class PanZoomController(Controller):
             action.done = True
         elif self._cameras:
             self._update_fov(delta)
-            self._update_cameras()
+            return self._update_cameras()
 
     def _update_fov(self, delta: float):
         fov_range = self._cameras[0]._fov_range

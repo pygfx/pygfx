@@ -61,7 +61,7 @@ class OrbitController(PanZoomController):
             action.done = True
         elif self._cameras:
             self._update_rotate(delta)
-            self._update_cameras()
+            return self._update_cameras()
 
     def _update_rotate(self, delta):
         assert isinstance(delta, tuple) and len(delta) == 2
