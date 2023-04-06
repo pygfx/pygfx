@@ -236,6 +236,11 @@ class Texture(Resource):
             sub_arr = np.concatenate([sub_arr, pixel_padding * padding], -1)
         return memoryview(np.ascontiguousarray(sub_arr))
 
+    def get_view(self, *args, **kwargs):
+        raise DeprecationWarning(
+            "Texture.get_view() is removed, TextureView is no longer public API: just use plain textures."
+        )
+
 
 def format_from_memoryview(mem, size):
     formatmap = {
