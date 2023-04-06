@@ -88,7 +88,9 @@ class MeshShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         if self["color_mode"] == "map":
             bindings.extend(
-                self.define_vertex_colormap(material.map, geometry.texcoords)
+                self.define_vertex_colormap(
+                    material.map, geometry.texcoords, material.map_interpolation
+                )
             )
 
         # Define shader code for binding
@@ -466,7 +468,7 @@ class MeshStandardShader(MeshShader):
 
             F = "FRAGMENT"  # noqa: N806
             sampling = "sampler/filtering"
-            sampler = GfxSampler("linear", "repeat")
+            sampler = GfxSampler(material.map_interpolation, "repeat")
             texturing = "texture/auto"
 
             if material.env_map is not None:

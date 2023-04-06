@@ -45,7 +45,9 @@ class PointsShader(WorldObjectShader):
         elif material.map is not None:
             self["color_mode"] = "map"
             bindings.extend(
-                self.define_vertex_colormap(material.map, geometry.texcoords)
+                self.define_vertex_colormap(
+                    material.map, geometry.texcoords, material.map_interpolation
+                )
             )
 
         self["shape"] = "circle"

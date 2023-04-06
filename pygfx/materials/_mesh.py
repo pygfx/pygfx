@@ -19,6 +19,8 @@ class MeshBasicMaterial(Material):
         Whether to use the vertex colors provided in the geometry.
     map : Texture
         The texture map specifying the color at each texture coordinate. Optional.
+    map_interpolation: str
+        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     wireframe : bool
         If True, render geometry as a wireframe, i.e., only render edges.
     wireframe_thickness : int
@@ -59,6 +61,7 @@ class MeshBasicMaterial(Material):
         color="#fff",
         vertex_colors=False,
         map=None,
+        map_interpolation="linear",
         wireframe=False,
         wireframe_thickness=1,
         flat_shading=False,
@@ -70,6 +73,7 @@ class MeshBasicMaterial(Material):
         self.color = color
         self.vertex_colors = bool(vertex_colors)
         self.map = map
+        self.map_interpolation = map_interpolation
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
         self.flat_shading = flat_shading
@@ -133,6 +137,16 @@ class MeshBasicMaterial(Material):
     def map(self, map):
         assert map is None or isinstance(map, Texture)
         self._store.map = map
+
+    @property
+    def map_interpolation(self):
+        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        return self._store.map_interpolation
+
+    @map_interpolation.setter
+    def map_interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.map_interpolation = value
 
     @property
     def side(self):

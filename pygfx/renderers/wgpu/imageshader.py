@@ -144,7 +144,9 @@ class ImageShader(BaseImageShader):
 
         # If a colormap is applied ...
         if material.map is not None:
-            bindings.extend(self.define_img_colormap(material.map))
+            bindings.extend(
+                self.define_img_colormap(material.map, material.map_interpolation)
+            )
             self["colorspace"] = material.map.colorspace
 
         bindings = {i: b for i, b in enumerate(bindings)}

@@ -24,6 +24,8 @@ class PointsMaterial(Material):
         sizes.
     map : Texture
         The texture map specifying the color for each texture coordinate.
+    map_interpolation: str
+        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -42,6 +44,7 @@ class PointsMaterial(Material):
         vertex_colors=False,
         vertex_sizes=False,
         map=None,
+        map_interpolation="linear",
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -49,6 +52,7 @@ class PointsMaterial(Material):
         self.color = color
         self._vertex_colors = bool(vertex_colors)
         self.map = map
+        self.map_interpolation = map_interpolation
         self.size = size
         self._vertex_sizes = bool(vertex_sizes)
 
@@ -121,6 +125,16 @@ class PointsMaterial(Material):
     def map(self, map):
         assert map is None or isinstance(map, Texture)
         self._map = map
+
+    @property
+    def map_interpolation(self):
+        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        return self._store.map_interpolation
+
+    @map_interpolation.setter
+    def map_interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.map_interpolation = value
 
     # todo: sizeAttenuation
 

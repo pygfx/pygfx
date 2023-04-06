@@ -17,6 +17,8 @@ class LineMaterial(Material):
         line. If True, color will be ignored.
     map : Texture
         The texture map specifying the color for each texture coordinate. Opional.
+    map_interpolation: str
+        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     aa : bool
         Whether or not the line should be anti-aliased. Aliasing gives prettier
         results, but may affect performance for very large datasets. Default
@@ -38,6 +40,7 @@ class LineMaterial(Material):
         thickness=2.0,
         vertex_colors=False,
         map=None,
+        map_interpolation="linear",
         aa=True,
         **kwargs
     ):
@@ -46,6 +49,7 @@ class LineMaterial(Material):
         self.color = color
         self.aa = aa
         self.map = map
+        self.map_interpolation = map_interpolation
         self.thickness = thickness
         self._vertex_colors = bool(vertex_colors)
 
@@ -120,6 +124,16 @@ class LineMaterial(Material):
     def map(self, map):
         assert map is None or isinstance(map, Texture)
         self._map = map
+
+    @property
+    def map_interpolation(self):
+        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        return self._store.map_interpolation
+
+    @map_interpolation.setter
+    def map_interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.map_interpolation = value
 
 
 class LineThinMaterial(LineMaterial):

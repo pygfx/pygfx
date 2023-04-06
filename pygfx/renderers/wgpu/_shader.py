@@ -74,7 +74,7 @@ class WorldObjectShader(BaseShader):
 
     # ----- Colormap stuff
 
-    def define_vertex_colormap(self, texture, texcoords):
+    def define_vertex_colormap(self, texture, texcoords, interpolation="linear"):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the per- vertex texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
@@ -82,7 +82,7 @@ class WorldObjectShader(BaseShader):
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        sampler = GfxSampler("linear", "repeat")
+        sampler = GfxSampler(interpolation, "repeat")
 
         if not isinstance(texture, Texture):
             raise TypeError("texture must be a Texture")
@@ -118,7 +118,7 @@ class WorldObjectShader(BaseShader):
             Binding("s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"),
         ]
 
-    def define_img_colormap(self, texture):
+    def define_img_colormap(self, texture, interpolation="linear"):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the image data.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
@@ -126,7 +126,7 @@ class WorldObjectShader(BaseShader):
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        sampler = GfxSampler("linear", "clamp")
+        sampler = GfxSampler(interpolation, "clamp")
 
         if not isinstance(texture, Texture):
             raise TypeError("texture must be a Texture")
