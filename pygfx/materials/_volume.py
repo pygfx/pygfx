@@ -22,6 +22,7 @@ class VolumeBasicMaterial(Material):
     """
 
     uniform_type = dict(
+        Material.uniform_type,
         clim="2xf4",
     )
 
@@ -99,6 +100,7 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     """
 
     uniform_type = dict(
+        VolumeBasicMaterial.uniform_type,
         plane="4xf4",
     )
 
