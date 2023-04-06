@@ -32,7 +32,7 @@ from ._update import update_buffer, ensure_wgpu_object
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
-from ._mipmapsutil import get_mipmaps_util
+from ._mipmapsutil import generate_texture_mipmaps
 from ._utils import GfxTextureView
 
 logger = logging.getLogger("pygfx")
@@ -560,22 +560,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         device.queue.submit(command_buffers)
 
         if need_mipmaps:
-            mipmaps_util = get_mipmaps_util(device)
-            if isinstance(target, Texture):
-                mipmaps_util.generate_mipmaps(
-                    target._wgpu_object,
-                    target.format,
-                    target._wgpu_mip_level_count,
-                    0,
-                )
-            elif isinstance(target, GfxTextureView):
-                # todo: use a convenience function instead of this util dance
-                mipmaps_util.generate_mipmaps(
-                    target.texture._wgpu_object,
-                    target.format,
-                    target.texture._wgpu_mip_level_count,
-                    target.layer_range[0],
-                )
+            generate_texture_mipmaps(device, target)
 
     def _render_recording(
         self,

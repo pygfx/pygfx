@@ -5,7 +5,7 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ._mipmapsutil import get_mipmaps_util, get_mip_level_count
+from ._mipmapsutil import get_mip_level_count, generate_texture_mipmaps
 from ...resources import Texture, Buffer
 
 
@@ -123,17 +123,7 @@ def update_texture(device, texture):
         )
 
     if texture.generate_mipmaps:
-        for layer in range(texture.size[2]):
-            generate_mipmaps(
-                device, wgpu_texture, texture.format, texture.mip_level_count, layer
-            )
-
-
-def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_layer=0):
-    mipmaps_util = get_mipmaps_util(device)
-    mipmaps_util.generate_mipmaps(
-        texture_gpu, format, mip_level_count, base_array_layer
-    )
+        generate_texture_mipmaps(device, texture)
 
 
 def ensure_wgpu_object(device, resource):
