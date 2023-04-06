@@ -667,12 +667,12 @@ class MeshStandardMaterial(MeshBasicMaterial):
 
     @property
     def env_map(self):
-        """The environment map (in srgb colorspace). This makes the
-        surroundings of the object be reflected on its surface. To
-        ensure a physically correct rendering, you should only add cube
-        environment maps which were prefilterd. We provide a built-in
-        mipmap generation process by setting the "generate_mipmaps"
-        property of texture to True. Default is None.
+        """A texture that provides the environment map (in srgb colorspace). Default None.
+
+        This makes the surroundings of the object be reflected on its
+        surface. To ensure a physically correct rendering, you should
+        use a prefilterd texture. We provide a built-in mipmap
+        generation process by setting the "Texture.generate_mipmaps".
         """
         return self._env_map
 

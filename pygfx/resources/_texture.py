@@ -4,32 +4,32 @@ from ._buffer import Resource, STRUCT_FORMAT_ALIASES
 
 
 class Texture(Resource):
-    """Container for textures.
+    """Texture object containing structured 1D, 2D or 3D data.
 
-    A base texture wrapper that can be implemented for numpy, ctypes arrays, or
-    any other kind of array.
+    Can be used to represent e.g. image data or colormaps. Can also
+    serve as a render target (for the renderer). Supports texture
+    stacks, cube textures, and mipmapping.
 
     Parameters:
         data : array, optional
             Array data of any type that supports the buffer-protocol, (e.g. a
             bytes or numpy array). If None, nbytes and nitems must be provided.
-            The data is copied if it's not float32 or not contiguous.
+            Can be any dtype except float64.
         dim : int
             The dimensionality of the array (1, 2 or 3).
         size : tuple, [3]
             The extent ``(width, height, depth)`` of the array. If None, it is
             derived from `dim` and the shape of the data. The texture can also
-            represent a stack of images by setting `dim=2` and `depth > 1`. Any
-            derived texture views must then have a `view_dim` of  either
-            'd2_array' or 'cube'.
+            represent a stack of images by setting `dim=2` and `depth > 1`,
+            or a cube image by setting `dim=2` and `depth==6`.
         format : str
             A format string describing the texture layout. If None, this is
-            automatically set from the data. This must be a pygfx format
+            derived from the data. This must be a pygfx format
             specifier, e.g. "3xf4", but can also be a format specific to the
-            render backend if necessary (e.g. from ``wgpu.VertexFormat``).
+            render backend (e.g. from ``wgpu.TextureFormat``).
         colorspace : str
             If this data is used as color, it is interpreted to be in this
-            colorspace. Can be "srgb" or "physical".
+            colorspace. Can be "srgb" or "physical". Default "srgb".
         generate_mipmaps : bool
             If True, automatically generates mipmaps when transfering data to
             the GPU.
@@ -91,18 +91,6 @@ class Texture(Resource):
         return self._rev
 
     @property
-    def colorspace(self):
-        """If this data is used as color, it is interpreted to be in this colorspace.
-        Can be "srgb" or "physical". Default "srgb".
-        """
-        return self._colorspace
-
-    @property
-    def generate_mipmaps(self):
-        """Whether to automatically generate mipmaps when uploading to the GPU."""
-        return self._generate_mipmaps
-
-    @property
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
         return self._store.dim
@@ -150,6 +138,18 @@ class Texture(Resource):
             return self._store.format
         else:
             raise ValueError("Texture has no data nor format.")
+
+    @property
+    def colorspace(self):
+        """If this data is used as color, it is interpreted to be in this colorspace.
+        Can be "srgb" or "physical". Default "srgb".
+        """
+        return self._colorspace
+
+    @property
+    def generate_mipmaps(self):
+        """Whether to automatically generate mipmaps when uploading to the GPU."""
+        return self._generate_mipmaps
 
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
@@ -273,11 +273,3 @@ def format_from_memoryview(mem, size):
         )
     format = f"{nchannels}x" + formatmap[format]
     return format.lstrip("1x")
-
-
-# mipmaps: every texture can have a certain number of mipmap levels. Each
-# next level is half the size of the previous level. I think we can design our
-# API to target level 0 by default and allow a way to upload data to other levels.
-# arrays: a d2_array view can be be created from a d2 texture with dept > 1
-# cube: a special kind3 of array texture, with six 2D textures.
-# cube_array: I suppose you'd have an array of 6xn textures in this case?
