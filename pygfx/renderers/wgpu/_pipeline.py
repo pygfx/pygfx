@@ -179,10 +179,8 @@ class Binding:
                     "view_dimension": dim,
                 },
             }
-
-        # shadow_texture's resource is internal wgpu.GPUTextureView
-        # todo: maybe change that to be consistent?
         elif self.type.startswith("shadow_texture/"):
+            # a shadow_texture's resource is wgpu.GPUTextureView
             assert isinstance(resource, wgpu.GPUTextureView)
             binding = {"binding": slot, "resource": resource}
 
@@ -195,10 +193,8 @@ class Binding:
                     "multisampled": False,
                 },
             }
-
-        # shadow_sampler's resource is internal wgpu.GPUSampler
-        # todo: maybe make consistent?
         elif self.type.startswith("shadow_sampler/"):
+            # a shadow_sampler's resource is wgpu.GPUSampler
             assert isinstance(resource, wgpu.GPUSampler)
             binding = {"binding": slot, "resource": resource}
 
