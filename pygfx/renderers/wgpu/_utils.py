@@ -199,6 +199,7 @@ class GfxSampler:
     def __init__(self, filter="nearest", address_mode="clamp"):
         self.filter = filter
         self.address_mode = address_mode
+        self._wgpu_object = None
 
 
 class GfxTextureView:
@@ -241,3 +242,4 @@ class GfxTextureView:
         self.view_dim = view_dim
         self.aspect = aspect
         self.layer_range = layer_range
+        self._wgpu_object = None

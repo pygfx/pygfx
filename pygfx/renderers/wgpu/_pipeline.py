@@ -91,7 +91,7 @@ class Binding:
 
         self.structname = structname
 
-    def get_bind_group_descriptors(self, slot):
+    def get_bind_group_descriptors(self, device, slot):
         """Get the descriptors (dicts) for creating a binding_descriptor
         and binding_layout_descriptor. A list of these descriptors are
         combined into a bind_group and bind_group_layout.
@@ -104,7 +104,7 @@ class Binding:
             binding = {
                 "binding": slot,
                 "resource": {
-                    "buffer": resource._wgpu_buffer[1],
+                    "buffer": ensure_wgpu_object(device, resource),
                     "offset": 0,
                     "size": resource.nbytes,
                 },
@@ -120,7 +120,10 @@ class Binding:
             }
         elif self.type.startswith("sampler/"):
             assert isinstance(resource, GfxSampler)
-            binding = {"binding": slot, "resource": ensure_wgpu_object(resource)}
+            binding = {
+                "binding": slot,
+                "resource": ensure_wgpu_object(device, resource),
+            }
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
@@ -130,7 +133,10 @@ class Binding:
             }
         elif self.type.startswith("texture/"):
             assert isinstance(resource, GfxTextureView)
-            binding = {"binding": slot, "resource": ensure_wgpu_object(resource)}
+            binding = {
+                "binding": slot,
+                "resource": ensure_wgpu_object(device, resource),
+            }
             dim = resource.view_dim
             dim = getattr(wgpu.TextureViewDimension, dim, dim)
             sample_type = getattr(wgpu.TextureSampleType, subtype, subtype)
@@ -165,7 +171,10 @@ class Binding:
             }
         elif self.type.startswith("storage_texture/"):
             assert isinstance(resource, GfxTextureView)
-            binding = {"binding": slot, "resource": ensure_wgpu_object(resource)}
+            binding = {
+                "binding": slot,
+                "resource": ensure_wgpu_object(device, resource),
+            }
             dim = resource.view_dim
             dim = getattr(wgpu.TextureViewDimension, dim, dim)
             fmt = to_texture_format(resource.format)
@@ -433,7 +442,7 @@ class PipelineContainer:
             for slot in sorted(bindings_dict.keys()):
                 binding = bindings_dict[slot]
                 binding_des, binding_layout_des = binding.get_bind_group_descriptors(
-                    slot
+                    device, slot
                 )
                 bg_descriptor.append(binding_des)
                 bg_layout_descriptor.append(binding_layout_des)

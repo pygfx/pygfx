@@ -131,9 +131,9 @@ class ShadowUtil:
 
                     if not hasattr(light.shadow, f"__shadow_bind_group_{i}"):
                         buffer = (
-                            light.shadow._gfx_matrix_buffer[i]._wgpu_buffer[1]
+                            light.shadow._gfx_matrix_buffer[i]._wgpu_object
                             if isinstance(light, PointLight)
-                            else light.shadow._gfx_matrix_buffer._wgpu_buffer[1]
+                            else light.shadow._gfx_matrix_buffer._wgpu_object
                         )
 
                         setattr(
@@ -171,7 +171,7 @@ class ShadowUtil:
 
                                 shadow_pass.set_vertex_buffer(
                                     0,
-                                    position_buffer._wgpu_buffer[1],
+                                    position_buffer._wgpu_object,
                                     position_buffer.vertex_byte_range[0],
                                     position_buffer.vertex_byte_range[1],
                                 )
@@ -186,9 +186,7 @@ class ShadowUtil:
                                             {
                                                 "binding": 0,
                                                 "resource": {
-                                                    "buffer": wobject.uniform_buffer._wgpu_buffer[
-                                                        1
-                                                    ],
+                                                    "buffer": wobject.uniform_buffer._wgpu_object,
                                                     "offset": 0,
                                                     "size": 64,
                                                 },
@@ -217,7 +215,7 @@ class ShadowUtil:
                                         "s", "u"
                                     )
                                     shadow_pass.set_index_buffer(
-                                        ibuffer._wgpu_buffer[1], index_format
+                                        ibuffer._wgpu_object, index_format
                                     )
                                     shadow_pass.draw_indexed(n, n_instance)
                                 else:

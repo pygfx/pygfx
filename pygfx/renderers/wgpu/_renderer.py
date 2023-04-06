@@ -527,6 +527,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         automatically unless you use ``.render(..., flush=False)``.
         """
 
+        device = self.device
         need_mipmaps = False
         if target is None:
             target = self._target
@@ -538,11 +539,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             need_mipmaps = target.generate_mipmaps
             wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
             if wgpu_tex_view is None:
-                wgpu_tex_view = ensure_wgpu_object(GfxTextureView(target))
+                wgpu_tex_view = ensure_wgpu_object(device, GfxTextureView(target))
                 target._wgpu_default_view = wgpu_tex_view
         elif isinstance(target, GfxTextureView):
             need_mipmaps = target.texture.generate_mipmaps
-            wgpu_tex_view = ensure_wgpu_object(target)
+            wgpu_tex_view = ensure_wgpu_object(device, target)
         else:
             raise TypeError("Unexepcted target type.")
 
@@ -556,23 +557,23 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._target_tex_format,
             self._gamma_correction * self._gamma_correction_srgb,
         )
-        self.device.queue.submit(command_buffers)
+        device.queue.submit(command_buffers)
 
         if need_mipmaps:
-            mipmaps_util = get_mipmaps_util(self.device)
+            mipmaps_util = get_mipmaps_util(device)
             if isinstance(target, Texture):
                 mipmaps_util.generate_mipmaps(
-                    target._wgpu_texture[1],  # todo: use _wgpu_object
+                    target._wgpu_object,
                     target.format,
-                    target._mip_level_count,
+                    target._wgpu_mip_level_count,
                     0,
                 )
             elif isinstance(target, GfxTextureView):
                 # todo: use a convenience function instead of this util dance
                 mipmaps_util.generate_mipmaps(
-                    target.texture._wgpu_texture[1],
+                    target.texture._wgpu_object,
                     target.format,
-                    target.texture._mip_level_count,
+                    target.texture._wgpu_mip_level_count,
                     target.layer_range[0],
                 )
 

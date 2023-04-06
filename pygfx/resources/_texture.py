@@ -53,11 +53,12 @@ class Texture(Resource):
         self._store.dim = int(dim)
         # The actual data (optional)
         self._data = None
-        self._pending_uploads = []  # list of (offset, size) tuples
-        self._mip_level_count = 1
+        self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
+        self._wgpu_object = None
         self._wgpu_usage = 0
+        self._wgpu_mip_level_count = 1
 
         self._store.format = None if format is None else str(format)
 
@@ -174,14 +175,14 @@ class Texture(Resource):
                 for y in range(size[1]):
                     offset2 = offset[0], y, z
                     size2 = size[0], 1, 1
-                    self._pending_uploads.append((offset2, size2))
+                    self._gfx_pending_uploads.append((offset2, size2))
         elif self.dim == 2:
             for z in range(size[2]):
                 offset2 = offset[0], offset[1], z
                 size2 = size[0], size[1], 1
-                self._pending_uploads.append((offset2, size2))
+                self._gfx_pending_uploads.append((offset2, size2))
         else:
-            self._pending_uploads.append((offset, size))
+            self._gfx_pending_uploads.append((offset, size))
         self._rev += 1
 
     def _size_from_data(self, data, dim, size):

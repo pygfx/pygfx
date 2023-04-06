@@ -5,8 +5,8 @@ Functions to update resources.
 import wgpu
 
 from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ._shared import Shared
 from ._mipmapsutil import get_mipmaps_util, get_mip_level_count
+from ...resources import Texture, Buffer
 
 
 # Alternative texture formats that we support by padding channels as needed.
@@ -26,6 +26,7 @@ ALTTEXFORMAT = {
 
 
 def update_resource(device, resource, kind):
+    """Update the contents of a buffer or texture."""
     if kind == "buffer":
         return update_buffer(device, resource)
     elif kind == "texture":
@@ -34,27 +35,24 @@ def update_resource(device, resource, kind):
         raise ValueError(f"Invalid resource kind: {kind}")
 
 
-def update_buffer(device, resource):
-    buffer = getattr(resource, "_wgpu_buffer", (-1, None))[1]
+def update_buffer(device, buffer):
+    # Get and reset pending uploads
+    pending_uploads = buffer._gfx_pending_uploads
+    buffer._gfx_pending_uploads = []
+    if pending_uploads:
+        buffer._wgpu_usage |= wgpu.BufferUsage.COPY_DST
 
-    # todo: dispose an old buffer? / reuse an old buffer?
+    wgpu_buffer = ensure_wgpu_object(device, buffer)
 
-    pending_uploads = resource._pending_uploads
-    resource._pending_uploads = []
-    bytes_per_item = resource.nbytes // resource.nitems
-
-    # Create buffer if needed
-    if buffer is None or buffer.size != resource.nbytes:
-        resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
-        buffer = device.create_buffer(size=resource.nbytes, usage=resource._wgpu_usage)
-
-    resource._wgpu_buffer = resource.rev, buffer
     if not pending_uploads:
         return
 
+    # Prepare for data uploads
+    bytes_per_item = buffer.nbytes // buffer.nitems
+
     # Upload any pending data
     for offset, size in pending_uploads:
-        subdata = resource._get_subdata(offset, size)
+        subdata = buffer._get_subdata(offset, size)
         # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
         # B: roll data in new buffer, copy from there to existing buffer
         # tmp_buffer = device.create_buffer_with_data(
@@ -65,57 +63,38 @@ def update_buffer(device, resource):
         # encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)
         # C: using queue. This may be sugar for B, but it may also be optimized.
         device.queue.write_buffer(
-            buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes
+            wgpu_buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes
         )
         # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
 
 
-def update_texture(device, resource):
-    texture = getattr(resource, "_wgpu_texture", (-1, None))[1]
-    pending_uploads = resource._pending_uploads
-    resource._pending_uploads = []
+def update_texture(device, texture):
+    # Get and reset pending uploads
+    pending_uploads = texture._gfx_pending_uploads
+    texture._gfx_pending_uploads = []
+    if pending_uploads:
+        texture._wgpu_usage |= wgpu.TextureUsage.COPY_DST
 
-    fmt = to_texture_format(resource.format)
+    wgpu_texture = ensure_wgpu_object(device, texture)
+
+    if not pending_uploads:
+        return
+
+    # Prepare for data uploads
+    fmt = to_texture_format(texture.format)
     pixel_padding = None
+    extra_bytes = 0
     if fmt in ALTTEXFORMAT:
-        fmt, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
-
-    needs_mipmaps = resource.generate_mipmaps
-
-    mip_level_count = get_mip_level_count(resource) if needs_mipmaps else 1
-
-    # Create texture if needed
-    if texture is None:  # todo: or needs to be replaced (e.g. resized)
-        resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
-
-        usage = resource._wgpu_usage
-        if needs_mipmaps is True:
-            # current mipmap generation requires RENDER_ATTACHMENT
-            usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
-            resource._mip_level_count = mip_level_count
-
-        texture = device.create_texture(
-            size=resource.size,
-            usage=usage,
-            dimension=f"{resource.dim}d",
-            format=fmt,
-            mip_level_count=mip_level_count,
-            sample_count=1,  # msaa?
-        )  # todo: let resource specify mip_level_count and sample_count
-
-    bytes_per_pixel = resource.nbytes // (
-        resource.size[0] * resource.size[1] * resource.size[2]
+        _, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
+    bytes_per_pixel = texture.nbytes // (
+        texture.size[0] * texture.size[1] * texture.size[2]
     )
     if pixel_padding is not None:
         bytes_per_pixel += extra_bytes
 
-    resource._wgpu_texture = resource.rev, texture
-    if not pending_uploads:
-        return
-
     # Upload any pending data
     for offset, size in pending_uploads:
-        subdata = resource._get_subdata(offset, size, pixel_padding)
+        subdata = texture._get_subdata(offset, size, pixel_padding)
         # B: using a temp buffer
         # tmp_buffer = device.create_buffer_with_data(data=subdata,
         #     usage=wgpu.BufferUsage.COPY_SRC,
@@ -137,15 +116,17 @@ def update_texture(device, resource):
         # C: using the queue, which may be doing B, but may also be optimized,
         #    and the bytes_per_row limitation does not apply here
         device.queue.write_texture(
-            {"texture": texture, "origin": offset, "mip_level": 0},
+            {"texture": wgpu_texture, "origin": offset, "mip_level": 0},
             subdata,
             {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
             size,
         )
 
-    if needs_mipmaps:
-        for layer in range(resource.size[2]):
-            generate_mipmaps(device, texture, resource.format, mip_level_count, layer)
+    if texture.generate_mipmaps:
+        for layer in range(texture.size[2]):
+            generate_mipmaps(
+                device, wgpu_texture, texture.format, texture.mip_level_count, layer
+            )
 
 
 def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_layer=0):
@@ -155,23 +136,37 @@ def generate_mipmaps(device, texture_gpu, format, mip_level_count, base_array_la
     )
 
 
-def ensure_wgpu_object(resource):
-    wgpu_object = getattr(resource, "_wgpu_object", None)
-    if wgpu_object is not None:
-        return wgpu_object
+def ensure_wgpu_object(device, resource):
+    """Make sure that the resource (buffer texture, sampler, textureView)
+    has a wgpu object attached to it. Returns the native wgpu object.
+    """
+    if resource._wgpu_object is not None:
+        return resource._wgpu_object
 
-    device = Shared.get_instance().device
+    if isinstance(resource, Buffer):
+        resource._wgpu_object = device.create_buffer(
+            size=resource.nbytes, usage=resource._wgpu_usage
+        )
 
-    # elif isinstance(resource, Buffer):
-    #
-    # elif isinstance(resource, Texture):
-    #
-    if isinstance(resource, GfxTextureView):
-        # todo: ensure_wgpu_object(resource.texture)
-        update_texture(device, resource.texture)
-        resource.texture._wgpu_object = resource.texture._wgpu_texture[1]
-        wgpu_texture = resource.texture._wgpu_object
+    elif isinstance(resource, Texture):
+        fmt = to_texture_format(resource.format)
+        if fmt in ALTTEXFORMAT:
+            fmt = ALTTEXFORMAT[fmt][0]
+        usage = resource._wgpu_usage
+        if resource.generate_mipmaps:
+            usage |= wgpu.TextureUsage.RENDER_ATTACHMENT  # mipmap needs this
+            resource._wgpu_mip_level_count = get_mip_level_count(resource)
+        resource._wgpu_object = device.create_texture(
+            size=resource.size,
+            usage=usage,
+            dimension=f"{resource.dim}d",
+            format=fmt,
+            mip_level_count=resource._wgpu_mip_level_count,
+            sample_count=1,  # could allow more to implement msaa
+        )
 
+    elif isinstance(resource, GfxTextureView):
+        wgpu_texture = ensure_wgpu_object(device, resource.texture)
         if resource.is_default_view:
             resource._wgpu_object = wgpu_texture.create_view()
         else:
@@ -182,7 +177,7 @@ def ensure_wgpu_object(resource):
                 dimension=resource.view_dim,
                 aspect=resource.aspect,
                 base_mip_level=0,
-                mip_level_count=resource.texture._mip_level_count,  # todo: ??
+                mip_level_count=resource.texture._wgpu_mip_level_count,
                 base_array_layer=resource.layer_range[0],
                 array_layer_count=(resource.layer_range[1] - resource.layer_range[0]),
             )
