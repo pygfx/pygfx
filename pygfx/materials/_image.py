@@ -21,6 +21,7 @@ class ImageBasicMaterial(Material):
     """
 
     uniform_type = dict(
+        Material.uniform_type,
         clim="2xf4",
     )
 

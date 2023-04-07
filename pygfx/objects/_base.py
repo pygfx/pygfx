@@ -146,9 +146,6 @@ class WorldObject(EventTarget, RootTrackable):
         # Compose complete uniform type
         # Note: buffer is a local variable to avoid a circular reference to self
         # that would prevent garbage collection
-        self.uniform_type = {}
-        for cls in reversed(self.__class__.mro()):
-            self.uniform_type.update(getattr(cls, "uniform_type", {}))
         buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         def buffer_callback(transform: AffineTransform):

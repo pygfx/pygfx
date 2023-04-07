@@ -18,6 +18,7 @@ from pygfx.renderers.wgpu.meshshader import WorldObjectShader
 
 class WireframeMaterial(gfx.Material):
     uniform_type = dict(
+        gfx.Material.uniform_type,
         thickness="f4",
     )
 
