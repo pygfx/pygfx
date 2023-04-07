@@ -482,6 +482,7 @@ class PerspectiveCamera(Camera):
 
         return world_corners
 
+
 def fov_distance_factor(fov):
     # It's important that controller and camera use the same distance calculations
     if fov > 0:
