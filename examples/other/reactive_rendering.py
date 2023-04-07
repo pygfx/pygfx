@@ -34,49 +34,56 @@ cube = gfx.Mesh(
 scene.add(cube)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 4
+camera.show_object(cube, scale=2)
 
-controller = gfx.OrbitController(camera.position.clone(), auto_update=False)
+controller = gfx.OrbitController(camera, auto_update=False)
 
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
 
-visual_state = reactive({
-    "camera": {
-        "position": None,
-        "rotation": None,
-        "zoom": None,
-    },
-    "cube": {
-        "color": None,
-    },
-})
+visual_state = reactive(
+    {
+        "camera": {k: None for k in camera.get_state().keys()},
+        "cube": {
+            "color": None,
+        },
+    }
+)
 
 
 def initialize_state():
     visual_state["cube"]["color"] = cube.material.color.hex
-    rotation, position, zoom = controller.get_view()
-    visual_state["camera"]["position"] = position.to_array()
-    visual_state["camera"]["rotation"] = rotation.to_array()
-    visual_state["camera"]["zoom"] = zoom
+    visual_state["camera"].update(camera.get_state())
 
 
 def process_inputs(event):
     if event.type == "pointer_down":
         # toggle between two colors
-        visual_state["cube"]["color"] = colors[0] if visual_state["cube"]["color"] == colors[1] else colors[1]
+        visual_state["cube"]["color"] = (
+            colors[0] if visual_state["cube"]["color"] == colors[1] else colors[1]
+        )
 
-    controller.handle_event(event, viewport, camera)
-    rotation, position, zoom = controller.get_view()
-    visual_state["camera"]["position"] = position.to_array()
-    visual_state["camera"]["rotation"] = rotation.to_array()
-    visual_state["camera"]["zoom"] = zoom
+    controller.handle_event(event, viewport)
+    controller_tick()
+
+
+def controller_tick():
+    """Tick the controller, and update our state if it had any actions in progress.
+
+    This function could be called on a timer. In this example we call
+    it at each event and also right before a draw (the controller can
+    be active without events due to inertia).
+
+    It is ok to call this often, because the call is quick when there
+    are no actions, and it takes the passed time into account.
+    """
+    camera_state = controller.tick()
+    if camera_state:
+        visual_state["camera"].update(camera_state)
 
 
 def update_scene():
-    camera.position = gfx.linalg.Vector3(*visual_state["camera"]["position"])
-    camera.rotation = gfx.linalg.Quaternion(*visual_state["camera"]["rotation"])
-    camera.zoom = visual_state["camera"]["zoom"]
+    camera.set_state(visual_state["camera"])
     cube.material.color = visual_state["cube"]["color"]
 
 
@@ -87,6 +94,7 @@ def render_frame():
     global frames
     frames += 1
     print(f"frames: {frames}")
+    controller_tick()
     renderer.render(scene, camera)
 
 
@@ -99,29 +107,28 @@ if __name__ == "__main__":
     # restore state from previous session
     # NOTE: ideally we would persist visual_state
     # and restore visual_state only,
-    # but the Controller class unfortunately makes this 
+    # but the Controller class unfortunately makes this
     # impossible without also redundantly tracking its state
     if state_file.exists():
         with state_file.open(mode="rb") as fh:
             state = pickle.load(fh)
-            controller.load_state(state=state["controller"])
-            rotation, position, zoom = controller.get_view()
-            visual_state["camera"]["position"] = position.to_array()
-            visual_state["camera"]["rotation"] = rotation.to_array()
-            visual_state["camera"]["zoom"] = zoom
-            visual_state["cube"]["color"] = state["cube"]
+            visual_state["camera"].update(state["camera"])
+            visual_state["cube"].update(state["cube"])
     else:
         initialize_state()
 
     # persist state at end of session
-    def persist_controller_state():
+    def persist_scene_state():
         with state_file.open(mode="wb") as fh:
-            pickle.dump({
-                "controller": controller.save_state(),
-                "cube": visual_state["cube"]["color"],
-            }, fh)
+            pickle.dump(
+                {
+                    "camera": visual_state["camera"],
+                    "cube": visual_state["cube"],
+                },
+                fh,
+            )
 
-    atexit.register(persist_controller_state)
+    atexit.register(persist_scene_state)
 
     # inputs trigger state changes
     renderer.add_event_handler(
@@ -142,7 +149,9 @@ if __name__ == "__main__":
     # watcher = watch(lambda: visual_state["cube"], update_cube, sync=True, deep=True)
     # additionally we use sync=True because we have not set up a scheduler and event loop integration
     # because it would complicate the example too much
-    watcher = watch(lambda: visual_state, process_state_change, sync=True, deep=True, immediate=True)
+    watcher = watch(
+        lambda: visual_state, process_state_change, sync=True, deep=True, immediate=True
+    )
 
     # configure draw calls
     canvas.request_draw(render_frame)

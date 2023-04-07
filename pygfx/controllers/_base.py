@@ -262,7 +262,12 @@ class Controller:
         """Set the internal camera state. Camera state can be updated multiple times
         before updating the cameras.
         """
-        self._last_cam_state.update(new_state)
+        # Update the state dict, turn arrays into tuples, because
+        # downstream code might expect that.
+        for k, v in new_state.items():
+            if isinstance(v, np.ndarray):
+                v = tuple(v)
+            self._last_cam_state[k] = v
 
     def _update_cameras(self):
         """Update the cameras using the internally stored state. Should only
