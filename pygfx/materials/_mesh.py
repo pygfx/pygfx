@@ -52,6 +52,7 @@ class MeshBasicMaterial(Material):
     """
 
     uniform_type = dict(
+        Material.uniform_type,
         color="4xf4",
         wireframe="f4",
     )
@@ -259,6 +260,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     # using derivatives of the world pos.
 
     uniform_type = dict(
+        MeshBasicMaterial.uniform_type,
         emissive_color="4xf4",
         specular_color="4xf4",
         shininess="f4",
@@ -348,6 +350,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
     """
 
     uniform_type = dict(
+        MeshBasicMaterial.uniform_type,
         line_length="f4",
     )
 
@@ -391,6 +394,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
     """
 
     uniform_type = dict(
+        MeshBasicMaterial.uniform_type,
         plane="4xf4",
         thickness="f4",
     )
@@ -460,6 +464,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     # https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
     uniform_type = dict(
+        MeshBasicMaterial.uniform_type,
         emissive_color="4xf4",
         roughness="f4",
         metalness="f4",

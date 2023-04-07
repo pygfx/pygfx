@@ -164,10 +164,6 @@ class WorldObject(EventTarget, RootTrackable):
         self._matrix_world = Matrix4()
         self._matrix_world_dirty = True
 
-        # Compose complete uniform type
-        self.uniform_type = {}
-        for cls in reversed(self.__class__.mro()):
-            self.uniform_type.update(getattr(cls, "uniform_type", {}))
         self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         # Set id
