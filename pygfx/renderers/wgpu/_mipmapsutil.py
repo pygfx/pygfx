@@ -7,7 +7,7 @@ from ._utils import GfxTextureView
 mipmap_source = """
 
     @group(0) @binding(0)
-    var t_img1 : texture_2d<f32>;
+    var t_img1 : texture_2d<TYPE>;
 
     @group(0) @binding(1)
     var t_img2 : texture_storage_2d<FORMAT, write>;
@@ -42,12 +42,12 @@ mipmap_source = """
                 let dist = length(ref_index - vec2<f32>(index) - 0.5);
                 let t = dist / sigma;
                 let w = exp(-0.5 * t * t);
-                val = val + textureLoad(t_img1, index, 0) * w;
+                let pixelVal = vec4<f32>(textureLoad(t_img1, index, 0));
+                val = val + pixelVal * w;
                 weight = weight + w;
             }
         }
-        let value = vec4<f32>(val.rgba / weight);
-        // Would have to cast value to e.g. vec<u32> for rgba8uint
+        let value = vec4<TYPE>(val.rgba / weight);
         let outCoord = vec2<i32>(i32(index2.x), i32(index2.y));
         textureStore(t_img2, outCoord, value);
     }
@@ -67,16 +67,20 @@ class MipmapsUtil:
         if pipeline is None:
             if format.endswith("srgb"):
                 raise RuntimeError("Cannot create mipmaps for srgb textures.")
-            elif not format.endswith(("norm", "float")):
-                raise RuntimeError(
-                    "Can currently only create mipmaps for *norm and *float texture formats."
-                )
 
-            shader = mipmap_source.replace("FORMAT", format)
+            type, textype = "f32", "float"
+            if format.endswith(("norm", "float")):
+                type, textype = "f32", "float"
+            elif format.endswith("sint"):
+                type, textype = "i32", "sint"
+            elif format.endswith("uint"):
+                type, textype = "u32", "uint"
+
+            shader = mipmap_source.replace("FORMAT", format).replace("TYPE", type)
             module = self.device.create_shader_module(code=shader)
 
             pipeline = self.device.create_compute_pipeline(
-                layout=self._create_pipeline_layout(format),
+                layout=self._create_pipeline_layout(format, textype),
                 compute={
                     "module": module,
                     "entry_point": "c_main",
@@ -87,7 +91,7 @@ class MipmapsUtil:
 
         return pipeline
 
-    def _create_pipeline_layout(self, format):
+    def _create_pipeline_layout(self, format, textype):
         bind_group_layouts = []
 
         entries = []
@@ -95,7 +99,7 @@ class MipmapsUtil:
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.COMPUTE,
-                "texture": {"sample_type": "float"},
+                "texture": {"sample_type": textype},
             }
         )
         entries.append(
