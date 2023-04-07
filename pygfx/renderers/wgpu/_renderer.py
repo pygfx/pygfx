@@ -42,13 +42,9 @@ def _get_sort_function(camera: Camera):
 
     def sort_func(wobject: WorldObject):
         z = la.vector_apply_matrix(
-            wobject.world_transform.position, proj_screen_matrix
+            wobject.world_transform.position, camera.camera_matrix
         )[2]
         return wobject.render_order, z
-
-    proj_screen_matrix = (
-        camera.projection_matrix @ camera.world_transform.inverse_matrix
-    )
 
     return sort_func
 
