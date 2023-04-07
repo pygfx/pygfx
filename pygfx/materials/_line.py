@@ -1,5 +1,5 @@
 from ._base import Material
-from ..resources import TextureView
+from ..resources import Texture
 from ..utils import unpack_bitfield, Color
 
 
@@ -15,10 +15,10 @@ class LineMaterial(Material):
     vertex_colors : bool
         Whether to use the vertex colors provided in the geometry to color the
         line. If True, color will be ignored.
-    map : TextureView
-        The texture map specifying the color for each texture coordinate. The
-        dimensionality of the map can be 1D, 2D or 3D, but should match the
-        number of columns in the geometry's texcoords.
+    map : Texture
+        The texture map specifying the color for each texture coordinate. Opional.
+    map_interpolation: str
+        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     aa : bool
         Whether or not the line should be anti-aliased. Aliasing gives prettier
         results, but may affect performance for very large datasets. Default
@@ -41,6 +41,7 @@ class LineMaterial(Material):
         thickness=2.0,
         vertex_colors=False,
         map=None,
+        map_interpolation="linear",
         aa=True,
         **kwargs
     ):
@@ -49,6 +50,7 @@ class LineMaterial(Material):
         self.color = color
         self.aa = aa
         self.map = map
+        self.map_interpolation = map_interpolation
         self.thickness = thickness
         self._vertex_colors = bool(vertex_colors)
 
@@ -113,15 +115,26 @@ class LineMaterial(Material):
     @property
     def map(self):
         """The texture map specifying the color for each texture coordinate.
-        The dimensionality of the map can be 1D, 2D or 3D, but should match the
-        number of columns in the geometry's texcoords.
+        Can be None. The dimensionality of the map can be 1D, 2D or 3D,
+        but should match the number of columns in the geometry's
+        texcoords.
         """
         return self._map
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, TextureView)
+        assert map is None or isinstance(map, Texture)
         self._map = map
+
+    @property
+    def map_interpolation(self):
+        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        return self._store.map_interpolation
+
+    @map_interpolation.setter
+    def map_interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.map_interpolation = value
 
 
 class LineThinMaterial(LineMaterial):

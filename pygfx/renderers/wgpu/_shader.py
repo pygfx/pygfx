@@ -1,5 +1,5 @@
-from ...resources import Buffer, Texture, TextureView
-from ._utils import to_vertex_format, to_texture_format
+from ...resources import Buffer, Texture
+from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureView
 from ._shaderbase import BaseShader
 
 
@@ -74,7 +74,7 @@ class WorldObjectShader(BaseShader):
 
     # ----- Colormap stuff
 
-    def define_vertex_colormap(self, texture_view, texcoords):
+    def define_vertex_colormap(self, texture, texcoords, interpolation="linear"):
         """Define the given texture view as the colormap to be used to
         lookup the final color from the per- vertex texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
@@ -82,16 +82,17 @@ class WorldObjectShader(BaseShader):
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        if isinstance(texture_view, Texture):
-            raise TypeError("texture_view is a Texture, but must be a TextureView")
-        elif not isinstance(texture_view, TextureView):
-            raise TypeError("texture_view must be a TextureView")
+        sampler = GfxSampler(interpolation, "repeat")
+
+        if not isinstance(texture, Texture):
+            raise TypeError("texture must be a Texture")
         elif not isinstance(texcoords, Buffer):
-            raise ValueError("texture_view is present, but texcoords must be a buffer")
+            raise ValueError("texture is present, but texcoords must be a buffer")
+        texture_view = GfxTextureView(texture)
         # Dimensionality
         self["colormap_dim"] = view_dim = texture_view.view_dim
         if view_dim not in ("1d", "2d", "3d"):
-            raise ValueError("Unexpected texture dimension")
+            raise ValueError(f"Unexpected texture dimension: '{view_dim}'")
         # Texture dim matches texcoords
         vert_fmt = to_vertex_format(texcoords.format)
         if view_dim == "1d" and "x" not in vert_fmt:
@@ -112,23 +113,24 @@ class WorldObjectShader(BaseShader):
         self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
         # Return bindings
         return [
-            Binding("s_colormap", "sampler/filtering", texture_view, "FRAGMENT"),
+            Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
             Binding("s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"),
         ]
 
-    def define_img_colormap(self, texture_view):
+    def define_img_colormap(self, texture, interpolation="linear"):
         """Define the given texture view as the colormap to be used to
-        lookup the final color from the image date.
+        lookup the final color from the image data.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
         from ._pipeline import Binding  # avoid recursive import
 
-        if isinstance(texture_view, Texture):
-            raise TypeError("texture_view is a Texture, but must be a TextureView")
-        elif not isinstance(texture_view, TextureView):
-            raise TypeError("texture_view must be a TextureView")
+        sampler = GfxSampler(interpolation, "clamp")
+
+        if not isinstance(texture, Texture):
+            raise TypeError("texture must be a Texture")
+        texture_view = GfxTextureView(texture)
         # Dimensionality
         self["colormap_dim"] = view_dim = texture_view.view_dim
         if texture_view.view_dim not in ("1d", "2d", "3d"):
@@ -150,7 +152,7 @@ class WorldObjectShader(BaseShader):
         self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
         # Return bindings
         return [
-            Binding("s_colormap", "sampler/filtering", texture_view, "FRAGMENT"),
+            Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
         ]
 
@@ -191,7 +193,7 @@ class WorldObjectShader(BaseShader):
                     let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
                 $$ endif
             $$ endif
-            // Depending on the number of channels we make grayscale, rgb, etc.
+            // Depending on the number of channels we makeGfxTextureView grayscale, rgb, etc.
             $$ if colormap_nchannels == 1
                 let color = vec4<f32>(color_value.rrr, 1.0);
             $$ elif colormap_nchannels == 2

@@ -51,7 +51,7 @@ class Geometry(Trackable):
                     dim = val.ndim
                     if dim > 2 and val.shape[-1] <= 4:
                         dim -= 1  # last array dim is probably (a subset of) rgba
-                    resource = Texture(val, dim=dim).get_view()
+                    resource = Texture(val, dim=dim)
                 else:
                     resource = Buffer(val)
 
@@ -127,12 +127,7 @@ class Geometry(Trackable):
             if self._aabb_rev == self.grid.rev:
                 return self._aabb
             # account for multi-channel image data
-            if hasattr(self.grid, "texture"):
-                # self.grid can be a TextureView instead of a Texture, so in that
-                # case, get the shape from the texture attribute
-                grid_shape = self.grid.texture.data.shape[: self.grid.texture.dim]
-            else:
-                grid_shape = self.grid.data.shape[: self.grid.dim]
+            grid_shape = self.grid.data.shape[: self.grid.dim]
             # create aabb in index/data space
             aabb = np.array([np.zeros_like(grid_shape), grid_shape[::-1]], dtype="f8")
             # convert to local image space by aligning

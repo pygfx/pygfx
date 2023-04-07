@@ -32,8 +32,8 @@ im = np.array(
 
 
 image = gfx.Image(
-    gfx.Geometry(grid=gfx.Texture(im, dim=2).get_view(filter="nearest")),
-    gfx.ImageBasicMaterial(clim=(0, 2)),
+    gfx.Geometry(grid=gfx.Texture(im, dim=2)),
+    gfx.ImageBasicMaterial(clim=(0, 2), interpolation="nearest"),
 )
 scene.add(image)
 

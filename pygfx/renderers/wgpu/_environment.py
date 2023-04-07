@@ -232,19 +232,22 @@ class Environment(Trackable):
         """Group the bindings into a wgpu bind group."""
         bg_descriptor = []
         bg_layout_descriptor = []
+        device = self.device
 
         for index, binding in enumerate(self.bindings):
             if binding.type.startswith("buffer/"):
                 binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-                update_buffer(self.device, binding.resource)
-            binding_des, binding_layout_des = binding.get_bind_group_descriptors(index)
+                update_buffer(device, binding.resource)
+            binding_des, binding_layout_des = binding.get_bind_group_descriptors(
+                device, index
+            )
             bg_descriptor.append(binding_des)
             bg_layout_descriptor.append(binding_layout_des)
 
-        bind_group_layout = self.device.create_bind_group_layout(
+        bind_group_layout = device.create_bind_group_layout(
             entries=bg_layout_descriptor
         )
-        bind_group = self.device.create_bind_group(
+        bind_group = device.create_bind_group(
             layout=bind_group_layout, entries=bg_descriptor
         )
         return bind_group_layout, bind_group

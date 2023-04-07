@@ -93,8 +93,8 @@ def animate():
         obj.fall_speed = np.random.uniform(1, 4)
 
     # Update the image
-    if atlas_viewer.material.map is not glyph_atlas.texture_view:
-        atlas_viewer.material.map = glyph_atlas.texture_view
+    if atlas_viewer.material.map is not glyph_atlas.texture:
+        atlas_viewer.material.map = glyph_atlas.texture
 
     # Render
     renderer.render(scene, camera)

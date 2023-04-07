@@ -27,8 +27,8 @@ The standardized names are:
 * ``colors``: Per-vertex colors. Must be NxM, with M 1-4 for gray,
     gray+alpha, rgb, rgba, respectively.
 * ``sizes``: Scalar size per-vertex.
-* ``grid``: A 2D or 3D Texture/TextureView that contains a regular grid of
-    data. I.e. for images and volumes.
+* ``grid``: A 2D or 3D Texture that contains a regular grid of data,
+  i.e. for images and volumes.
 
 .. rubric:: Basic Geometry
 .. autosummary::

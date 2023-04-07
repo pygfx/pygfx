@@ -31,7 +31,7 @@ background1 = gfx.Background(None, gfx.BackgroundMaterial((0, 0.5, 0, 1)))
 scene1.add(background1)
 
 im = iio.imread("imageio:bricks.jpg").astype(np.float32) / 255
-tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
+tex = gfx.Texture(im, dim=2)
 geometry1 = gfx.box_geometry(200, 200, 200)
 material1 = gfx.MeshPhongMaterial(map=tex, color=(1, 1, 0, 1.0))
 cube1 = gfx.Mesh(geometry1, material1)
@@ -49,7 +49,7 @@ renderer2 = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene2 = gfx.Scene()
 
 geometry2 = gfx.box_geometry(200, 200, 200)
-material2 = gfx.MeshPhongMaterial(map=texture1.get_view(filter="linear"))
+material2 = gfx.MeshPhongMaterial(map=texture1)
 cube2 = gfx.Mesh(geometry2, material2)
 scene2.add(cube2)
 

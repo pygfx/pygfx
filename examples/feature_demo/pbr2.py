@@ -45,12 +45,9 @@ env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 env_tex = gfx.Texture(
     env_img, dim=2, size=(cube_size, cube_size, 6), generate_mipmaps=True
 )
-env_view = env_tex.get_view(
-    view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
-)
 
 # Apply env map to skybox
-background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_view))
+background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 scene.add(background)
 
 # Now create spheres ...
@@ -76,7 +73,7 @@ while alpha <= 1.0:
             )
 
             if index % 2 != 0:
-                material.env_map = env_view
+                material.env_map = env_tex
 
             mesh = gfx.Mesh(geometry, material)
 

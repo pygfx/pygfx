@@ -1,10 +1,10 @@
 import wgpu  # only for flags/enums
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import to_texture_format
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ...objects import Volume
 from ...materials import VolumeSliceMaterial, VolumeRayMaterial
-from ...resources import Texture, TextureView
+from ...resources import Texture
 from .imageshader import sampled_value_to_color
 
 
@@ -25,15 +25,13 @@ class BaseVolumeShader(WorldObjectShader):
         # Collect texture and sampler
         if geometry.grid is None:
             raise ValueError("Volume.geometry must have a grid (texture).")
-        if isinstance(geometry.grid, TextureView):
-            view = geometry.grid
-        elif isinstance(geometry.grid, Texture):
-            view = geometry.grid.get_view(filter="linear")
-        else:
-            raise TypeError("Volume.geometry.grid must be a Texture or TextureView")
-        if view.view_dim.lower() != "3d":
+        if not isinstance(geometry.grid, Texture):
+            raise TypeError("Volume.geometry.grid must be a Texture")
+        if geometry.grid.dim != 3:
             raise TypeError("Volume.geometry.grid must a 3D texture (view)")
 
+        tex_view = GfxTextureView(geometry.grid)
+        sampler = GfxSampler(material.interpolation, "clamp")
         self["colorspace"] = geometry.grid.colorspace
 
         # Sampling type
@@ -53,12 +51,14 @@ class BaseVolumeShader(WorldObjectShader):
         # Channels
         self["img_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
 
-        bindings.append(Binding("s_img", "sampler/filtering", view, "FRAGMENT"))
-        bindings.append(Binding("t_img", "texture/auto", view, vertex_and_fragment))
+        bindings.append(Binding("s_img", "sampler/filtering", sampler, "FRAGMENT"))
+        bindings.append(Binding("t_img", "texture/auto", tex_view, vertex_and_fragment))
 
         # If a colormap is applied ...
         if material.map is not None:
-            bindings.extend(self.define_img_colormap(material.map))
+            bindings.extend(
+                self.define_img_colormap(material.map, material.map_interpolation)
+            )
             self["colorspace"] = material.map.colorspace
 
         bindings = {i: b for i, b in enumerate(bindings)}
