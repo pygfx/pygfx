@@ -133,10 +133,13 @@ if __name__ == "__main__":
     )
 
     # state changes trigger draw calls
-    # NOTE: in this example, we keep this simple by setting
-    # sync=True and haivng a single you could make this much more optimal by setting up
-    # more specific watchers so that only specific parts of the scene are updated
-    # in response to specific changes in the state
+    # NOTE: in this example, we keep this simple by
+    # always updating the whole scene based on all visual_state
+    # but of course you could make this much more optimal by setting up
+    # more specific watchers, like so (just one way to do it):
+    # watcher = watch(lambda: visual_state, lambda: canvas.request_draw, sync=True, deep=True)
+    # watcher = watch(lambda: visual_state["camera"], update_camera, sync=True, deep=True)
+    # watcher = watch(lambda: visual_state["cube"], update_cube, sync=True, deep=True)
     # but for this example we keep it simple
     watcher = watch(lambda: visual_state, process_state_change, sync=True, deep=True, immediate=True)
 
