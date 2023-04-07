@@ -707,7 +707,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
         else:
             if not map.generate_mipmaps:
                 logger.warning(
-                    "The env_map texture must have generate_mipmaps=True to avoid a fully metalic look."
+                    "The env_map texture must have generate_mipmaps=True in order for roughness to work."
                 )
             width, height, _ = map.size
             max_level = math.floor(math.log2(max(width, height))) + 1
