@@ -51,12 +51,9 @@ env_img.shape = 6, cube_size, cube_size, env_img.shape[-1]
 env_tex = gfx.Texture(
     env_img, dim=2, size=(cube_size, cube_size, 6), generate_mipmaps=True
 )
-env_view = env_tex.get_view(
-    view_dim="cube", layer_range=range(6), address_mode="repeat", filter="linear"
-)
 
 # Apply env map to skybox
-background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_view))
+background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 scene.add(background)
 
 # Load meshes, and apply env map
@@ -65,7 +62,7 @@ gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 meshes = gfx.load_scene(gltf_path)
 scene.add(*meshes)
 m = meshes[0]  # this example has just one mesh
-m.material.env_map = env_view
+m.material.env_map = env_tex
 
 # Add extra light more or less where the sun seems to be in the skybox
 scene.add(gfx.SpotLight(color="#444", position=(-500, 1000, -1000)))

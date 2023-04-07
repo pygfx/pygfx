@@ -15,7 +15,7 @@ scene = gfx.Scene()
 
 # %% add image
 
-im = iio.imread("imageio:astronaut.png")
+im = iio.imread("imageio:astronaut.png")[::2]
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
