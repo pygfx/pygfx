@@ -268,8 +268,9 @@ class Controller:
         """Update the cameras using the internally stored state. Should only
         be called by code that knows that internally stored state is valid.
         """
-        for camera in self._cameras:
-            camera.set_state(self._last_cam_state)
+        if self._auto_update:
+            for camera in self._cameras:
+                camera.set_state(self._last_cam_state)
         return self._last_cam_state
 
     def add_default_event_handlers(self, *args):
@@ -299,7 +300,7 @@ class Controller:
         if type == "before_render":
             # Do a tick, updating all actions, and using them to update the camera state.
             # Note that tick() removes actions that are done and have reached the target.
-            if self._actions:
+            if self._auto_update and self._actions:
                 self.tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
