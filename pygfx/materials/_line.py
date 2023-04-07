@@ -30,6 +30,7 @@ class LineMaterial(Material):
     """
 
     uniform_type = dict(
+        Material.uniform_type,
         color="4xf4",
         thickness="f4",
     )

@@ -36,6 +36,7 @@ class Triangle(gfx.WorldObject):
 
 class TriangleMaterial(gfx.Material):
     uniform_type = dict(
+        gfx.Material.uniform_type,
         color="4xf4",
     )
 
