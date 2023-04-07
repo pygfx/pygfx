@@ -457,12 +457,28 @@ class PerspectiveCamera(Camera):
 
     @property
     def frustum(self):
-        """Corner positions of the viewing frustum in world coordinates."""
+        """Corner positions of the viewing frustum in world space.
 
-        world_corners = np.empty((2, 4, 3), dtype=float)
-        ndc_corners = np.array([(-1, -1), (-1, 1), (1, -1), (1, 1)])
-        la.vector_unproject(ndc_corners, self.projection_matrix, depth=self.near, out=world_corners[0])
-        la.vector_unproject(ndc_corners, self.projection_matrix, depth=self.far, out=world_corners[1])
+        Returns
+        -------
+        frustum : ndarray, [2, 4, 3]
+            The coordinates of the frustum. The first axis corresponds to the
+            frustum's plane (near, far), the second to the corner within the
+            plane ((left, bottom), (right, bottom), (right, top), (left, top)),
+            and the third to the world position of that corner.
+
+        """
+
+        projection_matrix = self.projection_matrix
+
+        ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
+        depths = np.array((0, 1))[:, None]
+        local_corners = la.vector_unproject(
+            ndc_corners, projection_matrix, depth=depths
+        )
+        world_corners = la.vector_apply_matrix(
+            local_corners, self.world_transform.matrix
+        )
 
         return world_corners
 
