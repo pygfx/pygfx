@@ -122,6 +122,7 @@ def _run_for_camera(camera, near, far, check_halfway):
     if check_halfway:
         assert np.allclose(pos_world2, [0, 0, -0.5 * (near + far)])
 
+
 def test_frustum():
     unit_cube_corners = np.array(
         [

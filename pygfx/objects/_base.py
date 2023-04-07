@@ -147,6 +147,8 @@ class WorldObject(EventTarget, RootTrackable):
         # Note: buffer is a local variable to avoid a circular reference to self
         # that would prevent garbage collection
         buffer = Buffer(array_from_shadertype(self.uniform_type))
+        buffer.data["world_transform"] = np.eye(4)
+        buffer.data["world_transform_inv"] = np.eye(4)
 
         def buffer_callback(transform: AffineTransform):
             buffer.data["world_transform"] = transform.matrix.T
@@ -289,18 +291,32 @@ class WorldObject(EventTarget, RootTrackable):
         else:
             return self._parent()
 
-    def add(self, *objects, before=None):
-        """Adds object as child of this object. Any number of
-        objects may be added. Any current parent on an object passed
-        in here will be removed, since an object can have at most one
-        parent.
-        If ``before`` argument is given, then the items are inserted before the
-        given element.
+    def add(self, *objects, before=None, keep_world_matrix=False) -> None:
+        """Add child objects.
+
+        Any number of objects may be added. Any current parent on an object
+        passed in here will be removed, since an object can have at most one
+        parent. If ``before`` argument is given, then the items are inserted
+        before the given element.
+
+        Parameters
+        ----------
+        *objects : WorldObject
+            The world objects to add as children.
+        before : WorldObject
+            If not None, insert the objects before this child object.
+        keep_world_matrix : bool
+            If True, the child will keep it's world transform. It moves in the
+            scene graph but will visually remain in the same place. If False,
+            the child will keep it's parent transform.
 
         """
 
         obj: WorldObject
         for obj in objects:
+            if not keep_world_matrix:
+                transform_matrix = obj.transform.matrix
+
             if obj.parent is not None:
                 obj.parent.remove(obj)
 
@@ -311,6 +327,9 @@ class WorldObject(EventTarget, RootTrackable):
 
             obj._parent = weakref.ref(self)
             obj.transform.before = self.transform_sequence
+            if not keep_world_matrix:
+                obj.transform.matrix = transform_matrix
+
             self.children.insert(idx, obj)
 
     def remove(self, *objects):

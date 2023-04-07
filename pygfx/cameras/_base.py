@@ -56,11 +56,11 @@ class Camera(WorldObject):
         )
 
     @property
-    def view_matrix(self):
+    def view_matrix(self) -> np.ndarray:
         return self.world_transform.inverse_matrix
 
     @property
-    def camera_matrix(self):
+    def camera_matrix(self) -> np.ndarray:
         return self.projection_matrix @ self.view_matrix
 
 

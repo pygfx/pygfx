@@ -14,9 +14,13 @@ from ..utils import array_from_shadertype
 
 def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
-        return (light.parent.world_transform @ la.vector_make_homogeneous((0, 0, -1)))[
-            :-1
-        ]
+        transform = light.parent.world_transform
+        vector = la.vector_make_homogeneous((0, 0, -1))
+
+        result = transform @ vector
+        result = result[:-1] / result[-1]
+
+        return result
     else:
         return light.target.world_transform.position
 
@@ -567,14 +571,15 @@ class LightShadow:
         shadow_camera.transform.position = light.world_transform.position
         target = get_pos_from_camera_parent_or_target(light)
         shadow_camera.look_at(target)
-        shadow_camera.update_matrix_world()
 
-        transform = shadow_camera.projection_matrix @ shadow_camera.matrix_world_inverse
-
-        self._gfx_matrix_buffer.data["light_view_proj_matrix"].flat = transform.ravel()
+        self._gfx_matrix_buffer.data[
+            "light_view_proj_matrix"
+        ] = shadow_camera.camera_matrix.T
         self._gfx_matrix_buffer.update_range(0, 1)
 
-        light.uniform_buffer.data["light_view_proj_matrix"].flat = transform.ravel()
+        light.uniform_buffer.data[
+            "light_view_proj_matrix"
+        ] = shadow_camera.camera_matrix.T
 
 
 class DirectionalLightShadow(LightShadow):
@@ -668,13 +673,9 @@ class PointLightShadow(LightShadow):
             camera.look_at(camera.transform.position + self._cube_directions[i])
             camera.update_matrix_world()
 
-            screen_matrix = camera.projection_matrix @ camera.matrix_world_inverse
+            screen_matrix = camera.camera_matrix
 
-            light.uniform_buffer.data[f"light_view_proj_matrix"][
-                i
-            ].flat = screen_matrix.ravel()
+            light.uniform_buffer.data["light_view_proj_matrix"][i] = screen_matrix.T
 
-            self._gfx_matrix_buffer[i].data[
-                "light_view_proj_matrix"
-            ].flat = screen_matrix.ravel()
+            self._gfx_matrix_buffer[i].data["light_view_proj_matrix"] = screen_matrix.T
             self._gfx_matrix_buffer[i].update_range(0, 1)
