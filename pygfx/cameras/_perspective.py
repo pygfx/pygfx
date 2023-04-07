@@ -458,7 +458,7 @@ class PerspectiveCamera(Camera):
 
     @property
     def frustum(self):
-        """Corner positions of the viewing frustum in world coordinates.
+        """Corner positions of the viewing frustum in world space.
 
         Returns
         -------

@@ -144,3 +144,21 @@ def test_frustum():
     frustum_corners = camera.frustum
 
     assert np.allclose(frustum_corners, unit_cube_corners.reshape(2, 4, 3))
+
+    expected_corners = np.array(
+        [
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-2.0, -2.0, -2.0],
+            [2.0, -2.0, -2.0],
+            [2.0, 2.0, -2.0],
+            [-2.0, 2.0, -2.0],
+        ]
+    )
+
+    camera = gfx.PerspectiveCamera(fov=90.0, aspect=1, depth_range=(1, 2))
+    frustum_corners = camera.frustum
+
+    assert np.allclose(frustum_corners, expected_corners.reshape(2, 4, 3))
