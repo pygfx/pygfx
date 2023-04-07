@@ -40,7 +40,7 @@ env_static = gfx.Texture(
 # Create the dynamic env map
 
 env_dynamic = gfx.Texture(
-    dim=2, size=(512, 512, 6), format="rgba8unorm-srgb", generate_mipmaps=True
+    dim=2, size=(512, 512, 6), format="rgba8unorm", generate_mipmaps=True
 )
 
 cube_camera = CubeCamera(env_dynamic)

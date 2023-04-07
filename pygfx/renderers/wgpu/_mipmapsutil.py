@@ -5,38 +5,18 @@ from ._utils import GfxTextureView
 
 
 mipmap_source = """
-    struct VaryingsStruct {
-        @builtin( position ) position: vec4<f32>,
-        @location( 0 ) texcoord : vec2<f32>
-    };
 
     @group(0) @binding(0)
-    var t_img : texture_2d<f32>;
+    var t_img1 : texture_2d<f32>;
 
-    @vertex
-    fn v_main( @builtin( vertex_index ) vertexIndex : u32 ) -> VaryingsStruct {
-        var varyings : VaryingsStruct;
-        var positions = array< vec2<f32>, 4 >(
-            vec2<f32>( -1.0,  1.0 ),
-            vec2<f32>(  1.0,  1.0 ),
-            vec2<f32>( -1.0, -1.0 ),
-            vec2<f32>(  1.0, -1.0 )
-        );
-        var texcoords = array< vec2<f32>, 4 >(
-            vec2<f32>( 0.0, 0.0 ),
-            vec2<f32>( 1.0, 0.0 ),
-            vec2<f32>( 0.0, 1.0 ),
-            vec2<f32>( 1.0, 1.0 )
-        );
-        varyings.texcoord = texcoords[ vertexIndex ];
-        varyings.position = vec4<f32>( positions[ vertexIndex ], 0.0, 1.0 );
-        return varyings;
-    }
+    @group(0) @binding(1)
+    var t_img2 : texture_storage_2d<FORMAT, write>;
 
-    @fragment
-    fn f_main( @location(0) texcoord : vec2<f32> ) -> @location(0) vec4<f32> {
+    @compute
+    @workgroup_size(1)
+    fn c_main(@builtin(global_invocation_id) index2: vec3<u32>) {
 
-        let texSize = vec2<f32>(textureDimensions(t_img));
+        let texSize1 = vec2<f32>(textureDimensions(t_img1));
 
         // Determine smoothing settings.
         // Sigma 1.0 matches a factor 2 size reduction.
@@ -44,14 +24,11 @@ mipmap_source = """
         let sigma = 1.0;
         let support = 2;  // 2: 5x5 kernel, 3: 7x7 kernel
 
-        // The reference index is the subpixel index in the source texture that
-        // represents the location of this fragment.
-        let ref_index = texcoord * texSize;
-
         // For the sampling, we work with integer coords. Also use min/max for the edges.
+        let ref_index = vec2<f32>(f32(i32(index2.x) * 2), f32(i32(index2.y) * 2));
         let base_index = vec2<i32>(ref_index);
         let min_index = vec2<i32>(0, 0);
-        let max_index = vec2<i32>(texSize - 1.0);
+        let max_index = vec2<i32>(texSize1 - 1.0);
 
         // Convolve. Here we apply a Gaussian kernel, the weight is calculated
         // for each pixel individually based on the distance to the ref_index.
@@ -65,12 +42,14 @@ mipmap_source = """
                 let dist = length(ref_index - vec2<f32>(index) - 0.5);
                 let t = dist / sigma;
                 let w = exp(-0.5 * t * t);
-                val = val + textureLoad(t_img, index, 0) * w;
+                val = val + textureLoad(t_img1, index, 0) * w;
                 weight = weight + w;
             }
         }
-
-        return vec4<f32>(val.rgba / weight);
+        let value = vec4<f32>(val.rgba / weight);
+        // Would have to cast value to e.g. vec<u32> for rgba8uint
+        let outCoord = vec2<i32>(i32(index2.x), i32(index2.y));
+        textureStore(t_img2, outCoord, value);
     }
 """
 
@@ -82,27 +61,25 @@ class MipmapsUtil:
         # Cache pipelines for every texture format used.
         self.pipelines = {}
 
-        self.mipmap_shader_module = self.device.create_shader_module(code=mipmap_source)
-
-    def get_mipmap_pipeline(self, format) -> "wgpu.GPURenderPipeline":
+    def get_mipmap_pipeline(self, format):
         pipeline = self.pipelines.get(format, None)
 
         if pipeline is None:
-            pipeline = self.device.create_render_pipeline(
-                layout=self._create_pipeline_layout(),
-                vertex={
-                    "module": self.mipmap_shader_module,
-                    "entry_point": "v_main",
-                    "buffers": [],
-                },
-                fragment={
-                    "module": self.mipmap_shader_module,
-                    "entry_point": "f_main",
-                    "targets": [{"format": format}],
-                },
-                primitive={
-                    "topology": "triangle-strip",
-                    "strip_index_format": "uint32",
+            if format.endswith("srgb"):
+                raise RuntimeError("Cannot create mipmaps for srgb textures.")
+            elif not format.endswith(("norm", "float")):
+                raise RuntimeError(
+                    "Can currently only create mipmaps for *norm and *float texture formats."
+                )
+
+            shader = mipmap_source.replace("FORMAT", format)
+            module = self.device.create_shader_module(code=shader)
+
+            pipeline = self.device.create_compute_pipeline(
+                layout=self._create_pipeline_layout(format),
+                compute={
+                    "module": module,
+                    "entry_point": "c_main",
                 },
             )
 
@@ -110,15 +87,26 @@ class MipmapsUtil:
 
         return pipeline
 
-    def _create_pipeline_layout(self):
+    def _create_pipeline_layout(self, format):
         bind_group_layouts = []
 
         entries = []
         entries.append(
             {
                 "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": {"multisampled": False},
+                "visibility": wgpu.ShaderStage.COMPUTE,
+                "texture": {"sample_type": "float"},
+            }
+        )
+        entries.append(
+            {
+                "binding": 1,
+                "visibility": wgpu.ShaderStage.COMPUTE,
+                "storage_texture": {
+                    "access": "write-only",
+                    "view_dimension": "2d",
+                    "format": format,
+                },
             }
         )
 
@@ -141,6 +129,7 @@ class MipmapsUtil:
         command_encoder: "wgpu.GPUCommandEncoder" = self.device.create_command_encoder()
         bind_group_layout = pipeline.get_bind_group_layout(0)
 
+        dst_size = wgpu_texture.size[:2]
         src_view = wgpu_texture.create_view(
             base_mip_level=0,
             mip_level_count=1,
@@ -149,6 +138,8 @@ class MipmapsUtil:
         )
 
         for i in range(1, mip_level_count):
+            dst_size = dst_size[0] // 2, dst_size[1] // 2
+
             dst_view = wgpu_texture.create_view(
                 base_mip_level=i,
                 mip_level_count=1,
@@ -156,29 +147,19 @@ class MipmapsUtil:
                 base_array_layer=base_array_layer,
             )
 
-            pass_encoder: "wgpu.GPURenderPassEncoder" = (
-                command_encoder.begin_render_pass(
-                    color_attachments=[
-                        {
-                            "view": dst_view,
-                            "load_op": wgpu.LoadOp.clear,
-                            "store_op": wgpu.StoreOp.store,
-                            "clear_value": [0, 0, 0, 0],
-                        }
-                    ]
-                )
-            )
+            pass_encoder = command_encoder.begin_compute_pass()
 
             bind_group = self.device.create_bind_group(
                 layout=bind_group_layout,
                 entries=[
                     {"binding": 0, "resource": src_view},
+                    {"binding": 1, "resource": dst_view},
                 ],
             )
 
             pass_encoder.set_pipeline(pipeline)
             pass_encoder.set_bind_group(0, bind_group, [], 0, 99)
-            pass_encoder.draw(4, 1, 0, 0)
+            pass_encoder.dispatch_workgroups(dst_size[0], dst_size[1])
             pass_encoder.end()
 
             src_view = dst_view
