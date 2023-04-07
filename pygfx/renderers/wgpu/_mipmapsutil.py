@@ -4,40 +4,73 @@ from ...resources._texture import Texture
 from ._utils import GfxTextureView
 
 
-mipmap_vertex_source = """
-    struct VarysStruct {
-        @builtin( position ) Position: vec4<f32>,
-        @location( 0 ) vTex : vec2<f32>
+mipmap_source = """
+    struct VaryingsStruct {
+        @builtin( position ) position: vec4<f32>,
+        @location( 0 ) texcoord : vec2<f32>
     };
+
+    @group(0) @binding(0)
+    var t_img : texture_2d<f32>;
+
     @vertex
-    fn main( @builtin( vertex_index ) vertexIndex : u32 ) -> VarysStruct {
-        var Varys : VarysStruct;
-        var pos = array< vec2<f32>, 4 >(
+    fn v_main( @builtin( vertex_index ) vertexIndex : u32 ) -> VaryingsStruct {
+        var varyings : VaryingsStruct;
+        var positions = array< vec2<f32>, 4 >(
             vec2<f32>( -1.0,  1.0 ),
             vec2<f32>(  1.0,  1.0 ),
             vec2<f32>( -1.0, -1.0 ),
             vec2<f32>(  1.0, -1.0 )
         );
-        var tex = array< vec2<f32>, 4 >(
+        var texcoords = array< vec2<f32>, 4 >(
             vec2<f32>( 0.0, 0.0 ),
             vec2<f32>( 1.0, 0.0 ),
             vec2<f32>( 0.0, 1.0 ),
             vec2<f32>( 1.0, 1.0 )
         );
-        Varys.vTex = tex[ vertexIndex ];
-        Varys.Position = vec4<f32>( pos[ vertexIndex ], 0.0, 1.0 );
-        return Varys;
+        varyings.texcoord = texcoords[ vertexIndex ];
+        varyings.position = vec4<f32>( positions[ vertexIndex ], 0.0, 1.0 );
+        return varyings;
     }
-"""
 
-mipmap_fragment_source = """
-    @group( 0 ) @binding( 0 )
-    var imgSampler : sampler;
-    @group( 0 ) @binding( 1 )
-    var img : texture_2d<f32>;
     @fragment
-    fn main( @location( 0 ) vTex : vec2<f32> ) -> @location( 0 ) vec4<f32> {
-        return textureSample( img, imgSampler, vTex );
+    fn f_main( @location(0) texcoord : vec2<f32> ) -> @location(0) vec4<f32> {
+
+        let texSize = vec2<f32>(textureDimensions(t_img));
+
+        // Determine smoothing settings.
+        // Sigma 1.0 matches a factor 2 size reduction.
+        // support would ideally be 3*sigma, but we can use less to trade performance
+        let sigma = 1.0;
+        let support = 2;  // 2: 5x5 kernel, 3: 7x7 kernel
+
+        // The reference index is the subpixel index in the source texture that
+        // represents the location of this fragment.
+        let ref_index = texcoord * texSize;
+
+        // For the sampling, we work with integer coords. Also use min/max for the edges.
+        let base_index = vec2<i32>(ref_index);
+        let min_index = vec2<i32>(0, 0);
+        let max_index = vec2<i32>(texSize - 1.0);
+
+        // Convolve. Here we apply a Gaussian kernel, the weight is calculated
+        // for each pixel individually based on the distance to the ref_index.
+        // This means that the textures don't need to align.
+        var val: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        var weight: f32 = 0.0;
+        for (var y:i32 = -support; y <= support; y = y + 1) {
+            for (var x:i32 = -support; x <= support; x = x + 1) {
+                let step = vec2<i32>(x, y);
+                let index = clamp(base_index + step, min_index, max_index);
+                let dist = length(ref_index - vec2<f32>(index) - 0.5);
+                let t = dist / sigma;
+                let w = exp(-0.5 * t * t);
+                val = val + textureLoad(t_img, index, 0) * w;
+                weight = weight + w;
+            }
+        }
+
+        return vec4<f32>(val.rgba / weight);
     }
 """
 
@@ -46,18 +79,10 @@ class MipmapsUtil:
     def __init__(self, device) -> None:
         self.device = device
 
-        self.sampler = self.device.create_sampler(min_filter="linear")
-
         # Cache pipelines for every texture format used.
         self.pipelines = {}
 
-        self.mipmap_vertex_shader_module = self.device.create_shader_module(
-            code=mipmap_vertex_source
-        )
-
-        self.mipmap_fragment_shader_module = self.device.create_shader_module(
-            code=mipmap_fragment_source
-        )
+        self.mipmap_shader_module = self.device.create_shader_module(code=mipmap_source)
 
     def get_mipmap_pipeline(self, format) -> "wgpu.GPURenderPipeline":
         pipeline = self.pipelines.get(format, None)
@@ -66,13 +91,13 @@ class MipmapsUtil:
             pipeline = self.device.create_render_pipeline(
                 layout=self._create_pipeline_layout(),
                 vertex={
-                    "module": self.mipmap_vertex_shader_module,
-                    "entry_point": "main",
+                    "module": self.mipmap_shader_module,
+                    "entry_point": "v_main",
                     "buffers": [],
                 },
                 fragment={
-                    "module": self.mipmap_fragment_shader_module,
-                    "entry_point": "main",
+                    "module": self.mipmap_shader_module,
+                    "entry_point": "f_main",
                     "targets": [{"format": format}],
                 },
                 primitive={
@@ -92,14 +117,6 @@ class MipmapsUtil:
         entries.append(
             {
                 "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": "filtering"},
-            }
-        )
-
-        entries.append(
-            {
-                "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {"multisampled": False},
             }
@@ -155,8 +172,7 @@ class MipmapsUtil:
             bind_group = self.device.create_bind_group(
                 layout=bind_group_layout,
                 entries=[
-                    {"binding": 0, "resource": self.sampler},
-                    {"binding": 1, "resource": src_view},
+                    {"binding": 0, "resource": src_view},
                 ],
             )
 
