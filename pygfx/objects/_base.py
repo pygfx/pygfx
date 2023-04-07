@@ -149,14 +149,11 @@ class WorldObject(EventTarget, RootTrackable):
         buffer = Buffer(array_from_shadertype(self.uniform_type))
 
         def buffer_callback(transform: AffineTransform):
-            buffer.data["world_transform_inv"] = transform.inverse_matrix
+            buffer.data["world_transform"] = transform.matrix.T
+            buffer.data["world_transform_inv"] = transform.inverse_matrix.T
             buffer.update_range()
 
-        world_matrix = buffer.data["world_transform"]
-        world_matrix[:] = np.eye(4)
-        self.world_transform = AffineTransform(
-            world_matrix, update_callback=buffer_callback
-        )
+        self.world_transform = AffineTransform(update_callback=buffer_callback)
         self.transform = EmbeddedTransform(self.world_transform)
         self.uniform_buffer = buffer
 

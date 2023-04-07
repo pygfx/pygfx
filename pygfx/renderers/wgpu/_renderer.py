@@ -622,10 +622,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
     def _update_stdinfo_buffer(self, camera: Camera, physical_size, logical_size):
         # Update the stdinfo buffer's data
         stdinfo_data = self._shared.uniform_buffer.data
-        stdinfo_data["cam_transform"] = camera.world_transform.inverse_matrix
-        stdinfo_data["cam_transform_inv"] = camera.world_transform.matrix
-        stdinfo_data["projection_transform"] = camera.projection_matrix
-        stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse
+        stdinfo_data["cam_transform"] = camera.world_transform.inverse_matrix.T
+        stdinfo_data["cam_transform_inv"] = camera.world_transform.matrix.T
+        stdinfo_data["projection_transform"] = camera.projection_matrix.T
+        stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
         # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
