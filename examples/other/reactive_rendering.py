@@ -1,40 +1,22 @@
 """
-Name
+Reactive rendering loop
 ================================
 
-Summary
+This example encapsulates all state that has a visual impact on the drawn frame,
+and only renders a new frame when there are changes in that state.
+
+The goal of this rendering strategy is to minimize energy and resource consumption.
 """
 
 import atexit
 import pickle
 from pathlib import Path
 
-from observ import reactive, computed, watch
+from observ import reactive, watch
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-# get_state / set_state
-
-# on input event, let controller handle event and update camera state
-        # self._viewport_contexts[viewport_name].controls.handle_event(
-        #     event, viewport, camera
-        # )
-
-        # camera state = controls.get_view 
-            # "position": position.to_array(),
-            # "rotation": rotation.to_array(),
-            # "up": controls.up.to_array(),
-            # "zoom": zoom,
-
-        # camera state
-            # "rotation": controls.rotation.to_array(),
-            # "position": [*position],
-            # "zoom": 1,
-            # "up": [*position],
-
-# on camera state change, update camera object and request draw
-        # watcher, callback
 HERE = Path(__file__).parent
 state_file = HERE / "reactive_rendering_state.pkl"
 
