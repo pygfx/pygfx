@@ -496,7 +496,7 @@ class PerspectiveCamera(Camera):
 
         """
 
-        projection_matrix = self.projection_matrix.to_ndarray()
+        projection_matrix = self.projection_matrix
 
         ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
         depths = np.array((0, 1))[:, None]
@@ -504,7 +504,7 @@ class PerspectiveCamera(Camera):
             ndc_corners, projection_matrix, depth=depths
         )
         world_corners = la.vector_apply_matrix(
-            local_corners, self.matrix_world.to_ndarray()
+            local_corners, self.world_transform.matrix
         )
         return world_corners
 
