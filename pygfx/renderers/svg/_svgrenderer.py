@@ -62,10 +62,7 @@ class SvgRenderer(Renderer):
         camera.update_projection_matrix()
 
         # Get the sorted list of objects to render (guaranteed to be visible and having a material)
-        proj_screen_matrix = (
-            camera.projection_matrix @ camera.world_transform.inverse_matrix
-        )
-        q = self.get_render_list(scene, proj_screen_matrix)
+        q = self.get_render_list(scene, camera.camera_matrix)
 
         # Init the svg file
         f = io.StringIO()
