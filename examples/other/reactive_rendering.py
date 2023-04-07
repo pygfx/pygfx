@@ -140,7 +140,8 @@ if __name__ == "__main__":
     # watcher = watch(lambda: visual_state, lambda: canvas.request_draw, sync=True, deep=True)
     # watcher = watch(lambda: visual_state["camera"], update_camera, sync=True, deep=True)
     # watcher = watch(lambda: visual_state["cube"], update_cube, sync=True, deep=True)
-    # but for this example we keep it simple
+    # additionally we use sync=True because we have not set up a scheduler and event loop integration
+    # because it would complicate the example too much
     watcher = watch(lambda: visual_state, process_state_change, sync=True, deep=True, immediate=True)
 
     # configure draw calls
