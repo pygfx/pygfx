@@ -13,7 +13,7 @@ import pygfx as gfx
 group = gfx.Group()
 
 im = iio.imread("imageio:chelsea.png")
-tex = gfx.Texture(im, dim=2).get_view(filter="linear")
+tex = gfx.Texture(im, dim=2)
 
 material = gfx.MeshBasicMaterial(map=tex)
 geometry = gfx.box_geometry(100, 100, 100)

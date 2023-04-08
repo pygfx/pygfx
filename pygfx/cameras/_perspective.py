@@ -457,6 +457,32 @@ class PerspectiveCamera(Camera):
         new_position = position + la.vector_apply_quaternion(offset, rotation)
         self.position.set(*new_position)
 
+    @property
+    def frustum(self):
+        """Corner positions of the viewing frustum in world space.
+
+        Returns
+        -------
+        frustum : ndarray, [2, 4, 3]
+            The coordinates of the frustum. The first axis corresponds to the
+            frustum's plane (near, far), the second to the corner within the
+            plane ((left, bottom), (right, bottom), (right, top), (left, top)),
+            and the third to the world position of that corner.
+
+        """
+
+        projection_matrix = self.projection_matrix.to_ndarray()
+
+        ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
+        depths = np.array((0, 1))[:, None]
+        local_corners = la.vector_unproject(
+            ndc_corners, projection_matrix, depth=depths
+        )
+        world_corners = la.vector_apply_matrix(
+            local_corners, self.matrix_world.to_ndarray()
+        )
+        return world_corners
+
 
 def fov_distance_factor(fov):
     # It's important that controller and camera use the same distance calculations

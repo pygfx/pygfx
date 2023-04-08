@@ -61,17 +61,22 @@ class Shared(Trackable):
         self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
         # Init glyph atlas texture
-        self._store.glyph_atlas_texture_view = glyph_atlas.texture_view
-        self._store.glyph_atlas_info_buffer = glyph_atlas.info_buffer
+        self._store.glyph_atlas_texture = None
+        self._store.glyph_atlas_info_buffer = None
+        self.pre_render_hook()
 
     def pre_render_hook(self):
         """Called by the renderer on the beginning of a draw."""
-        view = glyph_atlas.texture_view
+        tex = glyph_atlas.texture
+        if tex is not self._store["glyph_atlas_texture"]:
+            self._store.glyph_atlas_texture = tex
         buffer = glyph_atlas.info_buffer
-        if view is not self._store["glyph_atlas_texture_view"]:
-            self._store.glyph_atlas_texture_view = view
         if buffer is not self._store["glyph_atlas_info_buffer"]:
             self._store.glyph_atlas_info_buffer = buffer
+
+    @classmethod
+    def get_instance(cls):
+        return cls._instance
 
     @property
     def adapter(self):
@@ -91,9 +96,9 @@ class Shared(Trackable):
         return self._store.uniform_buffer
 
     @property
-    def glyph_atlas_texture_view(self):
-        """The shared glyph atlas (a texture view) for objects that want to render text."""
-        return self._store.glyph_atlas_texture_view
+    def glyph_atlas_texture(self):
+        """The shared glyph atlas (as a texture view and sampler) for objects that want to render text."""
+        return self._store.glyph_atlas_texture
 
     @property
     def glyph_atlas_info_buffer(self):

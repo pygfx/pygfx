@@ -22,17 +22,18 @@ from ...objects import (
     WorldObject,
 )
 from ...cameras import Camera
-from ...resources import Texture, TextureView
+from ...resources import Texture
 from ...utils import Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
-from ._update import update_buffer, update_texture, update_texture_view
+from ._update import update_buffer, ensure_wgpu_object
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
-from ._mipmapsutil import get_mipmaps_util
+from ._mipmapsutil import generate_texture_mipmaps
+from ._utils import GfxTextureView
 
 logger = logging.getLogger("pygfx")
 
@@ -135,9 +136,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         super().__init__(*args, **kwargs)
 
         # Check and normalize inputs
-        if not isinstance(target, (Texture, TextureView, wgpu.gui.WgpuCanvasBase)):
+        if not isinstance(target, (Texture, GfxTextureView, wgpu.gui.WgpuCanvasBase)):
             raise TypeError(
-                f"Render target must be a canvas or texture (view), not a {target.__class__.__name__}"
+                f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
 
@@ -250,8 +251,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             return target.get_logical_size()
         elif isinstance(target, Texture):
             return target.size[:2]  # assuming pixel-ratio 1
-        elif isinstance(target, TextureView):
-            return target.texture.size[:2]  # assuming pixel-ratio 1
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
@@ -265,8 +264,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target_psize = target.get_physical_size()
         elif isinstance(target, Texture):
             target_psize = target.size[:2]
-        elif isinstance(target, TextureView):
-            target_psize = target.texture.size[:2]
         else:
             raise TypeError(f"Unexpected render target {target.__class__.__name__}")
 
@@ -539,26 +536,30 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if flush:
             self.flush()
 
-    def flush(self):
-        """Render the result into the target texture view. This method is
-        called automatically unless you use ``.render(..., flush=False)``.
+    def flush(self, target=None):
+        """Render the result into the target. This method is called
+        automatically unless you use ``.render(..., flush=False)``.
         """
 
-        # Note: we could, in theory, allow specifying a custom target here.
-        needs_mipmaps = False
-        if isinstance(self._target, wgpu.gui.WgpuCanvasBase):
-            raw_texture_view = self._canvas_context.get_current_texture()
-        else:
-            if isinstance(self._target, Texture):
-                texture_view = self._target.get_view()
-            elif isinstance(self._target, TextureView):
-                texture_view = self._target
-            update_texture(self._shared.device, texture_view.texture)
-            update_texture_view(self._shared.device, texture_view)
-            raw_texture_view = texture_view._wgpu_texture_view[1]
+        device = self.device
+        need_mipmaps = False
+        if target is None:
+            target = self._target
 
-            texture = texture_view.texture
-            needs_mipmaps = texture.generate_mipmaps
+        # Get the wgpu texture view
+        if isinstance(target, wgpu.gui.WgpuCanvasBase):
+            wgpu_tex_view = self._canvas_context.get_current_texture()
+        elif isinstance(target, Texture):
+            need_mipmaps = target.generate_mipmaps
+            wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
+            if wgpu_tex_view is None:
+                wgpu_tex_view = ensure_wgpu_object(device, GfxTextureView(target))
+                target._wgpu_default_view = wgpu_tex_view
+        elif isinstance(target, GfxTextureView):
+            need_mipmaps = target.texture.generate_mipmaps
+            wgpu_tex_view = ensure_wgpu_object(device, target)
+        else:
+            raise TypeError("Unexepcted target type.")
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
@@ -566,21 +567,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         command_buffers = self._flusher.render(
             self._blender.color_view,
             None,
-            raw_texture_view,
+            wgpu_tex_view,
             self._target_tex_format,
             self._gamma_correction * self._gamma_correction_srgb,
         )
-        self.device.queue.submit(command_buffers)
+        device.queue.submit(command_buffers)
 
-        if needs_mipmaps:
-            mipmaps_util = get_mipmaps_util(self.device)
-            texture_gpu = texture._wgpu_texture[1]
-            mipmaps_util.generate_mipmaps(
-                texture_gpu,
-                self._target_tex_format,
-                texture._mip_level_count,
-                texture_view.layer_range.start,
-            )
+        if need_mipmaps:
+            generate_texture_mipmaps(device, target)
 
     def _render_recording(
         self,

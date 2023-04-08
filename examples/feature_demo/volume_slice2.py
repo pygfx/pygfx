@@ -2,12 +2,13 @@
 Volume Slice 2
 ==============
 
-Render slices through a volume, by creating a 3D texture, with 2D views.
-Simple and relatively fast, but no subslices.
+Render slices through a volume, by creating a 3D texture, and sampling onto
+a plane geometry. Simple, fast and subpixel!
 """
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
+import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -20,12 +21,13 @@ vol = iio.imread("imageio:stent.npz").astype("float32") / 2000
 nslices = vol.shape[0]
 index = nslices // 2
 
-tex_size = tuple(reversed(vol.shape))
-tex = gfx.Texture(vol, dim=2, size=tex_size)
-view = tex.get_view(filter="linear", view_dim="2d", layer_range=range(index, index + 1))
+tex = gfx.Texture(vol, dim=3)
 
-geometry = gfx.plane_geometry(200, 200, 12, 12)
-material = gfx.MeshBasicMaterial(map=view)
+geometry = gfx.plane_geometry(200, 200, 1, 1)
+texcoords = np.hstack([geometry.texcoords.data, np.ones((4, 1), np.float32) * 0.5])
+geometry.texcoords = gfx.Buffer(texcoords)
+
+material = gfx.MeshBasicMaterial(map=tex)
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)
 
@@ -35,12 +37,10 @@ camera = gfx.OrthographicCamera(200, 200)
 @renderer.add_event_handler("wheel")
 def handle_event(event):
     global index
-    index = index + int(event.dy / 90)
+    index = index + event.dy / 90
     index = max(0, min(nslices - 1, index))
-    view = tex.get_view(
-        filter="linear", view_dim="2d", layer_range=range(index, index + 1)
-    )
-    material.map = view
+    geometry.texcoords.data[:, 2] = index / nslices
+    geometry.texcoords.update_range(0, geometry.texcoords.nitems)
     canvas.request_draw()
 
 

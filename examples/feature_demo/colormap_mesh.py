@@ -57,7 +57,7 @@ camera = gfx.OrthographicCamera(16, 3)
 texcoords1 = geometry.texcoords.data[:, 1].copy()
 
 cmap1 = np.array([(1, 1, 0), (0, 1, 1)], np.float32)
-tex1 = gfx.Texture(cmap1, dim=1).get_view(filter="linear")
+tex1 = gfx.Texture(cmap1, dim=1)
 
 ob1 = WobjectClass(
     get_geometry(texcoords=gfx.Buffer(texcoords1)),
@@ -75,7 +75,7 @@ ob1.position.x = -6
 texcoords2 = geometry.texcoords.data.copy()
 
 cmap2 = iio.imread("imageio:chelsea.png").astype(np.float32) / 255
-tex2 = gfx.Texture(cmap2, dim=2).get_view(address_mode="repeat")
+tex2 = gfx.Texture(cmap2, dim=2)
 
 ob2 = WobjectClass(
     get_geometry(texcoords=gfx.Buffer(texcoords2)),
@@ -96,7 +96,7 @@ ob2.position.x = -2
 texcoords3 = geometry.positions.data * 0.4 + 0.5
 
 cmap3 = iio.imread("imageio:stent.npz").astype(np.float32) / 1000
-tex3 = gfx.Texture(cmap3, dim=3).get_view()
+tex3 = gfx.Texture(cmap3, dim=3)
 
 ob3 = WobjectClass(
     get_geometry(texcoords=gfx.Buffer(texcoords3)),

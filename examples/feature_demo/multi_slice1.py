@@ -29,8 +29,7 @@ scene.add(gfx.AxesHelper(size=50))
 
 vol = iio.imread("imageio:stent.npz").astype("float32") / 2000
 tex = gfx.Texture(vol, dim=3)
-view = tex.get_view(filter="linear")
-material = gfx.MeshBasicMaterial(map=view)
+material = gfx.MeshBasicMaterial(map=tex)
 
 planes = []
 texcoords = {

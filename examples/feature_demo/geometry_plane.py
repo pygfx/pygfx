@@ -26,7 +26,7 @@ frame_generator = loop_video("imageio:cockatoo.mp4")
 tex = gfx.Texture(next(frame_generator), dim=2)
 
 geometry = gfx.plane_geometry(200, 200, 12, 12)
-material = gfx.MeshBasicMaterial(map=tex.get_view(filter="linear"))
+material = gfx.MeshBasicMaterial(map=tex)
 plane = gfx.Mesh(geometry, material)
 scene.add(plane)
 

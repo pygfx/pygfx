@@ -124,3 +124,41 @@ def _run_for_camera(camera, near, far, check_halfway):
     assert np.allclose(pos_world3.to_array(), [0, 0, -far])
     if check_halfway:
         assert np.allclose(pos_world2.to_array(), [0, 0, -0.5 * (near + far)])
+
+
+def test_frustum():
+    unit_cube_corners = np.array(
+        [
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+        ]
+    )
+
+    camera = gfx.OrthographicCamera(2, 2, depth_range=(-1, 1))
+    frustum_corners = camera.frustum
+
+    assert np.allclose(frustum_corners, unit_cube_corners.reshape(2, 4, 3))
+
+    expected_corners = np.array(
+        [
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-2.0, -2.0, -2.0],
+            [2.0, -2.0, -2.0],
+            [2.0, 2.0, -2.0],
+            [-2.0, 2.0, -2.0],
+        ]
+    )
+
+    camera = gfx.PerspectiveCamera(fov=90.0, aspect=1, depth_range=(1, 2))
+    frustum_corners = camera.frustum
+
+    assert np.allclose(frustum_corners, expected_corners.reshape(2, 4, 3))

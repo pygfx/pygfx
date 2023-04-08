@@ -23,7 +23,7 @@ background = gfx.Background(None, gfx.BackgroundMaterial(light_gray, dark_gray))
 scene.add(background)
 
 im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
-tex = gfx.Texture(im, dim=2).get_view(filter="linear", address_mode="repeat")
+tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.box_geometry(200, 200, 200)
 material = gfx.MeshBasicMaterial(map=tex)
