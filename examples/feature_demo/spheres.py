@@ -51,11 +51,6 @@ scene.add(gfx.AmbientLight())
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 
-def animate():
-    renderer.render(scene, camera)
-    canvas.request_draw()
-
-
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()
