@@ -144,7 +144,7 @@ def ensure_wgpu_object(device, resource):
             fmt = ALTTEXFORMAT[fmt][0]
         usage = resource._wgpu_usage
         if resource.generate_mipmaps:
-            usage |= wgpu.TextureUsage.RENDER_ATTACHMENT  # mipmap needs this
+            usage |= wgpu.TextureUsage.STORAGE_BINDING  # mipmap needs this
             resource._wgpu_mip_level_count = get_mip_level_count(resource)
         resource._wgpu_object = device.create_texture(
             size=resource.size,

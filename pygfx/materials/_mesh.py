@@ -1,7 +1,7 @@
 import math
 from ._base import Material
 from ..resources import Texture
-from ..utils import unpack_bitfield
+from ..utils import unpack_bitfield, logger
 from ..utils.color import Color
 
 
@@ -689,10 +689,13 @@ class MeshStandardMaterial(MeshBasicMaterial):
         """A texture that provides the environment map (in srgb colorspace). Default None.
 
         This makes the surroundings of the object be reflected on its
-        surface. To ensure a physically correct rendering, you should
-        use a prefilterd texture. We provide a built-in mipmap
-        generation process by setting the "Texture.generate_mipmaps".
+        surface. The given texture should have its ``generate_mipmaps`` set to
+        True. Otherwise the roughness has no effect (as if its always zero).
         """
+        # Note: to obtain a “physically correct” result, an advanced
+        # mipmap technique is needed: PMREM (Prefiltered Mipmap Radiance
+        # Environment Maps). We could (I think) add this technique in addition
+        # to our normal mipmapping.
         return self._env_map
 
     @env_map.setter
@@ -702,6 +705,10 @@ class MeshStandardMaterial(MeshBasicMaterial):
         if map is None:
             self.uniform_buffer.data["env_map_max_mip_level"] = 0
         else:
+            if not map.generate_mipmaps:
+                logger.warning(
+                    "The env_map texture must have generate_mipmaps=True in order for roughness to work."
+                )
             width, height, _ = map.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
