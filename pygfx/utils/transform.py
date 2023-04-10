@@ -65,27 +65,27 @@ class AffineBase:
     @property
     def scale(self) -> np.ndarray:
         return self._decomposed[2]
-    
+
     @property
     def x(self) -> float:
         return self.position[0]
-    
+
     @property
     def y(self) -> float:
         return self.position[1]
-    
+
     @property
     def z(self) -> float:
         return self.position[2]
-    
+
     @property
     def scale_x(self) -> float:
         return self.scale[0]
-    
+
     @property
     def scale_y(self) -> float:
         return self.scale[1]
-    
+
     @property
     def scale_z(self) -> float:
         return self.scale[2]
@@ -159,27 +159,27 @@ class AffineTransform(AffineBase):
     def x(self, value):
         _, y, z = self.position
         self.position = (value, y, z)
-    
+
     @AffineBase.y.setter
     def y(self, value):
         x, _, z = self.position
         self.position = (x, value, z)
-    
+
     @AffineBase.z.setter
     def z(self, value):
         x, y, _ = self.position
         self.position = (x, y, value)
-    
+
     @AffineBase.scale_x.setter
     def scale_x(self, value):
         _, y, z = self.scale
         self.scale = (value, y, z)
-    
+
     @AffineBase.scale_y.setter
     def scale_y(self, value):
         x, _, z = self.scale
         self.scale = (x, value, z)
-    
+
     @AffineBase.scale_z.setter
     def scale_z(self, value):
         x, y, _ = self.scale
@@ -305,27 +305,27 @@ class EmbeddedTransform(AffineBase):
     def x(self, value):
         _, y, z = self.position
         self.position = (value, y, z)
-    
+
     @AffineBase.y.setter
     def y(self, value):
         x, _, z = self.position
         self.position = (x, value, z)
-    
+
     @AffineBase.z.setter
     def z(self, value):
         x, y, _ = self.position
         self.position = (x, y, value)
-    
+
     @AffineBase.scale_x.setter
     def scale_x(self, value):
         _, y, z = self.scale
         self.scale = (value, y, z)
-    
+
     @AffineBase.scale_y.setter
     def scale_y(self, value):
         x, _, z = self.scale
         self.scale = (x, value, z)
-    
+
     @AffineBase.scale_z.setter
     def scale_z(self, value):
         x, y, _ = self.scale
