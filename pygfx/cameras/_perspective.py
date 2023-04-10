@@ -316,7 +316,7 @@ class PerspectiveCamera(Camera):
         if isinstance(target, WorldObject):
             pos = target.transform.position
         else:
-            pos = np.asarray(pos)
+            pos = np.asarray(target)
 
         # Look at the provided position, taking up into account
         if up is not None:

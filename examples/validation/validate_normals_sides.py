@@ -14,6 +14,7 @@ at the front and back faces.
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 renderer = gfx.WgpuRenderer(WgpuCanvas())
@@ -33,15 +34,15 @@ ob3 = gfx.Mesh(
     gfx.MeshNormalLinesMaterial(color="#00f", line_length=-0.2),
 )
 
-ob1.position.set(1, 0, 0)
-ob1.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), 1)
-ob1.scale.set(3, 1, 1)
+ob1.transform.position = (1, 0, 0)
+ob1.transform.rotation = la.quaternion_make_from_axis_angle((0, 1, 0), 1)
+ob1.transform.scale = (3, 1, 1)
 scene.add(ob1.add(ob2, ob3))
 
 scene.add(gfx.DirectionalLight(), gfx.AmbientLight())
 
 camera = gfx.PerspectiveCamera(70, 1, depth_range=(0.1, 2000))
-camera.position.z = 4.5
+camera.transform.z = 4.5
 
 renderer.request_draw(lambda: renderer.render(scene, camera))
 

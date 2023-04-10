@@ -21,7 +21,7 @@ def add_text(anchor, pos):
         gfx.TextGeometry(text=anchor, anchor=anchor, font_size=20, screen_space=True),
         gfx.TextMaterial(color="#0f0"),
     )
-    obj.position.set(*pos)
+    obj.transform.position = pos
     scene.add(obj)
 
 
