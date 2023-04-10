@@ -61,7 +61,6 @@ class PerspectiveCamera(Camera):
         super().__init__()
 
         self.fov = fov
-        self.up = np.array([0, 1, 0])
 
         # Set width and height. Note that if both width and height are given, it overrides aspect
         aspect = aspect or 1
@@ -198,7 +197,7 @@ class PerspectiveCamera(Camera):
             return -500 * extent, 500 * extent
 
     @property
-    def near(self):
+    def near(self) -> float:
         """The location of the near clip plane.
         Use `depth_range` so overload the computed value, if necessary.
         """
@@ -206,7 +205,7 @@ class PerspectiveCamera(Camera):
         return near
 
     @property
-    def far(self):
+    def far(self) -> float:
         """The location of the far clip plane.
         Use `depth_range` so overload the computed value, if necessary.
         """
@@ -316,14 +315,8 @@ class PerspectiveCamera(Camera):
         # Get pos from target
         if isinstance(target, WorldObject):
             pos = target.transform.position
-        elif isinstance(target, (tuple, list, np.ndarray)) and len(target) in (3, 4):
-            pos = tuple(target)[:3]
-        elif hasattr(target, "to_array"):
-            pos = target.to_array()
         else:
-            raise TypeError(
-                "show_position target must be a WorldObject, or a (x, y, z) tuple."
-            )
+            pos = np.asarray(pos)
 
         # Look at the provided position, taking up into account
         if up is not None:

@@ -27,6 +27,7 @@ class Camera(WorldObject):
 
         self.projection_matrix = np.eye(4, dtype=float)
         self.projection_matrix_inverse = np.eye(4, dtype=float)
+        self.up = np.array((0, 1, 0))
 
     def set_view_size(self, width, height):
         # In logical pixels, called by the renderer to set the viewport size
@@ -48,7 +49,7 @@ class Camera(WorldObject):
     def look_at(self, target) -> None:
         # flipped eye, target inputs because cameras look along negative Z
         rotation = la.matrix_make_look_at(
-            target, self.world_transform.position, (0, 1, 0)
+            target, self.world_transform.position, self.up
         )
         rotation = la.matrix_to_quaternion(rotation)
         self.world_transform.rotation = la.quaternion_multiply(

@@ -41,7 +41,7 @@ plane = gfx.Mesh(
     gfx.plane_geometry(4, 4),
     gfx.MeshBasicMaterial(map=tex.get_view(filter="nearest")),
 )
-plane.position = gfx.linalg.Vector3(2, 2)  # put corner at 0, 0
+plane.transform.position = (2, 2, 0)  # put corner at 0, 0
 scene.add(plane)
 
 points = gfx.Points(

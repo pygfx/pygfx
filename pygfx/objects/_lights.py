@@ -21,8 +21,12 @@ def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
         result = result[:-1] / result[-1]
 
         return result
-    else:
+    elif isinstance(light, SpotLight):
         return light.target.world_transform.position
+    elif isinstance(light, DirectionalLight):
+        return light.target.world_transform.position
+    else:
+        raise ValueError("Unknown light source.")
 
 
 class Light(WorldObject):
@@ -428,12 +432,12 @@ class SpotLight(Light):
         """
         # compute the light's luminous power (in lumens) from its intensity (in candela)
         # by convention for a spotlight, luminous power (lm) = π * luminous intensity (cd)
-        return self.intensity * math.PI
+        return self.intensity * np.pi
 
     @power.setter
     def power(self, power):
         # set the light's intensity (in candela) from the desired luminous power (in lumens)
-        self.intensity = power / math.PI
+        self.intensity = power / np.pi
 
     @property
     def distance(self):
@@ -513,7 +517,7 @@ class LightShadow:
 
     """
 
-    def __init__(self, camera: Camera) -> None:
+    def __init__(self, camera: PerspectiveCamera) -> None:
         self._camera = camera
         self._camera.maintain_aspect = False
 
@@ -666,12 +670,11 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
-            camera.position.set_from_matrix_position(light.matrix_world)
+            camera.transform.position = light.transform.position
 
-            camera.up.copy(self._cube_up[i])
+            camera.up = self._cube_up[i]
 
             camera.look_at(camera.transform.position + self._cube_directions[i])
-            camera.update_matrix_world()
 
             screen_matrix = camera.camera_matrix
 
