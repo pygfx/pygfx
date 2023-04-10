@@ -332,6 +332,9 @@ class WorldObject(EventTarget, RootTrackable):
 
             self.children.insert(idx, obj)
 
+        # backwards compatibility
+        return self
+
     def remove(self, *objects):
         """Removes object as child of this object. Any number of objects may be removed."""
 
