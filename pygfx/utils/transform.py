@@ -65,6 +65,30 @@ class AffineBase:
     @property
     def scale(self) -> np.ndarray:
         return self._decomposed[2]
+    
+    @property
+    def x(self) -> float:
+        return self.position[0]
+    
+    @property
+    def y(self) -> float:
+        return self.position[1]
+    
+    @property
+    def z(self) -> float:
+        return self.position[2]
+    
+    @property
+    def scale_x(self) -> float:
+        return self.scale[0]
+    
+    @property
+    def scale_y(self) -> float:
+        return self.scale[1]
+    
+    @property
+    def scale_z(self) -> float:
+        return self.scale[2]
 
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
@@ -130,6 +154,36 @@ class AffineTransform(AffineBase):
     @AffineBase.scale.setter
     def scale(self, value):
         self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
+
+    @AffineBase.x.setter
+    def x(self, value):
+        _, y, z = self.position
+        self.position = (value, y, z)
+    
+    @AffineBase.y.setter
+    def y(self, value):
+        x, _, z = self.position
+        self.position = (x, value, z)
+    
+    @AffineBase.z.setter
+    def z(self, value):
+        x, y, _ = self.position
+        self.position = (x, y, value)
+    
+    @AffineBase.scale_x.setter
+    def scale_x(self, value):
+        _, y, z = self.scale
+        self.scale = (value, y, z)
+    
+    @AffineBase.scale_y.setter
+    def scale_y(self, value):
+        x, _, z = self.scale
+        self.scale = (x, value, z)
+    
+    @AffineBase.scale_z.setter
+    def scale_z(self, value):
+        x, y, _ = self.scale
+        self.scale = (x, y, value)
 
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
@@ -246,6 +300,36 @@ class EmbeddedTransform(AffineBase):
     @AffineBase.scale.setter
     def scale(self, value):
         self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
+
+    @AffineBase.x.setter
+    def x(self, value):
+        _, y, z = self.position
+        self.position = (value, y, z)
+    
+    @AffineBase.y.setter
+    def y(self, value):
+        x, _, z = self.position
+        self.position = (x, value, z)
+    
+    @AffineBase.z.setter
+    def z(self, value):
+        x, y, _ = self.position
+        self.position = (x, y, value)
+    
+    @AffineBase.scale_x.setter
+    def scale_x(self, value):
+        _, y, z = self.scale
+        self.scale = (value, y, z)
+    
+    @AffineBase.scale_y.setter
+    def scale_y(self, value):
+        x, _, z = self.scale
+        self.scale = (x, value, z)
+    
+    @AffineBase.scale_z.setter
+    def scale_z(self, value):
+        x, y, _ = self.scale
+        self.scale = (x, y, value)
 
     def __matmul__(self, other):
         return np.asarray(self) @ other
