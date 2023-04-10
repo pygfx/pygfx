@@ -49,9 +49,10 @@ class Buffer(Resource):
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
-        self._pending_uploads = []  # list of (offset, size) tuples
+        self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
+        self._wgpu_object = None
         self._wgpu_usage = 0
 
         # Get nbytes
@@ -68,7 +69,7 @@ class Buffer(Resource):
             self._mem = mem
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
-            self._pending_uploads.append((0, the_nitems))
+            self._gfx_pending_uploads.append((0, the_nitems))
             if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
             if nitems is not None and nitems != the_nitems:
@@ -163,13 +164,13 @@ class Buffer(Resource):
         elif offset + size > self.nitems:
             size = self.nitems - offset
         # Merge with current entry?
-        if self._pending_uploads:
-            cur_offset, cur_size = self._pending_uploads.pop(-1)
+        if self._gfx_pending_uploads:
+            cur_offset, cur_size = self._gfx_pending_uploads.pop(-1)
             end = max(offset + size, cur_offset + cur_size)
             offset = min(offset, cur_offset)
             size = end - offset
         # Limit and apply
-        self._pending_uploads.append((offset, size))
+        self._gfx_pending_uploads.append((offset, size))
         self._rev += 1
         # note: this can be smarter, we have logic for chunking in the morph tool
 

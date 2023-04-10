@@ -96,7 +96,9 @@ class LineShader(WorldObjectShader):
         elif material.map is not None:
             self["color_mode"] = "map"
             bindings.extend(
-                self.define_vertex_colormap(material.map, geometry.texcoords)
+                self.define_vertex_colormap(
+                    material.map, geometry.texcoords, material.map_interpolation
+                )
             )
 
         bindings = {i: b for i, b in enumerate(bindings)}
@@ -600,7 +602,9 @@ class ThinLineShader(WorldObjectShader):
         elif material.map is not None:
             self["color_mode"] = "map"
             bindings.extend(
-                self.define_vertex_colormap(material.map, geometry.texcoords)
+                self.define_vertex_colormap(
+                    material.map, geometry.texcoords, material.map_interpolation
+                )
             )
 
         bindings = {i: b for i, b in enumerate(bindings)}

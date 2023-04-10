@@ -245,10 +245,12 @@ class PerspectiveCamera(Camera):
         self._view_aspect = width / height
 
     def update_projection_matrix(self):
+        zoom_factor = self._zoom
+        near, far = self._get_near_and_far_plane()
+
         if self.fov > 0:
             # Get the reference width / height
-            near, far = self._get_near_and_far_plane()
-            size = 2 * near * tan(pi / 180 * 0.5 * self.fov) / self.zoom
+            size = 2 * near * tan(pi / 180 * 0.5 * self.fov) / zoom_factor
             # Pre-apply the reference aspect ratio
             height = 2 * size / (1 + self.aspect)
             width = height * self.aspect
@@ -272,8 +274,8 @@ class PerspectiveCamera(Camera):
 
         else:
             # The reference view plane is scaled with the zoom factor
-            width = self.width / self.zoom
-            height = self.height / self.zoom
+            width = self.width / zoom_factor
+            height = self.height / zoom_factor
             # Increase either the width or height, depending on the viewport shape
             aspect = width / height
             if not self._maintain_aspect:
@@ -287,7 +289,6 @@ class PerspectiveCamera(Camera):
             top = +0.5 * height
             left = -0.5 * width
             right = +0.5 * width
-            near, far = self._get_near_and_far_plane()
             # Set matrices
             proj = la.matrix_make_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)

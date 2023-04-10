@@ -39,7 +39,7 @@ tex = gfx.Texture(im, dim=2)
 
 plane = gfx.Mesh(
     gfx.plane_geometry(4, 4),
-    gfx.MeshBasicMaterial(map=tex.get_view(filter="nearest")),
+    gfx.MeshBasicMaterial(map=tex, map_interpolation="nearest"),
 )
 plane.transform.position = (2, 2, 0)  # put corner at 0, 0
 scene.add(plane)

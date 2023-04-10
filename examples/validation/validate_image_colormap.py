@@ -22,11 +22,11 @@ scene = gfx.Scene()
 im = np.repeat(np.linspace(0, 1, 99).reshape(1, -1), 99, 0).astype(np.float32)
 
 colormap_data = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], np.float32)
-colormap = gfx.Texture(colormap_data, dim=1).get_view(filter="nearest")
+colormap = gfx.Texture(colormap_data, dim=1)
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
-    gfx.ImageBasicMaterial(clim=(0, 1), map=colormap),
+    gfx.ImageBasicMaterial(clim=(0, 1), map=colormap, map_interpolation="nearest"),
 )
 scene.add(image)
 

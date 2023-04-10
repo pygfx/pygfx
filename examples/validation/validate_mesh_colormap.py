@@ -37,6 +37,7 @@ def WobjectClass(geometry, material):  # noqa
 
 
 def MaterialClass(**kwargs):  # noqa
+    kwargs.setdefault("map_interpolation", "nearest")
     return gfx.MeshPhongMaterial(**kwargs)
     # return gfx.PointsMaterial(size=10, **kwargs)
     # return gfx.LineMaterial(thickness=5, **kwargs)
@@ -58,7 +59,7 @@ cmap1 = reds
 
 ob1 = WobjectClass(
     get_geometry(texcoords=gfx.Buffer(texcoords1)),
-    MaterialClass(map=gfx.Texture(cmap1, dim=1).get_view(filter="nearest")),
+    MaterialClass(map=gfx.Texture(cmap1, dim=1)),
 )
 scene.add(ob1)
 ob1.transform.x = -6
@@ -71,7 +72,7 @@ cmap2 = reds.reshape(1, -1, 3) + greens.reshape(-1, 1, 3)
 
 ob2 = WobjectClass(
     get_geometry(texcoords=gfx.Buffer(texcoords2)),
-    MaterialClass(map=gfx.Texture(cmap2, dim=2).get_view(filter="nearest")),
+    MaterialClass(map=gfx.Texture(cmap2, dim=2)),
 )
 scene.add(ob2)
 ob2.transform.x = -2
@@ -86,7 +87,7 @@ cmap3 = (
 
 ob3 = WobjectClass(
     get_geometry(texcoords=gfx.Buffer(texcoords3)),
-    MaterialClass(map=gfx.Texture(cmap3, dim=3).get_view(filter="nearest")),
+    MaterialClass(map=gfx.Texture(cmap3, dim=3)),
 )
 scene.add(ob3)
 ob3.transform.x = +2

@@ -53,7 +53,7 @@ xx += np.sin(yy * 10) * 0.1
 img_data2 = np.stack([xx, yy], 2).astype(np.float32)
 colormap_data2 = img_data1
 
-colormap2 = gfx.Texture(colormap_data2, dim=2).get_view(filter="linear")
+colormap2 = gfx.Texture(colormap_data2, dim=2)
 image2 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(img_data2, dim=2)),
     gfx.ImageBasicMaterial(clim=(0, 1), map=colormap2),
@@ -76,7 +76,7 @@ yy = np.cos(rr) * 0.4 + 0.5
 img_data3 = np.stack([xx, yy, zz], 2).astype(np.float32)
 colormap_data3 = iio.imread("imageio:stent.npz").astype(np.float32) / 1500
 
-colormap3 = gfx.Texture(colormap_data3, dim=3).get_view(filter="linear")
+colormap3 = gfx.Texture(colormap_data3, dim=3)
 image3 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(img_data3, dim=2)),
     gfx.ImageBasicMaterial(clim=(0, 1), map=colormap3),

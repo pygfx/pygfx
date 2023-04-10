@@ -2,6 +2,7 @@ from ..objects._base import WorldObject
 from ..cameras import PerspectiveCamera
 from ..resources import Texture
 from ..renderers import WgpuRenderer
+from ..renderers.wgpu._utils import GfxTextureView
 
 
 def _is_cube_texture(texture):
@@ -20,13 +21,11 @@ class _CubeCameraRenderer(WgpuRenderer):
         self._target_views = []
         for layer in range(6):
             self._target_views.append(
-                target.get_view(view_dim="2d", layer_range=range(layer, layer + 1))
+                GfxTextureView(target, view_dim="2d", layer_range=(layer, layer + 1))
             )
 
-    def render(self, scene: WorldObject, camera, layer):
-        # all _target_views are "TextureView" from the same Texture and have same size, so we can change "_target" here safely.
-        self._target = self._target_views[layer]
-        super().render(scene, camera)
+    def flush(self, layer):
+        super().flush(self._target_views[layer])
 
 
 class CubeCamera(WorldObject):
@@ -90,12 +89,10 @@ class CubeCamera(WorldObject):
     def render(self, scene):
         """Render the scene from the cube camera's perspective, and write the result to the target texture."""
 
-        camera_px, camera_nx, camera_py, camera_ny, camera_pz, camera_nz = self.children
         renderer = self.renderer
+        cameras = self.children
+        assert len(cameras) == 6
 
-        renderer.render(scene, camera_px, 0)
-        renderer.render(scene, camera_nx, 1)
-        renderer.render(scene, camera_py, 2)
-        renderer.render(scene, camera_ny, 3)
-        renderer.render(scene, camera_pz, 4)
-        renderer.render(scene, camera_nz, 5)
+        for layer, camera in enumerate(cameras):
+            renderer.render(scene, camera, flush=False)
+            renderer.flush(layer)

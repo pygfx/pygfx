@@ -1,4 +1,4 @@
-from ..resources import TextureView
+from ..resources import Texture
 from ._base import Material
 
 
@@ -9,11 +9,12 @@ class VolumeBasicMaterial(Material):
     ----------
     clim : tuple
         The contrast limits to scale the data values with. Default (0, 1).
-    map : TextureView
-        The colormap to turn the volume values into its final color.
-        If not given or None, the values themselves represents the color.
-        The dimensionality of the map can be 1D, 2D or 3D, but should match the
-        number of channels in the volume.
+    map : Texture
+        The colormap to turn the voxel values into their final color.
+    interpolation : str
+        The method to interpolate the image data. Either 'nearest' or 'linear'. Default 'linear'.
+    map_interpolation: str
+        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -25,14 +26,26 @@ class VolumeBasicMaterial(Material):
         clim="2xf4",
     )
 
-    def __init__(self, clim=None, map=None, **kwargs):
+    def __init__(
+        self,
+        clim=None,
+        map=None,
+        interpolation="linear",
+        map_interpolation="linear",
+        **kwargs
+    ):
         super().__init__(**kwargs)
         self.map = map
         self.clim = clim
+        # Note: the default volume interpolation is 'linear' while it's nearest
+        # for images. The ability to spot the individual voxels simply results in
+        # poor visual quality.
+        self.interpolation = interpolation
+        self.map_interpolation = map_interpolation
 
     @property
     def map(self):
-        """The colormap to turn the volume values into its final color.
+        """The colormap to turn the voxel values into their final color.
         If not given or None, the values themselves represents the color.
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of channels in the volume.
@@ -41,7 +54,7 @@ class VolumeBasicMaterial(Material):
 
     @map.setter
     def map(self, map):
-        assert map is None or isinstance(map, TextureView)
+        assert map is None or isinstance(map, Texture)
         self._map = map
 
     @property
@@ -59,6 +72,26 @@ class VolumeBasicMaterial(Material):
         # Update uniform data
         self.uniform_buffer.data["clim"] = clim
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def interpolation(self):
+        """The method to interpolate the image data. Either 'nearest' or 'linear'."""
+        return self._store.interpolation
+
+    @interpolation.setter
+    def interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.interpolation = value
+
+    @property
+    def map_interpolation(self):
+        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        return self._store.map_interpolation
+
+    @map_interpolation.setter
+    def map_interpolation(self, value):
+        assert value in ("nearest", "linear")
+        self._store.map_interpolation = value
 
 
 class VolumeSliceMaterial(VolumeBasicMaterial):

@@ -3,6 +3,10 @@
 """
 Render Text with Qt
 ===================
+
+This example was created before we had text rendering in pygfx. It
+renders text using qt in an overlay. This overly technique can still
+be useful in specific use-cases.
 """
 
 import numpy as np
