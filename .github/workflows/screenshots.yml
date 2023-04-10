@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   screenshots:
     name: Regenerate
