@@ -47,10 +47,17 @@ class Camera(WorldObject):
         pass
 
     def look_at(self, target) -> None:
+        up = self.up
+        new_z = target - self.world_transform.position
+        new_z /= np.linalg.norm(new_z)
+        if np.allclose(abs(np.dot(new_z, up)), 1, atol=1e-6):
+            quat = la.quaternion_make_from_unit_vectors(
+                self.world_transform.position, target
+            )
+            up = la.vector_apply_quaternion(up, quat)
+
         # flipped eye, target inputs because cameras look along negative Z
-        rotation = la.matrix_make_look_at(
-            target, self.world_transform.position, self.up
-        )
+        rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
         rotation = la.matrix_to_quaternion(rotation)
         self.world_transform.rotation = la.quaternion_multiply(
             rotation, self.world_transform.rotation
