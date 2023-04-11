@@ -47,7 +47,7 @@ class OrbitController(PanZoomController):
     }
 
     def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
-        """Rotate using two angles (in radians).
+        """Rotate using two angles (azimuth and elevation, in radians).
 
         If animate is True, the motion is damped. This requires the
         controller to receive events from the renderer/viewport.
@@ -112,7 +112,7 @@ class OrbitController(PanZoomController):
         pos2target2 = self._get_target_vec(camera_state, rotation=rot2)
         pos2 = pos1 + pos2target1 - pos2target2
 
-        # Apply new state to all cameras
+        # Apply new state
         new_camera_state = {"position": pos2, "rotation": rot2}
         self._set_camera_state(new_camera_state)
 

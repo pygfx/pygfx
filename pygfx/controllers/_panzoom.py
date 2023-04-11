@@ -230,5 +230,4 @@ class PanZoomController(Controller):
         pos2target2 = self._get_target_vec(cam_state, fov=new_fov)
         new_position = position + pos2target1 - pos2target2
 
-        # Apply to cameras
         self._set_camera_state({"fov": new_fov, "position": new_position})
