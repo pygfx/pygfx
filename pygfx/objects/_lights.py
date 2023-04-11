@@ -582,7 +582,7 @@ class LightShadow:
 
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
-        shadow_camera.transform.position = light.world_transform.position
+        shadow_camera.world_transform.position = light.world_transform.position
         target = get_pos_from_camera_parent_or_target(light)
         shadow_camera.look_at(target)
 
@@ -680,11 +680,11 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
-            camera.transform.position = light.transform.position
+            camera.world_transform.position = light.world_transform.position
 
             camera.up = self._cube_up[i]
 
-            camera.look_at(camera.transform.position + self._cube_directions[i])
+            camera.look_at(camera.world_transform.position + self._cube_directions[i])
 
             screen_matrix = camera.camera_matrix
 
