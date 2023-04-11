@@ -11,7 +11,12 @@ from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
-from ..utils.transform import AffineTransform, ChainedTransform, EmbeddedTransform, callback
+from ..utils.transform import (
+    AffineTransform,
+    ChainedTransform,
+    EmbeddedTransform,
+    callback,
+)
 
 
 class IdProvider:
@@ -148,7 +153,9 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        self.world_transform = AffineTransform(update_callback=self._update_uniform_buffers)
+        self.world_transform = AffineTransform(
+            update_callback=self._update_uniform_buffers
+        )
         self.transform = EmbeddedTransform(self.world_transform)
         self.uniform_buffer = buffer
 
@@ -160,7 +167,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.receive_shadow = False
 
     @callback
-    def _update_uniform_buffers(self, transform: AffineTransform):               
+    def _update_uniform_buffers(self, transform: AffineTransform):
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
         self.uniform_buffer.update_range()

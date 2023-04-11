@@ -39,7 +39,8 @@ class cached:  # noqa: N801
             setattr(instance, self.name, cache)
 
         return cache[1]
-    
+
+
 class callback:
     """Weakref support for AffineTransform callbacks.
 
@@ -52,7 +53,7 @@ class callback:
     its world transform. This speeds up garbage collection as WorldObjects will
     get removed once the last reference is deleted instead of waiting for GC's
     cycle detection phase.
-    
+
     """
 
     def __init__(self, callback_fn) -> None:
@@ -61,14 +62,14 @@ class callback:
     def __get__(self, instance, clazz=None):
         if instance is None:
             return self
-        
+
         weak_instance = weakref.ref(instance)
-        
+
         @functools.wraps(self.callback_fn)
         def inner(*args, **kwargs):
             if weak_instance() is None:
                 return
-            
+
             return self.callback_fn(weak_instance(), *args, **kwargs)
 
         return inner
