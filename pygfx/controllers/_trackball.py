@@ -42,12 +42,11 @@ class TrackballController(OrbitController):
         qx = la.quaternion_make_from_axis_angle((0, 1, 0), -dx)
         qy = la.quaternion_make_from_axis_angle((1, 0, 0), -dy)
 
-        base_rot = (0, 0, 0, 1)
-        base_rot = la.quaternion_multiply(base_rot, la.quaternion_multiply(qy, qx))
+        delta_rot = la.quaternion_multiply((0, 0, 0, 1), la.quaternion_multiply(qy, qx))
 
         # Get rotations
         rot1 = rotation
-        rot2 = la.quaternion_multiply(rot1, base_rot)
+        rot2 = la.quaternion_multiply(rot1, delta_rot)
 
         # Calculate new position
         pos1 = position
