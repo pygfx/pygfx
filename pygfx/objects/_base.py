@@ -11,7 +11,7 @@ from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
-from ..utils.transform import AffineTransform, ChainedTransform, EmbeddedTransform
+from ..utils.transform import AffineTransform, ChainedTransform, EmbeddedTransform, callback
 
 
 class IdProvider:
@@ -144,18 +144,11 @@ class WorldObject(EventTarget, RootTrackable):
         self.render_mask = render_mask
 
         # Compose complete uniform type
-        # Note: buffer is a local variable to avoid a circular reference to self
-        # that would prevent garbage collection
         buffer = Buffer(array_from_shadertype(self.uniform_type))
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        def buffer_callback(transform: AffineTransform):
-            buffer.data["world_transform"] = transform.matrix.T
-            buffer.data["world_transform_inv"] = transform.inverse_matrix.T
-            buffer.update_range()
-
-        self.world_transform = AffineTransform(update_callback=buffer_callback)
+        self.world_transform = AffineTransform(update_callback=self._update_uniform_buffers)
         self.transform = EmbeddedTransform(self.world_transform)
         self.uniform_buffer = buffer
 
@@ -165,6 +158,12 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.cast_shadow = False
         self.receive_shadow = False
+
+    @callback
+    def _update_uniform_buffers(self, transform: AffineTransform):               
+        self.uniform_buffer.data["world_transform"] = transform.matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
+        self.uniform_buffer.update_range()
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"

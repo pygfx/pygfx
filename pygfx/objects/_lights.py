@@ -229,12 +229,12 @@ class PointLight(Light):
         """
         # compute the light's luminous power (in lumens) from its intensity (in candela)
         # for an isotropic light source, luminous power (lm) = 4 π luminous intensity (cd)
-        return self.intensity * 4 * math.PI
+        return self.intensity * 4 * np.pi
 
     @power.setter
     def power(self, power):
         # set the light's intensity (in candela) from the desired luminous power (in lumens)
-        self.intensity = power / (4 * math.PI)
+        self.intensity = power / (4 * np.pi)
 
     @property
     def distance(self):

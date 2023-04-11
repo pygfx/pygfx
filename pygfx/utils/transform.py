@@ -1,6 +1,8 @@
 import numpy as np
 import pylinalg as la
 from time import perf_counter_ns
+import weakref
+import functools
 
 from typing import List, Tuple
 
@@ -37,6 +39,39 @@ class cached:  # noqa: N801
             setattr(instance, self.name, cache)
 
         return cache[1]
+    
+class callback:
+    """Weakref support for AffineTransform callbacks.
+
+    This decorator replaces the instance reference of a class method (self) with
+    a weakref to the instance. It also dynamically resolves this weakref
+    so that users don't have to.
+
+    The use-case for it is to avoid the circular reference that happens when a
+    WorldObject registers a callback to keep it's local transform in sync with
+    its world transform. This speeds up garbage collection as WorldObjects will
+    get removed once the last reference is deleted instead of waiting for GC's
+    cycle detection phase.
+    
+    """
+
+    def __init__(self, callback_fn) -> None:
+        self.callback_fn = callback_fn
+
+    def __get__(self, instance, clazz=None):
+        if instance is None:
+            return self
+        
+        weak_instance = weakref.ref(instance)
+        
+        @functools.wraps(self.callback_fn)
+        def inner(*args, **kwargs):
+            if weak_instance() is None:
+                return
+            
+            return self.callback_fn(weak_instance(), *args, **kwargs)
+
+        return inner
 
 
 class AffineBase:
@@ -109,7 +144,10 @@ class AffineTransform(AffineBase):
     ) -> None:
         super().__init__()
         self.last_modified = perf_counter_ns()
-        self.update_callback = update_callback
+        self.update_callbacks = []
+
+        if update_callback is not None:
+            self.update_callbacks.append(update_callback)
 
         if matrix is None:
             matrix = np.eye(4, dtype=float)
@@ -128,8 +166,8 @@ class AffineTransform(AffineBase):
     def flag_update(self):
         self.last_modified = perf_counter_ns()
 
-        if self.update_callback is not None:
-            self.update_callback(self)
+        for callback in self.update_callbacks:
+            callback(self)
 
     @property
     def matrix(self):
