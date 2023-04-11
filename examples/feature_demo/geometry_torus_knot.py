@@ -25,19 +25,13 @@ obj = gfx.Mesh(geometry, material)
 scene.add(obj)
 
 camera = gfx.PerspectiveCamera(70, 1)
-camera.position.z = 4
+camera.show_object(scene)
 
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
-
-def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
-    obj.rotation.multiply(rot)
-
-    renderer.render(scene, camera)
-    canvas.request_draw()
+controller = gfx.TrackballController(camera, register_events=renderer)
 
 
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()
