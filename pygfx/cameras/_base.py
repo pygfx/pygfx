@@ -58,10 +58,7 @@ class Camera(WorldObject):
 
         # flipped eye, target inputs because cameras look along negative Z
         rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
-        rotation = la.matrix_to_quaternion(rotation)
-        self.world_transform.rotation = la.quaternion_multiply(
-            rotation, self.world_transform.rotation
-        )
+        self.world_transform.rotation = la.matrix_to_quaternion(rotation)
 
     @property
     def view_matrix(self) -> np.ndarray:

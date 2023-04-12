@@ -142,13 +142,8 @@ class Light(WorldObject):
             up = la.vector_apply_quaternion(up, quat)
 
         # flipped eye, target inputs because lights shine along negative Z
-        rotation = la.matrix_make_look_at(
-            target, self.world_transform.position, self.up
-        )
-        rotation = la.matrix_to_quaternion(rotation)
-        self.world_transform.rotation = la.quaternion_multiply(
-            rotation, self.world_transform.rotation
-        )
+        rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
+        self.world_transform.rotation = la.matrix_to_quaternion(rotation)
 
 
 class AmbientLight(Light):
@@ -336,8 +331,6 @@ class DirectionalLight(Light):
                 (0, 0, -1), dtype=float
             )  # ill-defined direction -> look neg z-axis
         self.uniform_buffer.data["direction"].flat = direction
-        # note: we are doing computation in world space but then apply look_at
-        # in local space is this what we want?
         self.look_at(pos1 + direction)
 
 
