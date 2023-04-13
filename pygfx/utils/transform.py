@@ -240,14 +240,25 @@ class ChainedTransform(AffineBase):
         super().__init__()
         self.sequence = transform_sequence
         self.settable:AffineTransform = None
-        self.before:ChainedTransform = None
-        self.after:ChainedTransform = None
+        self.before:AffineBase = None
+        self.after:AffineBase = None
 
         if settable_index is not None:
             idx = settable_index
-            self.settable = self.sequence[idx]
-            self.before = ChainedTransform(self.sequence[:idx])
-            self.after = ChainedTransform(self.sequence[idx + 1 :])
+            before, after = self.sequence[:idx], self.sequence[idx:]
+            target, after = after[0], after[1:]
+            
+            self.settable = target
+
+            if len(before) > 0:
+                self.before = ChainedTransform(before)
+            else:
+                self.before = AffineTransform()          
+            
+            if len(after) > 0:
+                self.after = AffineTransform()
+            else:
+                self.after = ChainedTransform(after)
 
     @property
     def last_modified(self):

@@ -154,10 +154,8 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        self.world_transform = AffineTransform(
-            update_callback=self._update_uniform_buffers
-        )
-        self.transform = EmbeddedTransform(self.world_transform)
+        self.transform = AffineTransform(update_callback=self._update_uniform_buffers)
+        self.world_transform = AffineTransform(self.transform)
         self.uniform_buffer = buffer
 
         # Set id
@@ -172,6 +170,9 @@ class WorldObject(EventTarget, RootTrackable):
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
         self.uniform_buffer.update_range()
+
+        # for child in self.children:
+        #     child.
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
@@ -297,8 +298,15 @@ class WorldObject(EventTarget, RootTrackable):
             return None
         else:
             return self._parent()
+        
+    @property
+    def parents(self) -> List["WorldObject"]:
+        if self.parent is None:
+            return []
+        else:
+            return self.parent.parents + [self.parent]
 
-    def add(self, *objects, before=None, keep_world_matrix=False) -> None:
+    def add(self, *objects, before=None, keep_world_matrix=False) -> "WorldObject":
         """Add child objects.
 
         Any number of objects may be added. Any current parent on an object
@@ -321,11 +329,13 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
-            if not keep_world_matrix:
+            if keep_world_matrix:
+                transform_matrix = obj.world_transform.matrix
+            else:
                 transform_matrix = obj.transform.matrix
 
             if obj.parent is not None:
-                obj.parent.remove(obj)
+                obj.parent.remove(obj, keep_world_matrix=keep_world_matrix)
 
             if before is not None:
                 idx = self.children.index(before)
@@ -333,23 +343,36 @@ class WorldObject(EventTarget, RootTrackable):
                 idx = len(self.children)
 
             obj._parent = weakref.ref(self)
-            obj.transform.before = self.transform_sequence
-            if not keep_world_matrix:
-                obj.transform.matrix = transform_matrix
-
             self.children.insert(idx, obj)
 
-        # backwards compatibility
+            obj.world_transform = ChainedTransform([x.transform for x in obj.parents] + [obj.transform], settable_index=-1)
+            
+            if keep_world_matrix:
+                obj.world_transform.matrix = obj.world_transform.matrix
+            else:
+                obj.transform.matrix = transform_matrix
+
+
         return self
 
-    def remove(self, *objects):
+    def remove(self, *objects, keep_world_matrix=False):
         """Removes object as child of this object. Any number of objects may be removed."""
 
         obj: WorldObject
         for obj in objects:
-            obj._parent = None
-            obj.transform.before = None
+            if keep_world_matrix:
+                transform_matrix = obj.world_transform.matrix
+            else:
+                transform_matrix = obj.transform.matrix
+
             self.children.remove(obj)
+            obj._parent = None
+            obj.world_transform = AffineTransform(obj.transform)
+
+            if keep_world_matrix:
+                obj.world_transform.matrix = obj.world_transform.matrix
+            else:
+                obj.transform.matrix = transform_matrix
 
     def clear(self):
         """Removes all children."""
@@ -385,21 +408,21 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def transform_sequence(self) -> ChainedTransform:
-        own_sequence = ChainedTransform([self.transform])
-
-        if self.parent is None:
-            return own_sequence
-        else:
-            return self.parent.transform_sequence @ own_sequence
+        transforms = [x.transform for x in self.parents] + [self.transform]
+        return ChainedTransform(transforms)
 
     @property
     def bounding_box(self):
-        partial_aabb = np.zeros((len(self.children) + 1, 2, 3), dtype=float)
+        include_self = self.geometry is not None
+        n_partials = len(self.children) + 1 if include_self else len(self.children)
+
+        partial_aabb = np.zeros((n_partials, 2, 3), dtype=float)
         for idx, child in enumerate(self.children):
             aabb = child.bounding_box
             trafo = child.transform.matrix
             partial_aabb[idx] = la.aabb_transform(aabb, trafo)
-        partial_aabb[-1] = self.geometry.bounding_box()
+        if include_self:
+            partial_aabb[-1] = self.geometry.bounding_box()
 
         final_aabb = np.zeros((2, 3), dtype=float)
         final_aabb[0] = np.min(partial_aabb[:, 0, :], axis=0)
