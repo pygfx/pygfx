@@ -34,7 +34,26 @@ class FlyController(Controller):
         "alt+wheel": ("fov", "push", -0.01),
     }
 
-    _speed_factor = 1.0
+    def __init__(self, camera, *, speed=None, **kwargs):
+        super().__init__(camera, **kwargs)
+
+        if speed is None:
+            cam_state = camera.get_state()
+            approx_scene_size = 0.5 * (cam_state["width"] + cam_state["height"])
+            scene_fly_thru_time = 5  # seconds
+            speed = approx_scene_size / scene_fly_thru_time
+        self.speed = speed
+
+    @property
+    def speed(self):
+        """The (maxium) speed that the camera will move, in units per second.
+        By default it's based off the width and height of the camera.
+        """
+        return self._speed
+
+    @speed.setter
+    def speed(self, value):
+        self._speed = float(value)
 
     def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Rotate the camera over two angles (pitch and yaw in radians).
@@ -117,37 +136,22 @@ class FlyController(Controller):
             action.set_target(delta)
             action.done = True
         elif self._cameras:
-            vecx, vecy = self._get_camera_vecs(rect)
-            self._update_move(delta, vecx=vecx, vecy=vecy)
+            self._update_move(delta)
             return self._update_cameras()
 
-    def _update_move(self, delta, *, vecx, vecy):
+    def _update_move(self, delta):
         assert isinstance(delta, tuple) and len(delta) == 3
 
         cam_state = self._get_camera_state()
         position = cam_state["position"]
         rotation = cam_state["rotation"]
-
         delta_world = la.vector_apply_quaternion(delta, rotation)
-        ref_size = 0.5 * (cam_state["width"] + cam_state["height"])
 
-        new_position = position + delta_world * ref_size * self._speed_factor
+        new_position = position + delta_world * self.speed
         self._set_camera_state({"position": new_position})
-
-    def speed(self, delta: float, rect: Tuple, *, animate=False):
-        """Adjust the camera speed factor."""
-
-        if animate:
-            action_tuple = ("speed", "push", 1.0)
-            action = self._create_action(None, action_tuple, 0.0, None, rect)
-            action.set_target(delta)
-            action.done = True
-        elif self._cameras:
-            vecx, vecy = self._get_camera_vecs(rect)
-            self._update_move(delta, vecx=vecx, vecy=vecy)
-            return self._update_cameras()
+        print(new_position)
 
     def _update_speed(self, delta):
         assert isinstance(delta, float)
-        self._speed_factor *= 2**delta
-        self._speed_factor = max(min(self._speed_factor, 10), 0.1)
+        speed = self.speed * 2**delta
+        self.speed = max(0.001, speed)
