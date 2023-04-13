@@ -299,8 +299,10 @@ class Controller:
 
         type = event.type
         if type.startswith(("pointer_", "key_", "wheel")):
-            modifiers = sorted([m.lower() for m in event.modifiers])
-            modifiers_prefix = "+".join(modifiers + [""])
+            modifiers = {m.lower() for m in event.modifiers}
+            if type.startswith("key_"):
+                modifiers.discard(event.key.lower())
+            modifiers_prefix = "+".join(sorted(modifiers) + [""])
 
         if type == "before_render":
             # Do a tick, updating all actions, and using them to update the camera state.
@@ -425,6 +427,63 @@ class Controller:
         # Call it!
         func(action.delta, **kwargs)
 
+    # %% Actions on the base class
+
+    def quickzoom(self, delta: float, *, animate=False):
+        """Zoom the view using the camera's zoom property. This is intended
+        for temporary zoom operations.
+
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
+
+        if animate:
+            action_tuple = ("quickzoom", "push", 1.0)
+            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_quickzoom(delta)
+            return self._update_cameras()
+
+    def _update_quickzoom(self, delta):
+        assert isinstance(delta, (int, float))
+        zoom = self._get_camera_state()["zoom"]
+        new_cam_state = {"zoom": zoom * 2**delta}
+        self._set_camera_state(new_cam_state)
+
+    def update_fov(self, delta, *, animate):
+        """Adjust the field of view with the given delta value (Limited to [1, 179]).
+
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
+
+        if animate:
+            action_tuple = ("fov", "push", 1.0)
+            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_fov(delta)
+            return self._update_cameras()
+
+    def _update_fov(self, delta: float):
+        fov_range = self._cameras[0]._fov_range
+
+        # Get current state
+        cam_state = self._get_camera_state()
+        position = cam_state["position"]
+        fov = cam_state["fov"]
+
+        # Update fov and position
+        new_fov = min(max(fov + delta, fov_range[0]), fov_range[1])
+        pos2target1 = self._get_target_vec(cam_state, fov=fov)
+        pos2target2 = self._get_target_vec(cam_state, fov=new_fov)
+        new_position = position + pos2target1 - pos2target2
+
+        self._set_camera_state({"fov": new_fov, "position": new_position})
+
 
 class Action:
     """Simple value to represent a value to change an action with."""
@@ -512,6 +571,7 @@ class Controls(dict):
     _buttons = "mouse1", "mouse2", "mouse3", "mouse4", "mouse5", "wheel"
     _buttons += "arrowleft", "arrowright", "arrowup", "arrowdown"
     _buttons += "tab", "enter", "escape", "backspace", "delete"
+    _buttons += "shift", "control"
 
     _modes = "drag", "push", "peak", "repeat"
 

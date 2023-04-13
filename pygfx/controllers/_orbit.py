@@ -47,7 +47,7 @@ class OrbitController(PanZoomController):
     }
 
     def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
-        """Rotate using two angles (azimuth and elevation, in radians).
+        """Rotate in an orbit around the target, using two angles (azimuth and elevation, in radians).
 
         If animate is True, the motion is damped. This requires the
         controller to receive events from the renderer/viewport.
