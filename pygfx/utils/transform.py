@@ -24,7 +24,7 @@ class cached:  # noqa: N801
     def __set_name__(self, clazz, name) -> None:
         self.name = f"_{name}_cache"
 
-    def __get__(self, instance: "AffineBase", clazz=None):
+    def __get__(self, instance: "AffineBase", clazz=None) -> np.ndarray:
         if instance is None:
             return self
 
@@ -41,7 +41,7 @@ class cached:  # noqa: N801
         return cache[1]
 
 
-class callback:
+class callback:  # noqa: N801
     """Weakref support for AffineTransform callbacks.
 
     This decorator replaces the instance reference of a class method (self) with
@@ -126,6 +126,48 @@ class AffineBase:
     def scale_z(self) -> float:
         return self.scale[2]
 
+    @position.setter
+    def position(self, value):
+        self.matrix = la.matrix_make_transform(value, self.rotation, self.scale)
+
+    @rotation.setter
+    def rotation(self, value):
+        self.matrix = la.matrix_make_transform(self.position, value, self.scale)
+
+    @scale.setter
+    def scale(self, value):
+        self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
+
+    @x.setter
+    def x(self, value):
+        _, y, z = self.position
+        self.position = (value, y, z)
+
+    @y.setter
+    def y(self, value):
+        x, _, z = self.position
+        self.position = (x, value, z)
+
+    @z.setter
+    def z(self, value):
+        x, y, _ = self.position
+        self.position = (x, y, value)
+
+    @scale_x.setter
+    def scale_x(self, value):
+        _, y, z = self.scale
+        self.scale = (value, y, z)
+
+    @scale_y.setter
+    def scale_y(self, value):
+        x, _, z = self.scale
+        self.scale = (x, value, z)
+
+    @scale_z.setter
+    def scale_z(self, value):
+        x, y, _ = self.scale
+        self.scale = (x, y, value)
+
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
 
@@ -181,49 +223,6 @@ class AffineTransform(AffineBase):
         self.untracked_matrix[:] = value
         self.flag_update()
 
-    @AffineBase.position.setter
-    def position(self, value):
-        self.untracked_matrix[:-1, -1] = value
-        self.flag_update()
-
-    @AffineBase.rotation.setter
-    def rotation(self, value):
-        self.matrix = la.matrix_make_transform(self.position, value, self.scale)
-
-    @AffineBase.scale.setter
-    def scale(self, value):
-        self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
-
-    @AffineBase.x.setter
-    def x(self, value):
-        _, y, z = self.position
-        self.position = (value, y, z)
-
-    @AffineBase.y.setter
-    def y(self, value):
-        x, _, z = self.position
-        self.position = (x, value, z)
-
-    @AffineBase.z.setter
-    def z(self, value):
-        x, y, _ = self.position
-        self.position = (x, y, value)
-
-    @AffineBase.scale_x.setter
-    def scale_x(self, value):
-        _, y, z = self.scale
-        self.scale = (value, y, z)
-
-    @AffineBase.scale_y.setter
-    def scale_y(self, value):
-        x, _, z = self.scale
-        self.scale = (x, value, z)
-
-    @AffineBase.scale_z.setter
-    def scale_z(self, value):
-        x, y, _ = self.scale
-        self.scale = (x, y, value)
-
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
             return AffineTransform(self.matrix @ other.matrix)
@@ -235,19 +234,43 @@ class AffineTransform(AffineBase):
 
 
 class ChainedTransform(AffineBase):
-    def __init__(self, transform_sequence: List[AffineTransform]) -> None:
+    def __init__(
+        self, transform_sequence: List[AffineTransform], *, settable_index:int=None
+    ) -> None:
         super().__init__()
         self.sequence = transform_sequence
+        self.settable:AffineTransform = None
+        self.before:ChainedTransform = None
+        self.after:ChainedTransform = None
+
+        if settable_index is not None:
+            idx = settable_index
+            self.settable = self.sequence[idx]
+            self.before = ChainedTransform(self.sequence[:idx])
+            self.after = ChainedTransform(self.sequence[idx + 1 :])
 
     @property
     def last_modified(self):
-        return max(
-            self.sequence, key=lambda transform: transform.last_modified
-        ).last_modified
+        return max(x.last_modified for x in self.sequence)
 
     @cached
-    def matrix(self):
+    def _matrix(self):
         return la.matrix_combine(self.sequence)
+
+    @property
+    def matrix(self):
+        return self._matrix
+
+    @matrix.setter
+    def matrix(self, value):
+        if self.settable is None:
+            raise AttributeError(
+                "This ChainedTransform doesn't use `settable_index` and "
+                "thus can't set properties."
+            )
+        
+        new_value = self.before.inverse_matrix @ value @ self.after.inverse_matrix
+        self.settable.matrix = new_value
 
     def __matmul__(self, other):
         if isinstance(other, ChainedTransform):
@@ -322,53 +345,6 @@ class EmbeddedTransform(AffineBase):
             self._after = AffineTransform()
 
         return self._after
-
-    @after.setter
-    def after(self, value: AffineBase) -> None:
-        self._after = value
-        self.flag_update()
-
-    @AffineBase.position.setter
-    def position(self, value):
-        self.matrix = la.matrix_make_transform(value, self.rotation, self.scale)
-
-    @AffineBase.rotation.setter
-    def rotation(self, value):
-        self.matrix = la.matrix_make_transform(self.position, value, self.scale)
-
-    @AffineBase.scale.setter
-    def scale(self, value):
-        self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
-
-    @AffineBase.x.setter
-    def x(self, value):
-        _, y, z = self.position
-        self.position = (value, y, z)
-
-    @AffineBase.y.setter
-    def y(self, value):
-        x, _, z = self.position
-        self.position = (x, value, z)
-
-    @AffineBase.z.setter
-    def z(self, value):
-        x, y, _ = self.position
-        self.position = (x, y, value)
-
-    @AffineBase.scale_x.setter
-    def scale_x(self, value):
-        _, y, z = self.scale
-        self.scale = (value, y, z)
-
-    @AffineBase.scale_y.setter
-    def scale_y(self, value):
-        x, _, z = self.scale
-        self.scale = (x, value, z)
-
-    @AffineBase.scale_z.setter
-    def scale_z(self, value):
-        x, y, _ = self.scale
-        self.scale = (x, y, value)
 
     def __matmul__(self, other):
         return np.asarray(self) @ other
