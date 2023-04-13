@@ -256,9 +256,9 @@ class ChainedTransform(AffineBase):
                 self.before = AffineTransform()          
             
             if len(after) > 0:
-                self.after = AffineTransform()
-            else:
                 self.after = ChainedTransform(after)
+            else:
+                self.after = AffineTransform()
 
     @property
     def last_modified(self):

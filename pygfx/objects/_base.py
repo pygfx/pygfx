@@ -12,6 +12,7 @@ from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
 from ..utils.transform import (
+    AffineBase,
     AffineTransform,
     ChainedTransform,
     EmbeddedTransform,
@@ -155,7 +156,7 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform_inv"] = np.eye(4)
 
         self.transform = AffineTransform(update_callback=self._update_uniform_buffers)
-        self.world_transform = AffineTransform(self.transform)
+        self.world_transform:AffineBase = ChainedTransform([self.transform], settable_index=-1)
         self.uniform_buffer = buffer
 
         # Set id
@@ -167,12 +168,12 @@ class WorldObject(EventTarget, RootTrackable):
 
     @callback
     def _update_uniform_buffers(self, transform: AffineTransform):
-        self.uniform_buffer.data["world_transform"] = transform.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
+        self.uniform_buffer.data["world_transform"] = self.world_transform.matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = self.world_transform.inverse_matrix.T
         self.uniform_buffer.update_range()
 
-        # for child in self.children:
-        #     child.
+        for child in self.children:
+            child._update_uniform_buffers(transform)
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
@@ -367,7 +368,7 @@ class WorldObject(EventTarget, RootTrackable):
 
             self.children.remove(obj)
             obj._parent = None
-            obj.world_transform = AffineTransform(obj.transform)
+            obj.world_transform = ChainedTransform([self.transform], settable_index=-1)
 
             if keep_world_matrix:
                 obj.world_transform.matrix = obj.world_transform.matrix
