@@ -346,7 +346,9 @@ class WorldObject(EventTarget, RootTrackable):
             obj._parent = weakref.ref(self)
             self.children.insert(idx, obj)
 
-            obj.world_transform = ChainedTransform([x.transform for x in obj.parents] + [obj.transform], settable_index=-1)
+            for child in obj.iter():
+                new_chain = child.parents + [child]
+                child.world_transform = ChainedTransform([x.transform for x in new_chain], settable_index=-1)
             
             if keep_world_matrix:
                 obj.world_transform.matrix = obj.world_transform.matrix
