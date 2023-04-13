@@ -19,7 +19,7 @@ class FlyController(Controller):
         "d": ("move", "repeat", (+1, 0, 0)),
         " ": ("move", "repeat", (0, +1, 0)),
         "shift": ("move", "repeat", (0, -1, 0)),
-        "mouse4": ("quickzoom", "peak", 2),
+        "mouse4": ("quickzoom", "peek", 2),
         "wheel": ("speed", "push", -0.001),
         "alt+wheel": ("fov", "push", -0.01),
     }

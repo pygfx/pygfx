@@ -21,7 +21,7 @@ class PanZoomController(Controller):
     _default_controls = {
         "mouse1": ("pan", "drag", (1, 1)),
         "mouse2": ("zoom", "drag", (0.005, -0.005)),
-        "mouse4": ("quickzoom", "peak", 2),
+        "mouse4": ("quickzoom", "peek", 2),
         "wheel": ("zoom_to_point", "push", -0.001),
         "alt+wheel": ("fov", "push", -0.01),
     }

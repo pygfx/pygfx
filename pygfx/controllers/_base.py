@@ -155,8 +155,8 @@ class Controller:
 
         * The `action name`, e.g. 'pan', see ``controller.controls.action_names``
           for the possible names.
-        * The `mode`: 'drag', 'push', 'peak', 'repeat'. Drag represents mouse drag,
-          push means the action is performed as the key is pushed, peak
+        * The `mode`: 'drag', 'push', 'peek', 'repeat'. Drag represents mouse drag,
+          push means the action is performed as the key is pushed, peek
           means that the action is undone once the key is released, and repeat
           means that while the key is held down, the value updates with the given
           amount per second.
@@ -311,7 +311,7 @@ class Controller:
                 self.tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
-            # Start a drag, or an action with mode push/peak/repeat
+            # Start a drag, or an action with mode push/peek/repeat
             key = modifiers_prefix + f"mouse{event.button}"
             action_tuple = self._controls.get(key)
             if action_tuple:
@@ -354,7 +354,7 @@ class Controller:
                     action.done = True
                 action.increase_target(d)
         elif type == "key_down":
-            # Start an action with mode push/peak/repeat
+            # Start an action with mode push/peek/repeat
             key = modifiers_prefix + f"{event.key.lower()}"
             action_tuple = self._controls.get(key)
             if action_tuple:
@@ -376,7 +376,7 @@ class Controller:
             action.snap_distance = 0.01
             if mode == "push":
                 action.done = True
-        if mode in ("push", "peak"):
+        if mode in ("push", "peek"):
             action.set_target(1)
 
     def _handle_button_up(self, button):
@@ -386,7 +386,7 @@ class Controller:
             if key == button or key.endswith("+" + button):
                 need_update = True
                 action.done = True
-                if action.mode == "peak":
+                if action.mode == "peek":
                     action.set_target(action.target_value * 0)
         return need_update
 
@@ -573,7 +573,7 @@ class Controls(dict):
     _buttons += "tab", "enter", "escape", "backspace", "delete"
     _buttons += "shift", "control"
 
-    _modes = "drag", "push", "peak", "repeat"
+    _modes = "drag", "push", "peek", "repeat"
 
     def __init__(self, *actions):
         self._actions = tuple(actions)
