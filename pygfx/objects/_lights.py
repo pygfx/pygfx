@@ -74,7 +74,6 @@ class Light(WorldObject):
         self.color = color
         self.intensity = intensity
         self.cast_shadow = cast_shadow
-        self.up = np.array((0, 1, 0))
 
         # for internal use
         self._shadow = None
@@ -130,20 +129,6 @@ class Light(WorldObject):
     @cast_shadow.setter
     def cast_shadow(self, value: bool):
         self.uniform_buffer.data["cast_shadow"] = bool(value)
-
-    def look_at(self, target) -> None:
-        up = self.up
-        new_z = target - self.world_transform.position
-        new_z /= np.linalg.norm(new_z)
-        if np.allclose(abs(np.dot(new_z, up)), 1, atol=1e-6):
-            quat = la.quaternion_make_from_unit_vectors(
-                self.world_transform.position, target
-            )
-            up = la.vector_apply_quaternion(up, quat)
-
-        # flipped eye, target inputs because lights shine along negative Z
-        rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
-        self.world_transform.rotation = la.matrix_to_quaternion(rotation)
 
 
 class AmbientLight(Light):

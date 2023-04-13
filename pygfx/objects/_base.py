@@ -3,7 +3,7 @@ import weakref
 import threading
 import enum
 from typing import List
-import pylinalg as pla
+import pylinalg as la
 
 import numpy as np
 
@@ -137,6 +137,7 @@ class WorldObject(EventTarget, RootTrackable):
         render_mask="auto",
     ):
         super().__init__()
+        self.up = np.array((0, 1, 0))
         self._parent: weakref.ReferenceType[WorldObject] = None
         self.children: List[WorldObject] = []
 
@@ -397,7 +398,7 @@ class WorldObject(EventTarget, RootTrackable):
         for idx, child in enumerate(self.children):
             aabb = child.bounding_box
             trafo = child.transform.matrix
-            partial_aabb[idx] = pla.aabb_transform(aabb, trafo)
+            partial_aabb[idx] = la.aabb_transform(aabb, trafo)
         partial_aabb[-1] = self.geometry.bounding_box()
 
         final_aabb = np.zeros((2, 3), dtype=float)
@@ -407,7 +408,7 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def bounding_sphere(self):
-        return pla.aabb_to_sphere(self.bounding_box)
+        return la.aabb_to_sphere(self.bounding_box)
 
     @property
     def world_bounding_box(self):
@@ -415,7 +416,7 @@ class WorldObject(EventTarget, RootTrackable):
         a single world-space axis-aligned bounding box for this object's
         geometry and all of its children (recursively)."""
 
-        return pla.aabb_transform(self.bounding_box, self.world_transform.matrix)
+        return la.aabb_transform(self.bounding_box, self.world_transform.matrix)
 
     @property
     def world_bounding_sphere(self):
@@ -424,8 +425,22 @@ class WorldObject(EventTarget, RootTrackable):
 
         See WorldObject.get_world_bounding_box.
         """
-        return pla.aabb_to_sphere(self.world_bounding_box)
+        return la.aabb_to_sphere(self.world_bounding_box)
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
         return self.material._wgpu_get_pick_info(pick_value)
+
+    def look_at(self, target) -> None:
+        up = self.up
+        new_z = target - self.world_transform.position
+        new_z /= np.linalg.norm(new_z)
+        if np.allclose(abs(np.dot(new_z, up)), 1, atol=1e-6):
+            quat = la.quaternion_make_from_unit_vectors(
+                self.world_transform.position, target
+            )
+            up = la.vector_apply_quaternion(up, quat)
+
+        # flipped eye, target inputs because cameras look along negative Z
+        rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
+        self.world_transform.rotation = la.matrix_to_quaternion(rotation)
