@@ -212,7 +212,7 @@ class Controller:
 
         to_pop = []
         for key, action in self._actions.items():
-            if action.mode == "repeat" and not action.done:
+            if action.mode == "repeat":
                 action.increase_target(elapsed_time)
             action.tick(factor)
             if action.is_at_target and action.done:
@@ -374,8 +374,7 @@ class Controller:
         if action is None:
             action = self._create_action(key, action_tuple, 0, None, viewport.rect)
             action.snap_distance = 0.01
-            if mode == "push":
-                action.done = True
+        action.done = True if mode == "push" else False
         if mode in ("push", "peek"):
             action.set_target(1)
 
@@ -511,6 +510,7 @@ class Action:
         self.last_value = zero
         self.target_value = zero
         self.current_value = zero
+        self.repeat_multiplier = 0
 
         self.snap_distance = 0.5
         self.done = False
@@ -536,7 +536,20 @@ class Action:
         self.target_value = value - self.offset
 
     def increase_target(self, value):
-        self.target_value = self.target_value + value
+        if self.mode == "repeat":
+            # We increase/decrease a multiplier linearly
+            lag_time = 1.5  # seconds
+            if not self.done:
+                self.repeat_multiplier = min(
+                    1.0, self.repeat_multiplier + value / lag_time
+                )
+            else:
+                self.repeat_multiplier = max(
+                    0.0, self.repeat_multiplier - value / lag_time
+                )
+            self.target_value = self.target_value + value * self.repeat_multiplier
+        else:
+            self.target_value = self.target_value + value
 
     def tick(self, factor=1):
         # Update value
@@ -562,6 +575,9 @@ class Action:
 
     @property
     def is_at_target(self):
+        if self.mode == "repeat":
+            if self.repeat_multiplier:
+                return False
         return np.all(self.current_value == self.target_value)
 
 

@@ -1,18 +1,28 @@
 from typing import Tuple
 
 import pylinalg as la
-import numpy as np
 
 from ._base import Controller
 
 
 class FlyController(Controller):
-    """A controller to ..."""
+    """A controller to fly around a scene as if it's a flight simulator.
+
+    Default controls:
+
+    * Left mouse button: rotate.
+    * "wasd": move forward, backwards, and to the sides.
+    * space/shift: move up/down.
+    * "qe": roll the camera/aircraft around it's axis.
+    * wheel: increase/descease maximum speed.
+    * Fourth mouse button: quickzoom
+    * alt+wheel: adjust fov.
+    """
 
     _default_controls = {
         "mouse1": ("rotate", "drag", (0.005, 0.005)),
-        "q": ("roll", "repeat", -1),
-        "e": ("roll", "repeat", +1),
+        "q": ("roll", "repeat", -2),
+        "e": ("roll", "repeat", +2),
         "w": ("move", "repeat", (0, 0, -1)),
         "s": ("move", "repeat", (0, 0, +1)),
         "a": ("move", "repeat", (-1, 0, 0)),
@@ -24,7 +34,7 @@ class FlyController(Controller):
         "alt+wheel": ("fov", "push", -0.01),
     }
 
-    _speed_factor = 0.5
+    _speed_factor = 1.0
 
     def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
         """Rotate the camera over two angles (pitch and yaw in radians).
@@ -140,4 +150,4 @@ class FlyController(Controller):
     def _update_speed(self, delta):
         assert isinstance(delta, float)
         self._speed_factor *= 2**delta
-        self._speed_factor = max(min(self._speed_factor, 5), 0.05)
+        self._speed_factor = max(min(self._speed_factor, 10), 0.1)
