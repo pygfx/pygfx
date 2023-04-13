@@ -53,7 +53,7 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 controller.controls = {
     "shift+mouse1": ("pan", "drag", (1, 0)),
     "wheel": ("pan", "push", (-0.05, 0)),
-    "mouse3": ("quickzoom", "peak", 2),
+    "mouse3": ("quickzoom", "peek", 2),
 }
 
 if __name__ == "__main__":
