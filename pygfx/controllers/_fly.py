@@ -11,10 +11,10 @@ class FlyController(Controller):
     Default controls:
 
     * Left mouse button: rotate.
-    * "wasd": move forward, backwards, and to the sides.
+    * "wasd": move forward, backwards, and strafe to the sides.
     * space/shift: move up/down.
     * "qe": roll the camera/aircraft around it's axis.
-    * wheel: increase/descease maximum speed.
+    * wheel: increase/decrease maximum speed.
     * Fourth mouse button: quickzoom
     * alt+wheel: adjust fov.
     """
@@ -46,7 +46,7 @@ class FlyController(Controller):
 
     @property
     def speed(self):
-        """The (maxium) speed that the camera will move, in units per second.
+        """The (maximum) speed that the camera will move, in units per second.
         By default it's based off the width and height of the camera.
         """
         return self._speed

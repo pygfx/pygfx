@@ -374,7 +374,7 @@ class Controller:
         if action is None:
             action = self._create_action(key, action_tuple, 0, None, viewport.rect)
             action.snap_distance = 0.01
-        action.done = True if mode == "push" else False
+        action.done = mode == "push"
         if mode in ("push", "peek"):
             action.set_target(1)
 
