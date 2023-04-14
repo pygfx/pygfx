@@ -34,7 +34,7 @@ negz = np.ascontiguousarray(data[1 * h : 2 * h, 3 * w : 4 * w])
 
 datas = [posx, negx, posy, negy, posz, negz]
 
-tex = gfx.Texture(np.stack(datas, axis=0), dim=2, size=(w, h, 6))
+tex = gfx.Texture(np.stack(datas, axis=0), dim=2, size=(w, h, 6), generate_mipmaps=True)
 
 canvas = WgpuCanvas(size=(640, 640))
 renderer = gfx.renderers.WgpuRenderer(canvas)
