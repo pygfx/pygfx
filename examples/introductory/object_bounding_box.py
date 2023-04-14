@@ -19,10 +19,10 @@ from pathlib import Path
 
 try:
     # modify this line if your model is located elsewhere
-    model_dir = Path(__file__).parents[1] / "models"
+    model_dir = Path(__file__).parents[1] / "data"
 except NameError:
     # compatibility with sphinx-gallery
-    model_dir = Path(os.getcwd()).parent / "models"
+    model_dir = Path(os.getcwd()).parent / "data"
 
 
 ################################################################################
