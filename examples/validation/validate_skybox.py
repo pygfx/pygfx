@@ -28,6 +28,16 @@ data = imageio.imread(data_dir / "cubemap.jpg")
 h = data.shape[0] // 3
 w = data.shape[1] // 4
 
+"""
+The layout of the example cubemap looks like this:
+ ┌────┬────┬────┬────┐
+ │    │ +Y │    │    │
+ ├────┼────┼────┼────┤
+ │ -X │ +Z │ +X │ -Z │
+ ├────┼────┼────┼────┤
+ │    │ -Y │    │    │
+ └────┴────┴────┴────┘
+ """
 posx = np.ascontiguousarray(data[1 * h : 2 * h, 2 * w : 3 * w])
 negx = np.ascontiguousarray(data[1 * h : 2 * h, 0 * w : 1 * w])
 posy = np.ascontiguousarray(data[0 * h : 1 * h, 1 * w : 2 * w])
