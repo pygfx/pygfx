@@ -13,9 +13,8 @@ from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
 from ..utils.transform import (
-    AffineBase,
     AffineTransform,
-    ChainedTransform,
+    RecursiveTransform,
     callback,
 )
 
@@ -156,9 +155,7 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform_inv"] = np.eye(4)
 
         self.transform = AffineTransform(update_callback=self._update_uniform_buffers)
-        self.world_transform: AffineBase = ChainedTransform(
-            [self.transform], settable_index=-1
-        )
+        self.world_transform = RecursiveTransform(self.transform)
         self.uniform_buffer = buffer
 
         # Set id
@@ -334,11 +331,6 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
-            if keep_world_matrix:
-                transform_matrix = obj.world_transform.matrix
-            else:
-                transform_matrix = obj.transform.matrix
-
             if obj.parent is not None:
                 obj.parent.remove(obj, keep_world_matrix=keep_world_matrix)
 
@@ -347,19 +339,15 @@ class WorldObject(EventTarget, RootTrackable):
             else:
                 idx = len(self.children)
 
+            if keep_world_matrix:
+                transform_matrix = obj.world_transform.matrix
+
             obj._parent = weakref.ref(self)
+            obj.world_transform.parent = self.world_transform
             self.children.insert(idx, obj)
 
-            for child in obj.iter():
-                new_chain = child.parents + [child]
-                child.world_transform = ChainedTransform(
-                    [x.transform for x in new_chain], settable_index=-1
-                )
-
             if keep_world_matrix:
-                obj.world_transform.matrix = obj.world_transform.matrix
-            else:
-                obj.transform.matrix = transform_matrix
+                obj.world_transform.matrix = transform_matrix
 
         return self
 
@@ -368,28 +356,38 @@ class WorldObject(EventTarget, RootTrackable):
 
         obj: WorldObject
         for obj in objects:
-            if keep_world_matrix:
-                transform_matrix = obj.world_transform.matrix
-            else:
-                transform_matrix = obj.transform.matrix
-
             try:
                 self.children.remove(obj)
             except ValueError:
-                Warning("Attempting to remove object that was not a child.", UserWarning)
+                warnings.warn(
+                    "Attempting to remove object that was not a child.", UserWarning
+                )
                 continue
-
-            obj._parent = None
-            obj.world_transform = ChainedTransform([self.transform], settable_index=-1)
-
-            if keep_world_matrix:
-                obj.world_transform.matrix = obj.world_transform.matrix
             else:
-                obj.transform.matrix = transform_matrix
+                obj.reset_parent(keep_world_matrix=keep_world_matrix)
 
-    def clear(self):
+    def clear(self, *, keep_world_matrix=False):
         """Removes all children."""
-        self.remove(*self.children)
+
+        for child in self.children:
+            child.reset_parent(keep_world_matrix=keep_world_matrix)
+
+        self.children = []
+
+    def reset_parent(self, *, keep_world_matrix=False):
+        """Sets the parent to None.
+
+        xref: https://github.com/pygfx/pygfx/pull/482#discussion_r1135670771
+        """
+
+        if keep_world_matrix:
+            transform_matrix = self.world_transform.matrix
+
+        self._parent = None
+        self.world_transform.parent = None
+
+        if keep_world_matrix:
+            self.world_transform.matrix = transform_matrix
 
     def traverse(self, callback, skip_invisible=False):
         """Executes the callback on this object and all descendants.
@@ -418,11 +416,6 @@ class WorldObject(EventTarget, RootTrackable):
 
         for child in self.children:
             yield from child.iter(filter_fn, skip_invisible)
-
-    @property
-    def transform_sequence(self) -> ChainedTransform:
-        transforms = [x.transform for x in self.parents] + [self.transform]
-        return ChainedTransform(transforms)
 
     @property
     def bounding_box(self):

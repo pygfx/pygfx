@@ -4,7 +4,7 @@ from time import perf_counter_ns
 import weakref
 import functools
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 
 class cached:  # noqa: N801
@@ -292,7 +292,7 @@ class ChainedTransform(AffineBase):
             return np.asarray(self) @ other
 
 
-class EmbeddedTransform(AffineBase):
+class ImplicitTransform(AffineBase):
     def __init__(
         self,
         total_transform: AffineTransform = None,
@@ -359,3 +359,62 @@ class EmbeddedTransform(AffineBase):
 
     def __matmul__(self, other):
         return np.asarray(self) @ other
+
+
+class RecursiveTransform(AffineBase):
+    """A transform that may be preceeded by another transform."""
+
+    def __init__(self, matrix: Union[np.ndarray, AffineBase], parent=None) -> None:
+        self._parent = None
+        self.own = None
+        self._last_modified = perf_counter_ns()
+
+        if isinstance(matrix, AffineBase):
+            self.own = matrix
+        else:
+            self.own = AffineTransform(matrix)
+
+        if parent is None:
+            self._parent = AffineTransform()
+        else:
+            self._parent = parent
+
+    @property
+    def last_modified(self):
+        return max(
+            self.own.last_modified, self._parent.last_modified, self._last_modified
+        )
+
+    def flag_update(self):
+        self._last_modified = perf_counter_ns()
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, value):
+        if value is None:
+            self._parent = AffineTransform()
+        else:
+            self._parent = value
+
+        self.flag_update()
+
+    @cached
+    def _matrix(self):
+        return self._parent.matrix @ self.own.matrix
+
+    @property
+    def matrix(self):
+        return self._matrix
+
+    @matrix.setter
+    def matrix(self, value):
+        self.own.matrix = self._parent.inverse_matrix @ value
+
+    def __matmul__(self, other):
+        if isinstance(other, AffineBase):
+            return RecursiveTransform(other, parent=self)
+        else:
+            return np.asarray(self) @ other
