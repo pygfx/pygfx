@@ -4,6 +4,7 @@ import threading
 import enum
 from typing import List
 import pylinalg as la
+import warnings
 
 import numpy as np
 
@@ -372,7 +373,12 @@ class WorldObject(EventTarget, RootTrackable):
             else:
                 transform_matrix = obj.transform.matrix
 
-            self.children.remove(obj)
+            try:
+                self.children.remove(obj)
+            except ValueError:
+                Warning("Attempting to remove object that was not a child.", UserWarning)
+                continue
+
             obj._parent = None
             obj.world_transform = ChainedTransform([self.transform], settable_index=-1)
 
