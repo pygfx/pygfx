@@ -235,26 +235,26 @@ class AffineTransform(AffineBase):
 
 class ChainedTransform(AffineBase):
     def __init__(
-        self, transform_sequence: List[AffineTransform], *, settable_index:int=None
+        self, transform_sequence: List[AffineTransform], *, settable_index: int = None
     ) -> None:
         super().__init__()
         self.sequence = transform_sequence
-        self.settable:AffineTransform = None
-        self.before:AffineBase = None
-        self.after:AffineBase = None
+        self.settable: AffineTransform = None
+        self.before: AffineBase = None
+        self.after: AffineBase = None
 
         if settable_index is not None:
             idx = settable_index
             before, after = self.sequence[:idx], self.sequence[idx:]
             target, after = after[0], after[1:]
-            
+
             self.settable = target
 
             if len(before) > 0:
                 self.before = ChainedTransform(before)
             else:
-                self.before = AffineTransform()          
-            
+                self.before = AffineTransform()
+
             if len(after) > 0:
                 self.after = ChainedTransform(after)
             else:
@@ -279,7 +279,7 @@ class ChainedTransform(AffineBase):
                 "This ChainedTransform doesn't use `settable_index` and "
                 "thus can't set properties."
             )
-        
+
         new_value = self.before.inverse_matrix @ value @ self.after.inverse_matrix
         self.settable.matrix = new_value
 

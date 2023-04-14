@@ -156,7 +156,9 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform_inv"] = np.eye(4)
 
         self.transform = AffineTransform(update_callback=self._update_uniform_buffers)
-        self.world_transform:AffineBase = ChainedTransform([self.transform], settable_index=-1)
+        self.world_transform: AffineBase = ChainedTransform(
+            [self.transform], settable_index=-1
+        )
         self.uniform_buffer = buffer
 
         # Set id
@@ -169,7 +171,9 @@ class WorldObject(EventTarget, RootTrackable):
     @callback
     def _update_uniform_buffers(self, transform: AffineTransform):
         self.uniform_buffer.data["world_transform"] = self.world_transform.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = self.world_transform.inverse_matrix.T
+        self.uniform_buffer.data[
+            "world_transform_inv"
+        ] = self.world_transform.inverse_matrix.T
         self.uniform_buffer.update_range()
 
         for child in self.children:
@@ -299,7 +303,7 @@ class WorldObject(EventTarget, RootTrackable):
             return None
         else:
             return self._parent()
-        
+
     @property
     def parents(self) -> List["WorldObject"]:
         if self.parent is None:
@@ -348,13 +352,14 @@ class WorldObject(EventTarget, RootTrackable):
 
             for child in obj.iter():
                 new_chain = child.parents + [child]
-                child.world_transform = ChainedTransform([x.transform for x in new_chain], settable_index=-1)
-            
+                child.world_transform = ChainedTransform(
+                    [x.transform for x in new_chain], settable_index=-1
+                )
+
             if keep_world_matrix:
                 obj.world_transform.matrix = obj.world_transform.matrix
             else:
                 obj.transform.matrix = transform_matrix
-
 
         return self
 
@@ -473,5 +478,5 @@ class WorldObject(EventTarget, RootTrackable):
             self.world_transform.rotation = la.matrix_to_quaternion(rotation)
         else:
             rotation = la.matrix_make_look_at(self.world_transform.position, target, up)
-            
+
             self.world_transform.rotation = la.matrix_to_quaternion(rotation)
