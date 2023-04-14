@@ -2,13 +2,13 @@
 Sponza Scene
 ============
 
-This example shows how to load the Sponza scene. To run it, you have to have access to the
-sponza demo scene, which you can get using::
+This example shows how to load the Sponza scene. To run it, you have
+to have access to the sponza demo scene, which you can get using::
 
-    git clone https://github.com/KhronosGroup/glTF-Sample-Models ../glTF-Sample-Models
+    git clone https://github.com/KhronosGroup/glTF-Sample-Models
 
-The current implementation assumed that you do this in the root directory of pygfx,
-so if you don't you will need to update the path in the script below.
+The current implementation assumes that you cloned that repo
+in this directory, or *any* of its parent directories.
 
 """
 # run_example = false - because it depends on external files
@@ -21,11 +21,18 @@ import pygfx as gfx
 
 # Note: __file__ is the relative path from cwd when called as "__main__". Hence,
 # we need to resolve() to allow calling from anywhere in the repo.
-repo_root = Path(__file__).resolve().parents[2]
+# Note: if we want a better way to find that repo, let's use an env var ...
+path = Path(__file__).resolve().parent
+while True:
+    gltf_samples_repo = path / "glTF-Sample-Models"
+    if gltf_samples_repo.is_dir():
+        break
+    try:
+        path = path.parents[0]
+    except IndexError:
+        raise RuntimeError("Could not find 'glTF-Sample-Models' directory.")
 
-# !! Update this path to point to the location of the sponza scene file !!
-# If it is located in pygfx's root, you don't need to do anything
-gltf_samples_repo = repo_root / ".." / "glTF-Sample-Models"
+
 gltf_path = gltf_samples_repo / "2.0" / "Sponza" / "glTF" / "Sponza.gltf"
 
 # Init
@@ -80,6 +87,15 @@ for pos in [
     scene.add(torch)
 
 
+stats = gfx.Stats(viewport=renderer)
+
+
+def animate():
+    with stats:
+        renderer.render(scene, camera, flush=False)
+    stats.render()
+
+
 if __name__ == "__main__":
-    renderer.request_draw(lambda: renderer.render(scene, camera))
+    renderer.request_draw(animate)
     run()
