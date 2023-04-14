@@ -331,7 +331,7 @@ class PerspectiveCamera(Camera):
         distance = la.vector_distance_between(pos, self.transform.position)
         self._set_extent(distance / fov_distance_factor(self.fov))
 
-    def show_object(self, target: WorldObject, view_dir=None, *, up=(0, 1, 0), scale=1):
+    def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
         """Orientate the camera such that the given target in is in view.
 
         Sets the position and rotation of the camera, and adjusts
@@ -354,6 +354,9 @@ class PerspectiveCamera(Camera):
             Scale the size of what's shown. Default 1.
 
         """
+
+        if up is None:
+            up = self.up
 
         up = np.asarray(up)
 
@@ -393,7 +396,7 @@ class PerspectiveCamera(Camera):
         self.look_at(view_pos)
         self._set_extent(extent)
 
-    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=(0, 1, 0)):
+    def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
         """Position the camera such that the given rectangle is in view.
 
         The rectangle represents a plane in world coordinates, centered
@@ -424,6 +427,9 @@ class PerspectiveCamera(Camera):
            If given, also sets the up vector of the camera.
 
         """
+
+        if up is None:
+            up = self.up
 
         up = np.asarray(up)
 
