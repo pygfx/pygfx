@@ -301,13 +301,6 @@ class WorldObject(EventTarget, RootTrackable):
         else:
             return self._parent()
 
-    @property
-    def parents(self) -> List["WorldObject"]:
-        if self.parent is None:
-            return []
-        else:
-            return self.parent.parents + [self.parent]
-
     def add(self, *objects, before=None, keep_world_matrix=False) -> "WorldObject":
         """Add child objects.
 
