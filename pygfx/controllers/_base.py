@@ -155,8 +155,8 @@ class Controller:
 
         * The `action name`, e.g. 'pan', see ``controller.controls.action_names``
           for the possible names.
-        * The `mode`: 'drag', 'push', 'peak', 'repeat'. Drag represents mouse drag,
-          push means the action is performed as the key is pushed, peak
+        * The `mode`: 'drag', 'push', 'peek', 'repeat'. Drag represents mouse drag,
+          push means the action is performed as the key is pushed, peek
           means that the action is undone once the key is released, and repeat
           means that while the key is held down, the value updates with the given
           amount per second.
@@ -212,7 +212,7 @@ class Controller:
 
         to_pop = []
         for key, action in self._actions.items():
-            if action.mode == "repeat" and not action.done:
+            if action.mode == "repeat":
                 action.increase_target(elapsed_time)
             action.tick(factor)
             if action.is_at_target and action.done:
@@ -299,8 +299,10 @@ class Controller:
 
         type = event.type
         if type.startswith(("pointer_", "key_", "wheel")):
-            modifiers = sorted([m.lower() for m in event.modifiers])
-            modifiers_prefix = "+".join(modifiers + [""])
+            modifiers = {m.lower() for m in event.modifiers}
+            if type.startswith("key_"):
+                modifiers.discard(event.key.lower())
+            modifiers_prefix = "+".join(sorted(modifiers) + [""])
 
         if type == "before_render":
             # Do a tick, updating all actions, and using them to update the camera state.
@@ -309,7 +311,7 @@ class Controller:
                 self.tick()
                 need_update = True
         elif type == "pointer_down" and viewport.is_inside(event.x, event.y):
-            # Start a drag, or an action with mode push/peak/repeat
+            # Start a drag, or an action with mode push/peek/repeat
             key = modifiers_prefix + f"mouse{event.button}"
             action_tuple = self._controls.get(key)
             if action_tuple:
@@ -352,7 +354,7 @@ class Controller:
                     action.done = True
                 action.increase_target(d)
         elif type == "key_down":
-            # Start an action with mode push/peak/repeat
+            # Start an action with mode push/peek/repeat
             key = modifiers_prefix + f"{event.key.lower()}"
             action_tuple = self._controls.get(key)
             if action_tuple:
@@ -372,9 +374,8 @@ class Controller:
         if action is None:
             action = self._create_action(key, action_tuple, 0, None, viewport.rect)
             action.snap_distance = 0.01
-            if mode == "push":
-                action.done = True
-        if mode in ("push", "peak"):
+        action.done = mode == "push"
+        if mode in ("push", "peek"):
             action.set_target(1)
 
     def _handle_button_up(self, button):
@@ -384,7 +385,7 @@ class Controller:
             if key == button or key.endswith("+" + button):
                 need_update = True
                 action.done = True
-                if action.mode == "peak":
+                if action.mode == "peek":
                     action.set_target(action.target_value * 0)
         return need_update
 
@@ -425,6 +426,63 @@ class Controller:
         # Call it!
         func(action.delta, **kwargs)
 
+    # %% Actions on the base class
+
+    def quickzoom(self, delta: float, *, animate=False):
+        """Zoom the view using the camera's zoom property. This is intended
+        for temporary zoom operations.
+
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
+
+        if animate:
+            action_tuple = ("quickzoom", "push", 1.0)
+            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_quickzoom(delta)
+            return self._update_cameras()
+
+    def _update_quickzoom(self, delta):
+        assert isinstance(delta, (int, float))
+        zoom = self._get_camera_state()["zoom"]
+        new_cam_state = {"zoom": zoom * 2**delta}
+        self._set_camera_state(new_cam_state)
+
+    def update_fov(self, delta, *, animate):
+        """Adjust the field of view with the given delta value (Limited to [1, 179]).
+
+        If animate is True, the motion is damped. This requires the
+        controller to receive events from the renderer/viewport.
+        """
+
+        if animate:
+            action_tuple = ("fov", "push", 1.0)
+            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
+            action.set_target(delta)
+            action.done = True
+        elif self._cameras:
+            self._update_fov(delta)
+            return self._update_cameras()
+
+    def _update_fov(self, delta: float):
+        fov_range = self._cameras[0]._fov_range
+
+        # Get current state
+        cam_state = self._get_camera_state()
+        position = cam_state["position"]
+        fov = cam_state["fov"]
+
+        # Update fov and position
+        new_fov = min(max(fov + delta, fov_range[0]), fov_range[1])
+        pos2target1 = self._get_target_vec(cam_state, fov=fov)
+        pos2target2 = self._get_target_vec(cam_state, fov=new_fov)
+        new_position = position + pos2target1 - pos2target2
+
+        self._set_camera_state({"fov": new_fov, "position": new_position})
+
 
 class Action:
     """Simple value to represent a value to change an action with."""
@@ -452,6 +510,7 @@ class Action:
         self.last_value = zero
         self.target_value = zero
         self.current_value = zero
+        self.repeat_multiplier = 0
 
         self.snap_distance = 0.5
         self.done = False
@@ -477,7 +536,20 @@ class Action:
         self.target_value = value - self.offset
 
     def increase_target(self, value):
-        self.target_value = self.target_value + value
+        if self.mode == "repeat":
+            # We increase/decrease a multiplier linearly
+            lag_time = 1.5  # seconds
+            if not self.done:
+                self.repeat_multiplier = min(
+                    1.0, self.repeat_multiplier + value / lag_time
+                )
+            else:
+                self.repeat_multiplier = max(
+                    0.0, self.repeat_multiplier - value / lag_time
+                )
+            self.target_value = self.target_value + value * self.repeat_multiplier
+        else:
+            self.target_value = self.target_value + value
 
     def tick(self, factor=1):
         # Update value
@@ -503,6 +575,9 @@ class Action:
 
     @property
     def is_at_target(self):
+        if self.mode == "repeat":
+            if self.repeat_multiplier:
+                return False
         return np.all(self.current_value == self.target_value)
 
 
@@ -512,8 +587,9 @@ class Controls(dict):
     _buttons = "mouse1", "mouse2", "mouse3", "mouse4", "mouse5", "wheel"
     _buttons += "arrowleft", "arrowright", "arrowup", "arrowdown"
     _buttons += "tab", "enter", "escape", "backspace", "delete"
+    _buttons += "shift", "control"
 
-    _modes = "drag", "push", "peak", "repeat"
+    _modes = "drag", "push", "peek", "repeat"
 
     def __init__(self, *actions):
         self._actions = tuple(actions)

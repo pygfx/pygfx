@@ -25,7 +25,7 @@ repo_root = Path(__file__).resolve().parents[2]
 
 # !! Update this path to point to the location of the sponza scene file !!
 # If it is located in pygfx's root, you don't need to do anything
-gltf_samples_repo = repo_root / "glTF-Sample-Models"
+gltf_samples_repo = repo_root / ".." / "glTF-Sample-Models"
 gltf_path = gltf_samples_repo / "2.0" / "Sponza" / "glTF" / "Sponza.gltf"
 
 # Init
@@ -36,8 +36,8 @@ scene = gfx.Scene()
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)
 camera.position.set(-10, 1.8, -0.3)
-camera.show_pos((10, 10, 10))
-controller = gfx.OrbitController(camera, register_events=renderer)
+camera.show_pos((0, 0, 0))
+controller = gfx.FlyController(camera, register_events=renderer, speed=2)
 
 
 def configure(obj):

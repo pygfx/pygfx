@@ -13,6 +13,7 @@ independent of any GUI toolkits.
     PanZoomController
     OrbitController
     TrackballController
+    FlyController
 
 """
 
@@ -20,6 +21,13 @@ from ._base import Controller
 from ._panzoom import PanZoomController
 from ._orbit import OrbitController
 from ._trackball import TrackballController
+from ._fly import FlyController
 
 
-__all__ = ["Controller", "PanZoomController", "OrbitController", "TrackballController"]
+__all__ = [
+    "Controller",
+    "PanZoomController",
+    "OrbitController",
+    "TrackballController",
+    "FlyController",
+]

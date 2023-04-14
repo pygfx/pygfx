@@ -23,7 +23,7 @@ class TrackballController(OrbitController):
     _default_controls = OrbitController._default_controls.copy()
 
     def rotate(self, delta: Tuple, rect: Tuple, *, animate=False):
-        """Rotate using two angles (in radians).
+        """Rotate around the target, using two angles (in radians).
 
         If animate is True, the motion is damped. This requires the
         controller to receive events from the renderer/viewport.
