@@ -14,13 +14,10 @@ from ..utils import array_from_shadertype
 
 def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
-        transform = light.parent.world_transform
-        vector = la.vector_make_homogeneous((0, 0, -1))
-
-        result = transform @ vector
-        result = result[:-1] / result[-1]
-
-        return result
+        cam = light.parent
+        transform = cam.world_transform.matrix
+        vector = cam.world_transform.position + (0, 0, -1)
+        return la.vector_apply_matrix(vector, transform)
     elif isinstance(light, SpotLight):
         return light.target.world_transform.position
     elif isinstance(light, DirectionalLight):
