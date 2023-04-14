@@ -18,9 +18,12 @@ import pygfx as gfx
 from pathlib import Path
 from wgpu.gui.auto import WgpuCanvas, run
 
+try:
+    data_dir = Path(__file__).parents[1] / "data"
+except NameError:
+    data_dir = Path(os.getcwd()).parent / "data"  # compat with sphinx-gallery
 
-env_map_path = Path(__file__).parents[1] / "data" / "cubemap.jpg"
-data = imageio.imread(Path(env_map_path))
+data = imageio.imread(data_dir / "cubemap.jpg")
 
 h = data.shape[0] // 3
 w = data.shape[1] // 4
