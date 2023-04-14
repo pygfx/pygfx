@@ -467,6 +467,11 @@ class WorldObject(EventTarget, RootTrackable):
             )
             up = la.vector_apply_quaternion(up, quat)
 
-        # flipped eye, target inputs because cameras look along negative Z
-        rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
-        self.world_transform.rotation = la.matrix_to_quaternion(rotation)
+        if self._FORWARD_IS_MINUS_Z:
+            # flipped eye, target inputs because cameras look along negative Z
+            rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
+            self.world_transform.rotation = la.matrix_to_quaternion(rotation)
+        else:
+            rotation = la.matrix_make_look_at(self.world_transform.position, target, up)
+            
+            self.world_transform.rotation = la.matrix_to_quaternion(rotation)
