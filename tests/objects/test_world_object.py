@@ -152,7 +152,7 @@ def test_adjust_children_order():
     expected_children = (child2, child1)
     assert len(root.children) == len(expected_children)
     for actual, expected in zip(root.children, expected_children):
-        assert actual == expected
+        assert actual is expected
 
     child3 = WorldObject()
     root.add(child3, child1, before=child2)
