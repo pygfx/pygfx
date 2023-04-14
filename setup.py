@@ -37,7 +37,6 @@ extras_require = {
         "imageio",
         "psutil",
         "pyinstaller>=4",
-        "pylinalg>=0.3.0,<1.0.0",
     ],
     "examples": [
         "pytest",
