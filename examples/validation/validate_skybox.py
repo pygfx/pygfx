@@ -12,6 +12,8 @@ Note that the blue -Z side is marked "back", but since camera's look down the
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 
+import os
+
 import numpy as np
 import imageio
 import pygfx as gfx
