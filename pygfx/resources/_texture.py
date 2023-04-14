@@ -184,6 +184,7 @@ class Texture(Resource):
         else:
             self._gfx_pending_uploads.append((offset, size))
         self._rev += 1
+        self._mark_for_sync()
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension

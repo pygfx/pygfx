@@ -164,6 +164,7 @@ class Buffer(Resource):
         # Limit and apply
         self._gfx_pending_uploads.append((offset, size))
         self._rev += 1
+        self._mark_for_sync()
         # note: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):
