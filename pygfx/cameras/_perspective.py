@@ -319,6 +319,9 @@ class PerspectiveCamera(Camera):
         else:
             pos = np.asarray(target)
 
+        if pos.shape != (3, ):
+            raise ValueError("Expected position to have 3 values.")
+
         # Look at the provided position, taking up into account
         if up is not None:
             self.up = up
