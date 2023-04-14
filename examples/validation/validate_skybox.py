@@ -57,7 +57,8 @@ camera.show_pos(mesh)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
+renderer.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    renderer.request_draw(lambda: renderer.render(scene, camera))
+    print(__doc__)
     run()
