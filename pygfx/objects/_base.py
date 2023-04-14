@@ -15,7 +15,6 @@ from ..utils.transform import (
     AffineBase,
     AffineTransform,
     ChainedTransform,
-    EmbeddedTransform,
     callback,
 )
 

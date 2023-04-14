@@ -1,5 +1,4 @@
 import numpy as np
-import pylinalg as la
 
 from ..objects._base import WorldObject
 
