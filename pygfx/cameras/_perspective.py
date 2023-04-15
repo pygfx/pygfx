@@ -362,7 +362,7 @@ class PerspectiveCamera(Camera):
 
         # Get bounding sphere from target
         if isinstance(target, WorldObject):
-            bsphere = target.world_bounding_sphere
+            bsphere = target.get_world_bounding_sphere()
             if bsphere is None:
                 raise ValueError(
                     "Given target does not have a bounding sphere, you should probably just provide a sphere (x, y, z, r) yourself."
