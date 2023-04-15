@@ -408,14 +408,13 @@ class WorldObject(EventTarget, RootTrackable):
         for child in self.children:
             yield from child.iter(filter_fn, skip_invisible)
 
-    @property
-    def bounding_box(self):
+    def get_bounding_box(self):
         include_self = self.geometry is not None
         n_partials = len(self.children) + 1 if include_self else len(self.children)
 
         partial_aabb = np.zeros((n_partials, 2, 3), dtype=float)
         for idx, child in enumerate(self.children):
-            aabb = child.bounding_box
+            aabb = child.get_bounding_box()
             trafo = child.local.matrix
             partial_aabb[idx] = la.aabb_transform(aabb, trafo)
         if include_self:
@@ -426,26 +425,23 @@ class WorldObject(EventTarget, RootTrackable):
         final_aabb[1] = np.max(partial_aabb[:, 1, :], axis=0)
         return final_aabb
 
-    @property
-    def bounding_sphere(self):
-        return la.aabb_to_sphere(self.bounding_box)
+    def get_bounding_sphere(self):
+        return la.aabb_to_sphere(self.get_bounding_box())
 
-    @property
-    def world_bounding_box(self):
+    def get_world_bounding_box(self):
         """Updates all parent and children world matrices, and returns
         a single world-space axis-aligned bounding box for this object's
         geometry and all of its children (recursively)."""
 
-        return la.aabb_transform(self.bounding_box, self.world.matrix)
+        return la.aabb_transform(self.get_bounding_box(), self.world.matrix)
 
-    @property
-    def world_bounding_sphere(self):
+    def get_world_bounding_sphere(self):
         """Returns a world-space bounding sphere by converting an
         axis-aligned bounding box to a sphere.
 
         See WorldObject.get_world_bounding_box.
         """
-        return la.aabb_to_sphere(self.world_bounding_box)
+        return la.aabb_to_sphere(self.get_world_bounding_box())
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
