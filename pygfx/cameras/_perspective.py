@@ -229,13 +229,14 @@ class PerspectiveCamera(Camera):
     def set_state(self, state):
         # Set the more complex props
         if "position" in state:
-            self.position.set(*state["position"])
+            self.local.position = state["position"]
         if "rotation" in state:
-            self.rotation.set(*state["rotation"])
+            self.local.rotation = state["rotation"]
         if "scale" in state:
-            self.scale.set(*state["scale"])
+            self.local.scale = state["scale"]
         if "up" in state:
-            self.up.set(*state["up"])
+            self.up = np.array(state["up"])
+
         # Set simple props
         for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
             if key in state:
