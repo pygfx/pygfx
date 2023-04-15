@@ -168,9 +168,7 @@ class WorldObject(EventTarget, RootTrackable):
     @callback
     def _update_uniform_buffers(self, transform: AffineTransform):
         self.uniform_buffer.data["world_transform"] = self.world.matrix.T
-        self.uniform_buffer.data[
-            "world_transform_inv"
-        ] = self.world.inverse_matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
         self.uniform_buffer.update_range()
 
         for child in self.children:
@@ -458,9 +456,7 @@ class WorldObject(EventTarget, RootTrackable):
         new_z = target - self.world.position
         new_z /= np.linalg.norm(new_z)
         if np.allclose(abs(np.dot(new_z, up)), 1, atol=1e-6):
-            quat = la.quaternion_make_from_unit_vectors(
-                self.world.position, target
-            )
+            quat = la.quaternion_make_from_unit_vectors(self.world.position, target)
             up = la.vector_apply_quaternion(up, quat)
 
         if self._FORWARD_IS_MINUS_Z:

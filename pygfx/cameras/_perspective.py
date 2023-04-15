@@ -479,9 +479,7 @@ class PerspectiveCamera(Camera):
         local_corners = la.vector_unproject(
             ndc_corners, projection_matrix, depth=depths
         )
-        world_corners = la.vector_apply_matrix(
-            local_corners, self.world.matrix
-        )
+        world_corners = la.vector_apply_matrix(local_corners, self.world.matrix)
         return world_corners
 
 

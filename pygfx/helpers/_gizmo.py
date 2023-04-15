@@ -232,9 +232,7 @@ class TransformGizmo(WorldObject):
         # Rotate objects to their correct orientation
         ob: WorldObject
         for ob in [line_y, translate_y, scale_y, arc_zx, translate_zx, rotate_zx]:
-            ob.local.rotation = la.quaternion_make_from_axis_angle(
-                (0, 0, 1), np.pi / 2
-            )
+            ob.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), np.pi / 2)
         for ob in [line_z, translate_z, scale_z, arc_xy, translate_xy, rotate_xy]:
             ob.local.rotation = la.quaternion_make_from_axis_angle(
                 (0, -1, 0), np.pi / 2
