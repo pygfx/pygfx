@@ -78,6 +78,9 @@ class callback:  # noqa: N801
 class AffineBase:
     last_modified: int
 
+    def __init__(self):
+        self.update_callbacks = {}
+
     @property
     def matrix(self):
         raise NotImplementedError()
@@ -89,6 +92,26 @@ class AffineBase:
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return la.matrix_decompose(self.matrix)
+    
+    def flag_update(self):
+        for callback in self.update_callbacks.values():
+            callback(self)
+
+    def on_update(self, callback):
+        callback_id = id(callback)
+        self.update_callbacks[callback_id] = callback
+
+        return callback_id
+
+    def remove_callback(self, ref):
+        """Ref can be the callback function itself or the callback ID returned by `on_update`."""
+
+        if isinstance(ref, int):
+            callback_id = ref
+        else:
+            callback_id = id(ref)
+
+        self.update_callbacks.pop(callback_id, None)
 
     @property
     def position(self) -> np.ndarray:
@@ -183,14 +206,9 @@ class AffineTransform(AffineBase):
         position=None,
         rotation=None,
         scale=None,
-        update_callback=None,
     ) -> None:
         super().__init__()
         self.last_modified = perf_counter_ns()
-        self.update_callbacks = []
-
-        if update_callback is not None:
-            self.update_callbacks.append(update_callback)
 
         if matrix is None:
             matrix = np.eye(4, dtype=float)
@@ -208,9 +226,7 @@ class AffineTransform(AffineBase):
 
     def flag_update(self):
         self.last_modified = perf_counter_ns()
-
-        for callback in self.update_callbacks:
-            callback(self)
+        super().flag_update()
 
     @property
     def matrix(self):
@@ -300,6 +316,7 @@ class ImplicitTransform(AffineBase):
         before: AffineBase = None,
         after: AffineBase = None,
     ) -> None:
+        super().__init__()
         if total_transform is None:
             total_transform = AffineTransform()
         self._total = total_transform
@@ -365,6 +382,7 @@ class RecursiveTransform(AffineBase):
     """A transform that may be preceeded by another transform."""
 
     def __init__(self, matrix: Union[np.ndarray, AffineBase], parent=None) -> None:
+        super().__init__()
         self._parent = None
         self.own = None
         self._last_modified = perf_counter_ns()
@@ -378,6 +396,9 @@ class RecursiveTransform(AffineBase):
             self._parent = AffineTransform()
         else:
             self._parent = parent
+        
+        self.own.on_update(self.update_pipe)
+        self.parent.on_update(self.update_pipe)
 
     @property
     def last_modified(self):
@@ -387,18 +408,26 @@ class RecursiveTransform(AffineBase):
 
     def flag_update(self):
         self._last_modified = perf_counter_ns()
+        super().flag_update()
+
+    @callback
+    def update_pipe(self, other:AffineBase):
+        self.flag_update()
 
     @property
-    def parent(self):
+    def parent(self) -> AffineBase:
         return self._parent
 
     @parent.setter
     def parent(self, value):
+        self.parent.remove_callback(self.update_pipe)
+
         if value is None:
             self._parent = AffineTransform()
         else:
             self._parent = value
 
+        self.parent.on_update(self.update_pipe)
         self.flag_update()
 
     @cached

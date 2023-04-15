@@ -154,8 +154,9 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        self.local = AffineTransform(update_callback=self._update_uniform_buffers)
+        self.local = AffineTransform()
         self.world = RecursiveTransform(self.local)
+        self.world.on_update(self._update_uniform_buffers)
         self.uniform_buffer = buffer
 
         # Set id
