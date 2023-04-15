@@ -36,6 +36,7 @@ scene.add(cube)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(cube, scale=2)
 
+# Create a controller. Set auto_update to False, because we take control of updates.
 controller = gfx.OrbitController(camera, auto_update=False)
 
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
@@ -63,23 +64,16 @@ def process_inputs(event):
             colors[0] if visual_state["cube"]["color"] == colors[1] else colors[1]
         )
 
-    controller.handle_event(event, viewport)
-    controller_tick()
-
-
-def controller_tick():
-    """Tick the controller, and update our state if it had any actions in progress.
-
-    This function could be called on a timer. In this example we call
-    it at each event and also right before a draw (the controller can
-    be active without events due to inertia).
-
-    It is ok to call this often, because the call is quick when there
-    are no actions, and it takes the passed time into account.
-    """
-    camera_state = controller.tick()
-    if camera_state:
-        visual_state["camera"].update(camera_state)
+    if event.type == "before_render":
+        # Let the controller animate, and update our state if it had any
+        # actions in progress. One way or another, this code needs to run
+        # periodically, because the controller changes state even without
+        # events because of inertia.
+        camera_state = controller.tick()
+        if camera_state:
+            visual_state["camera"].update(camera_state)
+    else:
+        controller.handle_event(event, viewport)
 
 
 def update_scene():
@@ -94,7 +88,6 @@ def render_frame():
     global frames
     frames += 1
     print(f"frames: {frames}")
-    controller_tick()
     renderer.render(scene, camera)
 
 
@@ -105,10 +98,6 @@ def process_state_change():
 
 if __name__ == "__main__":
     # restore state from previous session
-    # NOTE: ideally we would persist visual_state
-    # and restore visual_state only,
-    # but the Controller class unfortunately makes this
-    # impossible without also redundantly tracking its state
     if state_file.exists():
         with state_file.open(mode="rb") as fh:
             state = pickle.load(fh)
@@ -137,6 +126,7 @@ if __name__ == "__main__":
         "pointer_move",
         "pointer_up",
         "wheel",
+        "before_render",
     )
 
     # state changes trigger draw calls

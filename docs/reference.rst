@@ -39,6 +39,8 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.controllers.Controller
     ~pygfx.controllers.PanZoomController
     ~pygfx.controllers.OrbitController
+    ~pygfx.controllers.TrackballController
+    ~pygfx.controllers.FlyController
 
     ~pygfx.geometries.box_geometry
     ~pygfx.geometries.cylinder_geometry

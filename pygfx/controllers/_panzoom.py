@@ -21,7 +21,7 @@ class PanZoomController(Controller):
     _default_controls = {
         "mouse1": ("pan", "drag", (1, 1)),
         "mouse2": ("zoom", "drag", (0.005, -0.005)),
-        "mouse4": ("quickzoom", "peak", 2),
+        "mouse4": ("quickzoom", "peek", 2),
         "wheel": ("zoom_to_point", "push", -0.001),
         "alt+wheel": ("fov", "push", -0.01),
     }
@@ -176,59 +176,3 @@ class PanZoomController(Controller):
         # The amount to pan is the difference, but also scaled with the multiplier
         # because pixels take more/less space now.
         return tuple((delta_screen1 - delta_screen2) / multiplier)
-
-    def quickzoom(self, delta: float, *, animate=False):
-        """Zoom the view using the camera's zoom property. This is intended
-        for temporary zoom operations.
-
-        If animate is True, the motion is damped. This requires the
-        controller to receive events from the renderer/viewport.
-        """
-
-        if animate:
-            action_tuple = ("quickzoom", "push", 1.0)
-            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
-            action.set_target(delta)
-            action.done = True
-        elif self._cameras:
-            self._update_quickzoom(delta)
-            return self._update_cameras()
-
-    def _update_quickzoom(self, delta):
-        assert isinstance(delta, (int, float))
-        zoom = self._get_camera_state()["zoom"]
-        new_cam_state = {"zoom": zoom * 2**delta}
-        self._set_camera_state(new_cam_state)
-
-    def update_fov(self, delta, *, animate):
-        """Adjust the field of view with the given delta value (Limited to [1, 179]).
-
-        If animate is True, the motion is damped. This requires the
-        controller to receive events from the renderer/viewport.
-        """
-
-        if animate:
-            action_tuple = ("fov", "push", 1.0)
-            action = self._create_action(None, action_tuple, 0.0, None, (0, 0, 1, 1))
-            action.set_target(delta)
-            action.done = True
-        elif self._cameras:
-            self._update_fov(delta)
-            return self._update_cameras()
-
-    def _update_fov(self, delta: float):
-        fov_range = self._cameras[0]._fov_range
-
-        # Get current state
-        cam_state = self._get_camera_state()
-        position = cam_state["position"]
-        fov = cam_state["fov"]
-
-        # Update fov and position
-        new_fov = min(max(fov + delta, fov_range[0]), fov_range[1])
-        pos2target1 = self._get_target_vec(cam_state, fov=fov)
-        pos2target2 = self._get_target_vec(cam_state, fov=new_fov)
-        new_position = position + pos2target1 - pos2target2
-
-        # Apply to cameras
-        self._set_camera_state({"fov": new_fov, "position": new_position})
