@@ -195,3 +195,27 @@ def test_setting_world_transform():
 
     assert np.allclose(child.local.position, (0, 0, 0))
     assert np.allclose(child.world.position, (1, 2, 3))
+
+
+def test_complex_multi_insert():
+    children = []
+    for _ in range(5):
+        children.append(gfx.WorldObject())
+
+    root = gfx.WorldObject()
+    for _ in range(3):
+        root.add(gfx.WorldObject())
+
+    first = root.children[0]
+    reference = root.children[1]
+    root.add(*children, before=reference)
+
+    # ensure children were inserted in order before `before`
+    for from_root, child in zip(root.children[1:6], children):
+        assert from_root is child
+    assert root.children[6] is reference
+
+    root.add(first, before=reference)
+    assert root.children[0] is not first
+    assert root.children[5] is first
+    assert root.children[6] is reference
