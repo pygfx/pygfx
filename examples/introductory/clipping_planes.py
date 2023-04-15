@@ -38,8 +38,14 @@ clipping_planes = [(-1, 0, 0, 0), (0, 0, -1, 0)]
 scene1 = create_scene(clipping_planes, "any")
 scene2 = create_scene(clipping_planes, "all")
 
-scene1.add(gfx.AmbientLight(), gfx.DirectionalLight(position=(1, 2, 3)))
-scene2.add(gfx.AmbientLight(), gfx.DirectionalLight(position=(1, 2, 3)))
+light = gfx.DirectionalLight()
+light.local.position = (1, 2, 3)
+scene1.add(gfx.AmbientLight(), light)
+
+# can we reuse the light from above?
+light = gfx.DirectionalLight()
+light.local.position = (1, 2, 3)
+scene2.add(gfx.AmbientLight(), light)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene1)
