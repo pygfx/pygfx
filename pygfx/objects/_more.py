@@ -277,6 +277,6 @@ class Text(WorldObject):
         # local rotation and scale, so that these can be applied to the
         # text in screen coordinates.
         matrix = la.matrix_make_transform(
-            (0, 0, 0), self.transform.rotation, self.transform.scale
+            (0, 0, 0), self.local.rotation, self.local.scale
         )
         self.uniform_buffer.data["rot_scale_transform"].flat = matrix.ravel()

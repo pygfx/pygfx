@@ -31,7 +31,7 @@ obj0 = gfx.Text(
         outline_thickness=0.2,
     ),
 )
-obj0.transform.position = (0, 50, 0)
+obj0.local.position = (0, 50, 0)
 
 obj1 = gfx.Text(
     gfx.TextGeometry(
@@ -39,7 +39,7 @@ obj1 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0ff"),
 )
-obj1.transform.position = (-10, 0, 0)
+obj1.local.position = (-10, 0, 0)
 
 obj2 = gfx.Text(
     gfx.TextGeometry(
@@ -47,7 +47,7 @@ obj2 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0ff"),
 )
-obj2.transform.position = (10, 0, 0)
+obj2.local.position = (10, 0, 0)
 
 obj3 = gfx.Text(
     gfx.TextGeometry(
@@ -58,8 +58,8 @@ obj3 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0ff"),
 )
-obj3.transform.position = (-10, -50, 0)
-obj3.transform.scale = (0.5, 0.5, 0.5)
+obj3.local.position = (-10, -50, 0)
+obj3.local.scale = (0.5, 0.5, 0.5)
 
 obj4 = gfx.Text(
     gfx.TextGeometry(
@@ -67,8 +67,8 @@ obj4 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0ff"),
 )
-obj4.transform.position = (10, -50, 0)
-obj4.transform.scale = (0.5, 0.5, 0.5)
+obj4.local.position = (10, -50, 0)
+obj4.local.scale = (0.5, 0.5, 0.5)
 
 obj5 = gfx.Text(
     gfx.TextGeometry(
@@ -76,8 +76,8 @@ obj5 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0ff"),
 )
-obj5.transform.position = (-10, -100, 0)
-obj5.transform.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), 0.2)
+obj5.local.position = (-10, -100, 0)
+obj5.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), 0.2)
 
 obj6 = gfx.Text(
     gfx.TextGeometry(
@@ -85,8 +85,8 @@ obj6 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0ff"),
 )
-obj6.transform.position = (10, -100, 0)
-obj6.transform.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), -0.2)
+obj6.local.position = (10, -100, 0)
+obj6.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), -0.2)
 
 line = gfx.Line(
     gfx.Geometry(positions=[(0, 0, 0), (900, 0, 0), (0, 40, 0), (900, 40, 0)]),

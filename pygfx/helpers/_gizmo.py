@@ -116,7 +116,7 @@ class TransformGizmo(WorldObject):
             sphere_geo,
             MeshBasicMaterial(color=WHITE),
         )
-        scale_uniform.transform.scale = (1.5, 1.5, 1.5)
+        scale_uniform.local.scale = (1.5, 1.5, 1.5)
 
         # --- the parts that are fully in one dimension
 
@@ -150,9 +150,9 @@ class TransformGizmo(WorldObject):
             cone_geo,
             MeshBasicMaterial(color=BLUE),
         )
-        translate_x.transform.position = (1, 0, 0)
-        translate_y.transform.position = (0, 1, 0)
-        translate_z.transform.position = (0, 0, 1)
+        translate_x.local.position = (1, 0, 0)
+        translate_y.local.position = (0, 1, 0)
+        translate_z.local.position = (0, 0, 1)
 
         # Create scale handles
         cube_geo = box_geometry(0.1, 0.1, 0.1)
@@ -168,9 +168,9 @@ class TransformGizmo(WorldObject):
             cube_geo,
             MeshBasicMaterial(color=BLUE),
         )
-        scale_x.transform.position = (halfway, 0, 0)
-        scale_y.transform.position = (0, halfway, 0)
-        scale_z.transform.position = (0, 0, halfway)
+        scale_x.local.position = (halfway, 0, 0)
+        scale_y.local.position = (0, halfway, 0)
+        scale_z.local.position = (0, 0, halfway)
 
         # --- the parts that are in a plane
 
@@ -190,8 +190,8 @@ class TransformGizmo(WorldObject):
             arc_geo,
             LineMaterial(thickness=THICKNESS, color=BLUE),
         )
-        arc_zx.transform.scale_y = -1
-        arc_xy.transform.scale_z = -1
+        arc_zx.local.scale_y = -1
+        arc_xy.local.scale_z = -1
 
         # Create in-plane translate handles
         plane_geo = box_geometry(0.01, 0.15, 0.15)
@@ -208,9 +208,9 @@ class TransformGizmo(WorldObject):
             MeshBasicMaterial(color=BLUE),
         )
         inside_arc = 0.4 * halfway
-        translate_yz.transform.position = (0, inside_arc, inside_arc)
-        translate_zx.transform.position = (inside_arc, 0, inside_arc)
-        translate_xy.transform.position = (inside_arc, inside_arc, 0)
+        translate_yz.local.position = (0, inside_arc, inside_arc)
+        translate_zx.local.position = (inside_arc, 0, inside_arc)
+        translate_xy.local.position = (inside_arc, inside_arc, 0)
 
         # Create rotation handles
         # These are positioned on each mode switch
@@ -232,11 +232,11 @@ class TransformGizmo(WorldObject):
         # Rotate objects to their correct orientation
         ob: WorldObject
         for ob in [line_y, translate_y, scale_y, arc_zx, translate_zx, rotate_zx]:
-            ob.transform.rotation = la.quaternion_make_from_axis_angle(
+            ob.local.rotation = la.quaternion_make_from_axis_angle(
                 (0, 0, 1), np.pi / 2
             )
         for ob in [line_z, translate_z, scale_z, arc_xy, translate_xy, rotate_xy]:
-            ob.transform.rotation = la.quaternion_make_from_axis_angle(
+            ob.local.rotation = la.quaternion_make_from_axis_angle(
                 (0, -1, 0), np.pi / 2
             )
 
@@ -290,13 +290,13 @@ class TransformGizmo(WorldObject):
         halfway = self._halfway
         on_arc = halfway * 2**0.5 / 2
         if self._mode == "screen":
-            rotate_yz.transform.position = (0, on_arc, 0)
-            rotate_zx.transform.position = (on_arc, 0, 0)
-            rotate_xy.transform.position = (on_arc, on_arc, 0)
+            rotate_yz.local.position = (0, on_arc, 0)
+            rotate_zx.local.position = (on_arc, 0, 0)
+            rotate_xy.local.position = (on_arc, on_arc, 0)
         else:
-            rotate_yz.transform.position = (0, on_arc, on_arc)
-            rotate_zx.transform.position = (on_arc, 0, on_arc)
-            rotate_xy.transform.position = (on_arc, on_arc, 0)
+            rotate_yz.local.position = (0, on_arc, on_arc)
+            rotate_zx.local.position = (on_arc, 0, on_arc)
+            rotate_xy.local.position = (on_arc, on_arc, 0)
 
     def _highlight(self, object=None):
         """Change the appearance during interaction for visual feedback
@@ -431,7 +431,7 @@ class TransformGizmo(WorldObject):
 
         camera = self._camera
         scene_size = self._viewport.logical_size
-        world_pos = self._object_to_control.transform.position
+        world_pos = self._object_to_control.local.position
         ndc_pos = la.vector_apply_matrix(world_pos, camera.projection_matrix)
 
         # Get how our direction vectors express on screen

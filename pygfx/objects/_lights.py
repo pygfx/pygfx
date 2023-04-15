@@ -15,13 +15,13 @@ from ..utils import array_from_shadertype
 def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
         cam = light.parent
-        transform = cam.world_transform.matrix
-        vector = cam.world_transform.position + (0, 0, -1)
+        transform = cam.world.matrix
+        vector = cam.world.position + (0, 0, -1)
         return la.vector_apply_matrix(vector, transform)
     elif isinstance(light, SpotLight):
-        return light.target.world_transform.position
+        return light.target.world.position
     elif isinstance(light, DirectionalLight):
-        return light.target.world_transform.position
+        return light.target.world.position
     else:
         raise ValueError("Unknown light source.")
 
@@ -302,7 +302,7 @@ class DirectionalLight(Light):
         self._target = target
 
     def _gfx_update_uniform_buffer(self):
-        pos1 = self.world_transform.position
+        pos1 = self.world.position
         pos2 = get_pos_from_camera_parent_or_target(self)
         origin_to_target = pos2 - pos1
         self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
@@ -394,7 +394,7 @@ class SpotLight(Light):
         self._shadow = SpotLightShadow()
 
     def _gfx_update_uniform_buffer(self):
-        pos1 = self.world_transform.position
+        pos1 = self.world.position
         pos2 = get_pos_from_camera_parent_or_target(self)
         origin_to_target = pos2 - pos1
         self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
@@ -557,7 +557,7 @@ class LightShadow:
 
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
-        shadow_camera.world_transform.position = light.world_transform.position
+        shadow_camera.world.position = light.world.position
         target = get_pos_from_camera_parent_or_target(light)
         shadow_camera.look_at(target)
 
@@ -655,11 +655,11 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
-            camera.world_transform.position = light.world_transform.position
+            camera.world.position = light.world.position
 
             camera.up = self._cube_up[i]
 
-            camera.look_at(camera.world_transform.position + self._cube_directions[i])
+            camera.look_at(camera.world.position + self._cube_directions[i])
 
             screen_matrix = camera.camera_matrix
 

@@ -59,37 +59,37 @@ def test_remove():
 
 def test_update_matrix():
     root = WorldObject()
-    root.transform.position = (3, 6, 8)
-    root.transform.scale = (1, 1.2, 1)
-    root.transform.rotation = pla.quaternion_make_from_euler_angles((pi / 2, 0, 0))
+    root.local.position = (3, 6, 8)
+    root.local.scale = (1, 1.2, 1)
+    root.local.rotation = pla.quaternion_make_from_euler_angles((pi / 2, 0, 0))
 
-    pos, rot, scale = pla.matrix_decompose(root.transform.matrix)
-    assert np.allclose(pos, root.transform.position)
-    assert np.allclose(rot, root.transform.rotation)
-    assert np.allclose(scale, root.transform.scale)
+    pos, rot, scale = pla.matrix_decompose(root.local.matrix)
+    assert np.allclose(pos, root.local.position)
+    assert np.allclose(rot, root.local.rotation)
+    assert np.allclose(scale, root.local.scale)
 
 
 def test_update_matrix_world():
     root = WorldObject()
-    root.transform.position = (-5, 8, 0)
-    root.transform.rotation = pla.quaternion_make_from_euler_angles((pi / 4, 0, 0))
+    root.local.position = (-5, 8, 0)
+    root.local.rotation = pla.quaternion_make_from_euler_angles((pi / 4, 0, 0))
 
     child1 = WorldObject()
-    child1.transform.position = (0, 0, 5)
+    child1.local.position = (0, 0, 5)
     root.add(child1)
 
     child2 = WorldObject()
-    child2.transform.rotation = pla.quaternion_make_from_euler_angles((0, -pi / 4, 0))
+    child2.local.rotation = pla.quaternion_make_from_euler_angles((0, -pi / 4, 0))
     child1.add(child2)
 
     expected = (
-        root.transform
-        @ child1.transform
-        @ child2.transform
+        root.local
+        @ child1.local
+        @ child2.local
         @ pla.vector_make_homogeneous((10, 10, 10))
     )
 
-    actual = child2.world_transform @ pla.vector_make_homogeneous((10, 10, 10))
+    actual = child2.world @ pla.vector_make_homogeneous((10, 10, 10))
 
     # if there is a difference it's a floating point error
     assert np.allclose(actual, expected)
@@ -185,13 +185,13 @@ def test_setting_world_transform():
     child = gfx.WorldObject()
     root.add(child)
 
-    root.transform.position = (1, 2, 3)
-    child.transform.position = (4, 4, 4)
+    root.local.position = (1, 2, 3)
+    child.local.position = (4, 4, 4)
 
-    assert np.allclose(child.transform.position, (4, 4, 4))
-    assert np.allclose(child.world_transform.position, (5, 6, 7))
+    assert np.allclose(child.local.position, (4, 4, 4))
+    assert np.allclose(child.world.position, (5, 6, 7))
 
-    child.world_transform.position = (1, 2, 3)
+    child.world.position = (1, 2, 3)
 
-    assert np.allclose(child.transform.position, (0, 0, 0))
-    assert np.allclose(child.world_transform.position, (1, 2, 3))
+    assert np.allclose(child.local.position, (0, 0, 0))
+    assert np.allclose(child.world.position, (1, 2, 3))

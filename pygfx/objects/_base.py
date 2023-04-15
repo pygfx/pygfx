@@ -154,8 +154,8 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        self.transform = AffineTransform(update_callback=self._update_uniform_buffers)
-        self.world_transform = RecursiveTransform(self.transform)
+        self.local = AffineTransform(update_callback=self._update_uniform_buffers)
+        self.world = RecursiveTransform(self.local)
         self.uniform_buffer = buffer
 
         # Set id
@@ -167,10 +167,10 @@ class WorldObject(EventTarget, RootTrackable):
 
     @callback
     def _update_uniform_buffers(self, transform: AffineTransform):
-        self.uniform_buffer.data["world_transform"] = self.world_transform.matrix.T
+        self.uniform_buffer.data["world_transform"] = self.world.matrix.T
         self.uniform_buffer.data[
             "world_transform_inv"
-        ] = self.world_transform.inverse_matrix.T
+        ] = self.world.inverse_matrix.T
         self.uniform_buffer.update_range()
 
         for child in self.children:
@@ -333,14 +333,14 @@ class WorldObject(EventTarget, RootTrackable):
                 idx = len(self.children)
 
             if keep_world_matrix:
-                transform_matrix = obj.world_transform.matrix
+                transform_matrix = obj.world.matrix
 
             obj._parent = weakref.ref(self)
-            obj.world_transform.parent = self.world_transform
+            obj.world.parent = self.world
             self.children.insert(idx, obj)
 
             if keep_world_matrix:
-                obj.world_transform.matrix = transform_matrix
+                obj.world.matrix = transform_matrix
 
         return self
 
@@ -357,30 +357,30 @@ class WorldObject(EventTarget, RootTrackable):
                 )
                 continue
             else:
-                obj.reset_parent(keep_world_matrix=keep_world_matrix)
+                obj._reset_parent(keep_world_matrix=keep_world_matrix)
 
     def clear(self, *, keep_world_matrix=False):
         """Removes all children."""
 
         for child in self.children:
-            child.reset_parent(keep_world_matrix=keep_world_matrix)
+            child._reset_parent(keep_world_matrix=keep_world_matrix)
 
         self.children = []
 
-    def reset_parent(self, *, keep_world_matrix=False):
+    def _reset_parent(self, *, keep_world_matrix=False):
         """Sets the parent to None.
 
         xref: https://github.com/pygfx/pygfx/pull/482#discussion_r1135670771
         """
 
         if keep_world_matrix:
-            transform_matrix = self.world_transform.matrix
+            transform_matrix = self.world.matrix
 
         self._parent = None
-        self.world_transform.parent = None
+        self.world.parent = None
 
         if keep_world_matrix:
-            self.world_transform.matrix = transform_matrix
+            self.world.matrix = transform_matrix
 
     def traverse(self, callback, skip_invisible=False):
         """Executes the callback on this object and all descendants.
@@ -418,7 +418,7 @@ class WorldObject(EventTarget, RootTrackable):
         partial_aabb = np.zeros((n_partials, 2, 3), dtype=float)
         for idx, child in enumerate(self.children):
             aabb = child.bounding_box
-            trafo = child.transform.matrix
+            trafo = child.local.matrix
             partial_aabb[idx] = la.aabb_transform(aabb, trafo)
         if include_self:
             partial_aabb[-1] = self.geometry.bounding_box()
@@ -438,7 +438,7 @@ class WorldObject(EventTarget, RootTrackable):
         a single world-space axis-aligned bounding box for this object's
         geometry and all of its children (recursively)."""
 
-        return la.aabb_transform(self.bounding_box, self.world_transform.matrix)
+        return la.aabb_transform(self.bounding_box, self.world.matrix)
 
     @property
     def world_bounding_sphere(self):
@@ -455,19 +455,19 @@ class WorldObject(EventTarget, RootTrackable):
 
     def look_at(self, target) -> None:
         up = self.up
-        new_z = target - self.world_transform.position
+        new_z = target - self.world.position
         new_z /= np.linalg.norm(new_z)
         if np.allclose(abs(np.dot(new_z, up)), 1, atol=1e-6):
             quat = la.quaternion_make_from_unit_vectors(
-                self.world_transform.position, target
+                self.world.position, target
             )
             up = la.vector_apply_quaternion(up, quat)
 
         if self._FORWARD_IS_MINUS_Z:
             # flipped eye, target inputs because cameras look along negative Z
-            rotation = la.matrix_make_look_at(target, self.world_transform.position, up)
-            self.world_transform.rotation = la.matrix_to_quaternion(rotation)
+            rotation = la.matrix_make_look_at(target, self.world.position, up)
+            self.world.rotation = la.matrix_to_quaternion(rotation)
         else:
-            rotation = la.matrix_make_look_at(self.world_transform.position, target, up)
+            rotation = la.matrix_make_look_at(self.world.position, target, up)
 
-            self.world_transform.rotation = la.matrix_to_quaternion(rotation)
+            self.world.rotation = la.matrix_to_quaternion(rotation)

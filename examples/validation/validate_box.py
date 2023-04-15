@@ -25,7 +25,7 @@ box2 = gfx.Mesh(geometry, material2)
 scene.add(box2)
 
 camera = gfx.OrthographicCamera(5, 5)
-camera.transform.position = (5, 5, 5)
+camera.local.position = (5, 5, 5)
 camera.look_at((0, 0, 0))
 
 canvas.request_draw(lambda: renderer.render(scene, camera))

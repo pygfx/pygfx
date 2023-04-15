@@ -62,21 +62,21 @@ def test_camera_show_methods():
     camera.show_pos((100, 0, 0))
     assert camera.width == 100
     assert camera.height == 100
-    assert np.allclose(camera.transform.position, [0, 0, 0])
+    assert np.allclose(camera.local.position, [0, 0, 0])
 
     # Show sphere with radius 200
     camera.show_object((0, 0, 0, 200), view_dir=(0, 0, -1))
     assert camera.width == 400
     assert camera.height == 400
-    assert np.allclose(camera.transform.position, [0, 0, 400])
+    assert np.allclose(camera.local.position, [0, 0, 400])
 
-    camera.transform.rotation = (0, 0, 0, 1)  # reset rotation
+    camera.local.rotation = (0, 0, 0, 1)  # reset rotation
 
     # Show rectangle
     camera.show_rect(0, 500, 0, 600, view_dir=(0, 0, -1))
     assert camera.width == 500
     assert camera.height == 600
-    assert np.allclose(camera.transform.position, [250, 300, 550])
+    assert np.allclose(camera.local.position, [250, 300, 550])
 
 
 def _run_for_camera(camera, near, far, check_halfway):

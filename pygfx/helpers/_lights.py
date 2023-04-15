@@ -42,7 +42,7 @@ class PointLightHelper(Mesh):
         material = MeshBasicMaterial(color="#fff")
         super().__init__(geometry, material)
 
-        self.world_transform.update_callbacks.append(self._update)
+        self.world.update_callbacks.append(self._update)
 
     @callback
     def _update(self, transform: AffineTransform) -> None:
@@ -87,7 +87,7 @@ class DirectionalLightHelper(Line):
         self.ray_length = ray_length
         self.show_shadow_extent = show_shadow_extent
 
-        self.world_transform.update_callbacks.append(self._update)
+        self.world.update_callbacks.append(self._update)
 
     @property
     def ray_length(self):
@@ -187,7 +187,7 @@ class SpotLightHelper(Line):
 
     def __init__(self, color=None):
         self._color = color
-        self.world_transform.update_callbacks.append(self._update)
+        self.world.update_callbacks.append(self._update)
 
         positions = [
             [0, 0, 0],

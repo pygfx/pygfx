@@ -50,7 +50,7 @@ class Stats(Group):
             ),
         )
         # refactor once text bounding boxes are available
-        self.bg.transform.scale = (90, self._line_height * 2.1, 1)
+        self.bg.local.scale = (90, self._line_height * 2.1, 1)
         self.ms = Text(
             TextGeometry(
                 text="",
@@ -97,9 +97,9 @@ class Stats(Group):
 
     def _update_positions(self, event=None):
         _, height = self._viewport.logical_size
-        self.ms.transform.position = (0, height, 0)
-        self.fps.transform.position = (0, height - self._line_height, 0)
-        self.bg.transform.position = (0, height, 0.1)
+        self.ms.local.position = (0, height, 0)
+        self.fps.local.position = (0, height - self._line_height, 0)
+        self.bg.local.position = (0, height, 0.1)
 
     def start(self):
         if not self._init:

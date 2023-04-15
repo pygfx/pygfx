@@ -214,9 +214,9 @@ class PerspectiveCamera(Camera):
 
     def get_state(self):
         return {
-            "position": tuple(self.transform.position),
-            "rotation": tuple(self.transform.rotation),
-            "scale": tuple(self.transform.scale),
+            "position": tuple(self.local.position),
+            "rotation": tuple(self.local.rotation),
+            "scale": tuple(self.local.scale),
             "up": tuple(self.up),
             "fov": self.fov,
             "width": self.width,
@@ -315,7 +315,7 @@ class PerspectiveCamera(Camera):
 
         # Get pos from target
         if isinstance(target, WorldObject):
-            pos = target.transform.position
+            pos = target.local.position
         else:
             pos = np.asarray(target)
 
@@ -328,7 +328,7 @@ class PerspectiveCamera(Camera):
         self.look_at(pos)
 
         # Update extent
-        distance = la.vector_distance_between(pos, self.transform.position)
+        distance = la.vector_distance_between(pos, self.local.position)
         self._set_extent(distance / fov_distance_factor(self.fov))
 
     def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
@@ -376,7 +376,7 @@ class PerspectiveCamera(Camera):
 
         # Obtain view direction
         if view_dir is None:
-            rotation = self.transform.rotation
+            rotation = self.local.rotation
             view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
         elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
             view_dir = tuple(view_dir)
@@ -392,7 +392,7 @@ class PerspectiveCamera(Camera):
 
         camera_pos = view_pos - view_dir * distance
 
-        self.transform.position = camera_pos
+        self.local.position = camera_pos
         self.look_at(view_pos)
         self._set_extent(extent)
 
@@ -435,7 +435,7 @@ class PerspectiveCamera(Camera):
 
         # Obtain view direction
         if view_dir is None:
-            rotation = self.world_transform.rotation
+            rotation = self.world.rotation
             view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
 
         # pylinalg will convert to numpy array or raise
@@ -447,16 +447,16 @@ class PerspectiveCamera(Camera):
         extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
         distance = fov_distance_factor(self.fov) * extent
-        self.world_transform.position = (0, 0, 0) - view_dir * distance
+        self.world.position = (0, 0, 0) - view_dir * distance
         self.look_at((0, 0, 0))
 
         # Now we have a rotation that we can use to orient our rect
-        position = self.world_transform.position
-        rotation = self.world_transform.rotation
+        position = self.world.position
+        rotation = self.world.rotation
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
         new_position = position + la.vector_apply_quaternion(offset, rotation)
-        self.world_transform.position = new_position
+        self.world.position = new_position
 
     @property
     def frustum(self):
@@ -480,7 +480,7 @@ class PerspectiveCamera(Camera):
             ndc_corners, projection_matrix, depth=depths
         )
         world_corners = la.vector_apply_matrix(
-            local_corners, self.world_transform.matrix
+            local_corners, self.world.matrix
         )
         return world_corners
 

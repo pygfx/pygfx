@@ -21,7 +21,7 @@ cube = gfx.Mesh(
 
 def animate():
     rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
-    cube.transform.rotation = la.quaternion_multiply(rot, cube.transform.rotation)
+    cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
 
 
 if __name__ == "__main__":

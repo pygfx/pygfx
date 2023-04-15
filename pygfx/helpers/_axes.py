@@ -74,11 +74,11 @@ class AxesHelper(Line):
         for pos, color in zip(line_positions[1::2], colors[1::2]):
             material = MeshBasicMaterial(color=color)
             arrow_head = Mesh(cone, material)
-            arrow_head.transform.position = pos
+            arrow_head.local.position = pos
             # offset by half of height since the cones
             # are centered around the origin
-            arrow_head.transform.position += arrow_size / 2 * la.vector_normalize(pos)
-            arrow_head.transform.rotation = la.quaternion_make_from_unit_vectors(
+            arrow_head.local.position += arrow_size / 2 * la.vector_normalize(pos)
+            arrow_head.local.rotation = la.quaternion_make_from_unit_vectors(
                 (0, 0, 1), la.vector_normalize(pos)
             )
             self.add(arrow_head)
