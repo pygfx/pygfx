@@ -2,6 +2,7 @@ import pylinalg as la
 
 from ._base import WorldObject
 from ..utils import unpack_bitfield
+from ..utils.transform import AffineBase, callback
 
 
 class Group(WorldObject):
@@ -268,8 +269,9 @@ class Text(WorldObject):
         rot_scale_transform="4x4xf4",
     )
 
-    def update_matrix(self, *args, **kwargs):
-        super().update_matrix(*args, **kwargs)
+    @callback
+    def _update_uniform_buffers(self, transform: AffineBase):
+        super()._update_uniform_buffers(transform)
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the
@@ -279,4 +281,4 @@ class Text(WorldObject):
         matrix = la.matrix_make_transform(
             (0, 0, 0), self.local.rotation, self.local.scale
         )
-        self.uniform_buffer.data["rot_scale_transform"].flat = matrix.ravel()
+        self.uniform_buffer.data["rot_scale_transform"] = matrix.T
