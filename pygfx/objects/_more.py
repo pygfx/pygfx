@@ -269,8 +269,22 @@ class Text(WorldObject):
         rot_scale_transform="4x4xf4",
     )
 
-    def __init__(self, geometry=None, material=None, *, visible=True, render_order=0, render_mask="auto"):
-        super().__init__(geometry, material, visible=visible, render_order=render_order, render_mask=render_mask)
+    def __init__(
+        self,
+        geometry=None,
+        material=None,
+        *,
+        visible=True,
+        render_order=0,
+        render_mask="auto"
+    ):
+        super().__init__(
+            geometry,
+            material,
+            visible=visible,
+            render_order=render_order,
+            render_mask=render_mask,
+        )
 
         # calling super from callback is possible, but slow so we register it as a second callback instead
         self.world.on_update(super()._update_uniform_buffers)

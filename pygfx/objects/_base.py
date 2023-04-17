@@ -414,7 +414,7 @@ class WorldObject(EventTarget, RootTrackable):
         n_partials = len(self.children) + 1 if include_self else len(self.children)
 
         if n_partials == 0:
-            #empty object with no mesh
+            # empty object with no mesh
             return np.zeros((2, 3), dtype=float)
 
         partial_aabb = np.zeros((n_partials, 2, 3), dtype=float)

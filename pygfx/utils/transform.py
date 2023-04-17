@@ -92,7 +92,7 @@ class AffineBase:
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return la.matrix_decompose(self.matrix)
-    
+
     def flag_update(self):
         for callback in self.update_callbacks.values():
             callback(self)
@@ -396,7 +396,7 @@ class RecursiveTransform(AffineBase):
             self._parent = AffineTransform()
         else:
             self._parent = parent
-        
+
         self.own.on_update(self.update_pipe)
         self.parent.on_update(self.update_pipe)
 
@@ -411,7 +411,7 @@ class RecursiveTransform(AffineBase):
         super().flag_update()
 
     @callback
-    def update_pipe(self, other:AffineBase):
+    def update_pipe(self, other: AffineBase):
         self.flag_update()
 
     @property

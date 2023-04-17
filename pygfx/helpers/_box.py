@@ -1,5 +1,4 @@
 import numpy as np
-import pylinalg as la
 
 from .. import Geometry, Line, LineSegmentMaterial
 from ..objects import WorldObject
@@ -95,7 +94,7 @@ class BoxHelper(Line):
         self.local.position = center
         self.local.scale = full_scale
 
-    def set_transform_by_object(self, object:WorldObject, space="world", scale=1.0):
+    def set_transform_by_object(self, object: WorldObject, space="world", scale=1.0):
         """Align with WorldObject.
 
         Set the position and scale attributes based on the bounding box of
