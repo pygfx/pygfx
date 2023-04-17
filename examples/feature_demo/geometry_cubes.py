@@ -10,6 +10,7 @@ Example showing multiple rotating cubes. This also tests the depth buffer.
 
 import imageio.v3 as iio
 import pygfx as gfx
+import pylinalg as la
 
 
 group = gfx.Group()
@@ -21,7 +22,7 @@ material = gfx.MeshBasicMaterial(map=tex)
 geometry = gfx.box_geometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
-    cube.position.set(350 - i * 100, 0, 0)
+    cube.position = (350 - i * 100, 0, 0)
     group.add(cube)
 
 
