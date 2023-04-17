@@ -269,9 +269,15 @@ class Text(WorldObject):
         rot_scale_transform="4x4xf4",
     )
 
+    def __init__(self, geometry=None, material=None, *, visible=True, render_order=0, render_mask="auto"):
+        super().__init__(geometry, material, visible=visible, render_order=render_order, render_mask=render_mask)
+
+        # calling super from callback is possible, but slow so we register it as a second callback instead
+        self.world.on_update(super()._update_uniform_buffers)
+
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):
-        super()._update_uniform_buffers(transform)
+        # super()._update_uniform_buffers(transform)
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the
