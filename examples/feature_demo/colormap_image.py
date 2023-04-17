@@ -17,9 +17,9 @@ canvas = WgpuCanvas(size=(900, 400))
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(1800, 550)
-camera.position.y = 256
-camera.scale.y = -1
-camera.position.x = 1736 / 2
+camera.local.y = 256
+camera.local.scale_y = -1
+camera.local.x = 1736 / 2
 
 
 # === 1D colormap
@@ -36,7 +36,7 @@ image1 = gfx.Image(
     gfx.ImageBasicMaterial(clim=(0, 255), map=colormap1),
 )
 
-image1.position.x = 0
+image1.local.x = 0
 scene.add(image1)
 
 
@@ -59,7 +59,7 @@ image2 = gfx.Image(
     gfx.ImageBasicMaterial(clim=(0, 1), map=colormap2),
 )
 
-image2.position.x = 612
+image2.local.x = 612
 scene.add(image2)
 
 
@@ -82,7 +82,7 @@ image3 = gfx.Image(
     gfx.ImageBasicMaterial(clim=(0, 1), map=colormap3),
 )
 
-image3.position.x = 1224
+image3.local.x = 1224
 scene.add(image3)
 
 

@@ -138,7 +138,7 @@ renderer = gfx.WgpuRenderer(WgpuCanvas())
 camera = gfx.OrthographicCamera(10, 10)
 
 t = Triangle(None, TriangleMaterial(color="cyan"))
-t.position.x = 2  # set offset to demonstrate that it works
+t.local.x = 2  # set offset to demonstrate that it works
 
 scene = gfx.Scene()
 scene.add(t)
