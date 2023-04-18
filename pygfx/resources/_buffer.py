@@ -62,6 +62,7 @@ class Buffer(Resource):
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
             self._gfx_pending_uploads.append((0, the_nitems))
+            self._mark_for_sync()
             if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
             if nitems is not None and nitems != the_nitems:

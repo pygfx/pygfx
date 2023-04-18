@@ -25,27 +25,24 @@ ALTTEXFORMAT = {
 }
 
 
-def update_resource(device, resource, kind):
+def update_resource(device, resource):
     """Update the contents of a buffer or texture."""
-    if kind == "buffer":
+    if isinstance(resource, Buffer):
         return update_buffer(device, resource)
-    elif kind == "texture":
+    elif isinstance(resource, Texture):
         return update_texture(device, resource)
     else:
-        raise ValueError(f"Invalid resource kind: {kind}")
+        raise ValueError(f"Invalid resource type: {resource.__class__.__name__}")
 
 
 def update_buffer(device, buffer):
-    # Get and reset pending uploads
-    pending_uploads = buffer._gfx_pending_uploads
-    buffer._gfx_pending_uploads = []
-    if pending_uploads:
-        buffer._wgpu_usage |= wgpu.BufferUsage.COPY_DST
-
     wgpu_buffer = ensure_wgpu_object(device, buffer)
 
+    # Get and reset pending uploads
+    pending_uploads = buffer._gfx_pending_uploads
     if not pending_uploads:
         return
+    buffer._gfx_pending_uploads = []
 
     # Prepare for data uploads
     bytes_per_item = buffer.nbytes // buffer.nitems
@@ -69,16 +66,13 @@ def update_buffer(device, buffer):
 
 
 def update_texture(device, texture):
-    # Get and reset pending uploads
-    pending_uploads = texture._gfx_pending_uploads
-    texture._gfx_pending_uploads = []
-    if pending_uploads:
-        texture._wgpu_usage |= wgpu.TextureUsage.COPY_DST
-
     wgpu_texture = ensure_wgpu_object(device, texture)
 
+    # Get and reset pending uploads
+    pending_uploads = texture._gfx_pending_uploads
     if not pending_uploads:
         return
+    texture._gfx_pending_uploads = []
 
     # Prepare for data uploads
     fmt = to_texture_format(texture.format)
@@ -134,6 +128,8 @@ def ensure_wgpu_object(device, resource):
         return resource._wgpu_object
 
     if isinstance(resource, Buffer):
+        if resource._gfx_pending_uploads:
+            resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
         resource._wgpu_object = device.create_buffer(
             size=resource.nbytes, usage=resource._wgpu_usage
         )
@@ -142,6 +138,8 @@ def ensure_wgpu_object(device, resource):
         fmt = to_texture_format(resource.format)
         if fmt in ALTTEXFORMAT:
             fmt = ALTTEXFORMAT[fmt][0]
+        if resource._gfx_pending_uploads:
+            resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
         if resource.generate_mipmaps:
             usage |= wgpu.TextureUsage.STORAGE_BINDING  # mipmap needs this

@@ -53,7 +53,7 @@ class ResourceRegistry:
             counts[name] = counts.get(name, 0) + 1
         return counts
 
-    def get_syncable_resources(self, flush=False):
+    def get_syncable_resources(self, *, flush=False):
         """Get the set of resources that need syncing. If setting flush
         to True, the caller is responsible for syncing the resources.
         """

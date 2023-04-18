@@ -11,7 +11,7 @@ from ...resources import Buffer
 from ...utils import logger
 from ._shader import BaseShader
 from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ._update import ensure_wgpu_object, update_resource, ALTTEXFORMAT
+from ._update import ensure_wgpu_object, ALTTEXFORMAT
 from . import registry
 
 
@@ -40,15 +40,6 @@ def get_pipeline_container_group(wobject, environment, shared):
 
     # Update if necessary - this part is defined to be fast if there are no changes
     pipeline_container_group.update(wobject, environment, shared, changed_labels)
-
-    # Check if we need to update any resources. The number of resources
-    # should typically be small.
-    # todo: (in another PR). Keep track of resources that need an update globally, and let the renderer flush that on each draw
-    flat_resources = pipeline_container_group.get_flat_resources()
-    for kind, resource in flat_resources:
-        our_version = getattr(resource, "_wgpu_" + kind, (-1, None))[0]
-        if resource.rev > our_version:
-            update_resource(shared.device, resource, kind)
 
     # Return the pipeline container group
     return pipeline_container_group
@@ -368,8 +359,6 @@ class PipelineContainer:
             with wobject.tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, shared)
             self.flat_resources = self.collect_flat_resources()
-            for kind, resource in self.flat_resources:
-                update_resource(shared.device, resource, kind)
             self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups(shared.device)
