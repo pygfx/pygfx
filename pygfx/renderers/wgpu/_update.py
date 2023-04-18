@@ -35,6 +35,21 @@ def update_resource(device, resource):
         raise ValueError(f"Invalid resource type: {resource.__class__.__name__}")
 
 
+# Note on how buffer and texture updates work:
+#
+# * When a resource is first created, it's _wgpu_object attribute is None
+#   and its _wgpu_flags is unset.
+# * When the resource is actually being used somewhere, it will end up
+#   in the logic that creates a pipeline object (e.g. in _pipeline.py), which
+#   sets the appropriate usage flags (because that code knows how the resource
+#   is used) and then uses ensure_wgpu_object to create the object.
+# * Resources that need to be synced are tracked in the resource_registry,
+#   but only go into it when they have their _wgpu_object set (i.e. when
+#   the resource actually exists on the GPU).
+# * Right before the renderer performs a draw, it queries the registry
+#   and calls update_resource on each.
+
+
 def _update_buffer(device, buffer):
     wgpu_buffer = buffer._wgpu_object
     assert wgpu_buffer is not None
