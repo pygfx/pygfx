@@ -123,7 +123,7 @@ scene.add(ob4)
 ob4.local.x = +6
 
 scene.add(gfx.AmbientLight())
-light=gfx.DirectionalLight()
+light = gfx.DirectionalLight()
 light.local.z = 1
 scene.add(light)
 
