@@ -82,6 +82,14 @@ class Binding:
 
         self.structname = structname
 
+    def _require_usage_flags(self, resource, usage_flags):
+        if resource._wgpu_object is None:
+            resource._wgpu_usage |= usage_flags
+        elif not (resource._wgpu_usage & usage_flags):
+            logger.warning(
+                "{resource} requires usage {usage_flags}, but has already been created."
+            )
+
     def get_bind_group_descriptors(self, device, slot):
         """Get the descriptors (dicts) for creating a binding_descriptor
         and binding_layout_descriptor. A list of these descriptors are
@@ -92,6 +100,16 @@ class Binding:
 
         if self.type.startswith("buffer/"):
             assert isinstance(resource, Buffer)
+            usage_flags = 0
+            if "uniform" in self.type:
+                usage_flags |= wgpu.BufferUsage.UNIFORM
+            elif "storage" in self.type:
+                usage_flags |= wgpu.BufferUsage.STORAGE
+                if "indices" in self.name:
+                    usage_flags |= wgpu.BufferUsage.INDEX
+                else:
+                    usage_flags |= wgpu.BufferUsage.VERTEX
+            self._require_usage_flags(resource, usage_flags)
             binding = {
                 "binding": slot,
                 "resource": {
@@ -124,6 +142,9 @@ class Binding:
             }
         elif self.type.startswith("texture/"):
             assert isinstance(resource, GfxTextureView)
+            self._require_usage_flags(
+                resource.texture, wgpu.TextureUsage.TEXTURE_BINDING
+            )
             binding = {
                 "binding": slot,
                 "resource": ensure_wgpu_object(device, resource),
@@ -162,6 +183,9 @@ class Binding:
             }
         elif self.type.startswith("storage_texture/"):
             assert isinstance(resource, GfxTextureView)
+            self._require_usage_flags(
+                resource.texture, wgpu.TextureUsage.STORAGE_BINDING
+            )
             binding = {
                 "binding": slot,
                 "resource": ensure_wgpu_object(device, resource),
@@ -203,6 +227,8 @@ class Binding:
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "sampler": {"type": wgpu.SamplerBindingType.comparison},
             }
+        else:
+            raise RuntimeError(f"Unexpected binding type: '{self.type}'")
 
         return binding, binding_layout
 
@@ -256,15 +282,6 @@ class PipelineContainerGroup:
         for container in self.render_containers:
             container.update(wobject, environment, shared, changed)
 
-    def get_flat_resources(self):
-        """Get a set of the combined resources of all pipeline containers."""
-        flat_resources = set()
-        for container in self.compute_containers:
-            flat_resources.update(container.flat_resources)
-        for container in self.render_containers:
-            flat_resources.update(container.flat_resources)
-        return flat_resources
-
 
 class PipelineContainer:
     """The pipeline container stores the wgpu pipeline object as well as intermediate
@@ -292,11 +309,6 @@ class PipelineContainer:
         self.bind_group_layout_descriptors = []
         self.wgpu_bind_group_layouts = []
         self.wgpu_bind_groups = []
-
-        # A flat list of all buffers, textures, samplers etc. in use.
-        # This is to allow fast iteration for updating the resources
-        # (uploading new data to buffers and textures).
-        self.flat_resources = []
 
         # A flag to indicate that an error occured and we cannot dispatch
         self.broken = False
@@ -358,7 +370,6 @@ class PipelineContainer:
         if "bindings" in changed:
             with wobject.tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, shared)
-            self.flat_resources = self.collect_flat_resources()
             self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups(shared.device)
@@ -460,41 +471,6 @@ class PipelineContainer:
         for bg_descriptor, layout in zip(bg_descriptors, self.wgpu_bind_group_layouts):
             bind_group = device.create_bind_group(layout=layout, entries=bg_descriptor)
             self.wgpu_bind_groups.append(bind_group)
-
-    def collect_flat_resources(self):
-        """Collect a list of all used resources, and also set their usage."""
-        pipeline_resources = []  # List, because order matters
-        # todo: looks like this is called when wgpu_objects are already created, so it won't have use anymore, right?
-        for bindings_dict in self.bindings_dicts.values():
-            for binding in bindings_dict.values():
-                resource = binding.resource
-                if binding.type.startswith("buffer/"):
-                    assert isinstance(resource, Buffer)
-                    pipeline_resources.append(("buffer", resource))
-                    if "uniform" in binding.type:
-                        resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-                    elif "storage" in binding.type:
-                        resource._wgpu_usage |= wgpu.BufferUsage.STORAGE
-                        if "indices" in binding.name:
-                            resource._wgpu_usage |= wgpu.BufferUsage.INDEX
-                        else:
-                            resource._wgpu_usage |= wgpu.BufferUsage.VERTEX
-                elif binding.type.startswith("sampler/"):
-                    assert isinstance(resource, GfxSampler)
-                elif binding.type.startswith("texture/"):
-                    assert isinstance(resource, GfxTextureView)
-                    resource.texture._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
-                    pipeline_resources.append(("texture", resource.texture))
-                elif binding.type.startswith("storage_texture/"):
-                    assert isinstance(resource, GfxTextureView)
-                    resource.texture._wgpu_usage |= wgpu.TextureUsage.STORAGE_BINDING
-                    pipeline_resources.append(("texture", resource.texture))
-                else:
-                    raise RuntimeError(
-                        f"Unknown resource binding {binding.name} of type {binding.type}"
-                    )
-
-        return pipeline_resources
 
 
 class ComputePipelineContainer(PipelineContainer):
