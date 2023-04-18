@@ -505,8 +505,8 @@ class LightShadow:
         # self._map_size = [1024, 1024]
 
         # TODO: move bias and cull_mode to Light so they can be reactive?
-        self._bias = 0
-        self._cull_mode = "FRONT"
+        self.bias = 0
+        self.cull_mode = "FRONT"
         self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
 
     @property
