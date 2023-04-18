@@ -57,8 +57,6 @@ class SvgRenderer(Renderer):
         """Render the scene to a file."""
 
         # Ensure that matrices are up-to-date
-        scene.update_matrix_world()
-        camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
         # Get the sorted list of objects to render (guaranteed to be visible and having a material)

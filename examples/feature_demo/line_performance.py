@@ -27,7 +27,7 @@ line = gfx.Line(
 scene.add(line)
 
 camera = gfx.OrthographicCamera(110, 110)
-camera.position.set(50, 0, 0)
+camera.local.position = (50, 0, 0)
 
 
 if __name__ == "__main__":

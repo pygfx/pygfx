@@ -11,6 +11,7 @@ Spotlights example.
 import time
 import math
 import random
+import pylinalg as la
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -86,7 +87,7 @@ def init_scene():
 
     scene = gfx.Scene()
     camera = gfx.PerspectiveCamera(35, 16 / 9)
-    camera.position.set(46, 22, -21)
+    camera.local.position = (46, 22, -21)
     camera.show_pos((0, 0, 0))
 
     gfx.OrbitController(camera, register_events=renderer)
@@ -96,8 +97,8 @@ def init_scene():
         gfx.MeshPhongMaterial(color="#808080", side="Front"),
     )
 
-    floor.rotation.set_from_euler(gfx.linalg.Euler(-math.pi / 2))
-    floor.position.set(0, -0.05, 0)
+    floor.local.rotation = la.quaternion_make_from_euler_angles(-math.pi / 2, order="X")
+    floor.local.position = (0, -0.05, 0)
 
     ambient = gfx.AmbientLight("#111111")
 
@@ -108,9 +109,9 @@ def init_scene():
     spot_light2 = create_spot_light("#00ff7f")
     spot_light3 = create_spot_light("#7f00ff")
 
-    spot_light1.position.set(15, 40, 45)
-    spot_light2.position.set(0, 40, 35)
-    spot_light3.position.set(-15, 40, 45)
+    spot_light1.local.position = (15, 40, 45)
+    spot_light2.local.position = (0, 40, 35)
+    spot_light3.local.position = (-15, 40, 45)
 
     spot_light1.add(gfx.SpotLightHelper())
     spot_light2.add(gfx.SpotLightHelper())
@@ -129,7 +130,7 @@ def init_scene():
                     {
                         "angle": random.random() * 0.7 + 0.1,
                         "penumbra": random.random() + 1,
-                        "position": {
+                        "local": {
                             "x": random.random() * 30 - 15,
                             "y": random.random() * 10 + 15,
                             "z": random.random() * 30 - 15,

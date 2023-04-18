@@ -187,7 +187,6 @@ class SpotLightHelper(Line):
 
     def __init__(self, color=None):
         self._color = color
-        self.world.on_update(self._update)
 
         positions = [
             [0, 0, 0],
@@ -213,6 +212,7 @@ class SpotLightHelper(Line):
             Geometry(positions=positions),
             LineSegmentMaterial(thickness=1.0),
         )
+        self.world.on_update(self._update)
 
     @callback
     def _update(self, transform: AffineTransform):
