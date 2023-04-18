@@ -22,10 +22,10 @@ class Resource(Trackable):
 
     def __init__(self):
         super().__init__()
-        registry.register(self)
+        registry._gfx_register(self)
 
     def _gfx_mark_for_sync(self):
-        registry.mark_for_sync(self)
+        registry._gfx_mark_for_sync(self)
 
 
 class ResourceRegistry:
@@ -35,14 +35,19 @@ class ResourceRegistry:
         self._all = weakref.WeakSet()
         self._syncable = weakref.WeakSet()
 
-    def register(self, resource):
+    def _gfx_register(self, resource):
+        """Add a resource to the registry."""
         if not isinstance(resource, Resource):
             raise TypeError("Given object is not a Resource")
         self._all.add(resource)
 
-    def mark_for_sync(self, resource):
+    def _gfx_mark_for_sync(self, resource):
+        """Register the given resource for synchonization. Only adds the resource
+        if it's wgpu-counterpart already exists, and when it has pending uploads.
+        """
         if not isinstance(resource, Resource):
             raise TypeError("Given object is not a Resource")
+        # Note: very obvious wgpu abstraction leak here :(
         if resource._wgpu_object is not None and resource._gfx_pending_uploads:
             self._syncable.add(resource)
 
