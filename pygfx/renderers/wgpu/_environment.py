@@ -17,7 +17,6 @@ from ...objects import (
 from ...resources import Buffer
 from ...utils import array_from_shadertype
 from ._pipeline import Binding
-from ._update import update_buffer
 from ._utils import generate_uniform_struct
 
 
@@ -237,7 +236,6 @@ class Environment(Trackable):
         for index, binding in enumerate(self.bindings):
             if binding.type.startswith("buffer/"):
                 binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-                update_buffer(device, binding.resource)
             binding_des, binding_layout_des = binding.get_bind_group_descriptors(
                 device, index
             )
@@ -338,16 +336,12 @@ class Environment(Trackable):
         and create texture views if needed.
         """
 
-        device = self.device
-
         # Update ambient buffer
 
         ambient_lights_buffer = self.ambient_lights_buffer
         if not np.all(ambient_lights_buffer.data["color"][:3] == lights["ambient"]):
             ambient_lights_buffer.data["color"].flat = lights["ambient"]
             ambient_lights_buffer.update_range(0, 1)
-
-        update_buffer(device, ambient_lights_buffer)
 
         # We update the uniform buffers of the lights below. These buffers
         # are not actually used directly but copied to the environment's buffer.
@@ -369,8 +363,6 @@ class Environment(Trackable):
                     dir_lights_buffer.data[i] = light.uniform_buffer.data
                     dir_lights_buffer.update_range(i, 1)
 
-            update_buffer(device, dir_lights_buffer)
-
         # Update point light buffers
         if self.point_lights_num > 0:
             point_lights_buffer = self.point_lights_buffer
@@ -387,10 +379,6 @@ class Environment(Trackable):
                     point_lights_buffer.data[i] = light.uniform_buffer.data
                     point_lights_buffer.update_range(i, 1)
 
-            update_buffer(device, point_lights_buffer)
-
-        # Update spot lights buffers
-
         if self.spot_lights_num > 0:
             spot_lights_buffer = self.spot_lights_buffer
             spot_lights = lights["spot_lights"]
@@ -404,8 +392,6 @@ class Environment(Trackable):
                 if spot_lights_buffer.data[i] != light.uniform_buffer.data:
                     spot_lights_buffer.data[i] = light.uniform_buffer.data
                     spot_lights_buffer.update_range(i, 1)
-
-            update_buffer(device, spot_lights_buffer)
 
     def register_pipeline_container(self, pipeline_container):
         """Allow pipeline containers to register, so that their

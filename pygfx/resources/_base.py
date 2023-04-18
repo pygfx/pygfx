@@ -24,7 +24,7 @@ class Resource(Trackable):
         super().__init__()
         registry.register(self)
 
-    def _mark_for_sync(self):
+    def _gfx_mark_for_sync(self):
         registry.mark_for_sync(self)
 
 
@@ -43,7 +43,8 @@ class ResourceRegistry:
     def mark_for_sync(self, resource):
         if not isinstance(resource, Resource):
             raise TypeError("Given object is not a Resource")
-        self._syncable.add(resource)
+        if resource._wgpu_object is not None and resource._gfx_pending_uploads:
+            self._syncable.add(resource)
 
     def get_resource_count(self):
         """Get a dictionary indicating how many buffers and texture are currently alive."""

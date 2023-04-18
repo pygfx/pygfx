@@ -28,15 +28,16 @@ ALTTEXFORMAT = {
 def update_resource(device, resource):
     """Update the contents of a buffer or texture."""
     if isinstance(resource, Buffer):
-        return update_buffer(device, resource)
+        return _update_buffer(device, resource)
     elif isinstance(resource, Texture):
-        return update_texture(device, resource)
+        return _update_texture(device, resource)
     else:
         raise ValueError(f"Invalid resource type: {resource.__class__.__name__}")
 
 
-def update_buffer(device, buffer):
-    wgpu_buffer = ensure_wgpu_object(device, buffer)
+def _update_buffer(device, buffer):
+    # ensure_wgpu_object(device, buffer)
+    wgpu_buffer = buffer._wgpu_object
 
     # Get and reset pending uploads
     pending_uploads = buffer._gfx_pending_uploads
@@ -65,8 +66,9 @@ def update_buffer(device, buffer):
         # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
 
 
-def update_texture(device, texture):
-    wgpu_texture = ensure_wgpu_object(device, texture)
+def _update_texture(device, texture):
+    # ensure_wgpu_object(device, texture)
+    wgpu_texture = texture._wgpu_object
 
     # Get and reset pending uploads
     pending_uploads = texture._gfx_pending_uploads
@@ -133,6 +135,8 @@ def ensure_wgpu_object(device, resource):
         resource._wgpu_object = device.create_buffer(
             size=resource.nbytes, usage=resource._wgpu_usage
         )
+        # Mark the resource for sync at the registry (but only if it has pending updates)
+        resource._gfx_mark_for_sync()
 
     elif isinstance(resource, Texture):
         fmt = to_texture_format(resource.format)
@@ -152,6 +156,8 @@ def ensure_wgpu_object(device, resource):
             mip_level_count=resource._wgpu_mip_level_count,
             sample_count=1,  # could allow more to implement msaa
         )
+        # Mark the resource for sync at the registry (but only if it has pending updates)
+        resource._gfx_mark_for_sync()
 
     elif isinstance(resource, GfxTextureView):
         wgpu_texture = ensure_wgpu_object(device, resource.texture)

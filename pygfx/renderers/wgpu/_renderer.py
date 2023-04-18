@@ -517,7 +517,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for resource in resource_registry.get_syncable_resources(flush=True):
             update_count += 1
             update_resource(self.device, resource)
-        print("updated", update_count, "resources")
+        # print("updated", update_count, "resources")
 
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154

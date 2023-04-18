@@ -464,7 +464,7 @@ class PipelineContainer:
     def collect_flat_resources(self):
         """Collect a list of all used resources, and also set their usage."""
         pipeline_resources = []  # List, because order matters
-
+        # todo: looks like this is called when wgpu_objects are already created, so it won't have use anymore, right?
         for bindings_dict in self.bindings_dicts.values():
             for binding in bindings_dict.values():
                 resource = binding.resource
