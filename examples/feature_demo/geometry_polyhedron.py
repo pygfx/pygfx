@@ -8,6 +8,7 @@ Example showing multiple rotating polyhedrons.
 # sphinx_gallery_pygfx_target_name = "disp"
 
 import pygfx as gfx
+import pylinalg as la
 
 group = gfx.Group()
 
@@ -21,14 +22,14 @@ geometries = [
 
 polyhedrons = [gfx.Mesh(g, material) for g in geometries]
 for i, polyhedron in enumerate(polyhedrons):
-    polyhedron.position.set(6 - i * 3, 0, 0)
+    polyhedron.local.position = (6 - i * 3, 0, 0)
     group.add(polyhedron)
 
 
 def animate():
     for polyhedron in polyhedrons:
-        rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.01, 0.02))
-        polyhedron.rotation.multiply(rot)
+        rot = la.quaternion_make_from_euler_angles((0.01, 0.02), order="XY")
+        polyhedron.local.rotation = la.quaternion_multiply(rot, polyhedron.local.rotation)
 
 
 if __name__ == "__main__":

@@ -25,8 +25,8 @@ image = gfx.Image(
 scene.add(image)
 
 camera = gfx.OrthographicCamera(512, 512)
-camera.position.set(256, 256, 0)
-camera.scale.y = -1
+camera.local.position = (256, 256, 0)
+camera.local.scale_y = -1
 
 
 if __name__ == "__main__":
