@@ -36,8 +36,8 @@ def update_resource(device, resource):
 
 
 def _update_buffer(device, buffer):
-    # ensure_wgpu_object(device, buffer)
     wgpu_buffer = buffer._wgpu_object
+    assert wgpu_buffer is not None
 
     # Get and reset pending uploads
     pending_uploads = buffer._gfx_pending_uploads
@@ -67,8 +67,8 @@ def _update_buffer(device, buffer):
 
 
 def _update_texture(device, texture):
-    # ensure_wgpu_object(device, texture)
     wgpu_texture = texture._wgpu_object
+    assert wgpu_texture is not None
 
     # Get and reset pending uploads
     pending_uploads = texture._gfx_pending_uploads

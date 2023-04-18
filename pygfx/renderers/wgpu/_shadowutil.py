@@ -85,7 +85,7 @@ class ShadowUtil:
             },
             primitive={
                 "topology": wgpu.PrimitiveTopology.triangle_list,
-                "cull_mode": cull_mode,
+                "cull_mode": cull_mode.lower(),
             },
             depth_stencil={
                 "format": wgpu.TextureFormat.depth32float,
@@ -129,6 +129,7 @@ class ShadowUtil:
                             if isinstance(light, PointLight)
                             else light.shadow._gfx_matrix_buffer
                         )
+                        buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
                         wgpu_buffer = ensure_wgpu_object(self.device, buffer)
 
                         setattr(
