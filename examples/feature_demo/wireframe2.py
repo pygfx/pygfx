@@ -38,7 +38,7 @@ scene.add(gfx.AmbientLight(0.2), camera.add(gfx.DirectionalLight(0.8)))
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.0071, 0.01), order="xy")
+    rot = la.quaternion_make_from_euler_angles((0.0071, 0.01), order="XY")
     obj1.local.rotation = la.quaternion_multiply(rot, obj1.local.rotation)
     obj2.local.rotation = la.quaternion_multiply(rot, obj2.local.rotation)
 

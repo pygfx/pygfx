@@ -52,11 +52,11 @@ for axis in [0, 1, 2]:
 
     if axis == 0:  # YZ plane
         plane.local.rotation = la.quaternion_make_from_euler_angles(
-            (0.5 * np.pi, 0.5 * np.pi), order="xy"
+            (0.5 * np.pi, 0.5 * np.pi), order="XY"
         )
     elif axis == 1:  # XZ plane
         plane.local.rotation = la.quaternion_make_from_euler_angles(
-            0.5 * np.pi, order="x"
+            0.5 * np.pi, order="X"
         )
     # else: XY plane
 

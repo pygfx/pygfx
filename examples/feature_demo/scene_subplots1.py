@@ -51,7 +51,7 @@ camera2 = gfx.OrthographicCamera(2.2, 2.2)
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="xy")
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
     cube1.local.rotation = la.quaternion_multiply(rot, cube1.local.rotation)
 
     w, h = canvas.get_logical_size()

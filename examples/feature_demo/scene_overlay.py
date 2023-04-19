@@ -56,7 +56,7 @@ camera2 = gfx.NDCCamera()
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="xy")
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
     cube1.local.rotation = la.quaternion_multiply(rot, cube1.local.rotation)
 
     renderer.render(scene1, camera1, flush=False)

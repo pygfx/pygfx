@@ -41,7 +41,7 @@ material.clipping_planes = [(0, 0, 1, 0)]
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="xy")
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
     vol3.local.rotation = la.quaternion_multiply(rot, vol3.local.rotation)
 
     renderer.render(scene, camera)
