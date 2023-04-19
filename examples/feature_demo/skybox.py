@@ -46,7 +46,7 @@ for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
 camera = gfx.PerspectiveCamera(70)
 
 light = gfx.DirectionalLight(0.6)
-light.local.position=(0, -100, 0)
+light.local.position = (0, -100, 0)
 scene.add(gfx.AmbientLight(0.4), light)
 
 
