@@ -11,6 +11,7 @@ import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
@@ -43,8 +44,8 @@ def handle_event(event):
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="xy")
+    cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

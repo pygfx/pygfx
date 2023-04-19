@@ -17,13 +17,14 @@ from random import randint, random
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.local.z = 400
 camera.show_pos(((0, 0, 0)))
 
 controller = gfx.OrbitController(camera, register_events=renderer)
@@ -84,17 +85,13 @@ def hover(event):
 
 
 def random_rotation():
-    return gfx.linalg.Quaternion().set_from_euler(
-        gfx.linalg.Euler(
-            (random() - 0.5) / 100, (random() - 0.5) / 100, (random() - 0.5) / 100
-        )
-    )
+    return la.quaternion_make_from_euler_angles(((random() - 0.5) / 100, (random() - 0.5) / 100, (random() - 0.5) / 100))
 
 
 def animate():
     def random_rot(obj):
         if hasattr(obj, "random_rotation"):
-            obj.rotation.multiply(obj.random_rotation)
+            obj.local.rotation = la.quaternion_multiply(obj.random_rotation, obj.local.rotation)
 
     scene.traverse(random_rot)
     renderer.render(scene, camera)
@@ -113,9 +110,11 @@ if __name__ == "__main__":
 
         for _ in range(10):
             cube = gfx.Mesh(geometry, default_material)
-            cube.position.x = randint(-200, 200)
-            cube.position.y = randint(-200, 200)
-            cube.position.z = randint(-200, 200)
+            cube.local.position = (
+                randint(-200, 200),
+                randint(-200, 200),
+                randint(-200, 200),
+            )
             cube.random_rotation = random_rotation()
             cube.add_event_handler(select, "click")
             cube.add_event_handler(hover, "pointer_enter", "pointer_leave")

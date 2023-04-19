@@ -20,6 +20,7 @@ import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 
 import pygfx as gfx
+import pylinalg as la
 
 # Init
 frame_idx = count()  # counter for animation
@@ -30,7 +31,7 @@ scene = gfx.Scene()
 # Lights
 scene.add(gfx.AmbientLight("#fff", 0.2))
 directional_light = gfx.DirectionalLight("#fff", 3)
-directional_light.position.set(1, 1, 1).normalize()
+directional_light.local.position = la.vector_normalize((1, 1, 1))
 scene.add(directional_light)
 point_light = gfx.PointLight("#fff", 3)
 scene.add(point_light)
@@ -77,9 +78,11 @@ while alpha <= 1.0:
 
             mesh = gfx.Mesh(geometry, material)
 
-            mesh.position.x = alpha * 400 - 200
-            mesh.position.y = beta * 400 - 200
-            mesh.position.z = gamma * 400 - 200
+            mesh.local.position = (
+                alpha * 400 - 200,
+                beta * 400 - 200,
+                gamma * 400 - 200,
+            )
             scene.add(mesh)
             index += 1
 
@@ -96,9 +99,11 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 def animate():
     timer = next(frame_idx) / 30
 
-    point_light.position.x = math.sin(timer / 3 * (2 * np.pi)) * 300
-    point_light.position.y = math.cos(timer * 2 / 3 * (2 * np.pi)) * 400
-    point_light.position.z = math.cos(timer / 3 * (2 * np.pi)) * 300
+    point_light.local.position = (
+        math.sin(timer / 3 * (2 * np.pi)) * 300,
+        math.cos(timer * 2 / 3 * (2 * np.pi)) * 400,
+        math.cos(timer / 3 * (2 * np.pi)) * 300,
+    )
 
     renderer.render(scene, camera)
     renderer.request_draw()
