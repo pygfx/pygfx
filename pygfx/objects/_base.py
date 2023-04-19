@@ -455,22 +455,29 @@ class WorldObject(EventTarget, RootTrackable):
     def look_at(self, target, *, up=None) -> None:
         if up is not None:
             self.up = up
+        else:
+            up = self.up
 
         position = self.world.position
         target = np.asarray(target)
+        if np.allclose(target, position):
+            # target and eye are in the same position don't do anything.
+            # Note: the old behavior made it look at (0, 0, 1) in world space
+            # which doesn't seem like a good default
+            return
 
-        if np.linalg.norm(target - position) < 1e-10:
-            # target and eye are in the same position
-            # (behavior copied from old look_at)
-            target = np.asarray((0, 0, 1))
-
-        if self._FORWARD_IS_MINUS_Z:
-            matrix = la.matrix_make_look_at(target, position, self.up)
+        new_z = target - position
+        new_z /= np.linalg.norm(new_z)
+        if np.allclose(np.cross(new_z, self.up), 0):
+            # target and up are parallel
+            world_forward = la.vector_apply_matrix((0, 0, 1), self.world.matrix)
+            rotation = la.quaternion_make_from_unit_vectors(world_forward, new_z)
+        elif self._FORWARD_IS_MINUS_Z:
+            matrix = la.matrix_make_look_at(target, position, up)
+            rotation = la.matrix_to_quaternion(matrix.T)
         else:
-            matrix = la.matrix_make_look_at(position, target, self.up)
-
-        # look_at returns parent->local but we need local->parent mapping
-        rotation = la.matrix_to_quaternion(matrix.T)
+            matrix = la.matrix_make_look_at(position, target, up)
+            rotation = la.matrix_to_quaternion(matrix.T)
 
         if self.parent is not None:
             inv_parent_rotation = la.quaternion_inverse(self.parent.world.rotation)
