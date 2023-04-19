@@ -51,11 +51,13 @@ camera = gfx.OrthographicCamera(cols, rows, maintain_aspect=False)
 camera.show_object(scene)
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
+stats = gfx.Stats(viewport=renderer)
+
 
 def animate():
-    t0 = time.perf_counter()  # noqa
-    renderer.render(scene, camera)
-    # print(time.perf_counter() - t0)
+    with stats:
+        renderer.render(scene, camera, flush=False)
+    stats.render()
     canvas.request_draw()
 
 

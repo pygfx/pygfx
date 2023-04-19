@@ -1,6 +1,6 @@
 import numpy as np
 
-from ._buffer import Resource, STRUCT_FORMAT_ALIASES
+from ._base import Resource, STRUCT_FORMAT_ALIASES, FORMAT_MAP
 
 
 class Texture(Resource):
@@ -184,6 +184,7 @@ class Texture(Resource):
         else:
             self._gfx_pending_uploads.append((offset, size))
         self._rev += 1
+        self._gfx_mark_for_sync()
 
     def _size_from_data(self, data, dim, size):
         # Check if shape matches dimension
@@ -244,17 +245,6 @@ class Texture(Resource):
 
 
 def format_from_memoryview(mem, size):
-    formatmap = {
-        "b": "i1",
-        "B": "u1",
-        "h": "i2",
-        "H": "u2",
-        "i": "i4",
-        "I": "u4",
-        "e": "f2",
-        "f": "f4",
-    }
-
     format = str(mem.format)
     format = STRUCT_FORMAT_ALIASES.get(format, format)
     # Process channels
@@ -268,9 +258,9 @@ def format_from_memoryview(mem, size):
     assert 1 <= nchannels <= 4
     if format in ("d", "float64"):
         raise TypeError("GPU's don't support float64 texture formats.")
-    elif format not in formatmap:
+    elif format not in FORMAT_MAP:
         raise TypeError(
             f"Cannot convert {format!r} to texture format. Maybe specify format?"
         )
-    format = f"{nchannels}x" + formatmap[format]
+    format = f"{nchannels}x" + FORMAT_MAP[format]
     return format.lstrip("1x")

@@ -149,7 +149,6 @@ class FlyController(Controller):
 
         new_position = position + delta_world * self.speed
         self._set_camera_state({"position": new_position})
-        print(new_position)
 
     def _update_speed(self, delta):
         assert isinstance(delta, float)

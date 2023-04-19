@@ -398,7 +398,7 @@ class PygfxGlyphAtlas(GlyphAtlas):
         # Do the normal behavior
         array = self._array
         super()._set_new_glyphs_array(*args)
-        # Create wgpu object if needed
+        # Create resource object if needed
         if self._array is not array:
             self._texture = Texture(self._array, dim=2)
         # Schedule an update. Note that the infos array is updated due to repacking.
@@ -410,7 +410,7 @@ class PygfxGlyphAtlas(GlyphAtlas):
         # Do the normal behavior
         infos = self._infos
         super()._set_new_infos_array(*args)
-        # Create wgpu object if needed
+        # Create resource object if needed
         if self._infos is not infos:
             self._infos_buffer = Buffer(self._infos)
         # Schedule an update
