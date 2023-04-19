@@ -146,7 +146,12 @@ class Buffer(Resource):
         """
         # See ThreeJS BufferAttribute.updateRange
         # Check input
-        assert isinstance(offset, int) and isinstance(size, int)
+        if not isinstance(offset, int) and isinstance(size, int):
+            raise TypeError(
+                f"`offset` and `size` must be native `int` type, you have passed: "
+                f"offset: <{type(offset)}>, size: <{type(size)}>"
+            )
+
         if size == 0:
             return
         elif size < 0:
