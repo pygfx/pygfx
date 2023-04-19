@@ -11,6 +11,7 @@ Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.r
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 # Read the image
 # The order of the images is already correct for GPU cubemap texture sampling
@@ -37,23 +38,25 @@ cubes = []
 for pos in (-600, 0, -600), (-600, 0, +600), (+600, 0, -600), (+600, 0, +600):
     clr = (0.5, 0.6, 0.0, 1.0)
     cube = gfx.Mesh(gfx.box_geometry(200, 200, 200), gfx.MeshPhongMaterial(color=clr))
-    cube.position.from_array(pos)
+    cube.local.position = pos
     cubes.append(cube)
     scene.add(cube)
 
 
 camera = gfx.PerspectiveCamera(70)
 
-scene.add(gfx.AmbientLight(0.4), gfx.DirectionalLight(0.6, position=(0, -100, 0)))
+light = gfx.DirectionalLight(0.6)
+light.local.position=(0, -100, 0)
+scene.add(gfx.AmbientLight(0.4), light)
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.01, 0.02))
+    rot = la.quaternion_make_from_euler_angles((0.01, 0.02), order="xy")
     for cube in cubes:
-        cube.rotation.multiply(rot)
+        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
 
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0, 0.005))
-    camera.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0, 0.005), order="xy")
+    camera.local.rotation = la.quaternion_multiply(rot, camera.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

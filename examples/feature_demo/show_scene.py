@@ -19,7 +19,7 @@ material = gfx.MeshBasicMaterial(map=tex)
 geometry = gfx.box_geometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
-    cube.position.set(350 - i * 100, 0, 0)
+    cube.local.position = (350 - i * 100, 0, 0)
     group.add(cube)
 
 if __name__ == "__main__":

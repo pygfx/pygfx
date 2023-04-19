@@ -27,8 +27,8 @@ vol = gfx.Volume(
 scene.add(vol)
 
 camera = gfx.OrthographicCamera(128, 128)
-camera.position.set(64, 64, 128)
-camera.scale.y = -1  # in this case we tweak the camera, not the plane
+camera.local.position = (64, 64, 128)
+camera.local.scale_y = -1  # in this case we tweak the camera, not the plane
 
 
 @renderer.add_event_handler("wheel")

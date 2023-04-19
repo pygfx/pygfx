@@ -10,6 +10,7 @@ gray.
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
@@ -31,15 +32,15 @@ obj2 = gfx.Mesh(geometry, material2)
 scene.add(obj2)
 
 camera = gfx.PerspectiveCamera(70, 1)
-camera.position.z = 4
+camera.local.z = 4
 
 scene.add(gfx.AmbientLight(0.2), camera.add(gfx.DirectionalLight(0.8)))
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
-    obj1.rotation.multiply(rot)
-    obj2.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0.0071, 0.01), order="xy")
+    obj1.local.rotation = la.quaternion_multiply(rot, obj1.local.rotation)
+    obj2.local.rotation = la.quaternion_multiply(rot, obj2.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

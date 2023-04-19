@@ -159,12 +159,12 @@ thickness = 4
 g = gfx.sphere_geometry(1, 16)
 
 mesh1 = gfx.Mesh(g, WireframeMaterial(thickness=thickness))
-mesh1.position.x = -1
+mesh1.local.x = -1
 
 mesh2 = gfx.Mesh(
     g, gfx.MeshPhongMaterial(wireframe=True, wireframe_thickness=thickness)
 )
-mesh2.position.x = 1
+mesh2.local.x = 1
 
 scene = gfx.Scene()
 scene.add(mesh1, mesh2)

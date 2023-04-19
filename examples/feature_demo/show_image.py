@@ -25,7 +25,7 @@ scene.add(image)
 
 camera = gfx.OrthographicCamera(512, 512)
 camera.show_object(scene, view_dir=(0, 0, -1))
-camera.scale.y = -1
+camera.local.scale_y = -1
 
 
 def animate():

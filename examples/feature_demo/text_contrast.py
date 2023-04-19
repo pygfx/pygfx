@@ -43,11 +43,11 @@ t4 = gfx.Text(
     gfx.TextMaterial(color="#fff", outline_color="#000", outline_thickness=0.15),
 )
 
-t1.position.set(-1, +1, 0)
-t2.position.set(-1, -1, 0)
+t1.local.position = (-1, +1, 0)
+t2.local.position = (-1, -1, 0)
 
-t3.position.set(+1, +1, 0)
-t4.position.set(+1, -1, 0)
+t3.local.position = (+1, +1, 0)
+t4.local.position = (+1, -1, 0)
 
 scene.add(t1, t2, t3, t4)
 
