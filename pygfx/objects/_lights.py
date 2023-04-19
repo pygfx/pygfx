@@ -667,3 +667,4 @@ class PointLightShadow(LightShadow):
 
             self._gfx_matrix_buffer[i].data["light_view_proj_matrix"] = screen_matrix.T
             self._gfx_matrix_buffer[i].update_range(0, 1)
+        light.uniform_buffer.update_range(0, 1)
