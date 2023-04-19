@@ -452,19 +452,28 @@ class WorldObject(EventTarget, RootTrackable):
         # In most cases the material handles this.
         return self.material._wgpu_get_pick_info(pick_value)
 
-    def look_at(self, target) -> None:
-        up = self.up
-        new_z = target - self.world.position
-        new_z /= np.linalg.norm(new_z)
-        if np.allclose(abs(np.dot(new_z, up)), 1, atol=1e-6):
-            quat = la.quaternion_make_from_unit_vectors(self.world.position, target)
-            up = la.vector_apply_quaternion(up, quat)
+    def look_at(self, target, *, up=None) -> None:
+        if up is not None:
+            self.up = up
+
+        position = self.world.position
+        target = np.asarray(target)
+
+        if np.linalg.norm(target - position) < 1e-10:
+            # target and eye are in the same position
+            # (behavior copied from old look_at)
+            target = np.asarray((0, 0, 1))
 
         if self._FORWARD_IS_MINUS_Z:
-            # flipped eye, target inputs because cameras look along negative Z
-            rotation = la.matrix_make_look_at(target, self.world.position, up)
-            self.world.rotation = la.matrix_to_quaternion(rotation)
+            matrix = la.matrix_make_look_at(target, position, self.up)
         else:
-            rotation = la.matrix_make_look_at(self.world.position, target, up)
+            matrix = la.matrix_make_look_at(position, target, self.up)
 
-            self.world.rotation = la.matrix_to_quaternion(rotation)
+        # look_at returns parent->local but we need local->parent mapping
+        rotation = la.matrix_to_quaternion(matrix.T)
+
+        if self.parent is not None:
+            inv_parent_rotation = la.quaternion_inverse(self.parent.world.rotation)
+            self.local.rotation = la.quaternion_multiply(inv_parent_rotation, rotation)
+        else:
+            self.local.rotation = rotation
