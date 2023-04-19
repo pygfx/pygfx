@@ -1,5 +1,5 @@
 import wgpu
-from ._update import ensure_wgpu_object
+from ._update import ensure_wgpu_object, update_resource
 from ._utils import to_vertex_format
 
 from ...objects import PointLight
@@ -131,6 +131,10 @@ class ShadowUtil:
                         )
                         buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
                         wgpu_buffer = ensure_wgpu_object(self.device, buffer)
+                        # We also update the buffer now, because this code gets called
+                        # *after* the renderer has synced all resources. Note that this
+                        # code is only reached once for each shadow map.
+                        update_resource(self.device, buffer)
 
                         setattr(
                             light.shadow,
