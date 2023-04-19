@@ -413,16 +413,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         device = self.device
 
-        now = time.perf_counter()  # noqa
-        if self._show_fps:
-            if not hasattr(self, "_fps"):
-                self._fps = now, now, 1
-            elif now > self._fps[0] + 1:
-                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
-                self._fps = now, now, 1
-            else:
-                self._fps = self._fps[0], now, self._fps[2] + 1
-
         # Define whether to clear color.
         if clear_color is None:
             clear_color = self._renders_since_last_flush == 0
@@ -540,6 +530,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Render the result into the target. This method is called
         automatically unless you use ``.render(..., flush=False)``.
         """
+
+        # Print FPS
+        now = time.perf_counter()  # noqa
+        if self._show_fps:
+            if not hasattr(self, "_fps"):
+                self._fps = now, now, 1
+            elif now > self._fps[0] + 1:
+                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
+                self._fps = now, now, 1
+            else:
+                self._fps = self._fps[0], now, self._fps[2] + 1
 
         device = self.device
         need_mipmaps = False
