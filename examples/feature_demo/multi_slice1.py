@@ -51,9 +51,13 @@ for axis in [0, 1, 2]:
     scene.add(plane)
 
     if axis == 0:  # YZ plane
-        plane.local.rotation = la.quaternion_make_from_euler_angles((0.5 * np.pi, 0.5 * np.pi), order="xy")
+        plane.local.rotation = la.quaternion_make_from_euler_angles(
+            (0.5 * np.pi, 0.5 * np.pi), order="xy"
+        )
     elif axis == 1:  # XZ plane
-        plane.local.rotation = la.quaternion_make_from_euler_angles(0.5 * np.pi, order="x")
+        plane.local.rotation = la.quaternion_make_from_euler_angles(
+            0.5 * np.pi, order="x"
+        )
     # else: XY plane
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)

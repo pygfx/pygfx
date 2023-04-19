@@ -66,7 +66,7 @@ m.material.env_map = env_tex
 
 # Add extra light more or less where the sun seems to be in the skybox
 light = gfx.SpotLight(color="#444")
-light.local.position=(-500, 1000, -1000)
+light.local.position = (-500, 1000, -1000)
 scene.add(light)
 
 # Create camera and controller

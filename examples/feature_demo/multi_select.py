@@ -85,13 +85,17 @@ def hover(event):
 
 
 def random_rotation():
-    return la.quaternion_make_from_euler_angles(((random() - 0.5) / 100, (random() - 0.5) / 100, (random() - 0.5) / 100))
+    return la.quaternion_make_from_euler_angles(
+        ((random() - 0.5) / 100, (random() - 0.5) / 100, (random() - 0.5) / 100)
+    )
 
 
 def animate():
     def random_rot(obj):
         if hasattr(obj, "random_rotation"):
-            obj.local.rotation = la.quaternion_multiply(obj.random_rotation, obj.local.rotation)
+            obj.local.rotation = la.quaternion_multiply(
+                obj.random_rotation, obj.local.rotation
+            )
 
     scene.traverse(random_rot)
     renderer.render(scene, camera)
