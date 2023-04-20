@@ -1,14 +1,6 @@
-from ..utils.trackable import Trackable
-
 import numpy as np
 
-STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
-
-
-class Resource(Trackable):
-    """Resource base class."""
-
-    pass
+from ._base import Resource, STRUCT_FORMAT_ALIASES, FORMAT_MAP
 
 
 class Buffer(Resource):
@@ -177,6 +169,7 @@ class Buffer(Resource):
         # Limit and apply
         self._gfx_pending_uploads.append((offset, size))
         self._rev += 1
+        self._gfx_mark_for_sync()
         # note: this can be smarter, we have logic for chunking in the morph tool
 
     def _get_subdata(self, offset, size):
@@ -199,17 +192,6 @@ class Buffer(Resource):
 
 
 def format_from_memoryview(mem):
-    formatmap = {
-        "b": "i1",
-        "B": "u1",
-        "h": "i2",
-        "H": "u2",
-        "i": "i4",
-        "I": "u4",
-        "e": "f2",
-        "f": "f4",
-    }
-
     shape = mem.shape
     if len(shape) == 1:
         shape = shape + (1,)
@@ -218,9 +200,9 @@ def format_from_memoryview(mem):
     format = STRUCT_FORMAT_ALIASES.get(format, format)
     if format in ("d", "float64"):
         raise ValueError("64-bit float is not supported, use 32-bit float instead")
-    elif format not in formatmap:
+    elif format not in FORMAT_MAP:
         raise TypeError(
             f"Cannot convert {format!r} to vertex format. Maybe specify format?"
         )
-    format = f"{shape[-1]}x" + formatmap[format]
+    format = f"{shape[-1]}x" + FORMAT_MAP[format]
     return format.lstrip("1x")

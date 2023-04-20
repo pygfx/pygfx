@@ -1,5 +1,5 @@
 import wgpu
-from ._update import update_buffer
+from ._update import ensure_wgpu_object, update_resource
 from ._utils import to_vertex_format
 
 from ...objects import PointLight
@@ -85,7 +85,7 @@ class ShadowUtil:
             },
             primitive={
                 "topology": wgpu.PrimitiveTopology.triangle_list,
-                "cull_mode": cull_mode,
+                "cull_mode": cull_mode.lower(),
             },
             depth_stencil={
                 "format": wgpu.TextureFormat.depth32float,
@@ -103,12 +103,6 @@ class ShadowUtil:
 
         for light in lights:
             if light.cast_shadow:
-                if isinstance(light, PointLight):
-                    for buffer in light.shadow._gfx_matrix_buffer:
-                        update_buffer(self.device, buffer)
-                else:
-                    update_buffer(self.device, light.shadow._gfx_matrix_buffer)
-
                 if not isinstance(light.shadow._wgpu_tex_view, list):
                     shadow_maps = [light.shadow._wgpu_tex_view]
                 else:
@@ -131,10 +125,16 @@ class ShadowUtil:
 
                     if not hasattr(light.shadow, f"__shadow_bind_group_{i}"):
                         buffer = (
-                            light.shadow._gfx_matrix_buffer[i]._wgpu_object
+                            light.shadow._gfx_matrix_buffer[i]
                             if isinstance(light, PointLight)
-                            else light.shadow._gfx_matrix_buffer._wgpu_object
+                            else light.shadow._gfx_matrix_buffer
                         )
+                        buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
+                        wgpu_buffer = ensure_wgpu_object(self.device, buffer)
+                        # We also update the buffer now, because this code gets called
+                        # *after* the renderer has synced all resources. Note that this
+                        # code is only reached once for each shadow map.
+                        update_resource(self.device, buffer)
 
                         setattr(
                             light.shadow,
@@ -145,7 +145,7 @@ class ShadowUtil:
                                     {
                                         "binding": 0,
                                         "resource": {
-                                            "buffer": buffer,
+                                            "buffer": wgpu_buffer,
                                             "offset": 0,
                                             "size": 64,
                                         },
@@ -171,7 +171,7 @@ class ShadowUtil:
 
                                 shadow_pass.set_vertex_buffer(
                                     0,
-                                    position_buffer._wgpu_object,
+                                    ensure_wgpu_object(self.device, position_buffer),
                                     position_buffer.vertex_byte_range[0],
                                     position_buffer.vertex_byte_range[1],
                                 )
@@ -180,13 +180,16 @@ class ShadowUtil:
                                     # Note that here we assume that the wobject's transform matrix
                                     # is the first item in its uniform buffer. This is a likely
                                     # assumption because items are sorted by size.
+                                    wgpu_uniform_buffer = ensure_wgpu_object(
+                                        self.device, wobject.uniform_buffer
+                                    )
                                     bg = self.device.create_bind_group(
                                         layout=self.bind_group_layout,
                                         entries=[
                                             {
                                                 "binding": 0,
                                                 "resource": {
-                                                    "buffer": wobject.uniform_buffer._wgpu_object,
+                                                    "buffer": wgpu_uniform_buffer,
                                                     "offset": 0,
                                                     "size": 64,
                                                 },
@@ -215,7 +218,8 @@ class ShadowUtil:
                                         "s", "u"
                                     )
                                     shadow_pass.set_index_buffer(
-                                        ibuffer._wgpu_object, index_format
+                                        ensure_wgpu_object(self.device, ibuffer),
+                                        index_format,
                                     )
                                     shadow_pass.draw_indexed(n, n_instance)
                                 else:

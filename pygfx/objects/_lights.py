@@ -1,6 +1,5 @@
 import math
 
-import wgpu
 import pylinalg as la
 import numpy as np
 
@@ -516,11 +515,9 @@ class LightShadow:
         # self._map_size = [1024, 1024]
 
         # TODO: move bias and cull_mode to Light so they can be reactive?
-        self._bias = 0
-        self._cull_mode = wgpu.CullMode.front
-
+        self.bias = 0
+        self.cull_mode = "FRONT"
         self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
-        self._gfx_matrix_buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
 
     @property
     def camera(self):
@@ -539,16 +536,19 @@ class LightShadow:
     @property
     def cull_mode(self):
         """
-        Shadow map cull_mode. When shadow mapping open meshes, set to 'none' and
-        increase ``bias`` value to avoid shadow acne.
+        Shadow map cull_mode ('front', 'back', or 'none'). When shadow
+        mapping open meshes, set to 'none' and increase ``bias`` value
+        to avoid shadow acne.
         """
         return self._cull_mode
 
     @cull_mode.setter
     def cull_mode(self, value):
-        if value not in wgpu.CullMode:
+        value = str(value).upper()
+        if value in ("FRONT", "BACK", "NONE"):
+            self._cull_mode = value
+        else:
             raise ValueError(f"invalid cull_mode: '{value}'")
-        self._cull_mode = value
 
     def _gfx_update_uniform_buffer(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self._bias
@@ -630,7 +630,6 @@ class PointLightShadow(LightShadow):
 
         for _ in range(6):
             buffer = Buffer(array_from_shadertype(shadow_uniform_type))
-            buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
             self._gfx_matrix_buffer.append(buffer)
 
     def _update_matrix(self, light: Light) -> None:
