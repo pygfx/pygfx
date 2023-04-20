@@ -337,32 +337,15 @@ class TransformGizmo(WorldObject):
         # Calculate direction pairs (world_directions, ndc_directions)
         base_directions = np.eye(3)
         if self._mode == "object":
-            rot = self._object_to_control.local.rotation
-            # The world direction is derived from the object
-            world_directions = la.vector_apply_quaternion(
-                base_directions, self._object_to_control.world.rotation
-            )
-            # Calculate ndc directions from here
-            ndc_directions = (
-                la.vector_apply_matrix(
-                    world_pos + world_directions, camera.camera_matrix
-                )
-                - ndc_pos
-            )
+            gizmo_rotation = self._object_to_control.world.rotation
+            world_directions = la.vector_apply_matrix(self._object_to_control.world.matrix)
+            ndc_directions = la.vector_apply_matrix(world_directions, camera.camera_matrix)
         elif self._mode == "world":
-            # The world direction is the base direction
-            rot = np.array((0, 0, 0, 1))  # null rotation
+            gizmo_rotation = np.array((0, 0, 0, 1))
             world_directions = base_directions
-            # Calculate ndc directions from here
-            ndc_directions = (
-                la.vector_apply_matrix(
-                    world_pos + world_directions, camera.camera_matrix
-                )
-                - ndc_pos
-            )
+            ndc_directions = la.vector_apply_matrix(world_directions, camera.camera_matrix)
         elif self._mode == "screen":
-            # The screen direction is the base_direction
-            rot = camera.world.rotation
+            gizmo_rotation = camera.world.rotation
             screen_directions = base_directions * self._screen_size
             # Convert to world directions
             ndc_directions = screen_directions * (2, 2, -1) / (*scene_size, 1)
@@ -386,7 +369,7 @@ class TransformGizmo(WorldObject):
         self._screen_directions = screen_directions
 
         # Apply rotation
-        self.rotation = rot
+        self.world.rotation = gizmo_rotation
 
     def _update_scale(
         self,
