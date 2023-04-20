@@ -337,20 +337,31 @@ class TransformGizmo(WorldObject):
         base_directions = np.eye(3)
         if self._mode == "object":
             gizmo_rotation = self._object_to_control.world.rotation
-            world_directions = la.vector_apply_matrix(base_directions, self._object_to_control.world.matrix)
-            ndc_directions = la.vector_apply_matrix(world_directions, camera.camera_matrix)
+            world_directions = la.vector_apply_matrix(
+                base_directions, self._object_to_control.world.matrix
+            )
+            world_directions /= np.linalg.norm(
+                world_directions, axis=-1
+            )  # ignore scale
+            ndc_directions = la.vector_apply_matrix(
+                world_directions, camera.camera_matrix
+            )
         elif self._mode == "world":
             gizmo_rotation = np.array((0, 0, 0, 1))
             world_directions = base_directions
-            ndc_directions = la.vector_apply_matrix(world_directions, camera.camera_matrix)
+            ndc_directions = la.vector_apply_matrix(
+                world_directions, camera.camera_matrix
+            )
         elif self._mode == "screen":
             # @almarklein: Do we really want this proper screen->NDC conversion
             # here? This might look distorted if aspect is not 1 ... should we
-            # just have a fixed length here? 
-            # Note: world_directions are positions on the near plane           
+            # just have a fixed length here?
+            # Note: world_directions are positions on the near plane
             gizmo_rotation = camera.world.rotation
             ndc_directions = (self._screen_size / ndc_to_screen) * base_directions
-            world_directions = la.vector_unproject(ndc_directions[:, :2], camera.camera_matrix)
+            world_directions = la.vector_unproject(
+                ndc_directions[:, :2], camera.camera_matrix
+            )
         else:  # This cannot happen, in theory
             raise RuntimeError(f"Unexpected mode: `{self._mode}`")
 
@@ -376,11 +387,13 @@ class TransformGizmo(WorldObject):
         #   so that the perspective helps you see how the gizmo has moved.
         if self._ref:
             return
-        
+
         eps = 1e-10
         current_screen_size = np.linalg.norm(self._screen_directions, axis=-1)
-        required_multiple = np.divide(self._screen_size, current_screen_size, where=current_screen_size>eps)
-        scale = np.mean(required_multiple, where=current_screen_size>eps)
+        required_multiple = np.divide(
+            self._screen_size, current_screen_size, where=current_screen_size > eps
+        )
+        scale = np.mean(required_multiple, where=current_screen_size > eps)
 
         should_flip = self._ndc_directions[:, 2] > 0
 
@@ -393,13 +406,16 @@ class TransformGizmo(WorldObject):
 
         scene_size = self._viewport.logical_size
         ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
-        ndc_directions = la.vector_apply_matrix(np.eye(3), self._camera.camera_matrix @ self.world.matrix)
+        ndc_directions = la.vector_apply_matrix(
+            np.eye(3), self._camera.camera_matrix @ self.world.matrix
+        )
         screen_directions = ndc_to_screen * ndc_directions
 
-        # Determine what directions are orthogonal to the view plane
+        # Hide direction arrows that appear small on screen (smaller than 30px)
         show_direction = np.linalg.norm(screen_directions[:, :2], axis=-1) > 30
 
         # Also determine whether in-plane elements (arcs and translate2 handles) become hard to see
+        # @almarklein: we have just rescaled the gizmo to have a good size, will this ever happen?
         vec1 = la.vector_normalize(screen_directions[[1, 2, 0], :])
         vec2 = la.vector_normalize(screen_directions[[2, 0, 1], :])
         show_direction2 = np.abs(np.sum(vec1 * vec2, axis=-1)) < 0.9
@@ -452,7 +468,12 @@ class TransformGizmo(WorldObject):
         self._camera = camera
 
         self.add_event_handler(
-            self.process_event, "pointer_down", "pointer_move", "pointer_up", "wheel", "before_render"
+            self.process_event,
+            "pointer_down",
+            "pointer_move",
+            "pointer_up",
+            "wheel",
+            "before_render",
         )
 
     def process_event(self, event):
