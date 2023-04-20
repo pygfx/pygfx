@@ -59,7 +59,7 @@ class TransformGizmo(WorldObject):
         # A dict that stores the state at the start of a drag. Or None.
         self._ref = None
 
-        # The (approximate) size of the gizmo on screen
+        # The approximate size (in pixels) of the gizmo as it appears on the screen
         self._screen_size = float(screen_size)
 
         # Init
@@ -331,42 +331,33 @@ class TransformGizmo(WorldObject):
 
         camera = self._camera
         scene_size = self._viewport.logical_size
-        world_pos = self._object_to_control.world.position
-        ndc_pos = la.vector_apply_matrix(world_pos, camera.camera_matrix)
+        ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
 
         # Calculate direction pairs (world_directions, ndc_directions)
         base_directions = np.eye(3)
         if self._mode == "object":
             gizmo_rotation = self._object_to_control.world.rotation
-            world_directions = la.vector_apply_matrix(self._object_to_control.world.matrix)
+            world_directions = la.vector_apply_matrix(base_directions, self._object_to_control.world.matrix)
             ndc_directions = la.vector_apply_matrix(world_directions, camera.camera_matrix)
         elif self._mode == "world":
             gizmo_rotation = np.array((0, 0, 0, 1))
             world_directions = base_directions
             ndc_directions = la.vector_apply_matrix(world_directions, camera.camera_matrix)
         elif self._mode == "screen":
+            # @almarklein: Do we really want this proper screen->NDC conversion
+            # here? This might look distorted if aspect is not 1 ... should we
+            # just have a fixed length here? 
+            # Note: world_directions are positions on the near plane           
             gizmo_rotation = camera.world.rotation
-            screen_directions = base_directions * self._screen_size
-            # Convert to world directions
-            ndc_directions = screen_directions * (2, 2, -1) / (*scene_size, 1)
-            world_directions = (
-                la.vector_unproject(
-                    (ndc_pos + ndc_directions)[:, :2], camera.projection_matrix
-                )
-                - world_pos
-            )
+            ndc_directions = (self._screen_size / ndc_to_screen) * base_directions
+            world_directions = la.vector_unproject(ndc_directions[:, :2], camera.camera_matrix)
         else:  # This cannot happen, in theory
             raise RuntimeError(f"Unexpected mode: `{self._mode}`")
-
-        # Calculate screen directions from ndc_directions (also re-calculate for screen mode)
-        # These represent how much one "step" moves on screen.
-        # Note how for ndc_directions we have a valid z, but for screen_directions z is 0.
-        screen_directions = ndc_directions * (*scene_size, 0) / (2, 2, 1)
 
         # Store direction lists, to be used during a drag operation.
         self._world_directions = world_directions
         self._ndc_directions = ndc_directions
-        self._screen_directions = screen_directions
+        self._screen_directions = ndc_to_screen * ndc_directions
 
         # Apply rotation
         self.world.rotation = gizmo_rotation
@@ -385,53 +376,28 @@ class TransformGizmo(WorldObject):
         #   so that the perspective helps you see how the gizmo has moved.
         if self._ref:
             return
+        
+        eps = 1e-10
+        current_screen_size = np.linalg.norm(self._screen_directions, axis=-1)
+        required_multiple = np.divide(self._screen_size, current_screen_size, where=current_screen_size>eps)
+        scale = np.mean(required_multiple, where=current_screen_size>eps)
 
-        camera = self._camera
-        scene_size = self._viewport.logical_size
-        world_pos = self._object_to_control.world.position
-        ndc_pos = la.vector_apply_matrix(world_pos, camera.camera_matrix)
+        should_flip = self._ndc_directions[:, 2] > 0
 
-        # Get how our direction vectors express on screen
-        ndc_sx = self._screen_size * 2 / scene_size[0]
-        ndc_sy = self._screen_size * 2 / scene_size[1]
-        vec1 = np.array((ndc_sx, 0))  # TODO: check how ndc_pos is consumed here
-        vec1 = la.vector_unproject(vec1, camera.projection_matrix) - world_pos
-        vec2 = np.array((0, ndc_sy))  # TODO: check how ndc_pos is consumed here
-        vec2 = la.vector_unproject(vec2, camera.projection_matrix) - world_pos
-        scale_scalar = 0.5 * (np.linalg.norm(vec1) + np.linalg.norm(vec2))
-
-        # Determine the scale of this object, so that it gets the intended size on screen.
-        scale = [scale_scalar, scale_scalar, scale_scalar]
-
-        # Determine any flips so that the gizmo faces the camera. Note
-        # that this checks whether the vector in question points away
-        # from the camera.
-        # -----------------------#  So on a view like this, where the widget
-        #      | g               #  is on the left, the red leg might still
-        # r ___|                 #  just point towards the camera, even though
-        #     /                  #  it might not "feel" this way because the
-        #    b                   #  blue leg may partly obscure elements of the
-        # -----------------------#  red leg.
-        for dim, vec in enumerate(self._ndc_directions):
-            if vec[2] > 0:
-                scale[dim] = -scale[dim]
-
-        # Apply scale
-        self.local.scale = np.array(scale)
+        self.world.scale = scale * should_flip
 
     def _update_visibility(self):
         """Depending on the mode and the orientation of the camera,
         some elements are made invisible.
         """
 
-        screen_directions = self._screen_directions
-
-        # The scaled screen direction matches the size of the widget on screen.
-        scale_scalar = abs(self.local.scale_x)
-        scaled_screen_directions = scale_scalar * screen_directions
+        scene_size = self._viewport.logical_size
+        ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
+        ndc_directions = la.vector_apply_matrix(np.eye(3), self._camera.camera_matrix @ self.world.matrix)
+        screen_directions = ndc_to_screen * ndc_directions
 
         # Determine what directions are orthogonal to the view plane
-        show_direction = np.linalg.norm(scaled_screen_directions[:, :2], axis=-1) > 30
+        show_direction = np.linalg.norm(screen_directions[:, :2], axis=-1) > 30
 
         # Also determine whether in-plane elements (arcs and translate2 handles) become hard to see
         vec1 = la.vector_normalize(screen_directions[[1, 2, 0], :])
