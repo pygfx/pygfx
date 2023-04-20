@@ -10,7 +10,6 @@ from ..geometries import Geometry, sphere_geometry, cone_geometry, box_geometry
 from ..materials import MeshBasicMaterial, LineMaterial
 from ..objects import WorldObject
 from ..utils.viewport import Viewport
-from ..utils.transform import callback
 
 
 # Colors in hsluv space - https://www.hsluv.org/
@@ -82,18 +81,7 @@ class TransformGizmo(WorldObject):
         if not isinstance(object, (WorldObject, None)):
             raise ValueError("The object must be None or a WorldObject instance.")
 
-        if self._object_to_control is not None:
-            self._object_to_control.world.remove_callback(self.update_gizmo)
-
         self._object_to_control = object
-
-        if self._object_to_control is not None:
-            callback = self.update_gizmo
-            self._object_to_control.world.on_update(callback)
-
-            # callback only runs when the object's transform changes, so we need
-            # to manually trigger the first time
-            callback(self._object_to_control.world)
 
     def toggle_mode(self, mode=None):
         """Switch the reference frame.
@@ -335,31 +323,6 @@ class TransformGizmo(WorldObject):
             for ob in lines:
                 ob.material.thickness = THICKNESS * 1.75
 
-    # %% Updating before each draw
-
-    @callback
-    def update_gizmo(self, transform):
-        """Update the Gizmo's transform.
-
-        This method is overloaded from the base class to "attach" the gizmo to
-        the controlling object.
-
-        """
-
-        # Note that we almost always update the transform (scale,
-        # rotation, position) which means the matrix changed, and so
-        # does the world_matrix of all children. In effect the uniforms
-        # of all elements need updating anyway, so any other changes
-        # to wobject properties (e.g. visibility) are "free" - no need
-        # to only update if it actually changes.
-        if not self._object_to_control:
-            self.visible = False
-        elif self._viewport and self._camera:
-            self.visible = True
-            self._update_directions()
-            self._update_scale()
-            self._update_visibility()
-
     def _update_directions(self):
         """Calculate the x/y/z reference directions, which depend on
         mode and camera. Calculate these for world-space, ndc-space and
@@ -539,12 +502,8 @@ class TransformGizmo(WorldObject):
         self._viewport = viewport
         self._camera = camera
 
-        # camera and/or viewport may have changed, may need to update internals
-        if self._object_to_control is not None:
-            self.update_gizmo(self._object_to_control.world)
-
         self.add_event_handler(
-            self.process_event, "pointer_down", "pointer_move", "pointer_up", "wheel"
+            self.process_event, "pointer_down", "pointer_move", "pointer_up", "wheel", "before_render"
         )
 
     def process_event(self, event):
@@ -612,6 +571,21 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
             # Keep viz up to date
             self._viewport.renderer.request_draw()
+
+        elif type == "before_render":
+            # Note that we almost always update the transform (scale,
+            # rotation, position) which means the matrix changed, and so
+            # does the world_matrix of all children. In effect the uniforms
+            # of all elements need updating anyway, so any other changes
+            # to wobject properties (e.g. visibility) are "free" - no need
+            # to only update if it actually changes.
+            if not self._object_to_control:
+                self.visible = False
+            elif self._viewport and self._camera:
+                self.visible = True
+                self._update_directions()
+                self._update_scale()
+                self._update_visibility()
 
     def _handle_start(self, kind, event, ob: WorldObject):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
