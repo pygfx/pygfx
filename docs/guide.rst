@@ -78,7 +78,7 @@ nothing that can look at those objects. Let's change this by adding some
     scene.add(gfx.DirectionalLight())
 
     camera = gfx.PerspectiveCamera(70, 16 / 9)
-    camera.position.z = 400
+    camera.local.z = 400
 
 Now there is light and a camera to perceive the light. To complete the setup
 we also need to add an object to look at::
@@ -185,11 +185,10 @@ the scene as desired::
         gfx.MeshPhongMaterial(color="#336699"),
     )
 
+    rot = la.quaternion_make_from_euler_angles((0, 0.01), order="XY")
+
     def animate():
-        rot = gfx.linalg.Quaternion().set_from_euler(
-                gfx.linalg.Euler(0, 0.01)
-            )
-        cube.rotation.multiply(rot)
+        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
 
     if __name__ == "__main__":
         gfx.show(cube, before_render=animate)
@@ -282,7 +281,7 @@ In this case you should probably set the width in addition to fov and aspect.
 
     # Manual orientation
     camera = gfx.PerspectiveCamera(50, 4/3, width=100)
-    camera.position.set(30, 40, 50)
+    camera.local.position = (30, 40, 50)
     camera.look_at((0, 0, 0))
 
 However, we strongly recommend using one of the ``show`` methods, since these
@@ -297,7 +296,7 @@ automatically set.
     camera = gfx.OrthographicCamera()
 
     # Convenient orientation: similar to look_at
-    camera.position.set(30, 40, 50)
+    camera.local.position = (30, 40, 50)
     camera.show_pos((0, 0, 0))
 
     # Convenient orientation: show an object
