@@ -623,18 +623,6 @@ class PointLightShadow(LightShadow):
         dtype=float,
     )
 
-    _cube_up = np.array(
-        [
-            (0, 1, 0),
-            (0, 1, 0),
-            (0, 1, 0),
-            (0, 1, 0),
-            (0, 1, 0),
-            (0, 1, 0),
-        ],
-        dtype=float,
-    )
-
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90))
 
@@ -657,7 +645,6 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
-            camera.up = self._cube_up[i]
             camera.look_at(directions[i])
 
             light.uniform_buffer.data["light_view_proj_matrix"][
