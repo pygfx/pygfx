@@ -470,8 +470,8 @@ class WorldObject(EventTarget, RootTrackable):
         new_z /= np.linalg.norm(new_z)
         if np.allclose(np.cross(new_z, self.up), 0):
             # target and up are parallel
-            world_forward = la.vector_apply_matrix((0, 0, 1), self.world.matrix)
-            rotation = la.quaternion_make_from_unit_vectors(world_forward, new_z)
+            forward = (0, 0, -1) if self._FORWARD_IS_MINUS_Z else (0, 0, 1)
+            rotation = la.quaternion_make_from_unit_vectors(forward, new_z)
         elif self._FORWARD_IS_MINUS_Z:
             matrix = la.matrix_make_look_at(target, position, up)
             rotation = la.matrix_to_quaternion(matrix.T)

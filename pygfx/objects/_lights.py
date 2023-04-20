@@ -629,8 +629,8 @@ class PointLightShadow(LightShadow):
             (0, 1, 0),
             (0, 1, 0),
             (0, 1, 0),
-            (0, 0, 1),
-            (0, 0, -1),
+            (0, 1, 0),
+            (0, 1, 0),
         ],
         dtype=float,
     )
@@ -647,6 +647,8 @@ class PointLightShadow(LightShadow):
 
     def _update_matrix(self, light: Light) -> None:
         camera = self.camera
+        camera.world.position = light.world.position
+        directions = la.vector_apply_matrix(self._cube_directions, light.world.matrix)
 
         far = (light.distance * 10) or camera.far
 
@@ -655,16 +657,14 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
-            camera.world.position = light.world.position
-
             camera.up = self._cube_up[i]
+            camera.look_at(directions[i])
 
-            camera.look_at(camera.world.position + self._cube_directions[i])
-
-            screen_matrix = camera.camera_matrix
-
-            light.uniform_buffer.data["light_view_proj_matrix"][i] = screen_matrix.T
-
-            self._gfx_matrix_buffer[i].data["light_view_proj_matrix"] = screen_matrix.T
+            light.uniform_buffer.data["light_view_proj_matrix"][
+                i
+            ] = camera.camera_matrix.T
+            self._gfx_matrix_buffer[i].data[
+                "light_view_proj_matrix"
+            ] = camera.camera_matrix.T
             self._gfx_matrix_buffer[i].update_range(0, 1)
         light.uniform_buffer.update_range(0, 1)
