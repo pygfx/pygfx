@@ -479,8 +479,4 @@ class WorldObject(EventTarget, RootTrackable):
             matrix = la.matrix_make_look_at(position, target, up)
             rotation = la.matrix_to_quaternion(matrix.T)
 
-        if self.parent is not None:
-            inv_parent_rotation = la.quaternion_inverse(self.parent.world.rotation)
-            self.local.rotation = la.quaternion_multiply(inv_parent_rotation, rotation)
-        else:
-            self.local.rotation = rotation
+        self.world.rotation = rotation
