@@ -648,7 +648,7 @@ class PointLightShadow(LightShadow):
     def _update_matrix(self, light: Light) -> None:
         camera = self.camera
         camera.world.position = light.world.position
-        directions = la.vector_apply_matrix(self._cube_directions, light.world.matrix)
+        directions = self._cube_directions + light.world.position
 
         far = (light.distance * 10) or camera.far
 
