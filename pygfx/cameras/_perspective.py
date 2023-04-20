@@ -358,6 +358,8 @@ class PerspectiveCamera(Camera):
 
         if up is None:
             up = self.up
+        else:
+            self.up = up
 
         up = np.asarray(up)
 
@@ -431,6 +433,8 @@ class PerspectiveCamera(Camera):
 
         if up is None:
             up = self.up
+        else:
+            self.up = up
 
         up = np.asarray(up)
 

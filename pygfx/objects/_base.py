@@ -453,9 +453,7 @@ class WorldObject(EventTarget, RootTrackable):
         return self.material._wgpu_get_pick_info(pick_value)
 
     def look_at(self, target, *, up=None) -> None:
-        if up is not None:
-            self.up = up
-        else:
+        if up is None:
             up = self.up
 
         position = self.world.position
