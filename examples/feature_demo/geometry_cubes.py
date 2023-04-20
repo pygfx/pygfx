@@ -22,16 +22,14 @@ material = gfx.MeshBasicMaterial(map=tex)
 geometry = gfx.box_geometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
-    cube.position = (350 - i * 100, 0, 0)
+    cube.local.position = (350 - i * 100, 0, 0)
     group.add(cube)
 
 
 def animate():
     for i, cube in enumerate(cubes):
-        rot = gfx.linalg.Quaternion().set_from_euler(
-            gfx.linalg.Euler(0.01 * i, 0.02 * i)
-        )
-        cube.rotation.multiply(rot)
+        rot = la.quaternion_make_from_euler_angles((0.01 * i, 0.02 * i), order="XY")
+        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
 
 
 if __name__ == "__main__":
