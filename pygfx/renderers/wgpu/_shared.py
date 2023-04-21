@@ -4,7 +4,7 @@ A global object shared by all renderers.
 
 import wgpu
 
-from ...resources import Buffer
+from ...resources import Resource, Buffer
 from ...utils.trackable import Trackable
 from ...utils import array_from_shadertype
 from ...utils.text import glyph_atlas
@@ -148,6 +148,15 @@ def print_wgpu_report():
         for cache_name, count in GpuCache.get_cache_stats().items():
             print(
                 f"{cache_name}:".rjust(50),
+                str(count).rjust(10),
+            )
+
+    if shared:
+        print()
+        print("RESOURCES:".ljust(50), "count".rjust(10))
+        for name, count in Resource._resource_counts.items():
+            print(
+                f"{name}:".rjust(50),
                 str(count).rjust(10),
             )
 
