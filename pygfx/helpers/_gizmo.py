@@ -382,10 +382,22 @@ class TransformGizmo(WorldObject):
             local_to_world = np.linalg.inv(camera.camera_matrix) @ local_to_ndc
         else:  # This cannot happen, in theory
             raise RuntimeError(f"Unexpected mode: `{self._mode}`")
+        
+        # points referring to local coordinate axes and origin
+        local_points = np.zeros((4, 3))
+        if self._mode == "screen":
+            # reference frame has a z-offset from screen origin
+            object_to_ndc = camera.camera_matrix @ self._object_to_control.world.matrix
+            depth = la.vector_apply_matrix((0, 0, 0), object_to_ndc)[2]
+            
+            local_points[:, 2] = depth
+            local_points[[1, 2], [1, 2]] = self._screen_size
+            local_points[3, 2] = 0.01
+        else:
+            local_points[1:, :] = np.eye(3)
+
 
         # express unit vectors and origin in the various frames
-        local_points = np.zeros((4, 3))
-        local_points[1:, :] = np.eye(3)
         world_points = la.vector_apply_matrix(local_points, local_to_world)
         ndc_points = la.vector_apply_matrix(local_points, local_to_ndc)
         screen_points = la.vector_apply_matrix(local_points, local_to_screen)
@@ -443,12 +455,13 @@ class TransformGizmo(WorldObject):
         # desired radius (aka _screen_size)
         size_1_radius = np.max(np.linalg.norm(screen_directions[:, :2], axis=-1))
         scale = self._screen_size / size_1_radius
+        self.world.scale = scale
 
         # if required, flip axes so that handles always point to the camera
         eps = 1e-10
         should_flip = screen_directions[:3, 2] > eps
 
-        self.world.scale = scale * (1 - 2 * should_flip)
+        self.world.scale *= (1 - 2 * should_flip)
 
     def _update_visibility(self):
         """Depending on the mode and the orientation of the camera,
@@ -695,13 +708,15 @@ class TransformGizmo(WorldObject):
         start_angle = np.arctan2(start_direction[1], start_direction[0])
         current_direction = np.array((event.x, event.y)) - gizmo_screen
         current_angle = np.arctan2(current_direction[1], current_direction[0])
-
-        # TODO: double-check that the minus here is waranted and not caused by a bug somewhere
-        cursor_rotation = -(current_angle - start_angle)
+        cursor_rotation = current_angle - start_angle
 
         # axis around which the object rotates
         dim = self._ref["dim"]
         axis = self._ref["world_directions"][dim]
+        
+        # when viewing from the opposite side, we need to mirror the rotation
+        flipped = self._ref["flips"][dim]
+        axis = -flipped * axis
 
         initial_rotation = self._ref["rot"]
         rotation = la.quaternion_make_from_axis_angle(axis, cursor_rotation)
