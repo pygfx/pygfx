@@ -59,8 +59,15 @@ class TransformGizmo(WorldObject):
         # A dict that stores the state at the start of a drag. Or None.
         self._ref = None
 
-        # The approximate size (in pixels) of the gizmo as it appears on the screen
+        # The radius (in pixels) the gizmo's screen-space bounding box should occupy
+        # (aka. the desired on-screen size of the gizmo)
         self._screen_size = float(screen_size)
+
+        # the extent of the gizmo measured along each cardinal direction
+        # expressed in the local frame
+        # order: right, up, forward, left, down, backward (first 3-tuple is
+        # along positive (x, y, z), second 3-tuple is along negative (x, y, z))
+        self._local_extents = None
 
         # Init
         self._create_elements()
@@ -277,6 +284,12 @@ class TransformGizmo(WorldObject):
         self.add(*self._scale_children)
         self.add(*self._rotate_children)
 
+        # work out local extent
+        self._local_extents = np.empty((6, 3), dtype=float)
+        scales = self.get_bounding_box().ravel()
+        self._local_extents[:3] = np.diag(scales[3:])
+        self._local_extents[3:] = np.diag(scales[:3])
+
     def _on_mode_switch(self):
         """When the mode is changed, some adjustments are made."""
 
@@ -338,44 +351,43 @@ class TransformGizmo(WorldObject):
         elif self._viewport and self._camera:
             self.visible = True
             self._update_directions()
-            self._update_scale()
+            self._update_gizmo_transform()
             self._update_visibility()
 
     def _update_directions(self):
-        """Calculate the x/y/z reference directions, which depend on
-        mode and camera. Calculate these for world-space, ndc-space and
-        screen-space.
+        """
+        Calculate how much 1 unit of translation in the selected space (aka
+        mode) translates the gizmo in world and screen space.
+
         """
 
         camera = self._camera
         scene_size = self._viewport.logical_size
         ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
 
-        # Calculate direction pairs (world_directions, ndc_directions)
-        base_directions = np.eye(3)
+        local_directions = np.eye(3)
         if self._mode == "object":
-            gizmo_rotation = self._object_to_control.world.rotation
+            # local directions in local space
             world_directions = la.vector_apply_matrix(
-                base_directions, self._object_to_control.world.matrix
+                local_directions, self._object_to_control.world.matrix
             )
             ndc_directions = la.vector_apply_matrix(
                 world_directions, camera.camera_matrix
             )
         elif self._mode == "world":
-            gizmo_rotation = np.array((0, 0, 0, 1))
-            world_directions = base_directions
+            # local directions in world space
+            world_directions = local_directions
             ndc_directions = la.vector_apply_matrix(
                 world_directions, camera.camera_matrix
             )
         elif self._mode == "screen":
-            # @almarklein: Do we really want this proper screen->NDC conversion
-            # here? This might look distorted if aspect is not 1 ... should we
-            # just have a fixed length here?
-            # Note: world_directions are positions on the near plane
-            gizmo_rotation = camera.world.rotation
-            ndc_directions = (self._screen_size / ndc_to_screen) * base_directions
+            # local directions in screen space (pixels)
+            ndc_directions = (1 / ndc_to_screen) * local_directions
+            ndc_directions[:, 2] = la.vector_apply_matrix(
+                self._object_to_control.world.position, camera.camera_matrix
+            )[2]
             world_directions = la.vector_unproject(
-                ndc_directions[:, :2], camera.camera_matrix
+                ndc_directions[:, :2], camera.camera_matrix, depth=ndc_directions[:, 2]
             )
         else:  # This cannot happen, in theory
             raise RuntimeError(f"Unexpected mode: `{self._mode}`")
@@ -385,17 +397,32 @@ class TransformGizmo(WorldObject):
         self._ndc_directions = ndc_directions
         self._screen_directions = ndc_to_screen * ndc_directions
 
-        # Apply rotation
-        self.world.rotation = gizmo_rotation
-
-    def _update_scale(
+    def _update_gizmo_transform(
         self,
     ):
-        """Update the scale of the gizmo so it gets the correct
-        (approximate) size on screen.
         """
 
-        # During interaction we don't adjust the scale, this way:
+        Set the gizmo's transform to keep it in sync with the object it is
+        tracking while accounting for the gizmo's mode.
+
+        Position: Set to match the tracked object.
+        Rotation: Set to indicate translation directions of the current mode.
+        Scale: Set to have the target on-screen size.
+        
+        Note: This function also flips the directions of the gizmo's local axes
+        so that handles always point towards the camera.
+        """
+
+        self.world.position = self._object_to_control.world.position
+
+        if self._mode == "object":
+            self.world.rotation = self._object_to_control.world.rotation
+        elif self._mode == "world":
+            self.world.rotation = np.array((0, 0, 0, 1))
+        else:  # self._mode == "screen"
+            self.world.rotation = self._camera.world.rotation
+
+        # During interaction we don't adjust the scale or "flip", this way:
         # * During a rotation the gizmo does not flip,
         #   making it easier to see how much was rotated.
         # * During a translation the gizmo keeps its "world size",
@@ -403,16 +430,31 @@ class TransformGizmo(WorldObject):
         if self._ref:
             return
 
-        eps = 1e-10
-        current_screen_size = np.linalg.norm(self._screen_directions[:, :2], axis=-1)
-        required_multiple = np.divide(
-            self._screen_size, current_screen_size, where=current_screen_size > eps
+        camera = self._camera
+        scene_size = self._viewport.logical_size
+        ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
+
+        # size on screen for scale=1
+        local_to_ndc = (
+            camera.camera_matrix
+            # reset scale to 1
+            @ la.matrix_make_scaling(1 / self.world.scale)
+            @ self.world.matrix
         )
-        scale = np.min(required_multiple, where=current_screen_size > eps, initial=np.Inf)
+        ndc_extents = la.vector_apply_matrix(self._local_extents, local_to_ndc)
+        screen_extents = ndc_to_screen * ndc_extents
 
-        should_flip = self._ndc_directions[:, 2] > 0
+        # radius of bounding circle (in screen space) and scaling to set to
+        # desired radius (aka _screen_size)
+        size_1_radius = np.max(np.linalg.norm(screen_extents[:, :2], axis=-1))
+        scale = self._screen_size / size_1_radius
 
-        self.world.scale = scale * (2*should_flip - 1)
+        # if required, flip axes so that handles always point to the camera
+        eps = 1e-10
+        origin_ndc = la.vector_apply_matrix((0, 0, 0), local_to_ndc)
+        should_flip = (ndc_extents - origin_ndc)[:3, 2] > eps
+
+        self.world.scale = scale * (1 - 2 * should_flip)
 
     def _update_visibility(self):
         """Depending on the mode and the orientation of the camera,
