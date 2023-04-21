@@ -470,7 +470,6 @@ class TransformGizmo(WorldObject):
         # if required, flip axes so that handles always point towards the camera
         eps = 1e-10
         should_flip = screen_directions[:3, 2] > eps
-
         self.world.scale *= (1 - 2 * should_flip)
 
     def _update_visibility(self):
@@ -664,7 +663,9 @@ class TransformGizmo(WorldObject):
             screen_dir = self._ref["screen_directions"][direction]
             units_traveled[direction] = get_scale_factor(screen_dir, screen_moved)
 
-        world_translation = self._ref["world_directions"] @ units_traveled
+        # world translation is the sum of translations along world_directions
+        # ... which can be neatly expressed as a matrix product
+        world_translation = self._ref["world_directions"].T @ units_traveled
         self._object_to_control.world.position = self._ref["pos"] + world_translation
 
     def _handle_scale_move(self, event):
