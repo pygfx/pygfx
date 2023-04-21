@@ -20,26 +20,26 @@ FORMAT_MAP = {
 class Resource(Trackable):
     """Resource base class."""
 
+    _resource_counts = {}
+
     def __init__(self):
         super().__init__()
-        registry._gfx_register(self)
+        cname = self.__class__.__name__
+        Resource._resource_counts[cname] = Resource._resource_counts.get(cname, 0) + 1
+
+    def __del__(self):
+        cname = self.__class__.__name__
+        Resource._resource_counts[cname] -= 1
 
     def _gfx_mark_for_sync(self):
-        registry._gfx_mark_for_sync(self)
+        resource_update_registry._gfx_mark_for_sync(self)
 
 
-class ResourceRegistry:
-    """Singleton registry for resources."""
+class ResourceUpdateRegistry:
+    """Singleton registry to keep track of resources that need to be updated."""
 
     def __init__(self):
-        self._all = weakref.WeakSet()
         self._syncable = weakref.WeakSet()
-
-    def _gfx_register(self, resource):
-        """Add a resource to the registry."""
-        if not isinstance(resource, Resource):
-            raise TypeError("Given object is not a Resource")
-        self._all.add(resource)
 
     def _gfx_mark_for_sync(self, resource):
         """Register the given resource for synchonization. Only adds the resource
@@ -56,14 +56,6 @@ class ResourceRegistry:
         if resource._wgpu_object is not None and resource._gfx_pending_uploads:
             self._syncable.add(resource)
 
-    def get_resource_count(self):
-        """Get a dictionary indicating how many buffers and texture are currently alive."""
-        counts = {"Buffer": 0, "Texture": 0}
-        for r in self._all:
-            name = r.__class__.__name__
-            counts[name] = counts.get(name, 0) + 1
-        return counts
-
     def get_syncable_resources(self, *, flush=False):
         """Get the set of resources that need syncing. If setting flush
         to True, the caller is responsible for syncing the resources.
@@ -74,4 +66,4 @@ class ResourceRegistry:
         return syncable
 
 
-registry = ResourceRegistry()
+resource_update_registry = ResourceUpdateRegistry()
