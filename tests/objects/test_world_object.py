@@ -184,7 +184,7 @@ def test_setting_world_transform():
     root = gfx.WorldObject()
     child = gfx.WorldObject()
     child2 = gfx.WorldObject()
-    
+
     root.add(child)
     child.add(child2)
 

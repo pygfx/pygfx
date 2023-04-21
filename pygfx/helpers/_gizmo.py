@@ -386,26 +386,25 @@ class TransformGizmo(WorldObject):
             local_to_ndc = camera.camera_matrix @ local_to_world
             local_to_screen = self._ndc_to_screen @ local_to_ndc
         elif self._mode == "screen":
-            # screen space (pixels) is draggable
-            local_to_screen = np.eye(4)
-            local_to_ndc = self._screen_to_ndc
-            local_to_world = np.linalg.inv(camera.camera_matrix) @ local_to_ndc
+            # camera space is draggable
+            local_to_world = camera.world.matrix
+            local_to_ndc = camera.projection_matrix
+            local_to_screen = self._ndc_to_screen @ local_to_ndc
         else:  # This cannot happen, in theory
             raise RuntimeError(f"Unexpected mode: `{self._mode}`")
-        
+
         # points referring to local coordinate axes and origin
         local_points = np.zeros((4, 3))
+        local_points[1:, :] = np.eye(3)
         if self._mode == "screen":
             # reference frame has a z-offset from screen origin
             object_to_ndc = camera.camera_matrix @ self._object_to_control.world.matrix
             depth = la.vector_apply_matrix((0, 0, 0), object_to_ndc)[2]
-            
-            local_points[:, 2] = depth
-            local_points[[1, 2], [1, 2]] = self._screen_size
-            local_points[3, 2] = 0.01
-        else:
-            local_points[1:, :] = np.eye(3)
 
+            local_points[3, 2] = -1  # camera has inverted Z axis
+            local_points[:, 2] -= depth
+
+            # local_points[[1, 2], [0, 1]] = self._screen_size
 
         # express unit vectors and origin in the various frames
         world_points = la.vector_apply_matrix(local_points, local_to_world)
@@ -470,7 +469,7 @@ class TransformGizmo(WorldObject):
         # if required, flip axes so that handles always point towards the camera
         eps = 1e-10
         should_flip = screen_directions[:3, 2] > eps
-        self.world.scale *= (1 - 2 * should_flip)
+        self.world.scale *= 1 - 2 * should_flip
 
     def _update_visibility(self):
         """Depending on the mode and the orientation of the camera,
@@ -692,12 +691,12 @@ class TransformGizmo(WorldObject):
             # Get how much the mouse has moved in the ref direction
             screen_dir = self._ref["screen_directions"][dim]
             factor = get_scale_factor(screen_dir, screen_moved)
-            
+
             # we flip gizmo axis to point towards the user. As a result,
             # users expect the direction of positive scaling to flip, too
             is_flipped = self.local.scale[dim] < 0
-            factor *= 1-2*(is_flipped)
-            
+            factor *= 1 - 2 * (is_flipped)
+
             npixels = factor * np.linalg.norm(screen_dir)
             # Calculate the relative scale
             scale = [1, 1, 1]
@@ -710,7 +709,9 @@ class TransformGizmo(WorldObject):
     def _handle_rotate_move(self, event):
         """Rotate action."""
 
-        local_to_screen = self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
+        local_to_screen = (
+            self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
+        )
         object_screen = la.vector_apply_matrix((0, 0, 0), local_to_screen)[:2]
 
         # amount of cursor rotation around gizmo origin (CCW is positive)
@@ -723,12 +724,12 @@ class TransformGizmo(WorldObject):
         # axis around which the object rotates
         dim = self._ref["dim"]
         world_axis = self._ref["world_directions"][dim]
-        
+
         # the cursor rotation is measured around the camera's forward direction
         # (CCW is positive) we need to mirror it if the rotation axis points
         # points the other way (when CW is positive)
         ndc_axis = self._ref["ndc_directions"][dim]
-        is_mirrored = 2*int(ndc_axis[2] > 0) - 1
+        is_mirrored = 2 * int(ndc_axis[2] > 0) - 1
         cursor_rotation *= is_mirrored
 
         initial_rotation = self._ref["rot"]
