@@ -404,8 +404,6 @@ class TransformGizmo(WorldObject):
             local_points[3, 2] = -1  # camera has inverted Z axis
             local_points[:, 2] -= depth
 
-            # local_points[[1, 2], [0, 1]] = self._screen_size
-
         # express unit vectors and origin in the various frames
         world_points = la.vector_apply_matrix(local_points, local_to_world)
         ndc_points = la.vector_apply_matrix(local_points, local_to_ndc)
