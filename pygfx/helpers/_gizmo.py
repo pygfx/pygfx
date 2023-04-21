@@ -749,26 +749,3 @@ def get_scale_factor(vec1, vec2):
     # Note: implementing it like this saves a couple square-roots from
     # normalizing
     return np.dot(vec2, vec1) / np.sum(vec1**2)
-
-
-def get_line_plane_intersection(a0, a1, p0, v1, v2):
-    """Get the intersection point of a line onto a plane.
-    Args a0 and a1 represent two points on a line. Arg p0 is a point
-    on a plane, and v1 and v2 two in-plane vectors. The intersection
-    is expressed in factors of v1 and v2.
-    """
-    # Get the vector from a0 to a1
-    av = a1 - a0
-
-    # Get how often this vector must be applied from a0 to get to the plane
-    # https://en.wikipedia.org/wiki/Line%E2%80%93plane_intersection
-    n = np.cross(la.vector_normalize(v1), la.vector_normalize(v2))
-    at = np.dot(p0 - a0, n) / np.dot(av, n)
-
-    # So the point where the line intersects the plane is ...
-    p1 = a0 + at * av
-
-    # But let's re-express that in a factor of v1 and v2, so that
-    # we really only move in these directions.
-    v3 = p1 - p0
-    return get_scale_factor(v1, v3), get_scale_factor(v2, v3)
