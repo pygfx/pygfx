@@ -54,7 +54,7 @@ class PanZoomController(Controller):
     def _update_pan(self, delta, *, vecx, vecy):
         # These update methods all accept one positional arg: the delta.
         # it can additionally require keyword args, from a set of names
-        # that new actions cache. These include:
+        # that new actions store. These include:
         # rect, screen_pos, vecx, vecy
 
         assert isinstance(delta, tuple) and len(delta) == 2
