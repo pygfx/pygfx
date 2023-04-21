@@ -352,18 +352,12 @@ class TransformGizmo(WorldObject):
             self.visible = False
         elif self._viewport and self._camera:
             self.visible = True
+            self._update_ndc_screen_transform()
             self._update_directions()
             self._update_gizmo_transform()
             self._update_visibility()
 
-    def _update_directions(self):
-        """
-        Calculate how much 1 unit of translation in the draggable space (aka
-        mode) translates the object in world and screen space.
-
-        """
-
-        # work out the canvas <-> NDC transform
+    def _update_ndc_screen_transform(self):
         # Note: screen origin is at top left corner of NDC with Y-axis pointing down
         x_dim, y_dim = self._viewport.logical_size
         screen_space = AffineTransform()
@@ -371,6 +365,13 @@ class TransformGizmo(WorldObject):
         screen_space.scale = (2 / x_dim, -2 / y_dim, 1)
         self._ndc_to_screen = screen_space.inverse_matrix
         self._screen_to_ndc = screen_space.matrix
+
+    def _update_directions(self):
+        """
+        Calculate how much 1 unit of translation in the draggable space (aka
+        mode) translates the object in world and screen space.
+
+        """
 
         # work out the transforms between the spaces
         camera = self._camera
@@ -466,7 +467,7 @@ class TransformGizmo(WorldObject):
         scale = self._screen_size / size_1_radius
         self.world.scale = scale
 
-        # if required, flip axes so that handles always point to the camera
+        # if required, flip axes so that handles always point towards the camera
         eps = 1e-10
         should_flip = screen_directions[:3, 2] > eps
 
@@ -477,19 +478,21 @@ class TransformGizmo(WorldObject):
         some elements are made invisible.
         """
 
-        ndc_directions = la.vector_apply_matrix(
-            np.eye(3), self._camera.camera_matrix @ self.world.matrix
-        )
-        screen_directions = la.vector_apply_matrix(ndc_directions, self._ndc_to_screen)
+        # Note: I am seriously confused by the logic on when we decide to hide a
+        # handle or not. @almarklein could you explain how this is supposed to
+        # work and what the magic numbers (30px and 0.9) do?
+
+        screen_directions = self._screen_directions
 
         # Hide direction arrows that appear small on screen (smaller than 30px)
         show_direction = np.linalg.norm(screen_directions[:, :2], axis=-1) > 30
+        show_direction[:] = True
 
         # Also determine whether in-plane elements (arcs and translate2 handles) become hard to see
-        # @almarklein: we have just rescaled the gizmo to have a good size, will this ever happen?
         vec1 = la.vector_normalize(screen_directions[[1, 2, 0], :])
         vec2 = la.vector_normalize(screen_directions[[2, 0, 1], :])
         show_direction2 = np.abs(np.sum(vec1 * vec2, axis=-1)) < 0.9
+        show_direction2[:] = True
 
         if self._mode == "screen":
             # Show x and y lines and translate1 handles
@@ -688,7 +691,12 @@ class TransformGizmo(WorldObject):
             # Get how much the mouse has moved in the ref direction
             screen_dir = self._ref["screen_directions"][dim]
             factor = get_scale_factor(screen_dir, screen_moved)
-            factor *= self._ref["flips"][dim]
+            
+            # we flip gizmo axis to point towards the user. As a result,
+            # users expect the direction of positive scaling to flip, too
+            is_flipped = self.local.scale[dim] < 0
+            factor *= 1-2*(is_flipped)
+            
             npixels = factor * np.linalg.norm(screen_dir)
             # Calculate the relative scale
             scale = [1, 1, 1]
