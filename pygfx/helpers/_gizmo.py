@@ -323,6 +323,24 @@ class TransformGizmo(WorldObject):
             for ob in lines:
                 ob.material.thickness = THICKNESS * 1.75
 
+    def update_gizmo(self, event):
+        if event.type != "before_render":
+            return
+
+        # Note that we almost always update the transform (scale,
+        # rotation, position) which means the matrix changed, and so
+        # does the world_matrix of all children. In effect the uniforms
+        # of all elements need updating anyway, so any other changes
+        # to wobject properties (e.g. visibility) are "free" - no need
+        # to only update if it actually changes.
+        if not self._object_to_control:
+            self.visible = False
+        elif self._viewport and self._camera:
+            self.visible = True
+            self._update_directions()
+            self._update_scale()
+            self._update_visibility()
+
     def _update_directions(self):
         """Calculate the x/y/z reference directions, which depend on
         mode and camera. Calculate these for world-space, ndc-space and
@@ -340,9 +358,6 @@ class TransformGizmo(WorldObject):
             world_directions = la.vector_apply_matrix(
                 base_directions, self._object_to_control.world.matrix
             )
-            world_directions /= np.linalg.norm(
-                world_directions, axis=-1
-            )  # ignore scale
             ndc_directions = la.vector_apply_matrix(
                 world_directions, camera.camera_matrix
             )
@@ -389,15 +404,15 @@ class TransformGizmo(WorldObject):
             return
 
         eps = 1e-10
-        current_screen_size = np.linalg.norm(self._screen_directions, axis=-1)
+        current_screen_size = np.linalg.norm(self._screen_directions[:, :2], axis=-1)
         required_multiple = np.divide(
             self._screen_size, current_screen_size, where=current_screen_size > eps
         )
-        scale = np.mean(required_multiple, where=current_screen_size > eps)
+        scale = np.min(required_multiple, where=current_screen_size > eps, initial=np.Inf)
 
         should_flip = self._ndc_directions[:, 2] > 0
 
-        self.world.scale = scale * should_flip
+        self.world.scale = scale * (2*should_flip - 1)
 
     def _update_visibility(self):
         """Depending on the mode and the orientation of the camera,
@@ -473,8 +488,9 @@ class TransformGizmo(WorldObject):
             "pointer_move",
             "pointer_up",
             "wheel",
-            "before_render",
         )
+
+        viewport.renderer.add_event_handler(self.update_gizmo, "before_render")
 
     def process_event(self, event):
         """Callback to handle gizmo-related events."""
@@ -541,21 +557,6 @@ class TransformGizmo(WorldObject):
                 self._handle_rotate_move(event)
             # Keep viz up to date
             self._viewport.renderer.request_draw()
-
-        elif type == "before_render":
-            # Note that we almost always update the transform (scale,
-            # rotation, position) which means the matrix changed, and so
-            # does the world_matrix of all children. In effect the uniforms
-            # of all elements need updating anyway, so any other changes
-            # to wobject properties (e.g. visibility) are "free" - no need
-            # to only update if it actually changes.
-            if not self._object_to_control:
-                self.visible = False
-            elif self._viewport and self._camera:
-                self.visible = True
-                self._update_directions()
-                self._update_scale()
-                self._update_visibility()
 
     def _handle_start(self, kind, event, ob: WorldObject):
         """Initiate a drag. We create a snapshot of the relevant state at this point."""
