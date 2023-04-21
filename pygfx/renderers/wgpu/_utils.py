@@ -202,6 +202,7 @@ class GpuCache:
 
     @classmethod
     def get_cache_stats(cls):
+        """Get a dict mapping cache names to item counts."""
         return {name: cache.get_count() for name, cache in GpuCache._caches.items()}
 
     def __init__(self, name):
