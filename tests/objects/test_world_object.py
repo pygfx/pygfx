@@ -183,18 +183,28 @@ def test_iter():
 def test_setting_world_transform():
     root = gfx.WorldObject()
     child = gfx.WorldObject()
+    child2 = gfx.WorldObject()
+    
     root.add(child)
+    child.add(child2)
 
     root.local.position = (1, 2, 3)
     child.local.position = (4, 4, 4)
+    child2.local.position = (10, 0, 0)
 
     assert np.allclose(child.local.position, (4, 4, 4))
     assert np.allclose(child.world.position, (5, 6, 7))
+
+    assert np.allclose(child2.local.position, (10, 0, 0))
+    assert np.allclose(child2.world.position, (15, 6, 7))
 
     child.world.position = (1, 2, 3)
 
     assert np.allclose(child.local.position, (0, 0, 0))
     assert np.allclose(child.world.position, (1, 2, 3))
+
+    assert np.allclose(child2.local.position, (10, 0, 0))
+    assert np.allclose(child2.world.position, (11, 2, 3))
 
 
 def test_complex_multi_insert():
