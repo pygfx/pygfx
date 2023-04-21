@@ -363,6 +363,15 @@ class TransformGizmo(WorldObject):
 
         """
 
+        # work out the canvas <-> NDC transform
+        # Note: screen origin is at top left corner of NDC with Y-axis pointing down
+        x_dim, y_dim = self._viewport.logical_size
+        screen_space = AffineTransform()
+        screen_space.position = (-1, 1, 0)
+        screen_space.scale = (2 / x_dim, -2 / y_dim, 1)
+        self._ndc_to_screen = screen_space.inverse_matrix
+        self._screen_to_ndc = screen_space.matrix
+
         # work out the transforms between the spaces
         camera = self._camera
         if self._mode == "object":
@@ -529,14 +538,6 @@ class TransformGizmo(WorldObject):
         self._viewport = viewport
         self._camera = camera
 
-        # Note: screen origin is at top left corner of NDC with Y-axis pointing down
-        x_dim, y_dim = viewport.logical_size
-        screen_space = AffineTransform()
-        screen_space.position = (-1, 1, 0)
-        screen_space.scale = (2 / x_dim, -2 / y_dim, 1)
-        self._ndc_to_screen = screen_space.inverse_matrix
-        self._screen_to_ndc = screen_space.matrix
-
         self.add_event_handler(
             self.process_event,
             "pointer_down",
@@ -700,26 +701,29 @@ class TransformGizmo(WorldObject):
     def _handle_rotate_move(self, event):
         """Rotate action."""
 
-        transform = self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
-        gizmo_screen = la.vector_apply_matrix((0, 0, 0), transform)[:2]
+        local_to_screen = self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
+        object_screen = la.vector_apply_matrix((0, 0, 0), local_to_screen)[:2]
 
-        # amount of cursor rotation around gizmo origin
-        start_direction = self._ref["event_pos"] - gizmo_screen
+        # amount of cursor rotation around gizmo origin (CCW is positive)
+        start_direction = self._ref["event_pos"] - object_screen
         start_angle = np.arctan2(start_direction[1], start_direction[0])
-        current_direction = np.array((event.x, event.y)) - gizmo_screen
+        current_direction = np.array((event.x, event.y)) - object_screen
         current_angle = np.arctan2(current_direction[1], current_direction[0])
         cursor_rotation = current_angle - start_angle
 
         # axis around which the object rotates
         dim = self._ref["dim"]
-        axis = self._ref["world_directions"][dim]
+        world_axis = self._ref["world_directions"][dim]
         
-        # when viewing from the opposite side, we need to mirror the rotation
-        flipped = self._ref["flips"][dim]
-        axis = -flipped * axis
+        # the cursor rotation is measured around the camera's forward direction
+        # (CCW is positive) we need to mirror it if the rotation axis points
+        # points the other way (when CW is positive)
+        ndc_axis = self._ref["ndc_directions"][dim]
+        is_mirrored = 2*int(ndc_axis[2] > 0) - 1
+        cursor_rotation *= is_mirrored
 
         initial_rotation = self._ref["rot"]
-        rotation = la.quaternion_make_from_axis_angle(axis, cursor_rotation)
+        rotation = la.quaternion_make_from_axis_angle(world_axis, cursor_rotation)
         self._object_to_control.world.rotation = la.quaternion_multiply(
             rotation, initial_rotation
         )
