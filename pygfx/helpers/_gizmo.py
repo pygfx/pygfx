@@ -55,6 +55,7 @@ class TransformGizmo(WorldObject):
         # We store these as soon as we get a call in ``add_default_event_handlers``
         self._viewport = None
         self._camera = None
+        self._ndc_to_screen = None
 
         # A dict that stores the state at the start of a drag. Or None.
         self._ref = None
@@ -362,8 +363,7 @@ class TransformGizmo(WorldObject):
         """
 
         camera = self._camera
-        scene_size = self._viewport.logical_size
-        ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
+        ndc_to_screen = self._ndc_to_screen
 
         local_directions = np.eye(3)
         if self._mode == "object":
@@ -431,8 +431,7 @@ class TransformGizmo(WorldObject):
             return
 
         camera = self._camera
-        scene_size = self._viewport.logical_size
-        ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
+        ndc_to_screen = self._ndc_to_screen
 
         # size on screen for scale=1
         local_to_ndc = (
@@ -461,8 +460,7 @@ class TransformGizmo(WorldObject):
         some elements are made invisible.
         """
 
-        scene_size = self._viewport.logical_size
-        ndc_to_screen = np.array((*scene_size, 1))[None, :] / (2, 2, 1)
+        ndc_to_screen = self._ndc_to_screen
         ndc_directions = la.vector_apply_matrix(
             np.eye(3), self._camera.camera_matrix @ self.world.matrix
         )
@@ -523,6 +521,9 @@ class TransformGizmo(WorldObject):
         viewport = Viewport.from_viewport_or_renderer(viewport)
         self._viewport = viewport
         self._camera = camera
+
+        # Note: Y-axis points down in screen space, but up in NDC
+        self._ndc_to_screen = np.array((*viewport.logical_size, 1))[None, :] / (2, -2, 1)
 
         self.add_event_handler(
             self.process_event,
@@ -610,11 +611,12 @@ class TransformGizmo(WorldObject):
             "dim": ob.dim,
             "maxdist": 0,
             # Transform at time of start
+            "pos": self._object_to_control.world.position,
             "scale": self._object_to_control.world.scale,
             "rot": self._object_to_control.world.rotation,
             "world_pos": ob_pos,
             "world_offset": ob_pos - this_pos,
-            "ndc_pos": la.vector_apply_matrix(ob_pos, self._camera.projection_matrix),
+            "ndc_pos": la.vector_apply_matrix(ob_pos, self._camera.camera_matrix @ ob.world.matrix),
             # Gizmo direction state at start-time of drag
             "flips": np.sign(self.world.scale),
             "world_directions": self._world_directions.copy(),
@@ -624,10 +626,12 @@ class TransformGizmo(WorldObject):
 
     def _handle_translate_move(self, event):
         """Translate action, either using a translate1 or translate2 handle."""
-        # Get dimensions to translate in
-        dim = self._ref["dim"]
 
-        # Get how the mouse has moved
+        if isinstance(travel_directions, int):
+            travel_directions = (self._ref["dim"],)
+        else:
+            travel_directions = self._ref["dim"]
+
         screen_moved = np.array(
             (
                 event.x - self._ref["event_pos"][0],
@@ -635,56 +639,15 @@ class TransformGizmo(WorldObject):
                 0,
             )
         )
-        scene_size = self._viewport.logical_size
-        ndc_moved = screen_moved * np.array((2 / scene_size[0], -2 / scene_size[1], 0))
 
-        # Init new position
-        new_position = self._ref["world_pos"]
-        new_position -= self._ref["world_offset"]
+        # cursor travel along translation direction(s)
+        units_traveled = np.zeros(3)
+        for direction in travel_directions:
+            screen_dir = self._ref["screen_directions"][direction]
+            units_traveled[direction] = get_scale_factor(screen_dir, screen_moved)
 
-        if isinstance(dim, int):
-            # For 1D movement we can project the screen movement to the world-direction.
-            # Sample directions
-            world_dir = self._ref["world_directions"][dim]
-            ndc_dir = self._ref["ndc_directions"][dim]
-            screen_dir = self._ref["screen_directions"][dim]
-            # Calculate how many times the screen_dir matches the moved direction
-            factor = get_scale_factor(screen_dir, screen_moved)
-            # Calculate position by moving ndc_pos in that direction
-            ndc_pos = self._ref["ndc_pos"] + factor * ndc_dir
-            position = la.vector_unproject(ndc_pos[:2], self._camera.projection_matrix)
-            # The found position has roundoff errors, let's align it with the world_dir
-            world_move = position - self._ref["world_pos"]
-            factor = get_scale_factor(world_dir, world_move)
-            new_position += world_move
-        else:
-            # For 2d movement we project the cursor vector onto the plane defined
-            # by the two world directions.
-            dims = dim  # tuple of 2 ints
-            # Get reference world pos and the world vectors. Imagine this a plane.
-            world_pos = self._ref["world_pos"]
-            world_dir1 = self._ref["world_directions"][dims[0]]
-            world_dir2 = self._ref["world_directions"][dims[1]]
-            # Get the line (in world coords) to move things to
-            ndc_pos = self._ref["ndc_pos"]
-            ndc_pos1 = ndc_pos + ndc_moved
-            ndc_pos2 = ndc_pos1 + (0, 0, 1)
-            cursor_world_pos1 = la.vector_unproject(
-                ndc_pos1[:2], self._camera.projection_matrix
-            )
-            cursor_world_pos2 = la.vector_unproject(
-                ndc_pos2[:2], self._camera.projection_matrix
-            )
-            # Get where line intersects plane, expressed in factors of the world dirs
-            factor1, factor2 = get_line_plane_intersection(
-                cursor_world_pos1, cursor_world_pos2, world_pos, world_dir1, world_dir2
-            )
-            new_position += factor1 * world_dir1
-            new_position += factor2 * world_dir2
-
-        # Apply
-        self._object_to_control.local.position = new_position
-        self.local.position = new_position
+        world_translation = self._ref["world_directions"] @ units_traveled
+        self._object_to_control.world.position = self._ref["pos"] + world_translation
 
     def _handle_scale_move(self, event):
         """Scale action."""
@@ -703,8 +666,8 @@ class TransformGizmo(WorldObject):
         if dim is None:
             # Uniform scale
             ref_vec = np.array((1, -1, 0))
-            npixels = get_scale_factor(ref_vec, screen_moved)
-            scale = 2 ** (npixels / 100)
+            factor = get_scale_factor(ref_vec, screen_moved)
+            scale = 2 ** (factor / 100)
             scale = np.array((scale, scale, scale))
         else:
             # Get how much the mouse has moved in the ref direction
@@ -761,12 +724,17 @@ class TransformGizmo(WorldObject):
 
 
 def get_scale_factor(vec1, vec2):
-    """Calculate how many times vec2 fits onto vec1. Basically a dot
-    product and a division by their norms.
     """
-    factor = np.dot(la.vector_normalize(vec2), la.vector_normalize(vec1))
-    factor *= np.linalg.norm(vec2) / np.linalg.norm(vec1)
-    return factor
+    Parallel project vec2 onto vec1. Aka, figure out how long vec2
+    is when measured along vec1.
+
+    This is used, for example, to work out how many units the cursor has
+    traveled along a given direction.
+    """
+
+    # Note: implementing it like this saves a couple square-roots from
+    # normalizing
+    return np.dot(vec2, vec1) / np.sum(vec1**2)
 
 
 def get_line_plane_intersection(a0, a1, p0, v1, v2):
