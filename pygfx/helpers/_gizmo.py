@@ -10,6 +10,7 @@ from ..geometries import Geometry, sphere_geometry, cone_geometry, box_geometry
 from ..materials import MeshBasicMaterial, LineMaterial
 from ..objects import WorldObject
 from ..utils.viewport import Viewport
+from ..utils.transform import AffineTransform
 
 
 # Colors in hsluv space - https://www.hsluv.org/
@@ -357,45 +358,42 @@ class TransformGizmo(WorldObject):
 
     def _update_directions(self):
         """
-        Calculate how much 1 unit of translation in the selected space (aka
-        mode) translates the gizmo in world and screen space.
+        Calculate how much 1 unit of translation in the draggable space (aka
+        mode) translates the object in world and screen space.
 
         """
 
+        # work out the transforms between the spaces
         camera = self._camera
-        ndc_to_screen = self._ndc_to_screen
-
-        local_directions = np.eye(3)
         if self._mode == "object":
-            # local directions in local space
-            world_directions = la.vector_apply_matrix(
-                local_directions, self._object_to_control.world.matrix
-            )
-            ndc_directions = la.vector_apply_matrix(
-                world_directions, camera.camera_matrix
-            )
+            # local space is draggable
+            local_to_world = self._object_to_control.world.matrix
+            local_to_ndc = camera.camera_matrix @ local_to_world
+            local_to_screen = self._ndc_to_screen @ local_to_ndc
         elif self._mode == "world":
-            # local directions in world space
-            world_directions = local_directions
-            ndc_directions = la.vector_apply_matrix(
-                world_directions, camera.camera_matrix
-            )
+            # world space is draggable
+            local_to_world = np.eye(4)
+            local_to_ndc = camera.camera_matrix @ local_to_world
+            local_to_screen = self._ndc_to_screen @ local_to_ndc
         elif self._mode == "screen":
-            # local directions in screen space (pixels)
-            ndc_directions = (1 / ndc_to_screen) * local_directions
-            ndc_directions[:, 2] = la.vector_apply_matrix(
-                self._object_to_control.world.position, camera.camera_matrix
-            )[2]
-            world_directions = la.vector_unproject(
-                ndc_directions[:, :2], camera.camera_matrix, depth=ndc_directions[:, 2]
-            )
+            # screen space (pixels) is draggable
+            local_to_screen = np.eye(4)
+            local_to_ndc = self._screen_to_ndc
+            local_to_world = np.linalg.inv(camera.camera_matrix) @ local_to_ndc
         else:  # This cannot happen, in theory
             raise RuntimeError(f"Unexpected mode: `{self._mode}`")
 
-        # Store direction lists, to be used during a drag operation.
-        self._world_directions = world_directions
-        self._ndc_directions = ndc_directions
-        self._screen_directions = ndc_to_screen * ndc_directions
+        # express unit vectors and origin in the various frames
+        local_points = np.zeros((4, 3))
+        local_points[1:, :] = np.eye(3)
+        world_points = la.vector_apply_matrix(local_points, local_to_world)
+        ndc_points = la.vector_apply_matrix(local_points, local_to_ndc)
+        screen_points = la.vector_apply_matrix(local_points, local_to_screen)
+
+        # store the directions for future use
+        self._world_directions = world_points[1:] - world_points[0]
+        self._ndc_directions = ndc_points[1:] - ndc_points[0]
+        self._screen_directions = screen_points[1:] - screen_points[0]
 
     def _update_gizmo_transform(
         self,
@@ -408,7 +406,7 @@ class TransformGizmo(WorldObject):
         Position: Set to match the tracked object.
         Rotation: Set to indicate translation directions of the current mode.
         Scale: Set to have the target on-screen size.
-        
+
         Note: This function also flips the directions of the gizmo's local axes
         so that handles always point towards the camera.
         """
@@ -430,28 +428,25 @@ class TransformGizmo(WorldObject):
         if self._ref:
             return
 
-        camera = self._camera
-        ndc_to_screen = self._ndc_to_screen
-
         # size on screen for scale=1
-        local_to_ndc = (
-            camera.camera_matrix
-            # reset scale to 1
-            @ la.matrix_make_scaling(1 / self.world.scale)
+        local_to_screen = (
+            self._ndc_to_screen
+            @ self._camera.camera_matrix
+            @ la.matrix_make_scaling(1 / self.world.scale)  # reset scale to 1
             @ self.world.matrix
         )
-        ndc_extents = la.vector_apply_matrix(self._local_extents, local_to_ndc)
-        screen_extents = ndc_to_screen * ndc_extents
+        screen_extents = la.vector_apply_matrix(self._local_extents, local_to_screen)
+        origin_screen = la.vector_apply_matrix((0, 0, 0), local_to_screen)
+        screen_directions = screen_extents - origin_screen
 
         # radius of bounding circle (in screen space) and scaling to set to
         # desired radius (aka _screen_size)
-        size_1_radius = np.max(np.linalg.norm(screen_extents[:, :2], axis=-1))
+        size_1_radius = np.max(np.linalg.norm(screen_directions[:, :2], axis=-1))
         scale = self._screen_size / size_1_radius
 
         # if required, flip axes so that handles always point to the camera
         eps = 1e-10
-        origin_ndc = la.vector_apply_matrix((0, 0, 0), local_to_ndc)
-        should_flip = (ndc_extents - origin_ndc)[:3, 2] > eps
+        should_flip = screen_directions[:3, 2] > eps
 
         self.world.scale = scale * (1 - 2 * should_flip)
 
@@ -460,11 +455,10 @@ class TransformGizmo(WorldObject):
         some elements are made invisible.
         """
 
-        ndc_to_screen = self._ndc_to_screen
         ndc_directions = la.vector_apply_matrix(
             np.eye(3), self._camera.camera_matrix @ self.world.matrix
         )
-        screen_directions = ndc_to_screen * ndc_directions
+        screen_directions = la.vector_apply_matrix(ndc_directions, self._ndc_to_screen)
 
         # Hide direction arrows that appear small on screen (smaller than 30px)
         show_direction = np.linalg.norm(screen_directions[:, :2], axis=-1) > 30
@@ -522,8 +516,13 @@ class TransformGizmo(WorldObject):
         self._viewport = viewport
         self._camera = camera
 
-        # Note: Y-axis points down in screen space, but up in NDC
-        self._ndc_to_screen = np.array((*viewport.logical_size, 1))[None, :] / (2, -2, 1)
+        # Note: screen origin is at top left corner of NDC with Y-axis pointing down
+        x_dim, y_dim = viewport.logical_size
+        screen_space = AffineTransform()
+        screen_space.position = (-1, 1, 0)
+        screen_space.scale = (2 / x_dim, -2 / y_dim, 1)
+        self._ndc_to_screen = screen_space.inverse_matrix
+        self._screen_to_ndc = screen_space.matrix
 
         self.add_event_handler(
             self.process_event,
@@ -607,7 +606,7 @@ class TransformGizmo(WorldObject):
         ob_pos = ob.world.position
         self._ref = {
             "kind": kind,
-            "event_pos": (event.x, event.y),
+            "event_pos": np.array((event.x, event.y)),
             "dim": ob.dim,
             "maxdist": 0,
             # Transform at time of start
@@ -616,7 +615,9 @@ class TransformGizmo(WorldObject):
             "rot": self._object_to_control.world.rotation,
             "world_pos": ob_pos,
             "world_offset": ob_pos - this_pos,
-            "ndc_pos": la.vector_apply_matrix(ob_pos, self._camera.camera_matrix @ ob.world.matrix),
+            "ndc_pos": la.vector_apply_matrix(
+                ob_pos, self._camera.camera_matrix @ ob.world.matrix
+            ),
             # Gizmo direction state at start-time of drag
             "flips": np.sign(self.world.scale),
             "world_directions": self._world_directions.copy(),
@@ -627,7 +628,7 @@ class TransformGizmo(WorldObject):
     def _handle_translate_move(self, event):
         """Translate action, either using a translate1 or translate2 handle."""
 
-        if isinstance(travel_directions, int):
+        if isinstance(self._ref["dim"], int):
             travel_directions = (self._ref["dim"],)
         else:
             travel_directions = self._ref["dim"]
@@ -685,41 +686,27 @@ class TransformGizmo(WorldObject):
 
     def _handle_rotate_move(self, event):
         """Rotate action."""
-        # Get dimension around which to rotate, and the *other* dimensions
+
+        transform = self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
+        gizmo_screen = la.vector_apply_matrix((0, 0, 0), transform)[:2]
+
+        # amount of cursor rotation around gizmo origin
+        start_direction = self._ref["event_pos"] - gizmo_screen
+        start_angle = np.arctan2(start_direction[1], start_direction[0])
+        current_direction = np.array((event.x, event.y)) - gizmo_screen
+        current_angle = np.arctan2(current_direction[1], current_direction[0])
+
+        # TODO: double-check that the minus here is waranted and not caused by a bug somewhere
+        cursor_rotation = -(current_angle - start_angle)
+
+        # axis around which the object rotates
         dim = self._ref["dim"]
-        dims = [(1, 2), (2, 0), (0, 1)][dim]
+        axis = self._ref["world_directions"][dim]
 
-        # Get how the mouse has moved
-        screen_moved = np.array(
-            (
-                event.x - self._ref["event_pos"][0],
-                event.y - self._ref["event_pos"][1],
-                0,
-            )
-        )
-
-        # Calculate axis of rotation
-        world_dir = self._ref["world_directions"][dim]
-        axis = la.vector_normalize(world_dir)
-
-        # Calculate the vector between the two arrows that span the arc.
-        # We need to flip the sign in the right places to make this work.
-        screen_dir1 = self._ref["screen_directions"][dims[0]]
-        screen_dir2 = self._ref["screen_directions"][dims[1]]
-        flip1, flip2 = self._ref["flips"][dims[0]], self._ref["flips"][dims[1]]
-        screen_dir1 *= flip1
-        screen_dir2 *= flip2
-        screen_vec = screen_dir2 - screen_dir1
-
-        # Now we can calculate how far the mouse moved in *that* direction.
-        factor = get_scale_factor(screen_vec, screen_moved)
-        factor = factor * flip1 * flip2
-        angle = factor * 2
-
-        # Apply
-        rot = la.quaternion_make_from_axis_angle(axis, angle)
-        self._object_to_control.local.rotation = la.quaternion_multiply(
-            rot, self._ref["rot"]
+        initial_rotation = self._ref["rot"]
+        rotation = la.quaternion_make_from_axis_angle(axis, cursor_rotation)
+        self._object_to_control.world.rotation = la.quaternion_multiply(
+            rotation, initial_rotation
         )
 
 
