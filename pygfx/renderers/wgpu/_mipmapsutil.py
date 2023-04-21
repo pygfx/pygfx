@@ -1,4 +1,4 @@
-import math
+import numpy as np
 import wgpu
 from ...resources._texture import Texture
 from ._utils import GfxTextureView, GpuCache
@@ -59,9 +59,10 @@ mipmap_source = """
 
 def get_mip_level_count(texture):
     """Get the number of mipmap levels from the texture size."""
-    assert isinstance(texture, Texture)
+    if not isinstance(texture, Texture):
+        raise TypeError("Expecting a Texture object.")
     width, height, _ = texture.size
-    return math.floor(math.log2(max(width, height))) + 1
+    return int(np.floor(np.log2(max(width, height))) + 1)
 
 
 def generate_texture_mipmaps(device, target):

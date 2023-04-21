@@ -216,15 +216,15 @@ class GpuCache:
         """Get the number of (alive) objects in the cache."""
         return len(list(self._objects.values()))
 
-    def get(self, hash):
+    def get(self, key):
         """Get the cached object or None."""
-        return self._objects.get(hash, None)
+        return self._objects.get(key, None)
 
-    def set(self, hash, ob):
-        """Store the given object under the given hash.
+    def set(self, key, ob):
+        """Store the given object under the given key.
         Note that the cache does not have a (strong) ref to the object.
         """
-        self._objects[hash] = ob
+        self._objects[key] = ob
 
 
 class GfxSampler:
