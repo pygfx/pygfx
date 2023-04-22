@@ -96,8 +96,14 @@ class AffineBase:
 
     @cached
     def directions(self):
-        axes = np.eye(3)
-        axes[2, 2] = 1 - 2 * self.forward_is_minus_z
+        # Note: forward_is_minus_z indicates the camera frame
+        directions = (
+            2 * self.forward_is_minus_z - 1,
+            1,
+            1 - 2 * self.forward_is_minus_z
+        )
+
+        axes = np.diag(directions)
         return (*la.vector_apply_matrix(axes, self.matrix),)
 
     def flag_update(self):
