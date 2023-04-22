@@ -42,7 +42,6 @@ light = gfx.DirectionalLight()
 light.local.position = (1, 2, 3)
 scene1.add(gfx.AmbientLight(), light)
 
-# can we reuse the light from above?
 light = gfx.DirectionalLight()
 light.local.position = (1, 2, 3)
 scene2.add(gfx.AmbientLight(), light)
