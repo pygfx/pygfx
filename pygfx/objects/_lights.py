@@ -403,9 +403,6 @@ class SpotLight(Light):
                 (0, 0, -1), dtype=float
             )  # ill-defined direction -> look neg z-axis
         self.uniform_buffer.data["direction"].flat = direction
-
-        # Note: we are doing computation world space but apply look_at in local space.
-        # is this what we want?
         self.look_at(pos1 + direction)
 
     @property
