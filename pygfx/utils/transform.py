@@ -78,8 +78,9 @@ class callback:  # noqa: N801
 class AffineBase:
     last_modified: int
 
-    def __init__(self):
+    def __init__(self, forward_is_minus_z=False):
         self.update_callbacks = {}
+        self.forward_is_minus_z = int(forward_is_minus_z)
 
     @property
     def matrix(self):
@@ -92,6 +93,12 @@ class AffineBase:
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return la.matrix_decompose(self.matrix)
+
+    @cached
+    def directions(self):
+        axes = np.eye(3)
+        axes[2, 2] = 1 - 2 * self.forward_is_minus_z
+        return (*la.vector_apply_matrix(axes, self.matrix),)
 
     def flag_update(self):
         for callback in self.update_callbacks.values():
@@ -194,6 +201,18 @@ class AffineBase:
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
 
+    @property
+    def right(self):
+        return self.directions[0]
+
+    @property
+    def up(self):
+        return self.directions[1]
+
+    @property
+    def forward(self):
+        return self.directions[2]
+
 
 class AffineTransform(AffineBase):
     """An affine tranformation"""
@@ -206,8 +225,9 @@ class AffineTransform(AffineBase):
         position=None,
         rotation=None,
         scale=None,
+        forward_is_minus_z=False,
     ) -> None:
-        super().__init__()
+        super().__init__(forward_is_minus_z)
         self.last_modified = perf_counter_ns()
 
         if matrix is None:
@@ -241,7 +261,9 @@ class AffineTransform(AffineBase):
 
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
-            return AffineTransform(self.matrix @ other.matrix)
+            return AffineTransform(
+                self.matrix @ other.matrix, forward_is_minus_z=self.forward_is_minus_z
+            )
 
         return np.asarray(self) @ other
 
@@ -381,8 +403,15 @@ class ImplicitTransform(AffineBase):
 class RecursiveTransform(AffineBase):
     """A transform that may be preceeded by another transform."""
 
-    def __init__(self, matrix: Union[np.ndarray, AffineBase], parent=None) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        matrix: Union[np.ndarray, AffineBase],
+        /,
+        *,
+        parent=None,
+        forward_is_minus_z=False,
+    ) -> None:
+        super().__init__(forward_is_minus_z)
         self._parent = None
         self.own = None
         self._last_modified = perf_counter_ns()
@@ -390,7 +419,7 @@ class RecursiveTransform(AffineBase):
         if isinstance(matrix, AffineBase):
             self.own = matrix
         else:
-            self.own = AffineTransform(matrix)
+            self.own = AffineTransform(matrix, forward_is_minus_z=forward_is_minus_z)
 
         if parent is None:
             self._parent = AffineTransform()
