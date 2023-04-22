@@ -55,6 +55,8 @@ class Light(WorldObject):
     # Note that for lights and shadows, the uniform data is stored on the environment.
     # We can use the uniform_buffer as usual though. We'll just copy it over.
 
+    _FORWARD_IS_MINUS_Z = True
+
     uniform_type = dict(
         WorldObject.uniform_type,
         color="4xf4",
@@ -640,6 +642,8 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
+            # Note: the direction may align with `up`, but we have logic in
+            # `look_at` to catch and handle this special case.
             camera.look_at(directions[i])
 
             light.uniform_buffer.data["light_view_proj_matrix"][
