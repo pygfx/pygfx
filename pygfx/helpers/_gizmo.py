@@ -258,7 +258,7 @@ class TransformGizmo(WorldObject):
         self._scale_children = scale_x, scale_y, scale_z
         self._rotate_children = rotate_yz, rotate_zx, rotate_xy
 
-        # Lines and arcs are never apaque. That way they're also not
+        # Lines and arcs are never opaque. That way they're also not
         # pickable, so they won't be "in the way".
         for ob in self._line_children + self._arc_children:
             ob.material.opacity = 0.6
