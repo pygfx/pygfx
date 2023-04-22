@@ -171,12 +171,9 @@ class WorldObject(EventTarget, RootTrackable):
 
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):
-        self.uniform_buffer.data["world_transform"] = self.world.matrix.T
-        self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
+        self.uniform_buffer.data["world_transform"] = transform.matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
         self.uniform_buffer.update_range()
-
-        for child in self.children:
-            child._update_uniform_buffers(transform)
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
@@ -367,8 +364,8 @@ class WorldObject(EventTarget, RootTrackable):
         for child in self.children:
             child._reset_parent(keep_world_matrix=keep_world_matrix)
 
-        self.children = []
-
+        self.children.clear()
+ 
     def _reset_parent(self, *, keep_world_matrix=False):
         """Sets the parent to None.
 
