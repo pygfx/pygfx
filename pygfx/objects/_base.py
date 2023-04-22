@@ -414,7 +414,7 @@ class WorldObject(EventTarget, RootTrackable):
 
     def get_bounding_box(self):
         include_self = self.geometry is not None
-        n_partials = len(self.children) + 1 if include_self else len(self.children)
+        n_partials = len(self.children) + int(include_self)
 
         if n_partials == 0:
             # empty object with no mesh
