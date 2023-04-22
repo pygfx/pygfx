@@ -56,7 +56,7 @@ scene2.add(slice1, slice2, slice3, box2)
 
 # Prepare a camera so we can see the result in 3D
 camera = gfx.PerspectiveCamera(90, 16 / 9, depth_range=(0.1, 2000))
-camera.world.position = (3, 4, 5)
+camera.local.position = (3, 4, 5)
 
 
 def animate():
