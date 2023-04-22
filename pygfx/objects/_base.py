@@ -13,6 +13,7 @@ from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
 from ..utils.transform import (
+    AffineBase,
     AffineTransform,
     RecursiveTransform,
     callback,
@@ -169,7 +170,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.receive_shadow = False
 
     @callback
-    def _update_uniform_buffers(self, transform: AffineTransform):
+    def _update_uniform_buffers(self, transform: AffineBase):
         self.uniform_buffer.data["world_transform"] = self.world.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = self.world.inverse_matrix.T
         self.uniform_buffer.update_range()

@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 from ..objects import Light
-from ..utils.transform import AffineTransform, callback
+from ..utils.transform import AffineBase, callback
 
 from .. import (
     sphere_geometry,
@@ -45,7 +45,7 @@ class PointLightHelper(Mesh):
         self.world.on_update(self._update)
 
     @callback
-    def _update(self, transform: AffineTransform) -> None:
+    def _update(self, transform: AffineBase) -> None:
         if self._color is None and isinstance(self.parent, Light):
             color = self.parent.color
             if color != self.material.color:
@@ -128,7 +128,7 @@ class DirectionalLightHelper(Line):
         self._shadow_helper.visible = self._show_shadow_extent
 
     @callback
-    def _update(self, transform: AffineTransform):
+    def _update(self, transform: AffineBase):
         if not isinstance(self.parent, Light):
             return
 
@@ -215,7 +215,7 @@ class SpotLightHelper(Line):
         self.world.on_update(self._update)
 
     @callback
-    def _update(self, transform: AffineTransform):
+    def _update(self, transform: AffineBase):
         if not isinstance(self.parent, Light):
             return
         light = self.parent
