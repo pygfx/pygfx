@@ -436,7 +436,6 @@ class PerspectiveCamera(Camera):
             up = np.asarray(up)
             self.world.gravity = -up
 
-
         # Obtain view direction
         if view_dir is None:
             rotation = self.world.rotation
