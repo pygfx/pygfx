@@ -493,21 +493,27 @@ class RecursiveTransform(AffineBase):
         self._last_modified = perf_counter_ns()
         super().flag_update()
 
+    def _update_gravity(self, value, *, update_child=True):
+        if update_child:
+            transform = self.parent.inverse_matrix
+            target = self.own
+        else:
+            transform = self.parent.matrix
+            target = self.parent
+
+        origin = la.vector_apply_matrix((0, 0, 0), transform)
+        gravity = la.vector_apply_matrix(value, transform)
+        target._gravity = gravity - origin
+
+
     @callback
     def parent_updated(self, other: AffineBase):
-        # keep gravity in sync
-        self.own._gravity = la.vector_apply_matrix(
-            self.parent.gravity, self.parent.inverse_matrix
-        )
-
+        self._update_gravity(self.parent.gravity)
         self.flag_update()
 
     @callback
     def child_updated(self, other: AffineBase):
-        # keep gravity in sync
-        self.parent._gravity = la.vector_apply_matrix(
-            self.own.gravity, self.parent.matrix
-        )
+        self._update_gravity(self.parent.gravity, update_child=False)
         self.flag_update()
 
     @property

@@ -214,10 +214,10 @@ class PerspectiveCamera(Camera):
 
     def get_state(self):
         return {
-            "position": tuple(self.local.position),
-            "rotation": tuple(self.local.rotation),
-            "scale": tuple(self.local.scale),
-            "gravity": tuple(-self.world._gravity),
+            "position": self.local.position,
+            "rotation": self.local.rotation,
+            "scale": self.local.scale,
+            "gravity": -self.world._gravity,
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
