@@ -476,27 +476,38 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
-        self.flag_update()
+        self.own._gravity = la.vector_apply_matrix(
+            self.parent.gravity, self.parent.inverse_matrix
+        )
 
-        self.own.on_update(self.update_pipe)
-        self.parent.on_update(self.update_pipe)
+        self.parent.on_update(self.parent_updated)
+        self.own.on_update(self.child_updated)
 
     @property
     def last_modified(self):
         return max(
-            self.own.last_modified, self._parent.last_modified, self._last_modified
+            self.own.last_modified, self.parent.last_modified, self._last_modified
         )
 
     def flag_update(self):
-        self.own._gravity = la.vector_apply_matrix(
-            self.parent._gravity, self.parent.inverse_matrix
-        )
-
         self._last_modified = perf_counter_ns()
         super().flag_update()
 
     @callback
-    def update_pipe(self, other: AffineBase):
+    def parent_updated(self, other: AffineBase):
+        # keep gravity in sync
+        self.own._gravity = la.vector_apply_matrix(
+            self.parent.gravity, self.parent.inverse_matrix
+        )
+
+        self.flag_update()
+
+    @callback
+    def child_updated(self, other: AffineBase):
+        # keep gravity in sync
+        self.parent._gravity = la.vector_apply_matrix(
+            self.own.gravity, self.parent.matrix
+        )
         self.flag_update()
 
     @property
@@ -505,14 +516,14 @@ class RecursiveTransform(AffineBase):
 
     @parent.setter
     def parent(self, value):
-        self.parent.remove_callback(self.update_pipe)
+        self.parent.remove_callback(self.parent_updated)
 
         if value is None:
             self._parent = AffineTransform()
         else:
             self._parent = value
 
-        self.parent.on_update(self.update_pipe)
+        self.parent.on_update(self.parent_updated)
         self.flag_update()
 
     @cached
