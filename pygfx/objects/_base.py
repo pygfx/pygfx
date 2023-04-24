@@ -138,7 +138,6 @@ class WorldObject(EventTarget, RootTrackable):
         render_mask="auto",
     ):
         super().__init__()
-        self.up = np.array((0, 1, 0))
         self._parent: weakref.ReferenceType[WorldObject] = None
         self.children: List[WorldObject] = []
 
@@ -155,9 +154,9 @@ class WorldObject(EventTarget, RootTrackable):
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
-        self.local = AffineTransform(forward_is_minus_z=self._FORWARD_IS_MINUS_Z)
+        self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
         self.world = RecursiveTransform(
-            self.local, forward_is_minus_z=self._FORWARD_IS_MINUS_Z
+            self.local, is_camera_space=self._FORWARD_IS_MINUS_Z
         )
         self.world.on_update(self._update_uniform_buffers)
         self.uniform_buffer = buffer
@@ -180,6 +179,12 @@ class WorldObject(EventTarget, RootTrackable):
 
     def __del__(self):
         id_provider.release_id(self, self.id)
+
+    @property
+    def up(self):
+        """Relic of old WorldObjects that aliases with the new ``transform.up``
+        direction. Prefer (minus) `-obj.world.gravity.` instead"""
+        return -self.world.gravity
 
     @property
     def id(self):
@@ -454,7 +459,9 @@ class WorldObject(EventTarget, RootTrackable):
 
     def look_at(self, target, *, up=None) -> None:
         if up is None:
-            up = self.up
+            up = -self.world.gravity
+        else:
+            up = np.asarray(up)
 
         position = self.world.position
         target = np.asarray(target)
@@ -466,7 +473,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         new_z = target - position
         new_z /= np.linalg.norm(new_z)
-        if np.allclose(np.cross(new_z, self.up), 0):
+        if np.allclose(np.cross(new_z, up), 0):
             # target and up are parallel
             forward = (0, 0, -1) if self._FORWARD_IS_MINUS_Z else (0, 0, 1)
             rotation = la.quaternion_make_from_unit_vectors(forward, new_z)

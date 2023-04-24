@@ -76,11 +76,63 @@ class callback:  # noqa: N801
 
 
 class AffineBase:
+    """Base class for affine transformations.
+
+    .. warning::
+        In-place updates of slices of properties, e.g. ``transform.position[1] =
+        42`` have no effect due to limitations of the python programming
+        language and our desire to have the properties return pure numpy arrays.
+
+    This class implements basic getters and setters for the various properties
+    of an affine transformation used in pygfx. If you are looking for
+    `obj.local.<something>` or `obj.world.<something>` it is probably defined
+    here.
+
+    The class further implements a basic callback system that will eagerly
+    inform callees whenever the transform's state changes. Callees register
+    callbacks using the ``callback_id = transform.on_update(...)`` method and -
+    if the callee is a class - may optionally choose to decorate the callback
+    method with the `@callback` descriptor defined above. This will turn the
+    callback into a weakref and allow the callee to be garbage collected more
+    swiftly. After registration callees can remove the callback by calling
+    ``transform.remove_callback`` and passing the callback. If the callback was
+    a lambda, callees can also pass the ``callback_id`` returned when the
+    callback was first registered.
+
+    It also implements a basic caching mechanism that keeps computed properties
+    around until the underlying transform changes. This makes use of the
+    `@cached` descriptor defined above. The descriptor expects a `last_modified`
+    property on the consuming class which is used as a monotonously increasing
+    timestamp/counter to indicate if and when a cached value has become invalid.
+    Once invalid, cached values are updated upon the next read/get meaning that
+    they are updated lazily.
+
+    Parameters
+    ----------
+    gravity : ndarray, [3]
+        The direction of the gravity vector expressed in the target frame. It is
+        the inverse of ``WorldObject._up`` and used by the axis properties
+        (right, up, forward) to maintain a common level of rotation around an
+        axis when it is updated by it's setter. By default, it points along the
+        negative Y-axis.
+    is_camera_space : bool
+        If True, the transform represents a camera space which means that it's
+        ``forward`` and ``right`` directions are inverted.
+
+    Notes
+    -----
+    Subclasses need to define and implement ``last_modified`` for the caching
+    machnism to work correctly. Check out existing subclasses for an example of
+    how this might look like.
+
+    """
+
     last_modified: int
 
-    def __init__(self, forward_is_minus_z=False):
+    def __init__(self, *, gravity=(0, -1, 0), is_camera_space=False):
         self.update_callbacks = {}
-        self.forward_is_minus_z = int(forward_is_minus_z)
+        self.is_camera_space = int(is_camera_space)
+        self._gravity = np.asarray(gravity, dtype=float)
 
     @property
     def matrix(self):
@@ -95,13 +147,9 @@ class AffineBase:
         return la.matrix_decompose(self.matrix)
 
     @cached
-    def directions(self):
+    def _directions(self):
         # Note: forward_is_minus_z indicates the camera frame
-        directions = (
-            2 * self.forward_is_minus_z - 1,
-            1,
-            1 - 2 * self.forward_is_minus_z
-        )
+        directions = (2 * self.is_camera_space - 1, 1, 1 - 2 * self.is_camera_space)
 
         axes = np.diag(directions)
         return (*la.vector_apply_matrix(axes, self.matrix),)
@@ -117,8 +165,6 @@ class AffineBase:
         return callback_id
 
     def remove_callback(self, ref):
-        """Ref can be the callback function itself or the callback ID returned by `on_update`."""
-
         if isinstance(ref, int):
             callback_id = ref
         else:
@@ -137,6 +183,10 @@ class AffineBase:
     @property
     def scale(self) -> np.ndarray:
         return self._decomposed[2]
+
+    @property
+    def gravity(self) -> np.ndarray:
+        return self._gravity
 
     @property
     def x(self) -> float:
@@ -162,6 +212,18 @@ class AffineBase:
     def scale_z(self) -> float:
         return self.scale[2]
 
+    @property
+    def right(self):
+        return self._directions[0]
+
+    @property
+    def up(self):
+        return self._directions[1]
+
+    @property
+    def forward(self):
+        return self._directions[2]
+
     @position.setter
     def position(self, value):
         self.matrix = la.matrix_make_transform(value, self.rotation, self.scale)
@@ -173,6 +235,11 @@ class AffineBase:
     @scale.setter
     def scale(self, value):
         self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
+
+    @gravity.setter
+    def gravity(self, value):
+        self._gravity = np.asarray(value)
+        self.flag_update()
 
     @x.setter
     def x(self, value):
@@ -204,24 +271,80 @@ class AffineBase:
         x, y, _ = self.scale
         self.scale = (x, y, value)
 
+    @right.setter
+    def right(self, value):
+        value = np.asarray(value)
+
+        # make X look at the value by making Z look at the value and
+        # then rotate around Y by -pi/2
+        partA = la.matrix_make_look_at((0, 0, 0), value, up_reference=-self._gravity)
+        partA = la.matrix_to_quaternion(partA)
+        partB = la.quaternion_make_from_axis_angle((1, 0, 0), -np.pi / 2)
+        rotation = la.quaternion_multiply(partB, partA)
+
+        self.rotation = la.quaternion_multiply(rotation, self.rotation)
+
+    @up.setter
+    def up(self, value):
+        value = np.asarray(value)
+
+        # make Y look at the value by making Z look at the value and
+        # then rotate around X by -pi/2
+        partA = la.matrix_make_look_at((0, 0, 0), value, up_reference=-self._gravity)
+        partA = la.matrix_to_quaternion(partA)
+        partB = la.quaternion_make_from_axis_angle((0, 1, 0), -np.pi / 2)
+        rotation = la.quaternion_multiply(partB, partA)
+
+        self.rotation = la.quaternion_multiply(rotation, self.rotation)
+
+    @forward.setter
+    def forward(self, value):
+        rotation = la.matrix_make_look_at((0, 0, 0), value, up_reference=-self._gravity)
+        rotation = la.matrix_to_quaternion(rotation)
+
+        self.rotation = la.quaternion_multiply(rotation, self.rotation)
+
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
 
-    @property
-    def right(self):
-        return self.directions[0]
-
-    @property
-    def up(self):
-        return self.directions[1]
-
-    @property
-    def forward(self):
-        return self.directions[2]
-
 
 class AffineTransform(AffineBase):
-    """An affine tranformation"""
+    """A single affine transform.
+
+    Parameters
+    ----------
+    matrix : ndarray, [4, 4]
+        The affine matrix used to back this transform. If None, a new diagonal
+        matrix will be initialized.
+    position : ndarray, [3]
+        The position of this transform expressed in the target frame. This will
+        overwrite the position component of ``matrix`` if present.
+    rotation : ndarray, [4]
+        The rotation quaternion of this transform expressed in the target frame.
+        This will overwrite the rotation component of ``matrix`` if present.
+    scale : ndarray, [3]
+        The per-axis scale of this transform expressed in the target frame. This
+        will overwrite the scale component of ``matrix`` if present.
+    is_camera_space : bool
+        If True, the transform represents a camera space which means that it's
+        ``forward`` and ``right`` directions are inverted.
+
+    Notes
+    -----
+    The transform class "wraps" the provided ``matrix`` and shares its buffer.
+    This is useful when optimizing performance, as it is possible to wrap a view
+    into an (aligned) buffer of multiple transformation matrices or,
+    alternatively, to directly wrap a uniform buffer. Updates to the transform
+    will then directly modify this matrix which speeds up computation by
+    avoiding copies or exploiting data alignment.
+
+    When updating the underlying matrix in-place these updates will not
+    propagate via the transform's callback system nor will they invalidate
+    existing caches. To inform the transform of these updates call
+    ``transform.flag_update()``, which will trigger both callbacks and cache
+    invalidation.
+
+    """
 
     def __init__(
         self,
@@ -231,9 +354,10 @@ class AffineTransform(AffineBase):
         position=None,
         rotation=None,
         scale=None,
-        forward_is_minus_z=False,
+        gravity=(0, -1, 0),
+        is_camera_space=False,
     ) -> None:
-        super().__init__(forward_is_minus_z)
+        super().__init__(gravity=gravity, is_camera_space=is_camera_space)
         self.last_modified = perf_counter_ns()
 
         if matrix is None:
@@ -268,7 +392,7 @@ class AffineTransform(AffineBase):
     def __matmul__(self, other):
         if isinstance(other, AffineTransform):
             return AffineTransform(
-                self.matrix @ other.matrix, forward_is_minus_z=self.forward_is_minus_z
+                self.matrix @ other.matrix, is_camera_space=self.is_camera_space
             )
 
         return np.asarray(self) @ other
@@ -278,7 +402,55 @@ class AffineTransform(AffineBase):
 
 
 class RecursiveTransform(AffineBase):
-    """A transform that may be preceeded by another transform."""
+    """A trabsfirn that may be preceeded by another transform.
+
+    This transform behaves semantically identical to an ordinary
+    ``AffineTransform`` (same properties), except that users may define a
+    ``parent`` transform which proceeds the ``matrix`` used by the ordinary
+    ``AffineTransform``. The resulting ``RecursiveTransform`` then controls the
+    total transform that results from combinign the two transforms via::
+
+        recursive_transform = parent @ matrix
+
+    In other words, the source frame of ``RecursiveTransform`` is the source
+    frame of ``matrix`` and the target frame of ``RecursiveTransform`` is the
+    target frame of ``parent``. Implying that ``RecursiveTransform``'s
+    properties are given in the target frame.
+
+    The use case for this class is to allow getting and setting of properties of
+    a WorldObjects world transform, i.e., it implements ``WorldObject.world``.
+
+    Under the hood, this transform wraps another transform (passed in as
+    ``matrix``), similar to how ``AffineTransform`` wraps a numpy array. It can
+    also be initialized from a numpy array, in which case provided matrix is
+    first wrapped into a ``AffineTransform`` which is then wrapped by this
+    class. Setting properties of ``RecursiveTransform`` will then internally
+    transform the new values into ``matrix`` target frame and then set the
+    obtained value on the wrapped transform. This means that the ``parent``
+    transform is not affected by changes made to this transform.
+
+    Further, this transform monitors ``parent`` for changes (via a callback) and
+    will update (invalidate own caches and trigger callbacks) whenever the
+    parent updates. This allows propagating updates from the parent to its
+    children, e.g., to update a child's world transform when it's parent changes
+    position.
+
+    Parameters
+    ----------
+    matrix : AffineBase, ndarray [4, 4]
+        The base transform that will be wrapped by this transform.
+    parent : AffineBase, optional
+        The parent transform that preceeds the base transform.
+    is_camera_space : bool
+        If True, the transform represents a camera space which means that it's
+        ``forward`` and ``right`` directions are inverted.
+
+    Notes
+    -----
+    Since ``parent`` is optional, this transform can also be used to create a
+    synced copy of an existing transform similar to how a view works in numpy.
+
+    """
 
     def __init__(
         self,
@@ -286,9 +458,10 @@ class RecursiveTransform(AffineBase):
         /,
         *,
         parent=None,
-        forward_is_minus_z=False,
+        gravity=(0, -1, 0),
+        is_camera_space=False,
     ) -> None:
-        super().__init__(forward_is_minus_z)
+        super().__init__(gravity=gravity, is_camera_space=is_camera_space)
         self._parent = None
         self.own = None
         self._last_modified = perf_counter_ns()
@@ -296,12 +469,14 @@ class RecursiveTransform(AffineBase):
         if isinstance(matrix, AffineBase):
             self.own = matrix
         else:
-            self.own = AffineTransform(matrix, forward_is_minus_z=forward_is_minus_z)
+            self.own = AffineTransform(matrix, is_camera_space=is_camera_space)
 
         if parent is None:
             self._parent = AffineTransform()
         else:
             self._parent = parent
+
+        self.flag_update()
 
         self.own.on_update(self.update_pipe)
         self.parent.on_update(self.update_pipe)
@@ -313,6 +488,10 @@ class RecursiveTransform(AffineBase):
         )
 
     def flag_update(self):
+        self.own._gravity = la.vector_apply_matrix(
+            self.parent._gravity, self.parent.inverse_matrix
+        )
+
         self._last_modified = perf_counter_ns()
         super().flag_update()
 
@@ -347,6 +526,10 @@ class RecursiveTransform(AffineBase):
     @matrix.setter
     def matrix(self, value):
         self.own.matrix = self._parent.inverse_matrix @ value
+
+    @AffineBase.gravity.setter
+    def gravity(self, value):
+        self.parent.gravity = value
 
     def __matmul__(self, other):
         if isinstance(other, AffineBase):
