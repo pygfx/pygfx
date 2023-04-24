@@ -402,7 +402,7 @@ class AffineTransform(AffineBase):
 
 
 class RecursiveTransform(AffineBase):
-    """A trabsfirn that may be preceeded by another transform.
+    """A transform that may be preceeded by another transform.
 
     This transform behaves semantically identical to an ordinary
     ``AffineTransform`` (same properties), except that users may define a
