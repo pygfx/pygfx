@@ -182,9 +182,28 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def up(self):
-        """Relic of old WorldObjects that aliases with the new ``transform.up``
-        direction. Prefer (minus) `-obj.world.gravity.` instead"""
+        """
+        Relic of old WorldObjects that aliases with the new ``transform.up``
+        direction. Prefer (minus) `-obj.world.gravity.` instead
+
+        """
+
+        warnings.warn(
+            "`WorldObject.up` is deprecated. Use `-WorldObject.world.gravity` instead.",
+            DeprecationWarning,
+        )
+
         return -self.world.gravity
+
+    @up.setter
+    def up(self, value):
+
+        warnings.warn(
+            "`WorldObject.up` is deprecated. Use `-WorldObject.world.gravity` instead.",
+            DeprecationWarning,
+        )
+
+        self.world.gravity = -np.asarray(value)
 
     @property
     def id(self):
@@ -370,7 +389,7 @@ class WorldObject(EventTarget, RootTrackable):
             child._reset_parent(keep_world_matrix=keep_world_matrix)
 
         self.children.clear()
- 
+
     def _reset_parent(self, *, keep_world_matrix=False):
         """Sets the parent to None.
 
