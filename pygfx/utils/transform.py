@@ -81,7 +81,7 @@ class AffineBase:
     .. warning::
         In-place updates of slices of properties, e.g. ``transform.position[1] =
         42`` have no effect due to limitations of the python programming
-        language and our desire to have the properties return pure numpy arrays.
+        language and our decision to have the properties return pure numpy arrays.
 
     This class implements basic getters and setters for the various properties
     of an affine transformation used in pygfx. If you are looking for
@@ -95,9 +95,9 @@ class AffineBase:
     method with the `@callback` descriptor defined above. This will turn the
     callback into a weakref and allow the callee to be garbage collected more
     swiftly. After registration callees can remove the callback by calling
-    ``transform.remove_callback`` and passing the callback. If the callback was
-    a lambda, callees can also pass the ``callback_id`` returned when the
-    callback was first registered.
+    ``transform.remove_callback`` and passing the callback. Callees can also
+    pass the ``callback_id`` returned when the callback was first registered
+    (useful e.g. if the callback was a lambda).
 
     It also implements a basic caching mechanism that keeps computed properties
     around until the underlying transform changes. This makes use of the
