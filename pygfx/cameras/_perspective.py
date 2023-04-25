@@ -217,7 +217,7 @@ class PerspectiveCamera(Camera):
             "position": self.local.position,
             "rotation": self.local.rotation,
             "scale": self.local.scale,
-            "gravity": -self.world._gravity,
+            "gravity": self.world._gravity,
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
@@ -235,7 +235,7 @@ class PerspectiveCamera(Camera):
         if "scale" in state:
             self.local.scale = state["scale"]
         if "gravity" in state:
-            self.world.gravity = np.array(state["gravity"])
+            self.world.gravity = state["gravity"]
 
         # Set simple props
         for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
