@@ -4,7 +4,7 @@ from time import perf_counter_ns
 import weakref
 import functools
 
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 
 
 class cached:  # noqa: N801
@@ -277,18 +277,18 @@ class AffineBase:
     @right.setter
     def right(self, value):
         value = np.asarray(value)
-        partA = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
-        partA = la.matrix_to_quaternion(partA)
-        partB = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
-        self.rotation = la.quaternion_multiply(partA, partB)
+        part_a = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
+        part_a = la.matrix_to_quaternion(part_a)
+        part_b = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+        self.rotation = la.quaternion_multiply(part_a, part_b)
 
     @up.setter
     def up(self, value):
         value = np.asarray(value)
-        partA = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
-        partA = la.matrix_to_quaternion(partA)
-        partB = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
-        self.rotation = la.quaternion_multiply(partA, partB)
+        part_a = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
+        part_a = la.matrix_to_quaternion(part_a)
+        part_b = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
+        self.rotation = la.quaternion_multiply(part_a, part_b)
 
     @forward.setter
     def forward(self, value):
@@ -495,7 +495,6 @@ class RecursiveTransform(AffineBase):
         origin = la.vector_apply_matrix((0, 0, 0), transform)
         gravity = la.vector_apply_matrix(value, transform)
         target._gravity = gravity - origin
-
 
     @callback
     def parent_updated(self, other: AffineBase):
