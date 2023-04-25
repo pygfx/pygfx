@@ -111,7 +111,7 @@ class AffineBase:
     ----------
     gravity : ndarray, [3]
         The direction of the gravity vector expressed in the target frame. It is
-        the inverse of ``WorldObject._up`` and used by the axis properties
+        the inverse of ``WorldObject.up`` and used by the axis properties
         (right, up, forward) to maintain a common level of rotation around an
         axis when it is updated by it's setter. By default, it points along the
         negative Y-axis.
