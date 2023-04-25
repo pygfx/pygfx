@@ -197,7 +197,6 @@ class WorldObject(EventTarget, RootTrackable):
 
     @up.setter
     def up(self, value):
-
         warnings.warn(
             "`WorldObject.up` is deprecated. Use `-WorldObject.world.gravity` instead.",
             DeprecationWarning,

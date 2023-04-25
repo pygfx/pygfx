@@ -277,7 +277,11 @@ class AffineBase:
     @right.setter
     def right(self, value):
         value = np.asarray(value)
-        part_a = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
+
+        if np.allclose(value, self.position):
+            raise ValueError("A coordinate axis can't point at its origin.")
+
+        part_a = la.matrix_make_look_at(self.position, value, -self._gravity)
         part_a = la.matrix_to_quaternion(part_a)
         part_b = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
         self.rotation = la.quaternion_multiply(part_a, part_b)
@@ -285,14 +289,23 @@ class AffineBase:
     @up.setter
     def up(self, value):
         value = np.asarray(value)
-        part_a = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
+
+        if np.allclose(value, self.position):
+            raise ValueError("A coordinate axis can't point at its origin.")
+
+        part_a = la.matrix_make_look_at(self.position, value, -self._gravity)
         part_a = la.matrix_to_quaternion(part_a)
         part_b = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
         self.rotation = la.quaternion_multiply(part_a, part_b)
 
     @forward.setter
     def forward(self, value):
-        rotation = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
+        value = np.asarray(value)
+
+        if np.allclose(value, self.position):
+            raise ValueError("A coordinate axis can't point at its origin.")
+
+        rotation = la.matrix_make_look_at(self.position, value, -self._gravity)
         self.rotation = la.matrix_to_quaternion(rotation)
 
     def __array__(self, dtype=None):
