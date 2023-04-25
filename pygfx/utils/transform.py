@@ -151,8 +151,11 @@ class AffineBase:
         # Note: forward_is_minus_z indicates the camera frame
         directions = (2 * self.is_camera_space - 1, 1, 1 - 2 * self.is_camera_space)
 
-        axes = np.diag(directions)
-        return (*la.vector_apply_matrix(axes, self.matrix),)
+        axes_source = np.diag(directions)
+        axes_target = la.vector_apply_matrix(axes_source, self.matrix)
+        origin_target = la.vector_apply_matrix((0, 0, 0), self.matrix)
+
+        return (*(axes_target - origin_target),)
 
     def flag_update(self):
         for callback in self.update_callbacks.values():
@@ -274,35 +277,23 @@ class AffineBase:
     @right.setter
     def right(self, value):
         value = np.asarray(value)
-
-        # make X look at the value by making Z look at the value and
-        # then rotate around Y by -pi/2
-        partA = la.matrix_make_look_at((0, 0, 0), value, up_reference=-self._gravity)
+        partA = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
         partA = la.matrix_to_quaternion(partA)
-        partB = la.quaternion_make_from_axis_angle((1, 0, 0), -np.pi / 2)
-        rotation = la.quaternion_multiply(partB, partA)
-
-        self.rotation = la.quaternion_multiply(rotation, self.rotation)
+        partB = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+        self.rotation = la.quaternion_multiply(partA, partB)
 
     @up.setter
     def up(self, value):
         value = np.asarray(value)
-
-        # make Y look at the value by making Z look at the value and
-        # then rotate around X by -pi/2
-        partA = la.matrix_make_look_at((0, 0, 0), value, up_reference=-self._gravity)
+        partA = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
         partA = la.matrix_to_quaternion(partA)
-        partB = la.quaternion_make_from_axis_angle((0, 1, 0), -np.pi / 2)
-        rotation = la.quaternion_multiply(partB, partA)
-
-        self.rotation = la.quaternion_multiply(rotation, self.rotation)
+        partB = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
+        self.rotation = la.quaternion_multiply(partA, partB)
 
     @forward.setter
     def forward(self, value):
-        rotation = la.matrix_make_look_at((0, 0, 0), value, up_reference=-self._gravity)
-        rotation = la.matrix_to_quaternion(rotation)
-
-        self.rotation = la.quaternion_multiply(rotation, self.rotation)
+        rotation = la.matrix_make_look_at((0, 0, 0), value, -self._gravity)
+        self.rotation = la.matrix_to_quaternion(rotation)
 
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)
@@ -476,9 +467,7 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
-        self.own._gravity = la.vector_apply_matrix(
-            self.parent.gravity, self.parent.inverse_matrix
-        )
+        self._update_gravity()
 
         self.parent.on_update(self.parent_updated)
         self.own.on_update(self.child_updated)
@@ -493,11 +482,13 @@ class RecursiveTransform(AffineBase):
         self._last_modified = perf_counter_ns()
         super().flag_update()
 
-    def _update_gravity(self, value, *, update_child=True):
+    def _update_gravity(self, *, update_child=True):
         if update_child:
+            value = self.parent.gravity
             transform = self.parent.inverse_matrix
             target = self.own
         else:
+            value = self.own.gravity
             transform = self.parent.matrix
             target = self.parent
 
@@ -508,12 +499,12 @@ class RecursiveTransform(AffineBase):
 
     @callback
     def parent_updated(self, other: AffineBase):
-        self._update_gravity(self.parent.gravity)
+        self._update_gravity()
         self.flag_update()
 
     @callback
     def child_updated(self, other: AffineBase):
-        self._update_gravity(self.parent.gravity, update_child=False)
+        self._update_gravity(update_child=False)
         self.flag_update()
 
     @property
@@ -529,6 +520,7 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = value
 
+        self._update_gravity()
         self.parent.on_update(self.parent_updated)
         self.flag_update()
 

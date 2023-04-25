@@ -1,7 +1,7 @@
 from math import pi
 from unittest.mock import Mock, call
 from weakref import ref
-import pylinalg as pla
+import pylinalg as la
 import numpy as np
 
 from pygfx import WorldObject
@@ -61,9 +61,9 @@ def test_update_matrix():
     root = WorldObject()
     root.local.position = (3, 6, 8)
     root.local.scale = (1, 1.2, 1)
-    root.local.rotation = pla.quaternion_make_from_euler_angles((pi / 2, 0, 0))
+    root.local.rotation = la.quaternion_make_from_euler_angles((pi / 2, 0, 0))
 
-    pos, rot, scale = pla.matrix_decompose(root.local.matrix)
+    pos, rot, scale = la.matrix_decompose(root.local.matrix)
     assert np.allclose(pos, root.local.position)
     assert np.allclose(rot, root.local.rotation)
     assert np.allclose(scale, root.local.scale)
@@ -72,24 +72,24 @@ def test_update_matrix():
 def test_update_matrix_world():
     root = WorldObject()
     root.local.position = (-5, 8, 0)
-    root.local.rotation = pla.quaternion_make_from_euler_angles((pi / 4, 0, 0))
+    root.local.rotation = la.quaternion_make_from_euler_angles((pi / 4, 0, 0))
 
     child1 = WorldObject()
     child1.local.position = (0, 0, 5)
     root.add(child1)
 
     child2 = WorldObject()
-    child2.local.rotation = pla.quaternion_make_from_euler_angles((0, -pi / 4, 0))
+    child2.local.rotation = la.quaternion_make_from_euler_angles((0, -pi / 4, 0))
     child1.add(child2)
 
     expected = (
         root.local
         @ child1.local
         @ child2.local
-        @ pla.vector_make_homogeneous((10, 10, 10))
+        @ la.vector_make_homogeneous((10, 10, 10))
     )
 
-    actual = child2.world @ pla.vector_make_homogeneous((10, 10, 10))
+    actual = child2.world @ la.vector_make_homogeneous((10, 10, 10))
 
     # if there is a difference it's a floating point error
     assert np.allclose(actual, expected)
@@ -229,3 +229,91 @@ def test_complex_multi_insert():
     assert root.children[0] is not first
     assert root.children[5] is first
     assert root.children[6] is reference
+
+
+def test_axis_getters():
+    # "normal" euclidean space
+    obj = gfx.WorldObject()
+    assert np.allclose(obj.world.forward, (0, 0, 1))
+    assert np.allclose(obj.world.up, (0, 1, 0))
+    assert np.allclose(obj.world.right, (-1, 0, 0))
+
+    # camera space
+    camera = gfx.PerspectiveCamera()
+    assert np.allclose(camera.world.forward, (0, 0, -1))
+    assert np.allclose(camera.world.up, (0, 1, 0))
+    assert np.allclose(camera.world.right, (1, 0, 0))
+
+    # position offsets shouldn't matter
+    obj.world.position = (0, 0, -10)
+    assert np.allclose(obj.world.forward, (0, 0, 1))
+    assert np.allclose(obj.world.up, (0, 1, 0))
+    assert np.allclose(obj.world.right, (-1, 0, 0))
+
+    # rotations should influence local orientations
+    obj.world.rotation = la.quaternion_make_from_euler_angles(np.pi / 2, order="Y")
+    assert np.allclose(obj.local.up, (0, 1, 0))
+    assert np.allclose(obj.local.right, (0, 0, 1))
+    assert np.allclose(obj.local.forward, (1, 0, 0))
+
+    obj.world.rotation = la.quaternion_make_from_euler_angles(
+        (np.pi / 4, np.pi / 4), order="XZ"
+    )
+    assert np.allclose(obj.local.forward, (0, -np.cos(np.pi / 4), np.sin(np.pi / 4)))
+
+    print("")
+
+
+def test_axis_setters():
+    obj = gfx.WorldObject()
+
+    obj.world.forward = (1, 0, 0)
+    assert np.allclose(obj.world.forward, (1, 0, 0))
+    assert np.allclose(
+        obj.world.rotation, (0, np.sin((np.pi / 2) / 2), 0, np.cos((np.pi / 2) / 2))
+    )
+
+    obj.world.right = (-1, 0, 0)
+    assert np.allclose(obj.world.right, (-1, 0, 0))
+    assert np.allclose(obj.world.rotation, (0, 0, 0, 1))
+
+    obj.world.right = (1, 0, 0)
+    assert np.allclose(obj.world.right, (1, 0, 0))
+    assert np.allclose(obj.world.up, (0, 1, 0))
+    assert np.allclose(obj.world.forward, (0, 0, -1))
+
+    obj.world.up = (1, 1, 1)
+    assert np.allclose(obj.world.up, (1 / np.sqrt(3), 1 / np.sqrt(3), 1 / np.sqrt(3)))
+
+
+def test_gravity():
+    obj = gfx.WorldObject()
+    assert np.allclose(obj.world.gravity, (0, -1, 0))
+    assert np.allclose(obj.local.gravity, (0, -1, 0))
+
+    # gravity is given in parent frame, so it is independent of the transform
+    obj.world.forward = (1, 1, 1)
+    obj.world.position = (1, 42, 13)
+    assert np.allclose(obj.world.gravity, (0, -1, 0))
+    assert np.allclose(obj.local.gravity, (0, -1, 0))
+
+    # gravity does change if there is a parent since the parent frame may have
+    # a transform relative to world
+    obj2 = gfx.WorldObject()
+    assert np.allclose(obj.local.gravity, (0, -1, 0))
+
+    # add a child object and position it absolutely
+    # (child position should not matter)
+    obj2.world.position = (0, 4, 9)
+    obj.add(obj2, keep_world_matrix=True)
+    assert np.allclose(obj2.world.position, (0, 4, 9))
+
+    # world-frame gravity should align (and be (0, -1, 0))
+    assert np.allclose(obj2.world.gravity, obj.world.gravity)
+    assert np.allclose(obj2.world.gravity, (0, -1, 0))
+
+    # local-frame gravity should use gravity transformed from world to parent
+    gravity = la.vector_apply_matrix(obj2.world.gravity, obj.world.inverse_matrix)
+    world_origin = la.vector_apply_matrix((0, 0, 0), obj.world.inverse_matrix)
+    gravity = gravity - world_origin
+    assert np.allclose(obj2.local.gravity, gravity)
