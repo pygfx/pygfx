@@ -81,7 +81,7 @@ class AffineBase:
     .. warning::
         In-place updates of slices of properties, e.g. ``transform.position[1] =
         42`` have no effect due to limitations of the python programming
-        language and our desire to have the properties return pure numpy arrays.
+        language and our decision to have the properties return pure numpy arrays.
 
     This class implements basic getters and setters for the various properties
     of an affine transformation used in pygfx. If you are looking for
