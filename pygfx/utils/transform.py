@@ -329,6 +329,12 @@ class AffineTransform(AffineBase):
     scale : ndarray, [3]
         The per-axis scale of this transform expressed in the target frame. This
         will overwrite the scale component of ``matrix`` if present.
+    gravity : ndarray, [3]
+        The direction of the gravity vector expressed in the target frame. It is
+        the inverse of ``WorldObject.up`` and used by the axis properties
+        (right, up, forward) to maintain a common level of rotation around an
+        axis when it is updated by it's setter. By default, it points along the
+        negative Y-axis.
     is_camera_space : bool
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
@@ -445,6 +451,13 @@ class RecursiveTransform(AffineBase):
         The base transform that will be wrapped by this transform.
     parent : AffineBase, optional
         The parent transform that preceeds the base transform.
+    gravity : ndarray, [3]
+        If ``parent`` is None, the direction of the gravity vector expressed in
+        the target frame. It is the inverse of ``WorldObject.up`` and used by
+        the axis properties (right, up, forward) to maintain a common level of
+        rotation around an axis when it is updated by it's setter. By default,
+        it points along the negative Y-axis. If ``parent`` is not None, this
+        parameter is ignored.
     is_camera_space : bool
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
@@ -465,7 +478,7 @@ class RecursiveTransform(AffineBase):
         gravity=(0, -1, 0),
         is_camera_space=False,
     ) -> None:
-        super().__init__(gravity=gravity, is_camera_space=is_camera_space)
+        super().__init__(is_camera_space=is_camera_space)
         self._parent = None
         self.own = None
         self._last_modified = perf_counter_ns()
@@ -473,7 +486,7 @@ class RecursiveTransform(AffineBase):
         if isinstance(matrix, AffineBase):
             self.own = matrix
         else:
-            self.own = AffineTransform(matrix, is_camera_space=is_camera_space)
+            self.own = AffineTransform(matrix, is_camera_space=is_camera_space, gravity=gravity)
 
         if parent is None:
             self._parent = AffineTransform()
@@ -548,7 +561,11 @@ class RecursiveTransform(AffineBase):
     def matrix(self, value):
         self.own.matrix = self._parent.inverse_matrix @ value
 
-    @AffineBase.gravity.setter
+    @property
+    def gravity(self):
+        return self.parent.gravity
+
+    @gravity.setter
     def gravity(self, value):
         self.parent.gravity = value
 
