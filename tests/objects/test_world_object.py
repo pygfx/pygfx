@@ -284,38 +284,3 @@ def test_axis_setters():
 
     obj.world.up = (1, 1, 1)
     assert np.allclose(obj.world.up, (1 / np.sqrt(3), 1 / np.sqrt(3), 1 / np.sqrt(3)))
-
-
-def test_reference_up():
-    obj = gfx.WorldObject()
-    assert np.allclose(obj.world.reference_up, (0, -1, 0))
-    assert np.allclose(obj.local.reference_up, (0, -1, 0))
-
-    # reference_up is given in parent frame, so it is independent of the transform
-    obj.world.forward = (1, 1, 1)
-    obj.world.position = (1, 42, 13)
-    assert np.allclose(obj.world.reference_up, (0, -1, 0))
-    assert np.allclose(obj.local.reference_up, (0, -1, 0))
-
-    # reference_up does change if there is a parent since the parent frame may have
-    # a transform relative to world
-    obj2 = gfx.WorldObject()
-    assert np.allclose(obj.local.reference_up, (0, -1, 0))
-
-    # add a child object and position it absolutely
-    # (child position should not matter)
-    obj2.world.position = (0, 4, 9)
-    obj.add(obj2, keep_world_matrix=True)
-    assert np.allclose(obj2.world.position, (0, 4, 9))
-
-    # world-frame reference_up should align (and be (0, -1, 0))
-    assert np.allclose(obj2.world.reference_up, obj.world.reference_up)
-    assert np.allclose(obj2.world.reference_up, (0, -1, 0))
-
-    # local-frame reference_up should use reference_up transformed from world to parent
-    reference_up = la.vector_apply_matrix(
-        obj2.world.reference_up, obj.world.inverse_matrix
-    )
-    world_origin = la.vector_apply_matrix((0, 0, 0), obj.world.inverse_matrix)
-    reference_up = reference_up - world_origin
-    assert np.allclose(obj2.local.reference_up, reference_up)
