@@ -200,8 +200,6 @@ class TransformGizmo(WorldObject):
             arc_geo,
             LineMaterial(thickness=THICKNESS, color=BLUE),
         )
-        arc_zx.local.scale_y = -1
-        arc_xy.local.scale_z = -1
 
         # Create in-plane translate handles
         plane_geo = box_geometry(0.01, 0.15, 0.15)
@@ -241,12 +239,17 @@ class TransformGizmo(WorldObject):
 
         # Rotate objects to their correct orientation
         ob: WorldObject
-        for ob in [line_y, translate_y, scale_y, arc_zx, translate_zx, rotate_zx]:
+        for ob in [line_y, translate_y, scale_y, translate_zx, rotate_zx]:
             ob.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), np.pi / 2)
-        for ob in [line_z, translate_z, scale_z, arc_xy, translate_xy, rotate_xy]:
+        for ob in [line_z, translate_z, scale_z, translate_xy, rotate_xy]:
             ob.local.rotation = la.quaternion_make_from_axis_angle(
                 (0, -1, 0), np.pi / 2
             )
+
+        arc_xy.local.rotation = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+        arc_zx.local.rotation = la.quaternion_make_from_axis_angle(
+            (0, 0, 1), -np.pi / 2
+        )
 
         # Store the objectss
         self._center_sphere = scale_uniform
