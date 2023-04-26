@@ -506,9 +506,7 @@ class RecursiveTransform(AffineBase):
         if isinstance(matrix, AffineBase):
             self.own = matrix
         else:
-            self.own = AffineTransform(
-                matrix, is_camera_space=is_camera_space
-            )
+            self.own = AffineTransform(matrix, is_camera_space=is_camera_space)
 
         if parent is None:
             self._parent = AffineTransform()
