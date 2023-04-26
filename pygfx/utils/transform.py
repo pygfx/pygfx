@@ -109,12 +109,12 @@ class AffineBase:
 
     Parameters
     ----------
-    gravity : ndarray, [3]
-        The direction of the gravity vector expressed in the target frame. It is
-        the inverse of ``WorldObject.up`` and used by the axis properties
-        (right, up, forward) to maintain a common level of rotation around an
-        axis when it is updated by it's setter. By default, it points along the
-        negative Y-axis.
+    reference_up : ndarray, [3]
+        The direction of the reference_up vector expressed in the target frame.
+        It indicates neutral tilt and is used by the axis properties (right, up,
+        forward) to maintain a common level of rotation around an axis when it
+        is updated by it's setter. By default, it points along the negative
+        Y-axis.
     is_camera_space : bool
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
@@ -129,10 +129,10 @@ class AffineBase:
 
     last_modified: int
 
-    def __init__(self, *, gravity=(0, -1, 0), is_camera_space=False):
+    def __init__(self, *, reference_up=(0, -1, 0), is_camera_space=False):
         self.update_callbacks = {}
         self.is_camera_space = int(is_camera_space)
-        self._gravity = np.asarray(gravity, dtype=float)
+        self._reference_up = np.asarray(reference_up, dtype=float)
 
     @property
     def matrix(self):
@@ -188,8 +188,8 @@ class AffineBase:
         return self._decomposed[2]
 
     @property
-    def gravity(self) -> np.ndarray:
-        return self._gravity
+    def reference_up(self) -> np.ndarray:
+        return self._reference_up
 
     @property
     def x(self) -> float:
@@ -239,9 +239,9 @@ class AffineBase:
     def scale(self, value):
         self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
 
-    @gravity.setter
-    def gravity(self, value):
-        self._gravity = np.asarray(value)
+    @reference_up.setter
+    def reference_up(self, value):
+        self._reference_up = np.asarray(value)
         self.flag_update()
 
     @x.setter
@@ -281,11 +281,11 @@ class AffineBase:
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
-        if np.linalg.norm(np.cross(value, self.gravity)) == 0:
-            # target and gravity are parallel
+        if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
+            # target and reference_up are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
         else:
-            matrix = la.matrix_make_look_at((0, 0, 0), value, -self.gravity)
+            matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
             rotation = la.matrix_to_quaternion(matrix)
 
         part2 = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
@@ -298,11 +298,11 @@ class AffineBase:
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
-        if np.linalg.norm(np.cross(value, self.gravity)) == 0:
-            # target and gravity are parallel
+        if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
+            # target and reference_up are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
         else:
-            matrix = la.matrix_make_look_at((0, 0, 0), value, -self.gravity)
+            matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
             rotation = la.matrix_to_quaternion(matrix)
 
         part2 = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
@@ -315,11 +315,11 @@ class AffineBase:
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
-        if np.linalg.norm(np.cross(value, self.gravity)) == 0:
-            # target and gravity are parallel
+        if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
+            # target and reference_up are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
         else:
-            matrix = la.matrix_make_look_at((0, 0, 0), value, -self.gravity)
+            matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
             rotation = la.matrix_to_quaternion(matrix)
 
         self.rotation = rotation
@@ -345,8 +345,8 @@ class AffineTransform(AffineBase):
     scale : ndarray, [3]
         The per-axis scale of this transform expressed in the target frame. This
         will overwrite the scale component of ``matrix`` if present.
-    gravity : ndarray, [3]
-        The direction of the gravity vector expressed in the target frame. It is
+    reference_up : ndarray, [3]
+        The direction of the reference_up vector expressed in the target frame. It is
         the inverse of ``WorldObject.up`` and used by the axis properties
         (right, up, forward) to maintain a common level of rotation around an
         axis when it is updated by it's setter. By default, it points along the
@@ -380,10 +380,10 @@ class AffineTransform(AffineBase):
         position=None,
         rotation=None,
         scale=None,
-        gravity=(0, -1, 0),
+        reference_up=(0, -1, 0),
         is_camera_space=False,
     ) -> None:
-        super().__init__(gravity=gravity, is_camera_space=is_camera_space)
+        super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
         self.last_modified = perf_counter_ns()
 
         if matrix is None:
@@ -467,13 +467,13 @@ class RecursiveTransform(AffineBase):
         The base transform that will be wrapped by this transform.
     parent : AffineBase, optional
         The parent transform that preceeds the base transform.
-    gravity : ndarray, [3]
-        If ``parent`` is None, the direction of the gravity vector expressed in
-        the target frame. It is the inverse of ``WorldObject.up`` and used by
-        the axis properties (right, up, forward) to maintain a common level of
-        rotation around an axis when it is updated by it's setter. By default,
-        it points along the negative Y-axis. If ``parent`` is not None, this
-        parameter is ignored.
+    reference_up : ndarray, [3]
+        If ``parent`` is None, The direction of the reference_up vector
+        expressed in the target frame. It is the inverse of ``WorldObject.up``
+        and used by the axis properties (right, up, forward) to maintain a
+        common level of rotation around an axis when it is updated by it's
+        setter. By default, it points along the negative Y-axis. If ``parent``
+        is not None, this parameter is ignored.
     is_camera_space : bool
         If True, the transform represents a camera space which means that it's
         ``forward`` and ``right`` directions are inverted.
@@ -491,7 +491,7 @@ class RecursiveTransform(AffineBase):
         /,
         *,
         parent=None,
-        gravity=(0, -1, 0),
+        reference_up=(0, -1, 0),
         is_camera_space=False,
     ) -> None:
         super().__init__(is_camera_space=is_camera_space)
@@ -503,7 +503,7 @@ class RecursiveTransform(AffineBase):
             self.own = matrix
         else:
             self.own = AffineTransform(
-                matrix, is_camera_space=is_camera_space, gravity=gravity
+                matrix, is_camera_space=is_camera_space, reference_up=reference_up
             )
 
         if parent is None:
@@ -511,7 +511,7 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
-        self._update_gravity()
+        self._update_reference_up()
 
         self.parent.on_update(self.parent_updated)
         self.own.on_update(self.child_updated)
@@ -526,28 +526,28 @@ class RecursiveTransform(AffineBase):
         self._last_modified = perf_counter_ns()
         super().flag_update()
 
-    def _update_gravity(self, *, update_child=True):
+    def _update_reference_up(self, *, update_child=True):
         if update_child:
-            value = self.parent.gravity
+            value = self.parent.reference_up
             transform = self.parent.inverse_matrix
             target = self.own
         else:
-            value = self.own.gravity
+            value = self.own.reference_up
             transform = self.parent.matrix
             target = self.parent
 
         origin = la.vector_apply_matrix((0, 0, 0), transform)
-        gravity = la.vector_apply_matrix(value, transform)
-        target._gravity = gravity - origin
+        reference_up = la.vector_apply_matrix(value, transform)
+        target._reference_up = reference_up - origin
 
     @callback
     def parent_updated(self, other: AffineBase):
-        self._update_gravity()
+        self._update_reference_up()
         self.flag_update()
 
     @callback
     def child_updated(self, other: AffineBase):
-        self._update_gravity(update_child=False)
+        self._update_reference_up(update_child=False)
         self.flag_update()
 
     @property
@@ -563,7 +563,7 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = value
 
-        self._update_gravity()
+        self._update_reference_up()
         self.parent.on_update(self.parent_updated)
         self.flag_update()
 
@@ -580,12 +580,12 @@ class RecursiveTransform(AffineBase):
         self.own.matrix = self._parent.inverse_matrix @ value
 
     @property
-    def gravity(self):
-        return self.parent.gravity
+    def reference_up(self):
+        return self.parent.reference_up
 
-    @gravity.setter
-    def gravity(self, value):
-        self.parent.gravity = value
+    @reference_up.setter
+    def reference_up(self, value):
+        self.parent.reference_up = value
 
     def __matmul__(self, other):
         if isinstance(other, AffineBase):

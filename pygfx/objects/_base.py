@@ -184,25 +184,25 @@ class WorldObject(EventTarget, RootTrackable):
     def up(self):
         """
         Relic of old WorldObjects that aliases with the new ``transform.up``
-        direction. Prefer (minus) `-obj.world.gravity.` instead
+        direction. Prefer (minus) `obj.world.reference_up.` instead
 
         """
 
         warnings.warn(
-            "`WorldObject.up` is deprecated. Use `-WorldObject.world.gravity` instead.",
+            "`WorldObject.up` is deprecated. Use `-WorldObject.world.reference_up` instead.",
             DeprecationWarning,
         )
 
-        return -self.world.gravity
+        return self.world.reference_up
 
     @up.setter
     def up(self, value):
         warnings.warn(
-            "`WorldObject.up` is deprecated. Use `-WorldObject.world.gravity` instead.",
+            "`WorldObject.up` is deprecated. Use `-WorldObject.world.reference_up` instead.",
             DeprecationWarning,
         )
 
-        self.world.gravity = -np.asarray(value)
+        self.world.reference_up = np.asarray(value)
 
     @property
     def id(self):
@@ -474,7 +474,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         This sets the object's rotation such that its ``forward`` direction
         points towards ``target`` (given in world space). This rotation takes
-        gravity into account, i.e., the rotation is chosen in such a way that a
+        reference_up into account, i.e., the rotation is chosen in such a way that a
         camera looking ``forward`` follows the rotation of a human head looking
         around without tilting the head sideways.
 

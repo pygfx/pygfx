@@ -427,7 +427,7 @@ create a small simulation of a falling and rotating cube.
     axis, angle = la.axis_angle_from_quaternion(rot)
 
     # simulate falling cube
-    gravity = 9.81 * companion_cube.world.gravity
+    gravity = -9.81 * companion_cube.world.reference_up
     velocity = np.zeros(3)
     update_frequency = 1 / 50  #  Hz
     for _ in range(200):
@@ -446,7 +446,7 @@ create a small simulation of a falling and rotating cube.
         velocity_rotation = np.cross(angular_moment * axis, imu_sensor.local.position)
 
         # and is thus experiencing both gravity and centripetal forces
-        local_gravity = 9.81 * imu_sensor.local.gravity
+        local_gravity = -9.81 * imu_sensor.local.reference_up
         local_centripetal = np.cross(angular_moment * axis, velocity_rotation)
 
         # The IMU thus measures the composite of the above accelerations

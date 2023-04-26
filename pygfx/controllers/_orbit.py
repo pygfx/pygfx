@@ -75,7 +75,7 @@ class OrbitController(PanZoomController):
 
         position = camera_state["position"]
         rotation = camera_state["rotation"]
-        up = -camera_state["gravity"]
+        up = camera_state["reference_up"]
 
         # Where is the camera looking at right now
         forward = la.vector_apply_quaternion((0, 0, -1), rotation)

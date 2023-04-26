@@ -217,7 +217,7 @@ class PerspectiveCamera(Camera):
             "position": self.local.position,
             "rotation": self.local.rotation,
             "scale": self.local.scale,
-            "gravity": self.world._gravity,
+            "reference_up": self.world.reference_up,
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
@@ -234,8 +234,8 @@ class PerspectiveCamera(Camera):
             self.local.rotation = state["rotation"]
         if "scale" in state:
             self.local.scale = state["scale"]
-        if "gravity" in state:
-            self.world.gravity = state["gravity"]
+        if "reference_up" in state:
+            self.world.reference_up = state["reference_up"]
 
         # Set simple props
         for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
@@ -325,7 +325,7 @@ class PerspectiveCamera(Camera):
 
         # Look at the provided position, taking up into account
         if up is not None:
-            self.world.gravity = -up
+            self.world.reference_up = up
         self.look_at(pos)
 
         # Update extent
@@ -357,10 +357,10 @@ class PerspectiveCamera(Camera):
         """
 
         if up is None:
-            up = -self.world.gravity
+            up = self.world.reference_up
         else:
             up = np.asarray(up)
-            self.world.gravity = -up
+            self.world.reference_up = up
 
         # Get bounding sphere from target
         if isinstance(target, WorldObject):
@@ -431,10 +431,10 @@ class PerspectiveCamera(Camera):
         """
 
         if up is None:
-            up = self.world.gravity
+            up = self.world.reference_up
         else:
             up = np.asarray(up)
-            self.world.gravity = -up
+            self.world.reference_up = up
 
         # Obtain view direction
         if view_dir is None:
