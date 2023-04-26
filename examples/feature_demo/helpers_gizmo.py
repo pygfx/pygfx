@@ -34,9 +34,6 @@ scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 gizmo = gfx.TransformGizmo(cube)
 gizmo.add_default_event_handlers(viewport, camera)
 
-camera.world.forward
-
-
 def animate():
     # We render the scene, and then the gizmo on top,
     # as an overlay, so that it's always on top.
