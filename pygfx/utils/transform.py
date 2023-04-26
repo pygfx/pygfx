@@ -287,7 +287,11 @@ class AffineBase:
             matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
             rotation = la.matrix_to_quaternion(matrix)
 
-        part2 = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+        if self.is_camera_space:
+            part2 = la.quaternion_make_from_axis_angle((0, 1, 0), -np.pi / 2)
+        else:
+            part2 = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+
         self.rotation = la.quaternion_multiply(rotation, part2)
 
     @up.setter
@@ -310,6 +314,9 @@ class AffineBase:
     @forward.setter
     def forward(self, value):
         value = la.vector_normalize(value)
+
+        if self.is_camera_space:
+            value = -value
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")

@@ -430,19 +430,14 @@ class PerspectiveCamera(Camera):
 
         """
 
-        if up is None:
-            up = self.world.reference_up
-        else:
-            up = np.asarray(up)
+        if up is not None:
             self.world.reference_up = up
 
         # Obtain view direction
         if view_dir is None:
-            rotation = self.world.rotation
-            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
-
-        # pylinalg will convert to numpy array or raise
-        view_dir = la.vector_normalize(view_dir)
+            view_dir = la.vector_apply_quaternion((0, 0, -1), self.world.rotation)
+        else:
+            view_dir = la.vector_normalize(view_dir)
 
         # Set bounds, note that this implicitly sets width, height (and aspect)
         self.width = right - left
