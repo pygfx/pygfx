@@ -21,7 +21,8 @@ from ...objects import (
     WorldObject,
 )
 from ...cameras import Camera
-from ...resources import Texture, registry as resource_registry
+from ...resources import Texture
+from ...resources._base import resource_update_registry
 from ...utils import Color
 import pylinalg as la
 
@@ -492,7 +493,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_pipeline_containers.extend(container_group.render_containers)
 
         # Update *all* buffers and textures that have changed
-        for resource in resource_registry.get_syncable_resources(flush=True):
+        for resource in resource_update_registry.get_syncable_resources(flush=True):
             update_resource(self.device, resource)
 
         # Command buffers cannot be reused. If we want some sort of re-use we should

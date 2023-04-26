@@ -35,7 +35,8 @@ ANCHOR_Y_ALTS = {
 }
 
 
-WHITESPACE_EXTENTS = {}  # A cache
+# We cache the extents of small whitespace strings to improve performance
+WHITESPACE_EXTENTS = {}
 
 
 class TextItem:
