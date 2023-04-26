@@ -317,7 +317,11 @@ class TransformGizmo(WorldObject):
         on what is being manipulated.
         """
         # Reset thickness of all lines
-        for ob in self._line_children + self._arc_children:
+        for ob in self._line_children:
+            if ob.material.thickness != THICKNESS:
+                ob.material.thickness = THICKNESS
+
+        for ob in self._arc_children:
             if ob.material.thickness != THICKNESS:
                 ob.material.thickness = THICKNESS
 
@@ -336,7 +340,7 @@ class TransformGizmo(WorldObject):
                 lines.append(self._line_children[dim[0]])
                 lines.append(self._line_children[dim[1]])
             for ob in lines:
-                ob.material.thickness = THICKNESS * 1.75
+                ob.material.thickness *= 1.75
 
     def update_gizmo(self, event):
         if event.type != "before_render":
@@ -447,12 +451,12 @@ class TransformGizmo(WorldObject):
         if self._ref:
             return
 
+        # reset scale before recomputing the desired scale
+        self.world.scale = 1
+
         # size on screen for scale=1
         local_to_screen = (
-            self._ndc_to_screen
-            @ self._camera.camera_matrix
-            @ la.matrix_make_scaling(1 / self.world.scale)  # reset scale to 1
-            @ self.world.matrix
+            self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
         )
         screen_extents = la.vector_apply_matrix(self._local_extents, local_to_screen)
         origin_screen = la.vector_apply_matrix((0, 0, 0), local_to_screen)
@@ -474,49 +478,35 @@ class TransformGizmo(WorldObject):
         some elements are made invisible.
         """
 
-        # Note: I am seriously confused by the logic on when we decide to hide a
-        # handle or not. @almarklein could you explain how this is supposed to
-        # work and what the magic numbers (30px and 0.9) do?
+        # compute the viewing angle onto the gizmo's coordinate planes
+        screen_normal = la.vector_apply_matrix((0, 0, -1), self._camera.world.matrix)
+        screen_normal = la.vector_normalize(screen_normal)
+        plane_normal = (
+            la.vector_apply_matrix(np.eye(3), self.world.matrix) - self.world.position
+        )
+        plane_normal = la.vector_normalize(plane_normal)
+        cos_angle = np.sum(plane_normal * screen_normal, axis=-1)
+        viewing_angle = np.pi / 2 - np.arccos(np.clip(np.abs(cos_angle), 0, 1))
 
-        screen_directions = self._screen_directions
+        # compute the size of the gizmo's axes on screen
+        gizmo_to_screen = (
+            self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
+        )
+        origin_screen = la.vector_apply_matrix((0, 0, 0), gizmo_to_screen)
+        axes_screen = la.vector_apply_matrix(np.eye(3), gizmo_to_screen) - origin_screen
+        ax_size = np.linalg.norm(axes_screen[:, :2], axis=-1)
 
-        # Hide direction arrows that appear small on screen (smaller than 30px)
-        show_direction = np.linalg.norm(screen_directions[:, :2], axis=-1) > 30
-        show_direction[:] = True
+        # check which handles should be shown
+        show_1d_translation = ax_size > 30
+        show_1d_scaling = ax_size > 30
+        show_2d_translation = viewing_angle > deg_to_rad(15)
 
-        # Also determine whether in-plane elements (arcs and translate2 handles) become hard to see
-        vec1 = la.vector_normalize(screen_directions[[1, 2, 0], :])
-        vec2 = la.vector_normalize(screen_directions[[2, 0, 1], :])
-        show_direction2 = np.abs(np.sum(vec1 * vec2, axis=-1)) < 0.9
-        show_direction2[:] = True
-
-        if self._mode == "screen":
-            # Show x and y lines and translate1 handles
-            for dim, visible in enumerate([True, True, False]):
-                self._line_children[dim].visible = visible
-                self._translate1_children[dim].visible = visible
-            # Show only the xy translate2 handle
-            for dim, visible in enumerate([False, False, True]):
-                self._translate2_children[dim].visible = visible
-                self._arc_children[dim].visible = visible
-        else:
-            # Lines and arcs are always shown
-            for dim in (0, 1, 2):
-                self._arc_children[dim].visible = True
-                self._line_children[dim].visible = True
-            # The translate1 and scale handles depend on their angle to the camera
-            for dim in (0, 1, 2):
-                self._translate1_children[dim].visible = show_direction[dim]
-                self._scale_children[dim].visible = show_direction[dim]
-            # The translate2 handles depend on two angles to the camera
-            for dim in (0, 1, 2):
-                dim1, dim2 = [(1, 2), (2, 0), (0, 1)][dim]
-                visible = (
-                    show_direction[dim1]
-                    and show_direction[dim2]
-                    and show_direction2[dim]
-                )
-                self._translate2_children[dim].visible = visible
+        # set the visibility
+        # Note: uniform scale and rotations are always visible
+        for dim in (0, 1, 2):
+            self._translate1_children[dim].visible = show_1d_translation[dim]
+            self._scale_children[dim].visible = show_1d_scaling[dim]
+            self._translate2_children[dim].visible = show_2d_translation[dim]
 
         # Per-dimension scaling is only possible in object-mode
         if self._mode != "object":
@@ -749,3 +739,7 @@ def get_scale_factor(vec1, vec2):
     # Note: implementing it like this saves a couple square-roots from
     # normalizing
     return np.dot(vec2, vec1) / np.sum(vec1**2)
+
+
+def deg_to_rad(degrees):
+    return degrees / 360 * (2 * np.pi)
