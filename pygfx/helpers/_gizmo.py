@@ -513,7 +513,6 @@ class TransformGizmo(WorldObject):
             self._scale_children[dim].visible = show_1d_scaling[dim]
             self._translate2_children[dim].visible = show_2d_translation[dim]
 
-
     # %% Event handling
 
     def add_default_event_handlers(self, viewport, camera):

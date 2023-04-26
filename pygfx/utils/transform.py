@@ -280,7 +280,7 @@ class AffineBase:
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
-        
+
         if np.linalg.norm(np.cross(value, self.gravity)) == 0:
             # target and gravity are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
@@ -297,7 +297,7 @@ class AffineBase:
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
-        
+
         if np.linalg.norm(np.cross(value, self.gravity)) == 0:
             # target and gravity are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
@@ -314,7 +314,7 @@ class AffineBase:
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
-        
+
         if np.linalg.norm(np.cross(value, self.gravity)) == 0:
             # target and gravity are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
