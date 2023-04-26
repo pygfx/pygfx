@@ -179,7 +179,7 @@ simply pass a callback to this function (here ``animate``) and use it to modify
 the scene as desired::
 
     import pygfx as gfx
-    import pygfx as la
+    import pylinalg as la
 
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
