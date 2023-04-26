@@ -315,15 +315,15 @@ class AffineBase:
     def forward(self, value):
         value = la.vector_normalize(value)
 
-        if self.is_camera_space:
-            value = -value
-
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
         if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
             # target and reference_up are parallel
             rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+        elif self.is_camera_space:
+            matrix = la.matrix_make_look_at((0, 0, 0), -value, self.reference_up)
+            rotation = la.matrix_to_quaternion(matrix)
         else:
             matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
             rotation = la.matrix_to_quaternion(matrix)
