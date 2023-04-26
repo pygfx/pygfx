@@ -276,37 +276,53 @@ class AffineBase:
 
     @right.setter
     def right(self, value):
-        value = np.asarray(value)
+        value = la.vector_normalize(value)
 
-        if np.allclose(value, self.position):
+        if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
+        
+        if np.linalg.norm(np.cross(value, self.gravity)) == 0:
+            # target and gravity are parallel
+            rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+        else:
+            matrix = la.matrix_make_look_at((0, 0, 0), value, -self.gravity)
+            rotation = la.matrix_to_quaternion(matrix)
 
-        part_a = la.matrix_make_look_at(self.position, value, -self._gravity)
-        part_a = la.matrix_to_quaternion(part_a)
-        part_b = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
-        self.rotation = la.quaternion_multiply(part_a, part_b)
+        part2 = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+        self.rotation = la.quaternion_multiply(rotation, part2)
 
     @up.setter
     def up(self, value):
-        value = np.asarray(value)
+        value = la.vector_normalize(value)
 
-        if np.allclose(value, self.position):
+        if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
+        
+        if np.linalg.norm(np.cross(value, self.gravity)) == 0:
+            # target and gravity are parallel
+            rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+        else:
+            matrix = la.matrix_make_look_at((0, 0, 0), value, -self.gravity)
+            rotation = la.matrix_to_quaternion(matrix)
 
-        part_a = la.matrix_make_look_at(self.position, value, -self._gravity)
-        part_a = la.matrix_to_quaternion(part_a)
-        part_b = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
-        self.rotation = la.quaternion_multiply(part_a, part_b)
+        part2 = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
+        self.rotation = la.quaternion_multiply(rotation, part2)
 
     @forward.setter
     def forward(self, value):
-        value = np.asarray(value)
+        value = la.vector_normalize(value)
 
-        if np.allclose(value, self.position):
+        if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
+        
+        if np.linalg.norm(np.cross(value, self.gravity)) == 0:
+            # target and gravity are parallel
+            rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+        else:
+            matrix = la.matrix_make_look_at((0, 0, 0), value, -self.gravity)
+            rotation = la.matrix_to_quaternion(matrix)
 
-        rotation = la.matrix_make_look_at(self.position, value, -self._gravity)
-        self.rotation = la.matrix_to_quaternion(rotation)
+        self.rotation = rotation
 
     def __array__(self, dtype=None):
         return self.matrix.astype(dtype)

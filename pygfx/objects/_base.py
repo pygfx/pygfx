@@ -318,6 +318,9 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def parent(self) -> "WorldObject":
+        """Object's parent in the scene graph (read-only).
+        An object can have at most one parent.
+        """
         if self._parent is None:
             return None
         else:
@@ -457,18 +460,9 @@ class WorldObject(EventTarget, RootTrackable):
         return la.aabb_to_sphere(self.get_bounding_box())
 
     def get_world_bounding_box(self):
-        """Updates all parent and children world matrices, and returns
-        a single world-space axis-aligned bounding box for this object's
-        geometry and all of its children (recursively)."""
-
         return la.aabb_transform(self.get_bounding_box(), self.world.matrix)
 
     def get_world_bounding_sphere(self):
-        """Returns a world-space bounding sphere by converting an
-        axis-aligned bounding box to a sphere.
-
-        See WorldObject.get_world_bounding_box.
-        """
         return la.aabb_to_sphere(self.get_world_bounding_box())
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -476,27 +470,14 @@ class WorldObject(EventTarget, RootTrackable):
         return self.material._wgpu_get_pick_info(pick_value)
 
     def look_at(self, target) -> None:
-        up = -self.world.gravity
+        """Orient the object so it looks at the given position.
 
-        position = self.world.position
-        target = np.asarray(target)
-        if np.allclose(target, position):
-            # target and eye are in the same position don't do anything.
-            # Note: the old behavior made it look at (0, 0, 1) in world space
-            # which doesn't seem like a good default
-            return
+        This sets the object's rotation such that its ``forward`` direction
+        points towards ``target`` (given in world space). This rotation takes
+        gravity into account, i.e., the rotation is chosen in such a way that a
+        camera looking ``forward`` follows the rotation of a human head looking
+        around without tilting the head sideways.
 
-        new_z = target - position
-        new_z /= np.linalg.norm(new_z)
-        if np.allclose(np.cross(new_z, up), 0):
-            # target and up are parallel
-            forward = (0, 0, -1) if self._FORWARD_IS_MINUS_Z else (0, 0, 1)
-            rotation = la.quaternion_make_from_unit_vectors(forward, new_z)
-        elif self._FORWARD_IS_MINUS_Z:
-            matrix = la.matrix_make_look_at(target, position, up)
-            rotation = la.matrix_to_quaternion(matrix.T)
-        else:
-            matrix = la.matrix_make_look_at(position, target, up)
-            rotation = la.matrix_to_quaternion(matrix.T)
+        """
 
-        self.world.rotation = rotation
+        self.world.forward = target - self.world.position
