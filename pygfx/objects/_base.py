@@ -189,7 +189,7 @@ class WorldObject(EventTarget, RootTrackable):
         """
 
         warnings.warn(
-            "`WorldObject.up` is deprecated. Use `-WorldObject.world.reference_up` instead.",
+            "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
             DeprecationWarning,
         )
 
@@ -198,7 +198,7 @@ class WorldObject(EventTarget, RootTrackable):
     @up.setter
     def up(self, value):
         warnings.warn(
-            "`WorldObject.up` is deprecated. Use `-WorldObject.world.reference_up` instead.",
+            "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
             DeprecationWarning,
         )
 
