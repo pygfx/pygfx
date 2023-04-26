@@ -306,14 +306,9 @@ class TransformGizmo(WorldObject):
         rotate_yz, rotate_zx, rotate_xy = self._rotate_children
         halfway = self._halfway
         on_arc = halfway * 2**0.5 / 2
-        if self._mode == "screen":
-            rotate_yz.local.position = (0, on_arc, 0)
-            rotate_zx.local.position = (on_arc, 0, 0)
-            rotate_xy.local.position = (on_arc, on_arc, 0)
-        else:
-            rotate_yz.local.position = (0, on_arc, on_arc)
-            rotate_zx.local.position = (on_arc, 0, on_arc)
-            rotate_xy.local.position = (on_arc, on_arc, 0)
+        rotate_yz.local.position = (0, on_arc, on_arc)
+        rotate_zx.local.position = (on_arc, 0, on_arc)
+        rotate_xy.local.position = (on_arc, on_arc, 0)
 
     def _highlight(self, object=None):
         """Change the appearance during interaction for visual feedback
@@ -504,6 +499,13 @@ class TransformGizmo(WorldObject):
         show_1d_scaling = ax_size > 30
         show_2d_translation = viewing_angle > deg_to_rad(15)
 
+        if self._mode == "screen":
+            show_1d_translation[2] = False
+
+        # Per-dimension scaling is only possible in object-mode
+        if self._mode != "object":
+            show_1d_scaling[:] = False
+
         # set the visibility
         # Note: uniform scale and rotations are always visible
         for dim in (0, 1, 2):
@@ -511,10 +513,6 @@ class TransformGizmo(WorldObject):
             self._scale_children[dim].visible = show_1d_scaling[dim]
             self._translate2_children[dim].visible = show_2d_translation[dim]
 
-        # Per-dimension scaling is only possible in object-mode
-        if self._mode != "object":
-            for ob in self._scale_children[:3]:
-                ob.visible = False
 
     # %% Event handling
 
