@@ -618,9 +618,7 @@ class TransformGizmo(WorldObject):
             "rot": self._object_to_control.world.rotation,
             "world_pos": ob_pos,
             "world_offset": ob_pos - this_pos,
-            "ndc_pos": la.vector_apply_matrix(
-                ob_pos, self._camera.camera_matrix @ ob.world.matrix
-            ),
+            "ndc_pos": la.vector_apply_matrix(ob_pos, self._camera.camera_matrix),
             # Gizmo direction state at start-time of drag
             "flips": np.sign(self.world.scale),
             "world_directions": self._world_directions.copy(),
@@ -630,6 +628,9 @@ class TransformGizmo(WorldObject):
 
     def _handle_translate_move(self, event):
         """Translate action, either using a translate1 or translate2 handle."""
+
+        world_to_screen = self._ndc_to_screen @ self._camera.camera_matrix
+        screen_to_world = np.linalg.inv(world_to_screen)
 
         if isinstance(self._ref["dim"], int):
             travel_directions = (self._ref["dim"],)
@@ -650,10 +651,14 @@ class TransformGizmo(WorldObject):
             screen_dir = self._ref["screen_directions"][direction]
             units_traveled[direction] = get_scale_factor(screen_dir, screen_moved)
 
-        # world translation is the sum of translations along world_directions
-        # ... which can be neatly expressed as a matrix product
-        world_translation = self._ref["world_directions"].T @ units_traveled
-        self._object_to_control.world.position = self._ref["pos"] + world_translation
+        # pixel units to world units
+        # Note: start matters because perspective cameras have shear
+        start = la.vector_apply_matrix(self._ref["world_pos"], world_to_screen)
+        end = start + self._ref["screen_directions"].T @ units_traveled
+        end_world = la.vector_apply_matrix(end, screen_to_world)
+        world_units_traveled = end_world - self._ref["world_pos"]
+
+        self._object_to_control.world.position = self._ref["pos"] + world_units_traveled
 
     def _handle_scale_move(self, event):
         """Scale action."""
