@@ -60,6 +60,7 @@ class TransformGizmo(WorldObject):
 
         # A dict that stores the state at the start of a drag. Or None.
         self._ref = None
+        self.gizmo_scale = np.ones(3, dtype=float)
 
         # The radius (in pixels) the gizmo's screen-space bounding box should occupy
         # (aka. the desired on-screen size of the gizmo)
@@ -434,6 +435,12 @@ class TransformGizmo(WorldObject):
 
         self.world.position = self._object_to_control.world.position
 
+        # negative/flipped scale on 2 axes registers as 180° rotation. This will
+        # be undone by the rotation update below and will sometimes flip the
+        # gizmo during rotation updates. Instead, reset scale and restore the
+        # desired scale after the rotation update.
+        self.world.scale = 1
+
         if self._mode == "object":
             self.world.rotation = self._object_to_control.world.rotation
         elif self._mode == "world":
@@ -441,16 +448,14 @@ class TransformGizmo(WorldObject):
         else:  # self._mode == "screen"
             self.world.rotation = self._camera.world.rotation
 
-        # During interaction we don't adjust the scale or "flip", this way:
+        # During interaction we don't update gzimo scale and axis flip, this way:
         # * During a rotation the gizmo does not flip,
         #   making it easier to see how much was rotated.
         # * During a translation the gizmo keeps its "world size",
         #   so that the perspective helps you see how the gizmo has moved.
         if self._ref:
+            self.world.scale = self.gizmo_scale
             return
-
-        # reset scale before recomputing the desired scale
-        self.world.scale = 1
 
         # size on screen for scale=1
         local_to_screen = (
@@ -463,13 +468,14 @@ class TransformGizmo(WorldObject):
         # radius of bounding circle (in screen space) and scaling to set to
         # desired radius (aka _screen_size)
         size_1_radius = np.max(np.linalg.norm(screen_directions[:, :2], axis=-1))
-        scale = self._screen_size / size_1_radius
-        self.world.scale = scale
+        self.gizmo_scale[:] = self._screen_size / size_1_radius
 
         # if required, flip axes so that handles always point towards the camera
         eps = 1e-10
         should_flip = screen_directions[:3, 2] > eps
-        self.world.scale *= 1 - 2 * should_flip
+        self.gizmo_scale *= 1 - 2 * should_flip
+
+        self.world.scale = self.gizmo_scale
 
     def _update_visibility(self):
         """Depending on the mode and the orientation of the camera,
