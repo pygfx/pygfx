@@ -154,7 +154,11 @@ class AffineBase:
         axes_target = la.vector_apply_matrix(axes_source, self.matrix)
         origin_target = la.vector_apply_matrix((0, 0, 0), self.matrix)
 
-        return (*(axes_target - origin_target),)
+        return axes_target - origin_target
+    
+    @cached
+    def _direction_components(self):
+        return (*self._directions,)
 
     def flag_update(self):
         for callback in self.update_callbacks.values():
@@ -173,6 +177,10 @@ class AffineBase:
             callback_id = id(ref)
 
         self.update_callbacks.pop(callback_id, None)
+
+    @property
+    def axes(self) -> np.ndarray:
+        return self._directions
 
     @property
     def position(self) -> np.ndarray:
@@ -216,15 +224,15 @@ class AffineBase:
 
     @property
     def right(self):
-        return self._directions[0]
+        return self._direction_components[0]
 
     @property
     def up(self):
-        return self._directions[1]
+        return self._direction_components[1]
 
     @property
     def forward(self):
-        return self._directions[2]
+        return self._direction_components[2]
 
     @position.setter
     def position(self, value):
