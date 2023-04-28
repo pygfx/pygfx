@@ -284,3 +284,45 @@ def test_axis_setters():
 
     obj.world.up = (1, 1, 1)
     assert np.allclose(obj.world.up, (1 / np.sqrt(3), 1 / np.sqrt(3), 1 / np.sqrt(3)))
+
+def test_reference_up():
+    group = gfx.WorldObject()
+    assert np.allclose(group.world.reference_up, (0, 1, 0))
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+
+    # reference_up is given in parent frame, so it is independent of the transform
+    group.world.forward = (1, 1, 1)
+    group.world.position = (1, 42, 13)
+    assert np.allclose(group.world.reference_up, (0, 1, 0))
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+
+    # local reference_up does change if there is a parent since the parent frame may have
+    # a transform relative to world
+    obj1 = gfx.WorldObject()
+    obj1.world.position = (0, 4, 9)
+    group.add(obj1, keep_world_matrix=True)
+    assert np.allclose(obj1.world.position, (0, 4, 9))
+    reference_up = la.vector_apply_matrix(
+        obj1.world.reference_up, group.world.inverse_matrix
+    )
+    world_origin = la.vector_apply_matrix((0, 0, 0), group.world.inverse_matrix)
+    reference_up = reference_up - world_origin
+    assert np.allclose(obj1.local.reference_up, reference_up)
+    
+    # but the parent remains unaffected by its children
+    # as does the world reference
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+    assert np.allclose(group.world.reference_up, (0, 1, 0))
+    assert np.allclose(obj1.world.reference_up, (0, 1, 0))
+
+    # (world) up_reference is independent between objects
+    obj2 = gfx.WorldObject()
+    obj2.world.rotation = (0, 0, 1, 0)
+    group.add(obj1, keep_world_matrix=True)
+
+    obj1.world.reference_up = (1, 2, 3)
+    obj2.world.reference_up = (1, 0, 1)
+
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+    assert np.allclose(obj1.world.reference_up, (1, 2, 3))
+    assert np.allclose(obj2.world.reference_up, (1, 0, 1))

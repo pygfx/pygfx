@@ -156,7 +156,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
         self.world = RecursiveTransform(
-            self.local, is_camera_space=self._FORWARD_IS_MINUS_Z
+            self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
         self.world.on_update(self._update_uniform_buffers)
         self.uniform_buffer = buffer

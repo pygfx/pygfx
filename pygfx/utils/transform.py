@@ -155,7 +155,7 @@ class AffineBase:
         origin_target = la.vector_apply_matrix((0, 0, 0), self.matrix)
 
         return axes_target - origin_target
-    
+
     @cached
     def _direction_components(self):
         return (*self._directions,)
@@ -503,10 +503,10 @@ class RecursiveTransform(AffineBase):
         /,
         *,
         parent=None,
-        reference_up=(0, 1, 0),
+        reference_up=None,
         is_camera_space=False,
     ) -> None:
-        super().__init__(reference_up=reference_up, is_camera_space=is_camera_space)
+        super().__init__(is_camera_space=is_camera_space)
         self._parent = None
         self.own = None
         self.last_modified = perf_counter_ns()
@@ -521,6 +521,18 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = parent
 
+        if reference_up is None:
+            # use own's reference_up
+            reference_up = la.vector_apply_matrix(
+                self.own.reference_up, self.parent.matrix
+            )
+            self._reference_up = reference_up
+        else:
+            # use given reference_up (and sync own)
+            self._reference_up = reference_up
+            own_ref = la.vector_apply_matrix(reference_up, self.parent.inverse_matrix)
+            self.own._reference_up = own_ref
+
         self.parent.on_update(self.parent_updated)
         self.own.on_update(self.child_updated)
 
@@ -529,11 +541,18 @@ class RecursiveTransform(AffineBase):
         super().flag_update()
 
     @callback
-    def parent_updated(self, other: AffineBase):
+    def parent_updated(self, parent: AffineBase):
+        own_ref = la.vector_apply_matrix(self.reference_up, parent.inverse_matrix)
+        parent_origin = la.vector_apply_matrix((0, 0, 0), parent.inverse_matrix)
+        self.own._reference_up = own_ref - parent_origin
+
         self.flag_update()
 
     @callback
-    def child_updated(self, other: AffineBase):
+    def child_updated(self, own: AffineBase):
+        new_ref = la.vector_apply_matrix(own.reference_up, self.parent.matrix)
+        self._reference_up = new_ref - self.parent.position
+
         self.flag_update()
 
     @property
@@ -548,6 +567,10 @@ class RecursiveTransform(AffineBase):
             self._parent = AffineTransform()
         else:
             self._parent = value
+
+        own_ref = la.vector_apply_matrix(self.reference_up, self._parent.inverse_matrix)
+        parent_origin = la.vector_apply_matrix((0, 0, 0), self._parent.inverse_matrix)
+        self.own._reference_up = own_ref - parent_origin
 
         self.parent.on_update(self.parent_updated)
         self.flag_update()
