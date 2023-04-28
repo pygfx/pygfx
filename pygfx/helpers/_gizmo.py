@@ -643,24 +643,28 @@ class TransformGizmo(WorldObject):
         else:
             travel_directions = self._ref["dim"]
 
-        screen_moved = np.array(
+        screen_travel = np.array(
             (
                 event.x - self._ref["event_pos"][0],
                 event.y - self._ref["event_pos"][1],
-                0,
             )
         )
 
-        # cursor travel along translation direction(s)
-        units_traveled = np.zeros(3)
-        for direction in travel_directions:
-            screen_dir = self._ref["screen_directions"][direction]
-            units_traveled[direction] = get_scale_factor(screen_dir, screen_moved)
+        # units dragged along gizmo axes
+        screen_directions = self._ref["screen_directions"][travel_directions, :]
+        if len(screen_directions) == 1:
+            # translate 1D: only count movement along translation axis
+            units_traveled = get_scale_factor(screen_directions[..., :2], screen_travel)
+        else:
+            # translate 2D: change basis from screen to gizmo axes
+            screen_to_axes = np.linalg.inv(screen_directions[..., :2].T)
+            units_traveled = screen_to_axes @ screen_travel
 
         # pixel units to world units
-        # Note: start matters because perspective cameras have shear
+        # Note: location of translation matters because perspective cameras have
+        # shear, i.e., we need to account for start
         start = la.vector_apply_matrix(self._ref["world_pos"], world_to_screen)
-        end = start + self._ref["screen_directions"].T @ units_traveled
+        end = start + screen_directions.T @ units_traveled
         end_world = la.vector_apply_matrix(end, screen_to_world)
         world_units_traveled = end_world - self._ref["world_pos"]
 
@@ -740,7 +744,7 @@ class TransformGizmo(WorldObject):
 
 def get_scale_factor(vec1, vec2):
     """
-    Parallel project vec2 onto vec1. Aka, figure out how long vec2
+    Vector project vec2 onto vec1. Aka, figure out how long vec2
     is when measured along vec1.
 
     This is used, for example, to work out how many units the cursor has
@@ -749,7 +753,7 @@ def get_scale_factor(vec1, vec2):
 
     # Note: implementing it like this saves a couple square-roots from
     # normalizing
-    return np.dot(vec2, vec1) / np.sum(vec1**2)
+    return np.sum(vec2 * vec1, axis=-1) / np.sum(vec1**2, axis=-1)
 
 
 def deg_to_rad(degrees):
