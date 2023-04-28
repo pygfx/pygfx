@@ -285,6 +285,7 @@ def test_axis_setters():
     obj.world.up = (1, 1, 1)
     assert np.allclose(obj.world.up, (1 / np.sqrt(3), 1 / np.sqrt(3), 1 / np.sqrt(3)))
 
+
 def test_reference_up():
     group = gfx.WorldObject()
     assert np.allclose(group.world.reference_up, (0, 1, 0))
@@ -308,7 +309,7 @@ def test_reference_up():
     world_origin = la.vector_apply_matrix((0, 0, 0), group.world.inverse_matrix)
     reference_up = reference_up - world_origin
     assert np.allclose(obj1.local.reference_up, reference_up)
-    
+
     # but the parent remains unaffected by its children
     # as does the world reference
     assert np.allclose(group.local.reference_up, (0, 1, 0))
