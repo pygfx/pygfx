@@ -92,7 +92,7 @@ class AffineBase:
     inform callees whenever the transform's state changes. Callees register
     callbacks using the ``callback_id = transform.on_update(...)`` method and -
     if the callee is a class - may optionally choose to decorate the callback
-    method with the `@callback` descriptor defined above. This will turn the
+    method with the ``@callback`` descriptor defined above. This will turn the
     callback into a weakref and allow the callee to be garbage collected more
     swiftly. After registration callees can remove the callback by calling
     ``transform.remove_callback`` and passing the callback. Callees can also
@@ -124,6 +124,9 @@ class AffineBase:
     machnism to work correctly. Check out existing subclasses for an example of
     how this might look like.
 
+    All properties are **expressed in the target frame**, i.e., they use the
+    target's basis, unless otherwise specified.
+
     """
 
     last_modified: int
@@ -135,12 +138,17 @@ class AffineBase:
 
     @property
     def matrix(self):
+        """Affine matrix describing this transform.
+
+        ``vec_target = matrix @ vec_source``.
+
+        """
         raise NotImplementedError()
 
     @cached
-    def inverse_matrix(self) -> np.ndarray:
+    def _inverse_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.matrix)
-
+    
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return la.matrix_decompose(self.matrix)
@@ -161,16 +169,44 @@ class AffineBase:
         return (*self._directions,)
 
     def flag_update(self):
+        """Signal that this transform has updated.
+        """
         for callback in self.update_callbacks.values():
             callback(self)
 
-    def on_update(self, callback):
+    def on_update(self, callback) -> int:
+        """Subscribe to updates of this transform.
+
+        The provided callback will be executed after this transform has updated
+        using the signature ``callback(self)``, i.e., it is pased a reference to
+        this transform.
+
+        Parameters
+        ----------
+        callback : Callable
+            The callback to be executed after an update.
+
+        Returns
+        -------
+        callback_id : int
+            A ID to uniquely identify this callback and allow unsubscribing.
+
+        """
         callback_id = id(callback)
         self.update_callbacks[callback_id] = callback
 
         return callback_id
 
-    def remove_callback(self, ref):
+    def remove_callback(self, ref) -> None:
+        """Unsubscribe from updates of this transform.
+
+        Parameters
+        ----------
+        ref : int, Callable
+            The callback (or callback_id) to unsubscribe.
+        
+        """
+
         if isinstance(ref, int):
             callback_id = ref
         else:
@@ -179,59 +215,90 @@ class AffineBase:
         self.update_callbacks.pop(callback_id, None)
 
     @property
-    def axes(self) -> np.ndarray:
-        return self._directions
+    def inverse_matrix(self) -> np.ndarray:
+        """Inverse of this transform as affine matrix.
+
+        ``vec_source = inverse_matrix @ vec_target``
+
+        """
+        return self._inverse_matrix
 
     @property
     def position(self) -> np.ndarray:
+        """The origin of source.
+        """
         return self._decomposed[0]
 
     @property
     def rotation(self) -> np.ndarray:
+        """The orientation of source.
+        """
         return self._decomposed[1]
 
     @property
     def scale(self) -> np.ndarray:
+        """The scale of source.
+        """
         return self._decomposed[2]
 
     @property
     def reference_up(self) -> np.ndarray:
+        """The zero-tilt reference vector used for the direction setters.
+        """
         return self._reference_up
 
     @property
     def x(self) -> float:
+        """The X component of source's position.
+        """
         return self.position[0]
 
     @property
     def y(self) -> float:
+        """The Y component of source's position.
+        """
         return self.position[1]
 
     @property
     def z(self) -> float:
+        """The Z component of source's position.
+        """
         return self.position[2]
 
     @property
     def scale_x(self) -> float:
+        """The X component of source's scale.
+        """
         return self.scale[0]
 
     @property
     def scale_y(self) -> float:
+        """The Y component of source's scale.
+        """
         return self.scale[1]
 
     @property
     def scale_z(self) -> float:
+        """The Z component of source's scale.
+        """
         return self.scale[2]
 
     @property
     def right(self):
+        """The right direction of source.
+        """
         return self._direction_components[0]
 
     @property
     def up(self):
+        """The up direction of source.
+        """
         return self._direction_components[1]
 
     @property
     def forward(self):
+        """The forward direction of source.
+        """
         return self._direction_components[2]
 
     @position.setter
@@ -383,6 +450,11 @@ class AffineTransform(AffineBase):
     ``transform.flag_update()``, which will trigger both callbacks and cache
     invalidation.
 
+    See Also
+    --------
+    AffineBase
+        Base class defining various useful properties for this transform.
+
     """
 
     def __init__(
@@ -495,6 +567,11 @@ class RecursiveTransform(AffineBase):
     Since ``parent`` is optional, this transform can also be used to create a
     synced copy of an existing transform similar to how a view works in numpy.
 
+    See Also
+    --------
+    AffineBase
+        Base class defining various useful properties for this transform.
+
     """
 
     def __init__(
@@ -557,6 +634,8 @@ class RecursiveTransform(AffineBase):
 
     @property
     def parent(self) -> AffineBase:
+        """The transform that precceeds the own/local transform.
+        """
         return self._parent
 
     @parent.setter
