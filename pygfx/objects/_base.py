@@ -110,6 +110,15 @@ class WorldObject(EventTarget, RootTrackable):
     Use :class:`Group` to collect multiple world objects into a single empty
     world object.
 
+    See Also
+    --------
+    pygfx.utils.transform.AffineBase
+        Various getters and setters defined on ``obj.local`` and ``obj.world``.
+    pygfx.utils.transform.AffineTransform
+        The class used to implement ``obj.local``.
+    pygfx.utils.transform.RecursiveTransform
+        The class used to implement ``obj.world``.
+
     """
 
     _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
@@ -137,32 +146,37 @@ class WorldObject(EventTarget, RootTrackable):
     ):
         super().__init__()
         self._parent: weakref.ReferenceType[WorldObject] = None
+
+        #: Subtrees of the scene graph that depend on this object.
         self.children: List[WorldObject] = []
 
         self.geometry = geometry
         self.material = material
-
-        # Init visibility and render props
-        self.visible = visible
-        self.render_order = render_order
-        self.render_mask = render_mask
 
         # Compose complete uniform type
         buffer = Buffer(array_from_shadertype(self.uniform_type))
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
+        #: The object's transform expressed in parent space.
         self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
+        #: The object's transform expressed in world space.
         self.world = RecursiveTransform(
             self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
         )
         self.world.on_update(self._update_uniform_buffers)
-        self.uniform_buffer = buffer
 
         # Set id
         self._id = id_provider.claim_id(self)
-        self.uniform_buffer.data["id"] = self._id
+        buffer.data["id"] = self._id
 
+        #: The GPU data of this WorldObject.
+        self.uniform_buffer = buffer
+
+        # Init visibility and render props
+        self.visible = visible
+        self.render_order = render_order
+        self.render_mask = render_mask
         self.cast_shadow = False
         self.receive_shadow = False
 
