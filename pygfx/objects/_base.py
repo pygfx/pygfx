@@ -104,8 +104,6 @@ class WorldObject(EventTarget, RootTrackable):
     render_mask : str
         Determines the render passes that the object is rendered in. It's
         recommended to let the renderer decide, using "auto".
-    position : Vector
-        The position of the object in the world. Default (0, 0, 0).
 
     Notes
     -----
@@ -436,6 +434,14 @@ class WorldObject(EventTarget, RootTrackable):
             yield from child.iter(filter_fn, skip_invisible)
 
     def get_bounding_box(self):
+        """Axis-aligned bounding box in parent space.
+
+        Returns
+        -------
+        aabb : ndarray, [2, 3]
+            An axis-aligned bounding box.
+        
+        """
         include_self = self.geometry is not None
         n_partials = len(self.children) + int(include_self)
 
@@ -457,12 +463,36 @@ class WorldObject(EventTarget, RootTrackable):
         return final_aabb
 
     def get_bounding_sphere(self):
+        """Bounding Sphere in parent space.
+
+        Returns
+        -------
+        bounding_shere : ndarray, [4]
+            A sphere (x, y, z, radius).
+        
+        """
         return la.aabb_to_sphere(self.get_bounding_box())
 
     def get_world_bounding_box(self):
+        """Axis aligned bounding box in world space.
+
+        Returns
+        -------
+        aabb : ndarray, [2, 3]
+            The transformed axis-aligned bounding box.
+
+        """
         return la.aabb_transform(self.get_bounding_box(), self.world.matrix)
 
     def get_world_bounding_sphere(self):
+        """Bounding Sphere in world space.
+
+        Returns
+        -------
+        bounding_shere : ndarray, [4]
+            A sphere (x, y, z, radius).
+
+        """
         return la.aabb_to_sphere(self.get_world_bounding_box())
 
     def _wgpu_get_pick_info(self, pick_value):

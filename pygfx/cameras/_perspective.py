@@ -310,7 +310,7 @@ class PerspectiveCamera(Camera):
         target: WorldObject or (x, y, z)
             The target to point the camera towards.
         up: 3-tuple
-            If given, also sets the up vector of the camera.
+            If given, set ``camera.world.reference_up`` to the given value.
 
         """
 
@@ -350,7 +350,7 @@ class PerspectiveCamera(Camera):
             Look at the object from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-            If given, also sets the up vector of the camera.
+            If given, set ``camera.world.reference_up`` to the given value.
         scale: float
             Scale the size of what's shown. Default 1.
 
@@ -426,7 +426,7 @@ class PerspectiveCamera(Camera):
             Look at the rectang;e from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-           If given, also sets the up vector of the camera.
+           If given, set ``camera.world.reference_up`` to the given value.
 
         """
 
