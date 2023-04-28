@@ -3,7 +3,7 @@ Map Screen to World
 ===================
 
 This shows how to map from the screen to the world
-by adding scatter points at click events locations
+by adding scatter points at click event locations
 """
 # sphinx_gallery_pygfx_render = True
 
@@ -78,9 +78,9 @@ def animate():
 
 
 def add_point(ev):
-    """"Add point at mouse click location by click position in renderer space to world space"""
+    """Add point at mouse click location by mapping click position in canvas/screen space to world space"""
 
-    # this is the click position in renderer screen space
+    # this is the click position in canvas space
     pos = (ev.x, ev.y)
     print(f"position click: {pos}")
 
@@ -97,23 +97,27 @@ def add_point(ev):
         vs = viewport.logical_size
 
         # convert position to NDC
-        pos_ndc = Vector3(
-            pos_rel[0] / vs[0] * 2 - 1,
-            -(pos_rel[1] / vs[1] * 2 - 1),
-            0
-        )
+        x = pos_rel[0] / vs[0] * 2 - 1
+        y = -(pos_rel[1] / vs[1] * 2 - 1)
+        pos_ndc = Vector3(x, y, 0)
 
         # get world position
-        pos_world = camera.position.clone().project(camera).add(pos_ndc).unproject(camera)
+        pos_world = (
+            camera.position.clone().project(camera).add(pos_ndc).unproject(camera)
+        )
         print(f"position world: {pos_world}")
 
         # make point data
-        point_data = np.array([[pos_world.x, pos_world.y, pos_world.z]], dtype=np.float32)
+        point_data = np.array(
+            [[pos_world.x, pos_world.y, pos_world.z]], dtype=np.float32
+        )
 
         # add point
         point = gfx.Points(
-            gfx.Geometry(positions=point_data, sizes=[10], colors=[pygfx.Color("black")]),
-            material=gfx.PointsMaterial(vertex_colors=True, vertex_sizes=True)
+            gfx.Geometry(
+                positions=point_data, sizes=[10], colors=[pygfx.Color("black")]
+            ),
+            material=gfx.PointsMaterial(vertex_colors=True, vertex_sizes=True),
         )
 
         scene.add(point)
