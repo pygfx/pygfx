@@ -148,7 +148,7 @@ class AffineBase:
     @cached
     def _inverse_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.matrix)
-    
+
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return la.matrix_decompose(self.matrix)
@@ -169,8 +169,7 @@ class AffineBase:
         return (*self._directions,)
 
     def flag_update(self):
-        """Signal that this transform has updated.
-        """
+        """Signal that this transform has updated."""
         for callback in self.update_callbacks.values():
             callback(self)
 
@@ -204,7 +203,7 @@ class AffineBase:
         ----------
         ref : int, Callable
             The callback (or callback_id) to unsubscribe.
-        
+
         """
 
         if isinstance(ref, int):
@@ -225,80 +224,67 @@ class AffineBase:
 
     @property
     def position(self) -> np.ndarray:
-        """The origin of source.
-        """
+        """The origin of source."""
         return self._decomposed[0]
 
     @property
     def rotation(self) -> np.ndarray:
-        """The orientation of source.
-        """
+        """The orientation of source."""
         return self._decomposed[1]
 
     @property
     def scale(self) -> np.ndarray:
-        """The scale of source.
-        """
+        """The scale of source."""
         return self._decomposed[2]
 
     @property
     def reference_up(self) -> np.ndarray:
-        """The zero-tilt reference vector used for the direction setters.
-        """
+        """The zero-tilt reference vector used for the direction setters."""
         return self._reference_up
 
     @property
     def x(self) -> float:
-        """The X component of source's position.
-        """
+        """The X component of source's position."""
         return self.position[0]
 
     @property
     def y(self) -> float:
-        """The Y component of source's position.
-        """
+        """The Y component of source's position."""
         return self.position[1]
 
     @property
     def z(self) -> float:
-        """The Z component of source's position.
-        """
+        """The Z component of source's position."""
         return self.position[2]
 
     @property
     def scale_x(self) -> float:
-        """The X component of source's scale.
-        """
+        """The X component of source's scale."""
         return self.scale[0]
 
     @property
     def scale_y(self) -> float:
-        """The Y component of source's scale.
-        """
+        """The Y component of source's scale."""
         return self.scale[1]
 
     @property
     def scale_z(self) -> float:
-        """The Z component of source's scale.
-        """
+        """The Z component of source's scale."""
         return self.scale[2]
 
     @property
     def right(self):
-        """The right direction of source.
-        """
+        """The right direction of source."""
         return self._direction_components[0]
 
     @property
     def up(self):
-        """The up direction of source.
-        """
+        """The up direction of source."""
         return self._direction_components[1]
 
     @property
     def forward(self):
-        """The forward direction of source.
-        """
+        """The forward direction of source."""
         return self._direction_components[2]
 
     @position.setter
@@ -634,8 +620,7 @@ class RecursiveTransform(AffineBase):
 
     @property
     def parent(self) -> AffineBase:
-        """The transform that precceeds the own/local transform.
-        """
+        """The transform that precceeds the own/local transform."""
         return self._parent
 
     @parent.setter
