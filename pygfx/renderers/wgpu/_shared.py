@@ -4,10 +4,11 @@ A global object shared by all renderers.
 
 import wgpu
 
-from ...resources import Buffer
+from ...resources import Resource, Buffer
 from ...utils.trackable import Trackable
 from ...utils import array_from_shadertype
 from ...utils.text import glyph_atlas
+from ._utils import GpuCache
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -128,10 +129,10 @@ def print_wgpu_report():
 
     if adapter and device:
         print()
-        print("FEATURES:".ljust(50), "adapter".rjust(8), "device".rjust(8))
+        print("FEATURES:".ljust(50), "adapter".rjust(10), "device".rjust(10))
         for key in adapter.features:
             device_has_it = "Y" if key in device.features else "-"
-            print(f"{key}:".rjust(50), "Y".rjust(8), device_has_it.rjust(8))
+            print(f"{key}:".rjust(50), "Y".rjust(10), device_has_it.rjust(10))
 
     if adapter and device:
         print()
@@ -140,6 +141,24 @@ def print_wgpu_report():
             val1 = adapter.limits[key]
             val2 = device.limits.get(key, "-")
             print(f"{key}:".rjust(50), str(val1).rjust(10), str(val2).rjust(10))
+
+    if shared:
+        print()
+        print("CACHES:".ljust(50), "count".rjust(10))
+        for cache_name, count in GpuCache.get_cache_stats().items():
+            print(
+                f"{cache_name}:".rjust(50),
+                str(count).rjust(10),
+            )
+
+    if shared:
+        print()
+        print("RESOURCES:".ljust(50), "count".rjust(10))
+        for name, count in Resource._resource_counts.items():
+            print(
+                f"{name}:".rjust(50),
+                str(count).rjust(10),
+            )
 
     print()
     wgpu.print_report()

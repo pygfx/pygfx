@@ -2,6 +2,8 @@
 Utils for the wgpu renderer.
 """
 
+import weakref
+
 import wgpu
 
 from .._base import RenderFunctionRegistry
@@ -191,6 +193,38 @@ def generate_uniform_struct(dtype_struct, structname):
     code += "\n        };"
 
     return code
+
+
+class GpuCache:
+    """A chache for GPU objects."""
+
+    _caches = {}
+
+    @classmethod
+    def get_cache_stats(cls):
+        """Get a dict mapping cache names to item counts."""
+        return {name: cache.get_count() for name, cache in GpuCache._caches.items()}
+
+    def __init__(self, name):
+        assert isinstance(name, str)
+        assert name not in GpuCache._caches
+        GpuCache._caches[name] = self
+
+        self._objects = weakref.WeakValueDictionary()
+
+    def get_count(self):
+        """Get the number of (alive) objects in the cache."""
+        return len(list(self._objects.values()))
+
+    def get(self, key):
+        """Get the cached object or None."""
+        return self._objects.get(key, None)
+
+    def set(self, key, ob):
+        """Store the given object under the given key.
+        Note that the cache does not have a (strong) ref to the object.
+        """
+        self._objects[key] = ob
 
 
 class GfxSampler:

@@ -23,12 +23,13 @@ from ...objects import (
 )
 from ...cameras import Camera
 from ...resources import Texture
+from ...resources._base import resource_update_registry
 from ...utils import Color
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
-from ._update import update_buffer, ensure_wgpu_object
+from ._update import update_resource, ensure_wgpu_object
 from ._shared import Shared
 from ._environment import get_environment
 from ._shadowutil import ShadowUtil
@@ -413,16 +414,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """
         device = self.device
 
-        now = time.perf_counter()  # noqa
-        if self._show_fps:
-            if not hasattr(self, "_fps"):
-                self._fps = now, now, 1
-            elif now > self._fps[0] + 1:
-                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
-                self._fps = now, now, 1
-            else:
-                self._fps = self._fps[0], now, self._fps[2] + 1
-
         # Define whether to clear color.
         if clear_color is None:
             clear_color = self._renders_since_last_flush == 0
@@ -512,6 +503,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
 
+        # Update *all* buffers and textures that have changed
+        for resource in resource_update_registry.get_syncable_resources(flush=True):
+            update_resource(self.device, resource)
+
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
@@ -540,6 +535,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Render the result into the target. This method is called
         automatically unless you use ``.render(..., flush=False)``.
         """
+
+        # Print FPS
+        now = time.perf_counter()  # noqa
+        if self._show_fps:
+            if not hasattr(self, "_fps"):
+                self._fps = now, now, 1
+            elif now > self._fps[0] + 1:
+                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
+                self._fps = now, now, 1
+            else:
+                self._fps = self._fps[0], now, self._fps[2] + 1
 
         device = self.device
         need_mipmaps = False
@@ -650,7 +656,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
         self._shared.uniform_buffer.update_range(0, 1)
-        update_buffer(self._shared.device, self._shared.uniform_buffer)
 
     # Picking
 

@@ -25,27 +25,40 @@ ALTTEXFORMAT = {
 }
 
 
-def update_resource(device, resource, kind):
+def update_resource(device, resource):
     """Update the contents of a buffer or texture."""
-    if kind == "buffer":
-        return update_buffer(device, resource)
-    elif kind == "texture":
-        return update_texture(device, resource)
+    if isinstance(resource, Buffer):
+        return _update_buffer(device, resource)
+    elif isinstance(resource, Texture):
+        return _update_texture(device, resource)
     else:
-        raise ValueError(f"Invalid resource kind: {kind}")
+        raise ValueError(f"Invalid resource type: {resource.__class__.__name__}")
 
 
-def update_buffer(device, buffer):
+# Note on how buffer and texture updates work:
+#
+# * When a resource is first created, it's _wgpu_object attribute is None
+#   and its _wgpu_flags is unset.
+# * When the resource is actually being used somewhere, it will end up
+#   in the logic that creates a pipeline object (e.g. in _pipeline.py), which
+#   sets the appropriate usage flags (because that code knows how the resource
+#   is used) and then uses ensure_wgpu_object to create the object.
+# * Resources that need to be synced are tracked in the resource_registry,
+#   but only go into it when they have their _wgpu_object set (i.e. when
+#   the resource actually exists on the GPU).
+# * Right before the renderer performs a draw, it queries the registry
+#   and calls update_resource on each.
+
+
+def _update_buffer(device, buffer):
+    wgpu_buffer = buffer._wgpu_object
+    assert wgpu_buffer is not None
+
     # Get and reset pending uploads
     pending_uploads = buffer._gfx_pending_uploads
-    buffer._gfx_pending_uploads = []
-    if pending_uploads:
-        buffer._wgpu_usage |= wgpu.BufferUsage.COPY_DST
-
-    wgpu_buffer = ensure_wgpu_object(device, buffer)
-
     if not pending_uploads:
         return
+    buffer._gfx_pending_uploads = []
 
     # Prepare for data uploads
     bytes_per_item = buffer.nbytes // buffer.nitems
@@ -68,17 +81,15 @@ def update_buffer(device, buffer):
         # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
 
 
-def update_texture(device, texture):
+def _update_texture(device, texture):
+    wgpu_texture = texture._wgpu_object
+    assert wgpu_texture is not None
+
     # Get and reset pending uploads
     pending_uploads = texture._gfx_pending_uploads
-    texture._gfx_pending_uploads = []
-    if pending_uploads:
-        texture._wgpu_usage |= wgpu.TextureUsage.COPY_DST
-
-    wgpu_texture = ensure_wgpu_object(device, texture)
-
     if not pending_uploads:
         return
+    texture._gfx_pending_uploads = []
 
     # Prepare for data uploads
     fmt = to_texture_format(texture.format)
@@ -134,14 +145,20 @@ def ensure_wgpu_object(device, resource):
         return resource._wgpu_object
 
     if isinstance(resource, Buffer):
+        if resource._gfx_pending_uploads:
+            resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
         resource._wgpu_object = device.create_buffer(
             size=resource.nbytes, usage=resource._wgpu_usage
         )
+        # Mark the resource for sync at the registry (but only if it has pending updates)
+        resource._gfx_mark_for_sync()
 
     elif isinstance(resource, Texture):
         fmt = to_texture_format(resource.format)
         if fmt in ALTTEXFORMAT:
             fmt = ALTTEXFORMAT[fmt][0]
+        if resource._gfx_pending_uploads:
+            resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
         if resource.generate_mipmaps:
             usage |= wgpu.TextureUsage.STORAGE_BINDING  # mipmap needs this
@@ -154,6 +171,8 @@ def ensure_wgpu_object(device, resource):
             mip_level_count=resource._wgpu_mip_level_count,
             sample_count=1,  # could allow more to implement msaa
         )
+        # Mark the resource for sync at the registry (but only if it has pending updates)
+        resource._gfx_mark_for_sync()
 
     elif isinstance(resource, GfxTextureView):
         wgpu_texture = ensure_wgpu_object(device, resource.texture)
