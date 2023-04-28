@@ -440,7 +440,7 @@ class WorldObject(EventTarget, RootTrackable):
         -------
         aabb : ndarray, [2, 3]
             An axis-aligned bounding box.
-        
+
         """
         include_self = self.geometry is not None
         n_partials = len(self.children) + int(include_self)
@@ -469,7 +469,7 @@ class WorldObject(EventTarget, RootTrackable):
         -------
         bounding_shere : ndarray, [4]
             A sphere (x, y, z, radius).
-        
+
         """
         return la.aabb_to_sphere(self.get_bounding_box())
 
