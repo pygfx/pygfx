@@ -507,6 +507,7 @@ class TransformGizmo(WorldObject):
 
         if self._mode == "screen":
             show_1d_translation[2] = False
+            show_2d_translation[:] = (False, False, True)
 
         # Per-dimension scaling is only possible in object-mode
         if self._mode != "object":
