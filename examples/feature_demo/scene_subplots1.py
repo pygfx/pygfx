@@ -13,6 +13,7 @@ scene_subplot2.py for a slightly higher-level approach.
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 # Create a anvas and a renderer
@@ -30,7 +31,7 @@ cube1 = gfx.Mesh(geometry1, material1)
 scene1.add(cube1)
 
 camera1 = gfx.PerspectiveCamera(70, 16 / 9, width=200)
-camera1.position.z = 400
+camera1.local.z = 400
 scene1.add(camera1.add(gfx.DirectionalLight()))
 
 # Compose another scene
@@ -50,8 +51,8 @@ camera2 = gfx.OrthographicCamera(2.2, 2.2)
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube1.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
+    cube1.local.rotation = la.quaternion_multiply(rot, cube1.local.rotation)
 
     w, h = canvas.get_logical_size()
     renderer.render(scene1, camera1, flush=False, rect=(0, 0, w / 2, h / 2))

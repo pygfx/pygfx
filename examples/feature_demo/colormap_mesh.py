@@ -15,6 +15,7 @@ import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas(size=(900, 400))
@@ -64,7 +65,7 @@ ob1 = WobjectClass(
     MaterialClass(map=tex1),
 )
 scene.add(ob1)
-ob1.position.x = -6
+ob1.local.x = -6
 
 
 # === 2D colormap
@@ -82,7 +83,7 @@ ob2 = WobjectClass(
     MaterialClass(map=tex2),
 )
 scene.add(ob2)
-ob2.position.x = -2
+ob2.local.x = -2
 
 
 # === 3D colormap
@@ -103,7 +104,7 @@ ob3 = WobjectClass(
     MaterialClass(map=tex3),
 )
 scene.add(ob3)
-ob3.position.x = +2
+ob3.local.x = +2
 
 
 # === Per vertex coloring
@@ -119,16 +120,18 @@ ob4 = WobjectClass(
     MaterialClass(vertex_colors=True),
 )
 scene.add(ob4)
-ob4.position.x = +6
+ob4.local.x = +6
 
 scene.add(gfx.AmbientLight())
-scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
+light = gfx.DirectionalLight()
+light.local.z = 1
+scene.add(light)
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
+    rot = la.quaternion_make_from_euler_angles((0.0071, 0.01), order="XY")
     for obj in scene.children:
-        obj.rotation.multiply(rot)
+        obj.local.rotation = la.quaternion_multiply(rot, obj.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

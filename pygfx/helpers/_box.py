@@ -1,6 +1,7 @@
 import numpy as np
 
 from .. import Geometry, Line, LineSegmentMaterial
+from ..objects import WorldObject
 
 
 class BoxHelper(Line):
@@ -90,10 +91,10 @@ class BoxHelper(Line):
         center = aabb[0] + diagonal * 0.5
         full_scale = scale * diagonal / self._size
 
-        self.position.set(*center)
-        self.scale.set(*full_scale)
+        self.local.position = center
+        self.local.scale = full_scale
 
-    def set_transform_by_object(self, object, space="world", scale=1.0):
+    def set_transform_by_object(self, object: WorldObject, space="world", scale=1.0):
         """Align with WorldObject.
 
         Set the position and scale attributes based on the bounding box of

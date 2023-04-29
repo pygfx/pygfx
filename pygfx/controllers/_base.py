@@ -4,10 +4,10 @@ from time import perf_counter
 import numpy as np
 import pylinalg as la
 
-from ..utils.viewport import Viewport
-from ..renderers import Renderer
 from ..cameras import Camera, PerspectiveCamera
 from ..cameras._perspective import fov_distance_factor
+from ..renderers import Renderer
+from ..utils.viewport import Viewport
 
 
 class Controller:
@@ -677,10 +677,10 @@ def get_screen_vectors_in_world_cords(
     """
 
     # Linalg conv
-    camera_world = camera.matrix_world.to_ndarray()
-    camera_world_inverse = camera.matrix_world_inverse.to_ndarray()
-    camera_projection = camera.projection_matrix.to_ndarray()
-    camera_projection_inverse = camera.projection_matrix_inverse.to_ndarray()
+    camera_world = camera.world.matrix
+    camera_world_inverse = camera.world.inverse_matrix
+    camera_projection = camera.projection_matrix
+    camera_projection_inverse = camera.projection_matrix_inverse
 
     # Get center location on screen
     center_ndc = la.vector_apply_matrix(

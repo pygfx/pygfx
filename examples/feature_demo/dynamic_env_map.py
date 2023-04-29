@@ -14,14 +14,15 @@ reflection of this object.
 
 # sphinx_gallery_pygfx_render = True
 
-import time
 import math
+import time
 
 import imageio.v3 as iio
+import pylinalg as la
 from wgpu.gui.auto import WgpuCanvas, run
+
 import pygfx as gfx
 from pygfx.utils.cube_camera import CubeCamera
-
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
@@ -85,18 +86,22 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 def animate():
     t = time.time()
 
-    ob1.position.x = math.cos(t) * 30
-    ob1.position.y = math.sin(t) * 30
-    ob1.position.z = math.sin(t) * 30
+    ob1.local.position = (
+        math.cos(t) * 30,
+        math.sin(t) * 30,
+        math.sin(t) * 30,
+    )
 
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.02, 0.03))
-    ob1.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0.02, 0.03), order="XY")
+    ob1.local.rotation = la.quaternion_multiply(rot, ob1.local.rotation)
 
-    ob2.position.x = math.cos(t + 10) * 30
-    ob2.position.y = math.sin(t + 10) * 30
-    ob2.position.z = math.sin(t + 10) * 30
+    ob2.local.position = (
+        math.cos(t + 10) * 30,
+        math.sin(t + 10) * 30,
+        math.sin(t + 10) * 30,
+    )
 
-    ob2.rotation.multiply(rot)
+    ob2.local.rotation = la.quaternion_multiply(rot, ob2.local.rotation)
 
     cube_camera.render(scene)
 

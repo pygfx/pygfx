@@ -28,7 +28,7 @@ vol1 = gfx.Volume(geometry, material)
 vol2 = gfx.Volume(geometry_with_texture, material)
 scene.add(vol1, vol2)
 
-vol2.position.x = 150
+vol2.local.x = 150
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))

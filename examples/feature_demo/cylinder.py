@@ -43,22 +43,23 @@ cylinders = [
 for pos, color, geometry in cylinders:
     material = gfx.MeshPhongMaterial(color=color)
     wobject = gfx.Mesh(geometry, material)
-    wobject.position.set(*pos)
+    wobject.local.position = pos
     scene.add(wobject)
 
     material = gfx.MeshNormalLinesMaterial(color=color)
     wobject = gfx.Mesh(geometry, material)
-    wobject.position.set(*pos)
+    wobject.local.position = pos
     wobject.cast_shadow = True
     scene.add(wobject)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.set(50, 50, 50)
+camera.local.position = (50, 50, 50)
 camera.show_pos((0, 0, 0))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 scene.add(gfx.AmbientLight())
-light = gfx.PointLight(position=(0, 70, 0))
+light = gfx.PointLight()
+light.local.position = (0, 70, 0)
 light.add(gfx.PointLightHelper())
 light.cast_shadow = True
 # since we are shadow mapping open meshes
@@ -72,7 +73,7 @@ ground = gfx.Mesh(
     gfx.box_geometry(1000, 1, 1000),
     gfx.MeshPhongMaterial(),
 )
-ground.position.y = -40
+ground.local.y = -40
 ground.receive_shadow = True
 scene.add(ground)
 

@@ -1,4 +1,5 @@
 import numpy as np
+import pylinalg as la
 
 from .. import (
     cone_geometry,
@@ -8,7 +9,6 @@ from .. import (
     Mesh,
     MeshBasicMaterial,
 )
-from ..linalg import Vector3
 from ..utils import Color
 
 
@@ -74,15 +74,12 @@ class AxesHelper(Line):
         for pos, color in zip(line_positions[1::2], colors[1::2]):
             material = MeshBasicMaterial(color=color)
             arrow_head = Mesh(cone, material)
-            arrow_head.position = Vector3(*pos)
+            arrow_head.local.position = pos
             # offset by half of height since the cones
             # are centered around the origin
-            arrow_head.position.add_scaled_vector(
-                Vector3(*pos).normalize(), arrow_size / 2
-            )
-            arrow_head.rotation.set_from_unit_vectors(
-                Vector3(0, 0, 1),
-                Vector3(*pos).normalize(),
+            arrow_head.local.position += arrow_size / 2 * la.vector_normalize(pos)
+            arrow_head.local.rotation = la.quaternion_make_from_unit_vectors(
+                (0, 0, 1), la.vector_normalize(pos)
             )
             self.add(arrow_head)
 

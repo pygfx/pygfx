@@ -67,7 +67,7 @@ mesh.material.env_map = tex
 scene.add(mesh)
 
 camera = gfx.PerspectiveCamera(90)
-camera.position.set(2, 3, 4)
+camera.local.position = (2, 3, 4)
 camera.show_pos(mesh)
 
 controller = gfx.OrbitController(camera, register_events=renderer)

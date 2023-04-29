@@ -39,7 +39,7 @@ spheres = [
 for pos, color, geometry in spheres:
     material = gfx.MeshPhongMaterial(color=color, flat_shading=True)
     wobject = gfx.Mesh(geometry, material)
-    wobject.position.set(*pos)
+    wobject.local.position = pos
     scene.add(wobject)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)

@@ -78,7 +78,7 @@ nothing that can look at those objects. Let's change this by adding some
     scene.add(gfx.DirectionalLight())
 
     camera = gfx.PerspectiveCamera(70, 16 / 9)
-    camera.position.z = 400
+    camera.local.z = 400
 
 Now there is light and a camera to perceive the light. To complete the setup
 we also need to add an object to look at::
@@ -179,17 +179,17 @@ simply pass a callback to this function (here ``animate``) and use it to modify
 the scene as desired::
 
     import pygfx as gfx
+    import pylinalg as la
 
     cube = gfx.Mesh(
         gfx.box_geometry(200, 200, 200),
         gfx.MeshPhongMaterial(color="#336699"),
     )
 
+    rot = la.quaternion_make_from_euler_angles((0, 0.01), order="XY")
+
     def animate():
-        rot = gfx.linalg.Quaternion().set_from_euler(
-                gfx.linalg.Euler(0, 0.01)
-            )
-        cube.rotation.multiply(rot)
+        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
 
     if __name__ == "__main__":
         gfx.show(cube, before_render=animate)
@@ -282,7 +282,7 @@ In this case you should probably set the width in addition to fov and aspect.
 
     # Manual orientation
     camera = gfx.PerspectiveCamera(50, 4/3, width=100)
-    camera.position.set(30, 40, 50)
+    camera.local.position = (30, 40, 50)
     camera.look_at((0, 0, 0))
 
 However, we strongly recommend using one of the ``show`` methods, since these
@@ -297,7 +297,7 @@ automatically set.
     camera = gfx.OrthographicCamera()
 
     # Convenient orientation: similar to look_at
-    camera.position.set(30, 40, 50)
+    camera.local.position = (30, 40, 50)
     camera.show_pos((0, 0, 0))
 
     # Convenient orientation: show an object
@@ -342,9 +342,119 @@ events by connecting it to the renderer or a viewport.
     controller.add_default_event_handlers(renderer)
 
 
-There are currently two controllers: the :class:`~pygfx.controllers.PanZoomController`
-is for 2D content or in-plane visualization, and the :class:`~pygfx.controllers.OrbitController` is for 3D content.
-All controllers work with both perspective and orthographic cameras.
+There are currently two controllers: the
+:class:`~pygfx.controllers.PanZoomController` is for 2D content or in-plane
+visualization, and the :class:`~pygfx.controllers.OrbitController` is for 3D
+content. All controllers work with both perspective and orthographic cameras.
+
+Updating transforms
+-------------------
+
+WorldObjects declare two reference frames that we can use to manouver them
+around: `local` and `world`. `local` allows us to position an object relative to
+its parent and `world` allows us to position objects relative to the world's
+inertial frame.
+
+.. note::
+    Both `local` and `world` declare the same properties, meaning that we
+    can express any of the below properties in either frame.
+
+
+.. code-block:: python
+
+    cube = gfx.Mesh(
+        gfx.box_geometry(10, 10, 10),
+        gfx.MeshPhongMaterial(color="#808080"),
+    )
+
+    cube.world.position = (1, 2, 3)
+    cube.world.rotation = la.quaternion_make_from_euler_angles(
+        (np.pi/2, np.pi/2), order="YX"
+    )
+    cube.world.scale = (2, 4, 6)
+    cube.world.scale = 3  # uniform scale
+
+    # setting components only
+    cube.local.x = 1
+    cube.local.y = 10
+    cube.local.z = 100
+
+    cube.local.scale_x = 2
+    cube.local.scale_y = 4
+    cube.local.scale_z = 6
+
+.. warning::
+
+    While in-place updating of full properties is supported, in-place updating
+    of slices will have no effect. This is due to limitations of the python
+    programming language and our desire to have the properties return pure numpy
+    arrays. In code, this means
+    
+    .. code-block:: python
+        
+        cube.local.position += (0, 0, 3)  # ok
+        cube.local.z += 3  # ok
+        cube.local.position[2] += 3  # FAIL: this will have no effect.
+        cube.local.position[2] = 3  # FAIL: this will have no effect.
+
+
+Beyond setting components, we can also set the full ``matrix`` directly::
+
+    cube.world.matrix = la.matrix_make_translation((1, 2, 3))
+
+and we can - of course - read each property. To make a full example, we can
+create a small simulation of a falling and rotating cube.
+
+.. code-block:: python
+
+    import numpy as np
+    import pygfx as gfx
+    import pylinalg as la
+
+    companion_cube = gfx.Mesh(
+        gfx.box_geometry(1, 1, 1),
+        gfx.MeshPhongMaterial(color="#808080"),
+    )
+    companion_cube.world.position = (0, 100, 0)
+
+    # add an IMU sensor to the corner of the cube (IMUs measure acceleration)
+    imu_sensor = gfx.WorldObject()
+    companion_cube.add(imu_sensor)
+    imu_sensor.local.position = (0.5, 0.5, 0.5)
+    imu_mass = 0.005  # kg
+
+    # obligatory small rotation
+    rot = la.quaternion_make_from_euler_angles((0.01, 0.05), order="XY")
+    axis, angle = la.axis_angle_from_quaternion(rot)
+
+    # simulate falling cube
+    gravity = -9.81 * companion_cube.world.reference_up
+    velocity = np.zeros(3)
+    update_frequency = 1 / 50  #  Hz
+    for _ in range(200):
+        # the cube is falling
+        velocity = velocity + update_frequency * gravity
+        companion_cube.world.position += update_frequency * velocity
+
+        # and spinning around.
+        companion_cube.local.rotation = la.quaternion_multiply(
+            rot, companion_cube.local.rotation
+        )
+
+        # The sensor has some velocity relative to the companion cube as it rotates
+        # around the latter
+        angular_moment = angle / update_frequency
+        velocity_rotation = np.cross(angular_moment * axis, imu_sensor.local.position)
+
+        # and is thus experiencing both gravity and centripetal forces
+        local_gravity = -9.81 * imu_sensor.local.reference_up
+        local_centripetal = np.cross(angular_moment * axis, velocity_rotation)
+
+        # The IMU thus measures the composite of the above accelerations
+        observed_acceleration = local_gravity + local_centripetal
+
+        total_g = np.linalg.norm(observed_acceleration) / 9.81
+        print(f"Feels like: {total_g:.3} g")
 
 
 Colors

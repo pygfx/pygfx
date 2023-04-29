@@ -13,6 +13,7 @@ import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
@@ -25,11 +26,11 @@ tex = gfx.Texture(im, dim=2)
 geometry = gfx.box_geometry(200, 200, 200)
 material = gfx.MeshBasicMaterial(map=tex)
 cube = gfx.Mesh(geometry, material)
-cube.position.x += 150
+cube.local.x += 150
 scene.add(cube)
 
 torus = gfx.Mesh(gfx.torus_knot_geometry(100, 20, 128, 32), gfx.MeshPhongMaterial())
-torus.position.x -= 150
+torus.local.x -= 150
 scene.add(torus)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
@@ -61,9 +62,9 @@ cube.add_event_handler(distort_geometry, "pointer_down")
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube.rotation.multiply(rot)
-    torus.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
+    cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+    torus.local.rotation = la.quaternion_multiply(rot, torus.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

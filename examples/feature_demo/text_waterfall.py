@@ -28,7 +28,7 @@ atlas_viewer = gfx.Mesh(
     gfx.MeshBasicMaterial(color="red"),
 )
 scene.add(atlas_viewer)
-atlas_viewer.position.x = -50
+atlas_viewer.local.x = -50
 
 camera = gfx.OrthographicCamera(200, 100)
 
@@ -57,7 +57,7 @@ for i in range(100):
     )
     scene.add(obj)
     waiting_objects.add(obj)
-    obj.position.y = -999
+    obj.local.y = -999
 
 
 # The animate function makes the text objects fall down, and update the objects
@@ -70,8 +70,8 @@ def animate():
 
     # Let them fall
     for obj in list(live_objects):
-        obj.position.y -= obj.fall_speed
-        if obj.position.y < -60:
+        obj.local.y -= obj.fall_speed
+        if obj.local.y < -60:
             live_objects.discard(obj)
             waiting_objects.add(obj)
             if garbage_collect:
@@ -87,8 +87,8 @@ def animate():
     if waiting_objects:
         obj = waiting_objects.pop()
         live_objects.add(obj)
-        obj.position.y = 50
-        obj.position.x = np.random.uniform(0, 100)
+        obj.local.y = 50
+        obj.local.x = np.random.uniform(0, 100)
         obj.geometry.set_text(next(chargen))
         obj.fall_speed = np.random.uniform(1, 4)
 

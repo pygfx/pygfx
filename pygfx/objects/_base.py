@@ -2,15 +2,22 @@ import random
 import weakref
 import threading
 import enum
+from typing import List
+import pylinalg as la
+import warnings
 
 import numpy as np
 
-from ..linalg import Vector3, Matrix4, Quaternion
-from ..linalg.utils import transform_aabb, aabb_to_sphere
 from ..resources import Buffer
 from ..utils import array_from_shadertype
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
+from ..utils.transform import (
+    AffineBase,
+    AffineTransform,
+    RecursiveTransform,
+    callback,
+)
 
 
 class IdProvider:
@@ -97,13 +104,20 @@ class WorldObject(EventTarget, RootTrackable):
     render_mask : str
         Determines the render passes that the object is rendered in. It's
         recommended to let the renderer decide, using "auto".
-    position : Vector
-        The position of the object in the world. Default (0, 0, 0).
 
     Notes
     -----
     Use :class:`Group` to collect multiple world objects into a single empty
     world object.
+
+    See Also
+    --------
+    pygfx.utils.transform.AffineBase
+        Various getters and setters defined on ``obj.local`` and ``obj.world``.
+    pygfx.utils.transform.AffineTransform
+        The class used to implement ``obj.local``.
+    pygfx.utils.transform.RecursiveTransform
+        The class used to implement ``obj.world``.
 
     """
 
@@ -121,10 +135,6 @@ class WorldObject(EventTarget, RootTrackable):
         id="i4",
     )
 
-    _v = Vector3()
-    _m = Matrix4()
-    _q = Quaternion()
-
     def __init__(
         self,
         geometry=None,
@@ -133,51 +143,78 @@ class WorldObject(EventTarget, RootTrackable):
         visible=True,
         render_order=0,
         render_mask="auto",
-        position=None,
     ):
         super().__init__()
+        self._parent: weakref.ReferenceType[WorldObject] = None
+
+        #: Subtrees of the scene graph that depend on this object.
+        self.children: List[WorldObject] = []
 
         self.geometry = geometry
         self.material = material
+
+        # Compose complete uniform type
+        buffer = Buffer(array_from_shadertype(self.uniform_type))
+        buffer.data["world_transform"] = np.eye(4)
+        buffer.data["world_transform_inv"] = np.eye(4)
+
+        #: The object's transform expressed in parent space.
+        self.local = AffineTransform(is_camera_space=self._FORWARD_IS_MINUS_Z)
+        #: The object's transform expressed in world space.
+        self.world = RecursiveTransform(
+            self.local, is_camera_space=self._FORWARD_IS_MINUS_Z, reference_up=(0, 1, 0)
+        )
+        self.world.on_update(self._update_uniform_buffers)
+
+        # Set id
+        self._id = id_provider.claim_id(self)
+        buffer.data["id"] = self._id
+
+        #: The GPU data of this WorldObject.
+        self.uniform_buffer = buffer
 
         # Init visibility and render props
         self.visible = visible
         self.render_order = render_order
         self.render_mask = render_mask
-
-        # Init parent and children
-        self._parent_ref = None
-        self._children = []
-
-        position = (0, 0, 0) if position is None else position
-        self.position = (
-            Vector3(*position) if isinstance(position, (tuple, list)) else position
-        )
-        self.rotation = Quaternion()
-        self.scale = Vector3(1, 1, 1)
-        self._transform_hash = ()
-
-        self.up = Vector3(0, 1, 0)
-
-        self._matrix = Matrix4()
-        self._matrix_auto_update = True
-        self._matrix_world = Matrix4()
-        self._matrix_world_dirty = True
-
-        self.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
-
-        # Set id
-        self._id = id_provider.claim_id(self)
-        self.uniform_buffer.data["id"] = self._id
-
         self.cast_shadow = False
         self.receive_shadow = False
+
+    @callback
+    def _update_uniform_buffers(self, transform: AffineBase):
+        self.uniform_buffer.data["world_transform"] = transform.matrix.T
+        self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
+        self.uniform_buffer.update_range()
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
 
     def __del__(self):
         id_provider.release_id(self, self.id)
+
+    @property
+    def up(self):
+        """
+        Relic of old WorldObjects that aliases with the new ``transform.up``
+        direction. Prefer (minus) `obj.world.reference_up.` instead
+
+        """
+
+        warnings.warn(
+            "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
+            DeprecationWarning,
+        )
+
+        return self.world.reference_up
+
+    @up.setter
+    def up(self, value):
+        warnings.warn(
+            "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
+            DeprecationWarning,
+        )
+
+        self.world.reference_up = np.asarray(value)
 
     @property
     def id(self):
@@ -273,20 +310,6 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.material = material
 
     @property
-    def up(self):
-        """The vector that is considered up (i.e. minus gravity) in the world space."""
-        return self._up
-
-    @up.setter
-    def up(self, value):
-        if isinstance(value, Vector3):
-            self._up = value.clone()
-        elif isinstance(value, (tuple, list, np.ndarray)) and len(value) == 3:
-            self._up = Vector3(*value)
-        else:
-            raise TypeError(f"Invalid up vector: {value}")
-
-    @property
     def cast_shadow(self):
         """Whether this object casts shadows, i.e. whether it is rendered into
         a shadow map. Default False."""
@@ -306,63 +329,95 @@ class WorldObject(EventTarget, RootTrackable):
         self._store.receive_shadow = bool(value)
 
     @property
-    def parent(self):
+    def parent(self) -> "WorldObject":
         """Object's parent in the scene graph (read-only).
         An object can have at most one parent.
         """
-        return self._parent_ref and self._parent_ref()
+        if self._parent is None:
+            return None
+        else:
+            return self._parent()
 
-    @property
-    def children(self):
-        """The child objects of this wold object (read-only tuple).
-        Use ``.add()`` and ``.remove()`` to change this list.
-        """
-        return tuple(self._children)
+    def add(self, *objects, before=None, keep_world_matrix=False) -> "WorldObject":
+        """Add child objects.
 
-    def add(self, *objects, before=None):
-        """Adds object as child of this object. Any number of
-        objects may be added. Any current parent on an object passed
-        in here will be removed, since an object can have at most one
-        parent.
-        If ``before`` argument is given (and present in children), then
-        the items are inserted before the given element.
+        Any number of objects may be added. Any current parent on an object
+        passed in here will be removed, since an object can have at most one
+        parent. If ``before`` argument is given, then the items are inserted
+        before the given element.
+
+        Parameters
+        ----------
+        *objects : WorldObject
+            The world objects to add as children.
+        before : WorldObject
+            If not None, insert the objects before this child object.
+        keep_world_matrix : bool
+            If True, the child will keep it's world transform. It moves in the
+            scene graph but will visually remain in the same place. If False,
+            the child will keep it's parent transform.
+
         """
-        idx = len(self._children)
-        if before:
-            try:
-                idx = self._children.index(before)
-            except ValueError:
-                pass
+
+        obj: WorldObject
         for obj in objects:
-            assert isinstance(obj, WorldObject)
-            # orphan if needed
-            if obj._parent_ref is not None:
-                obj._parent_ref().remove(obj)
-            # attach to scene graph
-            obj._parent_ref = weakref.ref(self)
-            self._children.insert(idx, obj)
-            idx += 1
-            # flag world matrix as dirty
-            obj._matrix_world_dirty = True
+            if obj.parent is not None:
+                obj.parent.remove(obj, keep_world_matrix=keep_world_matrix)
+
+            if before is not None:
+                idx = self.children.index(before)
+            else:
+                idx = len(self.children)
+
+            if keep_world_matrix:
+                transform_matrix = obj.world.matrix
+
+            obj._parent = weakref.ref(self)
+            obj.world.parent = self.world
+            self.children.insert(idx, obj)
+
+            if keep_world_matrix:
+                obj.world.matrix = transform_matrix
+
         return self
 
-    def remove(self, *objects):
-        """Removes object as child of this object. Any number of objects may be removed.
-        If a given object is not a child, it is ignored.
-        """
+    def remove(self, *objects, keep_world_matrix=False):
+        """Removes object as child of this object. Any number of objects may be removed."""
+
+        obj: WorldObject
         for obj in objects:
             try:
-                self._children.remove(obj)
-                obj._parent_ref = None
+                self.children.remove(obj)
             except ValueError:
-                pass
-        return self
+                warnings.warn(
+                    "Attempting to remove object that was not a child.", UserWarning
+                )
+                continue
+            else:
+                obj._reset_parent(keep_world_matrix=keep_world_matrix)
 
-    def clear(self):
+    def clear(self, *, keep_world_matrix=False):
         """Removes all children."""
-        for child in self._children:
-            child._parent_ref = None
-        self._children.clear()
+
+        for child in self.children:
+            child._reset_parent(keep_world_matrix=keep_world_matrix)
+
+        self.children.clear()
+
+    def _reset_parent(self, *, keep_world_matrix=False):
+        """Sets the parent to None.
+
+        xref: https://github.com/pygfx/pygfx/pull/482#discussion_r1135670771
+        """
+
+        if keep_world_matrix:
+            transform_matrix = self.world.matrix
+
+        self._parent = None
+        self.world.parent = None
+
+        if keep_world_matrix:
+            self.world.matrix = transform_matrix
 
     def traverse(self, callback, skip_invisible=False):
         """Executes the callback on this object and all descendants.
@@ -389,153 +444,84 @@ class WorldObject(EventTarget, RootTrackable):
         elif filter_fn(self):
             yield self
 
-        for child in self._children:
+        for child in self.children:
             yield from child.iter(filter_fn, skip_invisible)
 
-    def update_matrix(self):
-        p, r, s = self.position, self.rotation, self.scale
-        hash = p.x, p.y, p.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z
-        if hash != self._transform_hash:
-            self._transform_hash = hash
-            self._matrix.compose(self.position, self.rotation, self.scale)
-            self._matrix_world_dirty = True
+    def get_bounding_box(self):
+        """Axis-aligned bounding box in parent space.
 
-    @property
-    def matrix(self):
-        """The (settable) transformation matrix."""
-        return self._matrix
+        Returns
+        -------
+        aabb : ndarray, [2, 3]
+            An axis-aligned bounding box.
 
-    @matrix.setter
-    def matrix(self, matrix):
-        self._matrix.copy(matrix)
-        self._matrix.decompose(self.position, self.rotation, self.scale)
-        self._matrix_world_dirty = True
-
-    @property
-    def matrix_world(self):
-        """The world matrix (local matrix composed with any parent matrices)."""
-        return self._matrix_world
-
-    @property
-    def matrix_auto_update(self):
-        """Whether or not the matrix auto-updates."""
-        return self._matrix_auto_update
-
-    @matrix_auto_update.setter
-    def matrix_auto_update(self, value):
-        self._matrix_auto_update = bool(value)
-
-    @property
-    def matrix_world_dirty(self):
-        """Whether or not the matrix needs updating (readonly)."""
-        return self._matrix_world_dirty
-
-    def apply_matrix(self, matrix):
-        if self._matrix_auto_update:
-            self.update_matrix()
-        self._matrix.premultiply(matrix)
-        self._matrix.decompose(self.position, self.rotation, self.scale)
-        self._matrix_world_dirty = True
-
-    def update_matrix_world(
-        self, force=False, update_children=True, update_parents=False
-    ):
-        if update_parents and self.parent:
-            self.parent.update_matrix_world(
-                force=force, update_children=False, update_parents=True
-            )
-        if self._matrix_auto_update:
-            self.update_matrix()
-        if self._matrix_world_dirty or force:
-            if self.parent is None:
-                self._matrix_world.copy(self._matrix)
-            else:
-                self._matrix_world.multiply_matrices(
-                    self.parent._matrix_world, self._matrix
-                )
-            self.uniform_buffer.data[
-                "world_transform"
-            ].flat = self._matrix_world.elements
-            tmp_inv_matrix = Matrix4().get_inverse(self._matrix_world)
-            self.uniform_buffer.data[
-                "world_transform_inv"
-            ].flat = tmp_inv_matrix.elements
-            self.uniform_buffer.update_range(0, 1)
-            self._matrix_world_dirty = False
-            for child in self._children:
-                child._matrix_world_dirty = True
-        if update_children:
-            for child in self._children:
-                child.update_matrix_world()
-
-    def look_at(self, target: Vector3, *, up=None):
-        """Orient the object so it looks at the given position.
-
-        By default all objects (except cameras ans lights) look at (0, 0, 1).
-        This takes the object's up vector into account. If up is given
-        as an argument, it also updates the object's up vector.
         """
-        if isinstance(target, (tuple, list, np.ndarray)) and len(target) == 3:
-            target = Vector3(*target)
-        if up is not None:
-            self.up = up
-        # Lower level look_at
-        self.update_matrix_world(update_parents=True, update_children=False)
-        self._v.set_from_matrix_position(self._matrix_world)
-        if self._FORWARD_IS_MINUS_Z:
-            self._m.look_at(self._v, target, self.up)
-        else:
-            self._m.look_at(target, self._v, self.up)
-        self.rotation.set_from_rotation_matrix(self._m)
-        if self.parent:
-            self._m.extract_rotation(self.parent._matrix_world)
-            self._q.set_from_rotation_matrix(self._m)
-            self.rotation.premultiply(self._q.inverse())
+        include_self = self.geometry is not None
+        n_partials = len(self.children) + int(include_self)
 
-    def get_world_position(self):
-        self.update_matrix_world(update_parents=True, update_children=False)
-        self._v.set_from_matrix_position(self._matrix_world)
-        return self._v.clone()
+        if n_partials == 0:
+            # empty object with no mesh
+            return np.zeros((2, 3), dtype=float)
+
+        partial_aabb = np.zeros((n_partials, 2, 3), dtype=float)
+        for idx, child in enumerate(self.children):
+            aabb = child.get_bounding_box()
+            trafo = child.local.matrix
+            partial_aabb[idx] = la.aabb_transform(aabb, trafo)
+        if include_self:
+            partial_aabb[-1] = self.geometry.bounding_box()
+
+        final_aabb = np.zeros((2, 3), dtype=float)
+        final_aabb[0] = np.min(partial_aabb[:, 0, :], axis=0)
+        final_aabb[1] = np.max(partial_aabb[:, 1, :], axis=0)
+        return final_aabb
+
+    def get_bounding_sphere(self):
+        """Bounding Sphere in parent space.
+
+        Returns
+        -------
+        bounding_shere : ndarray, [4]
+            A sphere (x, y, z, radius).
+
+        """
+        return la.aabb_to_sphere(self.get_bounding_box())
 
     def get_world_bounding_box(self):
-        """Updates all parent and children world matrices, and returns
-        a single world-space axis-aligned bounding box for this object's
-        geometry and all of its children (recursively)."""
-        self.update_matrix_world(update_parents=True, update_children=True)
-        return self._get_world_bounding_box()
+        """Axis aligned bounding box in world space.
 
-    def _get_world_bounding_box(self):
-        """Returns a world-space axis-aligned bounding box for this object's
-        geometry and all of its children (recursively)."""
-        boxes = []
-        if self._store.geometry:
-            aabb = self._store.geometry.bounding_box()
-            aabb_world = transform_aabb(aabb, self._matrix_world.to_ndarray())
-            boxes.append(aabb_world)
-        if self._children:
-            boxes.extend(
-                [
-                    b
-                    for b in (c.get_world_bounding_box() for c in self._children)
-                    if b is not None
-                ]
-            )
-        if len(boxes) == 1:
-            return boxes[0]
-        if boxes:
-            boxes = np.array(boxes)
-            return np.array([boxes[:, 0].min(axis=0), boxes[:, 1].max(axis=0)])
+        Returns
+        -------
+        aabb : ndarray, [2, 3]
+            The transformed axis-aligned bounding box.
+
+        """
+        return la.aabb_transform(self.get_bounding_box(), self.world.matrix)
 
     def get_world_bounding_sphere(self):
-        """Returns a world-space bounding sphere by converting an
-        axis-aligned bounding box to a sphere.
+        """Bounding Sphere in world space.
 
-        See WorldObject.get_world_bounding_box.
+        Returns
+        -------
+        bounding_shere : ndarray, [4]
+            A sphere (x, y, z, radius).
+
         """
-        aabb = self.get_world_bounding_box()
-        if aabb is not None:
-            return aabb_to_sphere(aabb)
+        return la.aabb_to_sphere(self.get_world_bounding_box())
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.
         return self.material._wgpu_get_pick_info(pick_value)
+
+    def look_at(self, target) -> None:
+        """Orient the object so it looks at the given position.
+
+        This sets the object's rotation such that its ``forward`` direction
+        points towards ``target`` (given in world space). This rotation takes
+        reference_up into account, i.e., the rotation is chosen in such a way that a
+        camera looking ``forward`` follows the rotation of a human head looking
+        around without tilting the head sideways.
+
+        """
+
+        self.world.forward = target - self.world.position

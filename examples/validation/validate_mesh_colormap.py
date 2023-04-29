@@ -13,6 +13,7 @@ Show meshes with 1D, 2D, and 3D colormaps, and per-vertex colors too.
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas(size=(900, 400))
@@ -61,7 +62,7 @@ ob1 = WobjectClass(
     MaterialClass(map=gfx.Texture(cmap1, dim=1)),
 )
 scene.add(ob1)
-ob1.position.x = -6
+ob1.local.x = -6
 
 
 # 2D
@@ -74,7 +75,7 @@ ob2 = WobjectClass(
     MaterialClass(map=gfx.Texture(cmap2, dim=2)),
 )
 scene.add(ob2)
-ob2.position.x = -2
+ob2.local.x = -2
 
 
 # 3D
@@ -89,7 +90,7 @@ ob3 = WobjectClass(
     MaterialClass(map=gfx.Texture(cmap3, dim=3)),
 )
 scene.add(ob3)
-ob3.position.x = +2
+ob3.local.x = +2
 
 
 # Per vertex coloring
@@ -102,18 +103,21 @@ ob4 = WobjectClass(
     MaterialClass(vertex_colors=True),
 )
 scene.add(ob4)
-ob4.position.x = +6
+ob4.local.x = +6
 
 
 scene.add(gfx.AmbientLight(1, 0.2))
-scene.add(gfx.DirectionalLight(1, 2, position=(0, 0, 1)))
+
+light = gfx.DirectionalLight(1, 2)
+light.local.position = (0, 0, 1)
+scene.add(light)
 
 
 # Rotate the object a bit
 
-rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 0.1))
+rot = la.quaternion_make_from_euler_angles((0.71, 0.1), order="XY")
 for obj in scene.children:
-    obj.rotation.multiply(rot)
+    obj.local.rotation = la.quaternion_multiply(rot, obj.local.rotation)
 
 
 canvas.request_draw(lambda: renderer.render(scene, camera))

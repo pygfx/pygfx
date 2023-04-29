@@ -27,8 +27,8 @@ image = gfx.Image(
 scene.add(image)
 
 camera = gfx.OrthographicCamera(512, 512)
-camera.position.set(256, 256, 0)
-camera.scale.y = -1
+camera.local.position = (256, 256, 0)
+camera.local.scale_y = -1
 
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
@@ -39,7 +39,7 @@ points = gfx.Points(
     gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)], colors=colors),
     gfx.PointsMaterial(vertex_colors=True, size=10),
 )
-points.position.z = 1  # move points in front of the image
+points.local.z = 1  # move points in front of the image
 scene.add(points)
 
 

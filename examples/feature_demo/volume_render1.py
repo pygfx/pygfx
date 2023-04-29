@@ -31,7 +31,7 @@ slice = gfx.Volume(
 scene.add(vol, slice)
 
 for ob in (slice, vol):
-    ob.position.set(*(-0.5 * i for i in voldata.shape[::-1]))
+    ob.local.position = [-0.5 * i for i in voldata.shape[::-1]]
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))

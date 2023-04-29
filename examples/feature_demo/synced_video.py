@@ -15,9 +15,9 @@ canvas = WgpuCanvas(size=(512 * 3 + 100, 400), max_fps=999)
 renderer = gfx.renderers.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 camera = gfx.OrthographicCamera(1800, 550)
-camera.position.y = 256
-camera.scale.y = -1
-camera.position.x = 1736 / 2
+camera.local.y = 256
+camera.local.scale_y = -1
+camera.local.x = 1736 / 2
 
 colormap1 = gfx.cm.plasma
 
@@ -38,7 +38,7 @@ img_pos = 0
 
 for i in range(3):
     images.append(create_random_image())
-    images[-1].position.x = img_pos
+    images[-1].local.x = img_pos
     img_pos += 50 + 512
     scene.add(images[-1])
 

@@ -1,9 +1,11 @@
 from math import pi
 from unittest.mock import Mock, call
 from weakref import ref
+import pylinalg as la
+import numpy as np
 
 from pygfx import WorldObject
-from pygfx.linalg import Euler, Vector3, Quaternion
+import pygfx as gfx
 
 
 def test_traverse():
@@ -57,58 +59,40 @@ def test_remove():
 
 def test_update_matrix():
     root = WorldObject()
-    root.position.set(3, 6, 8)
-    root.scale.set(1, 1.2, 1)
-    root.rotation.set_from_euler(Euler(pi / 2, 0, 0))
-    root.update_matrix()
+    root.local.position = (3, 6, 8)
+    root.local.scale = (1, 1.2, 1)
+    root.local.rotation = la.quaternion_make_from_euler_angles((pi / 2, 0, 0))
 
-    t, r, s = Vector3(), Quaternion(), Vector3()
-    root.matrix.decompose(t, r, s)
-    assert t == root.position
-    # todo: do somehting like np.allclose
-    # assert r == root.rotation  # close, but not quite the same
-    # assert s == root.scale
-    assert root.matrix_world_dirty
+    pos, rot, scale = la.matrix_decompose(root.local.matrix)
+    assert np.allclose(pos, root.local.position)
+    assert np.allclose(rot, root.local.rotation)
+    assert np.allclose(scale, root.local.scale)
 
 
 def test_update_matrix_world():
     root = WorldObject()
-    root.position.set(-5, 8, 0)
-    root.rotation.set_from_euler(Euler(pi / 4, 0, 0))
-    root.update_matrix()
+    root.local.position = (-5, 8, 0)
+    root.local.rotation = la.quaternion_make_from_euler_angles((pi / 4, 0, 0))
 
     child1 = WorldObject()
-    child1.position.set(0, 0, 5)
+    child1.local.position = (0, 0, 5)
     root.add(child1)
 
     child2 = WorldObject()
-    child2.rotation.set_from_euler(Euler(0, -pi / 4, 0))
+    child2.local.rotation = la.quaternion_make_from_euler_angles((0, -pi / 4, 0))
     child1.add(child2)
 
-    objs = [root, child1, child2]
-    assert all(obj.matrix_world_dirty for obj in objs)
+    expected = (
+        root.local
+        @ child1.local
+        @ child2.local
+        @ la.vector_make_homogeneous((10, 10, 10))
+    )
 
-    # test both updating parents and children
-    child1.update_matrix_world(update_parents=True)
-    assert all(not obj.matrix_world_dirty for obj in objs)
-
-    p = Vector3(10, 10, 10)
-    p.apply_matrix4(child2.matrix)
-    p.apply_matrix4(child1.matrix)
-    p.apply_matrix4(root.matrix)
-
-    x = Vector3(10, 10, 10)
-    x.apply_matrix4(child2.matrix_world)
+    actual = child2.world @ la.vector_make_homogeneous((10, 10, 10))
 
     # if there is a difference it's a floating point error
-    assert Vector3().sub_vectors(p, x).length() < 0.00000000001
-
-    # reorganize such that child1 and 2 become siblings
-    child1.remove(child2)
-    root.add(child2)
-    assert not child1.matrix_world_dirty
-    # child2 should be flagged as dirty again now
-    assert child2.matrix_world_dirty
+    assert np.allclose(actual, expected)
 
 
 def test_reparenting():
@@ -158,28 +142,25 @@ def test_adjust_children_order():
 
     root.add(child1, child2)
 
-    assert root.children == (child1, child2)
+    expected_children = (child1, child2)
+    assert len(root.children) == len(expected_children)
+    for actual, expected in zip(root.children, expected_children):
+        assert actual is expected
 
     root.add(child2, before=child1)
 
-    assert root.children == (child2, child1)
+    expected_children = (child2, child1)
+    assert len(root.children) == len(expected_children)
+    for actual, expected in zip(root.children, expected_children):
+        assert actual is expected
 
     child3 = WorldObject()
     root.add(child3, child1, before=child2)
 
-    assert root.children == (child3, child1, child2)
-
-    # Assert that nothing happens when adding the same element
-    # before itself
-    root.add(child1, before=child1)
-    assert root.children == (child3, child1, child2)
-
-    non_child = WorldObject()
-
-    # Append item at end when the `before` parameter
-    # is not in children
-    root.add(child1, before=non_child)
-    assert root.children == (child3, child2, child1)
+    expected_children = (child3, child1, child2)
+    assert len(root.children) == len(expected_children)
+    for actual, expected in zip(root.children, expected_children):
+        assert actual is expected
 
 
 def test_iter():
@@ -197,3 +178,152 @@ def test_iter():
     root = WorldObject()
     root.add(Foo(), WorldObject(), Foo())
     assert len(list(root.iter(lambda x: isinstance(x, Foo)))) == 2
+
+
+def test_setting_world_transform():
+    root = gfx.WorldObject()
+    child = gfx.WorldObject()
+    child2 = gfx.WorldObject()
+
+    root.add(child)
+    child.add(child2)
+
+    root.local.position = (1, 2, 3)
+    child.local.position = (4, 4, 4)
+    child2.local.position = (10, 0, 0)
+
+    assert np.allclose(child.local.position, (4, 4, 4))
+    assert np.allclose(child.world.position, (5, 6, 7))
+
+    assert np.allclose(child2.local.position, (10, 0, 0))
+    assert np.allclose(child2.world.position, (15, 6, 7))
+
+    child.world.position = (1, 2, 3)
+
+    assert np.allclose(child.local.position, (0, 0, 0))
+    assert np.allclose(child.world.position, (1, 2, 3))
+
+    assert np.allclose(child2.local.position, (10, 0, 0))
+    assert np.allclose(child2.world.position, (11, 2, 3))
+
+
+def test_complex_multi_insert():
+    children = []
+    for _ in range(5):
+        children.append(gfx.WorldObject())
+
+    root = gfx.WorldObject()
+    for _ in range(3):
+        root.add(gfx.WorldObject())
+
+    first = root.children[0]
+    reference = root.children[1]
+    root.add(*children, before=reference)
+
+    # ensure children were inserted in order before `before`
+    for from_root, child in zip(root.children[1:6], children):
+        assert from_root is child
+    assert root.children[6] is reference
+
+    root.add(first, before=reference)
+    assert root.children[0] is not first
+    assert root.children[5] is first
+    assert root.children[6] is reference
+
+
+def test_axis_getters():
+    # "normal" euclidean space
+    obj = gfx.WorldObject()
+    assert np.allclose(obj.world.forward, (0, 0, 1))
+    assert np.allclose(obj.world.up, (0, 1, 0))
+    assert np.allclose(obj.world.right, (-1, 0, 0))
+
+    # camera space
+    camera = gfx.PerspectiveCamera()
+    assert np.allclose(camera.world.forward, (0, 0, -1))
+    assert np.allclose(camera.world.up, (0, 1, 0))
+    assert np.allclose(camera.world.right, (1, 0, 0))
+
+    # position offsets shouldn't matter
+    obj.world.position = (0, 0, -10)
+    assert np.allclose(obj.world.forward, (0, 0, 1))
+    assert np.allclose(obj.world.up, (0, 1, 0))
+    assert np.allclose(obj.world.right, (-1, 0, 0))
+
+    # rotations should influence local orientations
+    obj.world.rotation = la.quaternion_make_from_euler_angles(np.pi / 2, order="Y")
+    assert np.allclose(obj.local.up, (0, 1, 0))
+    assert np.allclose(obj.local.right, (0, 0, 1))
+    assert np.allclose(obj.local.forward, (1, 0, 0))
+
+    obj.world.rotation = la.quaternion_make_from_euler_angles(
+        (np.pi / 4, np.pi / 4), order="XZ"
+    )
+    assert np.allclose(obj.local.forward, (0, -np.cos(np.pi / 4), np.sin(np.pi / 4)))
+
+    print("")
+
+
+def test_axis_setters():
+    obj = gfx.WorldObject()
+
+    obj.world.forward = (1, 0, 0)
+    assert np.allclose(obj.world.forward, (1, 0, 0))
+    assert np.allclose(
+        obj.world.rotation, (0, np.sin((np.pi / 2) / 2), 0, np.cos((np.pi / 2) / 2))
+    )
+
+    obj.world.right = (-1, 0, 0)
+    assert np.allclose(obj.world.right, (-1, 0, 0))
+    assert np.allclose(obj.world.rotation, (0, 0, 0, 1))
+
+    obj.world.right = (1, 0, 0)
+    assert np.allclose(obj.world.right, (1, 0, 0))
+    assert np.allclose(obj.world.up, (0, 1, 0))
+    assert np.allclose(obj.world.forward, (0, 0, -1))
+
+    obj.world.up = (1, 1, 1)
+    assert np.allclose(obj.world.up, (1 / np.sqrt(3), 1 / np.sqrt(3), 1 / np.sqrt(3)))
+
+
+def test_reference_up():
+    group = gfx.WorldObject()
+    assert np.allclose(group.world.reference_up, (0, 1, 0))
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+
+    # reference_up is given in parent frame, so it is independent of the transform
+    group.world.forward = (1, 1, 1)
+    group.world.position = (1, 42, 13)
+    assert np.allclose(group.world.reference_up, (0, 1, 0))
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+
+    # local reference_up does change if there is a parent since the parent frame may have
+    # a transform relative to world
+    obj1 = gfx.WorldObject()
+    obj1.world.position = (0, 4, 9)
+    group.add(obj1, keep_world_matrix=True)
+    assert np.allclose(obj1.world.position, (0, 4, 9))
+    reference_up = la.vector_apply_matrix(
+        obj1.world.reference_up, group.world.inverse_matrix
+    )
+    world_origin = la.vector_apply_matrix((0, 0, 0), group.world.inverse_matrix)
+    reference_up = reference_up - world_origin
+    assert np.allclose(obj1.local.reference_up, reference_up)
+
+    # but the parent remains unaffected by its children
+    # as does the world reference
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+    assert np.allclose(group.world.reference_up, (0, 1, 0))
+    assert np.allclose(obj1.world.reference_up, (0, 1, 0))
+
+    # (world) up_reference is independent between objects
+    obj2 = gfx.WorldObject()
+    obj2.world.rotation = (0, 0, 1, 0)
+    group.add(obj1, keep_world_matrix=True)
+
+    obj1.world.reference_up = (1, 2, 3)
+    obj2.world.reference_up = (1, 0, 1)
+
+    assert np.allclose(group.local.reference_up, (0, 1, 0))
+    assert np.allclose(obj1.world.reference_up, (1, 2, 3))
+    assert np.allclose(obj2.world.reference_up, (1, 0, 1))

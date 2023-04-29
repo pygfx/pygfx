@@ -31,16 +31,16 @@ container.receive_shadow = True
 scene.add(container)
 
 camera = gfx.PerspectiveCamera(70, 2)
-camera.position.set(0, 4, 4)
-camera.look_at(gfx.linalg.Vector3(0, 0, 0))
+camera.local.position = (0, 4, 4)
+camera.look_at((0, 0, 0))
 
 scene.add(gfx.AmbientLight(0.15))
 
 light1 = gfx.PointLight("#fff", 0.7)
-light1.position.set(0, 0, 4)
+light1.local.position = (0, 0, 4)
 light1.cast_shadow = True
 light2 = gfx.PointLight("#fff", 0.7)
-light2.position.set(0, 4, 0)
+light2.local.position = (0, 4, 0)
 light2.cast_shadow = True
 scene.add(light1)
 scene.add(light2)

@@ -10,6 +10,7 @@ import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
@@ -26,10 +27,10 @@ vol2 = gfx.Volume(geometry, material)
 vol3 = gfx.Volume(geometry, material)
 scene.add(vol1, vol2, vol3)
 
-vol2.position.x = -150
-vol2.scale.z = 0.5
+vol2.local.x = -150
+vol2.local.scale_z = 0.5
 
-vol3.position.x = 150
+vol3.local.x = 150
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))
@@ -40,8 +41,8 @@ material.clipping_planes = [(0, 0, 1, 0)]
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    vol3.rotation.multiply(rot)
+    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
+    vol3.local.rotation = la.quaternion_multiply(rot, vol3.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

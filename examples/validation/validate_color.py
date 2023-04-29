@@ -23,13 +23,13 @@ scene = gfx.Scene()
 plane = gfx.plane_geometry()
 for i, color in enumerate(colors1):
     m = gfx.Mesh(plane, gfx.MeshBasicMaterial(color=color))
-    m.position.x = i
-    m.position.y = 0
+    m.local.x = i
+    m.local.y = 0
     scene.add(m)
 for i, color in enumerate(colors2):
     m = gfx.Mesh(plane, gfx.MeshBasicMaterial(color=color))
-    m.position.x = i
-    m.position.y = 1
+    m.local.x = i
+    m.local.y = 1
     scene.add(m)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))

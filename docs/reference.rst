@@ -16,7 +16,6 @@ you can read more about them here:
     pygfx.controllers
     pygfx.geometries
     pygfx.helpers
-    pygfx.linalg
     pygfx.materials
     pygfx.objects
     pygfx.renderers

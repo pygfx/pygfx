@@ -105,7 +105,7 @@ class Display:
     def show(
         self,
         object: WorldObject,
-        up=None,
+        up=(0, 1, 0),
     ):
         """Display a WorldObject
 
@@ -119,7 +119,7 @@ class Display:
             The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
             then Display will wrap it into a new scene containing lights and a
             background.
-        up : gfx.Vector3
+        up : ndarray
             If set, and ``object`` does not contain a controller, set the camera
             controller's up vector to this value.
 
@@ -231,7 +231,7 @@ def show(
         The object to show. If it is not a :class:`gfx.Scene <pygfx.Scene>`
         then Display will wrap it into a new scene containing lights and a
         background.
-    up : gfx.Vector3
+    up : ndarray
         If set, and ``object`` does not contain a controller, set the camera
         controller's up vector to this value.
         canvas : WgpuCanvas

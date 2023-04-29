@@ -1,20 +1,27 @@
 import math
 
+import pylinalg as la
+import numpy as np
+
 from ._base import WorldObject
 from ..utils.color import Color
-from ..linalg import Matrix4, Vector3
 from ..cameras import Camera
 from ..resources import Buffer
 from ..cameras import OrthographicCamera, PerspectiveCamera
 from ..utils import array_from_shadertype
 
 
-def get_pos_from_camera_parent_or_target(light):
+def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
-        p = light.position.clone().add(Vector3(0, 0, -1))
-        return p.apply_matrix4(light.parent.matrix_world)
+        cam = light.parent
+        transform = cam.world.matrix
+        return la.vector_apply_matrix((0, 0, -1), transform)
+    elif isinstance(light, SpotLight):
+        return light.target.world.position
+    elif isinstance(light, DirectionalLight):
+        return light.target.world.position
     else:
-        return light.target.get_world_position()
+        raise ValueError("Unknown light source.")
 
 
 class Light(WorldObject):
@@ -47,6 +54,8 @@ class Light(WorldObject):
 
     # Note that for lights and shadows, the uniform data is stored on the environment.
     # We can use the uniform_buffer as usual though. We'll just copy it over.
+
+    _FORWARD_IS_MINUS_Z = True
 
     uniform_type = dict(
         WorldObject.uniform_type,
@@ -197,12 +206,12 @@ class PointLight(Light):
         """
         # compute the light's luminous power (in lumens) from its intensity (in candela)
         # for an isotropic light source, luminous power (lm) = 4 π luminous intensity (cd)
-        return self.intensity * 4 * math.PI
+        return self.intensity * 4 * np.pi
 
     @power.setter
     def power(self, power):
         # set the light's intensity (in candela) from the desired luminous power (in lumens)
-        self.intensity = power / (4 * math.PI)
+        self.intensity = power / (4 * np.pi)
 
     @property
     def distance(self):
@@ -293,16 +302,18 @@ class DirectionalLight(Light):
         self._target = target
 
     def _gfx_update_uniform_buffer(self):
-        pos1 = self.get_world_position()
+        pos1 = self.world.position
         pos2 = get_pos_from_camera_parent_or_target(self)
-        origin_to_target = Vector3().sub_vectors(pos2, pos1)
-        self._gfx_distance_to_target = origin_to_target.length()
+        origin_to_target = pos2 - pos1
+        self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
         if self._gfx_distance_to_target > 0:
-            direction = origin_to_target.normalize()
+            direction = origin_to_target / self._gfx_distance_to_target
         else:
-            direction = Vector3(0, 0, -1)  # ill-defined direction -> look neg z-axis
-        self.uniform_buffer.data["direction"].flat = direction.to_array()
-        self.look_at(pos2)
+            direction = np.array(
+                (0, 0, -1), dtype=float
+            )  # ill-defined direction -> look neg z-axis
+        self.uniform_buffer.data["direction"].flat = direction
+        self.look_at(pos1 + direction)
 
 
 class SpotLight(Light):
@@ -383,16 +394,18 @@ class SpotLight(Light):
         self._shadow = SpotLightShadow()
 
     def _gfx_update_uniform_buffer(self):
-        pos1 = self.get_world_position()
+        pos1 = self.world.position
         pos2 = get_pos_from_camera_parent_or_target(self)
-        origin_to_target = Vector3().sub_vectors(pos2, pos1)
-        self._gfx_distance_to_target = origin_to_target.length()
+        origin_to_target = pos2 - pos1
+        self._gfx_distance_to_target = np.linalg.norm(origin_to_target)
         if self._gfx_distance_to_target > 0:
-            direction = origin_to_target.normalize()
+            direction = origin_to_target / self._gfx_distance_to_target
         else:
-            direction = Vector3(0, 0, -1)  # ill-defined direction -> look neg z-axis
-        self.uniform_buffer.data["direction"].flat = direction.to_array()
-        self.look_at(pos2)
+            direction = np.array(
+                (0, 0, -1), dtype=float
+            )  # ill-defined direction -> look neg z-axis
+        self.uniform_buffer.data["direction"].flat = direction
+        self.look_at(pos1 + direction)
 
     @property
     def power(self):
@@ -401,12 +414,12 @@ class SpotLight(Light):
         """
         # compute the light's luminous power (in lumens) from its intensity (in candela)
         # by convention for a spotlight, luminous power (lm) = π * luminous intensity (cd)
-        return self.intensity * math.PI
+        return self.intensity * np.pi
 
     @power.setter
     def power(self, power):
         # set the light's intensity (in candela) from the desired luminous power (in lumens)
-        self.intensity = power / math.PI
+        self.intensity = power / np.pi
 
     @property
     def distance(self):
@@ -468,11 +481,6 @@ class SpotLight(Light):
 
 
 # shadows
-
-_look_target = Vector3()
-_proj_screen_matrix = Matrix4()
-
-
 shadow_uniform_type = dict(light_view_proj_matrix="4x4xf4")
 
 
@@ -491,7 +499,7 @@ class LightShadow:
 
     """
 
-    def __init__(self, camera: Camera) -> None:
+    def __init__(self, camera: PerspectiveCamera) -> None:
         self._camera = camera
         self._camera.maintain_aspect = False
 
@@ -547,23 +555,18 @@ class LightShadow:
 
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
-        shadow_camera.position.set_from_matrix_position(light.matrix_world)
-        _look_target.copy(get_pos_from_camera_parent_or_target(light))
-        shadow_camera.look_at(_look_target)
-        shadow_camera.update_matrix_world()
-
-        _proj_screen_matrix.multiply_matrices(
-            shadow_camera.projection_matrix, shadow_camera.matrix_world_inverse
-        )
+        shadow_camera.world.position = light.world.position
+        target = get_pos_from_camera_parent_or_target(light)
+        shadow_camera.look_at(target)
 
         self._gfx_matrix_buffer.data[
             "light_view_proj_matrix"
-        ].flat = _proj_screen_matrix.elements
+        ] = shadow_camera.camera_matrix.T
         self._gfx_matrix_buffer.update_range(0, 1)
 
         light.uniform_buffer.data[
             "light_view_proj_matrix"
-        ].flat = _proj_screen_matrix.elements
+        ] = shadow_camera.camera_matrix.T
 
 
 class DirectionalLightShadow(LightShadow):
@@ -606,23 +609,17 @@ class SpotLightShadow(LightShadow):
 class PointLightShadow(LightShadow):
     """Shadow map utility for point light sources."""
 
-    _cube_directions = [
-        Vector3(1, 0, 0),
-        Vector3(-1, 0, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, -1, 0),
-        Vector3(0, 0, 1),
-        Vector3(0, 0, -1),
-    ]
-
-    _cube_up = [
-        Vector3(0, 1, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, 1, 0),
-        Vector3(0, 0, 1),
-        Vector3(0, 0, -1),
-    ]
+    _cube_directions = np.array(
+        [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ],
+        dtype=float,
+    )
 
     def __init__(self) -> None:
         super().__init__(PerspectiveCamera(90))
@@ -635,6 +632,8 @@ class PointLightShadow(LightShadow):
 
     def _update_matrix(self, light: Light) -> None:
         camera = self.camera
+        camera.world.position = light.world.position
+        directions = self._cube_directions + light.world.position
 
         far = (light.distance * 10) or camera.far
 
@@ -643,25 +642,15 @@ class PointLightShadow(LightShadow):
             camera.update_projection_matrix()
 
         for i in range(6):
-            camera.position.set_from_matrix_position(light.matrix_world)
+            # Note: the direction may align with `up`, but we have logic in
+            # `look_at` to catch and handle this special case.
+            camera.look_at(directions[i])
 
-            _look_target.copy(camera.position)
-            _look_target.add(self._cube_directions[i])
-
-            camera.up.copy(self._cube_up[i])
-
-            camera.look_at(_look_target)
-            camera.update_matrix_world()
-
-            _proj_screen_matrix.multiply_matrices(
-                camera.projection_matrix, camera.matrix_world_inverse
-            )
-
-            light.uniform_buffer.data[f"light_view_proj_matrix"][
+            light.uniform_buffer.data["light_view_proj_matrix"][
                 i
-            ].flat = _proj_screen_matrix.elements
-
+            ] = camera.camera_matrix.T
             self._gfx_matrix_buffer[i].data[
                 "light_view_proj_matrix"
-            ].flat = _proj_screen_matrix.elements
+            ] = camera.camera_matrix.T
             self._gfx_matrix_buffer[i].update_range(0, 1)
+        light.uniform_buffer.update_range(0, 1)
