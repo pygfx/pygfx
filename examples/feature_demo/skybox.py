@@ -51,12 +51,12 @@ scene.add(gfx.AmbientLight(0.4), light)
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.01, 0.02), order="XY")
+    rot = la.quat_from_euler((0.01, 0.02), order="XY")
     for cube in cubes:
-        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+        cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
-    rot = la.quaternion_make_from_euler_angles((0, 0.005), order="XY")
-    camera.local.rotation = la.quaternion_multiply(rot, camera.local.rotation)
+    rot = la.quat_from_euler((0, 0.005), order="XY")
+    camera.local.rotation = la.quat_mul(rot, camera.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

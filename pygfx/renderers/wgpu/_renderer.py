@@ -43,7 +43,7 @@ def _get_sort_function(camera: Camera):
     """Given a scene object, get a function to sort wobject-tuples"""
 
     def sort_func(wobject: WorldObject):
-        z = la.vector_apply_matrix(wobject.world.position, camera.camera_matrix)[2]
+        z = la.vec_transform(wobject.world.position, camera.camera_matrix)[2]
         return wobject.render_order, z
 
     return sort_func

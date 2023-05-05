@@ -35,7 +35,7 @@ ob3 = gfx.Mesh(
 )
 
 ob1.local.position = (1, 0, 0)
-ob1.local.rotation = la.quaternion_make_from_axis_angle((0, 1, 0), 1)
+ob1.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1)
 ob1.local.scale = (3, 1, 1)
 scene.add(ob1.add(ob2, ob3))
 

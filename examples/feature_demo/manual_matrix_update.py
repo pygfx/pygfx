@@ -22,19 +22,19 @@ material = gfx.MeshBasicMaterial(map=tex)
 geometry = gfx.box_geometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
-    cube.local.matrix = la.matrix_make_translation((350 - i * 100, 0, 0))
+    cube.local.matrix = la.mat_from_translation((350 - i * 100, 0, 0))
     group.add(cube)
 
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.local.matrix = la.matrix_make_translation((0, 0, 500))
+camera.local.matrix = la.mat_from_translation((0, 0, 500))
 
 
 def animate():
     for i, cube in enumerate(cubes):
         cube.local.position = (350 - i * 100, 0, 0)
-        rot = la.quaternion_make_from_euler_angles((0.01 * i, 0.02 * i), order="XY")
-        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+        rot = la.quat_from_euler((0.01 * i, 0.02 * i), order="XY")
+        cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
 
 if __name__ == "__main__":

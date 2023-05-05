@@ -52,10 +52,10 @@ cube = gfx.Mesh(
     gfx.MeshPhongMaterial(color="#336699"),
 )
 
-rot = la.quaternion_make_from_euler_angles((0, 0.01), order="XY")
+rot = la.quat_from_euler((0, 0.01), order="XY")
 
 def animate():
-    cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+    cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
 if __name__ == "__main__":
     gfx.show(cube, before_render=animate)

@@ -92,8 +92,8 @@ def animate():
         math.sin(t) * 30,
     )
 
-    rot = la.quaternion_make_from_euler_angles((0.02, 0.03), order="XY")
-    ob1.local.rotation = la.quaternion_multiply(rot, ob1.local.rotation)
+    rot = la.quat_from_euler((0.02, 0.03), order="XY")
+    ob1.local.rotation = la.quat_mul(rot, ob1.local.rotation)
 
     ob2.local.position = (
         math.cos(t + 10) * 30,
@@ -101,7 +101,7 @@ def animate():
         math.sin(t + 10) * 30,
     )
 
-    ob2.local.rotation = la.quaternion_multiply(rot, ob2.local.rotation)
+    ob2.local.rotation = la.quat_mul(rot, ob2.local.rotation)
 
     cube_camera.render(scene)
 

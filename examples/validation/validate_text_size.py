@@ -77,7 +77,7 @@ obj5 = gfx.Text(
     gfx.TextMaterial(color="#0ff"),
 )
 obj5.local.position = (-10, -100, 0)
-obj5.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), 0.2)
+obj5.local.rotation = la.quat_from_axis_angle((0, 0, 1), 0.2)
 
 obj6 = gfx.Text(
     gfx.TextGeometry(
@@ -86,7 +86,7 @@ obj6 = gfx.Text(
     gfx.TextMaterial(color="#0ff"),
 )
 obj6.local.position = (10, -100, 0)
-obj6.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), -0.2)
+obj6.local.rotation = la.quat_from_axis_angle((0, 0, 1), -0.2)
 
 line = gfx.Line(
     gfx.Geometry(positions=[(0, 0, 0), (900, 0, 0), (0, 40, 0), (900, 40, 0)]),

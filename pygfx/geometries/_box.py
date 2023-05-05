@@ -108,10 +108,10 @@ def box_geometry(
         else:
             affine[:-1, :-1] = swap_axes
 
-        plane_positions = la.vector_apply_matrix(plane_positions, affine)
+        plane_positions = la.vec_transform(plane_positions, affine)
 
         affine[:-1, -1] = 0
-        plane_normals = la.vector_apply_matrix(plane_normals, affine)
+        plane_normals = la.vec_transform(plane_normals, affine)
 
         planes.append((plane_positions, plane_normals, plane_texcoords, plane_index))
 

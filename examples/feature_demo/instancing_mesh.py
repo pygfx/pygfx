@@ -30,7 +30,7 @@ scene.add(obj)
 # Set matrices. Note that these are sub-transforms of the mesh's own matrix.
 for y in range(10):
     for x in range(10):
-        m = la.matrix_make_translation((y * 2, x * 2, 0))
+        m = la.mat_from_translation((y * 2, x * 2, 0))
         obj.set_matrix_at(x + y * 10, m)
 
 
@@ -42,8 +42,8 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.0071, 0.01), order="XY")
-    obj.local.rotation = la.quaternion_multiply(rot, obj.local.rotation)
+    rot = la.quat_from_euler((0.0071, 0.01), order="XY")
+    obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

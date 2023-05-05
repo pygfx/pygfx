@@ -40,9 +40,9 @@ def create_scene(title):
     obj2.material.side = "BACK"
 
     # Rotate both in a position where the back faces are easier spotted
-    rot = la.quaternion_make_from_euler_angles((0.71, 1), order="XY")
-    obj1.local.rotation = la.quaternion_multiply(rot, obj1.local.rotation)
-    obj2.local.rotation = la.quaternion_multiply(rot, obj2.local.rotation)
+    rot = la.quat_from_euler((0.71, 1), order="XY")
+    obj1.local.rotation = la.quat_mul(rot, obj1.local.rotation)
+    obj2.local.rotation = la.quat_mul(rot, obj2.local.rotation)
 
     t = gfx.Text(
         gfx.TextGeometry(title, screen_space=True, font_size=20), gfx.TextMaterial()
@@ -71,7 +71,7 @@ scene2.children[1].local.scale_x = -1
 vp3 = gfx.Viewport(renderer, (600, 0, 300, 600))
 scene3 = create_scene("Rotate camera")
 transform = scene3.children[-1].local
-transform.rotation = la.quaternion_make_from_axis_angle((0, 1, 0), 3.141592)
+transform.rotation = la.quat_from_axis_angle((0, 1, 0), 3.141592)
 
 vp4 = gfx.Viewport(renderer, (900, 0, 300, 600))
 scene4 = create_scene("Flip camera")

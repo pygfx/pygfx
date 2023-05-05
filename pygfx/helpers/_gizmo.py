@@ -241,14 +241,14 @@ class TransformGizmo(WorldObject):
         # Rotate objects to their correct orientation
         ob: WorldObject
         for ob in [line_y, translate_y, scale_y, translate_zx, rotate_zx]:
-            ob.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), np.pi / 2)
+            ob.local.rotation = la.quat_from_axis_angle((0, 0, 1), np.pi / 2)
         for ob in [line_z, translate_z, scale_z, translate_xy, rotate_xy]:
-            ob.local.rotation = la.quaternion_make_from_axis_angle(
+            ob.local.rotation = la.quat_from_axis_angle(
                 (0, -1, 0), np.pi / 2
             )
 
-        arc_xy.local.rotation = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
-        arc_zx.local.rotation = la.quaternion_make_from_axis_angle(
+        arc_xy.local.rotation = la.quat_from_axis_angle((0, 1, 0), np.pi / 2)
+        arc_zx.local.rotation = la.quat_from_axis_angle(
             (0, 0, 1), -np.pi / 2
         )
 
@@ -402,15 +402,15 @@ class TransformGizmo(WorldObject):
         if self._mode == "screen":
             # reference frame has a z-offset from screen origin
             object_to_ndc = camera.camera_matrix @ self._object_to_control.world.matrix
-            depth = la.vector_apply_matrix((0, 0, 0), object_to_ndc)[2]
+            depth = la.vec_transform((0, 0, 0), object_to_ndc)[2]
 
             local_points[3, 2] = -1  # camera has inverted Z axis
             local_points[:, 2] -= depth
 
         # express unit vectors and origin in the various frames
-        world_points = la.vector_apply_matrix(local_points, local_to_world)
-        ndc_points = la.vector_apply_matrix(local_points, local_to_ndc)
-        screen_points = la.vector_apply_matrix(local_points, local_to_screen)
+        world_points = la.vec_transform(local_points, local_to_world)
+        ndc_points = la.vec_transform(local_points, local_to_ndc)
+        screen_points = la.vec_transform(local_points, local_to_screen)
 
         # store the directions for future use
         self._world_directions = world_points[1:] - world_points[0]
@@ -461,8 +461,8 @@ class TransformGizmo(WorldObject):
         local_to_screen = (
             self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
         )
-        screen_extents = la.vector_apply_matrix(self._local_extents, local_to_screen)
-        origin_screen = la.vector_apply_matrix((0, 0, 0), local_to_screen)
+        screen_extents = la.vec_transform(self._local_extents, local_to_screen)
+        origin_screen = la.vec_transform((0, 0, 0), local_to_screen)
         screen_directions = screen_extents - origin_screen
 
         # radius of bounding circle (in screen space) and scaling to set to
@@ -483,12 +483,12 @@ class TransformGizmo(WorldObject):
         """
 
         # compute the viewing angle onto the gizmo's coordinate planes
-        screen_normal = la.vector_apply_matrix((0, 0, -1), self._camera.world.matrix)
-        screen_normal = la.vector_normalize(screen_normal)
+        screen_normal = la.vec_transform((0, 0, -1), self._camera.world.matrix)
+        screen_normal = la.vec_normalize(screen_normal)
         plane_normal = (
-            la.vector_apply_matrix(np.eye(3), self.world.matrix) - self.world.position
+            la.vec_transform(np.eye(3), self.world.matrix) - self.world.position
         )
-        plane_normal = la.vector_normalize(plane_normal)
+        plane_normal = la.vec_normalize(plane_normal)
         cos_angle = np.sum(plane_normal * screen_normal, axis=-1)
         viewing_angle = np.pi / 2 - np.arccos(np.clip(np.abs(cos_angle), 0, 1))
 
@@ -496,8 +496,8 @@ class TransformGizmo(WorldObject):
         gizmo_to_screen = (
             self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
         )
-        origin_screen = la.vector_apply_matrix((0, 0, 0), gizmo_to_screen)
-        axes_screen = la.vector_apply_matrix(np.eye(3), gizmo_to_screen) - origin_screen
+        origin_screen = la.vec_transform((0, 0, 0), gizmo_to_screen)
+        axes_screen = la.vec_transform(np.eye(3), gizmo_to_screen) - origin_screen
         ax_size = np.linalg.norm(axes_screen[:, :2], axis=-1)
 
         # check which handles should be shown
@@ -625,7 +625,7 @@ class TransformGizmo(WorldObject):
             "rot": self._object_to_control.world.rotation,
             "world_pos": ob_pos,
             "world_offset": ob_pos - this_pos,
-            "ndc_pos": la.vector_apply_matrix(ob_pos, self._camera.camera_matrix),
+            "ndc_pos": la.vec_transform(ob_pos, self._camera.camera_matrix),
             # Gizmo direction state at start-time of drag
             "flips": np.sign(self.world.scale),
             "world_directions": self._world_directions.copy(),
@@ -664,9 +664,9 @@ class TransformGizmo(WorldObject):
         # pixel units to world units
         # Note: location of translation matters because perspective cameras have
         # shear, i.e., we need to account for start
-        start = la.vector_apply_matrix(self._ref["world_pos"], world_to_screen)
+        start = la.vec_transform(self._ref["world_pos"], world_to_screen)
         end = start + screen_directions.T @ units_traveled
-        end_world = la.vector_apply_matrix(end, screen_to_world)
+        end_world = la.vec_transform(end, screen_to_world)
         world_units_traveled = end_world - self._ref["world_pos"]
 
         self._object_to_control.world.position = self._ref["pos"] + world_units_traveled
@@ -716,7 +716,7 @@ class TransformGizmo(WorldObject):
         local_to_screen = (
             self._ndc_to_screen @ self._camera.camera_matrix @ self.world.matrix
         )
-        object_screen = la.vector_apply_matrix((0, 0, 0), local_to_screen)[:2]
+        object_screen = la.vec_transform((0, 0, 0), local_to_screen)[:2]
 
         # amount of cursor rotation around gizmo origin (CCW is positive)
         start_direction = self._ref["event_pos"] - object_screen
@@ -737,8 +737,8 @@ class TransformGizmo(WorldObject):
         cursor_rotation *= is_mirrored
 
         initial_rotation = self._ref["rot"]
-        rotation = la.quaternion_make_from_axis_angle(world_axis, cursor_rotation)
-        self._object_to_control.world.rotation = la.quaternion_multiply(
+        rotation = la.quat_from_axis_angle(world_axis, cursor_rotation)
+        self._object_to_control.world.rotation = la.quat_mul(
             rotation, initial_rotation
         )
 

@@ -22,7 +22,7 @@ cube = gfx.Mesh(
     gfx.box_geometry(20, 20, 20),
     gfx.MeshPhongMaterial(),
 )
-cube.local.rotation = la.quaternion_make_from_euler_angles(
+cube.local.rotation = la.quat_from_euler(
     (math.pi / 6, math.pi / 6), order="XY"
 )
 cube.cast_shadow = True
@@ -32,7 +32,7 @@ cube2 = gfx.Mesh(
     gfx.box_geometry(50, 50, 50),
     gfx.MeshPhongMaterial(),
 )
-cube2.local.rotation = la.quaternion_make_from_euler_angles(
+cube2.local.rotation = la.quat_from_euler(
     (math.pi / 4, math.pi / 4), order="XY"
 )
 cube2.local.position = (0, -150, 0)
@@ -55,7 +55,7 @@ box = gfx.Mesh(
     gfx.MeshPhongMaterial(color="#808080", side="Back"),
 )
 
-box.local.rotation = la.quaternion_make_from_euler_angles((-math.pi / 2), order="XY")
+box.local.rotation = la.quat_from_euler((-math.pi / 2), order="XY")
 box.local.position = (0, 0, 0)
 box.receive_shadow = True
 box.cast_shadow = False

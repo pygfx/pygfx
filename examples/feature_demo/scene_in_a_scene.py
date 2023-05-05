@@ -61,9 +61,9 @@ scene2.add(gfx.AmbientLight(), camera2.add(gfx.DirectionalLight()))
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="xy")
-    cube1.local.rotation = la.quaternion_multiply(rot, cube1.local.rotation)
-    cube2.local.rotation = la.quaternion_multiply(rot, cube2.local.rotation)
+    rot = la.quat_from_euler((0.005, 0.01), order="xy")
+    cube1.local.rotation = la.quat_mul(rot, cube1.local.rotation)
+    cube2.local.rotation = la.quat_mul(rot, cube2.local.rotation)
 
     renderer1.render(scene1, camera1)
     renderer2.render(scene2, camera2)

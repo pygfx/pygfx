@@ -58,8 +58,8 @@ scene.add(light)
 
 
 def before_render():
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
-    plane.local.rotation = la.quaternion_multiply(rot, plane.local.rotation)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    plane.local.rotation = la.quat_mul(rot, plane.local.rotation)
 
 
 disp = gfx.Display(before_render=before_render)

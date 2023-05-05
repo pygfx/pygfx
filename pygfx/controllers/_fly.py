@@ -78,12 +78,12 @@ class FlyController(Controller):
         camera_state = self._get_camera_state()
         rotation = camera_state["rotation"]
 
-        qx = la.quaternion_make_from_axis_angle((0, 1, 0), -dx)
-        qy = la.quaternion_make_from_axis_angle((1, 0, 0), -dy)
+        qx = la.quat_from_axis_angle((0, 1, 0), -dx)
+        qy = la.quat_from_axis_angle((1, 0, 0), -dy)
 
-        delta_rot = la.quaternion_multiply((0, 0, 0, 1), la.quaternion_multiply(qy, qx))
+        delta_rot = la.quat_mul((0, 0, 0, 1), la.quat_mul(qy, qx))
 
-        new_rotation = la.quaternion_multiply(rotation, delta_rot)
+        new_rotation = la.quat_mul(rotation, delta_rot)
 
         # Apply new state
         new_camera_state = {"rotation": new_rotation}
@@ -111,8 +111,8 @@ class FlyController(Controller):
         camera_state = self._get_camera_state()
         rotation = camera_state["rotation"]
 
-        qz = la.quaternion_make_from_axis_angle((0, 0, 1), -delta)
-        new_rotation = la.quaternion_multiply(rotation, qz)
+        qz = la.quat_from_axis_angle((0, 0, 1), -delta)
+        new_rotation = la.quat_mul(rotation, qz)
 
         new_camera_state = {"rotation": new_rotation}
         self._set_camera_state(new_camera_state)
@@ -145,7 +145,7 @@ class FlyController(Controller):
         cam_state = self._get_camera_state()
         position = cam_state["position"]
         rotation = cam_state["rotation"]
-        delta_world = la.vector_apply_quaternion(delta, rotation)
+        delta_world = la.vec_transform_quat(delta, rotation)
 
         new_position = position + delta_world * self.speed
         self._set_camera_state({"position": new_position})

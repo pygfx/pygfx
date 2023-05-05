@@ -28,8 +28,8 @@ for i, polyhedron in enumerate(polyhedrons):
 
 def animate():
     for polyhedron in polyhedrons:
-        rot = la.quaternion_make_from_euler_angles((0.01, 0.02), order="XY")
-        polyhedron.local.rotation = la.quaternion_multiply(
+        rot = la.quat_from_euler((0.01, 0.02), order="XY")
+        polyhedron.local.rotation = la.quat_mul(
             rot, polyhedron.local.rotation
         )
 

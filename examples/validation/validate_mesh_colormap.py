@@ -115,9 +115,9 @@ scene.add(light)
 
 # Rotate the object a bit
 
-rot = la.quaternion_make_from_euler_angles((0.71, 0.1), order="XY")
+rot = la.quat_from_euler((0.71, 0.1), order="XY")
 for obj in scene.children:
-    obj.local.rotation = la.quaternion_multiply(rot, obj.local.rotation)
+    obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
