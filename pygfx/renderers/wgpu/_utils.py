@@ -3,6 +3,8 @@ Utils for the wgpu renderer.
 """
 
 import weakref
+import hashlib
+import json
 
 import wgpu
 
@@ -193,6 +195,26 @@ def generate_uniform_struct(dtype_struct, structname):
     code += "\n        };"
 
     return code
+
+
+def hash_from_values(*values):
+    """Simple way to create a hash from multiple values.
+    Assumes that the repr of each value makes sense.
+    """
+    h = hashlib.sha1()
+    h.update(json.dumps(values).encode())
+    return h.hexdigest()
+
+    # todo: check if this is faster. Or recursing in structures and using Pythons builtin hash()
+    # ok_types = (str, bool, int, float, tuple, list, dict)
+    # for value in values:
+    #     if isinstance(value, str):
+    #         h.update(value.encode())
+    #     elif isinstance(value, ok_types):
+    #         h.update(repr(value).encode())
+    #     else:
+    #         raise TypeError("Unexpected value to hash")
+    # return h.hexdigest()
 
 
 class GpuCache:

@@ -5,12 +5,12 @@ actual dispatching / drawing.
 """
 
 import wgpu
-import hashlib
 
 from ...resources import Buffer
 from ...utils import logger
 from ._shader import BaseShader
-from ._utils import to_texture_format, GfxSampler, GfxTextureView, GpuCache
+from ._utils import to_texture_format, GfxSampler, GfxTextureView
+from ._utils import GpuCache, hash_from_values
 from ._update import ensure_wgpu_object, ALTTEXFORMAT
 from . import registry
 
@@ -610,12 +610,7 @@ class RenderPipelineContainer(PipelineContainer):
             # Get extra shader kwargs
             blender_kwargs = blender.get_shader_kwargs(pass_index)
             env_kwargs = env.get_shader_kwargs(env_bind_group_index)
-
-            # Hash 'm
-            h = hashlib.sha1()
-            h.update(repr(blender_kwargs).encode())
-            h.update(repr(env_kwargs).encode())
-            extra_kwargs_hash = h.hexdigest()
+            extra_kwargs_hash = hash_from_values(blender_kwargs, env_kwargs)
 
             # Compose full hash - the key into the cache
             # Using this key - rather than the full wgsl - avoids the templating
