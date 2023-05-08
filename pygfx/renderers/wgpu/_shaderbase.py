@@ -262,6 +262,7 @@ class BaseShader:
     def __getitem__(self, key):
         return self.kwargs[key]
 
+    @property
     def hash(self):
         """A hash of the current state of the shader. If the hash changed,
         it's likely that the shader changed.

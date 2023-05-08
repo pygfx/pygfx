@@ -10,7 +10,7 @@ import hashlib
 from ...resources import Buffer
 from ...utils import logger
 from ._shader import BaseShader
-from ._utils import to_texture_format, GfxSampler, GfxTextureView
+from ._utils import to_texture_format, GfxSampler, GfxTextureView, GpuCache
 from ._update import ensure_wgpu_object, ALTTEXFORMAT
 from . import registry
 
@@ -19,6 +19,9 @@ visibility_render = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 visibility_all = (
     wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT | wgpu.ShaderStage.COMPUTE
 )
+
+
+SHADER_CACHE = GpuCache("shader_modules")
 
 
 def get_pipeline_container_group(wobject, environment, shared):
@@ -406,8 +409,9 @@ class PipelineContainer:
 
     def update_shader_hash(self):
         """Update the shader hash, invalidating the wgpu shaders if it changed."""
-        if self.shader.hash() != self.shader_hash:
-            self.shader_hash = self.shader.hash()
+        sh = self.shader.hash
+        if sh != self.shader_hash:
+            self.shader_hash = sh
             self.wgpu_shaders = {}
 
     def update_bind_groups(self, device):
@@ -498,8 +502,15 @@ class ComputePipelineContainer(PipelineContainer):
 
     def _compile_shaders(self, device, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
-        wgsl = self.shader.generate_wgsl()
-        shader_module = cache.get_shader_module(device, wgsl)
+
+        key = "compute-" + self.shader_hash
+
+        shader_module = SHADER_CACHE.get(key)
+        if shader_module is None:
+            wgsl = self.shader.generate_wgsl()
+            shader_module = device.create_shader_module(code=wgsl)
+            SHADER_CACHE.set(key, shader_module)
+
         return {0: shader_module}
 
     def _compose_pipelines(self, device, env, shader_modules):
@@ -595,11 +606,28 @@ class RenderPipelineContainer(PipelineContainer):
                 continue
 
             env_bind_group_index = len(self.wgpu_bind_groups)
-            wgsl = self.shader.generate_wgsl(
-                **blender.get_shader_kwargs(pass_index),
-                **env.get_shader_kwargs(env_bind_group_index),
-            )
-            shader_modules[pass_index] = cache.get_shader_module(device, wgsl)
+
+            # Get extra shader kwargs
+            blender_kwargs = blender.get_shader_kwargs(pass_index)
+            env_kwargs = env.get_shader_kwargs(env_bind_group_index)
+
+            # Hash 'm
+            h = hashlib.sha1()
+            h.update(repr(blender_kwargs).encode())
+            h.update(repr(env_kwargs).encode())
+            extra_kwargs_hash = h.hexdigest()
+
+            # Compose full hash - the key into the cache
+            # Using this key - rather than the full wgsl - avoids the templating
+            # to be applied on a cache hit, which safes considerable time!
+            key = "render-" + self.shader_hash + extra_kwargs_hash
+
+            shader_module = SHADER_CACHE.get(key)
+            if shader_module is None:
+                wgsl = self.shader.generate_wgsl(**blender_kwargs, **env_kwargs)
+                shader_module = device.create_shader_module(code=wgsl)
+                SHADER_CACHE.set(key, shader_module)
+            shader_modules[pass_index] = shader_module
 
         return shader_modules
 
@@ -688,32 +716,3 @@ class RenderPipelineContainer(PipelineContainer):
         # Draw!
         # draw(count_vertex, count_instance, first_vertex, first_instance)
         render_pass.draw(*indices)
-
-
-class Cache:
-    def __init__(self):
-        self._d = {}
-
-    def get(self, key):
-        return self._d.get(key, None)
-
-    def set(self, key, value):
-        self._d[key] = value
-
-    def get_shader_module(self, device, source):
-        """Compile a shader module object, or re-use it from the cache."""
-        # todo: also release shader modules that are no longer used
-        # todo: cache more objects, like pipelines once we figure out how to clean things up
-
-        assert isinstance(source, str)
-        key = hashlib.sha1(source.encode()).hexdigest()
-
-        m = self.get(key)
-        if m is None:
-            m = device.create_shader_module(code=source)
-            self.set(key, m)
-
-        return m
-
-
-cache = Cache()
