@@ -1,6 +1,6 @@
 import numpy as np
 import pygfx as gfx
-import pylinalg as pla
+import pylinalg as la
 
 
 def test_otho_camera_near_far():
