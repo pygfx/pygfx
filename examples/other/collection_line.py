@@ -18,8 +18,9 @@ import pygfx as gfx
 
 canvas = WgpuCanvas(max_fps=999)
 renderer = gfx.WgpuRenderer(canvas, show_fps=True)
-
 scene = gfx.Scene()
+
+t0 = time.perf_counter()
 
 # Define number of vertices
 cols = 20
@@ -30,6 +31,7 @@ use_thin_lines = True
 print(nvertices * rows * cols, "vertices in total")
 
 x = np.linspace(0.05, 0.95, nvertices, dtype=np.float32)
+
 
 for row in range(rows):
     for col in range(cols):
@@ -43,8 +45,8 @@ for row in range(rows):
                 thickness=0.2 + 2 * row / rows, color=(col / cols, row / rows, 0.5, 1.0)
             )
         line = gfx.Line(geometry, material)
-        line.position.x = col
-        line.position.y = row
+        line.local.x = col
+        line.local.y = row
         scene.add(line)
 
 camera = gfx.OrthographicCamera(cols, rows, maintain_aspect=False)
@@ -55,10 +57,16 @@ stats = gfx.Stats(viewport=renderer)
 
 
 def animate():
+    global t0
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
     canvas.request_draw()
+
+    if t0 is not None:
+        etime = time.perf_counter() - t0
+        print(f"Time to first draw: {etime:0.2f} s")
+        t0 = None
 
 
 if __name__ == "__main__":
