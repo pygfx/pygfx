@@ -29,9 +29,7 @@ for i, polyhedron in enumerate(polyhedrons):
 def animate():
     for polyhedron in polyhedrons:
         rot = la.quat_from_euler((0.01, 0.02), order="XY")
-        polyhedron.local.rotation = la.quat_mul(
-            rot, polyhedron.local.rotation
-        )
+        polyhedron.local.rotation = la.quat_mul(rot, polyhedron.local.rotation)
 
 
 if __name__ == "__main__":

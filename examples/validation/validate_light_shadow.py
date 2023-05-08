@@ -22,9 +22,7 @@ cube = gfx.Mesh(
     gfx.box_geometry(20, 20, 20),
     gfx.MeshPhongMaterial(),
 )
-cube.local.rotation = la.quat_from_euler(
-    (np.pi / 6, np.pi / 6), order="XY"
-)
+cube.local.rotation = la.quat_from_euler((np.pi / 6, np.pi / 6), order="XY")
 cube.cast_shadow = True
 scene.add(cube)
 
@@ -32,9 +30,7 @@ cube2 = gfx.Mesh(
     gfx.box_geometry(50, 50, 50),
     gfx.MeshPhongMaterial(),
 )
-cube2.local.rotation = la.quat_from_euler(
-    (np.pi / 4, np.pi / 4), order="XY"
-)
+cube2.local.rotation = la.quat_from_euler((np.pi / 4, np.pi / 4), order="XY")
 cube2.local.position = (0, -150, 0)
 cube2.cast_shadow = True
 cube2.receive_shadow = True

@@ -55,9 +55,7 @@ for axis in [0, 1, 2]:
             (0.5 * np.pi, 0.5 * np.pi), order="XY"
         )
     elif axis == 1:  # XZ plane
-        plane.local.rotation = la.quat_from_euler(
-            0.5 * np.pi, order="X"
-        )
+        plane.local.rotation = la.quat_from_euler(0.5 * np.pi, order="X")
     # else: XY plane
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)

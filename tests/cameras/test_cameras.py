@@ -98,9 +98,7 @@ def _run_for_camera(camera, near, far, check_halfway):
     # pos_ndc3 = t1 @ np.array([0, 0, far, 1])
 
     pos_ndc1 = la.vec_transform((0, 0, -near), camera.projection_matrix)
-    pos_ndc2 = la.vec_transform(
-        (0, 0, -0.5 * (near + far)), camera.projection_matrix
-    )
+    pos_ndc2 = la.vec_transform((0, 0, -0.5 * (near + far)), camera.projection_matrix)
     pos_ndc3 = la.vec_transform((0, 0, -far), camera.projection_matrix)
 
     print("------", camera)

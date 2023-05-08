@@ -586,9 +586,7 @@ class RecursiveTransform(AffineBase):
 
         if reference_up is None:
             # use own's reference_up
-            reference_up = la.vec_transform(
-                self.own.reference_up, self.parent.matrix
-            )
+            reference_up = la.vec_transform(self.own.reference_up, self.parent.matrix)
             self._reference_up = reference_up
         else:
             # use given reference_up (and sync own)

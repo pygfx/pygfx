@@ -83,10 +83,7 @@ def test_update_matrix_world():
     child1.add(child2)
 
     expected = (
-        root.local
-        @ child1.local
-        @ child2.local
-        @ la.vec_homogeneous((10, 10, 10))
+        root.local @ child1.local @ child2.local @ la.vec_homogeneous((10, 10, 10))
     )
 
     actual = child2.world @ la.vec_homogeneous((10, 10, 10))
@@ -256,9 +253,7 @@ def test_axis_getters():
     assert np.allclose(obj.local.right, (0, 0, 1))
     assert np.allclose(obj.local.forward, (1, 0, 0))
 
-    obj.world.rotation = la.quat_from_euler(
-        (np.pi / 4, np.pi / 4), order="XZ"
-    )
+    obj.world.rotation = la.quat_from_euler((np.pi / 4, np.pi / 4), order="XZ")
     assert np.allclose(obj.local.forward, (0, -np.cos(np.pi / 4), np.sin(np.pi / 4)))
 
     print("")
@@ -303,9 +298,7 @@ def test_reference_up():
     obj1.world.position = (0, 4, 9)
     group.add(obj1, keep_world_matrix=True)
     assert np.allclose(obj1.world.position, (0, 4, 9))
-    reference_up = la.vec_transform(
-        obj1.world.reference_up, group.world.inverse_matrix
-    )
+    reference_up = la.vec_transform(obj1.world.reference_up, group.world.inverse_matrix)
     world_origin = la.vec_transform((0, 0, 0), group.world.inverse_matrix)
     reference_up = reference_up - world_origin
     assert np.allclose(obj1.local.reference_up, reference_up)

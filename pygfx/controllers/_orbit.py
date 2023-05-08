@@ -102,9 +102,7 @@ class OrbitController(PanZoomController):
 
         # Get rotations
         rot1 = rotation
-        rot2 = la.quat_mul(
-            r_azimuth, la.quat_mul(rot1, r_elevation)
-        )
+        rot2 = la.quat_mul(r_azimuth, la.quat_mul(rot1, r_elevation))
 
         # Calculate new position
         pos1 = position

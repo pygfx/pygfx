@@ -243,14 +243,10 @@ class TransformGizmo(WorldObject):
         for ob in [line_y, translate_y, scale_y, translate_zx, rotate_zx]:
             ob.local.rotation = la.quat_from_axis_angle((0, 0, 1), np.pi / 2)
         for ob in [line_z, translate_z, scale_z, translate_xy, rotate_xy]:
-            ob.local.rotation = la.quat_from_axis_angle(
-                (0, -1, 0), np.pi / 2
-            )
+            ob.local.rotation = la.quat_from_axis_angle((0, -1, 0), np.pi / 2)
 
         arc_xy.local.rotation = la.quat_from_axis_angle((0, 1, 0), np.pi / 2)
-        arc_zx.local.rotation = la.quat_from_axis_angle(
-            (0, 0, 1), -np.pi / 2
-        )
+        arc_zx.local.rotation = la.quat_from_axis_angle((0, 0, 1), -np.pi / 2)
 
         # Store the objectss
         self._center_sphere = scale_uniform
@@ -738,9 +734,7 @@ class TransformGizmo(WorldObject):
 
         initial_rotation = self._ref["rot"]
         rotation = la.quat_from_axis_angle(world_axis, cursor_rotation)
-        self._object_to_control.world.rotation = la.quat_mul(
-            rotation, initial_rotation
-        )
+        self._object_to_control.world.rotation = la.quat_mul(rotation, initial_rotation)
 
 
 def get_scale_factor(vec1, vec2):

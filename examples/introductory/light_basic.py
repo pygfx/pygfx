@@ -22,9 +22,7 @@ cube = gfx.Mesh(
     gfx.box_geometry(20, 20, 20),
     gfx.MeshPhongMaterial(),
 )
-cube.local.rotation = la.quat_from_euler(
-    (np.pi / 6, np.pi / 6), order="XY"
-)
+cube.local.rotation = la.quat_from_euler((np.pi / 6, np.pi / 6), order="XY")
 scene.add(cube)
 
 light = gfx.DirectionalLight("#0040ff", 3)
