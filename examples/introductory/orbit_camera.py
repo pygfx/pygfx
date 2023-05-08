@@ -59,8 +59,8 @@ renderer.add_event_handler(on_key_down, "key_down")
 
 def animate():
     for i, cube in enumerate(cubes):
-        rot = la.quaternion_make_from_euler_angles((0.005 * i, 0.01 * i), order="XY")
-        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+        rot = la.quat_from_euler((0.005 * i, 0.01 * i), order="XY")
+        cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

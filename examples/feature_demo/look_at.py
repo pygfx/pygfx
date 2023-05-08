@@ -25,7 +25,7 @@ plane = gfx.Mesh(
     gfx.MeshPhongMaterial(color="#336699"),
 )
 plane.local.position = (0, -2500, 0)
-plane.local.rotation = la.quaternion_make_from_euler_angles(-np.pi / 2, order="X")
+plane.local.rotation = la.quat_from_euler(-np.pi / 2, order="X")
 plane.receive_shadow = True
 scene.add(plane)
 

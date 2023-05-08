@@ -151,7 +151,7 @@ class AffineBase:
 
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return la.matrix_decompose(self.matrix)
+        return la.mat_decompose(self.matrix)
 
     @cached
     def _directions(self):
@@ -159,8 +159,8 @@ class AffineBase:
         directions = (2 * self.is_camera_space - 1, 1, 1 - 2 * self.is_camera_space)
 
         axes_source = np.diag(directions)
-        axes_target = la.vector_apply_matrix(axes_source, self.matrix)
-        origin_target = la.vector_apply_matrix((0, 0, 0), self.matrix)
+        axes_target = la.vec_transform(axes_source, self.matrix)
+        origin_target = la.vec_transform((0, 0, 0), self.matrix)
 
         return axes_target - origin_target
 
@@ -289,15 +289,15 @@ class AffineBase:
 
     @position.setter
     def position(self, value):
-        self.matrix = la.matrix_make_transform(value, self.rotation, self.scale)
+        self.matrix = la.mat_compose(value, self.rotation, self.scale)
 
     @rotation.setter
     def rotation(self, value):
-        self.matrix = la.matrix_make_transform(self.position, value, self.scale)
+        self.matrix = la.mat_compose(self.position, value, self.scale)
 
     @scale.setter
     def scale(self, value):
-        self.matrix = la.matrix_make_transform(self.position, self.rotation, value)
+        self.matrix = la.mat_compose(self.position, self.rotation, value)
 
     @reference_up.setter
     def reference_up(self, value):
@@ -336,58 +336,58 @@ class AffineBase:
 
     @right.setter
     def right(self, value):
-        value = la.vector_normalize(value)
+        value = la.vec_normalize(value)
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
         if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
             # target and reference_up are parallel
-            rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+            rotation = la.quat_from_vecs(self.forward, value)
         else:
-            matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
-            rotation = la.matrix_to_quaternion(matrix)
+            matrix = la.mat_look_at((0, 0, 0), value, self.reference_up)
+            rotation = la.quat_from_mat(matrix)
 
         if self.is_camera_space:
-            part2 = la.quaternion_make_from_axis_angle((0, 1, 0), -np.pi / 2)
+            part2 = la.quat_from_axis_angle((0, 1, 0), -np.pi / 2)
         else:
-            part2 = la.quaternion_make_from_axis_angle((0, 1, 0), np.pi / 2)
+            part2 = la.quat_from_axis_angle((0, 1, 0), np.pi / 2)
 
-        self.rotation = la.quaternion_multiply(rotation, part2)
+        self.rotation = la.quat_mul(rotation, part2)
 
     @up.setter
     def up(self, value):
-        value = la.vector_normalize(value)
+        value = la.vec_normalize(value)
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
         if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
             # target and reference_up are parallel
-            rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+            rotation = la.quat_from_vecs(self.forward, value)
         else:
-            matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
-            rotation = la.matrix_to_quaternion(matrix)
+            matrix = la.mat_look_at((0, 0, 0), value, self.reference_up)
+            rotation = la.quat_from_mat(matrix)
 
-        part2 = la.quaternion_make_from_axis_angle((1, 0, 0), np.pi / 2)
-        self.rotation = la.quaternion_multiply(rotation, part2)
+        part2 = la.quat_from_axis_angle((1, 0, 0), np.pi / 2)
+        self.rotation = la.quat_mul(rotation, part2)
 
     @forward.setter
     def forward(self, value):
-        value = la.vector_normalize(value)
+        value = la.vec_normalize(value)
 
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
         if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
             # target and reference_up are parallel
-            rotation = la.quaternion_make_from_unit_vectors(self.forward, value)
+            rotation = la.quat_from_vecs(self.forward, value)
         elif self.is_camera_space:
-            matrix = la.matrix_make_look_at((0, 0, 0), -value, self.reference_up)
-            rotation = la.matrix_to_quaternion(matrix)
+            matrix = la.mat_look_at((0, 0, 0), -value, self.reference_up)
+            rotation = la.quat_from_mat(matrix)
         else:
-            matrix = la.matrix_make_look_at((0, 0, 0), value, self.reference_up)
-            rotation = la.matrix_to_quaternion(matrix)
+            matrix = la.mat_look_at((0, 0, 0), value, self.reference_up)
+            rotation = la.quat_from_mat(matrix)
 
         self.rotation = rotation
 
@@ -586,14 +586,12 @@ class RecursiveTransform(AffineBase):
 
         if reference_up is None:
             # use own's reference_up
-            reference_up = la.vector_apply_matrix(
-                self.own.reference_up, self.parent.matrix
-            )
+            reference_up = la.vec_transform(self.own.reference_up, self.parent.matrix)
             self._reference_up = reference_up
         else:
             # use given reference_up (and sync own)
             self._reference_up = reference_up
-            own_ref = la.vector_apply_matrix(reference_up, self.parent.inverse_matrix)
+            own_ref = la.vec_transform(reference_up, self.parent.inverse_matrix)
             self.own._reference_up = own_ref
 
         self.parent.on_update(self.parent_updated)
@@ -605,15 +603,15 @@ class RecursiveTransform(AffineBase):
 
     @callback
     def parent_updated(self, parent: AffineBase):
-        own_ref = la.vector_apply_matrix(self.reference_up, parent.inverse_matrix)
-        parent_origin = la.vector_apply_matrix((0, 0, 0), parent.inverse_matrix)
+        own_ref = la.vec_transform(self.reference_up, parent.inverse_matrix)
+        parent_origin = la.vec_transform((0, 0, 0), parent.inverse_matrix)
         self.own._reference_up = own_ref - parent_origin
 
         self.flag_update()
 
     @callback
     def child_updated(self, own: AffineBase):
-        new_ref = la.vector_apply_matrix(own.reference_up, self.parent.matrix)
+        new_ref = la.vec_transform(own.reference_up, self.parent.matrix)
         self._reference_up = new_ref - self.parent.position
 
         self.flag_update()
@@ -632,8 +630,8 @@ class RecursiveTransform(AffineBase):
         else:
             self._parent = value
 
-        own_ref = la.vector_apply_matrix(self.reference_up, self._parent.inverse_matrix)
-        parent_origin = la.vector_apply_matrix((0, 0, 0), self._parent.inverse_matrix)
+        own_ref = la.vec_transform(self.reference_up, self._parent.inverse_matrix)
+        parent_origin = la.vec_transform((0, 0, 0), self._parent.inverse_matrix)
         self.own._reference_up = own_ref - parent_origin
 
         self.parent.on_update(self.parent_updated)

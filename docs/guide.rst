@@ -186,10 +186,10 @@ the scene as desired::
         gfx.MeshPhongMaterial(color="#336699"),
     )
 
-    rot = la.quaternion_make_from_euler_angles((0, 0.01), order="XY")
+    rot = la.quat_from_euler((0, 0.01), order="XY")
 
     def animate():
-        cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+        cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
     if __name__ == "__main__":
         gfx.show(cube, before_render=animate)
@@ -368,7 +368,7 @@ inertial frame.
     )
 
     cube.world.position = (1, 2, 3)
-    cube.world.rotation = la.quaternion_make_from_euler_angles(
+    cube.world.rotation = la.quat_from_euler(
         (np.pi/2, np.pi/2), order="YX"
     )
     cube.world.scale = (2, 4, 6)
@@ -400,7 +400,7 @@ inertial frame.
 
 Beyond setting components, we can also set the full ``matrix`` directly::
 
-    cube.world.matrix = la.matrix_make_translation((1, 2, 3))
+    cube.world.matrix = la.mat_from_translation((1, 2, 3))
 
 and we can - of course - read each property. To make a full example, we can
 create a small simulation of a falling and rotating cube.
@@ -424,8 +424,8 @@ create a small simulation of a falling and rotating cube.
     imu_mass = 0.005  # kg
 
     # obligatory small rotation
-    rot = la.quaternion_make_from_euler_angles((0.01, 0.05), order="XY")
-    axis, angle = la.axis_angle_from_quaternion(rot)
+    rot = la.quat_from_euler((0.01, 0.05), order="XY")
+    axis, angle = la.quat_to_axis_angle(rot)
 
     # simulate falling cube
     gravity = -9.81 * companion_cube.world.reference_up
@@ -437,7 +437,7 @@ create a small simulation of a falling and rotating cube.
         companion_cube.world.position += update_frequency * velocity
 
         # and spinning around.
-        companion_cube.local.rotation = la.quaternion_multiply(
+        companion_cube.local.rotation = la.quat_mul(
             rot, companion_cube.local.rotation
         )
 

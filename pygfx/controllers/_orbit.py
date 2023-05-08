@@ -69,8 +69,8 @@ class OrbitController(PanZoomController):
         delta_azimuth, delta_elevation = delta
         camera_state = self._get_camera_state()
 
-        # Note: this code does not use la.vector_euclidean_to_spherical and
-        # la.vector_spherical_to_euclidean, because those functions currently
+        # Note: this code does not use la.vec_euclidian_to_spherical and
+        # la.vec_spherical_to_euclidian, because those functions currently
         # have no way to specify a different up vector.
 
         position = camera_state["position"]
@@ -78,7 +78,7 @@ class OrbitController(PanZoomController):
         up = camera_state["reference_up"]
 
         # Where is the camera looking at right now
-        forward = la.vector_apply_quaternion((0, 0, -1), rotation)
+        forward = la.vec_transform_quat((0, 0, -1), rotation)
 
         # # Get a reference vector, that is orthogonal to up, in a deterministic way.
         # # Might need this if we ever want the azimuth
@@ -87,7 +87,7 @@ class OrbitController(PanZoomController):
 
         # Get current elevation, so we can clip it.
         # We don't need the azimuth. When we do, it'd need more care to get a proper 0..2pi range
-        elevation = la.vector_angle_between(forward, up) - 0.5 * np.pi
+        elevation = la.vec_angle(forward, up) - 0.5 * np.pi
 
         # Apply boundaries to the elevation
         new_elevation = elevation + delta_elevation
@@ -97,14 +97,12 @@ class OrbitController(PanZoomController):
         elif new_elevation > bounds[1]:
             delta_elevation = bounds[1] - elevation
 
-        r_azimuth = la.quaternion_make_from_axis_angle(up, -delta_azimuth)
-        r_elevation = la.quaternion_make_from_axis_angle((1, 0, 0), -delta_elevation)
+        r_azimuth = la.quat_from_axis_angle(up, -delta_azimuth)
+        r_elevation = la.quat_from_axis_angle((1, 0, 0), -delta_elevation)
 
         # Get rotations
         rot1 = rotation
-        rot2 = la.quaternion_multiply(
-            r_azimuth, la.quaternion_multiply(rot1, r_elevation)
-        )
+        rot2 = la.quat_mul(r_azimuth, la.quat_mul(rot1, r_elevation))
 
         # Calculate new position
         pos1 = position

@@ -99,7 +99,7 @@ class SvgRenderer(Renderer):
 
         # next, sort them from back-to-front
         def sort_func(wobject: WorldObject):
-            z = la.vector_apply_matrix(wobject.world.position, proj_screen_matrix)[2]
+            z = la.vec_transform(wobject.world.position, proj_screen_matrix)[2]
             return wobject.render_order, z
 
         return list(sorted(q, key=sort_func))

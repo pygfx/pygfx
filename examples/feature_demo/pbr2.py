@@ -31,7 +31,7 @@ scene = gfx.Scene()
 # Lights
 scene.add(gfx.AmbientLight("#fff", 0.2))
 directional_light = gfx.DirectionalLight("#fff", 3)
-directional_light.local.position = la.vector_normalize((1, 1, 1))
+directional_light.local.position = la.vec_normalize((1, 1, 1))
 scene.add(directional_light)
 point_light = gfx.PointLight("#fff", 3)
 scene.add(point_light)

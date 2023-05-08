@@ -61,9 +61,9 @@ def test_update_matrix():
     root = WorldObject()
     root.local.position = (3, 6, 8)
     root.local.scale = (1, 1.2, 1)
-    root.local.rotation = la.quaternion_make_from_euler_angles((pi / 2, 0, 0))
+    root.local.rotation = la.quat_from_euler((pi / 2, 0, 0))
 
-    pos, rot, scale = la.matrix_decompose(root.local.matrix)
+    pos, rot, scale = la.mat_decompose(root.local.matrix)
     assert np.allclose(pos, root.local.position)
     assert np.allclose(rot, root.local.rotation)
     assert np.allclose(scale, root.local.scale)
@@ -72,24 +72,21 @@ def test_update_matrix():
 def test_update_matrix_world():
     root = WorldObject()
     root.local.position = (-5, 8, 0)
-    root.local.rotation = la.quaternion_make_from_euler_angles((pi / 4, 0, 0))
+    root.local.rotation = la.quat_from_euler((pi / 4, 0, 0))
 
     child1 = WorldObject()
     child1.local.position = (0, 0, 5)
     root.add(child1)
 
     child2 = WorldObject()
-    child2.local.rotation = la.quaternion_make_from_euler_angles((0, -pi / 4, 0))
+    child2.local.rotation = la.quat_from_euler((0, -pi / 4, 0))
     child1.add(child2)
 
     expected = (
-        root.local
-        @ child1.local
-        @ child2.local
-        @ la.vector_make_homogeneous((10, 10, 10))
+        root.local @ child1.local @ child2.local @ la.vec_homogeneous((10, 10, 10))
     )
 
-    actual = child2.world @ la.vector_make_homogeneous((10, 10, 10))
+    actual = child2.world @ la.vec_homogeneous((10, 10, 10))
 
     # if there is a difference it's a floating point error
     assert np.allclose(actual, expected)
@@ -251,14 +248,12 @@ def test_axis_getters():
     assert np.allclose(obj.world.right, (-1, 0, 0))
 
     # rotations should influence local orientations
-    obj.world.rotation = la.quaternion_make_from_euler_angles(np.pi / 2, order="Y")
+    obj.world.rotation = la.quat_from_euler(np.pi / 2, order="Y")
     assert np.allclose(obj.local.up, (0, 1, 0))
     assert np.allclose(obj.local.right, (0, 0, 1))
     assert np.allclose(obj.local.forward, (1, 0, 0))
 
-    obj.world.rotation = la.quaternion_make_from_euler_angles(
-        (np.pi / 4, np.pi / 4), order="XZ"
-    )
+    obj.world.rotation = la.quat_from_euler((np.pi / 4, np.pi / 4), order="XZ")
     assert np.allclose(obj.local.forward, (0, -np.cos(np.pi / 4), np.sin(np.pi / 4)))
 
     print("")
@@ -303,10 +298,8 @@ def test_reference_up():
     obj1.world.position = (0, 4, 9)
     group.add(obj1, keep_world_matrix=True)
     assert np.allclose(obj1.world.position, (0, 4, 9))
-    reference_up = la.vector_apply_matrix(
-        obj1.world.reference_up, group.world.inverse_matrix
-    )
-    world_origin = la.vector_apply_matrix((0, 0, 0), group.world.inverse_matrix)
+    reference_up = la.vec_transform(obj1.world.reference_up, group.world.inverse_matrix)
+    world_origin = la.vec_transform((0, 0, 0), group.world.inverse_matrix)
     reference_up = reference_up - world_origin
     assert np.allclose(obj1.local.reference_up, reference_up)
 

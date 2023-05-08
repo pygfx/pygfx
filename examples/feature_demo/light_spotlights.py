@@ -97,7 +97,7 @@ def init_scene():
         gfx.MeshPhongMaterial(color="#808080", side="Front"),
     )
 
-    floor.local.rotation = la.quaternion_make_from_euler_angles(-math.pi / 2, order="X")
+    floor.local.rotation = la.quat_from_euler(-math.pi / 2, order="X")
     floor.local.position = (0, -0.05, 0)
 
     ambient = gfx.AmbientLight("#111111")

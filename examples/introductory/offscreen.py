@@ -33,8 +33,8 @@ scene.add(cube)
 camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.local.z = 400
 
-rot = la.quaternion_make_from_euler_angles((0.5, 1.0), order="XY")
-cube.local.rotation = la.quaternion_multiply(rot, cube.local.rotation)
+rot = la.quat_from_euler((0.5, 1.0), order="XY")
+cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 

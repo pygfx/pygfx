@@ -55,9 +55,9 @@ create_object(tex1, +6)
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.0071, 0.01), order="XY")
+    rot = la.quat_from_euler((0.0071, 0.01), order="XY")
     for obj in group.children:
-        obj.local.rotation = la.quaternion_multiply(rot, obj.local.rotation)
+        obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
 
 if __name__ == "__main__":

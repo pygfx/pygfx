@@ -268,7 +268,7 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            self.projection_matrix = la.matrix_make_perspective(
+            self.projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
             self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
@@ -291,7 +291,7 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.matrix_make_orthographic(
+            proj = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
             proj_i = np.linalg.inv(proj)
@@ -329,7 +329,7 @@ class PerspectiveCamera(Camera):
         self.look_at(pos)
 
         # Update extent
-        distance = la.vector_distance_between(pos, self.local.position)
+        distance = la.vec_dist(pos, self.local.position)
         self._set_extent(distance / fov_distance_factor(self.fov))
 
     def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
@@ -379,12 +379,12 @@ class PerspectiveCamera(Camera):
         # Obtain view direction
         if view_dir is None:
             rotation = self.local.rotation
-            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
+            view_dir = la.vec_transform_quat((0, 0, -1), rotation)
         elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
             view_dir = tuple(view_dir)
         else:
             raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
-        view_dir = la.vector_normalize(view_dir)
+        view_dir = la.vec_normalize(view_dir)
 
         # Do the math ...
         view_pos = bsphere[:3]
@@ -435,9 +435,9 @@ class PerspectiveCamera(Camera):
 
         # Obtain view direction
         if view_dir is None:
-            view_dir = la.vector_apply_quaternion((0, 0, -1), self.world.rotation)
+            view_dir = la.vec_transform_quat((0, 0, -1), self.world.rotation)
         else:
-            view_dir = la.vector_normalize(view_dir)
+            view_dir = la.vec_normalize(view_dir)
 
         # Set bounds, note that this implicitly sets width, height (and aspect)
         self.width = right - left
@@ -453,7 +453,7 @@ class PerspectiveCamera(Camera):
         rotation = self.world.rotation
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
-        new_position = position + la.vector_apply_quaternion(offset, rotation)
+        new_position = position + la.vec_transform_quat(offset, rotation)
         self.world.position = new_position
 
     @property
@@ -474,10 +474,8 @@ class PerspectiveCamera(Camera):
 
         ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
         depths = np.array((0, 1))[:, None]
-        local_corners = la.vector_unproject(
-            ndc_corners, projection_matrix, depth=depths
-        )
-        world_corners = la.vector_apply_matrix(local_corners, self.world.matrix)
+        local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
+        world_corners = la.vec_transform(local_corners, self.world.matrix)
         return world_corners
 
 

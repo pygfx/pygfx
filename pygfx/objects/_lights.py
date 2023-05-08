@@ -15,7 +15,7 @@ def get_pos_from_camera_parent_or_target(light: "Light") -> np.ndarray:
     if isinstance(light.parent, Camera):
         cam = light.parent
         transform = cam.world.matrix
-        return la.vector_apply_matrix((0, 0, -1), transform)
+        return la.vec_transform((0, 0, -1), transform)
     elif isinstance(light, SpotLight):
         return light.target.world.position
     elif isinstance(light, DirectionalLight):

@@ -45,7 +45,7 @@ mesh = gfx.Mesh(
     gfx.geometry_from_trimesh(teapot),
     gfx.MeshPhongMaterial(),
 )
-mesh.local.rotation = la.quaternion_make_from_euler_angles((0.71, 0.91), order="XY")
+mesh.local.rotation = la.quat_from_euler((0.71, 0.91), order="XY")
 scene.add(mesh)
 
 box_world = gfx.BoxHelper(color="red")

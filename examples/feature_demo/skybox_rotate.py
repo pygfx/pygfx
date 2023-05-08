@@ -43,8 +43,8 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01, 0.01))
-    scene.local.rotation = la.quaternion_multiply(rot, scene.local.rotation)
+    rot = la.quat_from_euler((0.005, 0.01, 0.01))
+    scene.local.rotation = la.quat_mul(rot, scene.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

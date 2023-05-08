@@ -24,9 +24,9 @@ plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
 plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
 plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
 
-plane1.local.rotation = la.quaternion_make_from_axis_angle((1, 0, 0), 1.571)
-plane2.local.rotation = la.quaternion_make_from_axis_angle((0, 1, 0), 1.571)
-plane3.local.rotation = la.quaternion_make_from_axis_angle((0, 0, 1), 1.571)
+plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
+plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)
+plane3.local.rotation = la.quat_from_axis_angle((0, 0, 1), 1.571)
 
 t = gfx.Text(
     gfx.TextGeometry(renderer.blend_mode, screen_space=True, font_size=20),

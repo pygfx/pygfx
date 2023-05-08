@@ -36,8 +36,8 @@ stats = gfx.Stats(viewport=renderer)
 
 def animate():
     # Rotate the cube
-    rot = la.quaternion_make_from_euler_angles((0.005, 0.01), order="XY")
-    box.local.rotation = la.quaternion_multiply(rot, box.local.rotation)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    box.local.rotation = la.quat_mul(rot, box.local.rotation)
 
     # Track the render time. You can enclose any
     # other piece of code for which you want to see time

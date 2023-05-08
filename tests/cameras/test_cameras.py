@@ -1,6 +1,6 @@
 import numpy as np
 import pygfx as gfx
-import pylinalg as pla
+import pylinalg as la
 
 
 def test_otho_camera_near_far():
@@ -97,11 +97,9 @@ def _run_for_camera(camera, near, far, check_halfway):
     # pos_ndc2 = t1 @ np.array([0, 0, 0.5 * (near + far), 1])
     # pos_ndc3 = t1 @ np.array([0, 0, far, 1])
 
-    pos_ndc1 = pla.vector_apply_matrix((0, 0, -near), camera.projection_matrix)
-    pos_ndc2 = pla.vector_apply_matrix(
-        (0, 0, -0.5 * (near + far)), camera.projection_matrix
-    )
-    pos_ndc3 = pla.vector_apply_matrix((0, 0, -far), camera.projection_matrix)
+    pos_ndc1 = la.vec_transform((0, 0, -near), camera.projection_matrix)
+    pos_ndc2 = la.vec_transform((0, 0, -0.5 * (near + far)), camera.projection_matrix)
+    pos_ndc3 = la.vec_transform((0, 0, -far), camera.projection_matrix)
 
     print("------", camera)
     print(pos_ndc1)
@@ -113,9 +111,9 @@ def _run_for_camera(camera, near, far, check_halfway):
     if check_halfway:
         assert np.allclose(pos_ndc2, [0, 0, 0.5])
 
-    pos_world1 = pla.vector_apply_matrix((0, 0, 0), camera.projection_matrix_inverse)
-    pos_world2 = pla.vector_apply_matrix((0, 0, 0.5), camera.projection_matrix_inverse)
-    pos_world3 = pla.vector_apply_matrix((0, 0, 1), camera.projection_matrix_inverse)
+    pos_world1 = la.vec_transform((0, 0, 0), camera.projection_matrix_inverse)
+    pos_world2 = la.vec_transform((0, 0, 0.5), camera.projection_matrix_inverse)
+    pos_world3 = la.vec_transform((0, 0, 1), camera.projection_matrix_inverse)
 
     assert np.allclose(pos_world1, [0, 0, -near])
     assert np.allclose(pos_world3, [0, 0, -far])
