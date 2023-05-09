@@ -68,9 +68,18 @@ class MeshShader(WorldObjectShader):
         if getattr(geometry, "normals", None) is not None:
             normal_buffer = geometry.normals
         else:
-            normal_data = normals_from_vertices(
-                geometry.positions.data, geometry.indices.data
-            )
+            if geometry.indices.data.shape[1] == 4:
+                n1 = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data[:,:3]
+                )
+                n2 = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data[:,[0,2,3]]
+                )
+                normal_data = (n1+n2)/2
+            else:
+                normal_data = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data
+                )
             normal_buffer = Buffer(normal_data)
 
         # Init bindings
@@ -131,6 +140,11 @@ class MeshShader(WorldObjectShader):
         material = wobject.material
 
         n = geometry.indices.data.size
+        self['indexer'] = 3
+        if geometry.indices.data.shape[1]==4:
+            n =  geometry.indices.data.shape[0]*2*3
+            self['indexer'] = 6
+
         n_instances = 1
         if self["instanced"]:
             n_instances = wobject.instance_buffer.nitems
@@ -192,7 +206,7 @@ class MeshShader(WorldObjectShader):
         fn get_sign_of_det_of_4x4(m: mat4x4<f32>) -> f32 {
             // We know/assume that the matrix is a homogeneous matrix,
             // so that only the 3x3 region is relevant for the determinant,
-            // which is faster to calculate that the det of the 4x4.
+            // which is faster to calculate than the det of the 4x4.
             let m3 = mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
             return sign(determinant(m3));
         }
@@ -210,8 +224,17 @@ class MeshShader(WorldObjectShader):
 
             // Select what face we're at
             let index = i32(in.vertex_index);
-            let face_index = index / 3;
-            var sub_index = index % 3;
+            let face_index = index / {{indexer}};
+            var sub_index = index % {{indexer}};
+            
+            // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
+            if sub_index == 3 {
+                sub_index = 0;
+                } else if sub_index == 4 {
+                sub_index = 2;
+                } else if sub_index == 5 {
+                sub_index = 3;
+                }
 
             // If a transform has an uneven number of negative scales, the 3 vertices
             // that make up the face are such that the GPU will mix up front and back
@@ -234,11 +257,19 @@ class MeshShader(WorldObjectShader):
 
             // For the wireframe we also need the ndc_pos of the other vertices of this face
             $$ if wireframe
-                $$ for i in (1, 2, 3)
-                    let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
-                    let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
-                    let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
-                $$ endfor
+                $$ if indexer == 3
+                    $$ for i in (1, 2, 3)
+                        let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
+                        let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
+                        let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
+                    $$ endfor
+                $$ elif indexer == 6
+                    $$ for i in (1, 2, 3, 4)
+                        let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
+                        let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
+                        let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
+                    $$ endfor
+                $$ endif
                 let depth_offset = -0.0001;  // to put the mesh slice atop a mesh
                 ndc_pos.z = ndc_pos.z + depth_offset;
             $$ endif
@@ -285,16 +316,50 @@ class MeshShader(WorldObjectShader):
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
-                $$ for i in (1, 2, 3)
-                    let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
-                $$ endfor
-                let dist1 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
-                let dist2 = abs((p3.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p3.y - p1.y)) / distance(p1, p3);
-                let dist3 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
-                var arr_wireframe_coords = array<vec3<f32>, 3>(
-                    vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
-                );
-                varyings.wireframe_coords = vec3<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
+                $$ if indexer == 3
+                    $$ for i in (1, 2, 3)
+                        let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
+                    $$ endfor
+                    let dist1 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
+                    let dist2 = abs((p3.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p3.y - p1.y)) / distance(p1, p3);
+                    let dist3 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
+                    var arr_wireframe_coords = array<vec3<f32>, 3>(
+                        vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
+                    );
+                    varyings.wireframe_coords = vec3<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
+                $$ elif indexer == 6
+                    $$ for i in (1, 2, 3, 4)
+                        let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
+                    $$ endfor
+                    //dist of vertex 1 to segment 23
+                    let dist1_23 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
+                    //dist of vertex 1 to segment 34
+                    let dist1_34 = abs((p3.x - p4.x) * (p4.y - p1.y) - (p4.x - p1.x) * (p3.y - p4.y)) / distance(p4, p3);
+
+                    //dist of vertex 2 to segment 34
+                    let dist2_34 = abs((p4.x - p3.x) * (p3.y - p2.y) - (p3.x - p2.x) * (p4.y - p3.y)) / distance(p3, p4);
+                    //dist of vertex 2 to segment 14
+                    let dist2_14 = abs((p4.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p4.y - p1.y)) / distance(p1, p4);
+                    
+                    //dist of vertex 3 to segment 12
+                    let dist3_12 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
+                    //dist of vertex 3 to segment 14
+                    let dist3_14 = abs((p1.x - p4.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p1.y - p4.y)) / distance(p4, p1);
+
+                    //dist of vertex 4 to segment 12
+                    let dist4_12 = abs((p2.x - p1.x) * (p1.y - p4.y) - (p1.x - p4.x) * (p2.y - p1.y)) / distance(p1, p2);
+                    //dist of vertex 4 to segment 23
+                    let dist4_23 = abs((p2.x - p3.x) * (p3.y - p4.y) - (p3.x - p4.x) * (p2.y - p3.y)) / distance(p2, p3);
+                    
+                    //segments 12 23 34 41
+                    var arr_wireframe_coords = array<vec4<f32>, 4>(
+                        vec4<f32>(dist1_23, dist1_34, 0.0, 0.0), 
+                        vec4<f32>(0.0, dist2_34, dist2_14, 0.0), 
+                        vec4<f32>(0.0, 0.0 , dist3_14,dist3_12), 
+                        vec4<f32>(dist4_23, 0.0 ,0.0, dist4_12)
+                        );
+                    varyings.wireframe_coords = vec4<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
+                $$ endif
             $$ endif
 
             // Set varyings for picking. We store the face_index, and 3 weights
