@@ -10,7 +10,7 @@ from ...resources import Buffer
 from ...utils import logger
 from ._shader import BaseShader
 from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ._utils import GpuCache, hash_from_values
+from ._utils import GpuCache, hash_from_value
 from ._update import ensure_wgpu_object, ALTTEXFORMAT
 from . import registry
 
@@ -28,7 +28,7 @@ PIPELINE_CACHE = GpuCache("pipelines")
 
 
 def get_cached_bind_group_layout(device, *args):
-    key = "bind_group_layout-" + hash_from_values(*args)
+    key = "bind_group_layout-" + hash_from_value(args)
     result = LAYOUT_CACHE.get(key)
     if result is None:
         (entries,) = args
@@ -40,7 +40,7 @@ def get_cached_bind_group_layout(device, *args):
 
 
 def get_cached_pipeline_layout(device, *args):
-    key = "pipeline_layout-" + hash_from_values(*args)
+    key = "pipeline_layout-" + hash_from_value(args)
     result = LAYOUT_CACHE.get(key)
     if result is None:
         (bind_group_layouts,) = args
@@ -52,7 +52,7 @@ def get_cached_pipeline_layout(device, *args):
 
 
 def get_cached_bind_group(device, *args):
-    key = "bind_group-" + hash_from_values(*args)
+    key = "bind_group-" + hash_from_value(args)
     result = BINDING_CACHE.get(key)
     if result is None:
         layout, entries = args
@@ -67,7 +67,7 @@ def get_cached_shader_module(device, shader, shader_kwargs):
     # Using a key that *defines* the wgsl - rather than the wgsl itself
     # - avoids the templating to be applied on a cache hit, which safes
     # considerable time!
-    key = "shader-" + shader.hash + hash_from_values(shader_kwargs)
+    key = "shader-" + shader.hash + hash_from_value(shader_kwargs)
 
     result = SHADER_CACHE.get(key)
     if result is None:
@@ -80,7 +80,7 @@ def get_cached_shader_module(device, shader, shader_kwargs):
 
 
 def get_cached_compute_pipeline(device, *args):
-    key = "compute_pipeline-" + hash_from_values(*args)
+    key = "compute_pipeline-" + hash_from_value(args)
     result = PIPELINE_CACHE.get(key)
     if result is None:
         pipeline_layout, shader_module = args
@@ -96,7 +96,7 @@ def get_cached_compute_pipeline(device, *args):
 
 
 def get_cached_render_pipeline(device, *args):
-    key = "render_pipeline-" + hash_from_values(*args)
+    key = "render_pipeline-" + hash_from_value(args)
     result = PIPELINE_CACHE.get(key)
     if result is None:
         (

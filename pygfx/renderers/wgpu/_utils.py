@@ -206,14 +206,13 @@ class JsonEncoderWithWgpuSupport(json.JSONEncoder):
 jsonencoder = JsonEncoderWithWgpuSupport()
 
 
-# todo: rename to singular and accept a single value?
-def hash_from_values(*values):
-    """Simple way to create a hash from multiple values.
-    Assumes that the repr of each value makes sense.
+def hash_from_value(value):
+    """Simple way to create a hash from a (possibly composite) object.
+    Assumes JSON encodable objects and GPU objects.
     """
-    # Encode the values to string using json. The JSON encoder is so fast that
+    # Encode the value to string using json. The JSON encoder is so fast that
     # its hard to come up with something that can serialze to str faster.
-    s = jsonencoder.encode(values)
+    s = jsonencoder.encode(value)
 
     # If the strings is small enough, just use that. Otherwise use fast
     # sha1 hashing to produce a 40-char hash. This costs a bit more

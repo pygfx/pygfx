@@ -16,7 +16,7 @@ from ._utils import (
     to_vertex_format,
     to_texture_format,
     generate_uniform_struct,
-    hash_from_values,
+    hash_from_value,
 )
 
 
@@ -267,7 +267,7 @@ class BaseShader:
         """A hash of the current state of the shader. If the hash changed,
         it's likely that the shader changed.
         """
-        return hash_from_values(self.kwargs, self.code_definitions())
+        return hash_from_value([self.kwargs, self.code_definitions()])
 
     def code_definitions(self):
         """Get the WGSL definitions of types and bindings (uniforms, storage
