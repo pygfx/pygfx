@@ -267,7 +267,20 @@ class BaseShader:
         """A hash of the current state of the shader. If the hash changed,
         it's likely that the shader changed.
         """
-        return hash_from_value([self.kwargs, self.code_definitions()])
+        # The full name of this shader class.
+        fullname = self.__class__.__module__ + "." + self.__class__.__name__
+
+        # Does it look like its builtin (into a lib)? This excludes e.g. __main__.CustomShader
+        is_builtin = fullname.count(".") >= 2
+
+        if is_builtin:
+            # Fast, and safe as long as the shader class produces the same code
+            # based on the same kwargs.
+            return hash_from_value([fullname, self.code_definitions(), self.kwargs])
+        else:
+            # More reliable, e.g. user could be working on a custom
+            # shader in an interactove session.
+            return hash_from_value([self.get_code(), self.kwargs])
 
     def code_definitions(self):
         """Get the WGSL definitions of types and bindings (uniforms, storage
