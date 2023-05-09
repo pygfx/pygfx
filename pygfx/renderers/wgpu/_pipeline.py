@@ -727,9 +727,6 @@ class RenderPipelineContainer(PipelineContainer):
         layouts and other pipeline info (one for each pass of the blender).
         """
 
-        # todo: cache the pipeline with a lot of things as the hash
-        # todo: cache vertex descriptors
-
         strip_index_format = self.strip_index_format
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
@@ -751,8 +748,7 @@ class RenderPipelineContainer(PipelineContainer):
 
             shader_module = shader_modules[pass_index]
 
-            # todo: are all elements actually stored??
-            pipelines[pass_index] = get_cached_render_pipeline(
+            pipeline = get_cached_render_pipeline(
                 device,
                 pipeline_layout,
                 shader_module,
@@ -762,6 +758,10 @@ class RenderPipelineContainer(PipelineContainer):
                 depth_descriptor,
                 color_descriptors,
             )
+            pipelines[pass_index] = pipeline
+
+            # Make sure it holds a ref to the layout (keep wgpu-py in check)
+            assert pipeline._layout is pipeline_layout
 
         return pipelines
 
