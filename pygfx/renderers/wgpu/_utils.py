@@ -225,22 +225,43 @@ def hash_from_value(value):
         return h.hexdigest()
 
 
+class GpuCaches:
+    """A collection of gpu caches."""
+
+    def get_stats(self):
+        """Get a dict mapping cache names to item counts."""
+        d = {}
+        for name, ob in self.__dict__.items():
+            if isinstance(ob, GpuCache):
+                d[name] = ob.get_stats()
+        return d
+
+    def enable(self):
+        """Enable all caches."""
+        for ob in self.__dict__.values():
+            if isinstance(ob, GpuCache):
+                ob.enable()
+
+    def disable(self):
+        """Disable all caches."""
+        for ob in self.__dict__.values():
+            if isinstance(ob, GpuCache):
+                ob.disable()
+
+
+gpu_caches = GpuCaches()
+
+
 class GpuCache:
     """A chache for GPU objects."""
 
-    _caches = {}
-
-    @classmethod
-    def get_cache_stats(cls):
-        """Get a dict mapping cache names to item counts."""
-        return {name: cache.get_stats() for name, cache in GpuCache._caches.items()}
-
     def __init__(self, name):
         assert isinstance(name, str)
-        assert name not in GpuCache._caches
-        GpuCache._caches[name] = self
+        assert not hasattr(gpu_caches, name)
+        setattr(gpu_caches, name, self)
 
         self._objects = weakref.WeakValueDictionary()
+        self._enabled = True
         self.hits = 0
         self.misses = 0
 
@@ -248,15 +269,26 @@ class GpuCache:
         """Get the number of (alive) objects in the cache."""
         return len(list(self._objects.values())), self.hits, self.misses
 
+    def enable(self):
+        """Enable this cache."""
+        self._enabled = True
+
+    def disable(self):
+        """Disable this cache."""
+        self._enabled = False
+
     def get(self, key):
         """Get the cached object or None."""
-        try:
-            ob = self._objects[key]
-        except KeyError:
-            ob = None
-            self.misses += 1
+        if self._enabled:
+            try:
+                ob = self._objects[key]
+            except KeyError:
+                ob = None
+                self.misses += 1
+            else:
+                self.hits += 1
         else:
-            self.hits += 1
+            ob = None
         return ob
 
     def set(self, key, ob):
