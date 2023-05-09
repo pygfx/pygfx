@@ -2,9 +2,9 @@
 Utils for the wgpu renderer.
 """
 
+import json
 import weakref
 import hashlib
-import json
 
 import wgpu
 
@@ -197,24 +197,33 @@ def generate_uniform_struct(dtype_struct, structname):
     return code
 
 
+class JsonEncoderWithWgpuSupport(json.JSONEncoder):
+    def default(self, ob):
+        if isinstance(ob, wgpu.GPUObjectBase):
+            return ob.__class__.__name__ + "@" + hex(id(ob))
+
+
+jsonencoder = JsonEncoderWithWgpuSupport()
+
+
+# todo: rename to singular and accept a single value?
 def hash_from_values(*values):
     """Simple way to create a hash from multiple values.
     Assumes that the repr of each value makes sense.
     """
-    h = hashlib.sha1()
-    h.update(json.dumps(values).encode())
-    return h.hexdigest()
+    # Encode the values to string using json. The JSON encoder is so fast that
+    # its hard to come up with something that can serialze to str faster.
+    s = jsonencoder.encode(values)
 
-    # todo: check if this is faster. Or recursing in structures and using Pythons builtin hash()
-    # ok_types = (str, bool, int, float, tuple, list, dict)
-    # for value in values:
-    #     if isinstance(value, str):
-    #         h.update(value.encode())
-    #     elif isinstance(value, ok_types):
-    #         h.update(repr(value).encode())
-    #     else:
-    #         raise TypeError("Unexpected value to hash")
-    # return h.hexdigest()
+    # If the strings is small enough, just use that. Otherwise use fast
+    # sha1 hashing to produce a 40-char hash. This costs a bit more
+    # time, but safes memory. Can also set this to True for debugging purposes.
+    if len(s) < 128:
+        return s
+    else:
+        h = hashlib.sha1()
+        h.update(s.encode())
+        return h.hexdigest()
 
 
 class GpuCache:

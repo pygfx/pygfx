@@ -22,6 +22,122 @@ visibility_all = (
 
 
 SHADER_CACHE = GpuCache("shader_modules")
+LAYOUT_CACHE = GpuCache("layouts")
+BINDING_CACHE = GpuCache("bindings")
+PIPELINE_CACHE = GpuCache("pipelines")
+
+
+def get_cached_bind_group_layout(device, *args):
+    key = "bind_group_layout-" + hash_from_values(*args)
+    result = LAYOUT_CACHE.get(key)
+    if result is None:
+        (entries,) = args
+        result = device.create_bind_group_layout(entries=entries)
+
+        LAYOUT_CACHE.set(key, result)
+
+    return result
+
+
+def get_cached_pipeline_layout(device, *args):
+    key = "pipeline_layout-" + hash_from_values(*args)
+    result = LAYOUT_CACHE.get(key)
+    if result is None:
+        (bind_group_layouts,) = args
+        result = device.create_pipeline_layout(bind_group_layouts=bind_group_layouts)
+
+        LAYOUT_CACHE.set(key, result)
+
+    return result
+
+
+def get_cached_bind_group(device, *args):
+    key = "bind_group-" + hash_from_values(*args)
+    result = BINDING_CACHE.get(key)
+    if result is None:
+        layout, entries = args
+        result = device.create_bind_group(layout=layout, entries=entries)
+
+        BINDING_CACHE.set(key, result)
+
+    return result
+
+
+def get_cached_shader_module(device, shader, shader_kwargs):
+    # Using a key that *defines* the wgsl - rather than the wgsl itself
+    # - avoids the templating to be applied on a cache hit, which safes
+    # considerable time!
+    key = "shader-" + shader.hash + hash_from_values(shader_kwargs)
+
+    result = SHADER_CACHE.get(key)
+    if result is None:
+        wgsl = shader.generate_wgsl(**shader_kwargs)
+        result = device.create_shader_module(code=wgsl)
+
+        SHADER_CACHE.set(key, result)
+
+    return result
+
+
+def get_cached_compute_pipeline(device, *args):
+    key = "compute_pipeline-" + hash_from_values(*args)
+    result = PIPELINE_CACHE.get(key)
+    if result is None:
+        pipeline_layout, shader_module = args
+
+        result = device.create_compute_pipeline(
+            layout=pipeline_layout,
+            compute={"module": shader_module, "entry_point": "main"},
+        )
+
+        PIPELINE_CACHE.set(key, result)
+
+    return result
+
+
+def get_cached_render_pipeline(device, *args):
+    key = "render_pipeline-" + hash_from_values(*args)
+    result = PIPELINE_CACHE.get(key)
+    if result is None:
+        (
+            pipeline_layout,
+            shader_module,
+            primitive_topology,
+            strip_index_format,
+            cull_mode,
+            depth_descriptor,
+            color_descriptors,
+        ) = args
+
+        result = device.create_render_pipeline(
+            layout=pipeline_layout,
+            vertex={
+                "module": shader_module,
+                "entry_point": "vs_main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": primitive_topology,
+                "strip_index_format": strip_index_format,
+                "front_face": wgpu.FrontFace.ccw,
+                "cull_mode": cull_mode,
+            },
+            depth_stencil=depth_descriptor,
+            multisample={
+                "count": 1,
+                "mask": 0xFFFFFFFF,
+                "alpha_to_coverage_enabled": False,
+            },
+            fragment={
+                "module": shader_module,
+                "entry_point": "fs_main",
+                "targets": color_descriptors,
+            },
+        )
+
+        PIPELINE_CACHE.set(key, result)
+
+    return result
 
 
 def get_pipeline_container_group(wobject, environment, shared):
@@ -464,8 +580,8 @@ class PipelineContainer:
             # Create wgpu objects for the bind group layouts
             self.wgpu_bind_group_layouts = []
             for bg_layout_descriptor in bg_layout_descriptors:
-                bind_group_layout = device.create_bind_group_layout(
-                    entries=bg_layout_descriptor
+                bind_group_layout = get_cached_bind_group_layout(
+                    device, bg_layout_descriptor
                 )
                 self.wgpu_bind_group_layouts.append(bind_group_layout)
 
@@ -473,7 +589,7 @@ class PipelineContainer:
         # includes the buffer texture objects.
         self.wgpu_bind_groups = []
         for bg_descriptor, layout in zip(bg_descriptors, self.wgpu_bind_group_layouts):
-            bind_group = device.create_bind_group(layout=layout, entries=bg_descriptor)
+            bind_group = get_cached_bind_group(device, layout, bg_descriptor)
             self.wgpu_bind_groups.append(bind_group)
 
 
@@ -502,31 +618,21 @@ class ComputePipelineContainer(PipelineContainer):
 
     def _compile_shaders(self, device, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
-
-        key = "compute-" + self.shader_hash
-
-        shader_module = SHADER_CACHE.get(key)
-        if shader_module is None:
-            wgsl = self.shader.generate_wgsl()
-            shader_module = device.create_shader_module(code=wgsl)
-            SHADER_CACHE.set(key, shader_module)
-
+        shader_module = get_cached_shader_module(device, self.shader, {})
         return {0: shader_module}
 
     def _compose_pipelines(self, device, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
-        pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=self.wgpu_bind_group_layouts
+        pipeline_layout = get_cached_pipeline_layout(
+            device, self.wgpu_bind_group_layouts
         )
 
         # Create pipeline object
-        pipeline = device.create_compute_pipeline(
-            layout=pipeline_layout,
-            compute={"module": shader_modules[0], "entry_point": "main"},
+        pipeline = get_cached_compute_pipeline(
+            device, pipeline_layout, shader_modules[0]
         )
-
         return {0: pipeline}
 
     def dispatch(self, compute_pass):
@@ -607,21 +713,11 @@ class RenderPipelineContainer(PipelineContainer):
 
             env_bind_group_index = len(self.wgpu_bind_groups)
 
-            # Get extra shader kwargs
             blender_kwargs = blender.get_shader_kwargs(pass_index)
             env_kwargs = env.get_shader_kwargs(env_bind_group_index)
-            extra_kwargs_hash = hash_from_values(blender_kwargs, env_kwargs)
+            shader_kwargs = blender_kwargs | env_kwargs
 
-            # Compose full hash - the key into the cache
-            # Using this key - rather than the full wgsl - avoids the templating
-            # to be applied on a cache hit, which safes considerable time!
-            key = "render-" + self.shader_hash + extra_kwargs_hash
-
-            shader_module = SHADER_CACHE.get(key)
-            if shader_module is None:
-                wgsl = self.shader.generate_wgsl(**blender_kwargs, **env_kwargs)
-                shader_module = device.create_shader_module(code=wgsl)
-                SHADER_CACHE.set(key, shader_module)
+            shader_module = get_cached_shader_module(device, self.shader, shader_kwargs)
             shader_modules[pass_index] = shader_module
 
         return shader_modules
@@ -641,9 +737,8 @@ class RenderPipelineContainer(PipelineContainer):
         # Create pipeline layout object from list of layouts
         env_bind_group_layout, _ = env.wgpu_bind_group
         bind_group_layouts = [*self.wgpu_bind_group_layouts, env_bind_group_layout]
-        pipeline_layout = device.create_pipeline_layout(
-            bind_group_layouts=bind_group_layouts
-        )
+
+        pipeline_layout = get_cached_pipeline_layout(device, bind_group_layouts)
 
         # Instantiate the pipeline objects
         pipelines = {}
@@ -656,30 +751,16 @@ class RenderPipelineContainer(PipelineContainer):
 
             shader_module = shader_modules[pass_index]
 
-            pipelines[pass_index] = device.create_render_pipeline(
-                layout=pipeline_layout,
-                vertex={
-                    "module": shader_module,
-                    "entry_point": "vs_main",
-                    "buffers": [],
-                },
-                primitive={
-                    "topology": primitive_topology,
-                    "strip_index_format": strip_index_format,
-                    "front_face": wgpu.FrontFace.ccw,
-                    "cull_mode": cull_mode,
-                },
-                depth_stencil=depth_descriptor,
-                multisample={
-                    "count": 1,
-                    "mask": 0xFFFFFFFF,
-                    "alpha_to_coverage_enabled": False,
-                },
-                fragment={
-                    "module": shader_module,
-                    "entry_point": "fs_main",
-                    "targets": color_descriptors,
-                },
+            # todo: are all elements actually stored??
+            pipelines[pass_index] = get_cached_render_pipeline(
+                device,
+                pipeline_layout,
+                shader_module,
+                primitive_topology,
+                strip_index_format,
+                cull_mode,
+                depth_descriptor,
+                color_descriptors,
             )
 
         return pipelines
