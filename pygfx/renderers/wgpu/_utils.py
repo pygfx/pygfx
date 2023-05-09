@@ -234,7 +234,7 @@ class GpuCache:
     @classmethod
     def get_cache_stats(cls):
         """Get a dict mapping cache names to item counts."""
-        return {name: cache.get_count() for name, cache in GpuCache._caches.items()}
+        return {name: cache.get_stats() for name, cache in GpuCache._caches.items()}
 
     def __init__(self, name):
         assert isinstance(name, str)
@@ -242,14 +242,23 @@ class GpuCache:
         GpuCache._caches[name] = self
 
         self._objects = weakref.WeakValueDictionary()
+        self.hits = 0
+        self.misses = 0
 
-    def get_count(self):
+    def get_stats(self):
         """Get the number of (alive) objects in the cache."""
-        return len(list(self._objects.values()))
+        return len(list(self._objects.values())), self.hits, self.misses
 
     def get(self, key):
         """Get the cached object or None."""
-        return self._objects.get(key, None)
+        try:
+            ob = self._objects[key]
+        except KeyError:
+            ob = None
+            self.misses += 1
+        else:
+            self.hits += 1
+        return ob
 
     def set(self, key, ob):
         """Store the given object under the given key.
