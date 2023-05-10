@@ -270,16 +270,24 @@ class BaseShader:
         # The full name of this shader class.
         fullname = self.__class__.__module__ + "." + self.__class__.__name__
 
-        # Does it look like its builtin (into a lib)? This excludes e.g. __main__.CustomShader
-        is_builtin = fullname.count(".") >= 2
+        # If we assume that the shader class produces the same code for
+        # a specific set of kwargs, we can use the fullname in the hash
+        # instead of the actual code. This assumption is valid in
+        # general, but can breaks down in a few specific situation, the
+        # most common one being an interactive session. In this case,
+        # the fullname would be something like "__main__.CustomShader".
+        # To be on the safe side, we use the full code when the fullname
+        # contains only one dot. This may introduce false positives,
+        # but that's fine, because this is only a performance
+        # optimization.
 
-        if is_builtin:
-            # Fast, and safe as long as the shader class produces the same code
-            # based on the same kwargs.
+        name_probably_defines_code = fullname.count(".") >= 2
+
+        if name_probably_defines_code:
+            # Faster, but assumes that the produced code only depends on kwargs.
             return hash_from_value([fullname, self.code_definitions(), self.kwargs])
         else:
-            # More reliable, e.g. user could be working on a custom
-            # shader in an interactove session.
+            # More reliable (e.g. in an interactove session).
             return hash_from_value([self.get_code(), self.kwargs])
 
     def code_definitions(self):
