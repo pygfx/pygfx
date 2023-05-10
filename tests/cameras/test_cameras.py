@@ -79,6 +79,35 @@ def test_camera_show_methods():
     assert np.allclose(camera.local.position, [250, 300, 550])
 
 
+def test_camera_reference_up():
+    # Avoid regressions, see #527
+
+    camera = gfx.PerspectiveCamera()
+
+    # Check default up
+    assert tuple(camera.world.reference_up) == (0, 1, 0)
+
+    # Using current up
+    camera.show_pos((1, 0, 0))
+    assert tuple(camera.world.reference_up) == (0, 1, 0)
+
+    # Using an up +Z
+    camera.show_pos((1, 0, 0), up=(0, 0, 1))
+    assert tuple(camera.world.reference_up) == (0, 0, 1)
+
+    # Using an up +X
+    camera.show_pos((0, 1, 0), up=(1, 0, 0))
+    assert tuple(camera.world.reference_up) == (1, 0, 0)
+
+    # Not specifying up, keeps the current up (no revert to default)
+    camera.show_pos((0, 1, 1))
+    assert tuple(camera.world.reference_up) == (1, 0, 0)
+
+    # Back to +Y
+    camera.show_pos((1, 0, 0), up=(0, 1, 0))
+    assert tuple(camera.world.reference_up) == (0, 1, 0)
+
+
 def _run_for_camera(camera, near, far, check_halfway):
     # Some notes:
     #
