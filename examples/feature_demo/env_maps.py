@@ -2,8 +2,10 @@
 Environment Map Effects
 =======================
 
-This example demonstrates the environment mapping effects of the CUBE-REFLECTION and CUBE-REFRACTION mapping modes
-in "MeshBasicMaterial", "MeshPhongMaterial", and "MeshStandardMaterial" for a given object.
+This example demonstrates the environment mapping effects
+of the "CUBE-REFLECTION" and "CUBE-REFRACTION" mapping modes
+in "MeshBasicMaterial", "MeshPhongMaterial", and "MeshStandardMaterial"
+for a given object.
 
 """
 
