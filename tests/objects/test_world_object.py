@@ -277,6 +277,11 @@ def test_axis_setters():
     assert np.allclose(obj.world.up, (0, 1, 0))
     assert np.allclose(obj.world.forward, (0, 0, -1))
 
+    # these vectors are unit
+
+    obj.world.forward = (2, 0, 0)
+    assert np.allclose(obj.world.forward, (1, 0, 0))
+
     obj.world.up = (1, 1, 1)
     assert np.allclose(obj.world.up, (1 / np.sqrt(3), 1 / np.sqrt(3), 1 / np.sqrt(3)))
 
@@ -309,14 +314,19 @@ def test_reference_up():
     assert np.allclose(group.world.reference_up, (0, 1, 0))
     assert np.allclose(obj1.world.reference_up, (0, 1, 0))
 
-    # (world) up_reference is independent between objects
+    # (world) reference_up is independent between objects
     obj2 = gfx.WorldObject()
     obj2.world.rotation = (0, 0, 1, 0)
     group.add(obj1, keep_world_matrix=True)
 
+    obj3 = gfx.WorldObject()
+
     obj1.world.reference_up = (1, 2, 3)
     obj2.world.reference_up = (1, 0, 1)
+    obj3.world.reference_up = (0, 42, 0)
+    isqrt2 = 1 / np.sqrt(2)
 
     assert np.allclose(group.local.reference_up, (0, 1, 0))
-    assert np.allclose(obj1.world.reference_up, (1, 2, 3))
-    assert np.allclose(obj2.world.reference_up, (1, 0, 1))
+    assert np.allclose(obj1.world.reference_up, la.vec_normalize((1, 2, 3)))
+    assert np.allclose(obj2.world.reference_up, (isqrt2, 0, isqrt2))
+    assert np.allclose(obj3.world.reference_up, (0, 1, 0))
