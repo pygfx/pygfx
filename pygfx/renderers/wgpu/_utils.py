@@ -4,7 +4,6 @@ Utils for the wgpu renderer.
 
 import json
 import weakref
-import hashlib
 
 import wgpu
 
@@ -214,15 +213,8 @@ def hash_from_value(value):
     # its hard to come up with something that can serialze to str faster.
     s = jsonencoder.encode(value)
 
-    # If the strings is small enough, just use that. Otherwise use fast
-    # sha1 hashing to produce a 40-char hash. This costs a bit more
-    # time, but safes memory. Can also set this to True for debugging purposes.
-    if len(s) < 128:
-        return s
-    else:
-        h = hashlib.sha1()
-        h.update(s.encode())
-        return h.hexdigest()
+    # Return hash (an int). For debugging purposes it can be helpul to return s instead.
+    return hash(s)
 
 
 class GpuCaches:
