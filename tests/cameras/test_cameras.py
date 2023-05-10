@@ -107,6 +107,20 @@ def test_camera_reference_up():
     camera.show_pos((1, 0, 0), up=(0, 1, 0))
     assert tuple(camera.world.reference_up) == (0, 1, 0)
 
+    # ---
+
+    # It normalizes too
+    camera.show_pos((1, 0, 0), up=(0, 0, 2))
+    assert tuple(camera.world.reference_up) == (0, 0, 1)
+
+    # Can also set up directly
+    camera.world.reference_up = (2, 0, 0)
+    assert tuple(camera.world.reference_up) == (1, 0, 0)
+
+    # Stays that way
+    camera.show_pos((1, 1, 0))
+    assert tuple(camera.world.reference_up) == (1, 0, 0)
+
 
 def _run_for_camera(camera, near, far, check_halfway):
     # Some notes:
