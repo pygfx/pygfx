@@ -133,10 +133,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
-
-        # Process other inputs
         self.pixel_ratio = pixel_ratio
-        self._show_fps = bool(show_fps)
 
         # Make sure we have a shared object (the first renderer create it)
         canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
@@ -184,6 +181,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         )
 
         self._shadow_util = ShadowUtil(self._shared.device)
+
+        # Init fps measurements
+        self._show_fps = bool(show_fps)
+        now = time.perf_counter()
+        self._fps = {"start": now, "count": 0}
 
         if enable_events:
             self.enable_events()
@@ -528,13 +530,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Print FPS
         now = time.perf_counter()  # noqa
         if self._show_fps:
-            if not hasattr(self, "_fps"):
-                self._fps = now, now, 1
-            elif now > self._fps[0] + 1:
-                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
-                self._fps = now, now, 1
+            if self._fps["count"] == 0:
+                print(f"Time to first draw: {now-self._fps['start']:0.2f}")
+                self._fps["start"] = now
+                self._fps["count"] = 1
+            elif now > self._fps["start"] + 1:
+                fps = self._fps["count"] / (now - self._fps["start"])
+                print(f"FPS: {fps:0.1f}")
+                self._fps["start"] = now
+                self._fps["count"] = 1
             else:
-                self._fps = self._fps[0], now, self._fps[2] + 1
+                self._fps["count"] += 1
 
         device = self.device
         need_mipmaps = False

@@ -114,6 +114,11 @@ class Buffer(Resource):
         return self._store.nitems
 
     @property
+    def itemsize(self):
+        """The number of bytes for a single item."""
+        return self._store.nbytes // self._store.nitems
+
+    @property
     def format(self):
         """The vertex format. Usually a pygfx format specifier (e.g. u2
         for scalar uint16, or 3xf4 for 3xfloat32), but can also be a

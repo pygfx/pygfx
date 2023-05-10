@@ -8,7 +8,7 @@ from ...resources import Resource, Buffer
 from ...utils.trackable import Trackable
 from ...utils import array_from_shadertype
 from ...utils.text import glyph_atlas
-from ._utils import GpuCache
+from ._utils import gpu_caches
 
 
 # Definition uniform struct with standard info related to transforms,
@@ -144,19 +144,24 @@ def print_wgpu_report():
 
     if shared:
         print()
-        print("CACHES:".ljust(50), "count".rjust(10))
-        for cache_name, count in GpuCache.get_cache_stats().items():
+        print(
+            "CACHES:".ljust(20), "Count".rjust(10), "Hits".rjust(10), "Misses".rjust(10)
+        )
+        for cache_name, stats in gpu_caches.get_stats().items():
+            count, hits, misses = stats
             print(
-                f"{cache_name}:".rjust(50),
+                f"{cache_name}".rjust(20),
                 str(count).rjust(10),
+                str(hits).rjust(10),
+                str(misses).rjust(10),
             )
 
     if shared:
         print()
-        print("RESOURCES:".ljust(50), "count".rjust(10))
+        print("RESOURCES:".ljust(20), "Count".rjust(10))
         for name, count in Resource._resource_counts.items():
             print(
-                f"{name}:".rjust(50),
+                f"{name}:".rjust(20),
                 str(count).rjust(10),
             )
 
