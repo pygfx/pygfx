@@ -237,6 +237,9 @@ class Binding:
                     "size": resource.nbytes,
                 },
             }
+            # Note: we set min_binding_size, rather than relying on the default (None),
+            # otherwise the layout for different buffers look equal, and are thus
+            # re-used (using caching), but they wont be compatible.
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
