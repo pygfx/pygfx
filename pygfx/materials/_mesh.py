@@ -5,7 +5,7 @@ from ..utils import unpack_bitfield, logger
 from ..utils.color import Color
 
 
-class MeshBasicMaterial(Material):
+class AbstractMeshMaterial(Material):
     """Basic mesh material.
 
     A material for drawing geometries in a simple shaded (flat or wireframe)
@@ -218,6 +218,119 @@ class MeshBasicMaterial(Material):
         self._store.flat_shading = bool(value)
 
 
+class MeshBasicMaterial(AbstractMeshMaterial):
+    """Basic mesh material.
+
+    A material for drawing geometries in a simple shaded (flat or wireframe)
+    way. This material is not affected by lights.
+
+    Parameters
+    ----------
+    env_map : Texture
+        The environment map.
+    reflectivity : float
+        How much the environment map affects the surface. also see ``env_combine_mode``.
+        The default value is 1 and the valid range is between 0 (no reflections) and 1 (full reflections).
+    refraction_ratio : float
+        The index of refraction (IOR) of air (approximately 1) divided by the index of refraction of the material.
+        It is used with ``env_mapping_mode`` set to "REFRACTION".
+    env_combine_mode: str
+        How the environment map affects the surface.
+        The default value is "MULTIPLY" and the valid values are "MULTIPLY", "MIX", and "ADD".
+    env_mapping_mode : str
+        The environment mapping mode.
+        The default value is "CUBE-REFLECTION" and the valid values are "CUBE-REFLECTION" and "CUBE-REFRACTION".
+
+    """
+
+    uniform_type = dict(
+        AbstractMeshMaterial.uniform_type,
+        reflectivity="f4",
+        refraction_ratio="f4",
+    )
+
+    def __init__(
+        self,
+        env_map=None,
+        reflectivity=1.0,
+        refraction_ratio=0.98,
+        env_combine_mode="MULTIPLY",
+        env_mapping_mode="CUBE-REFLECTION",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.env_map = env_map
+        self.reflectivity = reflectivity
+        self.refraction_ratio = refraction_ratio
+        self.env_combine_mode = env_combine_mode
+        self.env_mapping_mode = env_mapping_mode
+
+    @property
+    def env_map(self):
+        """The environment map."""
+        return self._env_map
+
+    @env_map.setter
+    def env_map(self, env_map):
+        self._env_map = env_map
+
+    @property
+    def reflectivity(self):
+        """How much the environment map affects the surface. also see ``env_combine_mode``.
+        The default value is 1 and the valid range is between 0 (no reflections) and 1 (full reflections).
+        """
+        return float(self.uniform_buffer.data["reflectivity"])
+
+    @reflectivity.setter
+    def reflectivity(self, value):
+        self.uniform_buffer.data["reflectivity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def refraction_ratio(self):
+        """The index of refraction (IOR) of air (approximately 1) divided by the index of refraction of the material.
+        It is used with ``env_mapping_mode`` set to "REFRACTION".
+        """
+        return float(self.uniform_buffer.data["refraction_ratio"])
+
+    @refraction_ratio.setter
+    def refraction_ratio(self, value):
+        self.uniform_buffer.data["refraction_ratio"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def env_combine_mode(self):
+        """How the environment map affects the surface.
+        The default value is "MULTIPLY" and the valid values are "MULTIPLY", "MIX", and "ADD".
+        """
+        return self._store.env_combine_mode
+
+    @env_combine_mode.setter
+    def env_combine_mode(self, value):
+        value = str(value).upper()
+        if value in ("MULTIPLY", "MIX", "ADD"):
+            self._store.env_combine_mode = value
+        else:
+            raise ValueError(f"Unexpected env_combine_mode: '{value}'")
+
+    @property
+    def env_mapping_mode(self):
+        """The environment mapping mode.
+        The default value is "REFLECTION" and the valid values are "CUBE-REFLECTION" and "CUBE-REFRACTION".
+        """
+        # todo: add support for other mapping modes,
+        # "SPHERE-REFLECTION", "EQUIRECTANGULAR-REFLECTION", "EQUIRECTANGULAR-REFRACTION" etc.
+        return self._store.env_mapping_mode
+
+    @env_mapping_mode.setter
+    def env_mapping_mode(self, value):
+        value = str(value).upper()
+        if value in ("CUBE-REFLECTION", "CUBE-REFRACTION"):
+            self._store.env_mapping_mode = value
+        else:
+            raise ValueError(f"Unexpected env_mapping_mode: '{value}'")
+
+
 class MeshPhongMaterial(MeshBasicMaterial):
     """Phong mesh material.
 
@@ -335,7 +448,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 # A cartoon-style mesh material.
 
 
-class MeshNormalMaterial(MeshBasicMaterial):
+class MeshNormalMaterial(AbstractMeshMaterial):
     """Color from Mesh normals.
 
     A material that maps the normal vectors to RGB colors.
@@ -343,7 +456,7 @@ class MeshNormalMaterial(MeshBasicMaterial):
     """
 
 
-class MeshNormalLinesMaterial(MeshBasicMaterial):
+class MeshNormalLinesMaterial(AbstractMeshMaterial):
     """Render surface normals as lines.
 
     A material that shows surface normals as simple lines. The lines
@@ -362,7 +475,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
     """
 
     uniform_type = dict(
-        MeshBasicMaterial.uniform_type,
+        AbstractMeshMaterial.uniform_type,
         line_length="f4",
     )
 
@@ -387,7 +500,7 @@ class MeshNormalLinesMaterial(MeshBasicMaterial):
         self.uniform_buffer.update_range(0, 1)
 
 
-class MeshSliceMaterial(MeshBasicMaterial):
+class MeshSliceMaterial(AbstractMeshMaterial):
     """Display a mesh slice.
 
     Parameters
@@ -406,7 +519,7 @@ class MeshSliceMaterial(MeshBasicMaterial):
     """
 
     uniform_type = dict(
-        MeshBasicMaterial.uniform_type,
+        AbstractMeshMaterial.uniform_type,
         plane="4xf4",
         thickness="f4",
     )

@@ -458,7 +458,7 @@ class BaseShader:
         self._binding_codes[binding.name] = code
 
     def _define_texture(self, bindgroup, index, binding):
-        texture = binding.resource  # or view
+        texture = binding.resource  # GfxTextureView
         format = to_texture_format(texture.format)
         if "norm" in format or "float" in format:
             format = "f32"
