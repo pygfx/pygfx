@@ -9,8 +9,6 @@ this is still performant.
 
 # sphinx_gallery_pygfx_render = True
 
-import time  # noqa
-
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -20,7 +18,6 @@ canvas = WgpuCanvas(max_fps=999)
 renderer = gfx.WgpuRenderer(canvas, show_fps=True)
 scene = gfx.Scene()
 
-t0 = time.perf_counter()
 
 # Define number of vertices
 cols = 20
@@ -57,16 +54,10 @@ stats = gfx.Stats(viewport=renderer)
 
 
 def animate():
-    global t0
     with stats:
         renderer.render(scene, camera, flush=False)
     stats.render()
     canvas.request_draw()
-
-    if t0 is not None:
-        etime = time.perf_counter() - t0
-        print(f"Time to first draw: {etime:0.2f} s")
-        t0 = None
 
 
 if __name__ == "__main__":
