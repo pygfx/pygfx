@@ -251,13 +251,10 @@ class MeshShader(WorldObjectShader):
             var sub_index = index % {{indexer}};
             
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
-            if sub_index == 3 {
-                sub_index = 0;
-                } else if sub_index == 4 {
-                sub_index = 2;
-                } else if sub_index == 5 {
-                sub_index = 3;
-                }
+            $$ if indexer == 3
+            var quad_map = array<f32,6>(0, 1, 2, 0, 2, 3);
+            sub_index = quad_map[sub_index];
+            $$ endif
 
             // If a transform has an uneven number of negative scales, the 3 vertices
             // that make up the face are such that the GPU will mix up front and back
