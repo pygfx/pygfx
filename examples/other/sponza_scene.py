@@ -42,7 +42,7 @@ scene = gfx.Scene()
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)
-camera.position.set(-10, 1.8, -0.3)
+camera.local.position = -10, 1.8, -0.3
 camera.show_pos((0, 0, 0))
 controller = gfx.FlyController(camera, register_events=renderer, speed=2)
 
@@ -62,8 +62,8 @@ scene.add(gfx.AmbientLight(intensity=0.1))
 
 # Add the sun, midday direction
 sunlight = gfx.DirectionalLight()
-sunlight.position.set(-14.5, 31, 4.5)
-sunlight.target.position.set(5.3, -1.4, -2.5)
+sunlight.local.position = -14.5, 31, 4.5
+sunlight.target.local.position = 5.3, -1.4, -2.5
 sunlight.cast_shadow = True
 sunlight.shadow.camera.depth_range = (0, 250)
 sunlight.shadow.camera.update_projection_matrix()
@@ -77,7 +77,7 @@ for pos in [
     [3.8, 1.12, 1.15],
 ]:
     torch = gfx.PointLight("#ff7700", decay=2.5)
-    torch.position.set(*pos)
+    torch.local.position = pos
     torch.cast_shadow = True
     torch.shadow.camera.depth_range = (0.01, 200)
     torch.shadow.camera.update_projection_matrix()
