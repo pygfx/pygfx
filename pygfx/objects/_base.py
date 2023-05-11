@@ -196,7 +196,7 @@ class WorldObject(EventTarget, RootTrackable):
     def up(self):
         """
         Relic of old WorldObjects that aliases with the new ``transform.up``
-        direction. Prefer (minus) `obj.world.reference_up.` instead
+        direction. Prefer `obj.world.reference_up` instead.
 
         """
 

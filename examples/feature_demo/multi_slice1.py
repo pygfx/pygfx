@@ -60,7 +60,7 @@ for axis in [0, 1, 2]:
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.PerspectiveCamera(0)
-camera.up = 0, 0, 1
+camera.world.reference_up = 0, 0, 1
 camera.local.position = (200, 200, 200)
 camera.show_pos((0, 0, 0))
 
