@@ -70,7 +70,7 @@ class MeshShader(WorldObjectShader):
         else:
             if geometry.indices.data.shape[1] == 4:
                 n1 = normals_from_vertices(
-                    geometry.positions.data, geometry.indices.data[:,:3]
+                    geometry.positions.data, geometry.indices.data[..., :3]
                 )
                 n2 = normals_from_vertices(
                     geometry.positions.data, geometry.indices.data[:,[0,2,3]]
