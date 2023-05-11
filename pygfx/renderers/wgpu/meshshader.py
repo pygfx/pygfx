@@ -277,19 +277,11 @@ class MeshShader(WorldObjectShader):
 
             // For the wireframe we also need the ndc_pos of the other vertices of this face
             $$ if wireframe
-                $$ if indexer == 3
-                    $$ for i in (1, 2, 3)
-                        let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
-                        let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
-                        let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
-                    $$ endfor
-                $$ elif indexer == 6
-                    $$ for i in (1, 2, 3, 4)
-                        let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
-                        let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
-                        let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
-                    $$ endfor
-                $$ endif
+                $$ for i in ((1, 2, 3) if indexer == 3 else (1, 2, 3, 4))
+                    let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
+                    let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
+                    let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
+                $$ endfor
                 let depth_offset = -0.0001;  // to put the mesh slice atop a mesh
                 ndc_pos.z = ndc_pos.z + depth_offset;
             $$ endif
