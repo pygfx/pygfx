@@ -205,8 +205,8 @@ def get_shadow_pipeline(wobject, cull_mode):
         pipeline = create_shadow_pipeline(array_stride, vertex_format, cull_mode)
         SHADOW_CACHE.set(key, pipeline)
 
-    # Store on the wobject to bind it to its lifetime
-    wobject._gfx_shadow_pipeline = pipeline
+    # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
+    setattr(wobject, f"_gfx_shadow_pipeline_{cull_mode}", pipeline)
     return pipeline
 
 
