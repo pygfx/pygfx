@@ -68,7 +68,7 @@ class MeshShader(WorldObjectShader):
         if getattr(geometry, "normals", None) is not None:
             normal_buffer = geometry.normals
         else:
-            if geometry.indices.data.shape[1] == 4:
+            if geometry.indices.data.shape[-1] == 4:
                 n1 = normals_from_vertices(
                     geometry.positions.data, geometry.indices.data[..., :3]
                 )
