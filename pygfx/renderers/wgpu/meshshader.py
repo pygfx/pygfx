@@ -264,7 +264,7 @@ class MeshShader(WorldObjectShader):
             // set with the public API and we assume that it does not include a flip.
             let winding_world = get_sign_of_det_of_4x4(world_transform);
             let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
-            //sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
+            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
 
             // Sample
             let ii = load_s_indices(face_index);
