@@ -10,6 +10,7 @@ class WorldObjectShader(BaseShader):
     """
 
     type = "render"  # must be "compute" or "render"
+    shadow_topology = None
 
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)

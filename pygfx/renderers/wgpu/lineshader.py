@@ -43,6 +43,7 @@ renderer_uniform_type = dict(last_i="i4")
 @register_wgpu_render_function(Line, LineMaterial)
 class LineShader(WorldObjectShader):
     type = "render"
+    shadow_topology = wgpu.PrimitiveTopology.line_strip
 
     def __init__(self, wobject):
         super().__init__(wobject)

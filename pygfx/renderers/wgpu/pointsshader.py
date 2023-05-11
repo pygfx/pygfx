@@ -15,6 +15,7 @@ class PointsShader(WorldObjectShader):
     # for performance ...
 
     type = "render"
+    shadow_topology = wgpu.PrimitiveTopology.point_list
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry

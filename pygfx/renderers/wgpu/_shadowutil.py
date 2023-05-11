@@ -4,10 +4,6 @@ from ._utils import to_vertex_format, GpuCache
 
 from ...objects import PointLight
 
-# todo: idea:
-# the shader and a corresponding binding layout for vertex data can also be defined
-# on the Shader object. That way, line and point objects can also casts shadows :)
-
 
 # This cache enable re-using gpu pipelines for calculating shadows,
 # these can be shared between multiple world-objects that have a
@@ -130,10 +126,10 @@ def render_wobject_shadow(light, wobject, shadow_pass):
     shadow_pass.set_bind_group(1, wobject_bind_group, [], 0, 99)
 
     ibuffer = getattr(wobject.geometry, "indices", None)
-    n = wobject.geometry.indices.data.size
     n_instance = 1  # not support instanced meshes yet
 
     if ibuffer is not None:
+        n = wobject.geometry.indices.data.size
         index_format = to_vertex_format(ibuffer.format)
         index_format = index_format.split("x")[0].replace("s", "u")
         shadow_pass.set_index_buffer(
@@ -142,6 +138,7 @@ def render_wobject_shadow(light, wobject, shadow_pass):
         )
         shadow_pass.draw_indexed(n, n_instance)
     else:
+        n = wobject.geometry.positions.nitems
         shadow_pass.draw(n, n_instance)
 
 
@@ -194,15 +191,20 @@ def get_shadow_pipeline(wobject, cull_mode):
     # - maybe for future skinned meshes, the morph buffer is also needed.
 
     position_buffer = wobject.geometry.positions
-    array_stride = position_buffer.nbytes // position_buffer.nitems
-    vertex_format = to_vertex_format(position_buffer.format)
 
-    key = (array_stride, vertex_format, cull_mode)
+    stride = position_buffer.itemsize
+    format = position_buffer.format
+    topology = wobject._gfx_shadow_topology
+
+    if topology is None:
+        raise RuntimeError(f"Shadows not supported for {wobject.__class__.__name__}")
+
+    key = (stride, format, topology, cull_mode)
 
     pipeline = SHADOW_CACHE.get(key)
     if pipeline is None:
         # Create pipeline and store in the cache (with a weakref).
-        pipeline = create_shadow_pipeline(array_stride, vertex_format, cull_mode)
+        pipeline = create_shadow_pipeline(stride, format, topology, cull_mode)
         SHADOW_CACHE.set(key, pipeline)
 
     # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
@@ -210,7 +212,7 @@ def get_shadow_pipeline(wobject, cull_mode):
     return pipeline
 
 
-def create_shadow_pipeline(array_stride, vertex_format, cull_mode):
+def create_shadow_pipeline(stride, format, topology, cull_mode):
     """Actually create a shadow pipeline object."""
 
     device = global_shadow_state.device
@@ -218,11 +220,11 @@ def create_shadow_pipeline(array_stride, vertex_format, cull_mode):
 
     vertex_buffer_descriptor = [
         {
-            "array_stride": array_stride,
+            "array_stride": stride,
             "step_mode": wgpu.VertexStepMode.vertex,  # vertex
             "attributes": [
                 {
-                    "format": vertex_format,
+                    "format": to_vertex_format(format),
                     "offset": 0,
                     "shader_location": 0,
                 }
@@ -241,7 +243,7 @@ def create_shadow_pipeline(array_stride, vertex_format, cull_mode):
             "buffers": vertex_buffer_descriptor,
         },
         primitive={
-            "topology": wgpu.PrimitiveTopology.triangle_list,
+            "topology": topology,
             "cull_mode": cull_mode.lower(),
         },
         depth_stencil={
