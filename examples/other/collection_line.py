@@ -9,8 +9,6 @@ this is still performant.
 
 # sphinx_gallery_pygfx_render = True
 
-import time  # noqa
-
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -18,8 +16,8 @@ import pygfx as gfx
 
 canvas = WgpuCanvas(max_fps=999)
 renderer = gfx.WgpuRenderer(canvas, show_fps=True)
-
 scene = gfx.Scene()
+
 
 # Define number of vertices
 cols = 20
@@ -30,6 +28,7 @@ use_thin_lines = True
 print(nvertices * rows * cols, "vertices in total")
 
 x = np.linspace(0.05, 0.95, nvertices, dtype=np.float32)
+
 
 for row in range(rows):
     for col in range(cols):
@@ -43,8 +42,8 @@ for row in range(rows):
                 thickness=0.2 + 2 * row / rows, color=(col / cols, row / rows, 0.5, 1.0)
             )
         line = gfx.Line(geometry, material)
-        line.position.x = col
-        line.position.y = row
+        line.local.x = col
+        line.local.y = row
         scene.add(line)
 
 camera = gfx.OrthographicCamera(cols, rows, maintain_aspect=False)

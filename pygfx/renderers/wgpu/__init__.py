@@ -2,7 +2,7 @@
 
 # The engine
 from ...objects._base import RenderMask
-from ._utils import registry, register_wgpu_render_function
+from ._utils import registry, register_wgpu_render_function, gpu_caches
 from ._shared import Shared, stdinfo_uniform_type, print_wgpu_report
 from ._renderer import WgpuRenderer
 from ._pipeline import Binding
