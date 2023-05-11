@@ -73,7 +73,7 @@ class MeshShader(WorldObjectShader):
                     geometry.positions.data, geometry.indices.data[..., :3]
                 )
                 n2 = normals_from_vertices(
-                    geometry.positions.data, geometry.indices.data[:,[0,2,3]]
+                    geometry.positions.data, geometry.indices.data[..., [0,2,3]]
                 )
                 normal_data = (n1+n2)/2
             else:
