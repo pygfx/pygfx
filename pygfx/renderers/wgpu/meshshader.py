@@ -141,8 +141,8 @@ class MeshShader(WorldObjectShader):
 
         n = geometry.indices.data.size
         self['indexer'] = 3
-        if geometry.indices.data.shape[1]==4:
-            n =  geometry.indices.data.shape[0]*2*3
+        if geometry.indices.data.shape[-1] == 4:
+            n =  geometry.indices.data.shape[0] * 2 * 3
             self['indexer'] = 6
 
         n_instances = 1
