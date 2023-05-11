@@ -2,7 +2,7 @@ import wgpu
 from ._update import ensure_wgpu_object, update_resource
 from ._utils import to_vertex_format, GpuCache
 
-from ...objects import PointLight
+from ... import objects
 
 
 # This cache enable re-using gpu pipelines for calculating shadows,
@@ -59,7 +59,7 @@ def render_shadow_maps(device, lights, wobjects, command_encoder):
             continue
 
         # What kind of light is this?
-        light_has_6_sides = isinstance(light, PointLight)
+        light_has_6_sides = isinstance(light, objects.PointLight)
         assert light_has_6_sides == isinstance(light.shadow._wgpu_tex_view, list)
         assert light_has_6_sides == isinstance(light.shadow._gfx_matrix_buffer, list)
 
@@ -194,10 +194,7 @@ def get_shadow_pipeline(wobject, cull_mode):
 
     stride = position_buffer.itemsize
     format = position_buffer.format
-    topology = wobject._gfx_shadow_topology
-
-    if topology is None:
-        raise RuntimeError(f"Shadows not supported for {wobject.__class__.__name__}")
+    topology = get_shadow_topology(wobject)
 
     key = (stride, format, topology, cull_mode)
 
@@ -210,6 +207,18 @@ def get_shadow_pipeline(wobject, cull_mode):
     # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
     setattr(wobject, f"_gfx_shadow_pipeline_{cull_mode}", pipeline)
     return pipeline
+
+
+def get_shadow_topology(wobject):
+    """Get the primitive topology for drawing the shadows of this object."""
+    if isinstance(wobject, objects.Mesh):
+        return wgpu.PrimitiveTopology.triangle_list
+    elif isinstance(wobject, objects.Line):
+        return wgpu.PrimitiveTopology.line_strip
+    elif isinstance(wobject, objects.Points):
+        return wgpu.PrimitiveTopology.point_list
+    else:
+        raise RuntimeError(f"Shadows not supported for {wobject.__class__.__name__}")
 
 
 def create_shadow_pipeline(stride, format, topology, cull_mode):

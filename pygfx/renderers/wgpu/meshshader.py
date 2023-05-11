@@ -24,7 +24,6 @@ from ...utils import normals_from_vertices
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
 class MeshShader(WorldObjectShader):
     type = "render"
-    shadow_topology = wgpu.PrimitiveTopology.triangle_list
 
     def __init__(self, wobject):
         super().__init__(wobject)

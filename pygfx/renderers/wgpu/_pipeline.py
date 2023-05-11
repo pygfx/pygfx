@@ -393,9 +393,6 @@ class PipelineContainerGroup:
                 if isinstance(shaders, BaseShader):
                     shaders = [shaders]
 
-            # Provide fast access to info for the shadow util
-            wobject._gfx_shadow_topology = shaders[0].shadow_topology
-
             # Divide result over two bins, one for compute, and one for render
             for shader in shaders:
                 assert isinstance(shader, BaseShader)
