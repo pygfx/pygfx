@@ -9,6 +9,9 @@ from ...objects import PointLight
 # on the Shader object. That way, line and point objects can also casts shadows :)
 
 
+# This cache enable re-using gpu pipelines for calculating shadows,
+# these can be shared between multiple world-objects that have a
+# positions buffer with a matching stride and format.
 SHADOW_CACHE = GpuCache("shadow_pipelines")
 
 
