@@ -211,6 +211,28 @@ class MeshShader(WorldObjectShader):
             return sign(determinant(m3));
         }
 
+        fn dist_pt_line(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) -> f32 {
+         // Distance of pt (x3,y3) to line with coords(x1,y1) (x2,y2)
+         return abs((x2 - x1) * (y1 - y3) - (x1 - x3) * (y2 - y1)) / sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+        }
+
+        fn dist_pt_line_segment(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) -> f32 {
+            // Distance of pt (x3,y3) to line segment (x1,y1) (x2,y2)
+            //https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+            let px = x2-x1;
+            let py = y2-y1;
+            let norm = px*px + py*py;
+            var u = ((x3 - x1) * px + (y3 - y1) * py) / norm;
+            if u > 1.0 {
+                u = 1.0;
+                } else if u < 0.0 {
+                u = 0.0;
+                }
+            let dx = x1 + u * px - x3;
+            let dy = y1 + u * py - y3;
+            return sqrt(dx*dx + dy*dy);
+        }
+
         @vertex
         fn vs_main(in: VertexInput) -> Varyings {
 
@@ -225,6 +247,7 @@ class MeshShader(WorldObjectShader):
             // Select what face we're at
             let index = i32(in.vertex_index);
             let face_index = index / {{indexer}};
+            let sub_index_ori = index % {{indexer}};
             var sub_index = index % {{indexer}};
             
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
@@ -244,7 +267,7 @@ class MeshShader(WorldObjectShader):
             // set with the public API and we assume that it does not include a flip.
             let winding_world = get_sign_of_det_of_4x4(world_transform);
             let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
-            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
+            //sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
 
             // Sample
             let ii = load_s_indices(face_index);
@@ -332,31 +355,31 @@ class MeshShader(WorldObjectShader):
                         let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
                     $$ endfor
                     //dist of vertex 1 to segment 23
-                    let dist1_23 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
+                    let dist1_23 = dist_pt_line(p2.x,p2.y,p3.x,p3.y,p1.x,p1.y);
                     //dist of vertex 1 to segment 34
-                    let dist1_34 = abs((p3.x - p4.x) * (p4.y - p1.y) - (p4.x - p1.x) * (p3.y - p4.y)) / distance(p4, p3);
+                    let dist1_34 = dist_pt_line(p3.x,p3.y,p4.x,p4.y,p1.x,p1.y);
 
                     //dist of vertex 2 to segment 34
-                    let dist2_34 = abs((p4.x - p3.x) * (p3.y - p2.y) - (p3.x - p2.x) * (p4.y - p3.y)) / distance(p3, p4);
+                    let dist2_34 = dist_pt_line(p3.x,p3.y,p4.x,p4.y,p2.x,p2.y);
                     //dist of vertex 2 to segment 14
-                    let dist2_14 = abs((p4.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p4.y - p1.y)) / distance(p1, p4);
+                    let dist2_14 = dist_pt_line(p1.x,p1.y,p4.x,p4.y,p2.x,p2.y);
                     
                     //dist of vertex 3 to segment 12
-                    let dist3_12 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
+                    let dist3_12 = dist_pt_line(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
                     //dist of vertex 3 to segment 14
-                    let dist3_14 = abs((p1.x - p4.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p1.y - p4.y)) / distance(p4, p1);
+                    let dist3_14 = dist_pt_line(p1.x,p1.y,p4.x,p4.y,p3.x,p3.y);
 
                     //dist of vertex 4 to segment 12
-                    let dist4_12 = abs((p2.x - p1.x) * (p1.y - p4.y) - (p1.x - p4.x) * (p2.y - p1.y)) / distance(p1, p2);
+                    let dist4_12 = dist_pt_line(p2.x,p2.y,p1.x,p1.y,p4.x,p4.y);
                     //dist of vertex 4 to segment 23
-                    let dist4_23 = abs((p2.x - p3.x) * (p3.y - p4.y) - (p3.x - p4.x) * (p2.y - p3.y)) / distance(p2, p3);
+                    let dist4_23 = dist_pt_line(p2.x,p2.y,p3.x,p3.y,p4.x,p4.y);
                     
                     //segments 12 23 34 41
                     var arr_wireframe_coords = array<vec4<f32>, 4>(
-                        vec4<f32>(dist1_23, dist1_34, 0.0, 0.0), 
-                        vec4<f32>(0.0, dist2_34, dist2_14, 0.0), 
-                        vec4<f32>(0.0, 0.0 , dist3_14,dist3_12), 
-                        vec4<f32>(dist4_23, 0.0 ,0.0, dist4_12)
+                        vec4<f32>( 0.0, dist1_23,dist1_34, 0.0), 
+                        vec4<f32>(0.0, 0.0, dist2_34, dist2_14), 
+                        vec4<f32>( dist3_12 ,0.0, 0.0, dist3_14), 
+                        vec4<f32>( dist4_12,dist4_23, 0.0, 0.0)
                         );
                     varyings.wireframe_coords = vec4<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
                 $$ endif
@@ -373,9 +396,18 @@ class MeshShader(WorldObjectShader):
 
             varyings.pick_id = u32(pick_id);
             varyings.pick_idx = u32(face_index);
-            var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
-            varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
-
+            if {{indexer}} == 3 {
+                var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
+                varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
+            } else {
+                var arr_pick_coords = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0),
+                                                          vec3<f32>(0.0, 1.0, 0.0),
+                                                          vec3<f32>(0.0, 0.0, 1.0),
+                                                          vec3<f32>(1.0, 0.0, 0.0),
+                                                          vec3<f32>(0.0, 1.0, 0.0),
+                                                          vec3<f32>(0.0, 0.0, 1.0));
+                varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index_ori]);
+                }
             return varyings;
         }
 
@@ -445,7 +477,11 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             $$ if wireframe
+                $$ if indexer == 3
                 let distance_from_edge = min(varyings.wireframe_coords.x, min(varyings.wireframe_coords.y, varyings.wireframe_coords.z));
+                $$ else
+                let distance_from_edge = min(varyings.wireframe_coords.x, min(varyings.wireframe_coords.y, min(varyings.wireframe_coords.z, varyings.wireframe_coords.a)));
+                $$ endif
                 if (distance_from_edge > 0.5 * u_material.wireframe) {
                     discard;
                 }
