@@ -32,7 +32,7 @@ from ._pipeline import get_pipeline_container_group
 from ._update import update_resource, ensure_wgpu_object
 from ._shared import Shared
 from ._environment import get_environment
-from ._shadowutil import ShadowUtil
+from ._shadowutil import render_shadow_maps
 from ._mipmapsutil import generate_texture_mipmaps
 from ._utils import GfxTextureView
 
@@ -179,8 +179,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
-
-        self._shadow_util = ShadowUtil(self._shared.device)
 
         # Init fps measurements
         self._show_fps = bool(show_fps)
@@ -612,7 +610,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             + environment.lights["spot_lights"]
             + environment.lights["directional_lights"]
         )
-        self._shadow_util.render_shadow_maps(lights, wobject_list, command_encoder)
+        render_shadow_maps(self.device, lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
