@@ -25,7 +25,6 @@ floor = gfx.Mesh(
 )
 
 floor.local.rotation = la.quat_from_euler(-math.pi / 2, order="X")
-# floor.position.set(0, -0.05, 0)
 floor.receive_shadow = True
 
 scene.add(floor)

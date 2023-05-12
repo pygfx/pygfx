@@ -14,6 +14,8 @@ import pylinalg as la
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import numpy as np
+
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
@@ -45,6 +47,15 @@ cube3.local.position = (0, -250, 0)
 cube3.cast_shadow = True
 cube3.receive_shadow = True
 scene.add(cube3)
+
+t = np.linspace(0, 10, 100).astype(np.float32)
+xyz = 20 * np.sin(2 * t), 20 * np.sin(3 * t) + 50, 20 * np.sin(t)
+line1 = gfx.Line(
+    gfx.Geometry(positions=np.column_stack(xyz)),
+    gfx.LineMaterial(color="#088", thickness=5),
+)
+line1.cast_shadow = True
+scene.add(line1)
 
 box = gfx.Mesh(
     gfx.box_geometry(600, 600, 600),

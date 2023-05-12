@@ -21,9 +21,13 @@ visibility_all = (
 )
 
 
-SHADER_CACHE = GpuCache("shader_modules")
+# These caches enables sharing gpu resources for similar objects. It
+# makes creating such objects faster (i.e. faster startup). It also
+# saves gpu resources. It does not necessarily make the visualization
+# faster.
 LAYOUT_CACHE = GpuCache("layouts")
 BINDING_CACHE = GpuCache("bindings")
+SHADER_CACHE = GpuCache("shader_modules")
 PIPELINE_CACHE = GpuCache("pipelines")
 
 
