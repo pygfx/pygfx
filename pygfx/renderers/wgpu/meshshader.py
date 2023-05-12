@@ -107,7 +107,7 @@ class MeshShader(WorldObjectShader):
 
             if isinstance(material, MeshStandardMaterial):
                 self["use_IBL"] = True
-            elif isinstance(material, (MeshBasicMaterial, MeshPhongMaterial)):
+            elif isinstance(material, MeshBasicMaterial):
                 self["use_env_map"] = True
                 self["env_combine_mode"] = getattr(
                     material, "env_combine_mode", "MULTIPLY"
