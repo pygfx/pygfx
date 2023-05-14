@@ -155,6 +155,11 @@ class Main(QMainWindow):
         # print(self.pick_id,event)
 
     def animate(self):
+        s = self._camera.get_state()
+        txt = ''
+        for k,v in s.items():
+            txt += f'{k}: {v}\n'
+        self.info.setText(txt)
         self._renderer.render(self._scene, self._camera)
         self._canvas.request_draw()
 
