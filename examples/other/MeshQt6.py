@@ -15,13 +15,13 @@ import numpy as np
 import pygfx as gfx
 # from MeshParser import parser
 
-ui = '..\data\viewer.ui'
+ui = r'..\data\viewer.ui'
 
 def parser(path=None):
     class mesh:
-        nd = np.fromfile('..\data\nodes',dtype=np.float64).reshape(-1,4)
-        e3t = np.fromfile('..\data\e3t',dtype=np.uint32).reshape(-1,5)
-        e4q = np.fromfile('..\data\e4q',dtype=np.uint32).reshape(-1,6)
+        nd = np.fromfile(r'..\data\nodes',dtype=np.float64).reshape(-1,4)
+        e3t = np.fromfile(r'..\data\e3t',dtype=np.uint32).reshape(-1,5)
+        e4q = np.fromfile(r'..\data\e4q',dtype=np.uint32).reshape(-1,6)
     return mesh
 
 class Main(QMainWindow):
