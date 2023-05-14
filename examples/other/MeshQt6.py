@@ -13,6 +13,7 @@ from wgpu.gui.qt import WgpuWidget
 import wgpu.backends.rs  # noqa: F401, Select Rust backend
 import numpy as np
 import pygfx as gfx
+import pylinalg as la
 # from MeshParser import parser
 
 ui = r'..\data\viewer.ui'
@@ -49,8 +50,7 @@ class Main(QMainWindow):
 
         # Hook up the animate callback
         self.camOrbitView()
-        self.view_dir = [0,-1,0]
-        self._camera.show_object(self._scene,view_dir=self.view_dir)
+        self._camera.show_object(self._scene,view_dir=(0,0,-1),up=(0,0,1))
 
         self.planView.clicked.connect(self.camPlanView)
         self.orbitView.clicked.connect(self.camOrbitView)
@@ -60,26 +60,35 @@ class Main(QMainWindow):
         self.phong.clicked.connect(self.paintPhong)
 
     def camPlanView(self):
+        self.planView.setEnabled(False)
+        self.orbitView.setEnabled(True)
+        if hasattr(self,'_camera'):
+            rot = self._camera.get_state()['rotation']
+            up = la.quat_from_euler((0,0,-1))
+            self._controller.rotate((0,la.vec_angle(rot,up)),None)
+            self._controller.remove_camera(self._camera)
+
         self._controller = gfx.PanZoomController(camera=self._camera,register_events=self._renderer)
         self._controller.controls['mouse3']= ('pan', 'drag', (1.0, 1.0))
-        self._camera.show_object(self._scene,view_dir=(0,-1,0))
 
     def camOrbitView(self):
+        self.planView.setEnabled(True)
+        self.orbitView.setEnabled(False)
+        if hasattr(self,'_controller'):
+            self._controller.remove_camera(self._camera)
         self._controller = gfx.OrbitController(camera=self._camera,register_events=self._renderer)
         self._controller.controls['mouse3']= ('pan', 'drag', (1.0, 1.0))
         self._canvas.request_draw(self.animate)
 
     def scaleZ(self):
-        self._scene.local.scale_y = self.zfak.value()
+        self._scene.local.scale_z = self.zfak.value()
         self._canvas.request_draw(self.animate)
 
     def loadMesh(self):
         self.meshObj =  parser()
 
         # self._scene.world.position = tuple(self.meshObj.nd[:,1:].mean(axis=0))
-        self.verts = (self.meshObj.nd[:,1:]-self.meshObj.nd[:,1:].mean(axis=0)).astype('f')
-        self.verts = np.ascontiguousarray(self.verts[:,[0,2,1]],dtype='f')
-        self.verts[:,2] *= -1
+        self.verts = (self.meshObj.nd[:,1:]-self.meshObj.nd[:,1:].min(axis=0)).astype('f')
         self.paintWireframe()
 
     def paintNormal(self):
@@ -159,6 +168,8 @@ class Main(QMainWindow):
         txt = ''
         for k,v in s.items():
             txt += f'{k}: {v}\n'
+        txt += str(self._scene.get_bounding_box())
+        txt += str(self._scene.local.position)
         self.info.setText(txt)
         self._renderer.render(self._scene, self._camera)
         self._canvas.request_draw()
