@@ -234,8 +234,8 @@ class MeshShader(WorldObjectShader):
             var sub_index = index % {{indexer}};
             
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
-            $$ if indexer == 3
-            var quad_map = array<f32,6>(0, 1, 2, 0, 2, 3);
+            $$ if indexer == 6
+            var quad_map = array<i32,6>(0, 1, 2, 0, 2, 3);
             sub_index = quad_map[sub_index];
             $$ endif
 
