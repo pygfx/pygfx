@@ -744,7 +744,10 @@ class RenderPipelineContainer(PipelineContainer):
 
         pipeline_layout = get_cached_pipeline_layout(device, bind_group_layouts)
 
-        # Instantiate the pipeline objects
+        # Instantiate the pipeline objects.
+        # Note: The pipeline relies on the color and depth descriptors, which
+        # include the texture format and a few other static things.
+        # This step should *not* rerun when e.g. the canvas resizes.
         pipelines = {}
         blender = env.blender
         for pass_index in range(blender.get_pass_count()):

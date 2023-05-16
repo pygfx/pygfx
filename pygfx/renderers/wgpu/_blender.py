@@ -444,8 +444,9 @@ class BaseFragmentBlender:
         # The size (2D in pixels) of the frame textures.
         self.size = (0, 0)
 
-        # Pipeline objects
+        # Objects for the combination pass
         self._combine_pass_info = None
+        self._combine_pass_bind_group = None
 
         # A dict that contains the metadata for all render targets.
         self._texture_info = {}
@@ -488,8 +489,8 @@ class BaseFragmentBlender:
         self.size = size
         tex_size = size + (1,)
 
-        # Any pipelines are now invalid because they include render targets.
-        self._combine_pass_info = None
+        # Any bind group is now invalid because they include source textures.
+        self._combine_pass_bind_group = None
 
         # Recreate internal textures
         for name, (format, usage) in self._texture_info.items():
@@ -538,16 +539,19 @@ class BaseFragmentBlender:
     def perform_combine_pass(self, device):
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
-        # Get bindgroup and pipeline.
-        # These are cached by simply storing them on self. No need to
-        # use a GpuCache here, since sharing offers little benefit, and
-        # is not possible, because the target texture is encoded in the
-        # pipeline object.
+        # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
         if not self._combine_pass_info:
             self._combine_pass_info = self._create_combination_pipeline(device)
-        bind_group, render_pipeline = self._combine_pass_info
+        bind_group_layout, render_pipeline = self._combine_pass_info
         if not render_pipeline:
             return []
+
+        # Get the bind group. A new one is needed when the source textures resize.
+        if not self._combine_pass_bind_group:
+            self._combine_pass_bind_group = self._create_combination_bind_group(
+                device, bind_group_layout
+            )
+        bind_group = self._combine_pass_bind_group
 
         command_encoder = device.create_command_encoder()
 
@@ -656,11 +660,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             },
         ]
 
-        bindings = [
-            {"binding": 0, "resource": self.accum_view},
-            {"binding": 1, "resource": self.reveal_view},
-        ]
-
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
             {
@@ -696,7 +695,19 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         """
 
         return _create_full_quad_pipeline(
-            device, targets, binding_layout, bindings, bindings_code, fragment_code
+            device, targets, binding_layout, bindings_code, fragment_code
+        )
+
+        return
+
+    def _create_combination_bind_group(self, device, bind_group_layout):
+        # This must match the binding_layout above
+        bind_group_entries = [
+            {"binding": 0, "resource": self.accum_view},
+            {"binding": 1, "resource": self.reveal_view},
+        ]
+        return device.create_bind_group(
+            layout=bind_group_layout, entries=bind_group_entries
         )
 
 
@@ -762,12 +773,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             },
         ]
 
-        bindings = [
-            {"binding": 0, "resource": self.accum_view},
-            {"binding": 1, "resource": self.reveal_view},
-            {"binding": 2, "resource": self.frontcolor_view},
-        ]
-
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         targets = [
             {
@@ -816,5 +821,16 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         """
 
         return _create_full_quad_pipeline(
-            device, targets, binding_layout, bindings, bindings_code, fragment_code
+            device, targets, binding_layout, bindings_code, fragment_code
+        )
+
+    def _create_combination_bind_group(self, device, bind_group_layout):
+        # This must match the binding_layout above
+        bind_group_entries = [
+            {"binding": 0, "resource": self.accum_view},
+            {"binding": 1, "resource": self.reveal_view},
+            {"binding": 2, "resource": self.frontcolor_view},
+        ]
+        return device.create_bind_group(
+            layout=bind_group_layout, entries=bind_group_entries
         )
