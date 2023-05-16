@@ -101,25 +101,52 @@ def generate_mipmaps(device, texture, base_array_layer):
     bind_group_layout = pipeline.get_bind_group_layout(0)
 
     dst_size = texture.size[:2]
-    src_view = texture._wgpu_object.create_view(
-        base_mip_level=0,
-        mip_level_count=1,
-        dimension="2d",
-        base_array_layer=base_array_layer,
-    )
+    prev_view = None
 
     for i in range(1, texture._wgpu_mip_level_count):
         dst_size = dst_size[0] // 2, dst_size[1] // 2
+        bind_group, prev_view = get_bind_group(
+            device, texture, bind_group_layout, base_array_layer, i, prev_view
+        )
 
+        pass_encoder = command_encoder.begin_compute_pass()
+        pass_encoder.set_pipeline(pipeline)
+        pass_encoder.set_bind_group(0, bind_group, [], 0, 99)
+        pass_encoder.dispatch_workgroups(dst_size[0], dst_size[1])
+        pass_encoder.end()
+
+    device.queue.submit([command_encoder.finish()])
+
+
+def get_bind_group(
+    device, texture, bind_group_layout, base_array_layer, mip_level, src_view
+):
+    # Get the bind group that includes the two subsequent texture views.
+    # We cache this on the texture object to avoid re-creating the views
+    # and bind-group each time, which results in a significant increase
+    # in performance.
+    #
+    # Note, however, that this does mean we hold on to GPU resources,
+    # which may be a bit of a waste if the mipmaps are only created once!
+    # So for now we're assuming that mipmaps are generated often.
+
+    key = f"_gfx_bind_group_{base_array_layer}_{mip_level}"
+    bind_group = getattr(texture, key, None)
+    dst_view = None
+    if bind_group is None:
+        if src_view is None:
+            src_view = texture._wgpu_object.create_view(
+                base_mip_level=mip_level - 1,
+                mip_level_count=1,
+                dimension="2d",
+                base_array_layer=base_array_layer,
+            )
         dst_view = texture._wgpu_object.create_view(
-            base_mip_level=i,
+            base_mip_level=mip_level,
             mip_level_count=1,
             dimension="2d",
             base_array_layer=base_array_layer,
         )
-
-        pass_encoder = command_encoder.begin_compute_pass()
-
         bind_group = device.create_bind_group(
             layout=bind_group_layout,
             entries=[
@@ -127,15 +154,9 @@ def generate_mipmaps(device, texture, base_array_layer):
                 {"binding": 1, "resource": dst_view},
             ],
         )
+        setattr(texture, key, bind_group)
 
-        pass_encoder.set_pipeline(pipeline)
-        pass_encoder.set_bind_group(0, bind_group, [], 0, 99)
-        pass_encoder.dispatch_workgroups(dst_size[0], dst_size[1])
-        pass_encoder.end()
-
-        src_view = dst_view
-
-    device.queue.submit([command_encoder.finish()])
+    return bind_group, dst_view
 
 
 def get_mipmap_pipeline(device, texture):

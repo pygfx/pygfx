@@ -82,6 +82,8 @@ camera.show_object(scene, scale=2)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
+etimes = []
+
 
 def animate():
     t = time.time()
@@ -103,8 +105,12 @@ def animate():
 
     ob2.local.rotation = la.quat_mul(rot, ob2.local.rotation)
 
+    t0 = time.perf_counter()
     cube_camera.render(scene)
-
+    etime = time.perf_counter() - t0
+    etimes.append(etime)
+    etimes[:-20] = []
+    print(sum(etimes))
     renderer.render(scene, camera)
     renderer.request_draw()
 

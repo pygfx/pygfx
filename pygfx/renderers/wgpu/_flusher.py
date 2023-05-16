@@ -104,7 +104,7 @@ def _create_full_quad_pipeline(
 
         FULL_QUAD_CACHE.set(key2, render_pipeline)
 
-    return bind_group_layout, render_pipeline
+    return render_pipeline
 
 
 # %%%%%%%%%%
@@ -132,8 +132,8 @@ class RenderFlusher:
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-        self._render_pass_info = None
-        self._render_pass_bind_group = None
+        self._render_pipeline = None
+        self._bind_group = None
         self._bind_group_hash = None
 
     def render(self, src_color_tex, src_depth_tex, dst_color_tex, gamma=1.0):
@@ -146,22 +146,20 @@ class RenderFlusher:
         assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
 
         # Make sure we have the render_pipeline
-        if self._render_pass_info is None:
-            self._render_pass_info = self._create_pipeline()
-        bind_group_layout, render_pipeline = self._render_pass_info
+        if self._render_pipeline is None:
+            self._render_pipeline = self._create_pipeline()
 
         # Same for bind group. Needs to be recreated when the source texture changes.
         hash = id(src_color_tex._internal)
-        if self._render_pass_bind_group is None or hash != self._bind_group_hash:
+        if self._bind_group is None or hash != self._bind_group_hash:
             self._bind_group_hash = hash
-            self._render_pass_bind_group = self._create_bind_group(
-                bind_group_layout, src_color_tex
+            self._bind_group = self._create_bind_group(
+                self._render_pipeline.get_bind_group_layout(0), src_color_tex
             )
-        bind_group = self._render_pass_bind_group
 
         # Ready to go!
         self._update_uniforms(src_color_tex, dst_color_tex, gamma)
-        return self._render(render_pipeline, bind_group, dst_color_tex)
+        return self._render(dst_color_tex)
 
     def _update_uniforms(self, src_color_tex, dst_color_tex, gamma):
         # Get factor between texture sizes
@@ -196,7 +194,7 @@ class RenderFlusher:
             self._uniform_buffer, 0, self._uniform_data, 0, self._uniform_data.nbytes
         )
 
-    def _render(self, render_pipeline, bind_group, dst_color_tex):
+    def _render(self, dst_color_tex):
         device = self._device
 
         command_encoder = device.create_command_encoder()
@@ -213,8 +211,8 @@ class RenderFlusher:
             ],
             depth_stencil_attachment=None,
         )
-        render_pass.set_pipeline(render_pipeline)
-        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.set_pipeline(self._render_pipeline)
+        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end()
 
