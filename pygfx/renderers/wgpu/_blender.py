@@ -494,12 +494,12 @@ class BaseFragmentBlender:
 
         # Recreate internal textures
         for name, (format, usage) in self._texture_info.items():
-            texture = device.create_texture(
+            wgpu_texture = device.create_texture(
                 size=tex_size, usage=usage, dimension="2d", format=format
             )
             setattr(self, name + "_format", format)
-            setattr(self, name + "_tex", texture)
-            setattr(self, name + "_view", texture.create_view())
+            setattr(self, name + "_tex", wgpu_texture)
+            setattr(self, name + "_view", wgpu_texture.create_view())
 
     # The five methods below represent the API that the render system uses.
 

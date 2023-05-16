@@ -187,23 +187,21 @@ class RenderFlusher:
             sigma = 0.5
             support = 2
 
+        # Compose
         self._uniform_data["size"] = src_color_tex.size[:2]
         self._uniform_data["sigma"] = sigma
         self._uniform_data["support"] = support
         self._uniform_data["gamma"] = gamma
 
+        # Sync to gpu
+        self._device.queue.write_buffer(
+            self._uniform_buffer, 0, self._uniform_data, 0, self._uniform_data.nbytes
+        )
+
     def _render(self, render_pipeline, bind_group, dst_color_tex):
         device = self._device
 
         command_encoder = device.create_command_encoder()
-
-        tmp_buffer = device.create_buffer_with_data(
-            data=self._uniform_data,
-            usage=wgpu.BufferUsage.COPY_SRC,
-        )
-        command_encoder.copy_buffer_to_buffer(
-            tmp_buffer, 0, self._uniform_buffer, 0, self._uniform_data.nbytes
-        )
 
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
