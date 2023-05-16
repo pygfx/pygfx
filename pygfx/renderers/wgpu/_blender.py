@@ -6,7 +6,7 @@ object.
 
 import wgpu  # only for flags/enums
 
-from ._flusher import FULL_QUAD_SHADER, _create_pipeline
+from ._flusher import _create_full_quad_pipeline
 
 
 # Notes:
@@ -444,8 +444,9 @@ class BaseFragmentBlender:
         # The size (2D in pixels) of the frame textures.
         self.size = (0, 0)
 
-        # Pipeline objects
+        # Objects for the combination pass
         self._combine_pass_info = None
+        self._combine_pass_bind_group = None
 
         # A dict that contains the metadata for all render targets.
         self._texture_info = {}
@@ -488,17 +489,17 @@ class BaseFragmentBlender:
         self.size = size
         tex_size = size + (1,)
 
-        # Any pipelines are now invalid because they include render targets.
-        self._combine_pass_info = None
+        # Any bind group is now invalid because they include source textures.
+        self._combine_pass_bind_group = None
 
         # Recreate internal textures
         for name, (format, usage) in self._texture_info.items():
-            texture = device.create_texture(
+            wgpu_texture = device.create_texture(
                 size=tex_size, usage=usage, dimension="2d", format=format
             )
             setattr(self, name + "_format", format)
-            setattr(self, name + "_tex", texture)
-            setattr(self, name + "_view", texture.create_view())
+            setattr(self, name + "_tex", wgpu_texture)
+            setattr(self, name + "_view", wgpu_texture.create_view())
 
     # The five methods below represent the API that the render system uses.
 
@@ -538,12 +539,19 @@ class BaseFragmentBlender:
     def perform_combine_pass(self, device):
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
-        # Get bindgroup and pipeline
+        # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
         if not self._combine_pass_info:
             self._combine_pass_info = self._create_combination_pipeline(device)
-        bind_group, render_pipeline = self._combine_pass_info
+        bind_group_layout, render_pipeline = self._combine_pass_info
         if not render_pipeline:
             return []
+
+        # Get the bind group. A new one is needed when the source textures resize.
+        if not self._combine_pass_bind_group:
+            self._combine_pass_bind_group = self._create_combination_bind_group(
+                device, bind_group_layout
+            )
+        bind_group = self._combine_pass_bind_group
 
         command_encoder = device.create_command_encoder()
 
@@ -639,7 +647,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         )
 
     def _create_combination_pipeline(self, device):
-        binding_layouts = [
+        binding_layout = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
@@ -650,11 +658,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": standard_texture_des,
             },
-        ]
-
-        bindings = [
-            {"binding": 0, "resource": self.accum_view},
-            {"binding": 1, "resource": self.reveal_view},
         ]
 
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -691,11 +694,21 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             out.color = vec4<f32>(avg_color * alpha, alpha);
         """
 
-        wgsl = FULL_QUAD_SHADER
-        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
-        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
+        return _create_full_quad_pipeline(
+            device, targets, binding_layout, bindings_code, fragment_code
+        )
 
-        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
+        return
+
+    def _create_combination_bind_group(self, device, bind_group_layout):
+        # This must match the binding_layout above
+        bind_group_entries = [
+            {"binding": 0, "resource": self.accum_view},
+            {"binding": 1, "resource": self.reveal_view},
+        ]
+        return device.create_bind_group(
+            layout=bind_group_layout, entries=bind_group_entries
+        )
 
 
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
@@ -742,7 +755,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         )
 
     def _create_combination_pipeline(self, device):
-        binding_layouts = [
+        binding_layout = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
@@ -758,12 +771,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": standard_texture_des,
             },
-        ]
-
-        bindings = [
-            {"binding": 0, "resource": self.accum_view},
-            {"binding": 1, "resource": self.reveal_view},
-            {"binding": 2, "resource": self.frontcolor_view},
         ]
 
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -813,8 +820,17 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             out.color = vec4<f32>(out_rgb, out_a);
         """
 
-        wgsl = FULL_QUAD_SHADER
-        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
-        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
+        return _create_full_quad_pipeline(
+            device, targets, binding_layout, bindings_code, fragment_code
+        )
 
-        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
+    def _create_combination_bind_group(self, device, bind_group_layout):
+        # This must match the binding_layout above
+        bind_group_entries = [
+            {"binding": 0, "resource": self.accum_view},
+            {"binding": 1, "resource": self.reveal_view},
+            {"binding": 2, "resource": self.frontcolor_view},
+        ]
+        return device.create_bind_group(
+            layout=bind_group_layout, entries=bind_group_entries
+        )

@@ -2,8 +2,19 @@
 The flusher is responsible for rendering the renderers internal image
 to the canvas.
 """
+
 import wgpu
 import numpy as np
+
+from ._utils import GpuCache, hash_from_value
+
+
+# This cache enables sharing some gpu objects between code that uses
+# full-quad shaders. The gain here won't be large in general, but can
+# still be worthwhile in situations where many canvases are created,
+# such as in Jupyter notebooks, or e.g. when generating screenshots.
+# It should also reduce the required work during canvas resizing.
+FULL_QUAD_CACHE = GpuCache("full_quad_objects")
 
 
 FULL_QUAD_SHADER = """
@@ -45,36 +56,55 @@ FULL_QUAD_SHADER = """
 """
 
 
-def _create_pipeline(device, binding_layouts, bindings, targets, wgsl):
-    shader_module = device.create_shader_module(code=wgsl)
+def _create_full_quad_pipeline(
+    device, targets, binding_layout, bindings_code, fragment_code
+):
+    # Get bind group layout
+    key1 = hash_from_value(binding_layout)
+    bind_group_layout = FULL_QUAD_CACHE.get(key1)
+    if bind_group_layout is None:
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+        FULL_QUAD_CACHE.set(key1, bind_group_layout)
 
-    bind_group_layout = device.create_bind_group_layout(entries=binding_layouts)
-    pipeline_layout = device.create_pipeline_layout(
-        bind_group_layouts=[bind_group_layout]
-    )
-    bind_group = device.create_bind_group(layout=bind_group_layout, entries=bindings)
+    # Get render pipeline
+    key2 = hash_from_value([bind_group_layout, targets, bindings_code, fragment_code])
+    render_pipeline = FULL_QUAD_CACHE.get(key2)
+    if render_pipeline is None:
+        wgsl = FULL_QUAD_SHADER
+        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
+        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
+        shader_module = device.create_shader_module(code=wgsl)
 
-    render_pipeline = device.create_render_pipeline(
-        layout=pipeline_layout,
-        vertex={
-            "module": shader_module,
-            "entry_point": "vs_main",
-            "buffers": [],
-        },
-        primitive={
-            "topology": wgpu.PrimitiveTopology.triangle_strip,
-            "strip_index_format": wgpu.IndexFormat.uint32,
-        },
-        depth_stencil=None,
-        multisample=None,
-        fragment={
-            "module": shader_module,
-            "entry_point": "fs_main",
-            "targets": targets,
-        },
-    )
+        pipeline_layout = device.create_pipeline_layout(
+            bind_group_layouts=[bind_group_layout]
+        )
 
-    return bind_group, render_pipeline
+        render_pipeline = device.create_render_pipeline(
+            layout=pipeline_layout,
+            vertex={
+                "module": shader_module,
+                "entry_point": "vs_main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_strip,
+                "strip_index_format": wgpu.IndexFormat.uint32,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": shader_module,
+                "entry_point": "fs_main",
+                "targets": targets,
+            },
+        )
+
+        # Bind shader module object to the lifetime of the pipeline object
+        render_pipeline._gfx_module = shader_module
+
+        FULL_QUAD_CACHE.set(key2, render_pipeline)
+
+    return bind_group_layout, render_pipeline
 
 
 # %%%%%%%%%%
@@ -85,9 +115,9 @@ class RenderFlusher:
     Utility to flush (render) the current state of a renderer into a texture.
     """
 
-    def __init__(self, device):
+    def __init__(self, device, target_format):
         self._device = device
-        self._pipelines = {}
+        self._target_format = target_format
 
         dtype = [
             ("size", "float32", (2,)),
@@ -102,26 +132,36 @@ class RenderFlusher:
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-    def render(
-        self, src_color_tex, src_depth_tex, dst_color_tex, dst_format, gamma=1.0
-    ):
-        """Render the (internal) result of the renderer into a texture."""
-        # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)
+        self._render_pass_info = None
+        self._render_pass_bind_group = None
+        self._bind_group_hash = None
+
+    def render(self, src_color_tex, src_depth_tex, dst_color_tex, gamma=1.0):
+        """Render the (internal) result of the renderer to a texture view."""
+
+        # NOTE: src_depth_tex is not used yet, see #492
+        # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)?
         assert src_depth_tex is None
         assert isinstance(src_color_tex, wgpu.base.GPUTextureView)
         assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
 
-        # Recreate pipeline? Use ._internal as a true identifier of the texture view
-        hash = src_color_tex.size, src_color_tex._internal
-        stored_hash = self._pipelines.get(dst_format, ["invalidhash"])[0]
-        if hash != stored_hash:
-            bind_group, render_pipeline = self._create_pipeline(
-                src_color_tex, dst_format
-            )
-            self._pipelines[dst_format] = hash, bind_group, render_pipeline
+        # Make sure we have the render_pipeline
+        if self._render_pass_info is None:
+            self._render_pass_info = self._create_pipeline()
+        bind_group_layout, render_pipeline = self._render_pass_info
 
+        # Same for bind group. Needs to be recreated when the source texture changes.
+        hash = id(src_color_tex._internal)
+        if self._render_pass_bind_group is None or hash != self._bind_group_hash:
+            self._bind_group_hash = hash
+            self._render_pass_bind_group = self._create_bind_group(
+                bind_group_layout, src_color_tex
+            )
+        bind_group = self._render_pass_bind_group
+
+        # Ready to go!
         self._update_uniforms(src_color_tex, dst_color_tex, gamma)
-        return self._render(dst_color_tex, dst_format)
+        return self._render(render_pipeline, bind_group, dst_color_tex)
 
     def _update_uniforms(self, src_color_tex, dst_color_tex, gamma):
         # Get factor between texture sizes
@@ -145,24 +185,21 @@ class RenderFlusher:
             sigma = 0.5
             support = 2
 
+        # Compose
         self._uniform_data["size"] = src_color_tex.size[:2]
         self._uniform_data["sigma"] = sigma
         self._uniform_data["support"] = support
         self._uniform_data["gamma"] = gamma
 
-    def _render(self, dst_color_tex, dst_format):
+        # Sync to gpu
+        self._device.queue.write_buffer(
+            self._uniform_buffer, 0, self._uniform_data, 0, self._uniform_data.nbytes
+        )
+
+    def _render(self, render_pipeline, bind_group, dst_color_tex):
         device = self._device
-        _, bind_group, render_pipeline = self._pipelines[dst_format]
 
         command_encoder = device.create_command_encoder()
-
-        tmp_buffer = device.create_buffer_with_data(
-            data=self._uniform_data,
-            usage=wgpu.BufferUsage.COPY_SRC,
-        )
-        command_encoder.copy_buffer_to_buffer(
-            tmp_buffer, 0, self._uniform_buffer, 0, self._uniform_data.nbytes
-        )
 
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
@@ -183,7 +220,7 @@ class RenderFlusher:
 
         return [command_encoder.finish()]
 
-    def _create_pipeline(self, src_texture_view, dst_format):
+    def _create_pipeline(self):
         device = self._device
 
         bindings_code = """
@@ -233,11 +270,7 @@ class RenderFlusher:
             out.color = vec4<f32>(pow(val.rgb / weight, gamma3), val.a / weight);
         """
 
-        wgsl = FULL_QUAD_SHADER
-        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
-        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
-
-        binding_layouts = [
+        binding_layout = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
@@ -254,21 +287,9 @@ class RenderFlusher:
             },
         ]
 
-        bindings = [
-            {
-                "binding": 0,
-                "resource": {
-                    "buffer": self._uniform_buffer,
-                    "offset": 0,
-                    "size": self._uniform_data.nbytes,
-                },
-            },
-            {"binding": 1, "resource": src_texture_view},
-        ]
-
         targets = [
             {
-                "format": dst_format,
+                "format": self._target_format,
                 "blend": {
                     "alpha": (
                         wgpu.BlendFactor.src_alpha,
@@ -284,4 +305,23 @@ class RenderFlusher:
             },
         ]
 
-        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
+        return _create_full_quad_pipeline(
+            device, targets, binding_layout, bindings_code, fragment_code
+        )
+
+    def _create_bind_group(self, bind_group_layout, src_texture_view):
+        # This must match the binding_layout above
+        bind_group_entries = [
+            {
+                "binding": 0,
+                "resource": {
+                    "buffer": self._uniform_buffer,
+                    "offset": 0,
+                    "size": self._uniform_data.nbytes,
+                },
+            },
+            {"binding": 1, "resource": src_texture_view},
+        ]
+        return self._device.create_bind_group(
+            layout=bind_group_layout, entries=bind_group_entries
+        )
