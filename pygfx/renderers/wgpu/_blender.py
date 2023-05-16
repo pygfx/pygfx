@@ -6,7 +6,7 @@ object.
 
 import wgpu  # only for flags/enums
 
-from ._flusher import FULL_QUAD_SHADER, _create_pipeline
+from ._flusher import _create_full_quad_pipeline
 
 
 # Notes:
@@ -538,7 +538,11 @@ class BaseFragmentBlender:
     def perform_combine_pass(self, device):
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
-        # Get bindgroup and pipeline
+        # Get bindgroup and pipeline.
+        # These are cached by simply storing them on self. No need to
+        # use a GpuCache here, since sharing offers little benefit, and
+        # is not possible, because the target texture is encoded in the
+        # pipeline object.
         if not self._combine_pass_info:
             self._combine_pass_info = self._create_combination_pipeline(device)
         bind_group, render_pipeline = self._combine_pass_info
@@ -639,7 +643,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         )
 
     def _create_combination_pipeline(self, device):
-        binding_layouts = [
+        binding_layout = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
@@ -691,11 +695,9 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             out.color = vec4<f32>(avg_color * alpha, alpha);
         """
 
-        wgsl = FULL_QUAD_SHADER
-        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
-        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
-
-        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
+        return _create_full_quad_pipeline(
+            device, targets, binding_layout, bindings, bindings_code, fragment_code
+        )
 
 
 class WeightedDepthFragmentBlender(WeightedFragmentBlender):
@@ -742,7 +744,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         )
 
     def _create_combination_pipeline(self, device):
-        binding_layouts = [
+        binding_layout = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
@@ -813,8 +815,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             out.color = vec4<f32>(out_rgb, out_a);
         """
 
-        wgsl = FULL_QUAD_SHADER
-        wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
-        wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
-
-        return _create_pipeline(device, binding_layouts, bindings, targets, wgsl)
+        return _create_full_quad_pipeline(
+            device, targets, binding_layout, bindings, bindings_code, fragment_code
+        )

@@ -4,7 +4,7 @@ from ...resources._texture import Texture
 from ._utils import GfxTextureView, GpuCache
 
 
-# This cache enable re-using gpu pipelines for calculating mipmaps, so
+# This cache enables re-using gpu pipelines for calculating mipmaps, so
 # that these don't have to be created on each draw, which would make
 # things very slow. The number of pipelines in the cache won't be large
 # since there are only so many texture formats, but it seems cleaner

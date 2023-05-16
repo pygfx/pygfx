@@ -5,7 +5,7 @@ from ._utils import to_vertex_format, GpuCache
 from ... import objects
 
 
-# This cache enable re-using gpu pipelines for calculating shadows,
+# This cache enables re-using gpu pipelines for calculating shadows,
 # these can be shared between multiple world-objects that have a
 # positions buffer with a matching stride and format.
 SHADOW_CACHE = GpuCache("shadow_pipelines")

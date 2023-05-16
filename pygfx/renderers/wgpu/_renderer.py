@@ -150,18 +150,19 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._canvas_context = self._target.get_context()
             # Select output format. We currenly don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
-            fmt = self._canvas_context.get_preferred_format(self._shared.adapter)
-            if not fmt.endswith("srgb"):
+            target_format = self._canvas_context.get_preferred_format(
+                self._shared.adapter
+            )
+            if not target_format.endswith("srgb"):
                 self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
-            self._target_tex_format = fmt
             # Also configure the canvas
             self._canvas_context.configure(
                 device=self._shared.device,
-                format=self._target_tex_format,
+                format=target_format,
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
         else:
-            self._target_tex_format = self._target.format
+            target_format = self._target.format
             # Also enable the texture for render and display usage
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
@@ -171,7 +172,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
-        self._flusher = RenderFlusher(self._shared.device)
+        self._flusher = RenderFlusher(self._shared.device, target_format)
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
@@ -512,7 +513,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             clear_color,
         )
         command_buffers += self._blender.perform_combine_pass(self._shared.device)
-        command_buffers
 
         # Collect commands and submit
         device.queue.submit(command_buffers)
@@ -545,7 +545,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if target is None:
             target = self._target
 
-        # Get the wgpu texture view
+        # Get the wgpu texture view.
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             wgpu_tex_view = self._canvas_context.get_current_texture()
         elif isinstance(target, Texture):
@@ -567,7 +567,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._blender.color_view,
             None,
             wgpu_tex_view,
-            self._target_tex_format,
             self._gamma_correction * self._gamma_correction_srgb,
         )
         device.queue.submit(command_buffers)
