@@ -59,30 +59,26 @@ FULL_QUAD_SHADER = """
 def _create_full_quad_pipeline(
     device, targets, binding_layout, bindings_code, fragment_code
 ):
-    # Get shader module
-    key = hash_from_value([bindings_code, fragment_code])
-    shader_module = FULL_QUAD_CACHE.get(key)
-    if shader_module is None:
+    # Get bind group layout
+    key1 = hash_from_value(binding_layout)
+    bind_group_layout = FULL_QUAD_CACHE.get(key1)
+    if bind_group_layout is None:
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+        FULL_QUAD_CACHE.set(key1, bind_group_layout)
+
+    # Get render pipeline
+    key2 = hash_from_value([bind_group_layout, targets, bindings_code, fragment_code])
+    render_pipeline = FULL_QUAD_CACHE.get(key2)
+    if render_pipeline is None:
         wgsl = FULL_QUAD_SHADER
         wgsl = wgsl.replace("BINDINGS_CODE", bindings_code)
         wgsl = wgsl.replace("FRAGMENT_CODE", fragment_code)
         shader_module = device.create_shader_module(code=wgsl)
-        FULL_QUAD_CACHE.set(key, shader_module)
 
-    # Get bind group layout
-    key = hash_from_value(binding_layout)
-    bind_group_layout = FULL_QUAD_CACHE.get(key)
-    if bind_group_layout is None:
-        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
-        FULL_QUAD_CACHE.set(key, bind_group_layout)
-
-    # Get render pipeline
-    key = hash_from_value([shader_module, bind_group_layout])
-    render_pipeline = FULL_QUAD_CACHE.get(key)
-    if render_pipeline is None:
         pipeline_layout = device.create_pipeline_layout(
             bind_group_layouts=[bind_group_layout]
         )
+
         render_pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
@@ -102,9 +98,11 @@ def _create_full_quad_pipeline(
                 "targets": targets,
             },
         )
-        FULL_QUAD_CACHE.set(key, render_pipeline)
+
         # Bind shader module object to the lifetime of the pipeline object
         render_pipeline._gfx_module = shader_module
+
+        FULL_QUAD_CACHE.set(key2, render_pipeline)
 
     return bind_group_layout, render_pipeline
 
