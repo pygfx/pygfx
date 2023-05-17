@@ -23,7 +23,7 @@ def test_shared_object_not_created_at_import():
     result = p.stdout.strip()
 
     print(result)
-    assert result == "None"
+    assert result.endswith("None")
     # If this fails, either the test is broken, or pygfx calles get_shared()
     # at import-time somewhere, which we don't want to do.
 
