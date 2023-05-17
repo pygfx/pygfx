@@ -35,7 +35,7 @@ class Shared(Trackable):
 
     _instance = None
 
-    def __init__(self, canvas):
+    def __init__(self, *, canvas=None):
         super().__init__()
 
         assert Shared._instance is None
@@ -107,63 +107,60 @@ class Shared(Trackable):
         return self._store.glyph_atlas_info_buffer
 
 
+def get_shared():
+    """Get the globally shared instance. Creates it if it does not yet exist.
+    This should not be called at the import time of any module.
+    Use this to get the global device: `get_shared().device`.
+    """
+    if Shared._instance is None:
+        Shared()
+    return Shared._instance
+
+
 def print_wgpu_report():
     """Print a report on the internal status of WGPU. Can be useful
     in debugging, and for providing details when making a bug report.
     """
-    shared = Shared._instance
-    adapter = device = None
-    if shared:
-        adapter = shared.adapter
-        device = shared.device
+    shared = get_shared()
+    adapter = shared.adapter
+    device = shared.device
 
-    if adapter:
-        print()
-        print("ADAPTER INFO:")
-        for key, val in adapter.request_adapter_info().items():
-            print(f"{key.rjust(50)}: {val}")
-    else:
-        print()
-        print("ADAPTER INFO:")
-        print("        pygfx has not created an adapter yet")
+    print()
+    print("ADAPTER INFO:")
+    for key, val in adapter.request_adapter_info().items():
+        print(f"{key.rjust(50)}: {val}")
 
-    if adapter and device:
-        print()
-        print("FEATURES:".ljust(50), "adapter".rjust(10), "device".rjust(10))
-        for key in adapter.features:
-            device_has_it = "Y" if key in device.features else "-"
-            print(f"{key}:".rjust(50), "Y".rjust(10), device_has_it.rjust(10))
+    print()
+    print("FEATURES:".ljust(50), "adapter".rjust(10), "device".rjust(10))
+    for key in adapter.features:
+        device_has_it = "Y" if key in device.features else "-"
+        print(f"{key}:".rjust(50), "Y".rjust(10), device_has_it.rjust(10))
 
-    if adapter and device:
-        print()
-        print("LIMITS:".ljust(50), "adapter".rjust(10), "device".rjust(10))
-        for key in adapter.limits.keys():
-            val1 = adapter.limits[key]
-            val2 = device.limits.get(key, "-")
-            print(f"{key}:".rjust(50), str(val1).rjust(10), str(val2).rjust(10))
+    print()
+    print("LIMITS:".ljust(50), "adapter".rjust(10), "device".rjust(10))
+    for key in adapter.limits.keys():
+        val1 = adapter.limits[key]
+        val2 = device.limits.get(key, "-")
+        print(f"{key}:".rjust(50), str(val1).rjust(10), str(val2).rjust(10))
 
-    if shared:
-        print()
+    print()
+    print("CACHES:".ljust(20), "Count".rjust(10), "Hits".rjust(10), "Misses".rjust(10))
+    for cache_name, stats in gpu_caches.get_stats().items():
+        count, hits, misses = stats
         print(
-            "CACHES:".ljust(20), "Count".rjust(10), "Hits".rjust(10), "Misses".rjust(10)
+            f"{cache_name}".rjust(20),
+            str(count).rjust(10),
+            str(hits).rjust(10),
+            str(misses).rjust(10),
         )
-        for cache_name, stats in gpu_caches.get_stats().items():
-            count, hits, misses = stats
-            print(
-                f"{cache_name}".rjust(20),
-                str(count).rjust(10),
-                str(hits).rjust(10),
-                str(misses).rjust(10),
-            )
 
-    if shared:
-        print()
-        print("RESOURCES:".ljust(20), "Count".rjust(10))
-        for name, count in Resource._resource_counts.items():
-            print(
-                f"{name}:".rjust(20),
-                str(count).rjust(10),
-            )
+    print()
+    print("RESOURCES:".ljust(20), "Count".rjust(10))
+    for name, count in Resource._resource_counts.items():
+        print(
+            f"{name}:".rjust(20),
+            str(count).rjust(10),
+        )
 
     print()
     wgpu.print_report()

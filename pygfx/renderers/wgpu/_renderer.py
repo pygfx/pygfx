@@ -30,7 +30,7 @@ from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
 from ._update import update_resource, ensure_wgpu_object
-from ._shared import Shared
+from ._shared import get_shared
 from ._environment import get_environment
 from ._shadowutil import render_shadow_maps
 from ._mipmapsutil import generate_texture_mipmaps
@@ -135,10 +135,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._target = target
         self.pixel_ratio = pixel_ratio
 
-        # Make sure we have a shared object (the first renderer create it)
-        canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
-        if Shared._instance is None:  # == self._shared
-            Shared(canvas)
+        # Make sure we have a shared object (the first renderer creates the instance)
+        self._shared = get_shared()
+        self._device = self._shared.device
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
@@ -157,7 +156,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
             # Also configure the canvas
             self._canvas_context.configure(
-                device=self._shared.device,
+                device=self._device,
                 format=target_format,
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
@@ -172,11 +171,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
-        self._flusher = RenderFlusher(self._shared.device, target_format)
+        self._flusher = RenderFlusher(target_format)
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
-        self._pixel_info_buffer = self._shared.device.create_buffer(
+        self._pixel_info_buffer = self._device.create_buffer(
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
@@ -190,13 +189,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.enable_events()
 
     @property
-    def _shared(self):
-        return Shared._instance
-
-    @property
     def device(self):
-        """A reference to the used wgpu device."""
-        return self._shared.device
+        """A reference to the global wgpu device."""
+        return self._device
 
     @property
     def target(self):
@@ -404,7 +399,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             flush (bool, optional): Whether to flush the rendered result into
                 the target (texture or canvas). Default True.
         """
-        device = self.device
 
         # Define whether to clear color.
         if clear_color is None:
@@ -428,7 +422,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         pixel_ratio = physical_size[1] / logical_size[1]
 
         # Update the render targets
-        self._blender.ensure_target_size(device, physical_size)
+        self._blender.ensure_target_size(physical_size)
 
         # Get viewport in physical pixels
         if not rect:
@@ -487,15 +481,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            container_group = get_pipeline_container_group(
-                wobject, environment, self._shared
-            )
+            container_group = get_pipeline_container_group(wobject, environment)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
-            update_resource(self.device, resource)
+            update_resource(resource)
 
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
@@ -512,10 +504,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             physical_viewport,
             clear_color,
         )
-        command_buffers += self._blender.perform_combine_pass(self._shared.device)
+        command_buffers += self._blender.perform_combine_pass()
 
         # Collect commands and submit
-        device.queue.submit(command_buffers)
+        self._device.queue.submit(command_buffers)
 
         if flush:
             self.flush()
@@ -540,7 +532,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             else:
                 self._fps["count"] += 1
 
-        device = self.device
         need_mipmaps = False
         if target is None:
             target = self._target
@@ -552,11 +543,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             need_mipmaps = target.generate_mipmaps
             wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
             if wgpu_tex_view is None:
-                wgpu_tex_view = ensure_wgpu_object(device, GfxTextureView(target))
+                wgpu_tex_view = ensure_wgpu_object(GfxTextureView(target))
                 target._wgpu_default_view = wgpu_tex_view
         elif isinstance(target, GfxTextureView):
             need_mipmaps = target.texture.generate_mipmaps
-            wgpu_tex_view = ensure_wgpu_object(device, target)
+            wgpu_tex_view = ensure_wgpu_object(target)
         else:
             raise TypeError("Unexepcted target type.")
 
@@ -569,10 +560,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             wgpu_tex_view,
             self._gamma_correction * self._gamma_correction_srgb,
         )
-        device.queue.submit(command_buffers)
+        self._device.queue.submit(command_buffers)
 
         if need_mipmaps:
-            generate_texture_mipmaps(device, target)
+            generate_texture_mipmaps(target)
 
     def _render_recording(
         self,
@@ -589,7 +580,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # it, really.
         # todo: we may be able to speed this up with render bundles though
 
-        command_encoder = self.device.create_command_encoder()
+        command_encoder = self._device.create_command_encoder()
         blender = self._blender
 
         # ----- compute pipelines
@@ -609,7 +600,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             + environment.lights["spot_lights"]
             + environment.lights["directional_lights"]
         )
-        render_shadow_maps(self.device, lights, wobject_list, command_encoder)
+        render_shadow_maps(lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
@@ -676,11 +667,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             return {"rgba": Color(0, 0, 0, 0), "world_object": None}
 
         # Sample
-        encoder = self.device.create_command_encoder()
+        encoder = self._device.create_command_encoder()
         self._copy_pixel(encoder, self._blender.color_tex, float_pos, 0)
         self._copy_pixel(encoder, self._blender.pick_tex, float_pos, 8)
-        queue = self.device.queue
-        queue.submit([encoder.finish()])
+        self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.map_read()
@@ -727,13 +717,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        device = self._shared.device
         texture = self._blender.color_tex
         size = texture.size
         bytes_per_pixel = 4
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
-        data = device.queue.read_texture(
+        data = self._device.queue.read_texture(
             {
                 "texture": texture,
                 "mip_level": 0,

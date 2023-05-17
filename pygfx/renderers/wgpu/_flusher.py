@@ -7,7 +7,7 @@ import wgpu
 import numpy as np
 
 from ._utils import GpuCache, hash_from_value
-
+from ._shared import get_shared
 
 # This cache enables sharing some gpu objects between code that uses
 # full-quad shaders. The gain here won't be large in general, but can
@@ -56,9 +56,9 @@ FULL_QUAD_SHADER = """
 """
 
 
-def _create_full_quad_pipeline(
-    device, targets, binding_layout, bindings_code, fragment_code
-):
+def create_full_quad_pipeline(targets, binding_layout, bindings_code, fragment_code):
+    device = get_shared().device
+
     # Get bind group layout
     key1 = hash_from_value(binding_layout)
     bind_group_layout = FULL_QUAD_CACHE.get(key1)
@@ -115,8 +115,8 @@ class RenderFlusher:
     Utility to flush (render) the current state of a renderer into a texture.
     """
 
-    def __init__(self, device, target_format):
-        self._device = device
+    def __init__(self, target_format):
+        self._device = get_shared().device
         self._target_format = target_format
 
         dtype = [
@@ -195,9 +195,7 @@ class RenderFlusher:
         )
 
     def _render(self, dst_color_tex):
-        device = self._device
-
-        command_encoder = device.create_command_encoder()
+        command_encoder = self._device.create_command_encoder()
 
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
@@ -219,8 +217,6 @@ class RenderFlusher:
         return [command_encoder.finish()]
 
     def _create_pipeline(self):
-        device = self._device
-
         bindings_code = """
             struct Render {
                 size: vec2<f32>,
@@ -303,8 +299,8 @@ class RenderFlusher:
             },
         ]
 
-        return _create_full_quad_pipeline(
-            device, targets, binding_layout, bindings_code, fragment_code
+        return create_full_quad_pipeline(
+            targets, binding_layout, bindings_code, fragment_code
         )
 
     def _create_bind_group(self, bind_group_layout, src_texture_view):

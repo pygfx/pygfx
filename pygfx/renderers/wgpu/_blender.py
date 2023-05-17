@@ -6,8 +6,8 @@ object.
 
 import wgpu  # only for flags/enums
 
-from ._flusher import _create_full_quad_pipeline
-
+from ._flusher import create_full_quad_pipeline
+from ._shared import get_shared
 
 # Notes:
 # - The user code provides color as-is in rgba.
@@ -441,6 +441,8 @@ class BaseFragmentBlender:
     passes = []
 
     def __init__(self):
+        self.device = get_shared().device
+
         # The size (2D in pixels) of the frame textures.
         self.size = (0, 0)
 
@@ -477,7 +479,7 @@ class BaseFragmentBlender:
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 
-    def ensure_target_size(self, device, size):
+    def ensure_target_size(self, size):
         """If necessary, resize render-textures to match the target size."""
 
         assert len(size) == 2
@@ -494,7 +496,7 @@ class BaseFragmentBlender:
 
         # Recreate internal textures
         for name, (format, usage) in self._texture_info.items():
-            wgpu_texture = device.create_texture(
+            wgpu_texture = self.device.create_texture(
                 size=tex_size, usage=usage, dimension="2d", format=format
             )
             setattr(self, name + "_format", format)
@@ -536,22 +538,22 @@ class BaseFragmentBlender:
         """Get the number of passes for this blender."""
         return len(self.passes)
 
-    def perform_combine_pass(self, device):
+    def perform_combine_pass(self):
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
         # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
         if not self._combine_pass_pipeline:
-            self._combine_pass_pipeline = self._create_combination_pipeline(device)
+            self._combine_pass_pipeline = self._create_combination_pipeline()
         if not self._combine_pass_pipeline:
             return []
 
         # Get the bind group. A new one is needed when the source textures resize.
         if not self._combine_pass_bind_group:
             self._combine_pass_bind_group = self._create_combination_bind_group(
-                device, self._combine_pass_pipeline.get_bind_group_layout(0)
+                self._combine_pass_pipeline.get_bind_group_layout(0)
             )
 
-        command_encoder = device.create_command_encoder()
+        command_encoder = self.device.create_command_encoder()
 
         # Render
         render_pass = command_encoder.begin_render_pass(
@@ -573,7 +575,7 @@ class BaseFragmentBlender:
 
         return [command_encoder.finish()]
 
-    def _create_combination_pipeline(self, device):
+    def _create_combination_pipeline(self):
         """Overload this to setup the specific combiner-pass."""
         return None
 
@@ -644,7 +646,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
-    def _create_combination_pipeline(self, device):
+    def _create_combination_pipeline(self):
         binding_layout = [
             {
                 "binding": 0,
@@ -692,19 +694,19 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             out.color = vec4<f32>(avg_color * alpha, alpha);
         """
 
-        return _create_full_quad_pipeline(
-            device, targets, binding_layout, bindings_code, fragment_code
+        return create_full_quad_pipeline(
+            targets, binding_layout, bindings_code, fragment_code
         )
 
         return
 
-    def _create_combination_bind_group(self, device, bind_group_layout):
+    def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above
         bind_group_entries = [
             {"binding": 0, "resource": self.accum_view},
             {"binding": 1, "resource": self.reveal_view},
         ]
-        return device.create_bind_group(
+        return self.device.create_bind_group(
             layout=bind_group_layout, entries=bind_group_entries
         )
 
@@ -752,7 +754,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
-    def _create_combination_pipeline(self, device):
+    def _create_combination_pipeline(self):
         binding_layout = [
             {
                 "binding": 0,
@@ -818,17 +820,17 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             out.color = vec4<f32>(out_rgb, out_a);
         """
 
-        return _create_full_quad_pipeline(
-            device, targets, binding_layout, bindings_code, fragment_code
+        return create_full_quad_pipeline(
+            targets, binding_layout, bindings_code, fragment_code
         )
 
-    def _create_combination_bind_group(self, device, bind_group_layout):
+    def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above
         bind_group_entries = [
             {"binding": 0, "resource": self.accum_view},
             {"binding": 1, "resource": self.reveal_view},
             {"binding": 2, "resource": self.frontcolor_view},
         ]
-        return device.create_bind_group(
+        return self.device.create_bind_group(
             layout=bind_group_layout, entries=bind_group_entries
         )

@@ -18,6 +18,7 @@ from ...resources import Buffer
 from ...utils import array_from_shadertype
 from ._pipeline import Binding
 from ._utils import generate_uniform_struct
+from ._shared import get_shared
 
 
 class Environment(Trackable):
@@ -39,13 +40,13 @@ class Environment(Trackable):
     _dir_uniform_type = DirectionalLight.uniform_type
     _spot_uniform_type = SpotLight.uniform_type
 
-    def __init__(self, renderer_state_hash, scene_state_hash, device):
+    def __init__(self, renderer_state_hash, scene_state_hash):
         super().__init__()
         # The hash consists of two parts. It does not change.
         self._renderer_state_hash = renderer_state_hash
         self._scene_state_hash = scene_state_hash
 
-        self.device = device
+        self.device = get_shared().device
 
         # Keep track of all renders and scenes that make use of this
         # environment, so that we can detect that the env has become
@@ -236,9 +237,7 @@ class Environment(Trackable):
         for index, binding in enumerate(self.bindings):
             if binding.type.startswith("buffer/"):
                 binding.resource._wgpu_usage |= wgpu.BufferUsage.UNIFORM
-            binding_des, binding_layout_des = binding.get_bind_group_descriptors(
-                device, index
-            )
+            binding_des, binding_layout_des = binding.get_bind_group_descriptors(index)
             bg_descriptor.append(binding_des)
             bg_layout_descriptor.append(binding_layout_des)
 
@@ -446,7 +445,7 @@ class GlobalEnvironmentManager:
         if env_hash in self.environments:
             env = self.environments[env_hash]
         else:
-            env = Environment(renderer_state_hash, scene_state_hash, renderer.device)
+            env = Environment(renderer_state_hash, scene_state_hash)
             assert env.hash == env_hash
             self.environments[env_hash] = env
 
