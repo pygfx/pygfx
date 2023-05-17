@@ -5,7 +5,7 @@ import wgpu
 import pytest
 import pygfx as gfx
 
-from testutils import can_use_wgpu_lib
+from .testutils import can_use_wgpu_lib
 
 
 def test_shared_object_not_created_at_import():
@@ -40,8 +40,3 @@ def test_shared_object():
 
     # Check that multiple invokations produce the same object - its a singleton
     assert get_shared() is get_shared()
-
-
-if __name__ == "__main__":
-    test_shared_object_not_created_at_import()
-    test_shared_object()
