@@ -1,7 +1,9 @@
 import numpy as np
 import wgpu
+
 from ...resources._texture import Texture
 from ._utils import GfxTextureView, GpuCache
+from ._shared import get_shared
 
 
 # This cache enables re-using gpu pipelines for calculating mipmaps, so
@@ -70,7 +72,7 @@ def get_mip_level_count(texture):
     return int(np.floor(np.log2(max(width, height))) + 1)
 
 
-def generate_texture_mipmaps(device, target):
+def generate_texture_mipmaps(target):
     """Generate mipmaps for the given target. The target can be a
     Texture or GfxTextureView and can be a 2D texture as well as a cube
     texture.
@@ -79,9 +81,7 @@ def generate_texture_mipmaps(device, target):
     # If this looks like a cube or stack, generate mipmaps for each individual layer
     if isinstance(target, Texture) and target.dim == 2 and target.size[2] > 1:
         for i in range(target.size[2]):
-            generate_texture_mipmaps(
-                device, GfxTextureView(target, layer_range=(i, i + 1))
-            )
+            generate_texture_mipmaps(GfxTextureView(target, layer_range=(i, i + 1)))
         return
 
     if isinstance(target, Texture):
@@ -91,10 +91,12 @@ def generate_texture_mipmaps(device, target):
         view, texture = target, target.texture
         layer = view.layer_range[0]
 
-    generate_mipmaps(device, texture, layer)
+    generate_mipmaps(texture, layer)
 
 
-def generate_mipmaps(device, texture, base_array_layer):
+def generate_mipmaps(texture, base_array_layer):
+    device = get_shared().device
+
     pipeline = get_mipmap_pipeline(device, texture)
 
     command_encoder: "wgpu.GPUCommandEncoder" = device.create_command_encoder()
