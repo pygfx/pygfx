@@ -445,7 +445,7 @@ class BaseFragmentBlender:
         self.size = (0, 0)
 
         # Objects for the combination pass
-        self._combine_pass_info = None
+        self._combine_pass_pipeline = None
         self._combine_pass_bind_group = None
 
         # A dict that contains the metadata for all render targets.
@@ -540,18 +540,16 @@ class BaseFragmentBlender:
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
         # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
-        if not self._combine_pass_info:
-            self._combine_pass_info = self._create_combination_pipeline(device)
-        bind_group_layout, render_pipeline = self._combine_pass_info
-        if not render_pipeline:
+        if not self._combine_pass_pipeline:
+            self._combine_pass_pipeline = self._create_combination_pipeline(device)
+        if not self._combine_pass_pipeline:
             return []
 
         # Get the bind group. A new one is needed when the source textures resize.
         if not self._combine_pass_bind_group:
             self._combine_pass_bind_group = self._create_combination_bind_group(
-                device, bind_group_layout
+                device, self._combine_pass_pipeline.get_bind_group_layout(0)
             )
-        bind_group = self._combine_pass_bind_group
 
         command_encoder = device.create_command_encoder()
 
@@ -568,8 +566,8 @@ class BaseFragmentBlender:
             depth_stencil_attachment=None,
             occlusion_query_set=None,
         )
-        render_pass.set_pipeline(render_pipeline)
-        render_pass.set_bind_group(0, bind_group, [], 0, 99)
+        render_pass.set_pipeline(self._combine_pass_pipeline)
+        render_pass.set_bind_group(0, self._combine_pass_bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end()
 
@@ -577,7 +575,7 @@ class BaseFragmentBlender:
 
     def _create_combination_pipeline(self, device):
         """Overload this to setup the specific combiner-pass."""
-        return None, None
+        return None
 
 
 class OpaqueFragmentBlender(BaseFragmentBlender):
