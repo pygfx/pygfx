@@ -11,8 +11,9 @@ from wgpu.gui.auto import WgpuCanvas, run
 
 import pygfx
 import pygfx as gfx
-from pygfx.linalg import Vector3
 import numpy as np
+
+from pylinalg import vec_transform, vec_unproject
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -99,17 +100,20 @@ def add_point(ev):
         # convert position to NDC
         x = pos_rel[0] / vs[0] * 2 - 1
         y = -(pos_rel[1] / vs[1] * 2 - 1)
-        pos_ndc = Vector3(x, y, 0)
+        pos_ndc = (x, y)
 
-        # get world position
-        pos_world = (
-            camera.position.clone().project(camera).add(pos_ndc).unproject(camera)
+        vec = vec_unproject(
+            pos_ndc, camera.camera_matrix
         )
-        print(f"position world: {pos_world}")
+
+        x = vec[0] + x
+        y = vec[1] + y
+
+        pos_world = vec_transform((x, y, 0), camera.view_matrix)
 
         # make point data
         point_data = np.array(
-            [[pos_world.x, pos_world.y, pos_world.z]], dtype=np.float32
+            [[pos_world[0], pos_world[1], 0]], dtype=np.float32
         )
 
         # add point
