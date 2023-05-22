@@ -2,6 +2,7 @@
 Utils for the wgpu renderer.
 """
 
+import json
 import weakref
 
 import wgpu
@@ -195,30 +196,92 @@ def generate_uniform_struct(dtype_struct, structname):
     return code
 
 
+class JsonEncoderWithWgpuSupport(json.JSONEncoder):
+    def default(self, ob):
+        if isinstance(ob, wgpu.GPUObjectBase):
+            return ob.__class__.__name__ + "@" + hex(id(ob))
+
+
+jsonencoder = JsonEncoderWithWgpuSupport()
+
+
+def hash_from_value(value):
+    """Simple way to create a hash from a (possibly composite) object.
+    Assumes JSON encodable objects and GPU objects.
+    """
+    # Encode the value to string using json. The JSON encoder is so fast that
+    # its hard to come up with something that can serialze to str faster.
+    s = jsonencoder.encode(value)
+
+    # Return hash (an int). For debugging purposes it can be helpul to return s instead.
+    return hash(s)
+
+
+class GpuCaches:
+    """A collection of gpu caches."""
+
+    def get_stats(self):
+        """Get a dict mapping cache names to item counts."""
+        d = {}
+        for name, ob in self.__dict__.items():
+            if isinstance(ob, GpuCache):
+                d[name] = ob.get_stats()
+        return d
+
+    def enable(self):
+        """Enable all caches."""
+        for ob in self.__dict__.values():
+            if isinstance(ob, GpuCache):
+                ob.enable()
+
+    def disable(self):
+        """Disable all caches."""
+        for ob in self.__dict__.values():
+            if isinstance(ob, GpuCache):
+                ob.disable()
+
+
+gpu_caches = GpuCaches()
+
+
 class GpuCache:
     """A chache for GPU objects."""
 
-    _caches = {}
-
-    @classmethod
-    def get_cache_stats(cls):
-        """Get a dict mapping cache names to item counts."""
-        return {name: cache.get_count() for name, cache in GpuCache._caches.items()}
-
     def __init__(self, name):
         assert isinstance(name, str)
-        assert name not in GpuCache._caches
-        GpuCache._caches[name] = self
+        assert not hasattr(gpu_caches, name)
+        setattr(gpu_caches, name, self)
 
         self._objects = weakref.WeakValueDictionary()
+        self._enabled = True
+        self.hits = 0
+        self.misses = 0
 
-    def get_count(self):
+    def get_stats(self):
         """Get the number of (alive) objects in the cache."""
-        return len(list(self._objects.values()))
+        return len(list(self._objects.values())), self.hits, self.misses
+
+    def enable(self):
+        """Enable this cache."""
+        self._enabled = True
+
+    def disable(self):
+        """Disable this cache."""
+        self._enabled = False
 
     def get(self, key):
         """Get the cached object or None."""
-        return self._objects.get(key, None)
+        if self._enabled:
+            try:
+                ob = self._objects[key]
+            except KeyError:
+                ob = None
+                self.misses += 1
+            else:
+                self.hits += 1
+        else:
+            ob = None
+        return ob
 
     def set(self, key, ob):
         """Store the given object under the given key.

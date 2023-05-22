@@ -1,12 +1,15 @@
 import wgpu
+
+from ... import objects
 from ._update import ensure_wgpu_object, update_resource
-from ._utils import to_vertex_format
+from ._utils import to_vertex_format, GpuCache
+from ._shared import get_shared
 
-from ...objects import PointLight
 
-# todo: idea:
-# the shader and a corresponding binding layout for vertex data can also be defined
-# on the Shader object. That way, line and point objects can also casts shadows :)
+# This cache enables re-using gpu pipelines for calculating shadows,
+# these can be shared between multiple world-objects that have a
+# positions buffer with a matching stride and format.
+SHADOW_CACHE = GpuCache("shadow_pipelines")
 
 
 shadow_vertex_shader = """
@@ -21,208 +24,237 @@ shadow_vertex_shader = """
     }
 """
 
-binding_layout = [
-    {
-        "binding": 0,
-        "visibility": wgpu.ShaderStage.VERTEX,
-        "buffer": {"type": wgpu.BufferBindingType.uniform},
-    }
-]
+bind_group_layout_entry = {
+    "binding": 0,
+    "visibility": wgpu.ShaderStage.VERTEX,
+    "buffer": {"type": wgpu.BufferBindingType.uniform},
+}
 
 
-class ShadowUtil:
-    def __init__(self, device):
-        self.device = device
-        self.pipelines = {}
-        self.bind_group_layout = self.device.create_bind_group_layout(
-            entries=binding_layout
+global_bind_group_layout = None
+
+
+def render_shadow_maps(lights, wobjects, command_encoder):
+    """Render the wobjects into the shadow maps for the given lights."""
+
+    global global_bind_group_layout
+
+    # Make sure the global bind_group_layout is ready
+    device = get_shared().device
+    if global_bind_group_layout is None:
+        global_bind_group_layout = device.create_bind_group_layout(
+            entries=[bind_group_layout_entry]
         )
 
-    def get_shadow_pipeline(self, wobject, cull_mode):
-        # shadow pipeline only depends on the object's geometry info (Vertex Buffer)
-        # TODO: now it only depends on the positions, but for instanced meshes, it also needs instance buffer
-        #  Maybe for future skinned meshes , morph buffer is also needed
-        positions = wobject.geometry.positions
+    # Filter shadow-able objects once beforehand.
+    wobjects = [w for w in wobjects if w.cast_shadow and w.geometry is not None]
 
-        array_stride = positions.nbytes // positions.nitems
-        vertex_format = to_vertex_format(positions.format)
+    for light in lights:
+        if not light.cast_shadow:
+            continue
 
-        hash = (array_stride, vertex_format, cull_mode)
+        # What kind of light is this?
+        light_has_6_sides = isinstance(light, objects.PointLight)
+        assert light_has_6_sides == isinstance(light.shadow._wgpu_tex_view, list)
+        assert light_has_6_sides == isinstance(light.shadow._gfx_matrix_buffer, list)
 
-        if hash not in self.pipelines:
-            self.pipelines[hash] = self._create_shadow_pipeline(
-                array_stride,
-                vertex_format,
-                cull_mode,
+        if light_has_6_sides:
+            # Render each shadow map
+            shadow_maps = light.shadow._wgpu_tex_view
+            shadow_buffers = light.shadow._gfx_matrix_buffer
+            for i in range(6):
+                render_shadow_map(
+                    device,
+                    light,
+                    shadow_maps[i],
+                    shadow_buffers[i],
+                    wobjects,
+                    command_encoder,
+                )
+        else:
+            # Render this one shadow map
+            shadow_map = light.shadow._wgpu_tex_view
+            shadow_buffer = light.shadow._gfx_matrix_buffer
+            render_shadow_map(
+                device, light, shadow_map, shadow_buffer, wobjects, command_encoder
             )
 
-        return self.pipelines[hash]
 
-    def _create_shadow_pipeline(self, array_stride, vertex_format, cull_mode):
-        vertex_buffer_descriptor = [
-            {
-                "array_stride": array_stride,
-                "step_mode": wgpu.VertexStepMode.vertex,  # vertex
-                "attributes": [
-                    {
-                        "format": vertex_format,
+def render_shadow_map(
+    device, light, shadow_map, shadow_buffer, wobjects, command_encoder
+):
+    """Render the wobjects into the given shadow map."""
+
+    shadow_pass = command_encoder.begin_render_pass(
+        color_attachments=[],
+        depth_stencil_attachment={
+            "view": shadow_map,
+            "depth_read_only": False,
+            "depth_clear_value": 1.0,
+            "depth_load_op": wgpu.LoadOp.clear,
+            "depth_store_op": wgpu.StoreOp.store,
+            "stencil_read_only": True,
+            "stencil_load_op": wgpu.LoadOp.clear,
+            "stencil_store_op": wgpu.StoreOp.discard,
+        },
+    )
+
+    light_bind_group = get_shadow_bind_group(device, shadow_buffer)
+    shadow_pass.set_bind_group(0, light_bind_group, [], 0, 99)
+
+    for wobject in wobjects:
+        render_wobject_shadow(device, light, wobject, shadow_pass)
+
+    shadow_pass.end()
+
+
+def render_wobject_shadow(device, light, wobject, shadow_pass):
+    """Render one wobject into a shadow map."""
+
+    shadow_pipeline = get_shadow_pipeline(device, wobject, light.shadow.cull_mode)
+    shadow_pass.set_pipeline(shadow_pipeline)
+
+    position_buffer = wobject.geometry.positions
+    shadow_pass.set_vertex_buffer(
+        0,
+        ensure_wgpu_object(position_buffer),
+        position_buffer.vertex_byte_range[0],
+        position_buffer.vertex_byte_range[1],
+    )
+
+    wobject_bind_group = get_shadow_bind_group(device, wobject.uniform_buffer)
+    shadow_pass.set_bind_group(1, wobject_bind_group, [], 0, 99)
+
+    ibuffer = getattr(wobject.geometry, "indices", None)
+    n_instance = 1  # not support instanced meshes yet
+
+    if ibuffer is not None:
+        n = wobject.geometry.indices.data.size
+        index_format = to_vertex_format(ibuffer.format)
+        index_format = index_format.split("x")[0].replace("s", "u")
+        shadow_pass.set_index_buffer(ensure_wgpu_object(ibuffer), index_format)
+        shadow_pass.draw_indexed(n, n_instance)
+    else:
+        n = wobject.geometry.positions.nitems
+        shadow_pass.draw(n, n_instance)
+
+
+def get_shadow_bind_group(device, shadow_buffer):
+    """Get the bind group object for this shadow buffer."""
+
+    # Since the bind-group is bound one-to-one to the buffer, there is
+    # no need for sophisticated caching:  The bind group is cached on
+    # the buffer itself.
+
+    bind_group = getattr(shadow_buffer, "_gfx_shadow_bind_group", None)
+
+    if bind_group is None:
+        shadow_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
+        wgpu_buffer = ensure_wgpu_object(shadow_buffer)
+        # We also update the buffer now, because this code gets called
+        # *after* the renderer has synced all resources. Note that this
+        # code is only reached once for each shadow map.
+        update_resource(shadow_buffer)
+
+        bind_group = device.create_bind_group(
+            layout=global_bind_group_layout,
+            entries=[
+                {
+                    "binding": 0,
+                    "resource": {
+                        "buffer": wgpu_buffer,
                         "offset": 0,
-                        "shader_location": 0,
-                    }
-                ],
-            }
-        ]
-
-        program = self.device.create_shader_module(code=shadow_vertex_shader)
-        pipeline = self.device.create_render_pipeline(
-            layout=self.device.create_pipeline_layout(
-                bind_group_layouts=[self.bind_group_layout, self.bind_group_layout]
-            ),
-            vertex={
-                "module": program,
-                "entry_point": "vs_main",
-                "buffers": vertex_buffer_descriptor,
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "cull_mode": cull_mode.lower(),
-            },
-            depth_stencil={
-                "format": wgpu.TextureFormat.depth32float,
-                "depth_write_enabled": True,
-                "depth_compare": wgpu.CompareFunction.less,
-                "stencil_read_mask": 0,
-                "stencil_write_mask": 0,
-            },
+                        "size": 64,
+                    },
+                }
+            ],
         )
 
-        return pipeline
+        shadow_buffer._gfx_shadow_bind_group = bind_group
 
-    def render_shadow_maps(self, lights, wobjects, command_encoder):
-        """Render the shadow map for the given lights and wobjects."""
+    return bind_group
 
-        for light in lights:
-            if light.cast_shadow:
-                if not isinstance(light.shadow._wgpu_tex_view, list):
-                    shadow_maps = [light.shadow._wgpu_tex_view]
-                else:
-                    shadow_maps = light.shadow._wgpu_tex_view
 
-                for i, shadow_map in enumerate(shadow_maps):
-                    shadow_pass = command_encoder.begin_render_pass(
-                        color_attachments=[],
-                        depth_stencil_attachment={
-                            "view": shadow_map,
-                            "depth_read_only": False,
-                            "depth_clear_value": 1.0,
-                            "depth_load_op": wgpu.LoadOp.clear,
-                            "depth_store_op": wgpu.StoreOp.store,
-                            "stencil_read_only": True,
-                            "stencil_load_op": wgpu.LoadOp.clear,
-                            "stencil_store_op": wgpu.StoreOp.discard,
-                        },
-                    )
+def get_shadow_pipeline(device, wobject, cull_mode):
+    """Get the pipeline object for rendering a wobject into a shadow map."""
 
-                    if not hasattr(light.shadow, f"__shadow_bind_group_{i}"):
-                        buffer = (
-                            light.shadow._gfx_matrix_buffer[i]
-                            if isinstance(light, PointLight)
-                            else light.shadow._gfx_matrix_buffer
-                        )
-                        buffer._wgpu_usage = wgpu.BufferUsage.UNIFORM
-                        wgpu_buffer = ensure_wgpu_object(self.device, buffer)
-                        # We also update the buffer now, because this code gets called
-                        # *after* the renderer has synced all resources. Note that this
-                        # code is only reached once for each shadow map.
-                        update_resource(self.device, buffer)
+    # The shadow pipeline only depends on the object's geometry info
+    # (Vertex Buffer), so there is potential for sharing this pipeline
+    # between objects. We use a proper cache to implement this.
+    #
+    # NOTE:
+    # - for instanced meshes, it also needs instance buffer (not implemented).
+    # - maybe for future skinned meshes, the morph buffer is also needed.
 
-                        setattr(
-                            light.shadow,
-                            f"__shadow_bind_group_{i}",
-                            self.device.create_bind_group(
-                                layout=self.bind_group_layout,
-                                entries=[
-                                    {
-                                        "binding": 0,
-                                        "resource": {
-                                            "buffer": wgpu_buffer,
-                                            "offset": 0,
-                                            "size": 64,
-                                        },
-                                    }
-                                ],
-                            ),
-                        )
+    position_buffer = wobject.geometry.positions
 
-                    shadow_pass.set_bind_group(
-                        0, getattr(light.shadow, f"__shadow_bind_group_{i}"), [], 0, 99
-                    )
+    stride = position_buffer.itemsize
+    format = position_buffer.format
+    topology = get_shadow_topology(wobject)
 
-                    for wobject in wobjects:
-                        if wobject.cast_shadow and wobject.geometry is not None:
-                            shadow_pipeline = self.get_shadow_pipeline(
-                                wobject, light.shadow.cull_mode
-                            )
+    key = (stride, format, topology, cull_mode)
 
-                            if shadow_pipeline is not None:
-                                shadow_pass.set_pipeline(shadow_pipeline)
+    pipeline = SHADOW_CACHE.get(key)
+    if pipeline is None:
+        # Create pipeline and store in the cache (with a weakref).
+        pipeline = create_shadow_pipeline(device, stride, format, topology, cull_mode)
+        SHADOW_CACHE.set(key, pipeline)
 
-                                position_buffer = wobject.geometry.positions
+    # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
+    setattr(wobject, f"_gfx_shadow_pipeline_{cull_mode}", pipeline)
+    return pipeline
 
-                                shadow_pass.set_vertex_buffer(
-                                    0,
-                                    ensure_wgpu_object(self.device, position_buffer),
-                                    position_buffer.vertex_byte_range[0],
-                                    position_buffer.vertex_byte_range[1],
-                                )
 
-                                if not hasattr(wobject, f"__shadow_bind_group"):
-                                    # Note that here we assume that the wobject's transform matrix
-                                    # is the first item in its uniform buffer. This is a likely
-                                    # assumption because items are sorted by size.
-                                    wgpu_uniform_buffer = ensure_wgpu_object(
-                                        self.device, wobject.uniform_buffer
-                                    )
-                                    bg = self.device.create_bind_group(
-                                        layout=self.bind_group_layout,
-                                        entries=[
-                                            {
-                                                "binding": 0,
-                                                "resource": {
-                                                    "buffer": wgpu_uniform_buffer,
-                                                    "offset": 0,
-                                                    "size": 64,
-                                                },
-                                            }
-                                        ],
-                                    )
+def get_shadow_topology(wobject):
+    """Get the primitive topology for drawing the shadows of this object."""
+    if isinstance(wobject, objects.Mesh):
+        return wgpu.PrimitiveTopology.triangle_list
+    elif isinstance(wobject, objects.Line):
+        return wgpu.PrimitiveTopology.line_strip
+    elif isinstance(wobject, objects.Points):
+        return wgpu.PrimitiveTopology.point_list
+    else:
+        raise RuntimeError(f"Shadows not supported for {wobject.__class__.__name__}")
 
-                                    setattr(wobject, "__shadow_bind_group", bg)
 
-                                shadow_pass.set_bind_group(
-                                    1,
-                                    getattr(wobject, "__shadow_bind_group"),
-                                    [],
-                                    0,
-                                    99,
-                                )
+def create_shadow_pipeline(device, stride, format, topology, cull_mode):
+    """Actually create a shadow pipeline object."""
 
-                                ibuffer = wobject.geometry.indices
+    vertex_buffer_descriptor = [
+        {
+            "array_stride": stride,
+            "step_mode": wgpu.VertexStepMode.vertex,  # vertex
+            "attributes": [
+                {
+                    "format": to_vertex_format(format),
+                    "offset": 0,
+                    "shader_location": 0,
+                }
+            ],
+        }
+    ]
 
-                                n = wobject.geometry.indices.data.size
-                                n_instance = 1  # not support instanced meshes yet
+    shader_module = device.create_shader_module(code=shadow_vertex_shader)
+    pipeline = device.create_render_pipeline(
+        layout=device.create_pipeline_layout(
+            bind_group_layouts=[global_bind_group_layout, global_bind_group_layout]
+        ),
+        vertex={
+            "module": shader_module,
+            "entry_point": "vs_main",
+            "buffers": vertex_buffer_descriptor,
+        },
+        primitive={
+            "topology": topology,
+            "cull_mode": cull_mode.lower(),
+        },
+        depth_stencil={
+            "format": wgpu.TextureFormat.depth32float,
+            "depth_write_enabled": True,
+            "depth_compare": wgpu.CompareFunction.less,
+            "stencil_read_mask": 0,
+            "stencil_write_mask": 0,
+        },
+    )
 
-                                if ibuffer is not None:
-                                    index_format = to_vertex_format(ibuffer.format)
-                                    index_format = index_format.split("x")[0].replace(
-                                        "s", "u"
-                                    )
-                                    shadow_pass.set_index_buffer(
-                                        ensure_wgpu_object(self.device, ibuffer),
-                                        index_format,
-                                    )
-                                    shadow_pass.draw_indexed(n, n_instance)
-                                else:
-                                    shadow_pass.draw(n, n_instance)
-
-                    shadow_pass.end()
+    return pipeline
