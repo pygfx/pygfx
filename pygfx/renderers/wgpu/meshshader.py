@@ -35,8 +35,8 @@ class MeshShader(WorldObjectShader):
         self["instanced"] = isinstance(wobject, InstancedMesh)
 
         # Is this a wireframe mesh?
-        self["wireframe"] = material.wireframe
-        self["flat_shading"] = material.flat_shading
+        self["wireframe"] = getattr(material, "wireframe", False)
+        self["flat_shading"] = getattr(material, "flat_shading", False)
 
         # Lighting off in the base class
         self["lighting"] = ""
