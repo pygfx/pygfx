@@ -5,11 +5,10 @@ from ..utils import unpack_bitfield, logger
 from ..utils.color import Color
 
 
-class AbstractMeshMaterial(Material):
-    """Basic mesh material.
+class MeshAbstractMaterial(Material):
+    """Abstract mesh material.
 
-    A material for drawing geometries in a simple shaded (flat or wireframe)
-    way. This material is not affected by lights.
+    The abstract parent class for all mesh materials, defining their common properties.
 
     Parameters
     ----------
@@ -21,13 +20,6 @@ class AbstractMeshMaterial(Material):
         The texture map specifying the color at each texture coordinate. Optional.
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
-    wireframe : bool
-        If True, render geometry as a wireframe, i.e., only render edges.
-    wireframe_thickness : int
-        The thickness of a rendered edge in screen pixels.
-    flat_shading : bool
-        If True, the shader will ignore the geometry's normal data and instead
-        use face normals during lighting calculations.
     side : str
         The culling mode for this material: ``"FRONT"``, ``"BACK"``, or
         ``"BOTH"``. "FRONT" will only render faces that face the camera. "BACK"
@@ -63,9 +55,6 @@ class AbstractMeshMaterial(Material):
         vertex_colors=False,
         map=None,
         map_interpolation="linear",
-        wireframe=False,
-        wireframe_thickness=1,
-        flat_shading=False,
         side="BOTH",
         **kwargs,
     ):
@@ -75,9 +64,6 @@ class AbstractMeshMaterial(Material):
         self.vertex_colors = bool(vertex_colors)
         self.map = map
         self.map_interpolation = map_interpolation
-        self.wireframe = wireframe
-        self.wireframe_thickness = wireframe_thickness
-        self.flat_shading = flat_shading
         self.side = side
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -169,6 +155,76 @@ class AbstractMeshMaterial(Material):
         else:
             raise ValueError(f"Unexpected side: '{value}'")
 
+
+class MeshBasicMaterial(MeshAbstractMaterial):
+    """Basic mesh material.
+
+    A material for drawing geometries in a simple shaded (flat or wireframe)
+    way. This material is not affected by lights.
+
+    Parameters
+    ----------
+    env_map : Texture
+        The environment map.
+    wireframe : bool
+        If True, render geometry as a wireframe, i.e., only render edges.
+    wireframe_thickness : int
+        The thickness of a rendered edge in screen pixels.
+    flat_shading : bool
+        If True, the shader will ignore the geometry's normal data and instead
+        use face normals during lighting calculations.
+    reflectivity : float
+        How much the environment map affects the surface. also see ``env_combine_mode``.
+        The default value is 1 and the valid range is between 0 (no reflections) and 1 (full reflections).
+    refraction_ratio : float
+        The index of refraction (IOR) of air (approximately 1) divided by the index of refraction of the material.
+        It is used with ``env_mapping_mode`` set to "REFRACTION".
+    env_combine_mode: str
+        How the environment map affects the surface.
+        The default value is "MULTIPLY" and the valid values are "MULTIPLY", "MIX", and "ADD".
+    env_mapping_mode : str
+        The environment mapping mode.
+        The default value is "CUBE-REFLECTION" and the valid values are "CUBE-REFLECTION" and "CUBE-REFRACTION".
+
+    """
+
+    uniform_type = dict(
+        MeshAbstractMaterial.uniform_type,
+        reflectivity="f4",
+        refraction_ratio="f4",
+    )
+
+    def __init__(
+        self,
+        env_map=None,
+        wireframe=False,
+        wireframe_thickness=1,
+        flat_shading=False,
+        reflectivity=1.0,
+        refraction_ratio=0.98,
+        env_combine_mode="MULTIPLY",
+        env_mapping_mode="CUBE-REFLECTION",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.env_map = env_map
+        self.wireframe = wireframe
+        self.wireframe_thickness = wireframe_thickness
+        self.flat_shading = flat_shading
+        self.reflectivity = reflectivity
+        self.refraction_ratio = refraction_ratio
+        self.env_combine_mode = env_combine_mode
+        self.env_mapping_mode = env_mapping_mode
+
+    @property
+    def env_map(self):
+        """The environment map."""
+        return self._env_map
+
+    @env_map.setter
+    def env_map(self, env_map):
+        self._env_map = env_map
+
     @property
     def wireframe(self):
         """Render geometry as a wireframe. Default is False (i.e. render as polygons)."""
@@ -216,63 +272,6 @@ class AbstractMeshMaterial(Material):
     @flat_shading.setter
     def flat_shading(self, value: bool):
         self._store.flat_shading = bool(value)
-
-
-class MeshBasicMaterial(AbstractMeshMaterial):
-    """Basic mesh material.
-
-    A material for drawing geometries in a simple shaded (flat or wireframe)
-    way. This material is not affected by lights.
-
-    Parameters
-    ----------
-    env_map : Texture
-        The environment map.
-    reflectivity : float
-        How much the environment map affects the surface. also see ``env_combine_mode``.
-        The default value is 1 and the valid range is between 0 (no reflections) and 1 (full reflections).
-    refraction_ratio : float
-        The index of refraction (IOR) of air (approximately 1) divided by the index of refraction of the material.
-        It is used with ``env_mapping_mode`` set to "REFRACTION".
-    env_combine_mode: str
-        How the environment map affects the surface.
-        The default value is "MULTIPLY" and the valid values are "MULTIPLY", "MIX", and "ADD".
-    env_mapping_mode : str
-        The environment mapping mode.
-        The default value is "CUBE-REFLECTION" and the valid values are "CUBE-REFLECTION" and "CUBE-REFRACTION".
-
-    """
-
-    uniform_type = dict(
-        AbstractMeshMaterial.uniform_type,
-        reflectivity="f4",
-        refraction_ratio="f4",
-    )
-
-    def __init__(
-        self,
-        env_map=None,
-        reflectivity=1.0,
-        refraction_ratio=0.98,
-        env_combine_mode="MULTIPLY",
-        env_mapping_mode="CUBE-REFLECTION",
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.env_map = env_map
-        self.reflectivity = reflectivity
-        self.refraction_ratio = refraction_ratio
-        self.env_combine_mode = env_combine_mode
-        self.env_mapping_mode = env_mapping_mode
-
-    @property
-    def env_map(self):
-        """The environment map."""
-        return self._env_map
-
-    @env_map.setter
-    def env_map(self, env_map):
-        self._env_map = env_map
 
     @property
     def reflectivity(self):
@@ -448,7 +447,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
 # A cartoon-style mesh material.
 
 
-class MeshNormalMaterial(AbstractMeshMaterial):
+class MeshNormalMaterial(MeshAbstractMaterial):
     """Color from Mesh normals.
 
     A material that maps the normal vectors to RGB colors.
@@ -456,7 +455,7 @@ class MeshNormalMaterial(AbstractMeshMaterial):
     """
 
 
-class MeshNormalLinesMaterial(AbstractMeshMaterial):
+class MeshNormalLinesMaterial(MeshAbstractMaterial):
     """Render surface normals as lines.
 
     A material that shows surface normals as simple lines. The lines
@@ -475,7 +474,7 @@ class MeshNormalLinesMaterial(AbstractMeshMaterial):
     """
 
     uniform_type = dict(
-        AbstractMeshMaterial.uniform_type,
+        MeshAbstractMaterial.uniform_type,
         line_length="f4",
     )
 
@@ -500,7 +499,7 @@ class MeshNormalLinesMaterial(AbstractMeshMaterial):
         self.uniform_buffer.update_range(0, 1)
 
 
-class MeshSliceMaterial(AbstractMeshMaterial):
+class MeshSliceMaterial(MeshAbstractMaterial):
     """Display a mesh slice.
 
     Parameters
@@ -519,7 +518,7 @@ class MeshSliceMaterial(AbstractMeshMaterial):
     """
 
     uniform_type = dict(
-        AbstractMeshMaterial.uniform_type,
+        MeshAbstractMaterial.uniform_type,
         plane="4xf4",
         thickness="f4",
     )

@@ -55,7 +55,6 @@ rot = la.quat_from_euler(-math.pi / 2, order="X")
 
 
 def add_mesh(material, env_mapping_mode, pos_x, pos_y):
-
     material.env_map = env_tex
     material.env_mapping_mode = env_mapping_mode
 
