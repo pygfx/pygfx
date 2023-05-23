@@ -100,21 +100,13 @@ def add_point(ev):
         # convert position to NDC
         x = pos_rel[0] / vs[0] * 2 - 1
         y = -(pos_rel[1] / vs[1] * 2 - 1)
-        pos_ndc = (x, y)
+        pos_ndc = (x, y, 0)
 
-        vec = vec_unproject(
-            pos_ndc, camera.camera_matrix
-        )
-
-        x = vec[0] + x
-        y = vec[1] + y
-
-        pos_world = vec_transform((x, y, 0), camera.view_matrix)
+        pos_ndc += vec_transform(camera.world.position, camera.camera_matrix)
+        pos_world = vec_unproject(pos_ndc[:2], camera.camera_matrix)
 
         # make point data
-        point_data = np.array(
-            [[pos_world[0], pos_world[1], 0]], dtype=np.float32
-        )
+        point_data = np.array([[pos_world[0], pos_world[1], 0]], dtype=np.float32)
 
         # add point
         point = gfx.Points(
