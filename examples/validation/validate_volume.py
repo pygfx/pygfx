@@ -42,7 +42,7 @@ box2 = gfx.Mesh(
 # In scene1 we show a raycasted volume
 scene1 = gfx.Scene()
 vol = gfx.Volume(geo, gfx.VolumeRayMaterial(clim=(0, 2000)))
-vol.position.set(-1, -1, -1)
+vol.local.position = (-1, -1, -1)
 scene1.add(vol, box1)
 
 # In scene2 we show volume slices
@@ -51,14 +51,12 @@ slice1 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 0, 1,
 slice2 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(0, 1, 0, 0)))
 slice3 = gfx.Volume(geo, gfx.VolumeSliceMaterial(clim=(0, 1000), plane=(1, 0, 0, 0)))
 for slice in (slice1, slice2, slice3):
-    slice.position.set(-1, -1, -1)
+    slice.local.position = (-1, -1, -1)
 scene2.add(slice1, slice2, slice3, box2)
 
 # Prepare a camera so we can see the result in 3D
 camera = gfx.PerspectiveCamera(90, 16 / 9, depth_range=(0.1, 2000))
-camera.position.z = 5
-camera.position.y = 4
-camera.position.x = 3
+camera.local.position = (3, 4, 5)
 
 
 def animate():

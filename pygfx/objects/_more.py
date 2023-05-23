@@ -1,6 +1,8 @@
+import pylinalg as la
+
 from ._base import WorldObject
 from ..utils import unpack_bitfield
-from .. import linalg
+from ..utils.transform import AffineBase, callback
 
 
 class Group(WorldObject):
@@ -18,11 +20,8 @@ class Group(WorldObject):
 
     """
 
-    def __init__(self, *, visible=True, position=None):
-        super().__init__(
-            visible=visible,
-            position=position,
-        )
+    def __init__(self, *, visible=True):
+        super().__init__(visible=visible)
 
 
 class Scene(Group):
@@ -270,14 +269,34 @@ class Text(WorldObject):
         rot_scale_transform="4x4xf4",
     )
 
-    def update_matrix(self, *args, **kwargs):
-        super().update_matrix(*args, **kwargs)
+    def __init__(
+        self,
+        geometry=None,
+        material=None,
+        *,
+        visible=True,
+        render_order=0,
+        render_mask="auto"
+    ):
+        super().__init__(
+            geometry,
+            material,
+            visible=visible,
+            render_order=render_order,
+            render_mask=render_mask,
+        )
+
+        # calling super from callback is possible, but slow so we register it as a second callback instead
+        self.world.on_update(super()._update_uniform_buffers)
+
+    @callback
+    def _update_uniform_buffers(self, transform: AffineBase):
+        # super()._update_uniform_buffers(transform)
         # When rendering in screen space, the world transform is used
         # to establish the point in the scene where the text is placed.
         # The only part of the local transform that is used is the
         # position. Therefore, we also keep a transform containing the
         # local rotation and scale, so that these can be applied to the
         # text in screen coordinates.
-        matrix = linalg.Matrix4()
-        matrix.compose(linalg.Vector3(0, 0, 0), self.rotation, self.scale)
-        self.uniform_buffer.data["rot_scale_transform"].flat = matrix.elements
+        matrix = la.mat_compose((0, 0, 0), self.local.rotation, self.local.scale)
+        self.uniform_buffer.data["rot_scale_transform"] = matrix.T

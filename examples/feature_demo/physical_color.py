@@ -40,25 +40,25 @@ image1 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im1, dim=2)),
     material,
 )
-image1.position.x = 0
+image1.local.x = 0
 
 image2 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im2, dim=2)),
     material,
 )
-image2.position.x = 550
+image2.local.x = 550
 
 image3 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im2, dim=2, colorspace="physical")),
     material,
 )
-image3.position.x = 1100
+image3.local.x = 1100
 
 scene.add(image1, image2, image3)
 
 camera = gfx.OrthographicCamera(1650, 550)
-camera.position.set(805, 256, 0)
-camera.scale.y = -1
+camera.local.position = (805, 256, 0)
+camera.local.scale_y = -1
 
 
 if __name__ == "__main__":

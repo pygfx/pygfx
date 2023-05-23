@@ -13,6 +13,21 @@ Utility functions for pygfx.
     text.font_manager
     cm
 
+Transform classes
+-----------------
+
+These classes are used internally to create an intuitive API to transform
+WorldObjects (`obj.world` and `obj.local`). They are listed here for
+completeness and you will likely never have to instantiate them directly.
+
+.. autosummary::
+    :toctree: utils/
+    :template: ../_templates/custom_layout.rst
+
+    transform.AffineBase
+    transform.AffineTransform
+    transform.RecursiveTransform
+
 """
 
 

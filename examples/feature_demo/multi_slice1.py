@@ -14,6 +14,7 @@ import imageio.v3 as iio
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
@@ -50,15 +51,17 @@ for axis in [0, 1, 2]:
     scene.add(plane)
 
     if axis == 0:  # YZ plane
-        plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi, 0.5 * np.pi))
+        plane.local.rotation = la.quat_from_euler(
+            (0.5 * np.pi, 0.5 * np.pi), order="XY"
+        )
     elif axis == 1:  # XZ plane
-        plane.rotation.set_from_euler(gfx.linalg.Euler(0.5 * np.pi))
+        plane.local.rotation = la.quat_from_euler(0.5 * np.pi, order="X")
     # else: XY plane
 
 # camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera = gfx.PerspectiveCamera(0)
-camera.up = 0, 0, 1
-camera.position.set(200, 200, 200)
+camera.world.reference_up = 0, 0, 1
+camera.local.position = (200, 200, 200)
 camera.show_pos((0, 0, 0))
 
 controller = gfx.OrbitController(camera, register_events=renderer)
@@ -67,7 +70,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 def animate():
     t = np.cos(time() / 2)
     plane = planes[2]
-    plane.position.z = t * vol.shape[0] * 0.5
+    plane.local.z = t * vol.shape[0] * 0.5
     plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
     plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
 

@@ -10,6 +10,7 @@ Example with a skybox background in a rotating scene.
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 # Read the image
 # The order of the images is already correct for GPU cubemap texture sampling
@@ -36,14 +37,14 @@ scene.add(axes)
 
 camera = gfx.PerspectiveCamera(70)
 
-camera.position.set(0, 4, 20)
+camera.local.position = (0, 4, 20)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01, 0.01))
-    scene.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01, 0.01))
+    scene.local.rotation = la.quat_mul(rot, scene.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

@@ -17,7 +17,7 @@ import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from skimage.measure import marching_cubes
-
+import pylinalg as la
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -61,7 +61,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 # Add a slight tilt. This is to show that the slices are still orthogonal
 # to the world coordinates.
 for ob in planes + [mesh]:
-    ob.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 0.1)
+    ob.local.rotation = la.quat_from_axis_angle((1, 0, 0), 0.1)
 
 
 def animate():

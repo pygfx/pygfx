@@ -18,6 +18,7 @@ import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 # First create the subscene, that reders into a texture
@@ -54,15 +55,15 @@ cube2 = gfx.Mesh(geometry2, material2)
 scene2.add(cube2)
 
 camera2 = gfx.PerspectiveCamera(70, 16 / 9)
-camera2.position.z = 400
+camera2.local.z = 400
 
 scene2.add(gfx.AmbientLight(), camera2.add(gfx.DirectionalLight()))
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube1.rotation.multiply(rot)
-    cube2.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="xy")
+    cube1.local.rotation = la.quat_mul(rot, cube1.local.rotation)
+    cube2.local.rotation = la.quat_mul(rot, cube2.local.rotation)
 
     renderer1.render(scene1, camera1)
     renderer2.render(scene2, camera2)

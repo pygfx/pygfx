@@ -1,9 +1,9 @@
 import numpy as np
+import pylinalg as la
 
 from ._base import Geometry
 from ._plane import generate_plane
 from .utils import merge
-from ..linalg.utils import transform
 
 
 def box_geometry(
@@ -108,12 +108,16 @@ def box_geometry(
         else:
             affine[:-1, :-1] = swap_axes
 
-        plane_positions = transform(plane_positions, affine)
-        plane_normals = transform(plane_normals, affine, directions=True)
+        plane_positions = la.vec_transform(plane_positions, affine)
+
+        affine[:-1, -1] = 0
+        plane_normals = la.vec_transform(plane_normals, affine)
 
         planes.append((plane_positions, plane_normals, plane_texcoords, plane_index))
 
     positions, normals, texcoords, indices = merge(planes)
+    positions = positions.astype(np.float32)
+    normals = normals.astype(np.float32)
 
     return Geometry(
         indices=indices, positions=positions, normals=normals, texcoords=texcoords

@@ -8,6 +8,7 @@ Example demonstrating rendering the same scene into two different canvases.
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 # Create two canvases and two renderers
@@ -37,7 +38,7 @@ line = gfx.Line(geometry2, material2)
 scene.add(line)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.local.z = 400
 
 scene.add(camera.add(gfx.DirectionalLight()))
 
@@ -45,8 +46,8 @@ scene.add(camera.add(gfx.DirectionalLight()))
 
 
 def animate_a():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
     renderer_a.render(scene, camera)
     canvas_a.request_draw()
 

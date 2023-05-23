@@ -11,6 +11,7 @@ outside the view frustum of the camera will not cast shadows.
 # sphinx_gallery_pygfx_render = True
 
 import math
+import pylinalg as la
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -23,8 +24,7 @@ floor = gfx.Mesh(
     gfx.MeshPhongMaterial(color="#808080", side="Front"),
 )
 
-floor.rotation.set_from_euler(gfx.linalg.Euler(-math.pi / 2))
-# floor.position.set(0, -0.05, 0)
+floor.local.rotation = la.quat_from_euler(-math.pi / 2, order="X")
 floor.receive_shadow = True
 
 scene.add(floor)
@@ -33,8 +33,8 @@ ambient = gfx.AmbientLight("#fff", 0.1)
 scene.add(ambient)
 
 light = gfx.DirectionalLight("#aaaaaa")
-light.position.x = -50
-light.position.y = 50
+light.local.x = -50
+light.local.y = 50
 light.cast_shadow = True
 
 light.shadow.camera.width = 100
@@ -48,14 +48,14 @@ material = gfx.MeshPhongMaterial()
 
 for i in range(5):
     cube = gfx.Mesh(box, material)
-    cube.position.set(0, 10, i * 50 - 100)
+    cube.local.position = (0, 10, i * 50 - 100)
     cube.cast_shadow = True
     scene.add(cube)
 
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.y = 100
-camera.position.z = 350
+camera.local.y = 100
+camera.local.z = 350
 camera.show_pos((0, 0, 0))
 
 controller = gfx.OrbitController(camera, register_events=renderer)

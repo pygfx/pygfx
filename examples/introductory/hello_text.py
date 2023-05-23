@@ -9,6 +9,7 @@ Example showing text in world and screen space.
 
 
 import pygfx as gfx
+import pylinalg as la
 
 
 scene = gfx.Scene()
@@ -25,15 +26,15 @@ text1 = gfx.Text(
     gfx.TextGeometry("Hello world", font_size=2.8),
     gfx.TextMaterial(color="#ddd"),
 )
-text1.position.set(0, 0, 0.55)
+text1.local.position = (0, 0, 0.55)
 plane.add(text1)
 
 text2 = gfx.Text(
     gfx.TextGeometry("Здравей свят", font_size=2.8),
     gfx.TextMaterial(color="#ddd"),
 )
-text2.position.set(0, 0, -0.55)
-text2.scale.set(-1, 1, 1)
+text2.local.position = (0, 0, -0.55)
+text2.local.scale = (-1, 1, 1)
 plane.add(text2)
 
 # Another text in screen space. Also shows markdown formatting
@@ -46,17 +47,19 @@ text3 = gfx.Text(
     ),
     gfx.TextMaterial(color="#0f4"),
 )
-text3.position.set(10, 10, 0)
+text3.local.position = (10, 10, 0)
 plane.add(text3)
 
 # Let there be ...
 scene.add(gfx.AmbientLight())
-scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
+light = gfx.DirectionalLight()
+light.local.position = (0, 0, 1)
+scene.add(light)
 
 
 def before_render():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    plane.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    plane.local.rotation = la.quat_mul(rot, plane.local.rotation)
 
 
 disp = gfx.Display(before_render=before_render)

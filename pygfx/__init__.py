@@ -28,7 +28,7 @@ __version__ = "0.1.12"
 version_info = tuple(map(int, __version__.split(".")))
 
 __wgpu_version_range__ = "0.9.4", "0.10.0"
-__pylinalg_version_range__ = "0.3.2", "0.4.0"
+__pylinalg_version_range__ = "0.4.0", "0.5.0"
 
 
 def _check_lib_version(libname, pipname, version_range):

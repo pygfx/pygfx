@@ -18,10 +18,10 @@ geometries = [gfx.tetrahedron_geometry(subdivisions=i) for i in range(4)]
 
 for i, geometry in enumerate(geometries):
     polyhedron = gfx.Mesh(geometry, material)
-    polyhedron.position.set(6 - i * 3, 0, 0)
+    polyhedron.local.position = (6 - i * 3, 0, 0)
     scene.add(polyhedron)
 
 
 if __name__ == "__main__":
     disp = gfx.Display()
-    disp.show(scene, up=gfx.linalg.Vector3(0, 0, 1))
+    disp.show(scene, up=(0, 0, 1))

@@ -11,6 +11,7 @@ Note: FPS is low since the gallery is rendered on a low-spec CI machine.
 # sphinx_gallery_pygfx_target_name = "disp"
 
 import pygfx as gfx
+import pylinalg as la
 
 cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
@@ -19,8 +20,8 @@ cube = gfx.Mesh(
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ plane = gfx.Mesh(geometry, material)
 scene.add(plane)
 
 camera = gfx.PerspectiveCamera(70)
-camera.position.z = 200
+camera.local.z = 200
 
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 

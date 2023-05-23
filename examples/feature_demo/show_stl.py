@@ -46,4 +46,4 @@ mesh = gfx.Mesh(
 
 if __name__ == "__main__":
     disp = gfx.Display()
-    disp.show(mesh, up=gfx.linalg.Vector3(0, 0, 1))
+    disp.show(mesh, up=(0, 0, 1))

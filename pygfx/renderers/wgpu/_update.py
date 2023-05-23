@@ -4,9 +4,10 @@ Functions to update resources.
 
 import wgpu
 
+from ...resources import Texture, Buffer
 from ._utils import to_texture_format, GfxSampler, GfxTextureView
 from ._mipmapsutil import get_mip_level_count, generate_texture_mipmaps
-from ...resources import Texture, Buffer
+from ._shared import get_shared
 
 
 # Alternative texture formats that we support by padding channels as needed.
@@ -25,12 +26,12 @@ ALTTEXFORMAT = {
 }
 
 
-def update_resource(device, resource):
+def update_resource(resource):
     """Update the contents of a buffer or texture."""
     if isinstance(resource, Buffer):
-        return _update_buffer(device, resource)
+        return _update_buffer(resource)
     elif isinstance(resource, Texture):
-        return _update_texture(device, resource)
+        return _update_texture(resource)
     else:
         raise ValueError(f"Invalid resource type: {resource.__class__.__name__}")
 
@@ -50,7 +51,7 @@ def update_resource(device, resource):
 #   and calls update_resource on each.
 
 
-def _update_buffer(device, buffer):
+def _update_buffer(buffer):
     wgpu_buffer = buffer._wgpu_object
     assert wgpu_buffer is not None
 
@@ -61,6 +62,7 @@ def _update_buffer(device, buffer):
     buffer._gfx_pending_uploads = []
 
     # Prepare for data uploads
+    device = get_shared().device
     bytes_per_item = buffer.nbytes // buffer.nitems
 
     # Upload any pending data
@@ -81,7 +83,7 @@ def _update_buffer(device, buffer):
         # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
 
 
-def _update_texture(device, texture):
+def _update_texture(texture):
     wgpu_texture = texture._wgpu_object
     assert wgpu_texture is not None
 
@@ -92,6 +94,7 @@ def _update_texture(device, texture):
     texture._gfx_pending_uploads = []
 
     # Prepare for data uploads
+    device = get_shared().device
     fmt = to_texture_format(texture.format)
     pixel_padding = None
     extra_bytes = 0
@@ -134,15 +137,17 @@ def _update_texture(device, texture):
         )
 
     if texture.generate_mipmaps:
-        generate_texture_mipmaps(device, texture)
+        generate_texture_mipmaps(texture)
 
 
-def ensure_wgpu_object(device, resource):
+def ensure_wgpu_object(resource):
     """Make sure that the resource (buffer texture, sampler, textureView)
     has a wgpu object attached to it. Returns the native wgpu object.
     """
     if resource._wgpu_object is not None:
         return resource._wgpu_object
+
+    device = get_shared().device
 
     if isinstance(resource, Buffer):
         if resource._gfx_pending_uploads:
@@ -175,7 +180,7 @@ def ensure_wgpu_object(device, resource):
         resource._gfx_mark_for_sync()
 
     elif isinstance(resource, GfxTextureView):
-        wgpu_texture = ensure_wgpu_object(device, resource.texture)
+        wgpu_texture = ensure_wgpu_object(resource.texture)
         if resource.is_default_view:
             resource._wgpu_object = wgpu_texture.create_view()
         else:

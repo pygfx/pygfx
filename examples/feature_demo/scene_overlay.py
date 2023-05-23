@@ -12,6 +12,7 @@ the overlay, so that it's always on top.
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 # Create a canvas and renderer
@@ -55,8 +56,8 @@ camera2 = gfx.NDCCamera()
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube1.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    cube1.local.rotation = la.quat_mul(rot, cube1.local.rotation)
 
     renderer.render(scene1, camera1, flush=False)
     renderer.render(scene2, camera2)

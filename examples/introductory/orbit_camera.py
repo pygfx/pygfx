@@ -13,6 +13,7 @@ import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import numpy as np
+import pylinalg as la
 
 
 canvas = WgpuCanvas()
@@ -28,7 +29,7 @@ material = gfx.MeshBasicMaterial(map=tex, side="front")
 geometry = gfx.box_geometry(100, 100, 100)
 cubes = [gfx.Mesh(geometry, material) for i in range(8)]
 for i, cube in enumerate(cubes):
-    cube.position.set(350 - i * 100, 150, 0)
+    cube.local.position = (350 - i * 100, 150, 0)
     scene.add(cube)
 
 dark_gray = np.array((169, 167, 168, 255)) / 255
@@ -58,10 +59,8 @@ renderer.add_event_handler(on_key_down, "key_down")
 
 def animate():
     for i, cube in enumerate(cubes):
-        rot = gfx.linalg.Quaternion().set_from_euler(
-            gfx.linalg.Euler(0.005 * i, 0.01 * i)
-        )
-        cube.rotation.multiply(rot)
+        rot = la.quat_from_euler((0.005 * i, 0.01 * i), order="XY")
+        cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

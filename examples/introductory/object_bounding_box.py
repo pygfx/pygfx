@@ -33,6 +33,7 @@ except NameError:
 
 import trimesh
 import pygfx as gfx
+import pylinalg as la
 
 
 teapot = trimesh.load(model_dir / "teapot.stl")
@@ -44,7 +45,7 @@ mesh = gfx.Mesh(
     gfx.geometry_from_trimesh(teapot),
     gfx.MeshPhongMaterial(),
 )
-mesh.rotation.set_from_euler(gfx.linalg.Euler(0.71, 0.91))
+mesh.local.rotation = la.quat_from_euler((0.71, 0.91), order="XY")
 scene.add(mesh)
 
 box_world = gfx.BoxHelper(color="red")
@@ -58,4 +59,4 @@ mesh.add(box_local)  # note that the parent is `mesh` here, not `scene`
 
 if __name__ == "__main__":
     disp = gfx.Display()
-    disp.show(scene, up=gfx.linalg.Vector3(0, 0, 1))
+    disp.show(scene, up=(0, 0, 1))

@@ -181,7 +181,7 @@ t = Triangle(
     gfx.Geometry(positions=np.random.uniform(-4, 4, size=(20, 3)).astype(np.float32)),
     TriangleMaterial(color="yellow"),
 )
-t.position.x = 2  # set offset to demonstrate that it works
+t.local.x = 2  # set offset to demonstrate that it works
 
 scene = gfx.Scene()
 scene.add(t)

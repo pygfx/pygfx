@@ -60,7 +60,7 @@ class InstancedMesh(Mesh):
     def set_matrix_at(self, index: int, matrix):
         """set the matrix for the instance at the given index."""
         matrix = np.array(matrix).reshape(4, 4)
-        self._store["instance_buffer"].data["matrix"][index] = matrix
+        self._store["instance_buffer"].data["matrix"][index] = matrix.T
 
     def _wgpu_get_pick_info(self, pick_value):
         info = self.material._wgpu_get_pick_info(pick_value)

@@ -47,7 +47,9 @@ box = gfx.Mesh(
 )
 scene.add(box)
 scene.add(gfx.AmbientLight())
-scene.add(camera.add(gfx.DirectionalLight(0.2, position=(0, 0, 1))))
+light = gfx.DirectionalLight(0.2)
+light.local.position = (0, 0, 1)
+scene.add(camera.add(light))
 
 
 @renderer.add_event_handler("pointer_down")

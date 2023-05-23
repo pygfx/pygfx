@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 from ..objects import Light
+from ..utils.transform import AffineBase, callback
 
 from .. import (
     sphere_geometry,
@@ -41,11 +42,10 @@ class PointLightHelper(Mesh):
         material = MeshBasicMaterial(color="#fff")
         super().__init__(geometry, material)
 
-    def update_matrix_world(self, *args, **kwargs):
-        super().update_matrix_world(*args, **kwargs)
-        self._update()
+        self.world.on_update(self._update)
 
-    def _update(self):
+    @callback
+    def _update(self, transform: AffineBase) -> None:
         if self._color is None and isinstance(self.parent, Light):
             color = self.parent.color
             if color != self.material.color:
@@ -87,6 +87,8 @@ class DirectionalLightHelper(Line):
         self.ray_length = ray_length
         self.show_shadow_extent = show_shadow_extent
 
+        self.world.on_update(self._update)
+
     @property
     def ray_length(self):
         """The length of the arrows indicating light rays."""
@@ -125,11 +127,8 @@ class DirectionalLightHelper(Line):
         self._show_shadow_extent = bool(value)
         self._shadow_helper.visible = self._show_shadow_extent
 
-    def update_matrix_world(self, *args, **kwargs):
-        super().update_matrix_world(*args, **kwargs)
-        self._update()
-
-    def _update(self):
+    @callback
+    def _update(self, transform: AffineBase):
         if not isinstance(self.parent, Light):
             return
 
@@ -213,12 +212,10 @@ class SpotLightHelper(Line):
             Geometry(positions=positions),
             LineSegmentMaterial(thickness=1.0),
         )
+        self.world.on_update(self._update)
 
-    def update_matrix_world(self, *args, **kwargs):
-        super().update_matrix_world(*args, **kwargs)
-        self._update()
-
-    def _update(self):
+    @callback
+    def _update(self, transform: AffineBase):
         if not isinstance(self.parent, Light):
             return
         light = self.parent
@@ -230,4 +227,4 @@ class SpotLightHelper(Line):
 
         cone_length = light.distance or 1000
         cone_width = cone_length * math.tan(light.angle)
-        self.scale.set(cone_width, cone_width, cone_length)
+        self.scale = (cone_width, cone_width, cone_length)

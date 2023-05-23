@@ -9,6 +9,7 @@ the render loop.
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -25,7 +26,9 @@ camera.show_object(box, scale=2)
 
 # Let there be ...
 scene.add(gfx.AmbientLight())
-scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
+light = gfx.DirectionalLight()
+light.local.position = (0, 0, 1)
+scene.add()
 
 # Add stats
 stats = gfx.Stats(viewport=renderer)
@@ -33,8 +36,8 @@ stats = gfx.Stats(viewport=renderer)
 
 def animate():
     # Rotate the cube
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    box.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    box.local.rotation = la.quat_mul(rot, box.local.rotation)
 
     # Track the render time. You can enclose any
     # other piece of code for which you want to see time

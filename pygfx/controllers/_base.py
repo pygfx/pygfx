@@ -4,10 +4,10 @@ from time import perf_counter
 import numpy as np
 import pylinalg as la
 
-from ..utils.viewport import Viewport
-from ..renderers import Renderer
 from ..cameras import Camera, PerspectiveCamera
 from ..cameras._perspective import fov_distance_factor
+from ..renderers import Renderer
+from ..utils.viewport import Viewport
 
 
 class Controller:
@@ -233,7 +233,7 @@ class Controller:
         fov = kwargs.get("fov", camera_state.get("fov"))
 
         distance = fov_distance_factor(fov) * extent
-        return la.vector_apply_quaternion((0, 0, -distance), rotation)
+        return la.vec_transform_quat((0, 0, -distance), rotation)
 
     def _get_camera_vecs(self, rect):
         """Get vectors orthogonal to camera axii."""
@@ -677,25 +677,25 @@ def get_screen_vectors_in_world_cords(
     """
 
     # Linalg conv
-    camera_world = camera.matrix_world.to_ndarray()
-    camera_world_inverse = camera.matrix_world_inverse.to_ndarray()
-    camera_projection = camera.projection_matrix.to_ndarray()
-    camera_projection_inverse = camera.projection_matrix_inverse.to_ndarray()
+    camera_world = camera.world.matrix
+    camera_world_inverse = camera.world.inverse_matrix
+    camera_projection = camera.projection_matrix
+    camera_projection_inverse = camera.projection_matrix_inverse
 
     # Get center location on screen
-    center_ndc = la.vector_apply_matrix(
-        la.vector_apply_matrix(center_world, camera_world_inverse), camera_projection
+    center_ndc = la.vec_transform(
+        la.vec_transform(center_world, camera_world_inverse), camera_projection
     )
 
     # Step 1 NDC unit in x and y, and convert these positions back to world
     posx_ndc = center_ndc + (1, 0, 0)
     posy_ndc = center_ndc + (0, 1, 0)
-    posx_world = la.vector_apply_matrix(
-        la.vector_apply_matrix(posx_ndc, camera_projection_inverse),
+    posx_world = la.vec_transform(
+        la.vec_transform(posx_ndc, camera_projection_inverse),
         camera_world,
     )
-    posy_world = la.vector_apply_matrix(
-        la.vector_apply_matrix(posy_ndc, camera_projection_inverse),
+    posy_world = la.vec_transform(
+        la.vec_transform(posy_ndc, camera_projection_inverse),
         camera_world,
     )
 

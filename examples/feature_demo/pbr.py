@@ -65,7 +65,9 @@ m = meshes[0]  # this example has just one mesh
 m.material.env_map = env_tex
 
 # Add extra light more or less where the sun seems to be in the skybox
-scene.add(gfx.SpotLight(color="#444", position=(-500, 1000, -1000)))
+light = gfx.SpotLight(color="#444")
+light.local.position = (-500, 1000, -1000)
+scene.add(light)
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 640 / 480)

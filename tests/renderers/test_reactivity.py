@@ -19,7 +19,7 @@ renderer1.blend_mode = "ordered1"
 renderer2.blend_mode = "weighted"
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.local.position = (0, 0, 400)
 
 
 class Handler(logging.Handler):
@@ -141,7 +141,7 @@ def test_reactivity_mesh3():
     tex1 = gfx.cm.cividis
     tex2 = gfx.cm.inferno
     cmap3 = np.array([(1,), (0,), (0,), (1,)], np.int32)
-    tex3 = gfx.Texture(cmap3, dim=1).get_view(filter="linear")
+    tex3 = gfx.Texture(cmap3, dim=1)
 
     # only float32 color map is supported in MeshPhongMaterial for now
     obj = gfx.Mesh(geometry, gfx.MeshBasicMaterial(map=tex1))
@@ -157,7 +157,7 @@ def test_reactivity_mesh3():
     # Change to colormap of different format, need rebuild!
     obj.material.map = tex3
     print("uv", geometry.texcoords.data.shape)
-    print("map", obj.material.map.view_dim)
+    print("map", obj.material.map.dim)
     changed = render(obj)
     assert changed == {"bindings", "compile_shader", "compose_pipeline"}
 

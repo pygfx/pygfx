@@ -13,6 +13,7 @@ decorate an object in another scene.
 import imageio.v3 as iio
 import numpy as np
 import pygfx as gfx
+import pylinalg as la
 from wgpu.gui.offscreen import WgpuCanvas
 
 
@@ -30,10 +31,10 @@ cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.local.z = 400
 
-rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.5, 1.0))
-cube.rotation.multiply(rot)
+rot = la.quat_from_euler((0.5, 1.0), order="XY")
+cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 

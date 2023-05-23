@@ -10,6 +10,7 @@ Press 1-6 to select the blend mode.
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -22,9 +23,9 @@ plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.3)))
 plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.5)))
 plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.7)))
 
-plane1.rotation.set_from_axis_angle(gfx.linalg.Vector3(1, 0, 0), 1.571)
-plane2.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), 1.571)
-plane3.rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 0, 1), 1.571)
+plane1.local.rotation = la.quat_from_axis_angle((1, 0, 0), 1.571)
+plane2.local.rotation = la.quat_from_axis_angle((0, 1, 0), 1.571)
+plane3.local.rotation = la.quat_from_axis_angle((0, 0, 1), 1.571)
 
 scene.add(plane1, plane2, plane3, sphere)
 

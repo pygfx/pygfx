@@ -1,8 +1,8 @@
 import numpy as np
+import pylinalg as la
 
 from ..utils.trackable import Trackable
 from ..resources import Resource, Buffer, Texture
-from ..linalg.utils import aabb_to_sphere
 
 
 class Geometry(Trackable):
@@ -166,6 +166,6 @@ class Geometry(Trackable):
         if self._bsphere is not None and self._bsphere_rev == self._aabb_rev:
             return self._bsphere
 
-        self._bsphere = aabb_to_sphere(self.bounding_box())
+        self._bsphere = la.aabb_to_sphere(self.bounding_box())
         self._bsphere_rev = self._aabb_rev
         return self._bsphere

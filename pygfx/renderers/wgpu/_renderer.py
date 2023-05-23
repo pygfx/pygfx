@@ -11,7 +11,6 @@ import numpy as np
 import wgpu.backends.rs
 
 from .. import Renderer
-from ...linalg import Matrix4, Vector3
 from ...objects._base import id_provider
 from ...objects import (
     KeyboardEvent,
@@ -25,14 +24,15 @@ from ...cameras import Camera
 from ...resources import Texture
 from ...resources._base import resource_update_registry
 from ...utils import Color
+import pylinalg as la
 
 from . import _blender as blender_module
 from ._flusher import RenderFlusher
 from ._pipeline import get_pipeline_container_group
 from ._update import update_resource, ensure_wgpu_object
-from ._shared import Shared
+from ._shared import get_shared
 from ._environment import get_environment
-from ._shadowutil import ShadowUtil
+from ._shadowutil import render_shadow_maps
 from ._mipmapsutil import generate_texture_mipmaps
 from ._utils import GfxTextureView
 
@@ -43,17 +43,8 @@ def _get_sort_function(camera: Camera):
     """Given a scene object, get a function to sort wobject-tuples"""
 
     def sort_func(wobject: WorldObject):
-        z = (
-            Vector3()
-            .set_from_matrix_position(wobject.matrix_world)
-            .apply_matrix4(proj_screen_matrix)
-            .z
-        )
+        z = la.vec_transform(wobject.world.position, camera.camera_matrix)[2]
         return wobject.render_order, z
-
-    proj_screen_matrix = Matrix4().multiply_matrices(
-        camera.projection_matrix, camera.matrix_world_inverse
-    )
 
     return sort_func
 
@@ -142,15 +133,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
         self._target = target
-
-        # Process other inputs
         self.pixel_ratio = pixel_ratio
-        self._show_fps = bool(show_fps)
 
-        # Make sure we have a shared object (the first renderer create it)
-        canvas = target if isinstance(target, wgpu.gui.WgpuCanvasBase) else None
-        if Shared._instance is None:  # == self._shared
-            Shared(canvas)
+        # Make sure we have a shared object (the first renderer creates the instance)
+        self._shared = get_shared()
+        self._device = self._shared.device
 
         # Init counter to auto-clear
         self._renders_since_last_flush = 0
@@ -162,18 +149,19 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._canvas_context = self._target.get_context()
             # Select output format. We currenly don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
-            fmt = self._canvas_context.get_preferred_format(self._shared.adapter)
-            if not fmt.endswith("srgb"):
+            target_format = self._canvas_context.get_preferred_format(
+                self._shared.adapter
+            )
+            if not target_format.endswith("srgb"):
                 self._gamma_correction_srgb = 1 / 2.2  # poor man's srgb
-            self._target_tex_format = fmt
             # Also configure the canvas
             self._canvas_context.configure(
-                device=self._shared.device,
-                format=self._target_tex_format,
+                device=self._device,
+                format=target_format,
                 usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
         else:
-            self._target_tex_format = self._target.format
+            target_format = self._target.format
             # Also enable the texture for render and display usage
             self._target._wgpu_usage |= wgpu.TextureUsage.RENDER_ATTACHMENT
             self._target._wgpu_usage |= wgpu.TextureUsage.TEXTURE_BINDING
@@ -183,28 +171,27 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self.sort_objects = sort_objects
 
         # Prepare object that performs the final render step into a texture
-        self._flusher = RenderFlusher(self._shared.device)
+        self._flusher = RenderFlusher(target_format)
 
         # Initialize a small buffer to read pixel info into
         # Make it 256 bytes just in case (for bytes_per_row)
-        self._pixel_info_buffer = self._shared.device.create_buffer(
+        self._pixel_info_buffer = self._device.create_buffer(
             size=16,
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
 
-        self._shadow_util = ShadowUtil(self._shared.device)
+        # Init fps measurements
+        self._show_fps = bool(show_fps)
+        now = time.perf_counter()
+        self._fps = {"start": now, "count": 0}
 
         if enable_events:
             self.enable_events()
 
     @property
-    def _shared(self):
-        return Shared._instance
-
-    @property
     def device(self):
-        """A reference to the used wgpu device."""
-        return self._shared.device
+        """A reference to the global wgpu device."""
+        return self._device
 
     @property
     def target(self):
@@ -412,7 +399,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             flush (bool, optional): Whether to flush the rendered result into
                 the target (texture or canvas). Default True.
         """
-        device = self.device
 
         # Define whether to clear color.
         if clear_color is None:
@@ -436,7 +422,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         pixel_ratio = physical_size[1] / logical_size[1]
 
         # Update the render targets
-        self._blender.ensure_target_size(device, physical_size)
+        self._blender.ensure_target_size(physical_size)
 
         # Get viewport in physical pixels
         if not rect:
@@ -468,9 +454,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self.dispatch_event(ev)
 
         # Ensure that matrices are up-to-date
-        scene.update_matrix_world()
         camera.set_view_size(*scene_lsize)
-        camera.update_matrix_world()  # camera may not be a member of the scene
         camera.update_projection_matrix()
 
         # Prepare the shared object
@@ -497,15 +481,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
         for wobject in wobject_list:
             if not wobject.material:
                 continue
-            container_group = get_pipeline_container_group(
-                wobject, environment, self._shared
-            )
+            container_group = get_pipeline_container_group(wobject, environment)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
-            update_resource(self.device, resource)
+            update_resource(resource)
 
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
@@ -522,11 +504,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             physical_viewport,
             clear_color,
         )
-        command_buffers += self._blender.perform_combine_pass(self._shared.device)
-        command_buffers
+        command_buffers += self._blender.perform_combine_pass()
 
         # Collect commands and submit
-        device.queue.submit(command_buffers)
+        self._device.queue.submit(command_buffers)
 
         if flush:
             self.flush()
@@ -539,31 +520,34 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Print FPS
         now = time.perf_counter()  # noqa
         if self._show_fps:
-            if not hasattr(self, "_fps"):
-                self._fps = now, now, 1
-            elif now > self._fps[0] + 1:
-                print(f"FPS: {self._fps[2]/(now - self._fps[0]):0.1f}")
-                self._fps = now, now, 1
+            if self._fps["count"] == 0:
+                print(f"Time to first draw: {now-self._fps['start']:0.2f}")
+                self._fps["start"] = now
+                self._fps["count"] = 1
+            elif now > self._fps["start"] + 1:
+                fps = self._fps["count"] / (now - self._fps["start"])
+                print(f"FPS: {fps:0.1f}")
+                self._fps["start"] = now
+                self._fps["count"] = 1
             else:
-                self._fps = self._fps[0], now, self._fps[2] + 1
+                self._fps["count"] += 1
 
-        device = self.device
         need_mipmaps = False
         if target is None:
             target = self._target
 
-        # Get the wgpu texture view
+        # Get the wgpu texture view.
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             wgpu_tex_view = self._canvas_context.get_current_texture()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
             wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
             if wgpu_tex_view is None:
-                wgpu_tex_view = ensure_wgpu_object(device, GfxTextureView(target))
+                wgpu_tex_view = ensure_wgpu_object(GfxTextureView(target))
                 target._wgpu_default_view = wgpu_tex_view
         elif isinstance(target, GfxTextureView):
             need_mipmaps = target.texture.generate_mipmaps
-            wgpu_tex_view = ensure_wgpu_object(device, target)
+            wgpu_tex_view = ensure_wgpu_object(target)
         else:
             raise TypeError("Unexepcted target type.")
 
@@ -574,13 +558,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._blender.color_view,
             None,
             wgpu_tex_view,
-            self._target_tex_format,
             self._gamma_correction * self._gamma_correction_srgb,
         )
-        device.queue.submit(command_buffers)
+        self._device.queue.submit(command_buffers)
 
         if need_mipmaps:
-            generate_texture_mipmaps(device, target)
+            generate_texture_mipmaps(target)
 
     def _render_recording(
         self,
@@ -597,7 +580,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # it, really.
         # todo: we may be able to speed this up with render bundles though
 
-        command_encoder = self.device.create_command_encoder()
+        command_encoder = self._device.create_command_encoder()
         blender = self._blender
 
         # ----- compute pipelines
@@ -617,7 +600,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             + environment.lights["spot_lights"]
             + environment.lights["directional_lights"]
         )
-        self._shadow_util.render_shadow_maps(lights, wobject_list, command_encoder)
+        render_shadow_maps(lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):
             color_attachments = blender.get_color_attachments(pass_index, clear_color)
@@ -642,15 +625,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         return [command_encoder.finish()]
 
-    def _update_stdinfo_buffer(self, camera, physical_size, logical_size):
+    def _update_stdinfo_buffer(self, camera: Camera, physical_size, logical_size):
         # Update the stdinfo buffer's data
         stdinfo_data = self._shared.uniform_buffer.data
-        stdinfo_data["cam_transform"].flat = camera.matrix_world_inverse.elements
-        stdinfo_data["cam_transform_inv"].flat = camera.matrix_world.elements
-        stdinfo_data["projection_transform"].flat = camera.projection_matrix.elements
-        stdinfo_data[
-            "projection_transform_inv"
-        ].flat = camera.projection_matrix_inverse.elements
+        stdinfo_data["cam_transform"] = camera.world.inverse_matrix.T
+        stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
+        stdinfo_data["projection_transform"] = camera.projection_matrix.T
+        stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
         # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
@@ -686,11 +667,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
             return {"rgba": Color(0, 0, 0, 0), "world_object": None}
 
         # Sample
-        encoder = self.device.create_command_encoder()
+        encoder = self._device.create_command_encoder()
         self._copy_pixel(encoder, self._blender.color_tex, float_pos, 0)
         self._copy_pixel(encoder, self._blender.pick_tex, float_pos, 8)
-        queue = self.device.queue
-        queue.submit([encoder.finish()])
+        self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
         data = self._pixel_info_buffer.map_read()
@@ -737,13 +717,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """Create a snapshot of the currently rendered image."""
 
         # Prepare
-        device = self._shared.device
         texture = self._blender.color_tex
         size = texture.size
         bytes_per_pixel = 4
 
         # Note, with queue.read_texture the bytes_per_row limitation does not apply.
-        data = device.queue.read_texture(
+        data = self._device.queue.read_texture(
             {
                 "texture": texture,
                 "mip_level": 0,

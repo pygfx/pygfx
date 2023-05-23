@@ -15,6 +15,7 @@ Example test to validate winding and culling.
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
 
 
 canvas = WgpuCanvas(size=(1500, 600))
@@ -29,24 +30,24 @@ def create_scene(title):
     # Create a green knot shown normally
     material1 = gfx.MeshPhongMaterial(color=(0, 1, 0, 1))
     obj1 = gfx.Mesh(geometry, material1)
-    obj1.position.set(0, 2, 0)
+    obj1.local.position = (0, 2, 0)
     obj1.material.side = "FRONT"
 
     # Create a yellow knot for which we show the back
     material2 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
     obj2 = gfx.Mesh(geometry, material2)
-    obj2.position.set(0, -2, 0)
+    obj2.local.position = (0, -2, 0)
     obj2.material.side = "BACK"
 
     # Rotate both in a position where the back faces are easier spotted
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.71, 1))
-    obj1.rotation.multiply(rot)
-    obj2.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.71, 1), order="XY")
+    obj1.local.rotation = la.quat_mul(rot, obj1.local.rotation)
+    obj2.local.rotation = la.quat_mul(rot, obj2.local.rotation)
 
     t = gfx.Text(
         gfx.TextGeometry(title, screen_space=True, font_size=20), gfx.TextMaterial()
     )
-    t.position.set(0, 4, 0)
+    t.local.position = (0, 4, 0)
     camera = gfx.OrthographicCamera(4.2, 6)
 
     amb_light = gfx.AmbientLight(0.2, 2)
@@ -64,20 +65,21 @@ scene1 = create_scene("Regular")
 
 vp2 = gfx.Viewport(renderer, (300, 0, 300, 600))
 scene2 = create_scene("Flip object")
-scene2.children[0].scale.x = -1
-scene2.children[1].scale.x = -1
+scene2.children[0].local.scale_x = -1
+scene2.children[1].local.scale_x = -1
 
 vp3 = gfx.Viewport(renderer, (600, 0, 300, 600))
 scene3 = create_scene("Rotate camera")
-scene3.children[-1].rotation.set_from_axis_angle(gfx.linalg.Vector3(0, 1, 0), 3.141592)
+transform = scene3.children[-1].local
+transform.rotation = la.quat_from_axis_angle((0, 1, 0), 3.141592)
 
 vp4 = gfx.Viewport(renderer, (900, 0, 300, 600))
 scene4 = create_scene("Flip camera")
-scene4.children[-1].scale.z = -1
+scene4.children[-1].local.scale_z = -1
 
 vp5 = gfx.Viewport(renderer, (1200, 0, 300, 600))
 scene5 = create_scene("Flip camera, not light")
-scene5.children[-1].scale.z = -1
+scene5.children[-1].local.scale_z = -1
 scene5.add(scene5.children[-1].children[0])  # put light in root
 scene5.add(scene5.children[-2])  # move camera to the end
 

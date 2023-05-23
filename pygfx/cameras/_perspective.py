@@ -1,10 +1,10 @@
-from math import tan, pi
+from math import pi, tan
 
 import numpy as np
 import pylinalg as la
 
-from ._base import Camera
 from ..objects._base import WorldObject
+from ._base import Camera
 
 
 class PerspectiveCamera(Camera):
@@ -197,27 +197,27 @@ class PerspectiveCamera(Camera):
             return -500 * extent, 500 * extent
 
     @property
-    def near(self):
+    def near(self) -> float:
         """The location of the near clip plane.
         Use `depth_range` so overload the computed value, if necessary.
         """
-        near, far = self._get_near_and_far_plane()
+        near, _ = self._get_near_and_far_plane()
         return near
 
     @property
-    def far(self):
+    def far(self) -> float:
         """The location of the far clip plane.
         Use `depth_range` so overload the computed value, if necessary.
         """
-        near, far = self._get_near_and_far_plane()
+        _, far = self._get_near_and_far_plane()
         return far
 
     def get_state(self):
         return {
-            "position": tuple(self.position.to_array()),
-            "rotation": tuple(self.rotation.to_array()),
-            "scale": tuple(self.scale.to_array()),
-            "up": tuple(self.up.to_array()),
+            "position": self.local.position,
+            "rotation": self.local.rotation,
+            "scale": self.local.scale,
+            "reference_up": self.world.reference_up,
             "fov": self.fov,
             "width": self.width,
             "height": self.height,
@@ -229,13 +229,14 @@ class PerspectiveCamera(Camera):
     def set_state(self, state):
         # Set the more complex props
         if "position" in state:
-            self.position.set(*state["position"])
+            self.local.position = state["position"]
         if "rotation" in state:
-            self.rotation.set(*state["rotation"])
+            self.local.rotation = state["rotation"]
         if "scale" in state:
-            self.scale.set(*state["scale"])
-        if "up" in state:
-            self.up.set(*state["up"])
+            self.local.scale = state["scale"]
+        if "reference_up" in state:
+            self.world.reference_up = state["reference_up"]
+
         # Set simple props
         for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
             if key in state:
@@ -267,12 +268,10 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.matrix_make_perspective(
+            self.projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = np.linalg.inv(proj)
-            self.projection_matrix.set(*proj.flat)
-            self.projection_matrix_inverse.set(*proj_i.flat)
+            self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -292,12 +291,12 @@ class PerspectiveCamera(Camera):
             left = -0.5 * width
             right = +0.5 * width
             # Set matrices
-            proj = la.matrix_make_orthographic(
+            proj = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
             proj_i = np.linalg.inv(proj)
-            self.projection_matrix.set(*proj.flat)
-            self.projection_matrix_inverse.set(*proj_i.flat)
+            self.projection_matrix = proj
+            self.projection_matrix_inverse = proj_i
 
     def show_pos(self, target, *, up=None):
         """Look at the given position or object.
@@ -311,29 +310,26 @@ class PerspectiveCamera(Camera):
         target: WorldObject or (x, y, z)
             The target to point the camera towards.
         up: 3-tuple
-            If given, also sets the up vector of the camera.
+            If given, set ``camera.world.reference_up`` to the given value.
 
         """
 
         # Get pos from target
         if isinstance(target, WorldObject):
-            pos = target.position.to_array()
-        elif isinstance(target, (tuple, list, np.ndarray)) and len(target) in (3, 4):
-            pos = tuple(target)[:3]
-        elif hasattr(target, "to_array"):
-            pos = target.to_array()
+            pos = target.local.position
         else:
-            raise TypeError(
-                "show_position target must be a WorldObject, or a (x, y, z) tuple."
-            )
+            pos = np.asarray(target)
+
+        if pos.shape != (3,):
+            raise ValueError("Expected position to have 3 values.")
 
         # Look at the provided position, taking up into account
         if up is not None:
-            self.up = up
+            self.world.reference_up = up
         self.look_at(pos)
 
         # Update extent
-        distance = la.vector_distance_between(pos, self.position.to_array())
+        distance = la.vec_dist(pos, self.local.position)
         self._set_extent(distance / fov_distance_factor(self.fov))
 
     def show_object(self, target: WorldObject, view_dir=None, *, up=None, scale=1):
@@ -354,11 +350,17 @@ class PerspectiveCamera(Camera):
             Look at the object from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-            If given, also sets the up vector of the camera.
+            If given, set ``camera.world.reference_up`` to the given value.
         scale: float
             Scale the size of what's shown. Default 1.
 
         """
+
+        if up is None:
+            up = self.world.reference_up
+        else:
+            up = np.asarray(up)
+            self.world.reference_up = up
 
         # Get bounding sphere from target
         if isinstance(target, WorldObject):
@@ -376,16 +378,15 @@ class PerspectiveCamera(Camera):
 
         # Obtain view direction
         if view_dir is None:
-            rotation = self.rotation.to_array()
-            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
+            rotation = self.local.rotation
+            view_dir = la.vec_transform_quat((0, 0, -1), rotation)
         elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
             view_dir = tuple(view_dir)
         else:
             raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
-        view_dir = la.vector_normalize(view_dir)
+        view_dir = la.vec_normalize(view_dir)
 
         # Do the math ...
-
         view_pos = bsphere[:3]
         radius = bsphere[3]
         extent = radius * 2 * scale
@@ -393,12 +394,12 @@ class PerspectiveCamera(Camera):
 
         camera_pos = view_pos - view_dir * distance
 
-        self.position.set(*camera_pos)
-        self.look_at(view_pos, up=up)
+        self.local.position = camera_pos
+        self.look_at(view_pos)
         self._set_extent(extent)
 
     def show_rect(self, left, right, top, bottom, *, view_dir=None, up=None):
-        """Orientate the camera such that the given rectangle in is in view.
+        """Position the camera such that the given rectangle is in view.
 
         The rectangle represents a plane in world coordinates, centered
         at the origin of the world, and rotated to be orthogonal to the
@@ -425,19 +426,18 @@ class PerspectiveCamera(Camera):
             Look at the rectang;e from this direction. If not given or None,
             uses the current view direction.
         up: 3-tuple
-           If given, also sets the up vector of the camera.
+           If given, set ``camera.world.reference_up`` to the given value.
 
         """
 
+        if up is not None:
+            self.world.reference_up = up
+
         # Obtain view direction
         if view_dir is None:
-            rotation = self.rotation.to_array()
-            view_dir = la.vector_apply_quaternion((0, 0, -1), rotation)
-        elif isinstance(view_dir, (tuple, list, np.ndarray)) and len(view_dir) == 3:
-            view_dir = tuple(view_dir)
+            view_dir = la.vec_transform_quat((0, 0, -1), self.world.rotation)
         else:
-            raise TypeError(f"Expected view_dir to be sequence, not {view_dir}")
-        view_dir = la.vector_normalize(view_dir)
+            view_dir = la.vec_normalize(view_dir)
 
         # Set bounds, note that this implicitly sets width, height (and aspect)
         self.width = right - left
@@ -445,17 +445,16 @@ class PerspectiveCamera(Camera):
         extent = 0.5 * (self.width + self.height)
         # First move so we view towards the origin with the correct vector
         distance = fov_distance_factor(self.fov) * extent
-        camera_pos = (0, 0, 0) - view_dir * distance
-        self.position.set(*camera_pos)
-        self.look_at((0, 0, 0), up=up)
+        self.world.position = (0, 0, 0) - view_dir * distance
+        self.look_at((0, 0, 0))
 
         # Now we have a rotation that we can use to orient our rect
-        position = self.position.to_array()
-        rotation = self.rotation.to_array()
+        position = self.world.position
+        rotation = self.world.rotation
 
         offset = 0.5 * (left + right), 0.5 * (top + bottom), 0
-        new_position = position + la.vector_apply_quaternion(offset, rotation)
-        self.position.set(*new_position)
+        new_position = position + la.vec_transform_quat(offset, rotation)
+        self.world.position = new_position
 
     @property
     def frustum(self):
@@ -471,16 +470,12 @@ class PerspectiveCamera(Camera):
 
         """
 
-        projection_matrix = self.projection_matrix.to_ndarray()
+        projection_matrix = self.projection_matrix
 
         ndc_corners = np.array([(-1, -1), (1, -1), (1, 1), (-1, 1)])
         depths = np.array((0, 1))[:, None]
-        local_corners = la.vector_unproject(
-            ndc_corners, projection_matrix, depth=depths
-        )
-        world_corners = la.vector_apply_matrix(
-            local_corners, self.matrix_world.to_ndarray()
-        )
+        local_corners = la.vec_unproject(ndc_corners, projection_matrix, depth=depths)
+        world_corners = la.vec_transform(local_corners, self.world.matrix)
         return world_corners
 
 

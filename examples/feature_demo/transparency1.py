@@ -21,9 +21,9 @@ plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4)))
 plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.4)))
 plane3 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 0, 1, 0.4)))
 
-plane1.position.set(-10, -10, 1)
-plane2.position.set(0, 0, 2)
-plane3.position.set(10, 10, 3)
+plane1.local.position = (-10, -10, 1)
+plane2.local.position = (0, 0, 2)
+plane3.local.position = (10, 10, 3)
 
 scene.add(plane1, plane2, plane3)
 

@@ -9,7 +9,7 @@ Example showing a Klein Bottle.
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
-
+import pylinalg as la
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -26,14 +26,14 @@ obj3 = gfx.Mesh(geometry, gfx.MeshNormalLinesMaterial(color="#0ff", line_length=
 obj.add(obj2, obj3)
 
 camera = gfx.PerspectiveCamera(70, 1)
-camera.position.z = 30
+camera.local.z = 30
 
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
-    obj.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.0071, 0.01), order="XY")
+    obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

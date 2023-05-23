@@ -108,7 +108,7 @@ class DepthShader(MeshShader):
 renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
 
 camera = gfx.PerspectiveCamera(45, 640 / 480, depth_range=(8, 12))
-camera.position.z = 10
+camera.local.z = 10
 camera.show_pos((0, 0, 0))
 
 t = gfx.Mesh(gfx.torus_knot_geometry(1, 0.3, 128, 32), DepthMaterial())

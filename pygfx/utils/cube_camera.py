@@ -1,4 +1,3 @@
-from ..linalg import Vector3
 from ..objects._base import WorldObject
 from ..cameras import PerspectiveCamera
 from ..resources import Texture
@@ -52,33 +51,33 @@ class CubeCamera(WorldObject):
         # so camrea_px is actually looking at the neg-x direction, and camera_nx is looking at the pos-x direction.
 
         camera_px = PerspectiveCamera(fov, aspect, depth_range=depth_range)
-        camera_px.up.set(0, 1, 0)
-        camera_px.look_at(Vector3(-1, 0, 0))
+        camera_px.world.reference_up = (0, 1, 0)
+        camera_px.look_at((-1, 0, 0))
         self.add(camera_px)
 
         camera_nx = PerspectiveCamera(fov, aspect, depth_range=depth_range)
-        camera_nx.up.set(0, 1, 0)
-        camera_nx.look_at(Vector3(1, 0, 0))
+        camera_nx.world.reference_up = (0, 1, 0)
+        camera_nx.look_at((1, 0, 0))
         self.add(camera_nx)
 
         camera_py = PerspectiveCamera(fov, aspect, depth_range=depth_range)
-        camera_py.up.set(0, 0, -1)
-        camera_py.look_at(Vector3(0, 1, 0))
+        camera_py.world.reference_up = (0, 0, -1)
+        camera_py.look_at((0, 1, 0))
         self.add(camera_py)
 
         camera_ny = PerspectiveCamera(fov, aspect, depth_range=depth_range)
-        camera_ny.up.set(0, 0, 1)
-        camera_ny.look_at(Vector3(0, -1, 0))
+        camera_ny.world.reference_up = (0, 0, 1)
+        camera_ny.look_at((0, -1, 0))
         self.add(camera_ny)
 
         camera_pz = PerspectiveCamera(fov, aspect, depth_range=depth_range)
-        camera_pz.up.set(0, 1, 0)
-        camera_pz.look_at(Vector3(0, 0, 1))
+        camera_pz.world.reference_up = (0, 1, 0)
+        camera_pz.look_at((0, 0, 1))
         self.add(camera_pz)
 
         camera_nz = PerspectiveCamera(fov, aspect, depth_range=depth_range)
-        camera_nz.up.set(0, 1, 0)
-        camera_nz.look_at(Vector3(0, 0, -1))
+        camera_nz.world.reference_up = (0, 1, 0)
+        camera_nz.look_at((0, 0, -1))
         self.add(camera_nz)
 
     @property

@@ -10,6 +10,7 @@ Example demonstrating colormaps in 4 modes: grayscale, gray+alpha, RGB, RGBA.
 
 import numpy as np
 import pygfx as gfx
+import pylinalg as la
 
 
 group = gfx.Group()
@@ -24,7 +25,7 @@ camera = gfx.OrthographicCamera(16, 3)
 def create_object(tex, xpos):
     material = gfx.MeshPhongMaterial(map=tex)
     obj = gfx.Mesh(geometry, material)
-    obj.position.x = xpos
+    obj.local.x = xpos
     group.add(obj)
 
 
@@ -54,9 +55,9 @@ create_object(tex1, +6)
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.0071, 0.01))
+    rot = la.quat_from_euler((0.0071, 0.01), order="XY")
     for obj in group.children:
-        obj.rotation.multiply(rot)
+        obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
 
 if __name__ == "__main__":
