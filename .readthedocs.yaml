@@ -12,7 +12,7 @@ build:
     - libegl1-mesa
     - libgl1-mesa-dri
     - libxcb-xfixes0-dev
-    - mesa-vulkan-drivers=22.2.5-0ubuntu0.1~22.04.2
+    - "mesa-vulkan-drivers=22.2.5-0ubuntu0.1~22.04.2"
 
 sphinx:
   configuration: docs/conf.py
