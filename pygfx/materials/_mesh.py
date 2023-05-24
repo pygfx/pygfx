@@ -185,7 +185,8 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     env_mapping_mode : str
         The environment mapping mode.
         The default value is "CUBE-REFLECTION" and the valid values are "CUBE-REFLECTION" and "CUBE-REFRACTION".
-
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`base class <pygfx.MeshAbstractMaterial>`.
     """
 
     uniform_type = dict(
