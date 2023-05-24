@@ -13,9 +13,6 @@ build:
     - libgl1-mesa-dri
     - libxcb-xfixes0-dev
     - mesa-vulkan-drivers
-  jobs:
-    pre_build:
-      - apt-get install --assume-yes --quiet -- mesa-vulkan-drivers=22.2.5-0ubuntu0.1~22.04.1
 
 sphinx:
   configuration: docs/conf.py
