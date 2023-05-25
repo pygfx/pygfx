@@ -191,6 +191,10 @@ class LineShader(WorldObjectShader):
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
             return u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         }
+
+        fn is_nan(v:f32) -> bool {
+            return !(0.0 < v) && !(0.0 > v);
+        }
         """
 
     def code_vertex(self):
@@ -320,7 +324,9 @@ class LineShader(WorldObjectShader):
             var nd: vec2<f32>;
             var ne: vec2<f32>;
 
-            if (i == 0) {
+            let prev = load_s_positions(i - 1);
+
+            if ( i == 0 || is_nan(npos1[1]) ) {
                 // This is the first point on the line: create a cap.
                 v1 = v2;
                 nc = normalize(vec2<f32>(v2.y, -v2.x));
@@ -328,7 +334,7 @@ class LineShader(WorldObjectShader):
                 na = nd;
                 nb = nd - normalize(v2);
                 ne = nc - normalize(v2);
-            } else if (i == u_renderer.last_i) {
+            } else if ( i == u_renderer.last_i || is_nan(npos3[1]) )  {
                 // This is the last point on the line: create a cap.
                 v2 = v1;
                 na = normalize(vec2<f32>(v1.y, -v1.x));
