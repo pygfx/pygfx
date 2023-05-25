@@ -35,8 +35,8 @@ class MeshShader(WorldObjectShader):
         self["instanced"] = isinstance(wobject, InstancedMesh)
 
         # Is this a wireframe mesh?
-        self["wireframe"] = material.wireframe
-        self["flat_shading"] = material.flat_shading
+        self["wireframe"] = getattr(material, "wireframe", False)
+        self["flat_shading"] = getattr(material, "flat_shading", False)
 
         # Lighting off in the base class
         self["lighting"] = ""
@@ -91,6 +91,30 @@ class MeshShader(WorldObjectShader):
                 self.define_vertex_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
+            )
+
+        sampler = GfxSampler(material.map_interpolation, "repeat")
+        # set envmap configs
+        if getattr(material, "env_map", None):
+            self._check_texture(
+                material.env_map, 6
+            )  # TODO: envmap not only cube, but also equirect (hdr format)
+            view = GfxTextureView(material.env_map, view_dim="cube")
+            bindings.append(
+                Binding("s_env_map", "sampler/filtering", sampler, "FRAGMENT")
+            )
+            bindings.append(Binding("t_env_map", "texture/auto", view, "FRAGMENT"))
+
+            if isinstance(material, MeshStandardMaterial):
+                self["use_IBL"] = True
+            elif isinstance(material, MeshBasicMaterial):
+                self["use_env_map"] = True
+                self["env_combine_mode"] = getattr(
+                    material, "env_combine_mode", "MULTIPLY"
+                )
+
+            self["env_mapping_mode"] = getattr(
+                material, "env_mapping_mode", "CUBE-REFLECTION"
             )
 
         # Define shader code for binding
@@ -358,8 +382,8 @@ class MeshShader(WorldObjectShader):
             $$ endif
             let opacity = color_value.a * u_material.opacity;
 
-            // Lighting
-            $$ if lighting
+            // Get normal used to calculate lighting or reflection
+            $$ if lighting or use_env_map is defined
                 // Get view direction
                 let view = select(
                     normalize(u_stdinfo.cam_transform_inv[3].xyz - varyings.world_pos),
@@ -373,10 +397,34 @@ class MeshShader(WorldObjectShader):
                     let normal_map_scale = vec3<f32>( normal_map.xy * u_material.normal_scale, normal_map.z );
                     normal = perturbNormal2Arb(view, normal, normal_map_scale, varyings.texcoord, is_front);
                 $$ endif
+            $$ endif
+
+            // Lighting
+            $$ if lighting
                 // Do the math
                 let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else
                 let physical_color = physical_albeido;
+            $$ endif
+
+            // Environment mapping
+            $$ if use_env_map is defined
+                let reflectivity = u_material.reflectivity;
+                let specular_strength = 1.0; // TODO: support specular_map
+                $$ if env_mapping_mode == "CUBE-REFLECTION"
+                    var reflectVec = reflect( -view, normal );
+                $$ elif env_mapping_mode == "CUBE-REFRACTION"
+                    var reflectVec = refract( -view, normal, u_material.refraction_ratio );
+                $$ endif
+                var env_color_srgb = textureSample( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz) );
+                let env_color = srgb2physical(env_color_srgb.rgb); // TODO: maybe already in linear-space
+                $$ if env_combine_mode == 'MULTIPLY'
+                    var physical_color = mix(physical_color, physical_color * env_color.xyz, specular_strength * reflectivity);
+                $$ elif env_combine_mode == 'MIX'
+                    var physical_color = mix(physical_color, env_color.xyz, specular_strength * reflectivity);
+                $$ elif env_combine_mode == 'ADD'
+                    var physical_color = physical_color + env_color.xyz * specular_strength * reflectivity;
+                $$ endif
             $$ endif
 
             $$ if wireframe
@@ -411,6 +459,12 @@ class MeshShader(WorldObjectShader):
 
     def code_lighting(self):
         return ""
+
+    def _check_texture(self, t, size2=1):
+        assert isinstance(t, Texture)
+        assert t.size[2] == size2
+        fmt = to_texture_format(t.format)
+        assert "norm" in fmt or "float" in fmt
 
 
 @register_wgpu_render_function(Mesh, MeshNormalMaterial)
@@ -450,8 +504,13 @@ class MeshStandardShader(MeshShader):
 
         bindings = []
 
+        F = "FRAGMENT"  # noqa: N806
+        sampling = "sampler/filtering"
+        sampler = GfxSampler(material.map_interpolation, "repeat")
+        texturing = "texture/auto"
+
         # We need uv to use the maps, so if uv not exist, ignore all maps
-        if geometry.texcoords is not None:
+        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
             # Texcoords must always be nx2 since it used for all texture maps.
             if not (
                 geometry.texcoords.data.ndim == 2
@@ -459,55 +518,36 @@ class MeshStandardShader(MeshShader):
             ):
                 raise ValueError("For standard material, the texcoords must be Nx2")
 
-            # Ensure all the maps data are float32 fomat, so we can use textureSampler.
-            def check_texture(t, size2=1):
-                assert isinstance(t, Texture)
-                assert t.size[2] == size2
-                fmt = to_texture_format(t.format)
-                assert "norm" in fmt or "float" in fmt
-
-            F = "FRAGMENT"  # noqa: N806
-            sampling = "sampler/filtering"
-            sampler = GfxSampler(material.map_interpolation, "repeat")
-            texturing = "texture/auto"
-
-            if material.env_map is not None:
-                check_texture(material.env_map, 6)
-                view = GfxTextureView(material.env_map, view_dim="cube")
-                self["use_env_map"] = True
-                bindings.append(Binding("s_env_map", sampling, sampler, F))
-                bindings.append(Binding("t_env_map", texturing, view, F))
-
             if material.normal_map is not None:
-                check_texture(material.normal_map)
+                self._check_texture(material.normal_map)
                 view = GfxTextureView(material.normal_map, view_dim="2d")
                 self["use_normal_map"] = True
                 bindings.append(Binding("s_normal_map", sampling, sampler, F))
                 bindings.append(Binding("t_normal_map", texturing, view, F))
 
             if material.roughness_map is not None:
-                check_texture(material.roughness_map)
+                self._check_texture(material.roughness_map)
                 view = GfxTextureView(material.roughness_map, view_dim="2d")
                 self["use_roughness_map"] = True
                 bindings.append(Binding("s_roughness_map", sampling, sampler, F))
                 bindings.append(Binding("t_roughness_map", texturing, view, F))
 
             if material.metalness_map is not None:
-                check_texture(material.metalness_map)
+                self._check_texture(material.metalness_map)
                 view = GfxTextureView(material.metalness_map, view_dim="2d")
                 self["use_metalness_map"] = True
                 bindings.append(Binding("s_metalness_map", sampling, sampler, F))
                 bindings.append(Binding("t_metalness_map", texturing, view, F))
 
             if material.emissive_map is not None:
-                check_texture(material.emissive_map)
+                self._check_texture(material.emissive_map)
                 view = GfxTextureView(material.emissive_map, view_dim="2d")
                 self["use_emissive_map"] = True
                 bindings.append(Binding("s_emissive_map", sampling, sampler, F))
                 bindings.append(Binding("t_emissive_map", texturing, view, F))
 
             if material.ao_map is not None:
-                check_texture(material.ao_map)
+                self._check_texture(material.ao_map)
                 view = GfxTextureView(material.ao_map, view_dim="2d")
                 self["use_ao_map"] = True
                 bindings.append(Binding("s_ao_map", sampling, sampler, F))

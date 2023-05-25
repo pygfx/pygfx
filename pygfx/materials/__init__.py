@@ -16,6 +16,7 @@ colormaps, the strength of specular reflections, etc.
     Material
     material_from_trimesh
 
+    MeshAbstractMaterial
     MeshBasicMaterial
     MeshPhongMaterial
     MeshNormalMaterial
@@ -53,6 +54,7 @@ colormaps, the strength of specular reflections, etc.
 from ._base import Material
 from ._compat import material_from_trimesh
 from ._mesh import (
+    MeshAbstractMaterial,
     MeshBasicMaterial,
     MeshPhongMaterial,
     MeshNormalMaterial,
