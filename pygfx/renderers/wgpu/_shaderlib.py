@@ -140,9 +140,7 @@ class Shaderlib:
             let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -normal.x, normal.yz), mip_level );
             return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity * PI;
         }
-        fn getIBLRadiance( view_dir: vec3<f32>, normal: vec3<f32>, roughness: f32, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec3<f32> {
-            var reflectVec = reflect( - view_dir, normal );
-            reflectVec = normalize(mix(reflectVec, normal, roughness*roughness));
+        fn getIBLRadiance( reflectVec: vec3<f32>, env_map: texture_cube<f32>, env_map_sampler: sampler, mip_level: f32 ) -> vec3<f32> {
             let envMapColor_srgb = textureSampleLevel( env_map, env_map_sampler, vec3<f32>( -reflectVec.x, reflectVec.yz), mip_level );
             return srgb2physical(envMapColor_srgb.rgb) * u_material.env_map_intensity;
         }
@@ -666,10 +664,17 @@ class Shaderlib:
             // Process irradiance
             reflected_light = RE_IndirectDiffuse_Physical( irradiance, geometry, material, reflected_light );
 
-            // Environment map (srgb2physical and intensity is handled in the getter functions)
-            $$ if use_env_map is defined
-            let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
-            let ibl_radiance = getIBLRadiance( geometry.view_dir, geometry.normal, material.roughness, t_env_map, s_env_map, mip_level_r );
+            // IBL (srgb2physical and intensity is handled in the getter functions)
+            $$ if use_IBL is defined
+            $$ if env_mapping_mode == "CUBE-REFLECTION"
+                var reflectVec = reflect( -view_dir, normal );
+                let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
+            $$ elif env_mapping_mode == "CUBE-REFRACTION"
+                var reflectVec = refract( -view_dir, normal, u_material.refraction_ratio );
+                let mip_level_r = 1.0;
+            $$ endif
+            reflectVec = normalize(mix(reflectVec, normal, material.roughness*material.roughness));
+            let ibl_radiance = getIBLRadiance( reflectVec, t_env_map, s_env_map, mip_level_r );
             let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
             let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
             reflected_light = RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, geometry, material, reflected_light);

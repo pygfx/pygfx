@@ -260,6 +260,15 @@ class WorldObjectShader(BaseShader):
 
         """
 
+        refract = """
+        fn refract( light : vec3<f32>, normal : vec3<f32>, eta : f32 ) -> vec3<f32> {
+            let cosTheta = dot( -light, normal );
+            let rOutPerp = eta * ( light + cosTheta * normal );
+            let rOutParallel = -sqrt( abs( 1.0 - dot( rOutPerp, rOutPerp ) ) ) * normal;
+            return rOutPerp + rOutParallel;
+        }
+        """
+
         return (
             ""
             + math
@@ -267,6 +276,7 @@ class WorldObjectShader(BaseShader):
             + ortho
             + ndc_to_world_pos
             + srgb2physical
+            + refract
             + lighting
             + self._code_colormap()
             + self._code_clipping_planes()
