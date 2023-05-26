@@ -10,9 +10,10 @@ def klein_bottle_geometry(scale=1.0):
     are the same, similar to a Möbius strip. In fact, a Klein bottle
     can be constructed by glueing together two Möbius strips.
 
-    More technically: the Klein bottle is an example of a non-orientable
-    surface; it is a two-dimensional manifold against which a system
-    for determining a normal vector cannot be consistently defined.
+    The returned geometry is an orientable open manifold. But isn't a
+    Klein bottlle a non-orientable closed manifold? Indeed, this is
+    actually an approximation of a mathematically correct Klein bottle:
+    theres is a seam of duplicate vertices where the ends meet.
 
     Parameters
     ----------
@@ -68,12 +69,19 @@ def klein_bottle_geometry(scale=1.0):
         n * np.arange(indices.shape[0], dtype=np.uint32),
     )
     indices += (gx + gy).reshape(indices.shape[:2] + (1,))
-    # Stitch the ends together over one axis. We can't stitch the other ends
-    # together, since that's where the normals flip from "inside" to "outside".
+
+    # Correct the faces at the tube's edge.
     indices[-1, :, 2:5] -= n * n
-    indices = indices.reshape((-1, 3))
+
+    # We could do the same for the tube's ends, and make this a closed
+    # manifold! But that's where the normals flip from "inside" to
+    # "outside". So in doing that, we would also make it not-orientable,
+    # and I am not sure what happens with the normal calculations in
+    # that case. Besides that, defining what vertices to connect to is
+    # tricky because the other end is "inside out".
 
     # Create buffers for this geometry
+    indices = indices.reshape((-1, 3))
     return Geometry(indices=indices, positions=positions, texcoords=texcoords)
 
 
@@ -98,13 +106,16 @@ def klein_bottle_surface(u, v):
 
 
 def torus_knot_geometry(
-    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
+    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3, closed=False
 ):
     """Generate a torus knot.
 
     Create geometry representing a torus knot, the particular shape of which is
     defined by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
+
+    The returned geometry is an orientable manifold, which is open or
+    closed, depending on the ``closed`` parameter.
 
     Parameters
     ----------
@@ -122,6 +133,11 @@ def torus_knot_geometry(
     q : int
         How many times the geometry winds around a circle in
         the interior of the torus. Default 3.
+    closed : bool
+        Whether the mesh is a closed manifold. Default False. If False,
+        there is a "seam" of duplicate vertices where the ends of the
+        tube (in both dimensions) meet. This works better for texturing.
+        Set to True if you want a mathematically closed object.
 
     Returns
     -------
@@ -130,12 +146,10 @@ def torus_knot_geometry(
 
     """
 
-    # If we stitch, we have no duplicate vertices, but stitch the
-    # ends together with the indices, resulting in a fully closed object.
-    # However, texturing works better without such stitching.
-    stitch = False
+    # If not closed, we have duplicate vertices, that are used to "stitch"
+    # the mesh together. It looks closed, but mathematically it is not.
 
-    if stitch:
+    if closed:
         tubular_verts = tubular_segments
         radial_verts = radial_segments
     else:
@@ -144,9 +158,9 @@ def torus_knot_geometry(
 
     # Define base factors
     u = np.linspace(
-        0, p * 2 * np.pi, tubular_verts, endpoint=not stitch, dtype=np.float32
+        0, p * 2 * np.pi, tubular_verts, endpoint=not closed, dtype=np.float32
     )
-    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not stitch, dtype=np.float32)
+    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not closed, dtype=np.float32)
 
     # Get positions along the torus' center, and a tiny step further
     pos1 = torus_knot_surface(u, p, q, scale)
@@ -189,21 +203,24 @@ def torus_knot_geometry(
 
     # Create indices
     # Two triangles onto the "top-left" rectangle (six vertices)
-    indices = np.array(
-        [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1],
-        np.uint32,
-    )
+    if closed:
+        base_triangle = [radial_verts - 1, 0, radial_verts, radial_verts, 0, 1]
+    else:
+        base_triangle = [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1]
+    base_triangle = np.array(base_triangle, np.uint32)
+
     # Replicate to all rectangles, add offsets
-    indices = np.tile(indices, (tubular_segments, radial_segments, 1))
+    indices = np.tile(base_triangle, (tubular_segments, radial_segments, 1))
     gx, gy = np.meshgrid(
         np.arange(indices.shape[1], dtype=np.uint32),
         radial_verts * np.arange(indices.shape[0], dtype=np.uint32),
     )
     indices += (gx + gy).reshape(indices.shape[:2] + (1,))
-    # Stitch the ends together over both axii.
-    if stitch:
-        indices[-1, :, 1:4] -= radial_verts * tubular_verts
-        indices[:, -1, 2:5] -= radial_verts
+
+    # Correct the faces at the tube's ends
+    if closed:
+        indices[indices >= len(positions)] -= len(positions)
+
     indices = indices.reshape((-1, 3))
     # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
 
