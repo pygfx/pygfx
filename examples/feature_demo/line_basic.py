@@ -19,7 +19,9 @@ renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
 
 scene = gfx.Scene()
 positions = [[200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
+positions += [[np.nan, np.nan, np.nan]]
 positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
+positions += [[np.nan, np.nan, np.nan]]
 positions += [
     [450, 400, 0],
     [375, 400, 0],

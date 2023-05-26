@@ -66,6 +66,7 @@ Currently this includes the following classes, which comprise the public API:
 
     ~pygfx.materials.Material
     ~pygfx.materials.material_from_trimesh
+    ~pygfx.materials.MeshAbstractMaterial
     ~pygfx.materials.MeshBasicMaterial
     ~pygfx.materials.MeshPhongMaterial
     ~pygfx.materials.MeshNormalMaterial

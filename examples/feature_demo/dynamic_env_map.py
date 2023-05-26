@@ -104,7 +104,6 @@ def animate():
     ob2.local.rotation = la.quat_mul(rot, ob2.local.rotation)
 
     cube_camera.render(scene)
-
     renderer.render(scene, camera)
     renderer.request_draw()
 

@@ -116,7 +116,7 @@ class Geometry(Trackable):
             if self._aabb_rev == self.positions.rev:
                 return self._aabb
             pos = self.positions.data
-            self._aabb = np.array([pos.min(axis=0), pos.max(axis=0)])
+            self._aabb = np.array([np.nanmin(pos, axis=0), np.nanmax(pos, axis=0)])
             # If positions contains xy, but not z, assume z=0
             if self._aabb.shape[1] == 2:
                 self._aabb = np.column_stack([self._aabb, np.zeros((2, 1), np.float32)])

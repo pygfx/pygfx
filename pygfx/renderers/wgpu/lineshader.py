@@ -191,6 +191,18 @@ class LineShader(WorldObjectShader):
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
             return u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
         }
+
+        fn is_nan_or_zero(v:f32) -> bool {
+            // Naga has removed isNan checks, because backends may be using fast-math,
+            // in which case nan is assumed not to happen, and isNan would always be false.
+            // If we assume that some nan mechanics still work, we can still detect it.
+            // This won't work however: `return v != v`, because the compiler will
+            // optimize it out. The same holds for similar constructs.
+            // Maybe the same happens if we turn `<`  into `<=`.
+            // So we and up with an equation that detects either NaN or zero,
+            // which is fine if we use it on a .w attribute.
+            return !(v < 0.0) && !(v > 0.0);
+        }
         """
 
     def code_vertex(self):
@@ -320,7 +332,9 @@ class LineShader(WorldObjectShader):
             var nd: vec2<f32>;
             var ne: vec2<f32>;
 
-            if (i == 0) {
+            let prev = load_s_positions(i - 1);
+
+            if ( i == 0 || is_nan_or_zero(npos1.w) ) {
                 // This is the first point on the line: create a cap.
                 v1 = v2;
                 nc = normalize(vec2<f32>(v2.y, -v2.x));
@@ -328,7 +342,7 @@ class LineShader(WorldObjectShader):
                 na = nd;
                 nb = nd - normalize(v2);
                 ne = nc - normalize(v2);
-            } else if (i == u_renderer.last_i) {
+            } else if ( i == u_renderer.last_i || is_nan_or_zero(npos3.w) )  {
                 // This is the last point on the line: create a cap.
                 v2 = v1;
                 na = normalize(vec2<f32>(v1.y, -v1.x));
