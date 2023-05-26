@@ -98,7 +98,7 @@ def klein_bottle_surface(u, v):
 
 
 def torus_knot_geometry(
-    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3
+    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3, solid=False
 ):
     """Generate a torus knot.
 
@@ -122,6 +122,10 @@ def torus_knot_geometry(
     q : int
         How many times the geometry winds around a circle in
         the interior of the torus. Default 3.
+    solid : bool
+        Whether the mesh will be solid. Default False. If False, the ends of the tube (in both dimensions)
+        meet, but are not attached, which is usually better when applying a texture.
+        If you want to describe a solid object, then setting this to True might be better.
 
     Returns
     -------
@@ -130,12 +134,10 @@ def torus_knot_geometry(
 
     """
 
-    # If we stitch, we have no duplicate vertices, but stitch the
+    # If solid, we have no duplicate vertices, but stitch the
     # ends together with the indices, resulting in a fully closed object.
-    # However, texturing works better without such stitching.
-    stitch = False
 
-    if stitch:
+    if solid:
         tubular_verts = tubular_segments
         radial_verts = radial_segments
     else:
@@ -144,9 +146,9 @@ def torus_knot_geometry(
 
     # Define base factors
     u = np.linspace(
-        0, p * 2 * np.pi, tubular_verts, endpoint=not stitch, dtype=np.float32
+        0, p * 2 * np.pi, tubular_verts, endpoint=not solid, dtype=np.float32
     )
-    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not stitch, dtype=np.float32)
+    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not solid, dtype=np.float32)
 
     # Get positions along the torus' center, and a tiny step further
     pos1 = torus_knot_surface(u, p, q, scale)
@@ -189,21 +191,25 @@ def torus_knot_geometry(
 
     # Create indices
     # Two triangles onto the "top-left" rectangle (six vertices)
-    indices = np.array(
-        [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1],
-        np.uint32,
-    )
+
+    if solid:
+        base_triangle = [radial_verts - 1, 0, radial_verts, radial_verts, 0, 1]
+    else:
+        base_triangle = [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1]
+    base_triangle = np.array(base_triangle, np.uint32)
+
     # Replicate to all rectangles, add offsets
-    indices = np.tile(indices, (tubular_segments, radial_segments, 1))
+    indices = np.tile(base_triangle, (tubular_segments, radial_segments, 1))
     gx, gy = np.meshgrid(
         np.arange(indices.shape[1], dtype=np.uint32),
         radial_verts * np.arange(indices.shape[0], dtype=np.uint32),
     )
     indices += (gx + gy).reshape(indices.shape[:2] + (1,))
-    # Stitch the ends together over both axii.
-    if stitch:
-        indices[-1, :, 1:4] -= radial_verts * tubular_verts
-        indices[:, -1, 2:5] -= radial_verts
+
+    # Stitch the two tube-ends together
+    if solid:
+        indices[indices >= len(positions)] -= len(positions)
+
     indices = indices.reshape((-1, 3))
     # indices = np.fliplr(indices)  # Use this to change winding between CW and CCW
 
