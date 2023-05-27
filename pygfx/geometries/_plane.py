@@ -76,3 +76,57 @@ def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
         normals=normals,
         texcoords=texcoords,
     )
+
+
+def mobius_strip_geometry(radius=1, width=0.5, strip_segments=64, stitch=True):
+    """Generate a Möbius strip.
+
+    The Möbios strip is a surface that can be formed by attaching the
+    ends of a strip of paper together with a half-twist.
+
+    The returned geometry is an open manifold, that is only orientable if ``stitch``
+    is False.
+
+    Parameters
+    ----------
+    radius : float
+        The radius of the circe along which the strip is positioned.
+    width : float
+        The width of the strip.
+    strip_segments : int
+        The number of evenly spaced segments along the strip.
+    stitch : bool
+
+    """
+
+    # Check/convert inputs
+    n_strip = int(strip_segments)
+    radius = float(radius)
+    width = float(width)
+    stitch = bool(stitch)
+
+    n_verts = n_strip + (0 if stitch else 1)
+
+    # Create base vectors
+    t = np.linspace(0, np.pi * 2, n_verts, endpoint=not stitch, dtype=np.float32)
+    u = np.linspace(-width / 2, width / 2, 2, endpoint=True, dtype=np.float32)
+    u, t = np.meshgrid(u, t)
+
+    # The math
+    x = radius * np.cos(t) + u * np.sin(0.5 * t)
+    z = radius * np.sin(t)
+    y = u * np.cos(0.5 * t)
+
+    # Define connectivity
+    indices = np.array([0, 1, 2, 2, 1, 3], np.uint32)
+    indices = np.tile(indices, (n_strip, 1, 1))
+    indices += np.arange(0, n_strip * 2, 2, dtype=np.uint32).reshape(n_strip, 1, 1)
+
+    # Stitch the ends
+    if stitch:
+        indices[-1, :, (2, 3, 5)] = np.array((1, 1, 0)).reshape(3, 1)
+
+    return Geometry(
+        indices=indices.reshape((-1, 3)),
+        positions=np.column_stack([x.flat, y.flat, z.flat]),
+    )

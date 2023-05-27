@@ -72,7 +72,7 @@ from ._box import box_geometry
 from ._compat import geometry_from_trimesh
 from ._cylinder import cylinder_geometry, cone_geometry
 from ._sphere import sphere_geometry
-from ._plane import plane_geometry
+from ._plane import plane_geometry, mobius_strip_geometry
 from ._polyhedron import (
     octahedron_geometry,
     icosahedron_geometry,
