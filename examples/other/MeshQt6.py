@@ -58,6 +58,7 @@ class Main(QMainWindow):
         self.wireframe.clicked.connect(self.paintWireframe)
         self.normal.clicked.connect(self.paintNormal)
         self.phong.clicked.connect(self.paintPhong)
+        self.materials.toggled.connect(self.paintMaterials)
 
     def camPlanView(self):
         self.planView.setEnabled(False)
@@ -88,7 +89,7 @@ class Main(QMainWindow):
         self.meshObj =  parser()
 
         # self._scene.world.position = tuple(self.meshObj.nd[:,1:].mean(axis=0))
-        self.verts = (self.meshObj.nd[:,1:]-self.meshObj.nd[:,1:].min(axis=0)).astype('f')
+        self.verts = gfx.Buffer((self.meshObj.nd[:,1:]-self.meshObj.nd[:,1:].min(axis=0)).astype('f'))
         self.paintWireframe()
 
     def paintNormal(self):
@@ -139,9 +140,13 @@ class Main(QMainWindow):
         self.statusBar.showMessage('Making Triangles...')
         if hasattr(self,'mesh'):
             self._scene.remove(self.mesh)
+
         self.mesh = gfx.Mesh(
-            gfx.Geometry(positions=self.verts, indices=self.meshObj.e3t[:,1:-1]-1),
-            gfx.MeshBasicMaterial(wireframe=True,clipping_mode='all'),
+            gfx.Geometry(positions=self.verts, 
+                         indices=self.meshObj.e3t[:,1:-1]-1),
+            gfx.MeshBasicMaterial(
+                                    wireframe=True,
+                                  clipping_mode='all'),
         )
         self._scene.add(self.mesh)
 
@@ -149,14 +154,55 @@ class Main(QMainWindow):
             self._scene.remove(self.patches)
         self.statusBar.showMessage('Making patches...')
         self.patches = gfx.Mesh(
-            gfx.Geometry(indices=  self.meshObj.e4q[:,1:-1]-1, positions=self.verts),
-            gfx.MeshBasicMaterial(color='blue',wireframe=True,clipping_mode='all')
+            gfx.Geometry(indices=  self.meshObj.e4q[:,1:-1]-1, 
+                         positions=self.verts),
+            gfx.MeshBasicMaterial(
+                                   wireframe=True,
+                                  clipping_mode='all')
             )
         self._scene.add(self.patches)
         self.patches.add_event_handler(self.pick_id,"pointer_down")
 
         self.statusBar.showMessage('Ready')
+        
+    def paintMaterials(self):
+        if not hasattr(self,'meshMat'):
+            materials = self.meshObj.e3t[:,-1]
+            rgba = np.ones((len(materials),4),'f')
+            for mat in np.unique(materials):
+                rgba[materials==mat] = [*np.random.random(3),1]
 
+            self.meshMat = gfx.Mesh(
+                gfx.Geometry(positions=self.verts, 
+                             indices=self.mesh.geometry.indices,
+                             colors=rgba),
+                gfx.MeshBasicMaterial(face_colors=True,
+                                      clipping_mode='all'),
+            )
+            self._scene.add(self.meshMat)
+        
+        if not hasattr(self,'patchesMat'):
+            materials = self.meshObj.e4q[:,-1]
+            rgba = np.ones((len(materials),4),'f')
+            for mat in np.unique(materials):
+                rgba[materials==mat] = [*np.random.random(3),1]
+            self.patchesMat = gfx.Mesh(
+                gfx.Geometry(indices=  self.meshObj.e4q[:,1:-1]-1, 
+                             positions=self.verts,
+                             colors=rgba),
+                gfx.MeshBasicMaterial(face_colors=True,
+                                      clipping_mode='all')
+                )
+            self._scene.add(self.patchesMat)
+            
+        if self.materials.isChecked():
+                self.meshMat.visible = True
+                self.patchesMat.visible = True
+        else:
+                self.meshMat.visible = False
+                self.patchesMat.visible = False
+        self.statusBar.showMessage('Ready')
+        
     def pick_id(self,event):
         self.pickid = event.pick_info
         eid = self.meshObj.e4q[event.pick_info["face_index"]][0]
