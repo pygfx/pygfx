@@ -98,8 +98,11 @@ class MeshShader(WorldObjectShader):
             Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
-        if self["color_mode"] == "vertex" or self["color_mode"] == "face":
+        if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
+        if self["color_mode"] == "face":
+            bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
+            bindings.append(Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX"))
         if self["color_mode"] == "map":
             bindings.extend(
                 self.define_vertex_colormap(
@@ -183,7 +186,10 @@ class MeshShader(WorldObjectShader):
             render_mask = RenderMask.all
             if material.is_transparent:
                 render_mask = RenderMask.transparent
-            elif self["color_mode"] == "vertex" or self["color_mode"] == "face":
+            elif self["color_mode"] == "vertex":
+                if self["vertex_color_channels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "face":
                 if self["vertex_color_channels"] in (1, 3):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] == "map":
@@ -304,18 +310,34 @@ class MeshShader(WorldObjectShader):
             // Set position
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
-
-            // Per-vertex colors
-            $$ if vertex_color_channels == 1
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-            $$ elif vertex_color_channels == 2
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-            $$ elif vertex_color_channels == 3
-            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
-            $$ elif vertex_color_channels == 4
-            varyings.color = vec4<f32>(load_s_colors(i0));
+            
+            // per face colors
+            $$ if color_mode == 'face'
+                let face_color_index = i32(load_s_texcoords(face_index));
+                $$ if vertex_color_channels == 1
+                let cvalue = load_s_colors(face_color_index);
+                varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif vertex_color_channels == 2
+                let cvalue = load_s_colors(face_color_index)
+                varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif vertex_color_channels == 3
+                varyings.color = vec4<f32>(load_s_colors(face_color_index), 1.0);
+                $$ elif vertex_color_channels == 4
+                varyings.color = vec4<f32>(load_s_colors(face_color_index));
+                $$ endif
+            $$ else
+                // Per-vertex colors
+                $$ if vertex_color_channels == 1
+                let cvalue = load_s_colors(i0);
+                varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif vertex_color_channels == 2
+                let cvalue = load_s_colors(i0);
+                varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif vertex_color_channels == 3
+                varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
+                $$ elif vertex_color_channels == 4
+                varyings.color = vec4<f32>(load_s_colors(i0));
+                $$ endif
             $$ endif
 
             // Set texture coords
@@ -384,10 +406,6 @@ class MeshShader(WorldObjectShader):
                         );
                     varyings.wireframe_coords = vec4<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
                 $$ endif
-            $$ endif
-
-            $$ if color_mode == 'face'
-            varyings.color = vec4<f32>(load_s_colors(face_index));
             $$ endif
             
             // Set varyings for picking. We store the face_index, and 3 weights
