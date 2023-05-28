@@ -166,30 +166,28 @@ class Main(QMainWindow):
         self.statusBar.showMessage('Ready')
         
     def paintMaterials(self):
+        if not hasattr(self,'mat_colors'):
+            self.mat_colors = []
+            for i in range(max(*self.meshObj.e3t[:,-1],*self.meshObj.e4q[:,-1])+1):
+                self.mat_colors +=  [[*np.random.random(3),1]]
+            self.mat_colors = np.array(self.mat_colors,'f')
         if not hasattr(self,'meshMat'):
-            materials = self.meshObj.e3t[:,-1]
-            rgba = np.ones((len(materials),4),'f')
-            for mat in np.unique(materials):
-                rgba[materials==mat] = [*np.random.random(3),1]
-
             self.meshMat = gfx.Mesh(
                 gfx.Geometry(positions=self.verts, 
                              indices=self.mesh.geometry.indices,
-                             colors=rgba),
+                             colors = self.mat_colors,
+                             texcoords=self.meshObj.e3t[:,-1]),
                 gfx.MeshBasicMaterial(face_colors=True,
                                       clipping_mode='all'),
             )
             self._scene.add(self.meshMat)
         
         if not hasattr(self,'patchesMat'):
-            materials = self.meshObj.e4q[:,-1]
-            rgba = np.ones((len(materials),4),'f')
-            for mat in np.unique(materials):
-                rgba[materials==mat] = [*np.random.random(3),1]
             self.patchesMat = gfx.Mesh(
                 gfx.Geometry(indices=  self.meshObj.e4q[:,1:-1]-1, 
                              positions=self.verts,
-                             colors=rgba),
+                             colors = self.mat_colors,
+                             texcoords=self.meshObj.e4q[:,-1]),
                 gfx.MeshBasicMaterial(face_colors=True,
                                       clipping_mode='all')
                 )
