@@ -63,6 +63,7 @@ def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
     -------
     plane : Geometry
         A geometry object representing the requested plane.
+        Mathematically, it is an open orientable manifold.
 
     """
 
@@ -84,9 +85,6 @@ def mobius_strip_geometry(radius=1, width=0.5, strip_segments=64, stitch=True):
     The Möbios strip is a surface that can be formed by attaching the
     ends of a strip of paper together with a half-twist.
 
-    The returned geometry is an open manifold, that is only orientable if ``stitch``
-    is False.
-
     Parameters
     ----------
     radius : float
@@ -96,6 +94,15 @@ def mobius_strip_geometry(radius=1, width=0.5, strip_segments=64, stitch=True):
     strip_segments : int
         The number of evenly spaced segments along the strip.
     stitch : bool
+        Whether to stitch the ends together to form a closed loop. If False (default)
+        the strip's ends meet, but are not actually attached to one another.
+
+    Returns
+    -------
+    strip : Geometry
+        A geometry object representing the Möbius strip.
+        Mathematically, it is an open manifold, that is only orientable
+        if ``stitch`` is False.
 
     """
 

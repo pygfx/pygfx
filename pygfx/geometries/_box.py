@@ -40,6 +40,7 @@ def box_geometry(
     -------
     box : Geometry
         A geometry object containing the requested box shape.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     """
 
