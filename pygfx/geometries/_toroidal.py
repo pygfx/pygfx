@@ -3,27 +3,30 @@ import numpy as np
 from ._base import Geometry
 
 
-def klein_bottle_geometry(scale=1.0):
+def klein_bottle_geometry(scale=1.0, stitch=False):
     """Generate a Klein bottle.
 
     The Klein bottle is a surface for which the inside and outside
     are the same, similar to a Möbius strip. In fact, a Klein bottle
     can be constructed by glueing together two Möbius strips.
 
-    The returned geometry is an orientable open manifold. But isn't a
-    Klein bottlle a non-orientable closed manifold? Indeed, this is
-    actually an approximation of a mathematically correct Klein bottle:
-    theres is a seam of duplicate vertices where the ends meet.
-
     Parameters
     ----------
     scale : float
         The scale of the bottle.
+    stitch : bool
+        Whether to stitch the ends together to produce a closed
+        manifold. If True, a mathematically correct Klein bottle is
+        produced. If False (default) an approximation is produced where
+        the ends of the bottle meet, but are not not actually connected.
 
     Returns
     -------
     klein_bottle : Geometry
         A geometry object representing the requested klein bottle.
+        Mathematically, it is either an "orientable open manifold" or
+        a "non-orientable closed manifold", depending on the ``stitch``
+        parameter.
 
     """
 
@@ -70,15 +73,25 @@ def klein_bottle_geometry(scale=1.0):
     )
     indices += (gx + gy).reshape(indices.shape[:2] + (1,))
 
-    # Correct the faces at the tube's edge.
+    # Stitch the faces at the tube's edge.
     indices[-1, :, 2:5] -= n * n
 
-    # We could do the same for the tube's ends, and make this a closed
-    # manifold! But that's where the normals flip from "inside" to
-    # "outside". So in doing that, we would also make it not-orientable,
-    # and I am not sure what happens with the normal calculations in
-    # that case. Besides that, defining what vertices to connect to is
-    # tricky because the other end is "inside out".
+    if stitch:
+        # We can do the same for the tube's ends, and make this a closed
+        # manifold! Note that in doing that, we also make it
+        # not-orientable - the orientation of the faces (i.e. the
+        # winding) switches where we apply the stitch. Also note that
+        # in the current implememntation we're left with n unused
+        # vertices.
+
+        # In the code below, i1 are one end of the tube, and i2 the
+        # other. Since the tube is inside-out, the matching pairs are
+        # on opposing sides.
+        for i in range(n):
+            i2 = n - 1 + i * n
+            i1 = (n // 2 - i) * n
+            i1 = i1 if i1 >= 0 else i1 + positions.shape[0]
+            indices[indices == i2] = i1
 
     # Create buffers for this geometry
     indices = indices.reshape((-1, 3))
@@ -106,16 +119,13 @@ def klein_bottle_surface(u, v):
 
 
 def torus_knot_geometry(
-    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3, closed=False
+    scale=1.0, tube=0.4, tubular_segments=64, radial_segments=8, p=2, q=3, stitch=False
 ):
     """Generate a torus knot.
 
     Create geometry representing a torus knot, the particular shape of which is
     defined by a pair of coprime integers, p and q. If p and q are not coprime,
     the result will be a torus link.
-
-    The returned geometry is an orientable manifold, which is open or
-    closed, depending on the ``closed`` parameter.
 
     Parameters
     ----------
@@ -133,23 +143,26 @@ def torus_knot_geometry(
     q : int
         How many times the geometry winds around a circle in
         the interior of the torus. Default 3.
-    closed : bool
-        Whether the mesh is a closed manifold. Default False. If False,
-        there is a "seam" of duplicate vertices where the ends of the
-        tube (in both dimensions) meet. This works better for texturing.
-        Set to True if you want a mathematically closed object.
+    stitch : bool
+        Whether to stitch the ends together to produce a closed
+        manifold. Default False. If False, the mesh is basically a
+        curved surface with the edges meeting to make it visually
+        closed, which works better for texturing. Set to True for a
+        mathematically closed object.
 
     Returns
     -------
     torus : Geometry
         A geometry object representing the requested torus.
+        Mathematically, it is an open orientable manifold, which can
+        be closed with the ``stitch`` parameter.
 
     """
 
-    # If not closed, we have duplicate vertices, that are used to "stitch"
-    # the mesh together. It looks closed, but mathematically it is not.
+    # If we do not stitch, the two ends meet (i.e. duplicate vertices)
+    # to make the mesh look closed (while mathematically it is not).
 
-    if closed:
+    if stitch:
         tubular_verts = tubular_segments
         radial_verts = radial_segments
     else:
@@ -158,9 +171,9 @@ def torus_knot_geometry(
 
     # Define base factors
     u = np.linspace(
-        0, p * 2 * np.pi, tubular_verts, endpoint=not closed, dtype=np.float32
+        0, p * 2 * np.pi, tubular_verts, endpoint=not stitch, dtype=np.float32
     )
-    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not closed, dtype=np.float32)
+    v = np.linspace(0, 2 * np.pi, radial_verts, endpoint=not stitch, dtype=np.float32)
 
     # Get positions along the torus' center, and a tiny step further
     pos1 = torus_knot_surface(u, p, q, scale)
@@ -203,7 +216,7 @@ def torus_knot_geometry(
 
     # Create indices
     # Two triangles onto the "top-left" rectangle (six vertices)
-    if closed:
+    if stitch:
         base_triangle = [radial_verts - 1, 0, radial_verts, radial_verts, 0, 1]
     else:
         base_triangle = [radial_verts, 0, radial_verts + 1, radial_verts + 1, 0, 1]
@@ -218,7 +231,7 @@ def torus_knot_geometry(
     indices += (gx + gy).reshape(indices.shape[:2] + (1,))
 
     # Correct the faces at the tube's ends
-    if closed:
+    if stitch:
         indices[indices >= len(positions)] -= len(positions)
 
     indices = indices.reshape((-1, 3))
