@@ -18,7 +18,7 @@ def klein_bottle_geometry(scale=1.0, stitch=False):
         Whether to stitch the ends together to produce a closed
         manifold. If True, a mathematically correct Klein bottle is
         produced. If False (default) an approximation is produced where
-        the ends of the bottle meet, but are not not actually connected.
+        the ends of the bottle meet, but are not actually connected.
 
     Returns
     -------
