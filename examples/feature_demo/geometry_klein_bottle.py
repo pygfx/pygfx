@@ -2,7 +2,10 @@
 Klein Bottle Geometry
 =====================
 
-Example showing a Klein Bottle.
+Example showing a Klein Bottle. Surface normals are shown on both sides
+of the mesh, in different colors. It can be seen how the object turns itself
+"inside out".
+
 """
 
 # sphinx_gallery_pygfx_render = True
@@ -15,9 +18,9 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-geometry = gfx.klein_bottle_geometry(10)
+geometry = gfx.klein_bottle_geometry(10, stitch=False)
 geometry.texcoords = None
-material = gfx.MeshPhongMaterial(color=(1, 0.5, 0, 1))
+material = gfx.MeshPhongMaterial(color=(1, 0.5, 0, 1), flat_shading=True)
 obj = gfx.Mesh(geometry, material)
 scene.add(obj)
 

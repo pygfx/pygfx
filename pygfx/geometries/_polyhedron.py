@@ -22,6 +22,7 @@ def tetrahedron_geometry(radius=1.0, subdivisions=0):
     -------
     tetrahedron : Geometry
         A geometry object representing the desired tetrahedron.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     """
     positions = np.array(
@@ -66,6 +67,7 @@ def octahedron_geometry(radius=1.0, subdivisions=0):
     -------
     octahedron : Geometry
         A geometry object representing the desired octahedron.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     """
     positions = np.array(
@@ -116,6 +118,7 @@ def icosahedron_geometry(radius=1.0, subdivisions=0):
     -------
     icosahedron : Geometry
         A geometry object representing the desired icosahedron.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     """
     t = (1 + np.sqrt(5)) / 2
@@ -186,6 +189,7 @@ def dodecahedron_geometry(radius=1.0, subdivisions=0):
     -------
     dodecahedron : Geometry
         A geometry object representing the desired dodecahedron.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     """
     t = (1 + np.sqrt(5)) / 2
@@ -287,7 +291,7 @@ def polyhedron_geometry(
     -------
     polyhedron : Geometry
         A geometry object representing the requested polyhedron.
-
+        Mathematically, it consists of a set of open orientable manifolds.
     """
     # subdivide faces
     faces = positions[indices]

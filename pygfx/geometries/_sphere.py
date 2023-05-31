@@ -49,6 +49,7 @@ def sphere_geometry(
     -------
     sphere : Geometry
         A geometry object that represents the requested sphere or sphere segment.
+        Mathematically, it is an open orientable manifold.
 
     """
 
