@@ -30,4 +30,5 @@ scene.add(ob1, ob2)
 
 
 if __name__ == "__main__":
-    gfx.show(scene)
+    disp = gfx.Display()
+    disp.show(scene)
