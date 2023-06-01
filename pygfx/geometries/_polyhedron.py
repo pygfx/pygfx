@@ -373,7 +373,7 @@ def polyhedron_geometry(
     faces *= radius
 
     # technically if meshmaterial didn't require an index buffer we could leave this out
-    indices = np.arange(positions.size, dtype=np.int32).reshape(-1, 3)
+    indices = np.arange(positions.shape[0], dtype=np.int32).reshape(-1, 3)
 
     return Geometry(
         indices=indices,
