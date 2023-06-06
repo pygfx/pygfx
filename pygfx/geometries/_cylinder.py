@@ -181,6 +181,7 @@ def cylinder_geometry(
     -------
     cylinder : Geometry
         A geometry object representing a cylinder.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     """
 
@@ -274,6 +275,7 @@ def cone_geometry(
     -------
     cylinder : Geometry
         A geometry object representing a cylinder.
+        Mathematically, it consists of a set of open orientable manifolds.
 
     See Also
     --------
