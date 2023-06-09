@@ -3,8 +3,8 @@
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
 ](https://github.com/pygfx/pygfx/actions)
 [![Documentation Status
-](https://readthedocs.org/projects/pygfx/badge/?version=latest)
-](https://pygfx.readthedocs.io/en/latest/?badge=latest)
+](https://readthedocs.org/projects/pygfx/badge/?version=stable)
+](https://pygfx.readthedocs.io)
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
@@ -16,9 +16,9 @@ A python render engine targeting Vulkan/Metal/DX12.
 <img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
 </p>
 <p align="center">
-[<a href="https://pygfx.readthedocs.io/en/latest/guide.html">User Guide</a>]
-[<a href="https://pygfx.readthedocs.io/en/latest/_gallery/index.html">Example Gallery</a>]
-[<a href="https://pygfx.readthedocs.io/en/latest/reference.html">API Reference</a>]
+[<a href="https://pygfx.readthedocs.io/en/stable/guide.html">User Guide</a>]
+[<a href="https://pygfx.readthedocs.io/en/stable/_gallery/index.html">Example Gallery</a>]
+[<a href="https://pygfx.readthedocs.io/en/stable/reference.html">API Reference</a>]
 </p>
 
 ## Installation
@@ -41,7 +41,7 @@ essence, you need modern (enough) graphics drivers, and `pip>=20.3`.
 
 > **Note**
 > A walkthrough of this example can be found in [the
-> guide](https://pygfx.readthedocs.io/en/latest/guide.html#how-to-use-pygfx).
+> guide](https://pygfx.readthedocs.io/en/stable/guide.html#how-to-use-pygfx).
 
 ```python
 import pygfx as gfx
@@ -68,19 +68,19 @@ if __name__ == "__main__":
 Some of pygfx's key features are:
 
 - SDF based text rendering ([example](
-  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/text_contrast.html))
+  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/text_contrast.html))
 - order-independent transparency (OIT) ([example](
-  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/transparency2.html))
+  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/transparency2.html))
 - lights, shadows, and physically based rendering (PBR) ([example](
-  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/pbr.html))
+  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/pbr.html))
 - event system with built-in picking ([example](
-  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/picking_points.html))
+  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/picking_points.html))
 - texture and color mapping supporting 1D, 2D and 3D data ([example](
-  https://pygfx.readthedocs.io/en/latest/_gallery/feature_demo/colormap_channels.html))
+  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/colormap_channels.html))
 
 
 And many more! Check out our [feature demos](
-https://pygfx.readthedocs.io/en/latest/_gallery/index.html) in the docs.
+https://pygfx.readthedocs.io/en/stable/_gallery/index.html) in the docs.
 
 ## About pygfx
 

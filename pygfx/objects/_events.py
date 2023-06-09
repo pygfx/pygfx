@@ -196,7 +196,7 @@ class PointerEvent(Event):
     Notes
     -----
     The values of this event follow the convention used by jupyter rfb. You can read
-    about them `here <https://jupyter-rfb.readthedocs.io/en/latest/events.html>`_.
+    about them `here <https://jupyter-rfb.readthedocs.io/en/stable/events.html>`_.
 
     """
 
@@ -331,7 +331,7 @@ class EventTarget:
             *types (list of strings): A list of event types.
 
         For the available event types, see
-        https://jupyter-rfb.readthedocs.io/en/latest/events.html
+        https://jupyter-rfb.readthedocs.io/en/stable/events.html
 
         Can also be used as a decorator.
 
