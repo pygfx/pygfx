@@ -389,9 +389,9 @@ inertial frame.
     of slices will have no effect. This is due to limitations of the python
     programming language and our desire to have the properties return pure numpy
     arrays. In code, this means
-    
+
     .. code-block:: python
-        
+
         cube.local.position += (0, 0, 3)  # ok
         cube.local.z += 3  # ok
         cube.local.position[2] += 3  # FAIL: this will have no effect.
@@ -540,5 +540,5 @@ use the Jupyter canvas provided by WGPU, and use that canvas as the cell output.
 
     canvas  # cell output
 
-Also see the Pygfx examples `here <https://jupyter-rfb.readthedocs.io/en/latest/examples/>`_.
+Also see the Pygfx examples `here <https://jupyter-rfb.readthedocs.io/en/stable/examples/>`_.
 
