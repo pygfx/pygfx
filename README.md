@@ -30,14 +30,27 @@ pip install -U pygfx glfw
 To work correctly, pygfx needs _some_ window to render to. Glfw is one
 lightweight option, but there are others, too. If you use a different
 wgpu-compatible window manager or only render offscreen you may choose to omit
-glfw. Examples of alternatives include: jupyter_rfb (rendering in jupyter),
-PyQt, PySide, or wx.
+glfw. Examples of alternatives include: `jupyter_rfb` (rendering in Jupyter),
+`PyQt`, `PySide`, or `wx`.
 
 In addition there are some platform
 requirements, see the [wgpu docs](https://wgpu-py.readthedocs.io/en/stable/start.html). In
 essence, you need modern (enough) graphics drivers, and `pip>=20.3`.
 
+## Status
+
+We're currently working towards version `1.0`, which means that the API
+can change with each version. We expect to reach `1.0` near the end of
+2023, at which point we start caring about backwards compatibility.
+
+This means that until then, you should probably pin the pygfx version
+that you're using, and check the release notes when you update.
+
 ## Usage Example
+
+> **Note**
+> The example below is designed against the `main` branch,
+> and may not work on the latest release from pypi, while we're in beta.
 
 > **Note**
 > A walkthrough of this example can be found in [the
@@ -84,7 +97,7 @@ https://pygfx.readthedocs.io/en/stable/_gallery/index.html) in the docs.
 
 ## About pygfx
 
-pygfx is a ThreeJS inspired graphics library that uses WGPU (the successor of
+Pygfx is a ThreeJS inspired graphics library that uses WGPU (the successor of
 OpenGL) to provide GPU acceleration to rendering workloads. It is mature enough
 to serve as a general-purpose rendering engine (Yes, you _can_ write a game with
 it.) while being geared towards scientific and medical visualization. Thanks to
