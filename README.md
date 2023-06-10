@@ -49,8 +49,8 @@ that you're using, and check the release notes when you update.
 ## Usage Example
 
 > **Note**
-> The example below is designed against the the `main` branch,
-> and may not work on the latest release from pypi.
+> The example below is designed against the `main` branch,
+> and may not work on the latest release from pypi, while we're in beta.
 
 > **Note**
 > A walkthrough of this example can be found in [the
