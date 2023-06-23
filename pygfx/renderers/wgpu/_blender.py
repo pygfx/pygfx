@@ -30,6 +30,7 @@ class BasePass:
     """The base pass class, defining and documenting the API that a pass must provide."""
 
     render_mask = 3  # opaque end transparent
+    write_pick = True
 
     def get_color_descriptors(self, blender):
         """Get the list of fragment targets for device.create_render_pipeline()."""
@@ -37,7 +38,7 @@ class BasePass:
         # Returning [] prevents this pipeline from being created.
         return []
 
-    def get_color_attachments(self, blender, clear_color):
+    def get_color_attachments(self, blender):
         """Get the list of color_attachments for command_encoder.begin_render_pass()."""
         # The result affects the rendering, but not the wobject's pipeline.
         # Returning [] prevents this pass from running.
@@ -74,6 +75,7 @@ class OpaquePass(BasePass):
     """
 
     render_mask = 1  # opaque only
+    write_pick = True
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -93,11 +95,14 @@ class OpaquePass(BasePass):
             },
         ]
 
-    def get_color_attachments(self, blender, clear_color):
-        if clear_color:
-            color_load_op = pick_load_op = wgpu.LoadOp.clear
-        else:
-            color_load_op = pick_load_op = wgpu.LoadOp.load
+    def get_color_attachments(self, blender):
+        color_load_op = pick_load_op = wgpu.LoadOp.load
+        if blender.color_clear:
+            blender.color_clear = False
+            color_load_op = wgpu.LoadOp.clear
+        if blender.pick_clear:
+            blender.pick_clear = False
+            pick_load_op = wgpu.LoadOp.clear
 
         return [
             {
@@ -124,10 +129,14 @@ class OpaquePass(BasePass):
         }
 
     def get_depth_attachment(self, blender):
+        depth_load_op = wgpu.LoadOp.load
+        if blender.depth_clear:
+            blender.depth_clear = False
+            depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
             "depth_clear_value": 1.0,
-            "depth_load_op": wgpu.LoadOp.clear,
+            "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
@@ -150,6 +159,7 @@ class FullOpaquePass(OpaquePass):
     """A pass that considers all fragments opaque."""
 
     render_mask = 3  # opaque end transparent
+    write_pick = True
 
     def get_shader_code(self, blender):
         return """
@@ -169,6 +179,7 @@ class SimpleSinglePass(OpaquePass):
     """A pass that blends opaque and transparent fragments in a single pass."""
 
     render_mask = 3  # opaque end transparent
+    write_pick = True
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -210,6 +221,7 @@ class SimpleTransparencyPass(BasePass):
     """
 
     render_mask = 2  # transparent only
+    write_pick = False
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -224,13 +236,17 @@ class SimpleTransparencyPass(BasePass):
             },
         ]
 
-    def get_color_attachments(self, blender, clear_color):
-        # Renders into the color_view, which is already cleared in an earlier pass
+    def get_color_attachments(self, blender):
+        color_load_op = wgpu.LoadOp.load
+        if blender.color_clear:
+            blender.color_clear = False
+            color_load_op = wgpu.LoadOp.clear
+
         return [
             {
                 "view": blender.color_view,
                 "resolve_target": None,
-                "load_op": wgpu.LoadOp.load,
+                "load_op": color_load_op,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -243,10 +259,14 @@ class SimpleTransparencyPass(BasePass):
         }
 
     def get_depth_attachment(self, blender):
+        depth_load_op = wgpu.LoadOp.load
+        if blender.depth_clear:
+            blender.depth_clear = False
+            depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
-            "depth_load_op": wgpu.LoadOp.load,
-            "depth_store_op": wgpu.StoreOp.discard,
+            "depth_load_op": depth_load_op,
+            "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
@@ -270,6 +290,7 @@ class WeightedTransparencyPass(BasePass):
     """
 
     render_mask = 2  # transparent only
+    write_pick = False
 
     def __init__(self, weight_func):
         if weight_func == "alpha":
@@ -312,8 +333,9 @@ class WeightedTransparencyPass(BasePass):
             },
         ]
 
-    def get_color_attachments(self, blender, clear_color):
-        # We always clear, the clear_color only really applies to the main color buffer.
+    def get_color_attachments(self, blender):
+        # We always clear the textures used in this pass
+        accum_load_op = reveal_load_op = wgpu.LoadOp.clear
         accum_clear_value = 0, 0, 0, 0
         reveal_clear_value = 1, 0, 0, 0
         return [
@@ -321,14 +343,14 @@ class WeightedTransparencyPass(BasePass):
                 "view": blender.accum_view,
                 "resolve_target": None,
                 "clear_value": accum_clear_value,
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": accum_load_op,
                 "store_op": wgpu.StoreOp.store,
             },
             {
                 "view": blender.reveal_view,
                 "resolve_target": None,
                 "clear_value": reveal_clear_value,
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": reveal_load_op,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -341,10 +363,12 @@ class WeightedTransparencyPass(BasePass):
         }
 
     def get_depth_attachment(self, blender):
+        # We never clear the depth buffer in this pass
+        depth_load_op = wgpu.LoadOp.load
         return {
             "view": blender.depth_view,
-            "depth_load_op": wgpu.LoadOp.load,
-            "depth_store_op": wgpu.StoreOp.discard,
+            "depth_load_op": depth_load_op,
+            "depth_store_op": wgpu.StoreOp.store,
         }
 
     def get_shader_code(self, blender):
@@ -373,7 +397,7 @@ class FrontmostTransparencyPass(BasePass):
     a custom render target. This can then later be used in the combine-pass.
     """
 
-    render_mask = 2  # transparent only
+    write_pick = True
 
     def get_color_descriptors(self, blender):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
@@ -386,16 +410,34 @@ class FrontmostTransparencyPass(BasePass):
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
+            {
+                "format": blender.pick_format,
+                "blend": None,
+                "write_mask": wgpu.ColorWrite.ALL,
+            },
         ]
 
-    def get_color_attachments(self, blender, clear_color):
-        # We always clear, the clear_color only really applies to the main color buffer.
+    def get_color_attachments(self, blender):
+        # We always clear the dedicated color textire, but we share the
+        # pick texture, so we check the clear-flag.
+        color_load_op = wgpu.LoadOp.clear
+        pick_load_op = wgpu.LoadOp.load
+        if blender.pick_clear:
+            blender.pick_clear = False
+            pick_load_op = wgpu.LoadOp.clear
         return [
             {
                 "view": blender.frontcolor_view,
                 "resolve_target": None,
                 "clear_value": (0, 0, 0, 0),
-                "load_op": wgpu.LoadOp.clear,
+                "load_op": color_load_op,
+                "store_op": wgpu.StoreOp.store,
+            },
+            {
+                "view": blender.pick_view,
+                "resolve_target": None,
+                "clear_value": (0, 0, 0, 0),
+                "load_op": pick_load_op,
                 "store_op": wgpu.StoreOp.store,
             },
         ]
@@ -408,10 +450,14 @@ class FrontmostTransparencyPass(BasePass):
         }
 
     def get_depth_attachment(self, blender):
+        depth_load_op = wgpu.LoadOp.load
+        if blender.depth_clear:
+            blender.depth_clear = False
+            depth_load_op = wgpu.LoadOp.clear
         return {
             "view": blender.depth_view,
             "depth_clear_value": 1.0,
-            "depth_load_op": wgpu.LoadOp.clear,
+            "depth_load_op": depth_load_op,
             "depth_store_op": wgpu.StoreOp.store,
         }
 
@@ -479,6 +525,11 @@ class BaseFragmentBlender:
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
         )
 
+    def clear(self):
+        """Clear the buffers."""
+        for key in self._texture_info.keys():
+            setattr(self, key + "_clear", True)
+
     def ensure_target_size(self, size):
         """If necessary, resize render-textures to match the target size."""
 
@@ -502,14 +553,15 @@ class BaseFragmentBlender:
             setattr(self, name + "_format", format)
             setattr(self, name + "_tex", wgpu_texture)
             setattr(self, name + "_view", wgpu_texture.create_view())
+            setattr(self, name + "_clear", True)
 
     # The five methods below represent the API that the render system uses.
 
     def get_color_descriptors(self, pass_index):
         return self.passes[pass_index].get_color_descriptors(self)
 
-    def get_color_attachments(self, pass_index, clear_color):
-        return self.passes[pass_index].get_color_attachments(self, clear_color)
+    def get_color_attachments(self, pass_index):
+        return self.passes[pass_index].get_color_attachments(self)
 
     def get_depth_descriptor(self, pass_index):
         return {
@@ -531,7 +583,7 @@ class BaseFragmentBlender:
     def get_shader_kwargs(self, pass_index):
         return {
             "blending_code": self.passes[pass_index].get_shader_code(self),
-            "write_pick": (1 & self.passes[pass_index].render_mask),
+            "write_pick": self.passes[pass_index].write_pick,
         }
 
     def get_pass_count(self):
@@ -733,10 +785,22 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
     single-layer depth peeling.
     """
 
+    # Since the front-most transparency pass also writes to the depth
+    # buffer, we want to do the opaque pass first. And the weighed pass
+    # should come ater the opaque pass.
+    #
+    # In an earlier version we did the front-most pass first, but then
+    # each pass cleared the depth buffer. We should not do that if we
+    # want to leave the depth buffer for post-processing or picking.
+    #
+    # Note that doing the front-post last means that the depth buffer
+    # *does* include transparent fragments, while this is not the case
+    # for the other blend modes.
+
     passes = [
-        FrontmostTransparencyPass(),
         OpaquePass(),
         WeightedTransparencyPass("alpha"),
+        FrontmostTransparencyPass(),
     ]
 
     def __init__(self):
