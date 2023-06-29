@@ -270,8 +270,11 @@ class MeshShader(WorldObjectShader):
             
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
             $$ if indexer == 6
-            var quad_map = array<i32,6>(0, 1, 2, 0, 2, 3);
-            sub_index = quad_map[sub_index];
+                var quad_map = array<i32,6>(0, 1, 2, 0, 2, 3);
+                //face returns 0 or 1 in picking for quads. So the triangle of the quad can be identified.
+                var face_map = array<i32,6>(0, 0, 0, 1, 1, 1);
+                face = face_map[sub_index];
+                sub_index = quad_map[sub_index];
             $$ endif
 
             // If a transform has an uneven number of negative scales, the 3 vertices
@@ -419,8 +422,11 @@ class MeshShader(WorldObjectShader):
 
             varyings.pick_id = u32(pick_id);
             varyings.pick_idx = u32(face_index);
+            varyings.pick_face = u32(face);
             $$ if indexer == 3
-                var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
+                var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0),
+                                                          vec3<f32>(0.0, 1.0, 0.0),
+                                                          vec3<f32>(0.0, 0.0, 1.0));
                 varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
             $$ else 
                 var arr_pick_coords = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0),
@@ -548,7 +554,8 @@ class MeshShader(WorldObjectShader):
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
             out.pick = (
                 pick_pack(varyings.pick_id, 20) +
-                pick_pack(varyings.pick_idx, 26) +
+                pick_pack(varyings.pick_idx, 20) +
+                pick_pack(varyings.pick_face, 6) +
                 pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
                 pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
                 pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
