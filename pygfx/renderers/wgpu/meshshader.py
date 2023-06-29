@@ -267,6 +267,7 @@ class MeshShader(WorldObjectShader):
             let face_index = index / {{indexer}};
             let sub_index_ori = index % {{indexer}};
             var sub_index = index % {{indexer}};
+            var face = 0;
             
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
             $$ if indexer == 6
