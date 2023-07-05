@@ -37,7 +37,8 @@ class Buffer(Resource):
         format=None,
     ):
         super().__init__()
-        self._rev = 0
+        Resource._rev += 1
+        self._rev = Resource._rev
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
@@ -77,6 +78,8 @@ class Buffer(Resource):
         self._store.nbytes = the_nbytes
         self._store.nitems = the_nitems
         self._store.format = format
+
+        self.view = 0, the_nitems
 
         # We can use a subset when used as a vertex buffer
         self._vertex_byte_range = (0, the_nbytes)
@@ -145,6 +148,22 @@ class Buffer(Resource):
         assert offset + nbytes <= self.nbytes
         self._vertex_byte_range = offset, nbytes
 
+    @property
+    def view(self):
+        return self._store.view
+
+    @view.setter
+    def view(self, view):
+        origin, size = view
+        origin, size = int(origin), int(size)
+        if not (0 <= origin < self.nitems):
+            raise ValueError("View origin out of bounds.")
+        if not (size >= 0 and origin + size <= self.nitems):
+            raise ValueError("View size out of bounds.")
+        self._store.view = origin, size
+        Resource._rev += 1
+        self._rev = Resource._rev
+
     def update_range(self, offset=0, size=2**50):
         """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.
@@ -173,7 +192,8 @@ class Buffer(Resource):
             size = end - offset
         # Limit and apply
         self._gfx_pending_uploads.append((offset, size))
-        self._rev += 1
+        Resource._rev += 1
+        self._rev = Resource._rev
         self._gfx_mark_for_sync()
         # note: this can be smarter, we have logic for chunking in the morph tool
 
