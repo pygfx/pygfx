@@ -1,5 +1,6 @@
 import pygfx as gfx
 import numpy as np
+import pylinalg as la
 
 
 def test_bounding_box():
@@ -38,3 +39,13 @@ def test_bounding_box():
     pos = np.array([(-np.inf, 0, 0), (1, np.nan, 1)], np.float32)
     geo = gfx.Geometry(positions=pos)
     assert geo.get_bounding_box() is None
+
+
+def test_bounding_sphere():
+    pos = np.array([(0, 0, -8), (1, 1, 1), (2, 2, 10)], np.float32)
+    geo = gfx.Geometry(positions=pos)
+    bsphere = geo.get_bounding_sphere()
+    bsphere_via_aabb = la.aabb_to_sphere(geo.get_bounding_box())
+
+    assert np.allclose(bsphere, [1, 1, 1, 12.7279])
+    assert np.allclose(bsphere_via_aabb, [1, 1, 1, 9.1104])

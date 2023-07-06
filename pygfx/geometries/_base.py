@@ -174,10 +174,38 @@ class Geometry(Trackable):
         be the minimally binding sphere.
 
         """
-        if self._bsphere_rev == self._aabb_rev:
+
+        if hasattr(self, "positions"):
+            if self._bsphere_rev == self.positions.rev:
+                return self._bsphere
+            bsphere = None
+            # Get positions and check expected shape
+            pos = self.positions.data
+            if pos.ndim == 2 and pos.shape[1] in (2, 3):
+                # Select finite positions
+                finite_mask = np.isfinite(pos).all(axis=1)
+                if finite_mask.sum() > 0:
+                    # Construct aabb
+                    pos_finite = pos[finite_mask]
+                    center = pos_finite.mean(axis=0)
+                    distances = np.linalg.norm(pos_finite - center, axis=0)
+                    radius = float(distances.max())
+                    if len(center) == 2:
+                        bsphere = np.array(
+                            [center[0], center[1], 0.0, radius], np.float32
+                        )
+                    else:
+                        bsphere = np.array(
+                            [center[0], center[1], center[1], radius], np.float32
+                        )
+            self._bsphere = bsphere
+            self._bsphere_rev = self.positions.rev
             return self._bsphere
 
-        aabb = self.get_bounding_box()
-        self._bsphere = None if aabb is None else la.aabb_to_sphere(aabb)
-        self._bsphere_rev = self._aabb_rev
-        return self._bsphere
+        else:
+            if self._bsphere_rev == self._aabb_rev:
+                return self._bsphere
+            aabb = self.get_bounding_box()
+            self._bsphere = None if aabb is None else la.aabb_to_sphere(aabb)
+            self._bsphere_rev = self._aabb_rev
+            return self._bsphere
