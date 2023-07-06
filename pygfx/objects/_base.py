@@ -452,28 +452,32 @@ class WorldObject(EventTarget, RootTrackable):
 
         Returns
         -------
-        aabb : ndarray, [2, 3]
-            An axis-aligned bounding box.
-
+        aabb : ndarray, [2, 3] or None
+            An axis-aligned bounding box, or None when the object does
+            not take up a particular space.
         """
-        include_self = self.geometry is not None
-        n_partials = len(self.children) + int(include_self)
 
-        if n_partials == 0:
-            # empty object with no mesh
-            return np.zeros((2, 3), dtype=float)
-
-        partial_aabb = np.zeros((n_partials, 2, 3), dtype=float)
-        for idx, child in enumerate(self.children):
+        # Collect bounding boxes
+        aabbs = []
+        for child in self.children:
             aabb = child.get_bounding_box()
-            trafo = child.local.matrix
-            partial_aabb[idx] = la.aabb_transform(aabb, trafo)
-        if include_self:
-            partial_aabb[-1] = self.geometry.bounding_box()
+            if aabb is not None:
+                trafo = child.local.matrix
+                aabbs.append(la.aabb_transform(aabb, trafo))
+        if self.geometry is not None:
+            aabb = self.geometry.get_bounding_box()
+            if aabb is not None:
+                aabbs.append(aabb)
 
-        final_aabb = np.zeros((2, 3), dtype=float)
-        final_aabb[0] = np.min(partial_aabb[:, 0, :], axis=0)
-        final_aabb[1] = np.max(partial_aabb[:, 1, :], axis=0)
+        # Combine
+        if aabbs:
+            aabbs = np.stack(aabbs)
+            final_aabb = np.zeros((2, 3), dtype=float)
+            final_aabb[0] = np.min(aabbs[:, 0, :], axis=0)
+            final_aabb[1] = np.max(aabbs[:, 1, :], axis=0)
+        else:
+            final_aabb = None
+
         return final_aabb
 
     def get_bounding_sphere(self):
@@ -481,33 +485,39 @@ class WorldObject(EventTarget, RootTrackable):
 
         Returns
         -------
-        bounding_shere : ndarray, [4]
-            A sphere (x, y, z, radius).
+        bounding_shere : ndarray, [4] or None
+            A sphere (x, y, z, radius), or None when the object does
+            not take up a particular space.
 
         """
-        return la.aabb_to_sphere(self.get_bounding_box())
+        aabb = self.get_bounding_box()
+        return None if aabb is None else la.aabb_to_sphere(aabb)
 
     def get_world_bounding_box(self):
         """Axis aligned bounding box in world space.
 
         Returns
         -------
-        aabb : ndarray, [2, 3]
-            The transformed axis-aligned bounding box.
+        aabb : ndarray, [2, 3] or None
+            The transformed axis-aligned bounding box, or None when the
+            object does not take up a particular space.
 
         """
-        return la.aabb_transform(self.get_bounding_box(), self.world.matrix)
+        aabb = self.get_bounding_box()
+        return None if aabb is None else la.aabb_transform(aabb, self.world.matrix)
 
     def get_world_bounding_sphere(self):
         """Bounding Sphere in world space.
 
         Returns
         -------
-        bounding_shere : ndarray, [4]
-            A sphere (x, y, z, radius).
+        bounding_shere : ndarray, [4] or None
+            A sphere (x, y, z, radius), or None when the object does
+            not take up a particular space.
 
         """
-        return la.aabb_to_sphere(self.get_world_bounding_box())
+        aabb = self.get_world_bounding_box()
+        return None if aabb is None else la.aabb_to_sphere(aabb)
 
     def _wgpu_get_pick_info(self, pick_value):
         # In most cases the material handles this.

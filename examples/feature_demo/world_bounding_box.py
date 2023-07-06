@@ -34,7 +34,7 @@ camera = gfx.PerspectiveCamera(70, 16 / 9)
 camera.show_object(scene, view_dir=(-1, -1, -1), up=(0, 0, 1))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
-print("World bounding box:", scene.get_world_bounding_box())
+print("World bounding box:\n", scene.get_world_bounding_box())
 
 
 def animate():
