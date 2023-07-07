@@ -63,7 +63,7 @@ def _update_buffer(buffer):
 
     # Prepare for data uploads
     device = get_shared().device
-    bytes_per_item = buffer.nbytes // buffer.nitems
+    bytes_per_item = buffer.itemsize
 
     # Upload any pending data
     for offset, size in pending_uploads:

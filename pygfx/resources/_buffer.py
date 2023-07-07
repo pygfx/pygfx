@@ -62,7 +62,8 @@ class Buffer(Resource):
             self._mem = mem
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
-            self._gfx_pending_uploads.append((0, the_nitems))
+            if the_nitems:
+                self._gfx_pending_uploads.append((0, the_nitems))
             if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
             if nitems is not None and nitems != the_nitems:
@@ -119,7 +120,11 @@ class Buffer(Resource):
     @property
     def itemsize(self):
         """The number of bytes for a single item."""
-        return self._store.nbytes // self._store.nitems
+        if self._data is None:
+            # This generic solution fails when nitems is zero
+            return self._store.nbytes // self._store.nitems
+        else:
+            return self._data.strides[0] if self._data.strides else self._data.itemsize
 
     @property
     def format(self):
@@ -156,7 +161,7 @@ class Buffer(Resource):
     def view(self, view):
         origin, size = view
         origin, size = int(origin), int(size)
-        if not (0 <= origin < self.nitems):
+        if not (origin == 0 or 0 < origin < self.nitems):  # note nitems can be 0
             raise ValueError("View origin out of bounds.")
         if not (size >= 0 and origin + size <= self.nitems):
             raise ValueError("View size out of bounds.")
