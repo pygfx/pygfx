@@ -582,6 +582,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         command_encoder = self._device.create_command_encoder()
         blender = self._blender
+        if clear_color:
+            blender.clear()
 
         # ----- compute pipelines
 
@@ -603,7 +605,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         render_shadow_maps(lights, wobject_list, command_encoder)
 
         for pass_index in range(blender.get_pass_count()):
-            color_attachments = blender.get_color_attachments(pass_index, clear_color)
+            color_attachments = blender.get_color_attachments(pass_index)
             depth_attachment = blender.get_depth_attachment(pass_index)
             render_mask = blender.passes[pass_index].render_mask
             if not color_attachments:
