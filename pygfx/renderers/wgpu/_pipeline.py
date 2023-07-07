@@ -712,9 +712,14 @@ class RenderPipelineContainer(PipelineContainer):
         (one for each pass of the blender).
         """
         blender = env.blender
+        render_mask = self.render_info["render_mask"]
 
         shader_modules = {}
         for pass_index in range(blender.get_pass_count()):
+            # No need to compile pass for transparent fragments if the object has none
+            if not render_mask & blender.passes[pass_index].render_mask:
+                continue
+
             color_descriptors = blender.get_color_descriptors(pass_index)
             if not color_descriptors:
                 continue
@@ -740,6 +745,7 @@ class RenderPipelineContainer(PipelineContainer):
         strip_index_format = self.strip_index_format
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
+        render_mask = self.render_info["render_mask"]
 
         # Create pipeline layout object from list of layouts
         env_bind_group_layout, _ = env.wgpu_bind_group
@@ -754,6 +760,10 @@ class RenderPipelineContainer(PipelineContainer):
         pipelines = {}
         blender = env.blender
         for pass_index in range(blender.get_pass_count()):
+            # No need to compose pass for transparent fragments if the object has none
+            if not render_mask & blender.passes[pass_index].render_mask:
+                continue
+
             color_descriptors = blender.get_color_descriptors(pass_index)
             depth_descriptor = blender.get_depth_descriptor(pass_index)
             if not color_descriptors:
