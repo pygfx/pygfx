@@ -24,11 +24,11 @@ image = gfx.Image(
 )
 scene.add(image)
 
-# sphinx_gallery_pygfx_render = True
-
 # %% make overlay using red values
 
-# shape is nrows, ncols, RGBA
+# sphinx_gallery_pygfx_render = True
+
+# empty array for overlay, shape is [nrows, ncols, RGBA]
 overlay = np.zeros(shape=(*im.shape[:2], 4), dtype=np.float32)
 
 # set the blue values of some pixels with an alpha > 1
@@ -43,7 +43,7 @@ overlay_image.world.z = 1
 
 scene.add(overlay_image)
 
-# put the original image on the side
+# put the original image below
 image_original = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
     gfx.ImageBasicMaterial(clim=(0, 255)),
