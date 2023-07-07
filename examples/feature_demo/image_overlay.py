@@ -1,14 +1,12 @@
 """
-Image with Points Overlaid
-==========================
+Image with another image overlaid
+=================================
 
 Show an image with another image overlaid with alpha blending.
 """
 
-from itertools import product
 import numpy as np
 import imageio.v3 as iio
-import pygfx
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
