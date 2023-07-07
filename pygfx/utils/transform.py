@@ -170,7 +170,7 @@ class AffineBase:
 
     def flag_update(self):
         """Signal that this transform has updated."""
-        for callback in self.update_callbacks.values():
+        for callback in list(self.update_callbacks.values()):
             callback(self)
 
     def on_update(self, callback) -> int:
