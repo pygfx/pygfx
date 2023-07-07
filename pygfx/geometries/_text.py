@@ -549,15 +549,20 @@ class TextGeometry(Geometry):
 
     # %%%%% Layout
 
-    def bounding_box(self):
+    def get_bounding_box(self):
         if self.screen_space:
-            # The space occupied by the text is essentially a point
+            # There is no sensible bounding box for text in screen
+            # space, except for the anchor point. Although the point
+            # has no volume, it does contribute to e.g. the scene's
+            # bounding box.
             return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
         else:
             if self._aabb_rev == self.positions.rev:
                 return self._aabb
             pos = self.positions.data
-            aabb_2d = np.array([pos.min(axis=0), pos.max(axis=0)], np.float32)
+            aabb_2d = np.array(
+                [np.nanmin(pos, axis=0), np.nanmax(pos, axis=0)], np.float32
+            )
             self._aabb[1, 0] += self.font_size  # positions do not include char width
             self._aabb = np.column_stack([aabb_2d, np.zeros((2, 1), np.float32)])
             self._aabb_rev = self.positions.rev

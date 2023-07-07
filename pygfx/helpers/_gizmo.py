@@ -288,7 +288,7 @@ class TransformGizmo(WorldObject):
 
         # work out local extent
         self._local_extents = np.empty((6, 3), dtype=float)
-        scales = self.get_bounding_box().ravel()
+        scales = self.get_bounding_box().ravel()  # we know our bb is not None
         self._local_extents[:3] = np.diag(scales[3:])
         self._local_extents[3:] = np.diag(scales[:3])
 
