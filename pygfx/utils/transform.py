@@ -661,3 +661,7 @@ class RecursiveTransform(AffineBase):
             return RecursiveTransform(other, parent=self)
         else:
             return np.asarray(self) @ other
+
+    @cached
+    def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return la.mat_decompose(self.matrix)

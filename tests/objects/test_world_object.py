@@ -401,3 +401,9 @@ def test_scale_preservation():
     # without scale preservation in matrix compose -> decompose roundtrip
     # ob.local.scale becomes (-1, 2, 3)
     npt.assert_array_equal(ob.local.scale, s)
+
+    child = gfx.WorldObject()
+    ob.add(child)
+    npt.assert_array_equal(child.local.scale, [1, 1, 1])
+    # we don't preserve the WORLD scale component
+    npt.assert_array_equal(child.world.scale, [-1, 2, 3])
