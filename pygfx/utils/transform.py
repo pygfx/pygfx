@@ -135,6 +135,7 @@ class AffineBase:
         self.update_callbacks = {}
         self.is_camera_space = int(is_camera_space)
         self._reference_up = np.asarray(reference_up, dtype=float)
+        self._scaling_signs = np.asarray([1, 1, 1], dtype=float)
 
     @property
     def matrix(self):
@@ -151,7 +152,7 @@ class AffineBase:
 
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return la.mat_decompose(self.matrix)
+        return la.mat_decompose(self.matrix, scaling_signs=self._scaling_signs)
 
     @cached
     def _directions(self):
@@ -297,7 +298,9 @@ class AffineBase:
 
     @scale.setter
     def scale(self, value):
-        self.matrix = la.mat_compose(self.position, self.rotation, value)
+        m = la.mat_compose(self.position, self.rotation, value)
+        self._scaling_signs = np.sign(value)
+        self.matrix = m
 
     @reference_up.setter
     def reference_up(self, value):

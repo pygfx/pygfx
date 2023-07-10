@@ -3,6 +3,7 @@ from unittest.mock import Mock, call
 from weakref import ref
 import pylinalg as la
 import numpy as np
+import numpy.testing as npt
 
 from pygfx import WorldObject
 import pygfx as gfx
@@ -390,3 +391,13 @@ def test_bounding_box():
     )
     point_with_children.add(scene)
     assert point_with_children.get_bounding_box().tolist() == [[-5, 0, 0], [9, 3, 6]]
+
+
+def test_scale_preservation():
+    # Add a point that is transformed, to make sure that is taken into account
+    ob = gfx.WorldObject()
+    s = (1, -2, 3)
+    ob.local.scale = s
+    # without scale preservation in matrix compose -> decompose roundtrip
+    # ob.local.scale becomes (-1, 2, 3)
+    npt.assert_array_equal(ob.local.scale, s)
