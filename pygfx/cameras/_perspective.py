@@ -388,7 +388,7 @@ class PerspectiveCamera(Camera):
 
         # Do the math ...
         view_pos = bsphere[:3]
-        radius = bsphere[3]
+        radius = max(0.0, bsphere[3]) or 1.0
         extent = radius * 2 * scale
         distance = fov_distance_factor(self.fov) * extent
 

@@ -137,7 +137,7 @@ class BoxHelper(Line):
         if space == "world":
             aabb = object.get_world_bounding_box()
         elif space == "local" and object.geometry is not None:
-            aabb = object.geometry.bounding_box()
+            aabb = object.geometry.get_bounding_box()
         if aabb is None:
             raise ValueError(
                 "No bounding box could be determined "

@@ -3,6 +3,7 @@ from unittest.mock import Mock, call
 from weakref import ref
 import pylinalg as la
 import numpy as np
+import numpy.testing as npt
 
 from pygfx import WorldObject
 import pygfx as gfx
@@ -330,3 +331,79 @@ def test_reference_up():
     assert np.allclose(obj1.world.reference_up, la.vec_normalize((1, 2, 3)))
     assert np.allclose(obj2.world.reference_up, (isqrt2, 0, isqrt2))
     assert np.allclose(obj3.world.reference_up, (0, 1, 0))
+
+
+def test_bounding_box():
+    scene = gfx.Group()
+
+    # Start out without a bounding box
+
+    assert scene.get_bounding_box() is None
+
+    # Add a camera, still no box
+    scene.add(gfx.PerspectiveCamera())
+    assert scene.get_bounding_box() is None
+
+    # Add a light, still no box
+    scene.add(gfx.DirectionalLight())
+    assert scene.get_bounding_box() is None
+
+    # Add a point, we've got a bbox with no volume
+    ob = gfx.Points(
+        gfx.Geometry(positions=np.array([(0, 0, 0)], np.float32)),
+        gfx.PointsMaterial,
+    )
+    scene.add(ob)
+    assert scene.get_bounding_box().tolist() == [[0, 0, 0], [0, 0, 0]]
+
+    # Add another point to get a larger bbox
+    ob = gfx.Points(
+        gfx.Geometry(positions=np.array([(0, 3, 1)], np.float32)),
+        gfx.PointsMaterial,
+    )
+    scene.add(ob)
+    assert scene.get_bounding_box().tolist() == [[0, 0, 0], [0, 3, 1]]
+
+    # Adding a point with no valid positions ... has no effect
+    ob = gfx.Points(
+        gfx.Geometry(positions=np.array([(99, np.nan, 99)], np.float32)),
+        gfx.PointsMaterial,
+    )
+    scene.add(ob)
+    assert ob.get_bounding_box() is None
+    assert ob.get_world_bounding_box() is None
+    assert scene.get_bounding_box().tolist() == [[0, 0, 0], [0, 3, 1]]
+
+    # Add a point that is transformed, to make sure that is taken into account
+    ob = gfx.Points(
+        gfx.Geometry(positions=np.array([(-1, 0, 2)], np.float32)),
+        gfx.PointsMaterial,
+    )
+    ob.local.scale = 3, 3, 3
+    ob.local.x = -2
+    scene.add(ob)
+    assert scene.get_bounding_box().tolist() == [[-5, 0, 0], [0, 3, 6]]
+
+    # Create a point with all of the above ... to make sure the own geo is taken into account
+    point_with_children = gfx.Points(
+        gfx.Geometry(positions=np.array([(9, 1, 0)], np.float32)),
+        gfx.PointsMaterial,
+    )
+    point_with_children.add(scene)
+    assert point_with_children.get_bounding_box().tolist() == [[-5, 0, 0], [9, 3, 6]]
+
+
+def test_scale_preservation():
+    # Add a point that is transformed, to make sure that is taken into account
+    ob = gfx.WorldObject()
+    s = (1, -2, 3)
+    ob.local.scale = s
+    # without scale preservation in matrix compose -> decompose roundtrip
+    # ob.local.scale becomes (-1, 2, 3)
+    npt.assert_array_equal(ob.local.scale, s)
+
+    child = gfx.WorldObject()
+    ob.add(child)
+    npt.assert_array_equal(child.local.scale, [1, 1, 1])
+    # we don't preserve the WORLD scale component
+    npt.assert_array_equal(child.world.scale, [-1, 2, 3])
