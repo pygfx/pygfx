@@ -150,9 +150,19 @@ class AffineBase:
     def _inverse_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.matrix)
 
+    @property
+    def scaling_signs(self):
+        return self._scaling_signs
+
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return la.mat_decompose(self.matrix, scaling_signs=self._scaling_signs)
+        try:
+            return la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
+        except ValueError:
+            # the matrix has been set manually
+            # and so there is no scaling component to preserve
+            # any decomposed scaling is acceptable
+            return la.mat_decompose(self.matrix)
 
     @cached
     def _directions(self):
@@ -663,5 +673,5 @@ class RecursiveTransform(AffineBase):
             return np.asarray(self) @ other
 
     @cached
-    def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return la.mat_decompose(self.matrix)
+    def scaling_signs(self):
+        return self._parent.scaling_signs * self.own.scaling_signs
