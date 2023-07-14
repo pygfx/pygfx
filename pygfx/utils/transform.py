@@ -349,15 +349,15 @@ class AffineBase:
 
     @euler_x.setter
     def euler_x(self, value):
-        self.euler = (value, self._euler[1], self._euler[2])
+        self.euler = (value, 0, 0)
 
     @euler_y.setter
     def euler_y(self, value):
-        self.euler = (self._euler[0], value, self._euler[2])
+        self.euler = (0, value, 0)
 
     @euler_z.setter
     def euler_z(self, value):
-        self.euler = (self._euler[0], self._euler[1], value)
+        self.euler = (0, 0, value)
 
     @scale.setter
     def scale(self, value):
