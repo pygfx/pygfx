@@ -478,10 +478,16 @@ def test_rotation_derived():
     npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
 
     obj.local.euler_x = np.pi / 2
-    npt.assert_array_almost_equal(obj.local.rotation, la.quat_from_euler(np.pi / 2, order="X"))
+    npt.assert_array_almost_equal(
+        obj.local.rotation, la.quat_from_euler(np.pi / 2, order="X")
+    )
 
     obj.local.euler_y = np.pi / 2
-    npt.assert_array_almost_equal(obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Y"))
+    npt.assert_array_almost_equal(
+        obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Y")
+    )
 
     obj.local.euler_z = np.pi / 2
-    npt.assert_array_almost_equal(obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Z"))
+    npt.assert_array_almost_equal(
+        obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Z")
+    )
