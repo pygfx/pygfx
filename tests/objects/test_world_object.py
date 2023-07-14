@@ -441,3 +441,34 @@ def test_scaling_signs_manual_matrix():
     child.local.scale = s2
     npt.assert_array_almost_equal(child.local.scale, s2)
     npt.assert_array_almost_equal(child.world.scale, [-4, 8, 12])
+
+
+def test_rotation_derived():
+    obj = gfx.WorldObject()
+    e1 = np.array([0, np.pi / 2, 0])
+    q1 = la.quat_from_euler(e1, order="XYZ")
+    m1 = la.mat_from_quat(q1)
+
+    obj.local.rotation = q1
+    npt.assert_array_almost_equal(obj.local.rotation, q1)
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, m1)
+    npt.assert_array_almost_equal(obj.local.forward, [1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.right, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    obj.local.rotation_matrix = m1
+    npt.assert_array_almost_equal(obj.local.rotation, q1)
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, m1)
+    npt.assert_array_almost_equal(obj.local.forward, [1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.right, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    obj.local.euler = e1
+    npt.assert_array_almost_equal(obj.local.rotation, q1)
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, m1)
+    npt.assert_array_almost_equal(obj.local.forward, [1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.right, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    # obj.world.rotation = la.quat_from_euler((np.pi / 4, np.pi / 4), order="XZ")
+    # assert np.allclose(obj.local.forward, (0, -np.cos(np.pi / 4), np.sin(np.pi / 4)))
