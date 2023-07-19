@@ -88,7 +88,7 @@ def init_scene():
     scene = gfx.Scene()
     camera = gfx.PerspectiveCamera(35, 16 / 9)
     camera.local.position = (46, 22, -21)
-    camera.show_pos((0, 0, 0))
+    camera.show_pos((0, 7, 0))
 
     gfx.OrbitController(camera, register_events=renderer)
 
