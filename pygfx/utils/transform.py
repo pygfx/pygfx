@@ -135,6 +135,7 @@ class AffineBase:
         self.update_callbacks = {}
         self.is_camera_space = int(is_camera_space)
         self._reference_up = np.asarray(reference_up, dtype=float)
+        self._scaling_signs = np.asarray([1, 1, 1], dtype=float)
 
     @property
     def matrix(self):
@@ -149,9 +150,19 @@ class AffineBase:
     def _inverse_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.matrix)
 
+    @property
+    def scaling_signs(self):
+        return self._scaling_signs
+
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        return la.mat_decompose(self.matrix)
+        try:
+            return la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
+        except ValueError:
+            # the matrix has been set manually
+            # and so there is no scaling component to preserve
+            # any decomposed scaling is acceptable
+            return la.mat_decompose(self.matrix)
 
     @cached
     def _directions(self):
@@ -167,6 +178,14 @@ class AffineBase:
     @cached
     def _direction_components(self):
         return (*self._directions,)
+
+    @cached
+    def _rotation_matrix(self):
+        return la.mat_from_quat(self._decomposed[1])
+
+    @cached
+    def _euler(self):
+        return la.quat_to_euler(self._decomposed[1])
 
     def flag_update(self):
         """Signal that this transform has updated."""
@@ -229,8 +248,33 @@ class AffineBase:
 
     @property
     def rotation(self) -> np.ndarray:
-        """The orientation of source."""
+        """The orientation of source as a quaternion."""
         return self._decomposed[1]
+
+    @property
+    def rotation_matrix(self) -> np.ndarray:
+        """The orientation of source as a rotation matrix."""
+        return self._rotation_matrix
+
+    @property
+    def euler(self) -> np.ndarray:
+        """The orientation of source as XYZ euler angles."""
+        return self._euler
+
+    @property
+    def euler_x(self) -> float:
+        """The X component of source's orientation as XYZ euler angles."""
+        return self._euler[0]
+
+    @property
+    def euler_y(self) -> float:
+        """The Y component of source's orientation as XYZ euler angles."""
+        return self._euler[1]
+
+    @property
+    def euler_z(self) -> float:
+        """The Z component of source's orientation as XYZ euler angles."""
+        return self._euler[2]
 
     @property
     def scale(self) -> np.ndarray:
@@ -295,9 +339,31 @@ class AffineBase:
     def rotation(self, value):
         self.matrix = la.mat_compose(self.position, value, self.scale)
 
+    @euler.setter
+    def euler(self, value):
+        self.rotation = la.quat_from_euler(value)
+
+    @rotation_matrix.setter
+    def rotation_matrix(self, value):
+        self.rotation = la.quat_from_mat(value)
+
+    @euler_x.setter
+    def euler_x(self, value):
+        self.euler = (value, 0, 0)
+
+    @euler_y.setter
+    def euler_y(self, value):
+        self.euler = (0, value, 0)
+
+    @euler_z.setter
+    def euler_z(self, value):
+        self.euler = (0, 0, value)
+
     @scale.setter
     def scale(self, value):
-        self.matrix = la.mat_compose(self.position, self.rotation, value)
+        m = la.mat_compose(self.position, self.rotation, value)
+        self._scaling_signs = np.sign(value)
+        self.matrix = m
 
     @reference_up.setter
     def reference_up(self, value):
@@ -658,3 +724,7 @@ class RecursiveTransform(AffineBase):
             return RecursiveTransform(other, parent=self)
         else:
             return np.asarray(self) @ other
+
+    @cached
+    def scaling_signs(self):
+        return self._parent.scaling_signs * self.own.scaling_signs

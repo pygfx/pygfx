@@ -98,7 +98,7 @@ class Geometry(Trackable):
         x.extend(dict.keys(self._store))
         return x
 
-    def bounding_box(self):
+    def get_bounding_box(self):
         """Compute the axis-aligned bounding box.
 
         Computes the aabb based on either positions or the shape of the grid
@@ -107,23 +107,35 @@ class Geometry(Trackable):
 
         Returns
         -------
-        aabb : ndarray, [2, 3]
+        aabb : ndarray, [2, 3] or None
             The axis-aligned bounding box given by the "smallest" (lowest value)
-            and "largest" (highest value) corners.
+            and "largest" (highest value) corners. Is None when the geometry has
+            no finite positions.
 
         """
         if hasattr(self, "positions"):
             if self._aabb_rev == self.positions.rev:
                 return self._aabb
+            aabb = None
+            # Get positions and check expected shape
             pos = self.positions.data
-            self._aabb = np.array([np.nanmin(pos, axis=0), np.nanmax(pos, axis=0)])
-            # If positions contains xy, but not z, assume z=0
-            if self._aabb.shape[1] == 2:
-                self._aabb = np.column_stack([self._aabb, np.zeros((2, 1), np.float32)])
+            if pos.ndim == 2 and pos.shape[1] in (2, 3):
+                # Select finite positions
+                finite_mask = np.isfinite(pos).all(axis=1)
+                if finite_mask.sum() > 0:
+                    # Construct aabb
+                    pos_finite = pos[finite_mask]
+                    aabb = np.array(
+                        [pos_finite.min(axis=0), pos_finite.max(axis=0)], np.float32
+                    )
+                    # If positions contains xy, but not z, assume z=0
+                    if aabb.shape[1] == 2:
+                        aabb = np.column_stack([aabb, np.zeros((2, 1), np.float32)])
+            self._aabb = aabb
             self._aabb_rev = self.positions.rev
             return self._aabb
 
-        if hasattr(self, "grid"):
+        elif hasattr(self, "grid"):
             if self._aabb_rev == self.grid.rev:
                 return self._aabb
             # account for multi-channel image data
@@ -141,12 +153,10 @@ class Geometry(Trackable):
             self._aabb = aabb
             self._aabb_rev = self.grid.rev
             return self._aabb
+        else:
+            return None
 
-        raise ValueError(
-            "No positions or grid buffer available for bounding volume computation"
-        )
-
-    def bounding_sphere(self):
+    def get_bounding_sphere(self):
         """Compute a bounding sphere.
 
         Uses the geometry's axis-aligned bounding box, to estimate a sphere
@@ -154,8 +164,9 @@ class Geometry(Trackable):
 
         Returns
         -------
-        sphere : ndarray, [4]
+        sphere : ndarray, [4] or None
             A sphere given by it's center and radius. Format: ``(x, y, z, radius)``.
+            Is None when the geometry has no finite positions.
 
         Notes
         -----
@@ -163,9 +174,38 @@ class Geometry(Trackable):
         be the minimally binding sphere.
 
         """
-        if self._bsphere is not None and self._bsphere_rev == self._aabb_rev:
+
+        if hasattr(self, "positions"):
+            if self._bsphere_rev == self.positions.rev:
+                return self._bsphere
+            bsphere = None
+            # Get positions and check expected shape
+            pos = self.positions.data
+            if pos.ndim == 2 and pos.shape[1] in (2, 3):
+                # Select finite positions
+                finite_mask = np.isfinite(pos).all(axis=1)
+                if finite_mask.sum() > 0:
+                    # Construct aabb
+                    pos_finite = pos[finite_mask]
+                    center = pos_finite.mean(axis=0)
+                    distances = np.linalg.norm(pos_finite - center, axis=0)
+                    radius = float(distances.max())
+                    if len(center) == 2:
+                        bsphere = np.array(
+                            [center[0], center[1], 0.0, radius], np.float32
+                        )
+                    else:
+                        bsphere = np.array(
+                            [center[0], center[1], center[1], radius], np.float32
+                        )
+            self._bsphere = bsphere
+            self._bsphere_rev = self.positions.rev
             return self._bsphere
 
-        self._bsphere = la.aabb_to_sphere(self.bounding_box())
-        self._bsphere_rev = self._aabb_rev
-        return self._bsphere
+        else:
+            if self._bsphere_rev == self._aabb_rev:
+                return self._bsphere
+            aabb = self.get_bounding_box()
+            self._bsphere = None if aabb is None else la.aabb_to_sphere(aabb)
+            self._bsphere_rev = self._aabb_rev
+            return self._bsphere
