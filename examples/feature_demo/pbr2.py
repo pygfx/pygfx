@@ -92,7 +92,8 @@ while alpha <= 1.0:
 
 # Create camera and controls
 camera = gfx.PerspectiveCamera(45, 640 / 480)
-camera.show_object(scene)
+camera.show_object(scene, view_dir=(-2, -1.5, -3), scale=1.2)
+
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 
@@ -100,9 +101,9 @@ def animate():
     timer = next(frame_idx) / 30
 
     point_light.local.position = (
-        math.sin(timer / 3 * (2 * np.pi)) * 300,
-        math.cos(timer * 2 / 3 * (2 * np.pi)) * 400,
-        math.cos(timer / 3 * (2 * np.pi)) * 300,
+        math.sin(timer / 30 * (2 * np.pi)) * 300,
+        math.cos(timer * 2 / 30 * (2 * np.pi)) * 400,
+        math.cos(timer / 30 * (2 * np.pi)) * 300,
     )
 
     renderer.render(scene, camera)
