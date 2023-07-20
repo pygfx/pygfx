@@ -200,3 +200,35 @@ def test_frustum():
     frustum_corners = camera.frustum
 
     assert np.allclose(frustum_corners, expected_corners.reshape(2, 4, 3))
+
+
+def test_repeated_show():
+    # Repeated calls to show_object should keep the same camera
+    # position. At some point it did not, because the camera contributed
+    # to the scene's bounding box, and since it's positioned away from
+    # the (rest of the) scene, repeated calles, just made the scene's
+    # bounding box bigger.
+
+    mesh = gfx.Mesh(
+        gfx.sphere_geometry(),
+        gfx.MeshPhongMaterial(),
+    )
+    camera = gfx.PerspectiveCamera()
+
+    scene = gfx.Scene()
+    scene.add(mesh, camera.add(gfx.DirectionalLight()))
+
+    camera.show_object(scene)
+
+    cam_width = camera.width
+    scene_radius = scene.get_world_bounding_sphere()[3]
+
+    # If you want to run this test interactively, you can uncommentt below lines
+    # d= gfx.Display(camera=camera)
+    # d.show(scene, )
+
+    for _ in range(9):
+        camera.show_object(scene)
+
+    assert cam_width == camera.width
+    assert scene_radius == scene.get_world_bounding_sphere()[3]
