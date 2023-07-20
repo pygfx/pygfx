@@ -451,7 +451,7 @@ class MeshShader(WorldObjectShader):
 
             // Get the surface normal from the geometry.
             // This is the unflipped normal, because thet NormalMaterial needs that.
-            var surface_normal = vec3<f32>(varyings.normal);
+            var surface_normal = normalize(vec3<f32>(varyings.normal));
             $$ if flat_shading
                 let u = dpdx(varyings.world_pos);
                 let v = dpdy(varyings.world_pos);

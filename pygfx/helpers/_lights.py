@@ -212,7 +212,7 @@ class SpotLightHelper(Line):
             Geometry(positions=positions),
             LineSegmentMaterial(thickness=1.0),
         )
-        self.world.on_update(self._update)
+        self.update_id = self.world.on_update(self._update)
 
     @callback
     def _update(self, transform: AffineBase):
@@ -227,4 +227,8 @@ class SpotLightHelper(Line):
 
         cone_length = light.distance or 1000
         cone_width = cone_length * math.tan(light.angle)
-        self.scale = (cone_width, cone_width, cone_length)
+
+        # Temporarily remove callback to avoid infinite recursion when setting `self.local.scale`.
+        self.world.remove_callback(self.update_id)
+        self.local.scale = (cone_width, cone_width, cone_length)
+        self.update_id = self.world.on_update(self._update)

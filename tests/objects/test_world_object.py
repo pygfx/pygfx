@@ -4,6 +4,7 @@ from weakref import ref
 import pylinalg as la
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 from pygfx import WorldObject
 import pygfx as gfx
@@ -394,16 +395,99 @@ def test_bounding_box():
 
 
 def test_scale_preservation():
-    # Add a point that is transformed, to make sure that is taken into account
+    """Test that the original scaling component is preserved through
+    matrix composition roundtrips"""
     ob = gfx.WorldObject()
     s = (1, -2, 3)
     ob.local.scale = s
     # without scale preservation in matrix compose -> decompose roundtrip
     # ob.local.scale becomes (-1, 2, 3)
-    npt.assert_array_equal(ob.local.scale, s)
+    npt.assert_array_almost_equal(ob.local.scale, s)
 
     child = gfx.WorldObject()
     ob.add(child)
-    npt.assert_array_equal(child.local.scale, [1, 1, 1])
-    # we don't preserve the WORLD scale component
-    npt.assert_array_equal(child.world.scale, [-1, 2, 3])
+    npt.assert_array_almost_equal(child.local.scale, [1, 1, 1])
+    npt.assert_array_almost_equal(child.world.scale, s)
+
+    s2 = (-4, -4, 4)
+    child.local.scale = s2
+    npt.assert_array_almost_equal(child.local.scale, s2)
+    npt.assert_array_almost_equal(child.world.scale, [-4, 8, 12])
+
+
+def test_scaling_signs_manual_matrix():
+    """Test that if the matrix is set directly, everything still works
+    and we do not manage to reconstruct the original signs."""
+    ob = gfx.WorldObject()
+    s = (1, -2, 3)
+    expected = (-1, 2, 3)
+    t = la.mat_compose(
+        (10, 0, 0),
+        la.quat_from_axis_angle((0, 0, 1), np.pi / 2),
+        s,
+    )
+    ob.local.matrix = t
+
+    with pytest.raises(AssertionError):
+        npt.assert_array_almost_equal(ob.local.scale, s)
+    npt.assert_array_almost_equal(ob.local.scale, expected)
+
+    child = gfx.WorldObject()
+    ob.add(child)
+    npt.assert_array_almost_equal(child.local.scale, [1, 1, 1])
+    npt.assert_array_almost_equal(child.world.scale, expected)
+
+    s2 = (-4, -4, 4)
+    child.local.scale = s2
+    npt.assert_array_almost_equal(child.local.scale, s2)
+    npt.assert_array_almost_equal(child.world.scale, [-4, 8, 12])
+
+
+def test_rotation_derived():
+    obj = gfx.WorldObject()
+    e1 = np.array([0, np.pi / 2, 0])
+    q1 = la.quat_from_euler(e1, order="XYZ")
+    m1 = la.mat_from_quat(q1)
+
+    obj.local.rotation = q1
+    npt.assert_array_almost_equal(obj.local.rotation, q1)
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, m1)
+    npt.assert_array_almost_equal(obj.local.forward, [1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.right, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    obj.local.rotation_matrix = m1
+    npt.assert_array_almost_equal(obj.local.rotation, q1)
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, m1)
+    npt.assert_array_almost_equal(obj.local.forward, [1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.right, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    obj.local.euler = e1
+    npt.assert_array_almost_equal(obj.local.rotation, q1)
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, m1)
+    npt.assert_array_almost_equal(obj.local.forward, [1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.right, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    obj.local.euler = [0, 0, 0]
+    npt.assert_array_almost_equal(obj.local.rotation, [0, 0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.rotation_matrix, np.eye(4))
+    npt.assert_array_almost_equal(obj.local.forward, [0, 0, 1])
+    npt.assert_array_almost_equal(obj.local.right, [-1, 0, 0])
+    npt.assert_array_almost_equal(obj.local.up, [0, 1, 0])
+
+    obj.local.euler_x = np.pi / 2
+    npt.assert_array_almost_equal(
+        obj.local.rotation, la.quat_from_euler(np.pi / 2, order="X")
+    )
+
+    obj.local.euler_y = np.pi / 2
+    npt.assert_array_almost_equal(
+        obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Y")
+    )
+
+    obj.local.euler_z = np.pi / 2
+    npt.assert_array_almost_equal(
+        obj.local.rotation, la.quat_from_euler(np.pi / 2, order="Z")
+    )
