@@ -121,7 +121,11 @@ class Buffer(Resource):
             # This generic solution fails when nitems is zero
             return self._store.nbytes // self._store.nitems
         else:
-            return self._data.strides[0] if self._data.strides else self._data.itemsize
+            shape = self._data.shape
+            if shape:
+                shape = shape[1:]
+            factor = int(np.prod(shape)) or 1
+            return factor * self._data.itemsize
 
     @property
     def format(self):
