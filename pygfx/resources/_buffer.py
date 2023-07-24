@@ -82,9 +82,6 @@ class Buffer(Resource):
 
         self.draw_range = 0, the_nitems
 
-        # We can use a subset when used as a vertex buffer
-        self._vertex_byte_range = (0, the_nbytes)
-
     @property
     def rev(self):
         """An integer that is increased when update_range() is called."""
@@ -143,15 +140,15 @@ class Buffer(Resource):
 
     @property
     def vertex_byte_range(self):
-        """The offset and size, in bytes, when used as a vertex buffer."""
-        return self._vertex_byte_range
+        raise DeprecationWarning(
+            "vertex_byte_range is deprecated, use draw_range instead."
+        )
 
     @vertex_byte_range.setter
     def vertex_byte_range(self, offset_nbytes):
-        offset, nbytes = int(offset_nbytes[0]), int(offset_nbytes[1])
-        assert offset >= 0
-        assert offset + nbytes <= self.nbytes
-        self._vertex_byte_range = offset, nbytes
+        raise DeprecationWarning(
+            "vertex_byte_range is deprecated, use draw_range instead."
+        )
 
     @property
     def draw_range(self):
