@@ -80,7 +80,7 @@ class Buffer(Resource):
         self._store.nitems = the_nitems
         self._store.format = format
 
-        self.view = 0, the_nitems
+        self.draw_range = 0, the_nitems
 
         # We can use a subset when used as a vertex buffer
         self._vertex_byte_range = (0, the_nbytes)
@@ -154,18 +154,19 @@ class Buffer(Resource):
         self._vertex_byte_range = offset, nbytes
 
     @property
-    def view(self):
-        return self._store.view
+    def draw_range(self):
+        """The range to data (origin, size) expressed in items."""
+        return self._store.draw_range
 
-    @view.setter
-    def view(self, view):
-        origin, size = view
+    @draw_range.setter
+    def draw_range(self, draw_range):
+        origin, size = draw_range
         origin, size = int(origin), int(size)
         if not (origin == 0 or 0 < origin < self.nitems):  # note nitems can be 0
-            raise ValueError("View origin out of bounds.")
+            raise ValueError("draw_range origin out of bounds.")
         if not (size >= 0 and origin + size <= self.nitems):
-            raise ValueError("View size out of bounds.")
-        self._store.view = origin, size
+            raise ValueError("draw_range size out of bounds.")
+        self._store.draw_range = origin, size
         Resource._rev += 1
         self._rev = Resource._rev
 
