@@ -1,6 +1,7 @@
 API for advanced wgpu usage
 ---------------------------
 
+.. autofunction:: pygfx.renderers.wgpu.enable_wgpu_features
 
 .. autofunction:: pygfx.renderers.wgpu.register_wgpu_render_function
 
