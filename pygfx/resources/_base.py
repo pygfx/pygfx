@@ -21,6 +21,7 @@ class Resource(Trackable):
     """Resource base class."""
 
     _resource_counts = {}
+    _rev = 0
 
     def __init__(self):
         super().__init__()

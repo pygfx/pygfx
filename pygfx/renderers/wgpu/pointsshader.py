@@ -70,7 +70,8 @@ class PointsShader(WorldObjectShader):
     def get_render_info(self, wobject, shared):
         material = wobject.material
 
-        n = wobject.geometry.positions.nitems * 6
+        offset, size = wobject.geometry.positions.draw_range
+        offset, size = offset * 6, size * 6
 
         render_mask = wobject.render_mask
         if not render_mask:
@@ -92,7 +93,7 @@ class PointsShader(WorldObjectShader):
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
         return {
-            "indices": (n, 1),
+            "indices": (size, 1, offset, 0),
             "render_mask": render_mask,
         }
 

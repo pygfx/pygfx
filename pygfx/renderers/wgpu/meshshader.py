@@ -154,7 +154,9 @@ class MeshShader(WorldObjectShader):
         geometry = wobject.geometry
         material = wobject.material
 
-        n = geometry.indices.data.size
+        offset, size = geometry.indices.draw_range
+        offset, size = 3 * offset, 3 * size
+
         n_instances = 1
         if self["instanced"]:
             n_instances = wobject.instance_buffer.nitems
@@ -181,7 +183,7 @@ class MeshShader(WorldObjectShader):
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
         return {
-            "indices": (n, n_instances),
+            "indices": (size, n_instances, offset, 0),
             "render_mask": render_mask,
         }
 
@@ -583,6 +585,7 @@ class MeshNormalLinesShader(MeshShader):
         return d
 
     def get_render_info(self, wobject, shared):
+        # We directly look at the vertex data, so geometry.indices.draw_range is ignored.
         d = super().get_render_info(wobject, shared)
         d["indices"] = wobject.geometry.positions.nitems * 2, d["indices"][1]
         return d
@@ -683,8 +686,10 @@ class MeshSliceShader(WorldObjectShader):
 
     def get_render_info(self, wobject, shared):
         material = wobject.material  # noqa
+        geometry = wobject.geometry
 
-        n = (wobject.geometry.indices.data.size // 3) * 6
+        offset, size = geometry.indices.draw_range
+        offset, size = offset * 6, size * 6
 
         # As long as we don't use alpha for aa in the frag shader, we can use a render_mask of 1 or 2.
         render_mask = wobject.render_mask
@@ -695,7 +700,7 @@ class MeshSliceShader(WorldObjectShader):
                 render_mask = RenderMask.opaque
 
         return {
-            "indices": (n, 1),
+            "indices": (size, 1, offset, 0),
             "render_mask": render_mask,
         }
 

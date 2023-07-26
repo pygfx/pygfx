@@ -37,7 +37,8 @@ class Buffer(Resource):
         format=None,
     ):
         super().__init__()
-        self._rev = 0
+        Resource._rev += 1
+        self._rev = Resource._rev
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
@@ -61,7 +62,8 @@ class Buffer(Resource):
             self._mem = mem
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
-            self._gfx_pending_uploads.append((0, the_nitems))
+            if the_nitems:
+                self._gfx_pending_uploads.append((0, the_nitems))
             if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
             if nitems is not None and nitems != the_nitems:
@@ -78,8 +80,7 @@ class Buffer(Resource):
         self._store.nitems = the_nitems
         self._store.format = format
 
-        # We can use a subset when used as a vertex buffer
-        self._vertex_byte_range = (0, the_nbytes)
+        self.draw_range = 0, the_nitems
 
     @property
     def rev(self):
@@ -116,7 +117,15 @@ class Buffer(Resource):
     @property
     def itemsize(self):
         """The number of bytes for a single item."""
-        return self._store.nbytes // self._store.nitems
+        if self._data is None:
+            # This generic solution fails when nitems is zero
+            return self._store.nbytes // self._store.nitems
+        else:
+            shape = self._data.shape
+            if shape:
+                shape = shape[1:]
+            factor = int(np.prod(shape)) or 1
+            return factor * self._data.itemsize
 
     @property
     def format(self):
@@ -135,15 +144,32 @@ class Buffer(Resource):
 
     @property
     def vertex_byte_range(self):
-        """The offset and size, in bytes, when used as a vertex buffer."""
-        return self._vertex_byte_range
+        raise DeprecationWarning(
+            "vertex_byte_range is deprecated, use draw_range instead."
+        )
 
     @vertex_byte_range.setter
     def vertex_byte_range(self, offset_nbytes):
-        offset, nbytes = int(offset_nbytes[0]), int(offset_nbytes[1])
-        assert offset >= 0
-        assert offset + nbytes <= self.nbytes
-        self._vertex_byte_range = offset, nbytes
+        raise DeprecationWarning(
+            "vertex_byte_range is deprecated, use draw_range instead."
+        )
+
+    @property
+    def draw_range(self):
+        """The range to data (origin, size) expressed in items."""
+        return self._store.draw_range
+
+    @draw_range.setter
+    def draw_range(self, draw_range):
+        origin, size = draw_range
+        origin, size = int(origin), int(size)
+        if not (origin == 0 or 0 < origin < self.nitems):  # note nitems can be 0
+            raise ValueError("draw_range origin out of bounds.")
+        if not (size >= 0 and origin + size <= self.nitems):
+            raise ValueError("draw_range size out of bounds.")
+        self._store.draw_range = origin, size
+        Resource._rev += 1
+        self._rev = Resource._rev
 
     def update_range(self, offset=0, size=2**50):
         """Mark a certain range of the data for upload to the GPU. The
@@ -173,7 +199,8 @@ class Buffer(Resource):
             size = end - offset
         # Limit and apply
         self._gfx_pending_uploads.append((offset, size))
-        self._rev += 1
+        Resource._rev += 1
+        self._rev = Resource._rev
         self._gfx_mark_for_sync()
         # note: this can be smarter, we have logic for chunking in the morph tool
 
