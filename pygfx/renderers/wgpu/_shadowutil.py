@@ -118,8 +118,8 @@ def render_wobject_shadow(device, light, wobject, shadow_pass):
     shadow_pass.set_vertex_buffer(
         0,
         ensure_wgpu_object(position_buffer),
-        position_buffer.vertex_byte_range[0],
-        position_buffer.vertex_byte_range[1],
+        position_buffer.draw_range[0] * position_buffer.itemsize,
+        position_buffer.draw_range[1] * position_buffer.itemsize,
     )
 
     wobject_bind_group = get_shadow_bind_group(device, wobject.uniform_buffer)

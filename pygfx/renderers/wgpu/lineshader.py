@@ -115,12 +115,13 @@ class LineShader(WorldObjectShader):
         }
 
     def _get_n(self, positions):
-        return positions.nitems * 5
+        offset, size = positions.draw_range
+        return offset * 5, size * 5
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
         # Determine how many vertices are needed
-        n = self._get_n(wobject.geometry.positions)
+        offset, size = self._get_n(wobject.geometry.positions)
         # Determine in what render passes this objects must be rendered
         render_mask = wobject.render_mask
         if not render_mask:
@@ -149,7 +150,7 @@ class LineShader(WorldObjectShader):
                 else:
                     render_mask = RenderMask.opaque
         return {
-            "indices": (n, 1),
+            "indices": (size, 1, offset, 0),
             "render_mask": render_mask,
         }
 
@@ -465,7 +466,8 @@ class LineSegmentShader(LineShader):
         self["line_type"] = "segment"
 
     def _get_n(self, positions):
-        return (positions.nitems // 2) * 2 * 5
+        offset, size = positions.draw_range
+        return (offset // 2) * 2 * 5, (size // 2) * 2 * 5
 
     def code_vertex_core(self):
         return """
@@ -533,7 +535,8 @@ class LineArrowShader(LineShader):
         self["line_type"] = "arrow"
 
     def _get_n(self, positions):
-        return (positions.nitems // 2) * 2 * 4
+        offset, size = positions.draw_range
+        return (offset // 2) * 2 * 4, (size // 2) * 2 * 4
 
     def code_vertex_core(self):
         return """
@@ -635,6 +638,7 @@ class ThinLineShader(WorldObjectShader):
         }
 
     def get_render_info(self, wobject, shared):
+        offset, size = wobject.geometry.positions.draw_range
         render_mask = wobject.render_mask
         if not render_mask:
             render_mask = RenderMask.all
@@ -646,7 +650,7 @@ class ThinLineShader(WorldObjectShader):
                 else:
                     render_mask = RenderMask.opaque
         return {
-            "indices": (wobject.geometry.positions.nitems, 1),
+            "indices": (size, 1, offset, 0),
             "render_mask": render_mask,
         }
 

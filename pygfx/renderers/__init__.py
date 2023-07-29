@@ -35,7 +35,6 @@ canvas, averaging neighbouring fragments for anti-aliasing.
     SvgRenderer
     print_wgpu_report
 
-
 """
 
 # flake8: noqa

@@ -47,7 +47,8 @@ class Texture(Resource):
         generate_mipmaps=False,
     ):
         super().__init__()
-        self._rev = 0
+        Resource._rev += 1
+        self._rev = Resource._rev
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
@@ -183,7 +184,8 @@ class Texture(Resource):
                 self._gfx_pending_uploads.append((offset2, size2))
         else:
             self._gfx_pending_uploads.append((offset, size))
-        self._rev += 1
+        Resource._rev += 1
+        self._rev = Resource._rev
         self._gfx_mark_for_sync()
 
     def _size_from_data(self, data, dim, size):

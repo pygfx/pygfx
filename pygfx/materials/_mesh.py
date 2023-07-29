@@ -547,7 +547,7 @@ class MeshSliceMaterial(MeshAbstractMaterial):
         which make up the equation: ``ax + by + cz + d = 0`` The plane
         definition applies to the world space (of the scene).
         """
-        return self.uniform_buffer.data["plane"]
+        return tuple(self.uniform_buffer.data["plane"])
 
     @plane.setter
     def plane(self, plane):
@@ -557,7 +557,7 @@ class MeshSliceMaterial(MeshAbstractMaterial):
     @property
     def thickness(self):
         """The thickness of the line to draw the edge of the mesh."""
-        return self.uniform_buffer.data["thickness"]
+        return float(self.uniform_buffer.data["thickness"])
 
     @thickness.setter
     def thickness(self, thickness):

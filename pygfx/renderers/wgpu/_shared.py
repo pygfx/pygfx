@@ -33,6 +33,13 @@ class Shared(Trackable):
     The renderer instantiates and stores the singleton shared object.
     """
 
+    # Vanilla WGPU does not support interpolating samplers for float32
+    # textures, which is sad for e.g. volume rendering. WebGPU specifies
+    # the 'float32-filterable' feature for this, but this has not yet
+    # been implemented in wgpu-core. Fortunately, we can enable it via
+    # the native-only feature 'texture_adapter_specific_format_features'
+
+    _features = set(["texture_adapter_specific_format_features"])
     _instance = None
 
     def __init__(self, *, canvas=None):
@@ -52,7 +59,7 @@ class Shared(Trackable):
             canvas=None, power_preference="high-performance"
         )
         self._device = self.adapter.request_device(
-            required_features=[], required_limits={}
+            required_features=list(Shared._features), required_limits={}
         )
 
         # Create a uniform buffer for std info
@@ -105,6 +112,34 @@ class Shared(Trackable):
     def glyph_atlas_info_buffer(self):
         """A buffer containing per-glyph metadata (rects and more)."""
         return self._store.glyph_atlas_info_buffer
+
+
+def enable_wgpu_features(*features):
+    """Enable specific features (as strings) on the wgpu device.
+
+    WARNING: enabling features means that your code may not work on all
+    devices. The point of wgpu is that it can make a promise that a
+    visualization works and looks the same on any device. Using features
+    breaks that promise, and may cause your code to not work on e.g.
+    mobile devices or certain operating systems.
+
+    This function must be called before the first wgpu device is created.
+    In practice this means before the first ``Renderer`` is created.
+    It can be called multiple times to enable more features.
+
+    For more information on features:
+
+    * ``wgpu.FeatureName`` for all possible official features.
+    * ``renderer.device.adapter.features`` for the features available on the current system.
+    * ``renderer.device.features`` for the currently enabled features.
+    * https://gpuweb.github.io/gpuweb/#gpufeaturename for the official webgpu features (excl. native features).
+    * https://docs.rs/wgpu/latest/wgpu/struct.Features.html for the features and their limitations in wgpu-core.
+    """
+    if Shared._instance is not None:
+        raise RuntimeError(
+            "The enable_wgpu_features() function must be called before creating the first renderer."
+        )
+    Shared._features.update(features)
 
 
 def get_shared():
