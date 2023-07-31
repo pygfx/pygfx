@@ -1,7 +1,7 @@
 import math
 from ._base import Material
 from ..resources import Texture
-from ..utils import unpack_bitfield, logger
+from ..utils import logger
 from ..utils.color import Color
 
 
@@ -67,21 +67,6 @@ class MeshAbstractMaterial(Material):
         self.map = map
         self.map_interpolation = map_interpolation
         self.side = side
-
-    def _wgpu_get_pick_info(self, pick_value):
-        # This should match with the shader
-        values = unpack_bitfield(
-            pick_value, wobject_id=20, index=20, face=6, coord1=6, coord2=6, coord3=6
-        )
-        return {
-            "face_index": values["index"],
-            "face": values["face"],
-            "face_coord": (
-                values["coord1"] / 64,
-                values["coord2"] / 64,
-                values["coord3"] / 64,
-            ),
-        }
 
     @property
     def color(self):
