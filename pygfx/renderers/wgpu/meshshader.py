@@ -50,7 +50,7 @@ class MeshShader(WorldObjectShader):
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif material.face_colors:
-            self['color_mode'] = "face"
+            self["color_mode"] = "face"
             self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
@@ -74,17 +74,13 @@ class MeshShader(WorldObjectShader):
             normal_buffer = geometry.normals
         else:
             if geometry.indices.data.shape[-1] == 4:
-                n1 = normals_from_vertices(
-                    geometry.positions.data, geometry.indices.data[..., :3]
-                )
+                n1 = normals_from_vertices(geometry.positions.data, geometry.indices.data[..., :3])
                 n2 = normals_from_vertices(
-                    geometry.positions.data, geometry.indices.data[..., [0,2,3]]
+                    geometry.positions.data, geometry.indices.data[..., [0, 2, 3]]
                 )
-                normal_data = (n1+n2)/2
+                normal_data = (n1 + n2) / 2
             else:
-                normal_data = normals_from_vertices(
-                    geometry.positions.data, geometry.indices.data
-                )
+                normal_data = normals_from_vertices(geometry.positions.data, geometry.indices.data)
             normal_buffer = Buffer(normal_data)
 
         # Init bindings
@@ -117,22 +113,16 @@ class MeshShader(WorldObjectShader):
                 material.env_map, 6
             )  # TODO: envmap not only cube, but also equirect (hdr format)
             view = GfxTextureView(material.env_map, view_dim="cube")
-            bindings.append(
-                Binding("s_env_map", "sampler/filtering", sampler, "FRAGMENT")
-            )
+            bindings.append(Binding("s_env_map", "sampler/filtering", sampler, "FRAGMENT"))
             bindings.append(Binding("t_env_map", "texture/auto", view, "FRAGMENT"))
 
             if isinstance(material, MeshStandardMaterial):
                 self["use_IBL"] = True
             elif isinstance(material, MeshBasicMaterial):
                 self["use_env_map"] = True
-                self["env_combine_mode"] = getattr(
-                    material, "env_combine_mode", "MULTIPLY"
-                )
+                self["env_combine_mode"] = getattr(material, "env_combine_mode", "MULTIPLY")
 
-            self["env_mapping_mode"] = getattr(
-                material, "env_mapping_mode", "CUBE-REFLECTION"
-            )
+            self["env_mapping_mode"] = getattr(material, "env_mapping_mode", "CUBE-REFLECTION")
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -141,9 +131,7 @@ class MeshShader(WorldObjectShader):
         # Instanced meshes have an extra storage buffer that we add manually
         bindings1 = {}  # non-auto-generated bindings
         if self["instanced"]:
-            bindings1[0] = Binding(
-                "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
-            )
+            bindings1[0] = Binding("s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX")
 
         return {
             0: bindings,
@@ -172,11 +160,11 @@ class MeshShader(WorldObjectShader):
         material = wobject.material
 
         if geometry.indices.data is not None and geometry.indices.data.shape[-1] == 4:
-            self['indexer'] = 6
+            self["indexer"] = 6
             offset, size = geometry.indices.draw_range
             offset, size = 6 * offset, 6 * size
         else:
-            self['indexer'] = 3
+            self["indexer"] = 3
             offset, size = geometry.indices.draw_range
             offset, size = 3 * offset, 3 * size
 
@@ -270,14 +258,14 @@ class MeshShader(WorldObjectShader):
             let face_index = index / {{indexer}};
             let sub_index_ori = index % {{indexer}};
             var sub_index = index % {{indexer}};
-            var face = 0;
+            var face_sub_index = 0;
             
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
             $$ if indexer == 6
                 var quad_map = array<i32,6>(0, 1, 2, 0, 2, 3);
-                //face returns 0 or 1 in picking for quads. So the triangle of the quad can be identified.
+                //face_sub_index returns 0 or 1 in picking for quads. So the triangle of the quad can be identified.
                 var face_map = array<i32,6>(0, 0, 0, 1, 1, 1);
-                face = face_map[sub_index];
+                face_sub_index = face_map[sub_index];
                 sub_index = quad_map[sub_index];
             $$ endif
 
@@ -425,22 +413,16 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             varyings.pick_id = u32(pick_id);
-            varyings.pick_idx = u32(face_index);
-            varyings.pick_face = u32(face);
-            $$ if indexer == 3
-                var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0),
-                                                          vec3<f32>(0.0, 1.0, 0.0),
-                                                          vec3<f32>(0.0, 0.0, 1.0));
-                varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
-            $$ else 
-                var arr_pick_coords = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0),
-                                                          vec3<f32>(0.0, 1.0, 0.0),
-                                                          vec3<f32>(0.0, 0.0, 1.0),
-                                                          vec3<f32>(1.0, 0.0, 0.0),
-                                                          vec3<f32>(0.0, 1.0, 0.0),
-                                                          vec3<f32>(0.0, 0.0, 1.0));
-                varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index_ori]);
-            $$ endif
+            varyings.pick_idx = u32(face_index*2 + face_sub_index);
+
+            var arr_pick_coords = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0),
+                                                      vec3<f32>(0.0, 1.0, 0.0),
+                                                      vec3<f32>(0.0, 0.0, 1.0),
+                                                      vec3<f32>(1.0, 0.0, 0.0),
+                                                      vec3<f32>(0.0, 1.0, 0.0),
+                                                      vec3<f32>(0.0, 0.0, 1.0));
+            varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index_ori%3]);
+
             return varyings;
         }
 
@@ -558,8 +540,7 @@ class MeshShader(WorldObjectShader):
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
             out.pick = (
                 pick_pack(varyings.pick_id, 20) +
-                pick_pack(varyings.pick_idx, 20) +
-                pick_pack(varyings.pick_face, 6) +
+                pick_pack(varyings.pick_idx, 26) +
                 pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
                 pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
                 pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
@@ -626,10 +607,7 @@ class MeshStandardShader(MeshShader):
         # We need uv to use the maps, so if uv not exist, ignore all maps
         if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
             # Texcoords must always be nx2 since it used for all texture maps.
-            if not (
-                geometry.texcoords.data.ndim == 2
-                and geometry.texcoords.data.shape[1] == 2
-            ):
+            if not (geometry.texcoords.data.ndim == 2 and geometry.texcoords.data.shape[1] == 2):
                 raise ValueError("For standard material, the texcoords must be Nx2")
 
             if material.normal_map is not None:
