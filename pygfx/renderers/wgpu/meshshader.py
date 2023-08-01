@@ -415,13 +415,11 @@ class MeshShader(WorldObjectShader):
             varyings.pick_id = u32(pick_id);
             varyings.pick_idx = u32(face_index*2 + face_sub_index);
 
-            var arr_pick_coords = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0),
+            var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0),
                                                       vec3<f32>(0.0, 1.0, 0.0),
                                                       vec3<f32>(0.0, 0.0, 1.0),
-                                                      vec3<f32>(1.0, 0.0, 0.0),
-                                                      vec3<f32>(0.0, 1.0, 0.0),
-                                                      vec3<f32>(0.0, 0.0, 1.0));
-            varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index_ori%3]);
+                                                      );
+            varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
 
             return varyings;
         }
