@@ -51,7 +51,7 @@ class MeshShader(WorldObjectShader):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif material.face_colors:
             self["color_mode"] = "face"
-            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["face_color_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif material.map is not None:
@@ -181,7 +181,7 @@ class MeshShader(WorldObjectShader):
                 if self["vertex_color_channels"] in (1, 3):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] == "face":
-                if self["vertex_color_channels"] in (1, 3):
+                if self["face_color_channels"] in (1, 3):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] == "map":
                 if self["colormap_nchannels"] in (1, 3):
@@ -256,7 +256,6 @@ class MeshShader(WorldObjectShader):
             // Select what face we're at
             let index = i32(in.vertex_index);
             let face_index = index / {{indexer}};
-            let sub_index_ori = index % {{indexer}};
             var sub_index = index % {{indexer}};
             var face_sub_index = 0;
             
@@ -309,15 +308,15 @@ class MeshShader(WorldObjectShader):
             // per face colors
             $$ if color_mode == 'face'
                 let face_color_index = i32(load_s_texcoords(face_index));
-                $$ if vertex_color_channels == 1
+                $$ if face_color_channels == 1
                 let cvalue = load_s_colors(face_color_index);
                 varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-                $$ elif vertex_color_channels == 2
+                $$ elif face_color_channels == 2
                 let cvalue = load_s_colors(face_color_index)
                 varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-                $$ elif vertex_color_channels == 3
+                $$ elif face_color_channels == 3
                 varyings.color = vec4<f32>(load_s_colors(face_color_index), 1.0);
-                $$ elif vertex_color_channels == 4
+                $$ elif face_color_channels == 4
                 varyings.color = vec4<f32>(load_s_colors(face_color_index));
                 $$ endif
             $$ else
@@ -420,7 +419,7 @@ class MeshShader(WorldObjectShader):
                                                       vec3<f32>(0.0, 0.0, 1.0),
                                                       );
             varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
-
+            
             return varyings;
         }
 
