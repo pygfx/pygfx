@@ -1,0 +1,213 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "THREE.GLTFExporter"
+  },
+  "scenes": [
+    {
+      "name": "AuxScene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "nodes": [
+    {
+      "matrix": [
+        100,
+        0,
+        0,
+        0,
+        0,
+        100,
+        0,
+        0,
+        0,
+        0,
+        100,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "mesh": 0
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 936,
+      "target": 34962,
+      "byteStride": 12
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 936,
+      "byteLength": 936,
+      "target": 34962,
+      "byteStride": 12
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 1872,
+      "byteLength": 624,
+      "target": 34962,
+      "byteStride": 8
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 2496,
+      "byteLength": 624,
+      "target": 34962,
+      "byteStride": 8
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 3120,
+      "uri": "data:application/octet-stream;base64,S6vtP2xaTjz2fgu/S6vtP2xaTjz2fgs/S6vtP8UbjT/2fgu/S6vtP2xaTjz2fgs/S6vtP8UbjT/2fgs/S6vtP8UbjT/2fgu/S6vtP8UbjT/2fgu/GJU8QMUbjT/2fgu/S6vtP2xaTjz2fgu/GJU8QMUbjT/2fgu/GJU8QGxaTjz2fgu/S6vtP2xaTjz2fgu/GJU8QMUbjT/2fgu/GJU8QMUbjT/2fgs/GJU8QGxaTjz2fgu/GJU8QMUbjT/2fgs/GJU8QGxaTjz2fgs/GJU8QGxaTjz2fgu/S6vtP2xaTjz2fgs/GJU8QGxaTjz2fgs/S6vtP8UbjT/2fgs/GJU8QGxaTjz2fgs/GJU8QMUbjT/2fgs/S6vtP8UbjT/2fgs/S6vtP2xaTjz2fgs/S6vtP2xaTjz2fgu/GJU8QGxaTjz2fgs/S6vtP2xaTjz2fgu/GJU8QGxaTjz2fgu/GJU8QGxaTjz2fgs/GJU8QMUbjT/2fgs/GJU8QMUbjT/2fgu/S6vtP8UbjT/2fgs/GJU8QMUbjT/2fgu/S6vtP8UbjT/2fgu/S6vtP8UbjT/2fgs/kFoGQdUOxbSQWgbBkFoGwdUOxbSQWgbBkFoGQdUOxTSQWgZBkFoGwdUOxbSQWgbBkFoGwdUOxTSQWgZBkFoGQdUOxTSQWgZBAACAP++FkzwAAIC/AACAPySGkzwAAIA/AACAv++FkzwAAIC/AACAPySGkzwAAIA/AACAvySGkzwAAIA/AACAv++FkzwAAIC/AACAPxMnAUAAAIC/AACAvxMnAUAAAIC/7/9/PxMnAUAAAIA/AACAvxMnAUAAAIC/AACAvxMnAUAAAIA/7/9/PxMnAUAAAIA/AACAP++FkzwAAIC/AACAPxMnAUAAAIC/AACAPySGkzwAAIA/AACAPxMnAUAAAIC/7/9/PxMnAUAAAIA/AACAPySGkzwAAIA/AACAPySGkzwAAIA/7/9/PxMnAUAAAIA/AACAvySGkzwAAIA/7/9/PxMnAUAAAIA/AACAvxMnAUAAAIA/AACAvySGkzwAAIA/AACAvySGkzwAAIA/AACAvxMnAUAAAIA/AACAv++FkzwAAIC/AACAvxMnAUAAAIA/AACAvxMnAUAAAIC/AACAv++FkzwAAIC/AACAPxMnAUAAAIC/AACAP++FkzwAAIC/AACAvxMnAUAAAIC/AACAP++FkzwAAIC/AACAv++FkzwAAIC/AACAvxMnAUAAAIC/AACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8jvTuzAAAAAAAAgD8jvTuzAAAAAAAAgD8jvTuzAAAAAAAAgD8jvTuzAAAAAAAAgD8jvTuzAAAAAAAAgD8jvTuzAAAAAAAAgL+Vv1YzAAAAAAAAgL+Vv1YzAAAAAAAAgL+Vv1YzAAAAAAAAgL+Vv1YzAAAAAAAAgL+Vv1YzAAAAAAAAgL+Vv1YzAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAP7Y3BjW9NwY1AACAP7Y3BjW9NwY1AACAP7Y3BjW9NwY1AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AACAPwAAgD8AAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAIA/AACAPwAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAIA/AACAPwAAAAAAAIA/AACAPwAAgD8AAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAIA/AACAPwAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAIA/AACAPwAAAAAAAIA/AACAPwAAgD8AAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAPwAAAAAAAAAA/TODOsx8/z6Y+X4+zHz/Pv0zgzo0g4A+mPl+Psx8/z6Y+X4+NIOAPv0zgzo0g4A+zHz/Pv0zgzo0g4A+/TODOsx8/z6Y+X4+NIOAPv0zgzo0g4A+mPl+Psx8/z6Y+X4+zHz/PjSDgD40g4A+NIOAPsx8/z7MfP8+NIOAPjSDgD40g4A+zHz/Psx8/z7MfP8+mkEAP8x8/z5mvj8/zHz/PppBAD80g4A+Zr4/P8x8/z5mvj8/NIOAPppBAD80g4A+Zr4/P/0zgzqaQQA//TODOma+Pz+Y+X4+mkEAP/0zgzqaQQA/mPl+Pma+Pz+Y+X4+zHz/PppBAD80g4A+mkEAP8x8/z5mvj8/NIOAPppBAD80g4A+Zr4/P8x8/z5mvj8//TODOpj5fj6Y+X4+mPl+Pv0zgzr9M4M6mPl+Ppj5fj6Y+X4+/TODOv0zgzr9M4M6mPl+PppBAD/9M4M6mkEAP5j5fj5mvj8//TODOppBAD/9M4M6Zr4/P5j5fj5mvj8/Zr4/P5pBAD+aQQA/mkEAP2a+Pz9mvj8/mkEAP5pBAD+aQQA/Zr4/P2a+Pz9mvj8/Zr4/P5pBQD+aQQA/mkFAP2a+Pz9mvn8/mkEAP5pBQD+aQQA/Zr5/P2a+Pz9mvn8/zHz/PppBQD80g4A+mkFAP8x8/z5mvn8/NIOAPppBQD80g4A+Zr5/P8x8/z5mvn8/mPl+PppBQD/9M4M6mkFAP5j5fj5mvn8//TODOppBQD/9M4M6Zr5/P5j5fj5mvn8/Zr5/PzSDgD6aQUA/NIOAPma+fz/MfP8+mkFAPzSDgD6aQUA/zHz/Pma+fz/MfP8+"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 78,
+      "max": [
+        8.397109985351562,
+        2.018009901046753,
+        8.397109985351562
+      ],
+      "min": [
+        -8.397109985351562,
+        -3.670490116292058e-7,
+        -8.397109985351562
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 78,
+      "max": [
+        1,
+        1,
+        1
+      ],
+      "min": [
+        -1,
+        -1,
+        -1
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 78,
+      "max": [
+        1,
+        1
+      ],
+      "min": [
+        0,
+        0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 78,
+      "max": [
+        0.9989989995956421,
+        0.9989989995956421
+      ],
+      "min": [
+        0.0010010000551119447,
+        0.0010010000551119447
+      ],
+      "type": "VEC2"
+    }
+  ],
+  "materials": [
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.6375968739867731,
+          0.13843161502267545,
+          0.07421356837213867,
+          1
+        ],
+        "metallicFactor": 0.5,
+        "roughnessFactor": 0.5
+      },
+      "name": "redstone"
+    },
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.6375968739867731,
+          0.514917665367466,
+          0.35640014413537763,
+          1
+        ],
+        "metallicFactor": 0.5,
+        "roughnessFactor": 0.5
+      },
+      "name": "floor"
+    },
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.6375968739867731,
+          0.2663556047920505,
+          0.13013647668074665,
+          1
+        ],
+        "metallicFactor": 0.5,
+        "roughnessFactor": 0.5
+      },
+      "name": "stone"
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "mode": 4,
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TEXCOORD_1": 3
+          },
+          "material": 0
+        },
+        {
+          "mode": 4,
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TEXCOORD_1": 3
+          },
+          "material": 1
+        },
+        {
+          "mode": 4,
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TEXCOORD_1": 3
+          },
+          "material": 2
+        }
+      ]
+    }
+  ]
+}

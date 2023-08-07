@@ -1,3 +1,4 @@
+import warnings
 import wgpu  # only for flags/enums
 
 from . import (
@@ -84,6 +85,17 @@ class MeshShader(WorldObjectShader):
             Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
+        if hasattr(geometry, "texcoords1") and geometry.texcoords1 is not None:
+            bindings.append(
+                Binding(
+                    "s_texcoords1",
+                    "buffer/read_only_storage",
+                    geometry.texcoords1,
+                    "VERTEX",
+                )
+            )
+            self["use_texcoords1"] = True
+
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         if self["color_mode"] == "map":
@@ -93,17 +105,19 @@ class MeshShader(WorldObjectShader):
                 )
             )
 
+        F = "FRAGMENT"  # noqa: N806
+        sampling = "sampler/filtering"
         sampler = GfxSampler(material.map_interpolation, "repeat")
+        texturing = "texture/auto"
+
         # set envmap configs
         if getattr(material, "env_map", None):
             self._check_texture(
                 material.env_map, 6
             )  # TODO: envmap not only cube, but also equirect (hdr format)
             view = GfxTextureView(material.env_map, view_dim="cube")
-            bindings.append(
-                Binding("s_env_map", "sampler/filtering", sampler, "FRAGMENT")
-            )
-            bindings.append(Binding("t_env_map", "texture/auto", view, "FRAGMENT"))
+            bindings.append(Binding("s_env_map", sampling, sampler, F))
+            bindings.append(Binding("t_env_map", texturing, view, F))
 
             if isinstance(material, MeshStandardMaterial):
                 self["use_IBL"] = True
@@ -116,6 +130,19 @@ class MeshShader(WorldObjectShader):
             self["env_mapping_mode"] = getattr(
                 material, "env_mapping_mode", "CUBE-REFLECTION"
             )
+
+        # set lightmap configs
+        if getattr(material, "light_map", None):
+            if getattr(geometry, "texcoords1", None) is None:
+                warnings.warn(
+                    "Light map requires a second set of texture coordinates (geometry.texcoords1), but none were found, so it will be ignored."
+                )
+            else:
+                self._check_texture(material.light_map)
+                view = GfxTextureView(material.light_map, view_dim="2d")
+                self["use_light_map"] = True
+                bindings.append(Binding("s_light_map", sampling, sampler, F))
+                bindings.append(Binding("t_light_map", texturing, view, F))
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -298,6 +325,10 @@ class MeshShader(WorldObjectShader):
             varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
             $$ endif
 
+            $$ if use_texcoords1 is defined
+            varyings.texcoord1 = vec2<f32>(load_s_texcoords1(i0));
+            $$ endif
+
             // Set the normal
             let raw_normal = load_s_normals(i0);
             // Transform the normal to world space
@@ -404,9 +435,13 @@ class MeshShader(WorldObjectShader):
             // Lighting
             $$ if lighting
                 // Do the math
-                let physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
+                var physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else
-                let physical_color = physical_albeido;
+                var physical_color = physical_albeido;
+                $$ if use_light_map is defined
+                    let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+                    physical_color *= light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
+                $$ endif
             $$ endif
 
             // Environment mapping
@@ -421,11 +456,11 @@ class MeshShader(WorldObjectShader):
                 var env_color_srgb = textureSample( t_env_map, s_env_map, vec3<f32>( -reflectVec.x, reflectVec.yz) );
                 let env_color = srgb2physical(env_color_srgb.rgb); // TODO: maybe already in linear-space
                 $$ if env_combine_mode == 'MULTIPLY'
-                    var physical_color = mix(physical_color, physical_color * env_color.xyz, specular_strength * reflectivity);
+                    physical_color = mix(physical_color, physical_color * env_color.xyz, specular_strength * reflectivity);
                 $$ elif env_combine_mode == 'MIX'
-                    var physical_color = mix(physical_color, env_color.xyz, specular_strength * reflectivity);
+                    physical_color = mix(physical_color, env_color.xyz, specular_strength * reflectivity);
                 $$ elif env_combine_mode == 'ADD'
-                    var physical_color = physical_color + env_color.xyz * specular_strength * reflectivity;
+                    physical_color = physical_color + env_color.xyz * specular_strength * reflectivity;
                 $$ endif
             $$ endif
 
