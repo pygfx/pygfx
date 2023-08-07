@@ -40,13 +40,6 @@ class Geometry(Trackable):
             if isinstance(val, Resource):
                 resource = val
             else:
-                if not isinstance(val, np.ndarray):
-                    dtype = np.uint32 if name == "indices" else np.float32
-                    val = np.asanyarray(val, dtype=dtype)
-                if val.dtype == np.float64:
-                    raise ValueError(
-                        "64-bit float is not supported, use 32-bit floats instead"
-                    )
                 if name == "grid":
                     dim = val.ndim
                     if dim > 2 and val.shape[-1] <= 4:

@@ -1,6 +1,6 @@
 import numpy as np
 
-from ._base import Resource, STRUCT_FORMAT_ALIASES, FORMAT_MAP
+from ._base import Resource, get_item_format_from_memoryview
 
 
 class Texture(Resource):
@@ -61,8 +61,6 @@ class Texture(Resource):
         self._wgpu_usage = 0
         self._wgpu_mip_level_count = 1
 
-        self._store.format = None if format is None else str(format)
-
         self._colorspace = (colorspace or "srgb").lower()
         assert self._colorspace in ("srgb", "physical")
 
@@ -71,11 +69,19 @@ class Texture(Resource):
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
         if data is not None:
-            mem = memoryview(data)
-            if mem.format == "d":
-                raise ValueError("Float64 data is not supported, use float32 instead.")
             self._data = data
-            self._mem = mem
+            self._mem = mem = memoryview(data)
+            subformat = get_item_format_from_memoryview(mem)
+            if subformat:
+                shape = mem.shape
+                collapsed_size = [x for x in size if x > 1]
+                if len(shape) == len(collapsed_size) + 1:
+                    nchannels = shape[-1]
+                else:
+                    assert len(shape) == len(collapsed_size)
+                    nchannels = 1
+                assert 1 <= nchannels <= 4
+                self._format = (f"{nchannels}x" + subformat).lstrip("1x")
             self._store.nbytes = mem.nbytes
             self._store.size = self._size_from_data(mem, dim, size)
             self.update_range((0, 0, 0), self.size)
@@ -86,6 +92,9 @@ class Texture(Resource):
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
             )
+
+        if format is not None:
+            self._format = str(format)
 
     @property
     def rev(self):
@@ -132,14 +141,7 @@ class Texture(Resource):
         (e.g. u2 for scalar uint16, or 3xf4 for RGB float32),
         but can also be a overriden to a backend-specific format.
         """
-        format = self._store.format
-        if format is not None:
-            return format
-        elif self.data is not None:
-            self._store["format"] = format_from_memoryview(self.mem, self.size)
-            return self._store.format
-        else:
-            raise ValueError("Texture has no data nor format.")
+        return self._format
 
     @property
     def colorspace(self):
@@ -244,25 +246,3 @@ class Texture(Resource):
         raise DeprecationWarning(
             "Texture.get_view() is removed, TextureView is no longer public API: just use plain textures."
         )
-
-
-def format_from_memoryview(mem, size):
-    format = str(mem.format)
-    format = STRUCT_FORMAT_ALIASES.get(format, format)
-    # Process channels
-    shape = mem.shape
-    collapsed_size = [x for x in size if x > 1]
-    if len(shape) == len(collapsed_size) + 1:
-        nchannels = shape[-1]
-    else:
-        assert len(shape) == len(collapsed_size)
-        nchannels = 1
-    assert 1 <= nchannels <= 4
-    if format in ("d", "float64"):
-        raise TypeError("GPU's don't support float64 texture formats.")
-    elif format not in FORMAT_MAP:
-        raise TypeError(
-            f"Cannot convert {format!r} to texture format. Maybe specify format?"
-        )
-    format = f"{nchannels}x" + FORMAT_MAP[format]
-    return format.lstrip("1x")

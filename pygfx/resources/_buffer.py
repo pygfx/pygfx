@@ -1,10 +1,10 @@
 import numpy as np
 
-from ._base import Resource, STRUCT_FORMAT_ALIASES, FORMAT_MAP
+from ._base import Resource, get_item_format_from_memoryview
 
 
 class Buffer(Resource):
-    """A contigous piece of GPU memory.
+    """A contiguous piece of GPU memory.
 
     Buffers can be used as index buffer, vertex buffer, uniform buffer, or
     storage buffer. You can provide (and update data for it), or use it as a
@@ -15,7 +15,7 @@ class Buffer(Resource):
     data : array
         The initial data of the array data. It must support the buffer-protocol,
         (e.g. a bytes or numpy array). If None, nbytes and nitems must be
-        provided. The data is copied if it's not float32 or not contiguous.
+        provided.
     nbytes : int
         The size of the buffer in bytes. Ignored if ``data`` is used.
     nitems : int
@@ -25,7 +25,6 @@ class Buffer(Resource):
         buffer. If None, this is automatically set from the data. This must be a
         pygfx format specifier, e.g. "3xf4", but can also be a format specific
         to the render backend if necessary (e.g. from ``wgpu.VertexFormat``).
-
     """
 
     def __init__(
@@ -42,6 +41,7 @@ class Buffer(Resource):
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
+        self._subformat = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
@@ -50,16 +50,14 @@ class Buffer(Resource):
 
         # Get nbytes
         if data is not None:
-            mem = memoryview(data)
-            if mem.format == "d":
-                raise ValueError("Float64 data is not supported, use float32 instead.")
-            # if not mem.contiguous or mem.format == "d":
-            #     format = "f" if mmemformat == "d" else mem.format
-            #     x = np.empty(mem.shape, format)
-            #     x[:] = mem
-            #     mem = memoryview(x)
             self._data = data
-            self._mem = mem
+            self._mem = mem = memoryview(data)
+            subformat = get_item_format_from_memoryview(mem)
+            if subformat:
+                shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
+                if len(shape) != 2:
+                    raise ValueError("Data is expected to be columnar (1D or NxM).")
+                self._format = (f"{shape[-1]}x" + subformat).lstrip("1x")
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
             if the_nitems:
@@ -76,9 +74,11 @@ class Buffer(Resource):
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
+        if format is not None:
+            self._format = str(format)
+
         self._store.nbytes = the_nbytes
         self._store.nitems = the_nitems
-        self._store.format = format
 
         self.draw_range = 0, the_nitems
 
@@ -129,18 +129,13 @@ class Buffer(Resource):
 
     @property
     def format(self):
-        """The vertex format. Usually a pygfx format specifier (e.g. u2
-        for scalar uint16, or 3xf4 for 3xfloat32), but can also be a
-        overriden to a backend-specific format.
+        """The buffer format.
+
+        Usually a pygfx format specifier (e.g. u2 for scalar uint16,
+        or 3xf4 for 3xfloat32), but can also be a overriden to a
+        backend-specific format. Can also be None e.g. for uniform buffers.
         """
-        format = self._store.format
-        if format is not None:
-            return format
-        elif self.data is not None:
-            self._store["format"] = format_from_memoryview(self.mem)
-            return self._store.format
-        else:
-            raise ValueError("Buffer has no data nor format.")
+        return self._format
 
     @property
     def vertex_byte_range(self):
@@ -221,20 +216,3 @@ class Buffer(Resource):
         # Slice it
         sub_arr = arr[offset : offset + size]
         return memoryview(np.ascontiguousarray(sub_arr))
-
-
-def format_from_memoryview(mem):
-    shape = mem.shape
-    if len(shape) == 1:
-        shape = shape + (1,)
-    assert len(shape) == 2
-    format = str(mem.format)
-    format = STRUCT_FORMAT_ALIASES.get(format, format)
-    if format in ("d", "float64"):
-        raise ValueError("64-bit float is not supported, use 32-bit float instead")
-    elif format not in FORMAT_MAP:
-        raise TypeError(
-            f"Cannot convert {format!r} to vertex format. Maybe specify format?"
-        )
-    format = f"{shape[-1]}x" + FORMAT_MAP[format]
-    return format.lstrip("1x")
