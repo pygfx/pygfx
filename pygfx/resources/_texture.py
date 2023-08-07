@@ -54,6 +54,7 @@ class Texture(Resource):
         self._store.dim = int(dim)
         # The actual data (optional)
         self._data = None
+        self._format = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
@@ -71,10 +72,12 @@ class Texture(Resource):
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
+            self._store.nbytes = mem.nbytes
+            self._store.size = self._size_from_data(mem, dim, size)
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
                 shape = mem.shape
-                collapsed_size = [x for x in size if x > 1]
+                collapsed_size = [x for x in self.size if x > 1]
                 if len(shape) == len(collapsed_size) + 1:
                     nchannels = shape[-1]
                 else:
@@ -82,8 +85,6 @@ class Texture(Resource):
                     nchannels = 1
                 assert 1 <= nchannels <= 4
                 self._format = (f"{nchannels}x" + subformat).lstrip("1x")
-            self._store.nbytes = mem.nbytes
-            self._store.size = self._size_from_data(mem, dim, size)
             self.update_range((0, 0, 0), self.size)
         elif size is not None and format is not None:
             self._store.size = size

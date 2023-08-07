@@ -41,6 +41,7 @@ class Buffer(Resource):
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
+        self._format = None
         self._subformat = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
@@ -55,9 +56,8 @@ class Buffer(Resource):
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
-                if len(shape) != 2:
-                    raise ValueError("Data is expected to be columnar (1D or NxM).")
-                self._format = (f"{shape[-1]}x" + subformat).lstrip("1x")
+                if len(shape) == 2:  # if not, the user does something fancy
+                    self._format = (f"{shape[-1]}x" + subformat).lstrip("1x")
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
             if the_nitems:
@@ -121,11 +121,11 @@ class Buffer(Resource):
             # This generic solution fails when nitems is zero
             return self._store.nbytes // self._store.nitems
         else:
-            shape = self._data.shape
+            shape = self._mem.shape
             if shape:
                 shape = shape[1:]
             factor = int(np.prod(shape)) or 1
-            return factor * self._data.itemsize
+            return factor * self._mem.itemsize
 
     @property
     def format(self):
