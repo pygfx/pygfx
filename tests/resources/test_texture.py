@@ -14,6 +14,10 @@ def test_different_data_types():
     b = gfx.Texture(a, dim=2)
     assert b.format == "i2"
 
+    # Lists not supported
+    with pytest.raises(TypeError):
+        gfx.Texture([1, 2, 3, 4, 5], dim=1)
+
 
 def test_unsupported_dtypes():
     a = np.zeros((10, 10), np.float64)

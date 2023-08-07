@@ -40,6 +40,11 @@ class Geometry(Trackable):
             if isinstance(val, Resource):
                 resource = val
             else:
+                # Convert literal arrays to numpy arrays (buffers and textures require memoryview compatible data).
+                if isinstance(val, list):
+                    dtype = "int32" if name == "indices" else "float32"
+                    val = np.array(val, dtype=dtype)
+                # Create texture or buffer
                 if name == "grid":
                     dim = val.ndim
                     if dim > 2 and val.shape[-1] <= 4:

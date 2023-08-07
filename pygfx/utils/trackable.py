@@ -287,7 +287,7 @@ class Root:
                 for label in labels:
                     self._track_store(new_value._store, label)
             # If this was and is a trackable, we only process labels starting with "!"
-            if is_trackable == 3 and type(old_value) == type(new_value):
+            if is_trackable == 3 and type(old_value) == type(new_value):  # noqa
                 labels = set(label for label in labels if label.startswith("!"))
 
             # Follow the hierarchy

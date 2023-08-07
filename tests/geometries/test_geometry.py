@@ -22,6 +22,18 @@ def test_different_data_types():
     assert g.foo.format == "u1"
     assert g.foo.data is a
 
+    # Lists
+    a = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    g = gfx.Geometry(indices=a)
+    assert g.indices.format == "3xi4"  # <-- indices must be int
+    assert isinstance(g.indices.data, np.ndarray)
+    g = gfx.Geometry(positions=a)
+    assert g.positions.format == "3xf4"  # <-- positions are usually f32
+    assert isinstance(g.positions.data, np.ndarray)
+    g = gfx.Geometry(foo=a)
+    assert g.foo.format == "3xf4"  # <-- assumed that f32 is best
+    assert isinstance(g.foo.data, np.ndarray)
+
 
 def test_check_positions():
     # ok

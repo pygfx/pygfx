@@ -54,6 +54,10 @@ def test_different_data_types():
     assert b.nitems == 16
     assert b.itemsize == 1
 
+    # Lists not supported
+    with pytest.raises(TypeError):
+        gfx.Buffer([1, 2, 3, 4, 5])
+
 
 def test_unsupported_dtypes():
     a = np.zeros((10, 3), np.float64)
