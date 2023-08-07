@@ -57,6 +57,14 @@ def test_supported_shapes():
         t = gfx.Texture(a, dim=3)
         assert t.size == (10, 10, 10)
 
+    # Stack of 1D images
+    a = np.zeros((10, 10), np.float32)
+    t = gfx.Texture(a, dim=1, size=(10, 10, 1))
+
+    # Stack of 2D images
+    a = np.zeros((10, 10, 10), np.float32)
+    t = gfx.Texture(a, dim=2, size=(10, 10, 10))
+
 
 def test_unsupported_shapes():
     # Always fail on empty array
