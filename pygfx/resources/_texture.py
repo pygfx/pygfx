@@ -14,7 +14,7 @@ class Texture(Resource):
         data : array, optional
             Array data of any type that supports the buffer-protocol, (e.g. a
             bytes or numpy array). If None, nbytes and nitems must be provided.
-            Can be any dtype except float64.
+            The dtype must be compatible with the rendering backend.
         dim : int
             The dimensionality of the array (1, 2 or 3).
         size : tuple, [3]

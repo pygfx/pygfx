@@ -42,7 +42,6 @@ class Buffer(Resource):
         # The actual data (optional)
         self._data = None
         self._format = None
-        self._subformat = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
