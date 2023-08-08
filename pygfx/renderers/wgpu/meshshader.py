@@ -133,7 +133,7 @@ class MeshShader(WorldObjectShader):
 
         # set lightmap configs
         if getattr(material, "light_map", None):
-            if self.get("use_texcoords1", None) is None:
+            if "use_texcoords1" not in self.kwargs:
                 warnings.warn(
                     "Light map requires a second set of texture coordinates (geometry.texcoords1), but none were found, so it will be ignored."
                 )

@@ -1,10 +1,9 @@
 """
-PBR Rendering 1
+Lightmap
 ===============
 
 
-This example shows a complete PBR rendering effect.
-The cubemap of skybox is also the environment cubemap of the helmet.
+This example demonstrates the lightmap effects for MeshBasicMaterial, MeshPhongMaterial, and MeshStandardMaterial.
 """
 
 ################################################################################
@@ -65,11 +64,11 @@ text_camera = gfx.OrthographicCamera(12, 4)
 
 def create_scene(material, x_pos):
     scene = gfx.Scene()
-    for m in meshes:
-        m.geometry.texcoords1 = texcoords1
-        material.light_map = light_map_tex
-        mesh = gfx.Mesh(m.geometry, material)
-        scene.add(mesh)
+    m = meshes[0]
+    m.geometry.texcoords1 = texcoords1
+    material.light_map = light_map_tex
+    mesh = gfx.Mesh(m.geometry, material)
+    scene.add(mesh)
 
     t = gfx.Text(
         gfx.TextGeometry(material.__class__.__name__, screen_space=True, font_size=20),
