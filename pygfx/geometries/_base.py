@@ -40,13 +40,11 @@ class Geometry(Trackable):
             if isinstance(val, Resource):
                 resource = val
             else:
-                if not isinstance(val, np.ndarray):
-                    dtype = np.uint32 if name == "indices" else np.float32
-                    val = np.asanyarray(val, dtype=dtype)
-                if val.dtype == np.float64:
-                    raise ValueError(
-                        "64-bit float is not supported, use 32-bit floats instead"
-                    )
+                # Convert literal arrays to numpy arrays (buffers and textures require memoryview compatible data).
+                if isinstance(val, list):
+                    dtype = "int32" if name == "indices" else "float32"
+                    val = np.array(val, dtype=dtype)
+                # Create texture or buffer
                 if name == "grid":
                     dim = val.ndim
                     if dim > 2 and val.shape[-1] <= 4:
@@ -59,7 +57,10 @@ class Geometry(Trackable):
             if isinstance(resource, Buffer):
                 format = resource.format
                 if name == "indices":
-                    pass  # No assumptions about shape; they're considered flat anyway
+                    # Make no assumptions about shape. Shader will need to validate.
+                    # For meshes will be Nx3 or Nx4, but other dtypes may support
+                    # multidimensional stuff for fancy graphics.
+                    pass
                 elif name == "positions":
                     if not format.startswith("3x"):
                         raise ValueError("Expected Nx3 data for positions")
