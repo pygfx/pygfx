@@ -74,13 +74,17 @@ class MeshShader(WorldObjectShader):
             normal_buffer = geometry.normals
         else:
             if geometry.indices.data.shape[-1] == 4:
-                n1 = normals_from_vertices(geometry.positions.data, geometry.indices.data[..., :3])
+                n1 = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data[..., :3]
+                )
                 n2 = normals_from_vertices(
                     geometry.positions.data, geometry.indices.data[..., [0, 2, 3]]
                 )
                 normal_data = (n1 + n2) / 2
             else:
-                normal_data = normals_from_vertices(geometry.positions.data, geometry.indices.data)
+                normal_data = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data
+                )
             normal_buffer = Buffer(normal_data)
 
         # Init bindings
@@ -98,7 +102,9 @@ class MeshShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         if self["color_mode"] == "face":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
-            bindings.append(Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX"))
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
         if self["color_mode"] == "map":
             bindings.extend(
                 self.define_vertex_colormap(
@@ -113,16 +119,22 @@ class MeshShader(WorldObjectShader):
                 material.env_map, 6
             )  # TODO: envmap not only cube, but also equirect (hdr format)
             view = GfxTextureView(material.env_map, view_dim="cube")
-            bindings.append(Binding("s_env_map", "sampler/filtering", sampler, "FRAGMENT"))
+            bindings.append(
+                Binding("s_env_map", "sampler/filtering", sampler, "FRAGMENT")
+            )
             bindings.append(Binding("t_env_map", "texture/auto", view, "FRAGMENT"))
 
             if isinstance(material, MeshStandardMaterial):
                 self["use_IBL"] = True
             elif isinstance(material, MeshBasicMaterial):
                 self["use_env_map"] = True
-                self["env_combine_mode"] = getattr(material, "env_combine_mode", "MULTIPLY")
+                self["env_combine_mode"] = getattr(
+                    material, "env_combine_mode", "MULTIPLY"
+                )
 
-            self["env_mapping_mode"] = getattr(material, "env_mapping_mode", "CUBE-REFLECTION")
+            self["env_mapping_mode"] = getattr(
+                material, "env_mapping_mode", "CUBE-REFLECTION"
+            )
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
@@ -131,7 +143,9 @@ class MeshShader(WorldObjectShader):
         # Instanced meshes have an extra storage buffer that we add manually
         bindings1 = {}  # non-auto-generated bindings
         if self["instanced"]:
-            bindings1[0] = Binding("s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX")
+            bindings1[0] = Binding(
+                "s_instance_infos", rbuffer, wobject.instance_buffer, "VERTEX"
+            )
 
         return {
             0: bindings,
@@ -258,7 +272,7 @@ class MeshShader(WorldObjectShader):
             let face_index = index / {{indexer}};
             var sub_index = index % {{indexer}};
             var face_sub_index = 0;
-            
+
             // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
             $$ if indexer == 6
                 var quad_map = array<i32,6>(0, 1, 2, 0, 2, 3);
@@ -304,7 +318,7 @@ class MeshShader(WorldObjectShader):
             // Set position
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
-            
+
             // per face colors
             $$ if color_mode == 'face'
                 let face_color_index = i32(load_s_texcoords(face_index));
@@ -380,7 +394,7 @@ class MeshShader(WorldObjectShader):
                     let dist2_34 = dist_pt_line(p3.x,p3.y,p4.x,p4.y,p2.x,p2.y);
                     //dist of vertex 2 to segment 14
                     let dist2_14 = dist_pt_line(p1.x,p1.y,p4.x,p4.y,p2.x,p2.y);
-                    
+
                     //dist of vertex 3 to segment 12
                     let dist3_12 = dist_pt_line(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
                     //dist of vertex 3 to segment 14
@@ -390,18 +404,18 @@ class MeshShader(WorldObjectShader):
                     let dist4_12 = dist_pt_line(p2.x,p2.y,p1.x,p1.y,p4.x,p4.y);
                     //dist of vertex 4 to segment 23
                     let dist4_23 = dist_pt_line(p2.x,p2.y,p3.x,p3.y,p4.x,p4.y);
-                    
+
                     //segments 12 23 34 41
                     var arr_wireframe_coords = array<vec4<f32>, 4>(
-                        vec4<f32>( 0.0, dist1_23,dist1_34, 0.0), 
-                        vec4<f32>(0.0, 0.0, dist2_34, dist2_14), 
-                        vec4<f32>( dist3_12 ,0.0, 0.0, dist3_14), 
+                        vec4<f32>( 0.0, dist1_23,dist1_34, 0.0),
+                        vec4<f32>(0.0, 0.0, dist2_34, dist2_14),
+                        vec4<f32>( dist3_12 ,0.0, 0.0, dist3_14),
                         vec4<f32>( dist4_12,dist4_23, 0.0, 0.0)
                         );
                     varyings.wireframe_coords = vec4<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
                 $$ endif
             $$ endif
-            
+
             // Set varyings for picking. We store the face_index, and 3 weights
             // that indicate how close the fragment is to each vertex (barycentric
             // coordinates). This allows the selection of the nearest vertex or edge.
@@ -419,7 +433,7 @@ class MeshShader(WorldObjectShader):
                                                       vec3<f32>(0.0, 0.0, 1.0),
                                                       );
             varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
-            
+
             return varyings;
         }
 
@@ -604,7 +618,10 @@ class MeshStandardShader(MeshShader):
         # We need uv to use the maps, so if uv not exist, ignore all maps
         if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
             # Texcoords must always be nx2 since it used for all texture maps.
-            if not (geometry.texcoords.data.ndim == 2 and geometry.texcoords.data.shape[1] == 2):
+            if not (
+                geometry.texcoords.data.ndim == 2
+                and geometry.texcoords.data.shape[1] == 2
+            ):
                 raise ValueError("For standard material, the texcoords must be Nx2")
 
             if material.normal_map is not None:

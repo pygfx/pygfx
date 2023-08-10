@@ -148,7 +148,7 @@ class Mesh(WorldObject):
         The position of the object in the world. Default (0, 0, 0).
 
     """
-    
+
     def _wgpu_get_pick_info(self, pick_value):
         values = unpack_bitfield(
             pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
@@ -159,7 +159,10 @@ class Mesh(WorldObject):
             values["coord2"] / 64,
             values["coord3"] / 64,
         ]
-        if self.geometry.indices.data is not None and self.geometry.indices.data.shape[-1] == 4:
+        if (
+            self.geometry.indices.data is not None
+            and self.geometry.indices.data.shape[-1] == 4
+        ):
             triangle_index = face_index % 2
             if triangle_index == 0:
                 face_coord.append(0.0)  # 0, 1, 2, << 3 >>
@@ -167,6 +170,7 @@ class Mesh(WorldObject):
                 face_coord.insert(1, 0.0)  # 0, << 1 >>, 2, 3
 
         return {"face_index": face_index, "face_coord": tuple(face_coord)}
+
 
 class Image(WorldObject):
     """A 2D image.
