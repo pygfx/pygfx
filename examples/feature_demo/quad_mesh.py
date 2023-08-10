@@ -1,9 +1,16 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri May  5 09:17:14 2023
+Mesh with quads
+===============
 
-@author: s.Shaji
+This example demonstrates the use of meshes with quad faces.
+Quad faces are used when geometry.indices array is Nx4 instead of Nx3.
+
+This example also demonstrates per-vertex and per-face coloring.
+
+Contributed by S. Shaji
 """
+# sphinx_gallery_pygfx_render = True
+
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -45,7 +52,7 @@ patches = gfx.Mesh(
         colors=colors,
         texcoords=np.arange(len(indices), dtype=np.float32),
     ),
-    gfx.MeshBasicMaterial(wireframe=True),
+    gfx.MeshBasicMaterial(wireframe=True, wireframe_thickness=3),
 )
 
 
