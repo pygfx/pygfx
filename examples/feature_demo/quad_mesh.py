@@ -19,7 +19,7 @@ def generateSampleQuads(cols=9):
     idx = np.dstack((n1[:-1], n2, n1[:-1], n3, n1[1:],
                     n3, n1[1:], n2)).reshape(-1, 2)
     indices = (idx[:, 0] + idx[:, 1]*cols).reshape(-1, 4)
-    return pos, indices
+    return pos, indices.astype(np.int32)
 
 
 canvas = WgpuCanvas(title = "Mesh Object with quads. Press 1,2 or 3 for wireframe, per vertex coloring or per face coloring")
@@ -42,7 +42,7 @@ patches = gfx.Mesh(
     gfx.Geometry(indices=indices,
                  positions=pos,
                  colors=colors,
-                 texcoords=np.arange(len(indices))),
+                 texcoords=np.arange(len(indices), dtype=np.float32)),
     gfx.MeshBasicMaterial(wireframe=True)
 )
 
