@@ -290,7 +290,12 @@ class MeshShader(WorldObjectShader):
             // set with the public API and we assume that it does not include a flip.
             let winding_world = get_sign_of_det_of_4x4(world_transform);
             let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
-            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
+            let must_flip_sub_index = winding_world * winding_cam < 0.0;
+            // If necessary, and the sub_index is even, e.g. 0 or 2, we flip it to the other.
+            // Flipping 0 and 2, because they are present in both triangles of a quad.
+            if (must_flip_sub_index && sub_index % 2 == 0) {
+                sub_index = select(0, 2, sub_index == 0);
+            }
 
             // Sample
             let ii = load_s_indices(face_index);
@@ -426,11 +431,16 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             varyings.pick_id = u32(pick_id);
-            varyings.pick_idx = u32(face_index*2 + face_sub_index);
+            $$ if indexer == 3
+            varyings.pick_idx = u32(face_index);
+            $$ else
+            varyings.pick_idx = u32(face_index * 2 + face_sub_index);
+            $$ endif
 
-            var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0),
+            var arr_pick_coords = array<vec3<f32>, 4>(vec3<f32>(1.0, 0.0, 0.0),
                                                       vec3<f32>(0.0, 1.0, 0.0),
                                                       vec3<f32>(0.0, 0.0, 1.0),
+                                                      vec3<f32>(0.0, 1.0, 0.0),  // the 2nd triangle in a quad
                                                       );
             varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
 
