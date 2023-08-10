@@ -98,7 +98,7 @@ class MeshAbstractMaterial(Material):
 
     @property
     def face_colors(self):
-        """Whether to use the vertex colors provided in the geometry."""
+        """Whether to use the face colors provided in the geometry."""
         return self._store.face_colors
 
     @face_colors.setter
