@@ -1,7 +1,7 @@
 import math
 from ._base import Material
 from ..resources import Texture
-from ..utils import unpack_bitfield, logger
+from ..utils import logger
 from ..utils.color import Color
 
 
@@ -53,6 +53,7 @@ class MeshAbstractMaterial(Material):
         self,
         color="#fff",
         vertex_colors=False,
+        face_colors=False,
         map=None,
         map_interpolation="linear",
         side="BOTH",
@@ -62,23 +63,10 @@ class MeshAbstractMaterial(Material):
 
         self.color = color
         self.vertex_colors = bool(vertex_colors)
+        self.face_colors = bool(face_colors)
         self.map = map
         self.map_interpolation = map_interpolation
         self.side = side
-
-    def _wgpu_get_pick_info(self, pick_value):
-        # This should match with the shader
-        values = unpack_bitfield(
-            pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
-        )
-        return {
-            "face_index": values["index"],
-            "face_coord": (
-                values["coord1"] / 64,
-                values["coord2"] / 64,
-                values["coord3"] / 64,
-            ),
-        }
 
     @property
     def color(self):
@@ -107,6 +95,15 @@ class MeshAbstractMaterial(Material):
     @vertex_colors.setter
     def vertex_colors(self, value):
         self._store.vertex_colors = bool(value)
+
+    @property
+    def face_colors(self):
+        """Whether to use the face colors provided in the geometry."""
+        return self._store.face_colors
+
+    @face_colors.setter
+    def face_colors(self, value):
+        self._store.face_colors = bool(value)
 
     @property
     def map(self):

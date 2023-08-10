@@ -49,6 +49,11 @@ class MeshShader(WorldObjectShader):
             self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif material.face_colors:
+            self["color_mode"] = "face"
+            self["face_color_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif material.map is not None:
             self["color_mode"] = "map"
             self["vertex_color_channels"] = 0
@@ -68,9 +73,18 @@ class MeshShader(WorldObjectShader):
         if getattr(geometry, "normals", None) is not None:
             normal_buffer = geometry.normals
         else:
-            normal_data = normals_from_vertices(
-                geometry.positions.data, geometry.indices.data
-            )
+            if geometry.indices.data.shape[-1] == 4:
+                n1 = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data[..., :3]
+                )
+                n2 = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data[..., [0, 2, 3]]
+                )
+                normal_data = (n1 + n2) / 2
+            else:
+                normal_data = normals_from_vertices(
+                    geometry.positions.data, geometry.indices.data
+                )
             normal_buffer = Buffer(normal_data)
 
         # Init bindings
@@ -86,6 +100,11 @@ class MeshShader(WorldObjectShader):
 
         if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
+        if self["color_mode"] == "face":
+            bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
         if self["color_mode"] == "map":
             bindings.extend(
                 self.define_vertex_colormap(
@@ -154,8 +173,14 @@ class MeshShader(WorldObjectShader):
         geometry = wobject.geometry
         material = wobject.material
 
-        offset, size = geometry.indices.draw_range
-        offset, size = 3 * offset, 3 * size
+        if geometry.indices.data is not None and geometry.indices.data.shape[-1] == 4:
+            self["indexer"] = 6
+            offset, size = geometry.indices.draw_range
+            offset, size = 6 * offset, 6 * size
+        else:
+            self["indexer"] = 3
+            offset, size = geometry.indices.draw_range
+            offset, size = 3 * offset, 3 * size
 
         n_instances = 1
         if self["instanced"]:
@@ -168,6 +193,9 @@ class MeshShader(WorldObjectShader):
                 render_mask = RenderMask.transparent
             elif self["color_mode"] == "vertex":
                 if self["vertex_color_channels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "face":
+                if self["face_color_channels"] in (1, 3):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] == "map":
                 if self["colormap_nchannels"] in (1, 3):
@@ -218,9 +246,14 @@ class MeshShader(WorldObjectShader):
         fn get_sign_of_det_of_4x4(m: mat4x4<f32>) -> f32 {
             // We know/assume that the matrix is a homogeneous matrix,
             // so that only the 3x3 region is relevant for the determinant,
-            // which is faster to calculate that the det of the 4x4.
+            // which is faster to calculate than the det of the 4x4.
             let m3 = mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
             return sign(determinant(m3));
+        }
+
+        fn dist_pt_line(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) -> f32 {
+         // Distance of pt (x3,y3) to line with coords(x1,y1) (x2,y2)
+         return abs((x2 - x1) * (y1 - y3) - (x1 - x3) * (y2 - y1)) / sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
         }
 
         @vertex
@@ -236,8 +269,18 @@ class MeshShader(WorldObjectShader):
 
             // Select what face we're at
             let index = i32(in.vertex_index);
-            let face_index = index / 3;
-            var sub_index = index % 3;
+            let face_index = index / {{indexer}};
+            var sub_index = index % {{indexer}};
+            var face_sub_index = 0;
+
+            // for quads assuming the vertices are oriented, the triangles are 0 1 2 and 0 2 3
+            $$ if indexer == 6
+                var quad_map = array<i32,6>(0, 1, 2, 0, 2, 3);
+                //face_sub_index returns 0 or 1 in picking for quads. So the triangle of the quad can be identified.
+                var face_map = array<i32,6>(0, 0, 0, 1, 1, 1);
+                face_sub_index = face_map[sub_index];
+                sub_index = quad_map[sub_index];
+            $$ endif
 
             // If a transform has an uneven number of negative scales, the 3 vertices
             // that make up the face are such that the GPU will mix up front and back
@@ -247,7 +290,12 @@ class MeshShader(WorldObjectShader):
             // set with the public API and we assume that it does not include a flip.
             let winding_world = get_sign_of_det_of_4x4(world_transform);
             let winding_cam = get_sign_of_det_of_4x4(u_stdinfo.cam_transform);
-            sub_index = select(sub_index, -1 * (sub_index - 1) + 1, winding_world * winding_cam < 0.0);
+            let must_flip_sub_index = winding_world * winding_cam < 0.0;
+            // If necessary, and the sub_index is even, e.g. 0 or 2, we flip it to the other.
+            // Flipping 0 and 2, because they are present in both triangles of a quad.
+            if (must_flip_sub_index && sub_index % 2 == 0) {
+                sub_index = select(0, 2, sub_index == 0);
+            }
 
             // Sample
             let ii = load_s_indices(face_index);
@@ -260,7 +308,7 @@ class MeshShader(WorldObjectShader):
 
             // For the wireframe we also need the ndc_pos of the other vertices of this face
             $$ if wireframe
-                $$ for i in (1, 2, 3)
+                $$ for i in ((1, 2, 3) if indexer == 3 else (1, 2, 3, 4))
                     let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
                     let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
                     let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
@@ -276,17 +324,33 @@ class MeshShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
             varyings.position = vec4<f32>(ndc_pos.xyz, ndc_pos.w);
 
-            // Per-vertex colors
-            $$ if vertex_color_channels == 1
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-            $$ elif vertex_color_channels == 2
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-            $$ elif vertex_color_channels == 3
-            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
-            $$ elif vertex_color_channels == 4
-            varyings.color = vec4<f32>(load_s_colors(i0));
+            // per face colors
+            $$ if color_mode == 'face'
+                let face_color_index = i32(load_s_texcoords(face_index));
+                $$ if face_color_channels == 1
+                let cvalue = load_s_colors(face_color_index);
+                varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif face_color_channels == 2
+                let cvalue = load_s_colors(face_color_index)
+                varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif face_color_channels == 3
+                varyings.color = vec4<f32>(load_s_colors(face_color_index), 1.0);
+                $$ elif face_color_channels == 4
+                varyings.color = vec4<f32>(load_s_colors(face_color_index));
+                $$ endif
+            $$ else
+                // Per-vertex colors
+                $$ if vertex_color_channels == 1
+                let cvalue = load_s_colors(i0);
+                varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif vertex_color_channels == 2
+                let cvalue = load_s_colors(i0);
+                varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif vertex_color_channels == 3
+                varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
+                $$ elif vertex_color_channels == 4
+                varyings.color = vec4<f32>(load_s_colors(i0));
+                $$ endif
             $$ endif
 
             // Set texture coords
@@ -311,16 +375,50 @@ class MeshShader(WorldObjectShader):
 
             // Set wireframe barycentric-like coordinates
             $$ if wireframe
-                $$ for i in (1, 2, 3)
-                    let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
-                $$ endfor
-                let dist1 = abs((p3.x - p2.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p2.y)) / distance(p2, p3);
-                let dist2 = abs((p3.x - p1.x) * (p1.y - p2.y) - (p1.x - p2.x) * (p3.y - p1.y)) / distance(p1, p3);
-                let dist3 = abs((p1.x - p2.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p2.y)) / distance(p2, p1);
-                var arr_wireframe_coords = array<vec3<f32>, 3>(
-                    vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
-                );
-                varyings.wireframe_coords = vec3<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
+                $$ if indexer == 3
+                    $$ for i in (1, 2, 3)
+                        let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
+                    $$ endfor
+                    let dist1 = dist_pt_line(p2.x,p2.y,p3.x,p3.y,p1.x,p1.y);
+                    let dist2 = dist_pt_line(p1.x,p1.y,p3.x,p3.y,p2.x,p2.y);
+                    let dist3 = dist_pt_line(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
+                    var arr_wireframe_coords = array<vec3<f32>, 3>(
+                        vec3<f32>(dist1, 0.0, 0.0), vec3<f32>(0.0, dist2, 0.0), vec3<f32>(0.0, 0.0, dist3)
+                    );
+                    varyings.wireframe_coords = vec3<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
+                $$ elif indexer == 6
+                    $$ for i in (1, 2, 3, 4)
+                        let p{{ i }} = (ndc_pos{{ i }}.xy / ndc_pos{{ i }}.w) * u_stdinfo.logical_size * 0.5;
+                    $$ endfor
+                    //dist of vertex 1 to segment 23
+                    let dist1_23 = dist_pt_line(p2.x,p2.y,p3.x,p3.y,p1.x,p1.y);
+                    //dist of vertex 1 to segment 34
+                    let dist1_34 = dist_pt_line(p3.x,p3.y,p4.x,p4.y,p1.x,p1.y);
+
+                    //dist of vertex 2 to segment 34
+                    let dist2_34 = dist_pt_line(p3.x,p3.y,p4.x,p4.y,p2.x,p2.y);
+                    //dist of vertex 2 to segment 14
+                    let dist2_14 = dist_pt_line(p1.x,p1.y,p4.x,p4.y,p2.x,p2.y);
+
+                    //dist of vertex 3 to segment 12
+                    let dist3_12 = dist_pt_line(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
+                    //dist of vertex 3 to segment 14
+                    let dist3_14 = dist_pt_line(p1.x,p1.y,p4.x,p4.y,p3.x,p3.y);
+
+                    //dist of vertex 4 to segment 12
+                    let dist4_12 = dist_pt_line(p2.x,p2.y,p1.x,p1.y,p4.x,p4.y);
+                    //dist of vertex 4 to segment 23
+                    let dist4_23 = dist_pt_line(p2.x,p2.y,p3.x,p3.y,p4.x,p4.y);
+
+                    //segments 12 23 34 41
+                    var arr_wireframe_coords = array<vec4<f32>, 4>(
+                        vec4<f32>( 0.0, dist1_23,dist1_34, 0.0),
+                        vec4<f32>(0.0, 0.0, dist2_34, dist2_14),
+                        vec4<f32>( dist3_12 ,0.0, 0.0, dist3_14),
+                        vec4<f32>( dist4_12,dist4_23, 0.0, 0.0)
+                        );
+                    varyings.wireframe_coords = vec4<f32>(arr_wireframe_coords[sub_index]);  // in logical pixels
+                $$ endif
             $$ endif
 
             // Set varyings for picking. We store the face_index, and 3 weights
@@ -333,8 +431,17 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             varyings.pick_id = u32(pick_id);
+            $$ if indexer == 3
             varyings.pick_idx = u32(face_index);
-            var arr_pick_coords = array<vec3<f32>, 3>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
+            $$ else
+            varyings.pick_idx = u32(face_index * 2 + face_sub_index);
+            $$ endif
+
+            var arr_pick_coords = array<vec3<f32>, 4>(vec3<f32>(1.0, 0.0, 0.0),
+                                                      vec3<f32>(0.0, 1.0, 0.0),
+                                                      vec3<f32>(0.0, 0.0, 1.0),
+                                                      vec3<f32>(0.0, 1.0, 0.0),  // the 2nd triangle in a quad
+                                                      );
             varyings.pick_coords = vec3<f32>(arr_pick_coords[sub_index]);
 
             return varyings;
@@ -363,6 +470,9 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             $$ if color_mode == 'vertex'
+                let color_value = varyings.color;
+                let albeido = color_value.rgb;
+            $$ elif color_mode == 'face'
                 let color_value = varyings.color;
                 let albeido = color_value.rgb;
             $$ elif color_mode == 'map'
@@ -430,7 +540,11 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             $$ if wireframe
+                $$ if indexer == 3
                 let distance_from_edge = min(varyings.wireframe_coords.x, min(varyings.wireframe_coords.y, varyings.wireframe_coords.z));
+                $$ else
+                let distance_from_edge = min(varyings.wireframe_coords.x, min(varyings.wireframe_coords.y, min(varyings.wireframe_coords.z, varyings.wireframe_coords.a)));
+                $$ endif
                 if (distance_from_edge > 0.5 * u_material.wireframe) {
                     discard;
                 }
