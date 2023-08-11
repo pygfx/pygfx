@@ -5,7 +5,6 @@ little boilerplate as possible.
 
 import sys
 import numpy as np
-import warnings
 
 from ..objects import (
     Background,
@@ -16,6 +15,7 @@ from ..objects import (
     Light,
 )
 
+from ..utils import logger
 from ..cameras import Camera, PerspectiveCamera
 from ..controllers import OrbitController
 from ..materials import BackgroundMaterial
@@ -155,8 +155,8 @@ class Display:
         self.scene = scene
 
         if not any(scene.iter(lambda x: isinstance(x, Light))):
-            warnings.warn(
-                "Your scene does not contain any lights. Some objects may not be visible"
+            logger.warning(
+                "Your scene does not contain any lights. Some objects may not be visible."
             )
 
         # Process renderer
