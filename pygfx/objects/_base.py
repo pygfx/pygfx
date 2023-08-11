@@ -4,12 +4,11 @@ import threading
 import enum
 from typing import List
 import pylinalg as la
-import warnings
 
 import numpy as np
 
 from ..resources import Buffer
-from ..utils import array_from_shadertype
+from ..utils import array_from_shadertype, logger
 from ..utils.trackable import RootTrackable
 from ._events import EventTarget
 from ..utils.transform import (
@@ -200,18 +199,16 @@ class WorldObject(EventTarget, RootTrackable):
 
         """
 
-        warnings.warn(
+        logger.warning(
             "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
-            DeprecationWarning,
         )
 
         return self.world.reference_up
 
     @up.setter
     def up(self, value):
-        warnings.warn(
+        logger.warning(
             "`WorldObject.up` is deprecated. Use `WorldObject.world.reference_up` instead.",
-            DeprecationWarning,
         )
 
         self.world.reference_up = np.asarray(value)
@@ -389,9 +386,7 @@ class WorldObject(EventTarget, RootTrackable):
             try:
                 self.children.remove(obj)
             except ValueError:
-                warnings.warn(
-                    "Attempting to remove object that was not a child.", UserWarning
-                )
+                logger.warning("Attempting to remove object that was not a child.")
                 continue
             else:
                 obj._reset_parent(keep_world_matrix=keep_world_matrix)
