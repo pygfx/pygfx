@@ -149,6 +149,33 @@ class Mesh(WorldObject):
 
     """
 
+    def _wgpu_get_pick_info(self, pick_value):
+        values = unpack_bitfield(
+            pick_value, wobject_id=20, index=26, coord1=6, coord2=6, coord3=6
+        )
+        face_index = values["index"]
+        face_coord = [
+            values["coord1"] / 64,
+            values["coord2"] / 64,
+            values["coord3"] / 64,
+        ]
+        if (
+            self.geometry.indices.data is not None
+            and self.geometry.indices.data.shape[-1] == 4
+        ):
+            triangle_index = face_index % 2
+            face_index = face_index // 2
+            if triangle_index == 0:
+                # The sub indices are 0, 1, 2, so we just add the zero for index 3.
+                face_coord.append(0.0)
+            else:
+                # The sub indices are 0, 2, 3. The index 3 uses the
+                # face_coord slot of index 1, (see meshshader.py), so
+                # we put that at the end and put a zero in its place.
+                face_coord = face_coord[0], 0.0, face_coord[2], face_coord[1]
+
+        return {"face_index": face_index, "face_coord": tuple(face_coord)}
+
 
 class Image(WorldObject):
     """A 2D image.
