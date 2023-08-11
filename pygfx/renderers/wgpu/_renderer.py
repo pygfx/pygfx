@@ -5,7 +5,6 @@ manages the rendering process.
 
 import time
 import weakref
-import logging
 
 import numpy as np
 import wgpu.backends.rs
@@ -35,8 +34,6 @@ from ._environment import get_environment
 from ._shadowutil import render_shadow_maps
 from ._mipmapsutil import generate_texture_mipmaps
 from ._utils import GfxTextureView
-
-logger = logging.getLogger("pygfx")
 
 
 def _get_sort_function(camera: Camera):
