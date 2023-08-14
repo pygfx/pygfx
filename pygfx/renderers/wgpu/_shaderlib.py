@@ -532,7 +532,14 @@ class Shaderlib:
                     }
                 }
             $$ endif
-            let irradiance = getAmbientLightIrradiance( ambient_color );
+            var irradiance = getAmbientLightIrradiance( ambient_color );
+
+            // Light map (pre-baked lighting)
+            $$ if use_light_map is defined
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+            irradiance += light_map_color * u_material.light_map_intensity;
+            $$ endif
+
             reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
             return reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
         }
@@ -654,9 +661,9 @@ class Shaderlib:
             let ambient_color = u_ambient_light.color.rgb;  // the one exception that is already physical
             var irradiance = getAmbientLightIrradiance( ambient_color );
 
-            // Light map (pre-backed lighting)
+            // Light map (pre-baked lighting)
             $$ if use_light_map is defined
-            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord )).rgb );
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
             // Note that if we implement light map for MeshBasicMaterial, we must multiply the intensity with the reciprocal PI.
             $$ endif

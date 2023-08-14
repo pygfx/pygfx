@@ -190,6 +190,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         MeshAbstractMaterial.uniform_type,
         reflectivity="f4",
         refraction_ratio="f4",
+        light_map_intensity="f4",
     )
 
     def __init__(
@@ -213,6 +214,8 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         self.refraction_ratio = refraction_ratio
         self.env_combine_mode = env_combine_mode
         self.env_mapping_mode = env_mapping_mode
+        self.light_map = None
+        self.light_map_intensity = 1.0
 
     @property
     def env_map(self):
@@ -326,6 +329,32 @@ class MeshBasicMaterial(MeshAbstractMaterial):
             self._store.env_mapping_mode = value
         else:
             raise ValueError(f"Unexpected env_mapping_mode: '{value}'")
+
+    @property
+    def light_map(self):
+        """The light map to define pre-baked lighting (in srgb). Default is None.
+        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        return self._store.light_map
+
+    @light_map.setter
+    def light_map(self, map):
+        if map is not None and not isinstance(map, Texture):
+            raise ValueError(
+                f"light_map must be a Texture or None, received: {type(map)}"
+            )
+        self._store.light_map = map
+
+    @property
+    def light_map_intensity(self):
+        """Intensity of the baked light. Scaling occurs in the physical
+        color space. Default is 1.0.
+        """
+        return float(self.uniform_buffer.data["light_map_intensity"])
+
+    @light_map_intensity.setter
+    def light_map_intensity(self, value):
+        self.uniform_buffer.data["light_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
@@ -591,7 +620,6 @@ class MeshStandardMaterial(MeshBasicMaterial):
         roughness="f4",
         metalness="f4",
         normal_scale="2xf4",
-        light_map_intensity="f4",
         ao_map_intensity="f4",
         emissive_intensity="f4",
         env_map_intensity="f4",
@@ -751,28 +779,6 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def normal_map(self, map):
         assert map is None or isinstance(map, Texture)
         self._store.normal_map = map
-
-    @property
-    def light_map(self):
-        """The light map to define pre-baked lighting (in srgb). Default is None."""
-        return self._store.light_map
-
-    @light_map.setter
-    def light_map(self, map):
-        assert map is None or isinstance(map, Texture)
-        self._store.light_map = map
-
-    @property
-    def light_map_intensity(self):
-        """Intensity of the baked light. Scaling occurs in the physical
-        color space. Default is 1.0.
-        """
-        return float(self.uniform_buffer.data["light_map_intensity"])
-
-    @light_map_intensity.setter
-    def light_map_intensity(self, value):
-        self.uniform_buffer.data["light_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
 
     @property
     def ao_map(self):
