@@ -1,6 +1,6 @@
 """
 Lightmap
-===============
+========
 
 
 This example demonstrates the lightmap effects for MeshBasicMaterial, MeshPhongMaterial, and MeshStandardMaterial.
