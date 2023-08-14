@@ -338,7 +338,8 @@ class MeshBasicMaterial(MeshAbstractMaterial):
 
     @light_map.setter
     def light_map(self, map):
-        assert map is None or isinstance(map, Texture)
+        if map is not None and not isinstance(map, Texture):
+            raise ValueError(f"light_map must be a Texture or None, received: {type(map)}")
         self._store.light_map = map
 
     @property
