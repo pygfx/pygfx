@@ -661,7 +661,7 @@ class Shaderlib:
             let ambient_color = u_ambient_light.color.rgb;  // the one exception that is already physical
             var irradiance = getAmbientLightIrradiance( ambient_color );
 
-            // Light map (pre-backed lighting)
+            // Light map (pre-baked lighting)
             $$ if use_light_map is defined
             let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
             irradiance += light_map_color * u_material.light_map_intensity;
