@@ -100,8 +100,6 @@ def animate():
     renderer.flush()
 
 
-# canvas.request_draw(animate)
-
 if __name__ == "__main__":
     renderer.request_draw(animate)
     run()

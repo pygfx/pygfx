@@ -1,4 +1,3 @@
-import warnings
 import wgpu  # only for flags/enums
 
 from . import (
@@ -153,8 +152,8 @@ class MeshShader(WorldObjectShader):
         # set lightmap configs
         if getattr(material, "light_map", None):
             if "use_texcoords1" not in self.kwargs:
-                warnings.warn(
-                    "Light map requires a second set of texture coordinates (geometry.texcoords1), but none were found, so it will be ignored."
+                raise ValueError(
+                    "Light map requires a second set of texture coordinates (geometry.texcoords1), but it is not present."
                 )
             else:
                 self._check_texture(material.light_map)
