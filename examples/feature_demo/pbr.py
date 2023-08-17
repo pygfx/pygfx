@@ -62,6 +62,7 @@ gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 meshes = gfx.load_scene(gltf_path)
 scene.add(*meshes)
 m = meshes[0]  # this example has just one mesh
+m.geometry.texcoords1 = m.geometry.texcoords  # use second set of texcoords for ao map
 m.material.env_map = env_tex
 
 # Add extra light more or less where the sun seems to be in the skybox
