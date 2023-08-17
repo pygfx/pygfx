@@ -191,6 +191,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         reflectivity="f4",
         refraction_ratio="f4",
         light_map_intensity="f4",
+        ao_map_intensity="f4",
     )
 
     def __init__(
@@ -206,16 +207,22 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.env_map = env_map
+
         self.wireframe = wireframe
         self.wireframe_thickness = wireframe_thickness
         self.flat_shading = flat_shading
-        self.reflectivity = reflectivity
-        self.refraction_ratio = refraction_ratio
+
+        self.env_map = env_map
         self.env_combine_mode = env_combine_mode
         self.env_mapping_mode = env_mapping_mode
+        self.reflectivity = reflectivity
+        self.refraction_ratio = refraction_ratio
+
         self.light_map = None
         self.light_map_intensity = 1.0
+
+        self.ao_map = None
+        self.ao_map_intensity = 1.0
 
     @property
     def env_map(self):
@@ -354,6 +361,28 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @light_map_intensity.setter
     def light_map_intensity(self, value):
         self.uniform_buffer.data["light_map_intensity"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def ao_map(self):
+        """The red channel of this texture is used as the ambient occlusion map. Default is None.
+        It requires a second set of texture coordinates (geometry.texcoords1)."""
+        return self._store.ao_map
+
+    @ao_map.setter
+    def ao_map(self, map):
+        if map is not None and not isinstance(map, Texture):
+            raise ValueError(f"ao_map must be a Texture or None, received: {type(map)}")
+        self._store.ao_map = map
+
+    @property
+    def ao_map_intensity(self):
+        """Intensity of the ambient occlusion effect. Default is 1.0 Zero is no occlusion effect."""
+        return float(self.uniform_buffer.data["ao_map_intensity"])
+
+    @ao_map_intensity.setter
+    def ao_map_intensity(self, value):
+        self.uniform_buffer.data["ao_map_intensity"] = value
         self.uniform_buffer.update_range(0, 1)
 
 
@@ -620,7 +649,6 @@ class MeshStandardMaterial(MeshBasicMaterial):
         roughness="f4",
         metalness="f4",
         normal_scale="2xf4",
-        ao_map_intensity="f4",
         emissive_intensity="f4",
         env_map_intensity="f4",
         env_map_max_mip_level="f4",
@@ -641,19 +669,12 @@ class MeshStandardMaterial(MeshBasicMaterial):
         self.roughness_map = None
         self.metalness_map = None
 
-        self.light_map = None
-        self.light_map_intensity = 1.0
-
-        self.ao_map = None
-        self.ao_map_intensity = 1.0
-
         self.emissive_map = None
         self.emissive_intensity = 1.0
 
         self.normal_map = None
         self.normal_scale = (1, 1)
 
-        self.env_map = None
         self.env_map_intensity = 1.0
 
         # Note: there are more advanced properties to add, e.g. displacement_map, alpha_map
@@ -779,26 +800,6 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def normal_map(self, map):
         assert map is None or isinstance(map, Texture)
         self._store.normal_map = map
-
-    @property
-    def ao_map(self):
-        """The red channel of this texture is used as the ambient occlusion map. Default is None."""
-        return self._store.ao_map
-
-    @ao_map.setter
-    def ao_map(self, map):
-        assert map is None or isinstance(map, Texture)
-        self._store.ao_map = map
-
-    @property
-    def ao_map_intensity(self):
-        """Intensity of the ambient occlusion effect. Default is 1.0 Zero is no occlusion effect."""
-        return float(self.uniform_buffer.data["ao_map_intensity"])
-
-    @ao_map_intensity.setter
-    def ao_map_intensity(self, value):
-        self.uniform_buffer.data["ao_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
 
     @property
     def env_map(self):

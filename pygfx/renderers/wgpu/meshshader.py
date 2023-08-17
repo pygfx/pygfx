@@ -162,6 +162,19 @@ class MeshShader(WorldObjectShader):
                 bindings.append(Binding("s_light_map", sampling, sampler, F))
                 bindings.append(Binding("t_light_map", texturing, view, F))
 
+        # set aomap configs
+        if getattr(material, "ao_map", None):
+            if "use_texcoords1" not in self.kwargs:
+                raise ValueError(
+                    "AoMap requires a second set of texture coordinates (geometry.texcoords1), but it is not present."
+                )
+            else:
+                self._check_texture(material.ao_map)
+                view = GfxTextureView(material.ao_map, view_dim="2d")
+                self["use_ao_map"] = True
+                bindings.append(Binding("s_ao_map", sampling, sampler, F))
+                bindings.append(Binding("t_ao_map", texturing, view, F))
+
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -547,9 +560,18 @@ class MeshShader(WorldObjectShader):
                 var physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
             $$ else
                 var physical_color = physical_albeido;
+
+                // Light map (pre-baked lighting)
                 $$ if use_light_map is defined
                     let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
                     physical_color *= light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
+                $$ endif
+
+                // Ambient occlusion
+                $$ if use_ao_map is defined
+                    let ao_map_intensity = u_material.ao_map_intensity;
+                    let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
+                    physical_color *= ambientOcclusion;
                 $$ endif
             $$ endif
 
@@ -695,13 +717,6 @@ class MeshStandardShader(MeshShader):
                 self["use_emissive_map"] = True
                 bindings.append(Binding("s_emissive_map", sampling, sampler, F))
                 bindings.append(Binding("t_emissive_map", texturing, view, F))
-
-            if material.ao_map is not None:
-                self._check_texture(material.ao_map)
-                view = GfxTextureView(material.ao_map, view_dim="2d")
-                self["use_ao_map"] = True
-                bindings.append(Binding("s_ao_map", sampling, sampler, F))
-                bindings.append(Binding("t_ao_map", texturing, view, F))
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

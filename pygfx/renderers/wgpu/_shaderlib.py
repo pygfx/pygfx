@@ -541,6 +541,14 @@ class Shaderlib:
             $$ endif
 
             reflected_light = RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, reflected_light );
+
+            // Ambient occlusion
+            $$ if use_ao_map is defined
+            let ao_map_intensity = u_material.ao_map_intensity;
+            let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
+            reflected_light.indirect_diffuse *= ambientOcclusion;
+            $$ endif
+
             return reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
         }
         """
@@ -690,7 +698,7 @@ class Shaderlib:
             // Ambient occlusion
             $$ if use_ao_map is defined
             let ao_map_intensity = u_material.ao_map_intensity;
-            let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord ).r - 1.0 ) * ao_map_intensity + 1.0;
+            let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
             reflected_light = RE_AmbientOcclusion_Physical(ambientOcclusion, geometry, material, reflected_light);
             $$ endif
 
