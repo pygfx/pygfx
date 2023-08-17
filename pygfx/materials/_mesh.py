@@ -377,7 +377,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
 
     @property
     def ao_map_intensity(self):
-        """Intensity of the ambient occlusion effect. Default is 1.0 Zero is no occlusion effect."""
+        """Intensity of the ambient occlusion effect. Default is 1.0, zero is no occlusion effect."""
         return float(self.uniform_buffer.data["ao_map_intensity"])
 
     @ao_map_intensity.setter
