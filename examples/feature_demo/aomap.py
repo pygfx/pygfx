@@ -1,6 +1,6 @@
 """
 Ambient occlusion
-========
+=================
 
 
 This example demonstrates the ambient occlusion map effects for MeshBasicMaterial, MeshPhongMaterial, and MeshStandardMaterial.
