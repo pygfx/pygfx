@@ -98,11 +98,17 @@ class MeshShader(WorldObjectShader):
             Binding("s_normals", rbuffer, normal_buffer, "VERTEX"),
         ]
 
+        # We always need texcoords, not only for colormap
+        if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
+            bindings.append(
+                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
+            )
+
         if hasattr(geometry, "texcoords1") and geometry.texcoords1 is not None:
             bindings.append(
                 Binding(
                     "s_texcoords1",
-                    "buffer/read_only_storage",
+                    rbuffer,
                     geometry.texcoords1,
                     "VERTEX",
                 )
@@ -113,9 +119,6 @@ class MeshShader(WorldObjectShader):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         if self["color_mode"] == "face":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
-            bindings.append(
-                Binding("s_texcoords", rbuffer, geometry.texcoords, "VERTEX")
-            )
         if self["color_mode"] == "map":
             bindings.extend(
                 self.define_vertex_colormap(
@@ -127,6 +130,35 @@ class MeshShader(WorldObjectShader):
         sampling = "sampler/filtering"
         sampler = GfxSampler(material.map_interpolation, "repeat")
         texturing = "texture/auto"
+
+        # todo, check uv is present and has the right shape. (introduce uv channel for texture)
+
+        # specular map configs, for basic and phong materials
+        if (
+            getattr(material, "specular_map", None)
+            and type(material) is not MeshStandardMaterial
+        ):
+            self._check_texture(material.specular_map)
+            view = GfxTextureView(material.specular_map, view_dim="2d")
+            self["use_specular_map"] = True
+            bindings.append(Binding("s_specular_map", sampling, sampler, F))
+            bindings.append(Binding("t_specular_map", texturing, view, F))
+
+        # set emissive_map configs, for phong and standard materials
+        if getattr(material, "emissive_map", None):
+            self._check_texture(material.emissive_map)
+            view = GfxTextureView(material.emissive_map, view_dim="2d")
+            self["use_emissive_map"] = True
+            bindings.append(Binding("s_emissive_map", sampling, sampler, F))
+            bindings.append(Binding("t_emissive_map", texturing, view, F))
+
+        # set normal_map configs
+        if getattr(material, "normal_map", None):
+            self._check_texture(material.normal_map)
+            view = GfxTextureView(material.normal_map, view_dim="2d")
+            self["use_normal_map"] = True
+            bindings.append(Binding("s_normal_map", sampling, sampler, F))
+            bindings.append(Binding("t_normal_map", texturing, view, F))
 
         # set envmap configs
         if getattr(material, "env_map", None):
@@ -395,10 +427,11 @@ class MeshShader(WorldObjectShader):
             // Set texture coords
             $$ if colormap_dim == '1d'
             varyings.texcoord = f32(load_s_texcoords(i0));
-            $$ elif colormap_dim == '2d'
-            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
             $$ elif colormap_dim == '3d'
             varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+            $$ else
+            // Default to 2d temporarily
+            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
             $$ endif
 
             $$ if use_texcoords1 is defined
@@ -554,11 +587,22 @@ class MeshShader(WorldObjectShader):
                 $$ endif
             $$ endif
 
-            // Lighting
-            $$ if lighting
-                // Do the math
-                var physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
+            $$ if use_specular_map is defined
+                let specular_strength = textureSample( t_specular_map, s_specular_map, varyings.texcoord ).r;
             $$ else
+                let specular_strength = 1.0;
+            $$ endif
+
+            // Lighting
+            $$ if lighting == "phong"
+                // Do the math
+                var physical_color = lighting_phong(varyings, normal, view, physical_albeido, specular_strength);
+            $$ elif lighting == "pbr"
+                // Do the math
+                var physical_color = lighting_pbr(varyings, normal, view, physical_albeido);
+            $$ else
+                // No punctual lighting
+
                 var physical_color = physical_albeido;
 
                 // Light map (pre-baked lighting)
@@ -575,10 +619,16 @@ class MeshShader(WorldObjectShader):
                 $$ endif
             $$ endif
 
+            // Apply emissive color
+            var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
+            $$ if use_emissive_map is defined
+            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
+            $$ endif
+            physical_color += emissive_color;
+
             // Environment mapping
             $$ if use_env_map is defined
                 let reflectivity = u_material.reflectivity;
-                let specular_strength = 1.0; // TODO: support specular_map
                 $$ if env_mapping_mode == "CUBE-REFLECTION"
                     var reflectVec = reflect( -view, normal );
                 $$ elif env_mapping_mode == "CUBE-REFRACTION"
@@ -690,13 +740,6 @@ class MeshStandardShader(MeshShader):
             ):
                 raise ValueError("For standard material, the texcoords must be Nx2")
 
-            if material.normal_map is not None:
-                self._check_texture(material.normal_map)
-                view = GfxTextureView(material.normal_map, view_dim="2d")
-                self["use_normal_map"] = True
-                bindings.append(Binding("s_normal_map", sampling, sampler, F))
-                bindings.append(Binding("t_normal_map", texturing, view, F))
-
             if material.roughness_map is not None:
                 self._check_texture(material.roughness_map)
                 view = GfxTextureView(material.roughness_map, view_dim="2d")
@@ -710,13 +753,6 @@ class MeshStandardShader(MeshShader):
                 self["use_metalness_map"] = True
                 bindings.append(Binding("s_metalness_map", sampling, sampler, F))
                 bindings.append(Binding("t_metalness_map", texturing, view, F))
-
-            if material.emissive_map is not None:
-                self._check_texture(material.emissive_map)
-                view = GfxTextureView(material.emissive_map, view_dim="2d")
-                self["use_emissive_map"] = True
-                bindings.append(Binding("s_emissive_map", sampling, sampler, F))
-                bindings.append(Binding("t_emissive_map", texturing, view, F))
 
         # Define shader code for binding
         bindings = {i: binding for i, binding in enumerate(bindings)}

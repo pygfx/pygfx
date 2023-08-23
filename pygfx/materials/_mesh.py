@@ -385,6 +385,19 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         self.uniform_buffer.data["ao_map_intensity"] = value
         self.uniform_buffer.update_range(0, 1)
 
+    @property
+    def specular_map(self):
+        """Specular map used by the material. Default is None."""
+        return self._store.specular_map
+
+    @specular_map.setter
+    def specular_map(self, map):
+        if map is not None and not isinstance(map, Texture):
+            raise ValueError(
+                f"specular_map must be a Texture or None, received: {type(map)}"
+            )
+        self._store.specular_map = map
+
 
 class MeshPhongMaterial(MeshBasicMaterial):
     """Phong mesh material.
@@ -443,7 +456,9 @@ class MeshPhongMaterial(MeshBasicMaterial):
         MeshBasicMaterial.uniform_type,
         emissive_color="4xf4",
         specular_color="4xf4",
+        normal_scale="2xf4",
         shininess="f4",
+        emissive_intensity="f4",
     )
 
     def __init__(
@@ -456,7 +471,15 @@ class MeshPhongMaterial(MeshBasicMaterial):
         super().__init__(**kwargs)
         self.emissive = emissive
         self.shininess = shininess
+
         self.specular = specular
+        self.specular_map = None
+
+        self.emissive_map = None
+        self.emissive_intensity = 1.0
+
+        self.normal_map = None
+        self.normal_scale = (1, 1)
 
     @property
     def emissive(self):
@@ -470,6 +493,38 @@ class MeshPhongMaterial(MeshBasicMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def emissive_map(self):
+        """The emissive map color is modulated by the emissive color
+        and the emissive intensity. If you have an emissive map, be
+        sure to set the emissive color to something other than black.
+        Note that both emissive color and emissive map are considered
+        in srgb colorspace. Default None.
+        """
+        return self._store.emissive_map
+
+    @emissive_map.setter
+    def emissive_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.emissive_map = map
+
+    @property
+    def emissive_intensity(self):
+        """Intensity of the emissive light. Modulates the emissive color
+        and emissive map. Default is 1.
+
+        Note that the intensity is applied in the physical colorspace.
+        You can think of it as scaling the number of photons. Therefore
+        using an intensity of 0.5 is not the same as halving the
+        emissive color, which is in srgb space.
+        """
+        return self.uniform_buffer.data["emissive_intensity"]
+
+    @emissive_intensity.setter
+    def emissive_intensity(self, value):
+        self.uniform_buffer.data["emissive_intensity"] = value
         self.uniform_buffer.update_range(0, 1)
 
     @property
@@ -496,7 +551,32 @@ class MeshPhongMaterial(MeshBasicMaterial):
         self.uniform_buffer.data["shininess"] = value
         self.uniform_buffer.update_range(0, 1)
 
-    # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
+    @property
+    def normal_scale(self):
+        """How much the normal map affects the material. This 2-tuple
+        is multiplied with the normal_map's xy components (z is
+        unaffected). Typical ranges are 0-1. Default is (1,1).
+        """
+        return tuple(self.uniform_buffer.data["normal_scale"])
+
+    @normal_scale.setter
+    def normal_scale(self, value):
+        self.uniform_buffer.data["normal_scale"] = value
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def normal_map(self):
+        """The texture to create a normal map. Affects the surface
+        normal for each pixel fragment and change the way the color is
+        lit. Normal maps do not change the actual shape of the surface,
+        only the lighting.
+        """
+        return self._store.normal_map
+
+    @normal_map.setter
+    def normal_map(self, map):
+        assert map is None or isinstance(map, Texture)
+        self._store.normal_map = map
 
 
 # todo: MeshToonMaterial(MeshBasicMaterial):
