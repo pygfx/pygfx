@@ -594,14 +594,24 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Lighting
-            $$ if lighting == "phong"
-                // Do the math
-                var physical_color = lighting_phong(varyings, normal, view, physical_albeido, specular_strength);
-            $$ elif lighting == "pbr"
-                // Do the math
-                var physical_color = lighting_pbr(varyings, normal, view, physical_albeido);
+            $$ if lighting
+                $$ if lighting == "phong"
+                    // Do the math
+                    var physical_color = lighting_phong(varyings, normal, view, physical_albeido, specular_strength);
+                $$ elif lighting == "pbr"
+                    // Do the math
+                    var physical_color = lighting_pbr(varyings, normal, view, physical_albeido);
+                $$ endif
+
+                // Apply emissive color
+                var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
+                $$ if use_emissive_map is defined
+                emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
+                $$ endif
+                physical_color += emissive_color;
+
             $$ else
-                // No punctual lighting
+                // No punctual lighting, for MeshBasicMaterial
 
                 var physical_color = physical_albeido;
 
@@ -618,13 +628,6 @@ class MeshShader(WorldObjectShader):
                     physical_color *= ambientOcclusion;
                 $$ endif
             $$ endif
-
-            // Apply emissive color
-            var emissive_color = srgb2physical(u_material.emissive_color.rgb) * u_material.emissive_intensity;
-            $$ if use_emissive_map is defined
-            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
-            $$ endif
-            physical_color += emissive_color;
 
             // Environment mapping
             $$ if use_env_map is defined
