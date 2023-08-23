@@ -39,7 +39,7 @@ import pygfx as gfx
 
 
 # Init
-canvas = WgpuCanvas(size=(640, 480), title="Earth")
+canvas = WgpuCanvas(size=(640, 480), max_fps=60, title="Earth")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 scene = gfx.Scene()
@@ -63,7 +63,7 @@ earth_material.map = load_texture(
 earth_material.specular_map = load_texture(
     model_dir / "planets" / "earth_specular_2048.jpg", flip=True
 )
-earth_material.emissive = "#444433"
+earth_material.emissive = "#888866"
 earth_material.emissive_map = load_texture(
     model_dir / "planets" / "earth_lights_2048.png", flip=True
 )
@@ -106,7 +106,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 sun_light = gfx.DirectionalLight(color=(1, 1, 1), intensity=1.5)
 sun_light.local.position = 3, 0, 1
 scene.add(sun_light)
-scene.add(gfx.AmbientLight(intensity=0.05))
+scene.add(gfx.AmbientLight(intensity=0.01))
 
 rot = la.quat_from_euler((0, 0.001, 0), order="XYZ")
 rot_cloud = la.quat_from_euler((0, 0.00125, 0), order="XYZ")
