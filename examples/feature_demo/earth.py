@@ -56,19 +56,24 @@ def load_texture(path, flip=False):
 
 
 # Earth
-earth_material = gfx.MeshPhongMaterial(
-    specular="#333333", emissive="#666666", shininess=20
-)
+earth_material = gfx.MeshPhongMaterial(specular="#333333", shininess=20)
 earth_material.map = load_texture(
     model_dir / "planets" / "earth_atmos_4096.jpg", flip=True
 )
 earth_material.specular_map = load_texture(
     model_dir / "planets" / "earth_specular_2048.jpg", flip=True
 )
+earth_material.emissive = "#444433"
 earth_material.emissive_map = load_texture(
     model_dir / "planets" / "earth_lights_2048.png", flip=True
 )
 earth_material.emissive_intensity = 2.5
+
+# # Uncomment to use light map instead of emissive map
+# earth_material.light_map = earth_material.emissive_map
+# earth_geometry.texcoords1 = earth_geometry.texcoords
+# earth_material.light_map_intensity = 2.5
+
 earth_material.normal_map = load_texture(
     model_dir / "planets" / "earth_normal_2048.jpg", flip=True
 )
