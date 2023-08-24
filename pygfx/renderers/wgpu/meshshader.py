@@ -134,7 +134,9 @@ class MeshShader(WorldObjectShader):
         # todo, check uv is present and has the right shape. (introduce uv channel for texture)
 
         # specular map configs, for basic and phong materials
-        if material.specular_map and not isinstance(material, MeshStandardMaterial):
+        if getattr(material, "specular_map", None) and not isinstance(
+            material, MeshStandardMaterial
+        ):
             self._check_texture(material.specular_map)
             view = GfxTextureView(material.specular_map, view_dim="2d")
             self["use_specular_map"] = True
