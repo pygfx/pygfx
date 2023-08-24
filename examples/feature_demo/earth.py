@@ -56,7 +56,7 @@ def load_texture(path, flip=False):
 
 
 # Earth
-earth_material = gfx.MeshPhongMaterial(specular="#333333", shininess=20)
+earth_material = gfx.MeshPhongMaterial(shininess=10)
 earth_material.map = load_texture(
     model_dir / "planets" / "earth_atmos_4096.jpg", flip=True
 )
@@ -67,7 +67,7 @@ earth_material.emissive = "#888866"
 earth_material.emissive_map = load_texture(
     model_dir / "planets" / "earth_lights_2048.png", flip=True
 )
-earth_material.emissive_intensity = 2.5
+earth_material.emissive_intensity = 1.5
 
 # # Uncomment to use light map instead of emissive map
 # earth_material.light_map = earth_material.emissive_map
@@ -80,6 +80,7 @@ earth_material.normal_map = load_texture(
 earth_material.normal_scale = 0.85, -0.85
 
 earth = gfx.Mesh(earth_geometry, earth_material)
+earth.local.rotation = la.quat_from_euler((0, -1.0, 0), order="XYZ")
 scene.add(earth)
 
 # Clouds
@@ -103,7 +104,7 @@ camera.look_at((0, 0, 0))
 controller = gfx.OrbitController(camera, register_events=renderer)
 
 # Add lights
-sun_light = gfx.DirectionalLight(color=(1, 1, 1), intensity=1.5)
+sun_light = gfx.DirectionalLight()
 sun_light.local.position = 3, 0, 1
 scene.add(sun_light)
 scene.add(gfx.AmbientLight(intensity=0.01))
