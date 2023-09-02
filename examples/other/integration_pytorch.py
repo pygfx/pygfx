@@ -4,11 +4,11 @@
 Pytorch Integration
 =============================
 
-Integration example of pygfx with pytorch lightning and pytorch geometric.
+Pygfx Integration with PyTorch Lightning and PyTorch Geometric: A Practical Example.
 
-This example demonstrate how to train a graph neural network on a 3D mesh, while continuously rendering
-the results on a pygfx window in a separate process. The network tries to predict the Gaussian curvature
-of each point on the mesh by overfitting the ground-truth curvature.
+In this demonstration, we train a graph neural network on a 3D mesh. As the training progresses, we simultaneously render
+the results on a pygfx window in a separate process. The network aims to overfit the Gaussian curvature of each
+mesh point, striving to match the known curvature values precisely.
 
 """
 
@@ -107,8 +107,6 @@ class SceneState:
     pred_group: Group = Group()
     gt_mesh: WorldObject = None
     pred_mesh: WorldObject = None
-    gt_wireframe: WorldObject = None
-    pred_wireframe: WorldObject = None
     first_data: bool = True
 
 
@@ -120,6 +118,7 @@ class Sine(torch.nn.Module):
         return torch.sin(input)
 
 
+# a few pytorch activations to experiment with
 activations = {
     'relu': ReLU,
     'gelu': GELU,
@@ -298,7 +297,7 @@ class PyGfxCallback(Callback):
         return c
 
     @staticmethod
-    def _create_world_object_for_mesh(mesh_data: MeshData, k: np.ndarray, wireframe: bool = False, wireframe_thickness=1.5, color: Color = '#ffffff') -> WorldObject:
+    def _create_world_object_for_mesh(mesh_data: MeshData, k: np.ndarray, color: Color = '#ffffff') -> WorldObject:
         c = PyGfxCallback._get_vertex_colors_from_k(k=k)
         geometry = Geometry(
             indices=np.ascontiguousarray(mesh_data.faces),
@@ -307,8 +306,6 @@ class PyGfxCallback(Callback):
 
         material = MeshPhongMaterial(
             color=color,
-            wireframe=wireframe,
-            wireframe_thickness=wireframe_thickness,
             vertex_colors=True)
 
         mesh = Mesh(
