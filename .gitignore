@@ -76,6 +76,9 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+# pycharm stuff
+.idea/
+
 # Sphinx documentation
 docs/_build/
 docs/_gallery/
@@ -83,6 +86,9 @@ docs/_autosummary/
 
 # PyBuilder
 target/
+
+# Pytorch Lightning
+lightning_logs/
 
 # Jupyter Notebook
 .ipynb_checkpoints

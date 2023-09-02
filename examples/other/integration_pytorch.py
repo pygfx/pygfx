@@ -1,3 +1,17 @@
+# run_example = false
+
+"""
+Pytorch Integration
+=============================
+
+Integration example of pygfx with pytorch lightning and pytorch geometric.
+
+This example demonstrate how to train a graph neural network on a 3D mesh, while continuously rendering
+the results on a pygfx window in a separate process. The network tries to predict the Gaussian curvature
+of each point on the mesh by overfitting the ground-truth curvature.
+
+"""
+
 # standard library
 from pathlib import Path
 from typing import (
