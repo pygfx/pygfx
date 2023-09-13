@@ -133,6 +133,91 @@ def test_changes_on_sub_sub_sub():
     make_changes_on_sub(root, root.sub2.sub1, t1, t2)
 
 
+def test_list_values():
+    rt = MyRootTrackable()
+
+    v1 = [1, 2]
+    v2 = [3, 4]
+    v3 = [1, 2]
+
+    with rt.track_usage("foo"):
+        rt.foo
+    assert rt.pop_changed() == set()
+
+    # Changing the value marks a change
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v2
+    assert rt.pop_changed() == {"foo"}
+
+    # Even if the value is the same - it tracks the object!
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v3
+    assert rt.pop_changed() == {"foo"}
+
+    # This means that ...
+    v3.append(8)
+    assert rt.foo == v3  # changed in-place
+    rt.foo = v3  # so this does not do much
+    assert rt.pop_changed() == set()
+
+    # It can even mean that the second assert below fails, because when
+    # that last list is allocated, it may use the memory previously
+    # occupied by [0, 1], so it has the same id ... This is hard to
+    # test reliably, but it *can* happen.
+    rt.foo = [0, 1]
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = [0, 2]  # on this line, the previous list is freed
+    rt.foo = [0, 3]  # a new list object is allocated
+    # assert rt.pop_changed() == {"foo"}
+
+
+def test_tuple_values():
+    rt = MyRootTrackable()
+
+    offset = 0
+
+    v1 = (1, offset + 2)
+    v2 = (3, offset + 4)
+    v3 = (1, offset + 2)
+
+    assert v1 is not v3
+
+    with rt.track_usage("foo"):
+        rt.foo
+    assert rt.pop_changed() == set()
+
+    # Changing the value marks a change
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v2
+    assert rt.pop_changed() == {"foo"}
+
+    # If the object is different, but the value is the same, it checks the value!
+    rt.foo = v1
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = v3
+    assert rt.pop_changed() == set()
+
+    # This means that everything works as expected
+    v3 += (8,)
+    assert rt.foo != v3
+    rt.foo = v3
+    assert rt.pop_changed() == {"foo"}
+
+    # So does this
+    rt.foo = (0, offset + 1)
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = (0, offset + 2)
+    rt.foo = (0, 0 + 3)
+    assert rt.pop_changed() == {"foo"}
+    rt.foo = (0, offset + 4)
+    rt.foo = (0, offset + 2)
+    rt.foo = (0, offset + 3)
+    assert rt.pop_changed() == set()
+
+
 def make_changes_on_sub(root, parent, t1, t2):
     parent.sub1 = t1
 
