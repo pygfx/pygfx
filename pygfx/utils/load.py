@@ -32,7 +32,7 @@ def load_scene(path):
         )
         return [m]
 
-    if isinstance(scene, trimesh.Scene):
+    elif isinstance(scene, trimesh.Scene):
         for node_name in scene.graph.nodes_geometry:
             transform, geometry_name = scene.graph[node_name]
             current = scene.geometry[geometry_name]
@@ -45,3 +45,5 @@ def load_scene(path):
             )
             for m in scene.geometry.values()
         ]
+    else:
+        raise ValueError(f"Unexpected trimesh data: {scene.__class__.__name__}")
