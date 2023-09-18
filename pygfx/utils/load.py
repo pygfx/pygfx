@@ -25,15 +25,23 @@ def load_scene(path):
     import trimesh  # noqa
 
     scene = trimesh.load(path)
-    for node_name in scene.graph.nodes_geometry:
-        transform, geometry_name = scene.graph[node_name]
-        current = scene.geometry[geometry_name]
-        current.apply_transform(transform)
-
-    return [
-        gfx.Mesh(
-            gfx.geometry_from_trimesh(m),
-            gfx.material_from_trimesh(m.visual.material),
+    if isinstance(scene, trimesh.Trimesh):
+        m = gfx.Mesh(
+            gfx.geometry_from_trimesh(scene),
+            gfx.MeshPhongMaterial(),
         )
-        for m in scene.geometry.values()
-    ]
+        return [m]
+
+    if isinstance(scene, trimesh.Scene):
+        for node_name in scene.graph.nodes_geometry:
+            transform, geometry_name = scene.graph[node_name]
+            current = scene.geometry[geometry_name]
+            current.apply_transform(transform)
+
+        return [
+            gfx.Mesh(
+                gfx.geometry_from_trimesh(m),
+                gfx.material_from_trimesh(m.visual.material),
+            )
+            for m in scene.geometry.values()
+        ]
