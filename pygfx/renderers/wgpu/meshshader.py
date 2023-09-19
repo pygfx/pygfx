@@ -906,7 +906,7 @@ class MeshSliceShader(WorldObjectShader):
             let pos2 = pos2b.xyz / pos2b.w;
             let pos3 = pos3b.xyz / pos3b.w;
             // Get the plane definition
-            let plane = u_material.plane.xyzw;  // ax + by + cz + d
+            let plane = u_material.plane.xyzw;  // ax + by + cz + d == 0
             let n = plane.xyz;  // not necessarily a unit vector
             // Intersect the plane with pos 1 and 2
             var p: vec3<f32>;
@@ -923,10 +923,11 @@ class MeshSliceShader(WorldObjectShader):
             u = pos1.xyz - pos3.xyz;
             let t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
             // Selectors
-            let b1 = select(0, 4, (t1 > 0.0) && (t1 < 1.0));
-            let b2 = select(0, 2, (t2 > 0.0) && (t2 < 1.0));
-            let b3 = select(0, 1, (t3 > 0.0) && (t3 < 1.0));
-            let pos_index = b1 + b2 + b3;
+            let b1 = select(0, 4, (t1 >= 0.0) && (t1 <= 1.0));
+            let b2 = select(0, 2, (t2 >= 0.0) && (t2 <= 1.0));
+            let b3 = select(0, 1, (t3 >= 0.0) && (t3 <= 1.0));
+            var pos_index: i32;
+            pos_index = b1 + b2 + b3;
             // The big triage
             var the_pos: vec4<f32>;
             var the_coord: vec2<f32>;
@@ -939,14 +940,18 @@ class MeshSliceShader(WorldObjectShader):
                 the_coord = vec2<f32>(0.0, 0.0);
                 segment_length = 0.0;
             } else {
+                if (pos_index == 7) {
+                    // The plane intersects an edge of this face, we need to figure out what contribution to drop
+                    pos_index -= i32(t1 == 1.0) * 4 + i32(t2 == 1.0) * 2 + i32(t3 == 1.0) * 1;
+                }
                 // Get the positions where the frame intersects the plane
                 let pos00: vec3<f32> = pos1;
                 let pos12: vec3<f32> = mix(pos1, pos2, vec3<f32>(t1, t1, t1));
                 let pos23: vec3<f32> = mix(pos2, pos3, vec3<f32>(t2, t2, t2));
                 let pos31: vec3<f32> = mix(pos3, pos1, vec3<f32>(t3, t3, t3));
                 // b1+b2+b3     000    001    010    011    100    101    110    111
-                var positions_a = array<vec3<f32>, 8>(pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12);
-                var positions_b = array<vec3<f32>, 8>(pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23);
+                var positions_a = array<vec3<f32>, 8>(pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos00);
+                var positions_b = array<vec3<f32>, 8>(pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos00);
                 // Select the two positions that define the line segment
                 let pos_a = positions_a[pos_index];
                 let pos_b = positions_b[pos_index];
@@ -955,8 +960,8 @@ class MeshSliceShader(WorldObjectShader):
                 let fw12 = mix(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(t1, t1, t1));
                 let fw23 = mix(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(t2, t2, t2));
                 let fw31 = mix(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(t3, t3, t3));
-                var fws_a = array<vec3<f32>, 8>(fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw12);
-                var fws_b = array<vec3<f32>, 8>(fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw23);
+                var fws_a = array<vec3<f32>, 8>(fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw00);
+                var fws_b = array<vec3<f32>, 8>(fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw00);
                 let fw_a = fws_a[pos_index];
                 let fw_b = fws_b[pos_index];
                 // Go from local coordinates to NDC
