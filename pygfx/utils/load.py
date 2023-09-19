@@ -6,14 +6,40 @@ import pygfx as gfx
 
 
 def load_scene(path):
-    """Load a scene from a file.
+    raise DeprecationWarning(
+        "The load_scene() function is replaced with load_meshes()."
+    )
 
-    This function requires the trimesh library. Might not be complete yet.
+
+def load_mesh(path):
+    """Load a mesh from a file.
 
     Parameters
     ----------
     path : str
-        The location where the scene description is stored.
+        The location where the mesh is stored.
+
+    Returns
+    -------
+    mesh : Mesh
+        A pygfx Mesh object. If the file does not contain exactly one mesh, an error is raised.
+    """
+    meshes = load_meshes(path)
+    if len(meshes) != 1:
+        raise ValueError(
+            f"Found {len(meshes)} meshes instead of 1 in '{path}'. Use `load_meshes()` instead. "
+        )
+
+
+def load_meshes(path):
+    """Load meshes from a file.
+
+    This function requires the trimesh library.
+
+    Parameters
+    ----------
+    path : str
+        The location where the mesh or scene is stored.
 
     Returns
     -------

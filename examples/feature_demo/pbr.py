@@ -59,7 +59,7 @@ scene.add(background)
 # Load meshes, and apply env map
 # Note that this lits the helmet already
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
-meshes = gfx.load_scene(gltf_path)
+meshes = gfx.load_meshes(gltf_path)
 scene.add(*meshes)
 m = meshes[0]  # this example has just one mesh
 m.geometry.texcoords1 = m.geometry.texcoords  # use second set of texcoords for ao map
