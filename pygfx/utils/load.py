@@ -29,6 +29,7 @@ def load_mesh(path):
         raise ValueError(
             f"Found {len(meshes)} meshes instead of 1 in '{path}'. Use `load_meshes()` instead. "
         )
+    return meshes[0]
 
 
 def load_meshes(path):

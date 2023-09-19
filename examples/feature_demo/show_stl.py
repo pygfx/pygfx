@@ -34,9 +34,7 @@ except NameError:
 import pygfx as gfx
 
 
-TEAPOT = model_dir / "teapot.stl"
-
-mesh = gfx.load_mesh(TEAPOT)
+mesh = gfx.load_mesh(model_dir / "teapot.stl")
 
 if __name__ == "__main__":
     disp = gfx.Display()
