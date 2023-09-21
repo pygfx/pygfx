@@ -1037,6 +1037,7 @@ class MeshSliceShader(WorldObjectShader):
             if (dist > varyings.segment_width * 0.5) {
                 discard;
             }
+
             // No aa. This is something we need to decide on. See line renderer.
             // Making this < 1 would affect the suggested_render_mask.
             let alpha = 1.0;
@@ -1044,6 +1045,7 @@ class MeshSliceShader(WorldObjectShader):
             let physical_color = srgb2physical(u_material.color.rgb);
             let opacity = min(1.0, u_material.color.a) * alpha;
             let out_color = vec4<f32>(physical_color, opacity);
+
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
             var out = get_fragment_output(varyings.position.z, out_color);
@@ -1057,6 +1059,10 @@ class MeshSliceShader(WorldObjectShader):
                 pick_pack(u32(varyings.pick_coords.z * 63.0), 6)
             );
             $$ endif
+
+            // We curve the line away to the background, so that line pieces overlap each-other
+            // in a better way, especially avoiding the joins from overlapping the next line piece.
+            out.depth = varyings.position.z + 0.0001 * dist;
             return out;
         }
         """
