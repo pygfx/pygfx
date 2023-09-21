@@ -910,24 +910,24 @@ class MeshSliceShader(WorldObjectShader):
             let n = plane.xyz;  // not necessarily a unit vector
             // Intersect the plane with pos 1 and 2
             var p: vec3<f32>;
-            var u: vec3<f32>;
             p = pos1.xyz;
-            u = pos2.xyz - pos1.xyz;
-            let t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
+            let denom1 = dot(n,  pos2.xyz - pos1.xyz);
+            let t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / denom1;
             // Intersect the plane with pos 2 and 3
             p = pos2.xyz;
-            u = pos3.xyz - pos2.xyz;
-            let t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
+            let denom2 = dot(n, pos3.xyz - pos2.xyz);
+            let t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / denom2;
             // Intersect the plane with pos 3 and 1
             p = pos3.xyz;
-            u = pos1.xyz - pos3.xyz;
-            let t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
-            // Selectors
-            let b1 = select(0, 4, (t1 >= 0.0) && (t1 <= 1.0));
-            let b2 = select(0, 2, (t2 >= 0.0) && (t2 <= 1.0));
-            let b3 = select(0, 1, (t3 >= 0.0) && (t3 <= 1.0));
+            let denom3 = dot(n, pos1.xyz - pos3.xyz);
+            let t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / denom3;
+            // Selectors (the denom check seems not needed, but it feels safer to do, in case e.g. the precision changes)
+            let b1 = select(0, 4, (t1 >= 0.0) && (t1 <= 1.0) && (denom1 != 0.0));
+            let b2 = select(0, 2, (t2 >= 0.0) && (t2 <= 1.0) && (denom2 != 0.0));
+            let b3 = select(0, 1, (t3 >= 0.0) && (t3 <= 1.0) && (denom3 != 0.0));
             var pos_index: i32;
             pos_index = b1 + b2 + b3;
+
             // The big triage
             var the_pos: vec4<f32>;
             var the_coord: vec2<f32>;
@@ -941,8 +941,13 @@ class MeshSliceShader(WorldObjectShader):
                 segment_length = 0.0;
             } else {
                 if (pos_index == 7) {
-                    // The plane intersects an edge of this face, we need to figure out what contribution to drop
-                    pos_index -= i32(t1 == 1.0) * 4 + i32(t2 == 1.0) * 2 + i32(t3 == 1.0) * 1;
+                    // For each edge we check whether it looks like it is selected. The value
+                    // of the other t does not matter because it's always on the edge too.
+                    // I would expect that comparing with 0.0 and 1.0 would work, but
+                    // apparently the t-values can also be 0.5.
+                    if (t1 < 0.5 && t2 >= 0.5) { pos_index = 6; }
+                    else if (t2 < 0.5 && t3 >= 0.5) { pos_index = 3; }
+                    else if (t3 < 0.5 && t1 >= 0.5) { pos_index = 5; }
                 }
                 // Get the positions where the frame intersects the plane
                 let pos00: vec3<f32> = pos1;
