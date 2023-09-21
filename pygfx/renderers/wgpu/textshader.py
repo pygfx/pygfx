@@ -321,8 +321,8 @@ class TextShader(WorldObjectShader):
             out.pick = (
                 pick_pack(u32(u_wobject.id), 20) +
                 pick_pack(varyings.pick_idx, 26) +
-                pick_pack(u32(varyings.glyph_coord.x * 512.0), 9) +
-                pick_pack(u32(varyings.glyph_coord.y * 512.0), 9)
+                pick_pack(u32(varyings.glyph_coord.x * 511.0), 9) +
+                pick_pack(u32(varyings.glyph_coord.y * 511.0), 9)
             );
             $$ endif
 

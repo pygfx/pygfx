@@ -618,9 +618,9 @@ class MeshShader(WorldObjectShader):
             out.pick = (
                 pick_pack(varyings.pick_id, 20) +
                 pick_pack(varyings.pick_idx, 26) +
-                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+                pick_pack(u32(varyings.pick_coords.x * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 63.0), 6)
             );
             $$ endif
 
@@ -1052,9 +1052,9 @@ class MeshSliceShader(WorldObjectShader):
             out.pick = (
                 pick_pack(u32(u_wobject.id), 20) +
                 pick_pack(varyings.pick_idx, 26) +
-                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+                pick_pack(u32(varyings.pick_coords.x * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 63.0), 6)
             );
             $$ endif
             return out;
