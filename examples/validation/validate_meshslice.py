@@ -11,13 +11,17 @@ validation example we avoid regressions w.r.t. these artifacts.
 """
 
 # test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_render = False
 
 import base64
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+
+
+canvas = WgpuCanvas()
+renderer = gfx.renderers.WgpuRenderer(canvas)
 
 
 # %% Data
@@ -116,9 +120,6 @@ faces = np.frombuffer(faces_bytes, np.int32).reshape(-1, 3)
 
 # %% Vis
 
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
-
 scene = gfx.Scene()
 
 mesh = gfx.Mesh(
@@ -134,7 +135,6 @@ camera.show_object(scene, view_dir=(-1, 0, 0), up=(0, 0, 1))
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
 
-# Show picking info as you move the mouse over the mesh slice
 @mesh.add_event_handler("pointer_move")
 def show_pick_coords(e):
     print("face:", e.pick_info["face_index"], ":", e.pick_info["face_coord"])
