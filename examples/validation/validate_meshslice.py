@@ -123,7 +123,7 @@ scene = gfx.Scene()
 
 mesh = gfx.Mesh(
     gfx.Geometry(positions=positions, indices=faces),
-    gfx.MeshSliceMaterial(thickness=10, color="w"),
+    gfx.MeshSliceMaterial(thickness=10, color="cyan"),
 )
 mesh.material.plane = -1, 0, 0, 0  # yz
 scene.add(mesh)
