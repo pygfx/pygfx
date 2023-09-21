@@ -315,7 +315,8 @@ class WorldObjectShader(BaseShader):
             // See #212 for details.
             //
             // Clip the given value
-            let v = min(value, u32(exp2(f32(bits))));
+            let maxval = u32(exp2(f32(bits))) - u32(1);
+            let v = max(u32(0), min(value, maxval));
             // Determine bit-shift for each component
             let shift = vec4<i32>(
                 p_pick_bits_used, p_pick_bits_used - 16, p_pick_bits_used - 32, p_pick_bits_used - 48,

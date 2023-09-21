@@ -618,9 +618,9 @@ class MeshShader(WorldObjectShader):
             out.pick = (
                 pick_pack(varyings.pick_id, 20) +
                 pick_pack(varyings.pick_idx, 26) +
-                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+                pick_pack(u32(varyings.pick_coords.x * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 63.0), 6)
             );
             $$ endif
 
@@ -906,47 +906,57 @@ class MeshSliceShader(WorldObjectShader):
             let pos2 = pos2b.xyz / pos2b.w;
             let pos3 = pos3b.xyz / pos3b.w;
             // Get the plane definition
-            let plane = u_material.plane.xyzw;  // ax + by + cz + d
+            let plane = u_material.plane.xyzw;  // ax + by + cz + d == 0
             let n = plane.xyz;  // not necessarily a unit vector
             // Intersect the plane with pos 1 and 2
             var p: vec3<f32>;
-            var u: vec3<f32>;
             p = pos1.xyz;
-            u = pos2.xyz - pos1.xyz;
-            let t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
+            let denom1 = dot(n,  pos2.xyz - pos1.xyz);
+            let t1 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / denom1;
             // Intersect the plane with pos 2 and 3
             p = pos2.xyz;
-            u = pos3.xyz - pos2.xyz;
-            let t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
+            let denom2 = dot(n, pos3.xyz - pos2.xyz);
+            let t2 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / denom2;
             // Intersect the plane with pos 3 and 1
             p = pos3.xyz;
-            u = pos1.xyz - pos3.xyz;
-            let t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / dot(n, u);
-            // Selectors
-            let b1 = select(0, 4, (t1 > 0.0) && (t1 < 1.0));
-            let b2 = select(0, 2, (t2 > 0.0) && (t2 < 1.0));
-            let b3 = select(0, 1, (t3 > 0.0) && (t3 < 1.0));
-            let pos_index = b1 + b2 + b3;
+            let denom3 = dot(n, pos1.xyz - pos3.xyz);
+            let t3 = -(plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w) / denom3;
+            // Selectors (the denom check seems not needed, but it feels safer to do, in case e.g. the precision changes)
+            let b1 = select(0, 4, (t1 >= 0.0) && (t1 <= 1.0) && (denom1 != 0.0));
+            let b2 = select(0, 2, (t2 >= 0.0) && (t2 <= 1.0) && (denom2 != 0.0));
+            let b3 = select(0, 1, (t3 >= 0.0) && (t3 <= 1.0) && (denom3 != 0.0));
+            var pos_index: i32;
+            pos_index = b1 + b2 + b3;
+
             // The big triage
             var the_pos: vec4<f32>;
             var the_coord: vec2<f32>;
             var segment_length: f32;
             var pick_idx = u32(0u);
             var pick_coords = vec3<f32>(0.0);
-            if (pos_index < 3) {//   (pos_index < 3) {  // or dot(n, u) == 0.0
+            if (pos_index < 3 || pos_index == 4) {
                 // Just return the same vertex, resulting in degenerate triangles
                 the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos1, 1.0);
                 the_coord = vec2<f32>(0.0, 0.0);
                 segment_length = 0.0;
             } else {
+                if (pos_index == 7) {
+                    // For each edge we check whether it looks like it is selected. The value
+                    // of the other t does not matter because it's always on the edge too.
+                    // I would expect that comparing with 0.0 and 1.0 would work, but
+                    // apparently the t-values can also be 0.5.
+                    if (t1 < 0.5 && t2 >= 0.5) { pos_index = 6; }
+                    else if (t2 < 0.5 && t3 >= 0.5) { pos_index = 3; }
+                    else if (t3 < 0.5 && t1 >= 0.5) { pos_index = 5; }
+                }
                 // Get the positions where the frame intersects the plane
                 let pos00: vec3<f32> = pos1;
                 let pos12: vec3<f32> = mix(pos1, pos2, vec3<f32>(t1, t1, t1));
                 let pos23: vec3<f32> = mix(pos2, pos3, vec3<f32>(t2, t2, t2));
                 let pos31: vec3<f32> = mix(pos3, pos1, vec3<f32>(t3, t3, t3));
                 // b1+b2+b3     000    001    010    011    100    101    110    111
-                var positions_a = array<vec3<f32>, 8>(pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos12);
-                var positions_b = array<vec3<f32>, 8>(pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos23);
+                var positions_a = array<vec3<f32>, 8>(pos00, pos00, pos00, pos23, pos00, pos12, pos12, pos00);
+                var positions_b = array<vec3<f32>, 8>(pos00, pos00, pos00, pos31, pos00, pos31, pos23, pos00);
                 // Select the two positions that define the line segment
                 let pos_a = positions_a[pos_index];
                 let pos_b = positions_b[pos_index];
@@ -955,8 +965,8 @@ class MeshSliceShader(WorldObjectShader):
                 let fw12 = mix(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(t1, t1, t1));
                 let fw23 = mix(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(t2, t2, t2));
                 let fw31 = mix(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(t3, t3, t3));
-                var fws_a = array<vec3<f32>, 8>(fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw12);
-                var fws_b = array<vec3<f32>, 8>(fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw23);
+                var fws_a = array<vec3<f32>, 8>(fw00, fw00, fw00, fw23, fw00, fw12, fw12, fw00);
+                var fws_b = array<vec3<f32>, 8>(fw00, fw00, fw00, fw31, fw00, fw31, fw23, fw00);
                 let fw_a = fws_a[pos_index];
                 let fw_b = fws_b[pos_index];
                 // Go from local coordinates to NDC
@@ -1027,6 +1037,7 @@ class MeshSliceShader(WorldObjectShader):
             if (dist > varyings.segment_width * 0.5) {
                 discard;
             }
+
             // No aa. This is something we need to decide on. See line renderer.
             // Making this < 1 would affect the suggested_render_mask.
             let alpha = 1.0;
@@ -1034,6 +1045,7 @@ class MeshSliceShader(WorldObjectShader):
             let physical_color = srgb2physical(u_material.color.rgb);
             let opacity = min(1.0, u_material.color.a) * alpha;
             let out_color = vec4<f32>(physical_color, opacity);
+
             // Wrap up
             apply_clipping_planes(varyings.world_pos);
             var out = get_fragment_output(varyings.position.z, out_color);
@@ -1042,11 +1054,15 @@ class MeshSliceShader(WorldObjectShader):
             out.pick = (
                 pick_pack(u32(u_wobject.id), 20) +
                 pick_pack(varyings.pick_idx, 26) +
-                pick_pack(u32(varyings.pick_coords.x * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.y * 64.0), 6) +
-                pick_pack(u32(varyings.pick_coords.z * 64.0), 6)
+                pick_pack(u32(varyings.pick_coords.x * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.y * 63.0), 6) +
+                pick_pack(u32(varyings.pick_coords.z * 63.0), 6)
             );
             $$ endif
+
+            // We curve the line away to the background, so that line pieces overlap each-other
+            // in a better way, especially avoiding the joins from overlapping the next line piece.
+            out.depth = varyings.position.z + 0.0001 * dist;
             return out;
         }
         """
