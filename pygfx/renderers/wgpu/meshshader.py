@@ -934,7 +934,7 @@ class MeshSliceShader(WorldObjectShader):
             var segment_length: f32;
             var pick_idx = u32(0u);
             var pick_coords = vec3<f32>(0.0);
-            if (pos_index < 3) {//   (pos_index < 3) {  // or dot(n, u) == 0.0
+            if (pos_index < 3 || pos_index == 4) {
                 // Just return the same vertex, resulting in degenerate triangles
                 the_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos1, 1.0);
                 the_coord = vec2<f32>(0.0, 0.0);
