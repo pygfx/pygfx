@@ -176,6 +176,7 @@ class Buffer(Resource):
                 f"`offset` and `size` must be native `int` type, you have passed: "
                 f"offset: <{type(offset)}>, size: <{type(size)}>"
             )
+        offset, size = int(offset), int(size)  # convert np ints to real ints
 
         if size == 0:
             return

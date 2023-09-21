@@ -31,18 +31,10 @@ except NameError:
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 
-import trimesh
 import pygfx as gfx
 
 
-TEAPOT = model_dir / "teapot.stl"
-
-teapot = trimesh.load(TEAPOT)
-
-mesh = gfx.Mesh(
-    gfx.geometry_from_trimesh(teapot),
-    gfx.MeshPhongMaterial(),
-)
+mesh = gfx.load_mesh(model_dir / "teapot.stl")
 
 if __name__ == "__main__":
     disp = gfx.Display()
