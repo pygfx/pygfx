@@ -16,6 +16,37 @@ class PointsShader(WorldObjectShader):
 
     type = "render"
 
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
+        geometry = wobject.geometry
+
+        color_mode = str(material.color_mode).split(".")[-1]
+        if color_mode == "auto":
+            if material.map is not None:
+                self["color_mode"] = "vertex_map"
+                self["color_buffer_channels"] = 0
+                self["colorspace"] = material.map.colorspace
+            else:
+                self["color_mode"] = "uniform"
+                self["color_buffer_channels"] = 0
+        elif color_mode == "uniform":
+            self["color_mode"] = "uniform"
+            self["color_buffer_channels"] = 0
+        elif color_mode == "vertex":
+            self["color_mode"] = "vertex"
+            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif color_mode == "vertex_map":
+            self["color_mode"] = "vertex_map"
+            self["color_buffer_channels"] = 0
+            self["colorspace"] = material.map.colorspace
+            if material.map is None:
+                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+        else:
+            raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
+
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
         material = wobject.material
@@ -33,17 +64,10 @@ class PointsShader(WorldObjectShader):
             self["per_vertex_sizes"] = True
             bindings.append(Binding("s_sizes", rbuffer, geometry.sizes, "VERTEX"))
 
-        # Per-vertex color, colormap, or a plane color?
-        self["color_mode"] = "uniform"
-        self["vertex_color_channels"] = 0
-        if material.vertex_colors:
-            self["color_mode"] = "vertex"
-            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
-            if nchannels not in (1, 2, 3, 4):
-                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        # Per-vertex color, colormap, or a uniform color?
+        if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
-        elif material.map is not None:
-            self["color_mode"] = "map"
+        elif self["color_mode"] == "vertex_map":
             bindings.extend(
                 self.define_texcoords_and_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
@@ -78,17 +102,21 @@ class PointsShader(WorldObjectShader):
             render_mask = RenderMask.all
             if material.is_transparent:
                 render_mask = RenderMask.transparent
-            elif self["color_mode"] == "vertex":
-                if self["vertex_color_channels"] in (1, 3):
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] == "map":
-                if self["colormap_nchannels"] in (1, 3):
-                    render_mask = RenderMask.opaque
             elif self["color_mode"] == "uniform":
                 if material.color_is_transparent:
                     render_mask = RenderMask.transparent
                 else:
-                    render_mask = RenderMask.opaque
+                    render_mask = RenderMask.all
+            elif self["color_mode"] in ("vertex", "face"):
+                if self["color_buffer_channels"] in (2, 4):
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.all
+            elif self["color_mode"] in ("vertex_map", "face_map"):
+                if self["colormap_nchannels"] in (2, 4):
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.all
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
@@ -153,26 +181,32 @@ class PointsShader(WorldObjectShader):
             // Picking
             varyings.pick_idx = u32(i0);
 
-            // Per-vertex colors
-            $$ if vertex_color_channels == 1
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-            $$ elif vertex_color_channels == 2
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-            $$ elif vertex_color_channels == 3
-            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
-            $$ elif vertex_color_channels == 4
-            varyings.color = vec4<f32>(load_s_colors(i0));
+            // per-vertex or per-face coloring
+            $$ if color_mode == 'face' or color_mode == 'vertex'
+                let color_index = i0;
+                $$ if color_buffer_channels == 1
+                    let cvalue = load_s_colors(color_index);
+                    varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif color_buffer_channels == 2
+                    let cvalue = load_s_colors(color_index);
+                    varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif color_buffer_channels == 3
+                    varyings.color = vec4<f32>(load_s_colors(color_index), 1.0);
+                $$ elif color_buffer_channels == 4
+                    varyings.color = vec4<f32>(load_s_colors(color_index));
+                $$ endif
             $$ endif
+
+            // How to index into tex-coords
+            let tex_coord_index = i0;
 
             // Set texture coords
             $$ if colormap_dim == '1d'
-            varyings.texcoord = f32(load_s_texcoords(i0));
+            varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
             $$ elif colormap_dim == '2d'
-            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
+            varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
             $$ elif colormap_dim == '3d'
-            varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+            varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
             $$ endif
 
             return varyings;

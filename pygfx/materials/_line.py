@@ -1,4 +1,4 @@
-from ._base import Material
+from ._base import Material, ColorMode
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
 
@@ -9,12 +9,11 @@ class LineMaterial(Material):
     Parameters
     ----------
     color : Color
-        The uniform color of the line. Ignored if ``vertex_colors`` is True.
+        The uniform color of the line (used depending on the ``color_mode``).
     thickness : float
         The line thickness expressed in logical pixels.
-    vertex_colors : bool
-        Whether to use the vertex colors provided in the geometry to color the
-        line. If True, color will be ignored.
+    color_mode : enum or str
+        The mode by which the line is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate. Opional.
     map_interpolation: str
@@ -39,11 +38,11 @@ class LineMaterial(Material):
         self,
         color=(1, 1, 1, 1),
         thickness=2.0,
-        vertex_colors=False,
+        color_mode="auto",
         map=None,
         map_interpolation="linear",
         aa=True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 
@@ -52,7 +51,7 @@ class LineMaterial(Material):
         self.map = map
         self.map_interpolation = map_interpolation
         self.thickness = thickness
-        self._vertex_colors = bool(vertex_colors)
+        self.color_mode = color_mode
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -92,15 +91,42 @@ class LineMaterial(Material):
         self._store.aa = bool(aa)
 
     @property
+    def color_mode(self):
+        """The way that color is applied to the mesh.
+
+        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
+        * uniform: use the material's color property for the whole mesh.
+        * vertex: use the geomerty `colors` buffer, one color per vertex.
+        * face: use the geomerty `colors` buffer, one color per line-piece.
+        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
+        * faces_map: use the geometry texcoords buffer to sample (per line-piece) in the material's ``map`` texture.
+        """
+        return self._store.color_mode
+
+    @color_mode.setter
+    def color_mode(self, value):
+        if isinstance(value, ColorMode):
+            pass
+        elif isinstance(value, str):
+            if value.startswith("ColorMode."):
+                value = value.split(".")[-1]
+            try:
+                value = getattr(ColorMode, value.lower())
+            except AttributeError:
+                raise ValueError(f"Invalid color_mode: '{value}'")
+        else:
+            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        self._store.color_mode = value
+
+    @property
     def vertex_colors(self):
-        """Whether to use the vertex colors provided in the geometry."""
-        return self._vertex_colors
+        return self.color_mode == ColorMode.vertex
 
     @vertex_colors.setter
     def vertex_colors(self, value):
-        value = bool(value)
-        if value != self._vertex_colors:
-            self._vertex_colors = value
+        raise DeprecationWarning(
+            "vertex_colors is deprecated, use ``color_mode='vertex'``"
+        )
 
     @property
     def thickness(self):

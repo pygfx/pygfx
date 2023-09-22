@@ -13,9 +13,9 @@ class MeshAbstractMaterial(Material):
     Parameters
     ----------
     color : Color
-        The (uniform) color of the mesh. Ignored if vertex_colors is True.
-    vertex_colors : bool
-        Whether to use the vertex colors provided in the geometry.
+        The uniform color of the mesh (used depending on the ``color_mode``).
+    color_mode : enum or str
+        The mode by which the mesh is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color at each texture coordinate. Optional.
     map_interpolation: str
@@ -85,8 +85,6 @@ class MeshAbstractMaterial(Material):
         """Whether the color is (semi) transparent (i.e. not fully opaque)."""
         return self._store.color_is_transparent
 
-    # todo: usage of grep vertex_colors and face_colors
-
     @property
     def color_mode(self):
         """The way that color is applied to the mesh.
@@ -98,6 +96,7 @@ class MeshAbstractMaterial(Material):
         * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
         * faces_map: use the geometry texcoords buffer to sample (per face) in the material's ``map`` texture.
         """
+        # todo: does 'auto' take the presence of texcoords into account?
         return self._store.color_mode
 
     @color_mode.setter

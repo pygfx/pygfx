@@ -250,10 +250,7 @@ class MeshShader(WorldObjectShader):
                     render_mask = RenderMask.transparent
                 else:
                     render_mask = RenderMask.opaque
-            elif self["color_mode"] == "vertex":
-                if self["color_buffer_channels"] in (1, 3):
-                    render_mask = RenderMask.opaque
-            elif self["color_mode"] == "face":
+            elif self["color_mode"] in ("vertex", "face"):
                 if self["color_buffer_channels"] in (1, 3):
                     render_mask = RenderMask.opaque
             elif self["color_mode"] in ("vertex_map", "face_map"):
