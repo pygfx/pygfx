@@ -491,10 +491,10 @@ will be looked up. The texture can be 1D, 2D or 3D, and the number of columns
 in the `geometry.texcoords` should match. This allows for a wide variety of
 visualizations.
 
-Per-vertex colors can be specified as `geometry.colors`. They must be enabled
-by setting `material.vertex_colors` to `True`.
-
-The colors specified in `material.map` and in `geometry.colors` can have 1-4 values.
+Per-vertex or per-face colors can be specified as `geometry.colors`.
+They must be enabled by setting `material.color_mode` to "vertex" or
+"face". The colors specified in `material.map` and in `geometry.colors`
+can have 1-4 values.
 
 
 Colors in Image and Volume

@@ -110,10 +110,8 @@ def add_point(ev):
 
         # add point
         point = gfx.Points(
-            gfx.Geometry(
-                positions=point_data, sizes=[10], colors=[pygfx.Color("black")]
-            ),
-            material=gfx.PointsMaterial(vertex_colors=True, vertex_sizes=True),
+            gfx.Geometry(positions=point_data),
+            material=gfx.PointsMaterial(color="black", size=10),
         )
 
         scene.add(point)
