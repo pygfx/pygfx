@@ -115,7 +115,6 @@ class WorldObjectShader(BaseShader):
         return [
             Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
             Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
-            Binding("s_texcoords", "buffer/read_only_storage", texcoords, "VERTEX"),
         ]
 
     def define_img_colormap(self, texture, interpolation="linear"):

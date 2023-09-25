@@ -52,6 +52,7 @@ extras_require = {
         "wgpu",
         "jinja2",
         "sphinx-gallery",
+        "sphinx-rtd-theme",
         "imageio",
         "matplotlib",
         # duplicate example dependencies to avoid pyside6

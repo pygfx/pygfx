@@ -101,20 +101,8 @@ class Shaderlib:
             return light;
         }
         $$ endif
-        """
 
-    def light_deps_pbr(self):
-        return """
-        struct PhysicalMaterial {
-            diffuse_color: vec3<f32>,
-            roughness: f32,
-            specular_color: vec3<f32>,
-            specular_f90: f32,
-        };
-        struct LightScatter {
-            single_scatter: vec3<f32>,
-            multi_scatter: vec3<f32>,
-        };
+        $$ if use_normal_map is defined
         fn perturbNormal2Arb( eye_pos: vec3<f32>, surf_norm: vec3<f32>, mapN: vec3<f32>, uv: vec2<f32>, is_front: bool) -> vec3<f32> {
             let q0 = dpdx( eye_pos.xyz );
             let q1 = dpdy( eye_pos.xyz );
@@ -130,6 +118,21 @@ class Shaderlib:
             let scale = faceDirection * inverseSqrt(det);
             return normalize(T * mapN.x * scale + B * mapN.y * scale + N * mapN.z);
         }
+        $$ endif
+        """
+
+    def light_deps_pbr(self):
+        return """
+        struct PhysicalMaterial {
+            diffuse_color: vec3<f32>,
+            roughness: f32,
+            specular_color: vec3<f32>,
+            specular_f90: f32,
+        };
+        struct LightScatter {
+            single_scatter: vec3<f32>,
+            multi_scatter: vec3<f32>,
+        };
         fn getMipLevel(maxMIPLevelScalar: f32, level: f32) -> f32 {
             let sigma = (3.141592653589793 * level * level) / (1.0 + level);
             let desiredMIPLevel = maxMIPLevelScalar + log2(sigma);
@@ -454,6 +457,7 @@ class Shaderlib:
             normal: vec3<f32>,
             view_dir: vec3<f32>,
             albeido: vec3<f32>,
+            specular_strength: f32,
         ) -> vec3<f32> {
 
             // Colors incoming via uniforms
@@ -464,7 +468,7 @@ class Shaderlib:
             material.diffuse_color = albeido;
             material.specular_color = specular_color;
             material.specular_shininess = u_material.shininess;
-            material.specular_strength = 1.0;   //  We could provide a specular map
+            material.specular_strength = specular_strength;
             var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
 
             var geometry: GeometricContext;
@@ -549,7 +553,7 @@ class Shaderlib:
             reflected_light.indirect_diffuse *= ambientOcclusion;
             $$ endif
 
-            return reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular + u_material.emissive_color.rgb;
+            return reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
         }
         """
         )
@@ -704,13 +708,6 @@ class Shaderlib:
 
             // Combine direct and indirect light
             var lit_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
-
-            // Add emissive color
-            var emissive_color = srgb2physical(u_material.emissive_color.rgb);
-            $$ if use_emissive_map is defined
-            emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
-            $$ endif
-            lit_color += emissive_color * u_material.emissive_intensity;
 
             return lit_color;
         }
