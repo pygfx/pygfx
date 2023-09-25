@@ -913,25 +913,27 @@ class MeshSliceShader(WorldObjectShader):
         offset, size = offset * 6, size * 6
 
         # As long as we don't use alpha for aa in the frag shader, we can use a render_mask of 1 or 2.
-        if material.is_transparent:
-            render_mask = RenderMask.transparent
-        elif self["color_mode"] == "uniform":
-            if material.color_is_transparent:
+        render_mask = wobject.render_mask
+        if not render_mask:
+            if material.is_transparent:
                 render_mask = RenderMask.transparent
+            elif self["color_mode"] == "uniform":
+                if material.color_is_transparent:
+                    render_mask = RenderMask.transparent
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] in ("vertex", "face"):
+                if self["color_buffer_channels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+                else:
+                    render_mask = RenderMask.all
+            elif self["color_mode"] in ("vertex_map", "face_map"):
+                if self["colormap_nchannels"] in (1, 3):
+                    render_mask = RenderMask.opaque
+                else:
+                    render_mask = RenderMask.all
             else:
-                render_mask = RenderMask.opaque
-        elif self["color_mode"] in ("vertex", "face"):
-            if self["color_buffer_channels"] in (1, 3):
-                render_mask = RenderMask.opaque
-            else:
-                render_mask = RenderMask.all
-        elif self["color_mode"] in ("vertex_map", "face_map"):
-            if self["colormap_nchannels"] in (1, 3):
-                render_mask = RenderMask.opaque
-            else:
-                render_mask = RenderMask.all
-        else:
-            raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
+                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
         return {
             "indices": (size, 1, offset, 0),
