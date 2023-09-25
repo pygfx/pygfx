@@ -122,9 +122,16 @@ faces = np.frombuffer(faces_bytes, np.int32).reshape(-1, 3)
 
 scene = gfx.Scene()
 
+# Add color and texcoords. These are not used, but it means that all
+# color_mode's are supported and can quickly be tested.
+coords = np.linspace(0, 1, len(faces), dtype=np.float32)
+colors = np.random.uniform(0, 1, (len(faces), 4)).astype(np.float32)
+colors[:, 3] = 1
+map = gfx.cm.viridis
+
 mesh = gfx.Mesh(
-    gfx.Geometry(positions=positions, indices=faces),
-    gfx.MeshSliceMaterial(thickness=10, color="cyan"),
+    gfx.Geometry(positions=positions, indices=faces, colors=colors, texcoords=coords),
+    gfx.MeshSliceMaterial(thickness=10, color="cyan", map=map, color_mode="uniform"),
 )
 mesh.material.plane = -1, 0, 0, 0  # yz
 scene.add(mesh)

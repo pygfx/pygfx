@@ -26,7 +26,6 @@ class PointsShader(WorldObjectShader):
             if material.map is not None:
                 self["color_mode"] = "vertex_map"
                 self["color_buffer_channels"] = 0
-                self["colorspace"] = material.map.colorspace
             else:
                 self["color_mode"] = "uniform"
                 self["color_buffer_channels"] = 0
@@ -41,7 +40,6 @@ class PointsShader(WorldObjectShader):
         elif color_mode == "vertex_map":
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
-            self["colorspace"] = material.map.colorspace
             if material.map is None:
                 raise ValueError(f"Cannot apply colormap is no material.map is set.")
         else:

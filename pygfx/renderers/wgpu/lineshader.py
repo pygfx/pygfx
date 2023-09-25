@@ -57,7 +57,6 @@ class LineShader(WorldObjectShader):
             if material.map is not None:
                 self["color_mode"] = "vertex_map"
                 self["color_buffer_channels"] = 0
-                self["colorspace"] = material.map.colorspace
             else:
                 self["color_mode"] = "uniform"
                 self["color_buffer_channels"] = 0
@@ -79,13 +78,11 @@ class LineShader(WorldObjectShader):
                 raise ValueError(f"Cannot apply colormap is no material.map is set.")
             self["color_mode"] = "vertex_map"
             self["color_buffer_channels"] = 0
-            self["colorspace"] = material.map.colorspace
         elif color_mode == "face_map":
             if material.map is None:
                 raise ValueError(f"Cannot apply colormap is no material.map is set.")
             self["color_mode"] = "face_map"
             self["color_buffer_channels"] = 0
-            self["colorspace"] = material.map.colorspace
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 

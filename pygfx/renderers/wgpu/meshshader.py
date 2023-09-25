@@ -349,8 +349,8 @@ class MeshShader(WorldObjectShader):
             }
 
             // Sample
-            let ii = load_s_indices(face_index);
-            let i0 = i32(ii[sub_index]);
+            let vii = load_s_indices(face_index);
+            let i0 = i32(vii[sub_index]);
 
             // Get vertex position
             let raw_pos = load_s_positions(i0);
@@ -360,7 +360,7 @@ class MeshShader(WorldObjectShader):
             // For the wireframe we also need the ndc_pos of the other vertices of this face
             $$ if wireframe
                 $$ for i in ((1, 2, 3) if indexer == 3 else (1, 2, 3, 4))
-                    let raw_pos{{ i }} = load_s_positions(i32(ii[{{ i - 1 }}]));
+                    let raw_pos{{ i }} = load_s_positions(i32(vii[{{ i - 1 }}]));
                     let world_pos{{ i }} = world_transform * vec4<f32>(raw_pos{{ i }}, 1.0);
                     let ndc_pos{{ i }} = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos{{ i }};
                 $$ endfor
@@ -816,6 +816,46 @@ class MeshSliceShader(WorldObjectShader):
 
     type = "render"
 
+    def __init__(self, wobject):
+        super().__init__(wobject)
+
+        material = wobject.material
+        geometry = wobject.geometry
+
+        color_mode = str(material.color_mode).split(".")[-1]
+        if color_mode == "auto":
+            if material.map is not None:
+                self["color_mode"] = "vertex_map"
+                self["color_buffer_channels"] = 0
+            else:
+                self["color_mode"] = "uniform"
+                self["color_buffer_channels"] = 0
+        elif color_mode == "uniform":
+            self["color_mode"] = "uniform"
+            self["color_buffer_channels"] = 0
+        elif color_mode == "vertex":
+            self["color_mode"] = "vertex"
+            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif color_mode == "face":
+            self["color_mode"] = "face"
+            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif color_mode == "vertex_map":
+            self["color_mode"] = "vertex_map"
+            self["color_buffer_channels"] = 0
+            if material.map is None:
+                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+        elif color_mode == "face_map":
+            self["color_mode"] = "face_map"
+            self["color_buffer_channels"] = 0
+            if material.map is None:
+                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+        else:
+            raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
+
     def get_bindings(self, wobject, shared):
         # It would technically be possible to implement colormapping or
         # per-vertex colors, but its a tricky dance to get the per-vertex
@@ -826,22 +866,33 @@ class MeshSliceShader(WorldObjectShader):
         geometry = wobject.geometry
         material = wobject.material
 
-        bindings = {}
-
         # Init uniform bindings
-        bindings[0] = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
-        bindings[1] = Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer)
-        bindings[2] = Binding("u_material", "buffer/uniform", material.uniform_buffer)
+        bindings = [
+            Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer),
+            Binding("u_wobject", "buffer/uniform", wobject.uniform_buffer),
+            Binding("u_material", "buffer/uniform", material.uniform_buffer),
+        ]
 
         # We're assuming the presence of an index buffer for now
         assert getattr(geometry, "indices", None)
 
         # Init storage buffer bindings
         rbuffer = "buffer/read_only_storage"
-        bindings[3] = Binding("s_indices", rbuffer, geometry.indices, "VERTEX")
-        bindings[4] = Binding("s_positions", rbuffer, geometry.positions, "VERTEX")
+        bindings.append(Binding("s_indices", rbuffer, geometry.indices, "VERTEX"))
+        bindings.append(Binding("s_positions", rbuffer, geometry.positions, "VERTEX"))
+
+        # Bindings for color
+        if self["color_mode"] in ("vertex", "face"):
+            bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
+        elif self["color_mode"] in ("vertex_map", "face_map"):
+            bindings.extend(
+                self.define_texcoords_and_colormap(
+                    material.map, geometry.texcoords, material.map_interpolation
+                )
+            )
 
         # Let the shader generate code for our bindings
+        bindings = {i: binding for i, binding in enumerate(bindings)}
         self.define_bindings(0, bindings)
 
         return {
@@ -862,12 +913,25 @@ class MeshSliceShader(WorldObjectShader):
         offset, size = offset * 6, size * 6
 
         # As long as we don't use alpha for aa in the frag shader, we can use a render_mask of 1 or 2.
-        render_mask = wobject.render_mask
-        if not render_mask:
-            if material.is_transparent or material.color_is_transparent:
+        if material.is_transparent:
+            render_mask = RenderMask.transparent
+        elif self["color_mode"] == "uniform":
+            if material.color_is_transparent:
                 render_mask = RenderMask.transparent
             else:
                 render_mask = RenderMask.opaque
+        elif self["color_mode"] in ("vertex", "face"):
+            if self["color_buffer_channels"] in (1, 3):
+                render_mask = RenderMask.opaque
+            else:
+                render_mask = RenderMask.all
+        elif self["color_mode"] in ("vertex_map", "face_map"):
+            if self["colormap_nchannels"] in (1, 3):
+                render_mask = RenderMask.opaque
+            else:
+                render_mask = RenderMask.all
+        else:
+            raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
         return {
             "indices": (size, 1, offset, 0),
@@ -897,15 +961,17 @@ class MeshSliceShader(WorldObjectShader):
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
             let thickness = u_material.thickness;  // in logical pixels
+
             // Get the face index, and sample the vertex indices
             let index = i32(in.vertex_index);
             let segment_index = index % 6;
             let face_index = (index - segment_index) / 6;
-            let ii = vec3<i32>(load_s_indices(face_index));
+            let vii = vec3<i32>(load_s_indices(face_index));
+
             // Vertex positions of this face, in local object coordinates
-            let pos1a = load_s_positions(ii[0]);
-            let pos2a = load_s_positions(ii[1]);
-            let pos3a = load_s_positions(ii[2]);
+            let pos1a = load_s_positions(vii[0]);
+            let pos2a = load_s_positions(vii[1]);
+            let pos3a = load_s_positions(vii[2]);
             let pos1b = u_wobject.world_transform * vec4<f32>(pos1a, 1.0);
             let pos2b = u_wobject.world_transform * vec4<f32>(pos2a, 1.0);
             let pos3b = u_wobject.world_transform * vec4<f32>(pos3a, 1.0);
@@ -1019,6 +1085,7 @@ class MeshSliceShader(WorldObjectShader):
                 let mixval = the_vec.x * 0.5 + 0.5;
                 pick_coords = vec3<f32>(mix(fw_a, fw_b, vec3<f32>(mixval, mixval, mixval)));
             }
+
             // Shader output
             var varyings: Varyings;
             varyings.position = vec4<f32>(the_pos);
@@ -1028,6 +1095,45 @@ class MeshSliceShader(WorldObjectShader):
             varyings.segment_width = f32(thickness * l2p);
             varyings.pick_idx = u32(pick_idx);
             varyings.pick_coords = vec3<f32>(pick_coords);
+
+            // per-vertex or per-face coloring
+            $$ if color_mode == 'face' or color_mode == 'vertex'
+                $$ if color_mode == 'face'
+                    let cvalue = load_s_colors(face_index);
+                $$ else
+                    let cvalue = (  load_s_colors(vii[0]) * pick_coords[0] +
+                                    load_s_colors(vii[1]) * pick_coords[1] +
+                                    load_s_colors(vii[2]) * pick_coords[2] );
+                $$ endif
+                $$ if color_buffer_channels == 1
+                    varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif color_buffer_channels == 2
+                    varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif color_buffer_channels == 3
+                    varyings.color = vec4<f32>(cvalue, 1.0);
+                $$ elif color_buffer_channels == 4
+                    varyings.color = vec4<f32>(cvalue);
+                $$ endif
+            $$ endif
+
+            // Set texture coords
+            $$ if color_mode == 'face_map' or color_mode == 'vertex_map'
+                $$ if color_mode == 'face_map'
+                    let cvalue = load_s_texcoords(face_index);
+                $$ else
+                    let cvalue = (  load_s_texcoords(vii[0]) * pick_coords[0] +
+                                    load_s_texcoords(vii[1]) * pick_coords[1] +
+                                    load_s_texcoords(vii[2]) * pick_coords[2] );
+                $$ endif
+                $$ if colormap_dim == '1d'
+                    varyings.texcoord = f32(cvalue);
+                $$ elif colormap_dim == '2d'
+                    varyings.texcoord = vec2<f32>(cvalue);
+                $$ elif colormap_dim == '3d'
+                    varyings.texcoord = vec3<f32>(cvalue);
+                $$ endif
+            $$ endif
+
             return varyings;
         }
         """
@@ -1045,12 +1151,23 @@ class MeshSliceShader(WorldObjectShader):
                 discard;
             }
 
+            $$ if color_mode == 'vertex' or color_mode == 'face'
+                let color_value = varyings.color;
+                let albeido = color_value.rgb;
+            $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
+                let color_value = sample_colormap(varyings.texcoord);
+                let albeido = color_value.rgb;  // no more colormap
+            $$ else
+                let color_value = u_material.color;
+                let albeido = color_value.rgb;
+            $$ endif
+
             // No aa. This is something we need to decide on. See line renderer.
             // Making this < 1 would affect the suggested_render_mask.
             let alpha = 1.0;
             // Set color
-            let physical_color = srgb2physical(u_material.color.rgb);
-            let opacity = min(1.0, u_material.color.a) * alpha;
+            let physical_color = srgb2physical(albeido);
+            let opacity = min(1.0, color_value.a) * alpha;
             let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
