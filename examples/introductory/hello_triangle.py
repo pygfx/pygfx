@@ -20,7 +20,7 @@ triangle = gfx.Mesh(
         positions=[(0.0, -0.5, 0), (0.5, 0.5, 0), (-0.5, 0.75, 0)],
         colors=[(1, 1, 0, 1), (1, 0, 1, 1), (0, 1, 1, 1)],
     ),
-    gfx.MeshBasicMaterial(vertex_colors=True),
+    gfx.MeshBasicMaterial(color_mode="vertex"),
 )
 
 

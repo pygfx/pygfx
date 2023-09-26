@@ -1,3 +1,5 @@
+import enum
+
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
@@ -157,3 +159,12 @@ class Material(Trackable):
             self._clipping_mode = mode
         else:
             raise ValueError(f"Unexpected clipping_mode: {value}")
+
+
+class ColorMode(enum.Enum):
+    auto = 0
+    uniform = 1
+    vertex = 2
+    face = 3
+    vertex_map = 4
+    face_map = 5

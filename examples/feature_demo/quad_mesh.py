@@ -43,16 +43,19 @@ controller.controls["mouse3"] = ("pan", "drag", (1.0, 1.0))
 # Generate Sample quads and draw them
 pos, indices = generate_sample_quads()
 colors = np.repeat(pos[:, -1] / pos[:, -1].max(), 4).reshape(-1, 4)
-colors[:, -1] = 1
+colors[:, 2] = 1
+colors[:, 3] = 1
 
 patches = gfx.Mesh(
     gfx.Geometry(
         indices=indices,
         positions=pos,
         colors=colors,
-        texcoords=np.arange(len(indices), dtype=np.float32),
+        texcoords=np.linspace(0, 1, len(indices), dtype=np.float32),
     ),
-    gfx.MeshBasicMaterial(wireframe=True, wireframe_thickness=3),
+    gfx.MeshBasicMaterial(
+        color_mode="uniform", wireframe=True, wireframe_thickness=3, map=gfx.cm.magma
+    ),
 )
 
 
@@ -72,17 +75,22 @@ scene.add(background)
 
 def make_wireframe():
     patches.material.wireframe = True
-    patches.material.vertex_colors = False
+    patches.material.color_mode = "uniform"
 
 
 def make_vertex_color():
     patches.material.wireframe = False
-    patches.material.vertex_colors = True
+    patches.material.color_mode = "vertex"
 
 
 def make_face_color():
-    patches.material.vertex_colors = False
-    patches.material.face_colors = True
+    patches.material.wireframe = False
+    patches.material.color_mode = "face"
+
+
+def make_face_color_map():
+    patches.material.wireframe = False
+    patches.material.color_mode = "face_map"
 
 
 @renderer.add_event_handler("key_down")
@@ -93,6 +101,8 @@ def on_key(e):
         make_vertex_color()
     elif e.key == "3":
         make_face_color()
+    elif e.key == "4":
+        make_face_color_map()
 
 
 @renderer.add_event_handler("click")

@@ -100,7 +100,7 @@ colors = colors[:, :3]  # Colors can be Nx1, Nx2, Nx3, Nx4
 
 ob4 = WobjectClass(
     get_geometry(colors=gfx.Buffer(colors)),
-    MaterialClass(vertex_colors=True),
+    MaterialClass(color_mode="vertex"),
 )
 scene.add(ob4)
 ob4.local.x = +6

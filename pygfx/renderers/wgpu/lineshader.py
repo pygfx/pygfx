@@ -46,14 +46,49 @@ class LineShader(WorldObjectShader):
 
     def __init__(self, wobject):
         super().__init__(wobject)
+        material = wobject.material
+        geometry = wobject.geometry
+
         self["line_type"] = "line"
-        self["aa"] = wobject.material.aa
+        self["aa"] = material.aa
+
+        color_mode = str(material.color_mode).split(".")[-1]
+        if color_mode == "auto":
+            if material.map is not None:
+                self["color_mode"] = "vertex_map"
+                self["color_buffer_channels"] = 0
+            else:
+                self["color_mode"] = "uniform"
+                self["color_buffer_channels"] = 0
+        elif color_mode == "uniform":
+            self["color_mode"] = "uniform"
+            self["color_buffer_channels"] = 0
+        elif color_mode == "vertex":
+            self["color_mode"] = "vertex"
+            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif color_mode == "face":
+            self["color_mode"] = "face"
+            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            if nchannels not in (1, 2, 3, 4):
+                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        elif color_mode == "vertex_map":
+            if material.map is None:
+                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+            self["color_mode"] = "vertex_map"
+            self["color_buffer_channels"] = 0
+        elif color_mode == "face_map":
+            if material.map is None:
+                raise ValueError(f"Cannot apply colormap is no material.map is set.")
+            self["color_mode"] = "face_map"
+            self["color_buffer_channels"] = 0
+        else:
+            raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
     def get_bindings(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
-
-        self["vertex_color_channels"] = 0
 
         positions1 = geometry.positions
 
@@ -85,18 +120,12 @@ class LineShader(WorldObjectShader):
             Binding("s_positions", rbuffer, positions1, "VERTEX"),
         ]
 
-        # Per-vertex color, colormap, or a plane color?
-        self["color_mode"] = "uniform"
-        if material.vertex_colors:
-            self["color_mode"] = "vertex"
-            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
-            if nchannels not in (1, 2, 3, 4):
-                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        # Per-vertex color, colormap, or a uniform color?
+        if self["color_mode"] in ("vertex", "face"):
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
-        elif material.map is not None:
-            self["color_mode"] = "map"
+        elif self["color_mode"] in ("vertex_map", "face_map"):
             bindings.extend(
-                self.define_vertex_colormap(
+                self.define_texcoords_and_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -135,20 +164,23 @@ class LineShader(WorldObjectShader):
                     render_mask = RenderMask.all
                 else:
                     render_mask = RenderMask.opaque
-            elif self["color_mode"] == "vertex":
-                if self["vertex_color_channels"] in (2, 4):
+            elif self["color_mode"] in ("vertex", "face"):
+                if self["color_buffer_channels"] in (2, 4):
                     render_mask = RenderMask.all
                 elif material.aa:
                     render_mask = RenderMask.all
                 else:
                     render_mask = RenderMask.opaque
-            elif self["color_mode"] == "map":
+            elif self["color_mode"] in ("vertex_map", "face_map"):
                 if self["colormap_nchannels"] in (2, 4):
                     render_mask = RenderMask.all
                 elif material.aa:
                     render_mask = RenderMask.all
                 else:
                     render_mask = RenderMask.opaque
+            else:
+                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
+
         return {
             "indices": (size, 1, offset, 0),
             "render_mask": render_mask,
@@ -172,6 +204,7 @@ class LineShader(WorldObjectShader):
 
         struct VertexFuncOutput {
             i: i32,
+            fi: i32,
             pos: vec4<f32>,
             thickness_p: f32,
             vec_from_node_p: vec2<f32>,
@@ -216,6 +249,7 @@ class LineShader(WorldObjectShader):
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.index);
+            let face_index = (index / 2) * 2;
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
             let extra_thick = {{ '0.5' if aa else '0.0' }} / l2p;
@@ -223,6 +257,7 @@ class LineShader(WorldObjectShader):
 
             let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
             let i0 = result.i;
+            let face_index = result.fi;
 
             var varyings: Varyings;
             varyings.position = vec4<f32>(result.pos);
@@ -237,26 +272,40 @@ class LineShader(WorldObjectShader):
             varyings.pick_idx = u32(result.i);
             varyings.pick_zigzag = f32(select(0.0, 1.0, result.i % 2 == 0));
 
-            // Per-vertex colors
-            $$ if vertex_color_channels == 1
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-            $$ elif vertex_color_channels == 2
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-            $$ elif vertex_color_channels == 3
-            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
-            $$ elif vertex_color_channels == 4
-            varyings.color = vec4<f32>(load_s_colors(i0));
+            // per-vertex or per-face coloring
+            $$ if color_mode == 'face' or color_mode == 'vertex'
+                $$ if color_mode == 'face'
+                let color_index = face_index;
+                $$ else
+                    let color_index = i0;
+                $$ endif
+                $$ if color_buffer_channels == 1
+                    let cvalue = load_s_colors(color_index);
+                    varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif color_buffer_channels == 2
+                    let cvalue = load_s_colors(color_index);
+                    varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif color_buffer_channels == 3
+                    varyings.color = vec4<f32>(load_s_colors(color_index), 1.0);
+                $$ elif color_buffer_channels == 4
+                    varyings.color = vec4<f32>(load_s_colors(color_index));
+                $$ endif
+            $$ endif
+
+            // How to index into tex-coords
+            $$ if color_mode == 'face_map'
+            let tex_coord_index = face_index;
+            $$ else
+            let tex_coord_index = i0;
             $$ endif
 
             // Set texture coords
             $$ if colormap_dim == '1d'
-            varyings.texcoord = f32(load_s_texcoords(i0));
+            varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
             $$ elif colormap_dim == '2d'
-            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
+            varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
             $$ elif colormap_dim == '3d'
-            varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+            varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
             $$ endif
 
             return varyings;
@@ -312,6 +361,7 @@ class LineShader(WorldObjectShader):
             // - we can prepare the nodes' screen coordinates in a compute shader.
 
             let i = index / 5;
+            let fi = (index + 2) / 5;
 
             // Sample the current node and it's two neighbours, and convert to NDC
             // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
@@ -383,6 +433,7 @@ class LineShader(WorldObjectShader):
 
             var out : VertexFuncOutput;
             out.i = i;
+            out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
@@ -416,10 +467,9 @@ class LineShader(WorldObjectShader):
                 alpha = clamp(alpha, 0.0, 1.0);
             $$ endif
 
-            // Set color
-            $$ if color_mode == 'vertex'
+            $$ if color_mode == 'vertex' or color_mode == 'face'
                 let color = varyings.color;
-            $$ elif color_mode == 'map'
+            $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
                 let color = sample_colormap(varyings.texcoord);
             $$ else
                 let color = u_material.color;
@@ -480,6 +530,7 @@ class LineSegmentShader(LineShader):
             // caps, no joins.
 
             let i = index / 5;
+            let fi = i / 2;
 
             // Sample the current node and either of its neighbours
             let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
@@ -520,6 +571,7 @@ class LineSegmentShader(LineShader):
 
             var out : VertexFuncOutput;
             out.i = i;
+            out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
@@ -549,6 +601,7 @@ class LineArrowShader(LineShader):
             // only draw caps, no joins.
 
             let i = index / 3;
+            let fi = i / 2;
 
             // Sample the current node and either of its neighbours
             let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
@@ -583,6 +636,7 @@ class LineArrowShader(LineShader):
 
             var out : VertexFuncOutput;
             out.i = i;
+            out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = vec2<f32>(0.0, 0.0);
@@ -592,8 +646,14 @@ class LineArrowShader(LineShader):
 
 
 @register_wgpu_render_function(Line, LineThinMaterial)
-class ThinLineShader(WorldObjectShader):
+class ThinLineShader(LineShader):
     type = "render"
+
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        self["aa"] = False  # no aa with thin lines
+        if self["color_mode"] in ("face", "face_map"):
+            raise RuntimeError("Face coloring not supported for thin lines.")
 
     def get_bindings(self, wobject, shared):
         material = wobject.material
@@ -607,19 +667,12 @@ class ThinLineShader(WorldObjectShader):
             Binding("s_positions", rbuffer, geometry.positions, "VERTEX"),
         ]
 
-        # Per-vertex color, colormap, or a plane color?
-        self["vertex_color_channels"] = 0
-        self["color_mode"] = "uniform"
-        if material.vertex_colors:
-            self["color_mode"] = "vertex"
-            self["vertex_color_channels"] = nchannels = geometry.colors.data.shape[1]
-            if nchannels not in (1, 2, 3, 4):
-                raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
+        # Per-vertex color, colormap, or a uniform color?
+        if self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
-        elif material.map is not None:
-            self["color_mode"] = "map"
+        elif self["color_mode"] == "vertex_map":
             bindings.extend(
-                self.define_vertex_colormap(
+                self.define_texcoords_and_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
@@ -638,15 +691,26 @@ class ThinLineShader(WorldObjectShader):
         }
 
     def get_render_info(self, wobject, shared):
+        material = wobject.material
         offset, size = wobject.geometry.positions.draw_range
         render_mask = wobject.render_mask
         if not render_mask:
             render_mask = RenderMask.all
-            if wobject.material.is_transparent:
+            if material.is_transparent:
                 render_mask = RenderMask.transparent
-            if self["color_mode"] == "uniform":
-                if wobject.material.color_is_transparent:
+            elif self["color_mode"] == "uniform":
+                if material.color_is_transparent:
                     render_mask = RenderMask.transparent
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "vertex":
+                if self["color_buffer_channels"] in (2, 4):
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "vertex_map":
+                if self["colormap_nchannels"] in (2, 4):
+                    render_mask = RenderMask.all
                 else:
                     render_mask = RenderMask.opaque
         return {
@@ -681,26 +745,30 @@ class ThinLineShader(WorldObjectShader):
             varyings.position = vec4<f32>(npos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(npos));
 
-            // Per-vertex colors
-            $$ if vertex_color_channels == 1
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-            $$ elif vertex_color_channels == 2
-            let cvalue = load_s_colors(i0);
-            varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-            $$ elif vertex_color_channels == 3
-            varyings.color = vec4<f32>(load_s_colors(i0), 1.0);
-            $$ elif vertex_color_channels == 4
-            varyings.color = vec4<f32>(load_s_colors(i0));
+            // per-vertex or per-face coloring
+            $$ if color_mode == 'vertex'
+                let color_index = i0;
+                $$ if color_buffer_channels == 1
+                    let cvalue = load_s_colors(color_index);
+                    varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
+                $$ elif color_buffer_channels == 2
+                    let cvalue = load_s_colors(color_index);
+                    varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
+                $$ elif color_buffer_channels == 3
+                    varyings.color = vec4<f32>(load_s_colors(color_index), 1.0);
+                $$ elif color_buffer_channels == 4
+                    varyings.color = vec4<f32>(load_s_colors(color_index));
+                $$ endif
             $$ endif
 
             // Set texture coords
+            let tex_coord_index = i0;
             $$ if colormap_dim == '1d'
-            varyings.texcoord = f32(load_s_texcoords(i0));
+            varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
             $$ elif colormap_dim == '2d'
-            varyings.texcoord = vec2<f32>(load_s_texcoords(i0));
+            varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
             $$ elif colormap_dim == '3d'
-            varyings.texcoord = vec3<f32>(load_s_texcoords(i0));
+            varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
             $$ endif
 
             return varyings;
@@ -714,7 +782,7 @@ class ThinLineShader(WorldObjectShader):
 
             $$ if color_mode == 'vertex'
                 let color = varyings.color;
-            $$ elif color_mode == 'map'
+            $$ elif color_mode == 'vertex_map'
                 let color = sample_colormap(varyings.texcoord);
             $$ else
                 let color = u_material.color;

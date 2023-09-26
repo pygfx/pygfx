@@ -74,9 +74,9 @@ class WorldObjectShader(BaseShader):
 
     # ----- Colormap stuff
 
-    def define_vertex_colormap(self, texture, texcoords, interpolation="linear"):
-        """Define the given texture view as the colormap to be used to
-        lookup the final color from the per- vertex texcoords.
+    def define_texcoords_and_colormap(self, texture, texcoords, interpolation="linear"):
+        """Define the given texture as the colormap to be used to
+        lookup the final color from the (per-vertex or per-face) texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
