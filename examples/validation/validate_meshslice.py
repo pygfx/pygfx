@@ -124,6 +124,9 @@ scene = gfx.Scene()
 
 # Add color and texcoords. These are not used, but it means that all
 # color_mode's are supported and can quickly be tested.
+# NOTE: when showing a color per face, some line pieces are split into two colors.
+# This is because the plane runs exactly over an edge in the mesh, so the observed
+# line piece has contributions from two faces.
 coords = np.linspace(0, 1, len(faces), dtype=np.float32)
 colors = np.random.uniform(0, 1, (len(faces), 4)).astype(np.float32)
 colors[:, 3] = 1
