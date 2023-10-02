@@ -47,7 +47,7 @@ extras_require = {
         "trimesh",
     ],
     "docs": [
-        "sphinx",
+        "sphinx>7.2",
         "numpy",
         "wgpu",
         "jinja2",
