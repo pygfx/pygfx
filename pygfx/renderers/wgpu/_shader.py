@@ -216,14 +216,14 @@ class WorldObjectShader(BaseShader):
         """
 
         math = """
-        let PI = 3.141592653589793;
-        let RECIPROCAL_PI = 0.3183098861837907;
+        const PI = 3.141592653589793;
+        const RECIPROCAL_PI = 0.3183098861837907;
         fn pow2(x:f32) -> f32 { return x*x; }
         fn pow4(x:f32) -> f32 { let x2 = x * x; return x2*x2; }
         """
 
         blending_code = """
-        let alpha_compare_epsilon : f32 = 1e-6;
+        const alpha_compare_epsilon : f32 = 1e-6;
         {{ blending_code }}
         """
 
