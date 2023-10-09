@@ -9,6 +9,7 @@ import runpy
 import sys
 from unittest.mock import patch
 
+import pygfx as gfx
 import imageio.v3 as iio
 import numpy as np
 import pytest
@@ -43,6 +44,10 @@ class LogHandler(logging.Handler):
 
 log_handler = LogHandler(logging.WARN)
 logging.getLogger().addHandler(log_handler)
+
+
+# Initialize the device, to avoid Rust warnings from showing in the first example
+gfx.renderers.wgpu.get_shared()
 
 
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
