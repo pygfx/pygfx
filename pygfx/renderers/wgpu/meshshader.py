@@ -1144,7 +1144,6 @@ class MeshSliceShader(WorldObjectShader):
         return """
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
-            var out: FragmentOutput;
             // Discart fragments that are too far from the centerline. This makes round caps.
             // Note that we operate in physical pixels here.
             let distx = max(0.0, abs(varyings.dist2center.x) - 0.5 * varyings.segment_length);

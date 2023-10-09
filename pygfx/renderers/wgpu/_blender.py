@@ -731,7 +731,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         """
 
         fragment_code = """
-            const epsilon = 0.00001;
+            let epsilon = 0.00001;
 
             // Sample
             let accum = textureLoad(r_accum, texindex, 0).rgba;
@@ -858,7 +858,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         """
 
         fragment_code = """
-            const epsilon = 0.00001;
+            let epsilon = 0.00001;
 
             // Sample
             var accum = textureLoad(r_accum, texindex, 0).rgba;
