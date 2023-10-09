@@ -36,6 +36,8 @@ class LogHandler(logging.Handler):
         self.records = []
 
     def emit(self, record):
+        if record.name in ["trimesh", "imageio"]:
+            return
         self.records.append(record)
 
 
