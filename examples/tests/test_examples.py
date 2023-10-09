@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import imageio.v3 as iio
 import numpy as np
+import wgpu
 import pytest
 
 from examples.tests.testutils import (
@@ -38,7 +39,14 @@ def test_examples_run(module, force_offscreen):
     # (relative) module name from project root
     module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
 
+    # Get what erros were logged so far. The err_hashes is a dict hash -> count.
+    # todo: this is a bit of a hack, wgou-py should probably provide a better mechanism to track errors during a draw, perhaps simply raise the errors when using an offscreen canvas.
+    async_errors = wgpu.gui.base.err_hashes.copy()
+
     runpy.run_module(module_name, run_name="__main__")
+
+    if wgpu.gui.base.err_hashes != async_errors:
+        raise RuntimeError("Example generated errors during draw")
 
 
 @pytest.fixture
