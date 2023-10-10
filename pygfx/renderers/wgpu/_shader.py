@@ -161,7 +161,9 @@ class WorldObjectShader(BaseShader):
             return ""
 
         typemap = {"1d": "f32", "2d": "vec2<f32>", "3d": "vec3<f32>"}
-        self["colormap_coord_type"] = typemap.get(self["colormap_dim"], "f32")
+        self.derived_kwargs["colormap_coord_type"] = typemap.get(
+            self["colormap_dim"], "f32"
+        )
 
         return """
         fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {

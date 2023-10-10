@@ -497,8 +497,10 @@ class PipelineContainer:
             changed.update(("bindings", "pipeline_info", "render_info"))
 
         if "bindings" in changed:
+            self.shader.unlock_hash()
             with wobject.tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
+            self.shader.lock_hash()
             self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups()
