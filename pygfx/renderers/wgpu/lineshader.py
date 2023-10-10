@@ -209,12 +209,6 @@ class LineShader(WorldObjectShader):
             thickness_p: f32,
             vec_from_node_p: vec2<f32>,
         };
-
-        struct FragmentOutput {
-            @location(0) color: vec4<f32>,
-            @location(1) pick: vec4<i32>,
-            @builtin(frag_depth) depth : f32,
-        };
         """
 
     def code_helpers(self):
@@ -249,7 +243,6 @@ class LineShader(WorldObjectShader):
         fn vs_main(in: VertexInput) -> Varyings {
 
             let index = i32(in.index);
-            let face_index = (index / 2) * 2;
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
             let extra_thick = {{ '0.5' if aa else '0.0' }} / l2p;

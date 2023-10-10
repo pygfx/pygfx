@@ -4,10 +4,12 @@ Test that the examples run without error.
 
 import os
 import importlib
+import logging
 import runpy
 import sys
 from unittest.mock import patch
 
+import pygfx as gfx
 import imageio.v3 as iio
 import numpy as np
 import pytest
@@ -29,6 +31,25 @@ examples_to_run = find_examples(negative_query="# run_example = false")
 examples_to_test = find_examples(query="# test_example = true")
 
 
+class LogHandler(logging.Handler):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.records = []
+
+    def emit(self, record):
+        if record.name in ["trimesh", "imageio"]:
+            return
+        self.records.append(record)
+
+
+log_handler = LogHandler(logging.WARN)
+logging.getLogger().addHandler(log_handler)
+
+
+# Initialize the device, to avoid Rust warnings from showing in the first example
+gfx.renderers.wgpu.get_shared()
+
+
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
 def test_examples_run(module, force_offscreen):
     """Run every example marked to see if they can run without error."""
@@ -38,7 +59,14 @@ def test_examples_run(module, force_offscreen):
     # (relative) module name from project root
     module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
 
+    # Reset logged warnings/errors
+    log_handler.records = []
+
     runpy.run_module(module_name, run_name="__main__")
+
+    # If any erors occured in the draw callback, they are logged
+    if log_handler.records:
+        raise RuntimeError("Example generated errors during draw")
 
 
 @pytest.fixture

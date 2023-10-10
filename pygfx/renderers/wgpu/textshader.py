@@ -76,7 +76,7 @@ class TextShader(WorldObjectShader):
 
     def get_code(self):
         sizes = f"""
-        let REF_GLYPH_SIZE: i32 = {REF_GLYPH_SIZE};
+        const REF_GLYPH_SIZE: i32 = {REF_GLYPH_SIZE};
         """
 
         return (

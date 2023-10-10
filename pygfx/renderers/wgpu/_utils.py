@@ -302,7 +302,9 @@ class GfxSampler:
 class GfxTextureView:
     """Simple wrapper for a GPUTextureView. Should be considered read-only."""
 
-    def __init__(self, texture, *, view_dim=None, layer_range=None, aspect=None):
+    def __init__(
+        self, texture, *, view_dim=None, layer_range=None, mip_range=None, aspect=None
+    ):
         format = texture.format
 
         # Check view_dim
@@ -318,6 +320,12 @@ class GfxTextureView:
             layer_range = default_layer_range
         else:
             assert isinstance(layer_range, tuple) and len(layer_range) == 2
+
+        # Check mip_range (is half-open range)
+        if mip_range is None:
+            mip_range = None
+        else:
+            assert isinstance(mip_range, tuple) and len(mip_range) == 2
 
         # Check aspect
         default_aspect = wgpu.TextureAspect.all
@@ -337,6 +345,15 @@ class GfxTextureView:
         self.texture = texture
         self.format = format
         self.view_dim = view_dim
-        self.aspect = aspect
         self.layer_range = layer_range
+        self._mip_range = mip_range
+        self.aspect = aspect
         self._wgpu_object = None
+
+    @property
+    def mip_range(self):
+        # Calculated, since _wgpu_mip_level_count is set later
+        if self._mip_range is None:
+            return 0, self.texture._wgpu_mip_level_count
+        else:
+            return self._mip_range
