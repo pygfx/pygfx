@@ -730,7 +730,8 @@ class RenderPipelineContainer(PipelineContainer):
 
             blender_kwargs = blender.get_shader_kwargs(pass_index)
             env_kwargs = env.get_shader_kwargs(env_bind_group_index)
-            shader_kwargs = blender_kwargs | env_kwargs
+            shader_kwargs = blender_kwargs.copy()
+            shader_kwargs.update(env_kwargs)
 
             shader_module = get_cached_shader_module(
                 self.device, self.shader, shader_kwargs
