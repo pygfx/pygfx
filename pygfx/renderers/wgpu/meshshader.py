@@ -89,6 +89,12 @@ class MeshShader(WorldObjectShader):
         # We're assuming the presence of an index buffer for now
         assert getattr(geometry, "indices", None)
 
+        # Triangles or quads?
+        if geometry.indices.data is not None and geometry.indices.data.shape[-1] == 4:
+            self["indexer"] = 6
+        else:
+            self["indexer"] = 3
+
         # Normals. Usually it'd be given. If not, we'll calculate it from the vertices.
         if getattr(geometry, "normals", None) is not None:
             normal_buffer = geometry.normals
@@ -228,11 +234,9 @@ class MeshShader(WorldObjectShader):
         material = wobject.material
 
         if geometry.indices.data is not None and geometry.indices.data.shape[-1] == 4:
-            self["indexer"] = 6
             offset, size = geometry.indices.draw_range
             offset, size = 6 * offset, 6 * size
         else:
-            self["indexer"] = 3
             offset, size = geometry.indices.draw_range
             offset, size = 3 * offset, 3 * size
 

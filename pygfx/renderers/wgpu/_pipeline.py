@@ -497,8 +497,10 @@ class PipelineContainer:
             changed.update(("bindings", "pipeline_info", "render_info"))
 
         if "bindings" in changed:
+            self.shader.unlock_hash()
             with wobject.tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
+            self.shader.lock_hash()
             self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups()
@@ -728,7 +730,8 @@ class RenderPipelineContainer(PipelineContainer):
 
             blender_kwargs = blender.get_shader_kwargs(pass_index)
             env_kwargs = env.get_shader_kwargs(env_bind_group_index)
-            shader_kwargs = blender_kwargs | env_kwargs
+            shader_kwargs = blender_kwargs.copy()
+            shader_kwargs.update(env_kwargs)
 
             shader_module = get_cached_shader_module(
                 self.device, self.shader, shader_kwargs
