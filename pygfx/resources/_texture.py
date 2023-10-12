@@ -84,7 +84,10 @@ class Texture(Resource):
             if len(shape) == len(collapsed_size) + 1:
                 nchannels = shape[-1]
             else:
-                assert len(shape) == len(collapsed_size)
+                if not len(shape) == len(collapsed_size):
+                    raise ValueError(
+                        "Incompatible data shape for image data, there must be > 1 pixel to draw per channel"
+                    )
                 nchannels = 1
             if not (1 <= nchannels <= 4):
                 raise ValueError(
