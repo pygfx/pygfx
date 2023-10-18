@@ -2,12 +2,12 @@ import os
 import time
 
 import numpy as np
-from pygfx.utils.text._shaper import TemperalCache, shape_text_hb, shape_text_ft
+from pygfx.utils.text._shaper import TemporalCache, shape_text_hb, shape_text_ft
 from pygfx.utils.text import font_manager
 
 
 def test_cache():
-    c = TemperalCache(0.1)
+    c = TemporalCache(0.1)
 
     # === Store one value
     c.set("foo", 42)

@@ -57,7 +57,7 @@ background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=env_tex))
 scene.add(background)
 
 # Load meshes, and apply env map
-# Note that this lits the helmet already
+# Note that this list the helmet already
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 meshes = gfx.load_meshes(gltf_path)
 scene.add(*meshes)

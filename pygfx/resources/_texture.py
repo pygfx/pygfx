@@ -31,7 +31,7 @@ class Texture(Resource):
             If this data is used as color, it is interpreted to be in this
             colorspace. Can be "srgb" or "physical". Default "srgb".
         generate_mipmaps : bool
-            If True, automatically generates mipmaps when transfering data to
+            If True, automatically generates mipmaps when transferring data to
             the GPU.
 
     """
@@ -149,7 +149,7 @@ class Texture(Resource):
     def format(self):
         """The texture format as a string. Usually a pygfx format specifier
         (e.g. u2 for scalar uint16, or 3xf4 for RGB float32),
-        but can also be a overriden to a backend-specific format.
+        but can also be a overridden to a backend-specific format.
         """
         return self._format
 

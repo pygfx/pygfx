@@ -248,7 +248,7 @@ class TransformGizmo(WorldObject):
         arc_xy.local.rotation = la.quat_from_axis_angle((0, 1, 0), np.pi / 2)
         arc_zx.local.rotation = la.quat_from_axis_angle((0, 0, 1), -np.pi / 2)
 
-        # Store the objectss
+        # Store the objects
         self._center_sphere = scale_uniform
         self._line_children = line_x, line_y, line_z
         self._arc_children = arc_yz, arc_zx, arc_xy

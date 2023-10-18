@@ -38,7 +38,7 @@ def shape_text(text, font_filename, direction=None):
     # return shape_text_ft(text, font_filename)
 
 
-class TemperalCache:
+class TemporalCache:
     """A simple cache that drops old items based on time."""
 
     def __init__(self, lifetime):
@@ -48,7 +48,7 @@ class TemperalCache:
 
     def get(self, key):
         """Gets the object corresponding to the given key, or None.
-        A sucesful get resets the item's lifetime.
+        A successful get resets the item's lifetime.
         Getting triggers the lifetimes of all items to be checked.
         """
         try:
@@ -85,8 +85,8 @@ class TemperalCache:
 # a regular dict would probably be fine. But for FT the font can take
 # substantial memory (e.g. a Chinese font can take close to 1MB). This
 # is why we use a temporal cache, that drops unused items after 10s.
-CACHE_HB = TemperalCache(10)
-CACHE_FT = TemperalCache(10)
+CACHE_HB = TemporalCache(10)
+CACHE_FT = TemporalCache(10)
 
 
 def shape_text_hb(text, font_filename, direction=None):

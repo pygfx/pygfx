@@ -1,5 +1,5 @@
 """
-Peformance of drawing many Lines
+Performance of drawing many Lines
 ================================
 
 Display a lot of line objects. Because of the architecture of wgpu,

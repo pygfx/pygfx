@@ -86,7 +86,7 @@ class PointsMaterial(Material):
 
         * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
         * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geomerty `colors` buffer, one color per vertex.
+        * vertex: use the geometry `colors` buffer, one color per vertex.
         * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
         """
         return self._store.color_mode

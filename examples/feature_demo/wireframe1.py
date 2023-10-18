@@ -5,7 +5,7 @@ Wireframe 1
 Example showing a Torus knot, with a wireframe overlay.
 
 In this case the wireframe is lit while the solid mesh is not,
-producing a look of a metalic frame around a soft tube.
+producing a look of a metallic frame around a soft tube.
 
 """
 # sphinx_gallery_pygfx_render = True

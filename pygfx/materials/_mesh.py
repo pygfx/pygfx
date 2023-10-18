@@ -91,8 +91,8 @@ class MeshAbstractMaterial(Material):
 
         * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
         * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geomerty `colors` buffer, one color per vertex.
-        * face: use the geomerty `colors` buffer, one color per face.
+        * vertex: use the geometry `colors` buffer, one color per vertex.
+        * face: use the geometry `colors` buffer, one color per face.
         * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
         * faces_map: use the geometry texcoords buffer to sample (per face) in the material's ``map`` texture.
         """
@@ -289,7 +289,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         """Whether the mesh is rendered with flat shading. When true,
         the shader will apply per-face surface normals, resulting in
         per-face lighting and a "pixelated", non-interpolated look,
-        which can be usefull to show the (size of) the triangle faces,
+        which can be useful to show the (size of) the triangle faces,
         or simply for the retro appearance. Note that the face normals
         are calculated from the vertex positions, ignoring the normal
         data in the geometry.

@@ -43,7 +43,7 @@ class Controller:
     An alternative is to feed your own events into the ``handle_event()``
     method. You'd have to mimic or use pygfx event objects.
 
-    The controller can also be used programatically by calling "action methods"
+    The controller can also be used programmatically by calling "action methods"
     like ``pan()``, ``zoom()`` and ``rotate()``.
     """
 
@@ -226,7 +226,7 @@ class Controller:
         return self._update_cameras()
 
     def _get_target_vec(self, camera_state, **kwargs):
-        """Method used by the controler implementations to determine the "target"."""
+        """Method used by the controller implementations to determine the "target"."""
         rotation = kwargs.get("rotation", camera_state["rotation"])
         extent = 0.5 * (camera_state["width"] + camera_state["height"])
         extent = kwargs.get("extent", extent)
@@ -496,7 +496,7 @@ class Action:
         # The offset defines the dimension of the input
         self.offset = self._clean_up_value(offset)
 
-        # The multiplier defines the dimension of the ouput.
+        # The multiplier defines the dimension of the output.
         # If it's less than the input, the first input dimension(s) are dropped.
         self.multiplier = self._clean_up_value(multiplier)
 

@@ -67,7 +67,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
           based on alpha weights and depth [1]. Note that the depth range
           affects the (quality of the) visual result.
         * "weighted_plus": three-pass approach for order independent
-          transparency, in wich the front-most transparent layer is rendered
+          transparency, in which the front-most transparent layer is rendered
           correctly, while transparent layers behind it are blended using alpha
           weights.
 
@@ -144,7 +144,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._gamma_correction_srgb = 1.0
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             self._canvas_context = self._target.get_context()
-            # Select output format. We currenly don't have a way of knowing
+            # Select output format. We currently don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
             target_format = self._canvas_context.get_preferred_format(
                 self._shared.adapter
@@ -282,7 +282,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
           with weights based on alpha and depth (McGuire 2013). Note that the depth
           range affects the (quality of the) visual result.
         * "weighted_plus": three-pass approach for order independent transparency,
-          in wich the front-most transparent layer is rendered correctly, while
+          in which the front-most transparent layer is rendered correctly, while
           transparent layers behind it are blended using alpha weights.
         """
         return self._blend_mode
@@ -357,7 +357,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Renderers with the same blend mode can safely share these
         # wobject_pipeline dicts. Therefore, we make use of a global
         # collection. Since this global collection is a
-        # WeakValueDictionary, if all renderes stop using a certain
+        # WeakValueDictionary, if all renders stop using a certain
         # blend mode, the associated pipelines are removed as well.
         #
         # In a diagram:
@@ -489,7 +489,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
-        # when the wobject's children, visibile, render_order, or render_pass changes.
+        # when the wobject's children, visible, render_order, or render_pass changes.
 
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
@@ -546,7 +546,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             need_mipmaps = target.texture.generate_mipmaps
             wgpu_tex_view = ensure_wgpu_object(target)
         else:
-            raise TypeError("Unexepcted target type.")
+            raise TypeError("Unexpected target type.")
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0

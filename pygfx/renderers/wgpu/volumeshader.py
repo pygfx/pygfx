@@ -495,7 +495,7 @@ class VolumeRayShader(BaseVolumeShader):
             let nsteps = i32(-dist / relative_step_size + 0.5);
             if( nsteps < 1 ) { discard; }
 
-            // Get starting positon and step vector in texture coordinates.
+            // Get starting position and step vector in texture coordinates.
             let start_coord = (front_pos + vec3<f32>(0.5, 0.5, 0.5)) / sizef;
             let step_coord = ((back_pos - front_pos) / sizef) / f32(nsteps);
 
@@ -511,7 +511,7 @@ class VolumeRayShader(BaseVolumeShader):
             apply_clipping_planes(world_pos.xyz);
 
             // Get fragment output. Note that the depth arg only affects the
-            // blending - setting the depth attribute acually sets the fragment depth.
+            // blending - setting the depth attribute actually sets the fragment depth.
             let depth = ndc_pos.z / ndc_pos.w;
             var out = get_fragment_output(depth, render_out.color);
             out.depth = depth;

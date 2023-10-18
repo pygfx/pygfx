@@ -206,7 +206,7 @@ def test_repeated_show():
     # Repeated calls to show_object should keep the same camera
     # position. At some point it did not, because the camera contributed
     # to the scene's bounding box, and since it's positioned away from
-    # the (rest of the) scene, repeated calles, just made the scene's
+    # the (rest of the) scene, repeated calls, just made the scene's
     # bounding box bigger.
 
     mesh = gfx.Mesh(

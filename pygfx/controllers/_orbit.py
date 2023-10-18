@@ -69,8 +69,8 @@ class OrbitController(PanZoomController):
         delta_azimuth, delta_elevation = delta
         camera_state = self._get_camera_state()
 
-        # Note: this code does not use la.vec_euclidian_to_spherical and
-        # la.vec_spherical_to_euclidian, because those functions currently
+        # Note: this code does not use la.vec_euclidean_to_spherical and
+        # la.vec_spherical_to_euclidean, because those functions currently
         # have no way to specify a different up vector.
 
         position = camera_state["position"]

@@ -196,7 +196,7 @@ class AffineBase:
         """Subscribe to updates of this transform.
 
         The provided callback will be executed after this transform has updated
-        using the signature ``callback(self)``, i.e., it is pased a reference to
+        using the signature ``callback(self)``, i.e., it is passed a reference to
         this transform.
 
         Parameters
@@ -565,11 +565,11 @@ class AffineTransform(AffineBase):
 
 
 class RecursiveTransform(AffineBase):
-    """A transform that may be preceeded by another transform.
+    """A transform that may be preceded by another transform.
 
     This transform behaves semantically identical to an ordinary
     ``AffineTransform`` (same properties), except that users may define a
-    ``parent`` transform which preceeds the ``matrix`` used by the ordinary
+    ``parent`` transform which precedes the ``matrix`` used by the ordinary
     ``AffineTransform``. The resulting ``RecursiveTransform`` then controls the
     total transform that results from combinign the two transforms via::
 
@@ -603,7 +603,7 @@ class RecursiveTransform(AffineBase):
     matrix : AffineBase, ndarray [4, 4]
         The base transform that will be wrapped by this transform.
     parent : AffineBase, optional
-        The parent transform that preceeds the base transform.
+        The parent transform that precedes the base transform.
     reference_up : ndarray, [3]
         The direction of the reference_up vector expressed in the target
         frame. It is used by the axis properties (right, up, forward)
