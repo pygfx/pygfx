@@ -672,7 +672,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
-        data = self._pixel_info_buffer.map_read()
+        self._pixel_info_buffer.map("read")
+        try:
+            data = self._pixel_info_buffer.read_mapped()
+        finally:
+            self._pixel_info_buffer.unmap()
         color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
         pick_value = tuple(data[8:16].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1
