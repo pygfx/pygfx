@@ -3,7 +3,7 @@ import pygfx as gfx
 import pylinalg as la
 
 
-def test_otho_camera_near_far():
+def test_ortho_camera_near_far():
     for near, far in [
         (0, 100),
         (0, 10000),
