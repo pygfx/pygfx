@@ -357,7 +357,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Renderers with the same blend mode can safely share these
         # wobject_pipeline dicts. Therefore, we make use of a global
         # collection. Since this global collection is a
-        # WeakValueDictionary, if all renders stop using a certain
+        # WeakValueDictionary, if all renderers stop using a certain
         # blend mode, the associated pipelines are removed as well.
         #
         # In a diagram:
