@@ -95,7 +95,7 @@ class WorldObject(EventTarget, RootTrackable):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -123,7 +123,7 @@ class WorldObject(EventTarget, RootTrackable):
     _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
 
     # The uniform type describes the structured info for this object, which represents
-    # every "propery" that a renderer would need to know in order to visualize it.
+    # every "property" that a renderer would need to know in order to visualize it.
     # Put larger items first for alignment, also note that host-sharable structs
     # align at power-of-two only, so e.g. vec3 needs padding.
     # todo: rename uniform to info or something?
@@ -224,7 +224,7 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def visible(self):
-        """Wheter is object is rendered or not. Default True."""
+        """Whether is object is rendered or not. Default True."""
         return self._store.visible
 
     @visible.setter
@@ -299,7 +299,7 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def material(self):
-        """Wheter is object is rendered or not. Default True."""
+        """Whether is object is rendered or not. Default True."""
         return self._store.material
 
     @material.setter

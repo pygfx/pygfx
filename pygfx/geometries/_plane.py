@@ -54,10 +54,10 @@ def plane_geometry(width=1, height=1, width_segments=1, height_segments=1):
         The plane's width measured along the y-axis.
     width_segments : int
         The number of evenly spaced segments along the x-axis into which the
-        plane should be devided.
+        plane should be divided.
     height_segments : int
         The number of evenly spaced segments along the y-axis into which the
-        plane should be devided.
+        plane should be divided.
 
     Returns
     -------

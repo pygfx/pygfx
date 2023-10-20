@@ -19,7 +19,7 @@ In particular:
 
 The last two points mean that the code must be aware of the tree
 structure, but must also be able to track external Trackable objects
-(wich may also have a tree).
+(which may also have a tree).
 
 ## High level overview
 

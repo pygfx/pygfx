@@ -131,7 +131,7 @@ class Buffer(Resource):
         """The buffer format.
 
         Usually a pygfx format specifier (e.g. u2 for scalar uint16,
-        or 3xf4 for 3xfloat32), but can also be a overriden to a
+        or 3xf4 for 3xfloat32), but can also be a overridden to a
         backend-specific format. Can also be None e.g. for uniform buffers.
         """
         return self._format

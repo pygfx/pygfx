@@ -15,7 +15,7 @@ class LineMaterial(Material):
     color_mode : enum or str
         The mode by which the line is coloured. Default 'auto'.
     map : Texture
-        The texture map specifying the color for each texture coordinate. Opional.
+        The texture map specifying the color for each texture coordinate. Optional.
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     aa : bool
@@ -96,8 +96,8 @@ class LineMaterial(Material):
 
         * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
         * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geomerty `colors` buffer, one color per vertex.
-        * face: use the geomerty `colors` buffer, one color per line-piece.
+        * vertex: use the geometry `colors` buffer, one color per vertex.
+        * face: use the geometry `colors` buffer, one color per line-piece.
         * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
         * faces_map: use the geometry texcoords buffer to sample (per line-piece) in the material's ``map`` texture.
         """

@@ -9,7 +9,7 @@ many ways to contribute (see below) and no contribution is too small.
 
 ## What can be contributed?
 
-At this time, the project is still in a somewhat experimental fase of development.
+At this time, the project is still in a somewhat experimental phase of development.
 Some parts of the architecture are not settled yet, and several decisions about
 the API are yet to be made. Further the API is not complete yet.
 
@@ -75,7 +75,7 @@ detailed log messages. Can be an int or any of the standard level names.
 
 We distinguish four kinds of attributes:
 
-* Public attibutes for the user: should in most cases be ``@property``'s.
+* Public attributes for the user: should in most cases be ``@property``'s.
 * Private attributes: prefixed with "_" as usual.
 * Attributes used by other parts of pygfx but not intended for the user: prefixed with "_gfx_".
 * Attributes to store WgpuRenderer-specific data on a WorldObject or Material (the objects themselves are unaware): prefixed with "_wgpu_".

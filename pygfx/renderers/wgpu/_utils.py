@@ -245,7 +245,7 @@ gpu_caches = GpuCaches()
 
 
 class GpuCache:
-    """A chache for GPU objects."""
+    """A cache for GPU objects."""
 
     def __init__(self, name):
         assert isinstance(name, str)

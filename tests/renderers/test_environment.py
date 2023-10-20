@@ -124,7 +124,7 @@ def test_environment_cleanup_by_renderer_change():
 
     renderer1.blend_mode = "weighted"
 
-    # Rendering render2 doesnt check renderer1
+    # Rendering render2 doesn't check renderer1
     env2 = environment_manager.get_environment(renderer2, scene2)
     assert env1.hash in environment_manager.environments
     assert env2.hash in environment_manager.environments

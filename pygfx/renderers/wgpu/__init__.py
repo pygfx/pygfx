@@ -113,7 +113,7 @@ environment's hash. The environment includes a system to detect that
 it is no longer used to that all objects related to that environment
 can be cleaned up.
 
-TOOD: We also want to re-use wgpu objects like pipelines and shadermodules.
+TODO: We also want to re-use wgpu objects like pipelines and shadermodules.
 If there are a lot of objects in a scene, its likely that many of these
 have the same material.
 

@@ -187,8 +187,8 @@ class Binding:
         resource (buffer or texture) is bound to a shader. In this subpackage it
         likely means a Binding object like this.
     * This binding can be represented with a binding_descriptor and
-        binding_layout_desciptor. These are dicts to be passed to wgpu.
-    * A list of these binding_layout_desciptor's can be passed to create_bind_group_layout.
+        binding_layout_descriptor. These are dicts to be passed to wgpu.
+    * A list of these binding_layout_descriptor's can be passed to create_bind_group_layout.
     * A list of these binding_layout's can be passed to create_bind_group.
     * Multiple bind_group_layout's can be combined into a pipeline_layout.
 
@@ -244,7 +244,7 @@ class Binding:
             }
             # Note: we set min_binding_size, rather than relying on the default (None),
             # otherwise the layout for different buffers look equal, and are thus
-            # re-used (using caching), but they wont be compatible.
+            # re-used (using caching), but they won't be compatible.
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
@@ -363,7 +363,7 @@ class Binding:
 class PipelineContainerGroup:
     """This is a thin wrapper for a list of compute pipeline containers,
     and render pipeline containers. The purpose of this object is to
-    obtain the appropiate shader objects and store them.
+    obtain the appropriate shader objects and store them.
     """
 
     def __init__(self):
@@ -439,7 +439,7 @@ class PipelineContainer:
         self.wgpu_bind_group_layouts = []
         self.wgpu_bind_groups = []
 
-        # A flag to indicate that an error occured and we cannot dispatch
+        # A flag to indicate that an error occurred and we cannot dispatch
         self.broken = False
 
     def _check_bindings(self):

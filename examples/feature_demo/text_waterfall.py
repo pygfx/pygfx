@@ -62,7 +62,7 @@ for i in range(100):
 
 # The animate function makes the text objects fall down, and update the objects
 # with a new character once they start their fall again.
-# Until we have real garbadge collection for glyphs, we fake it here.
+# Until we have real garbage collection for glyphs, we fake it here.
 
 
 def animate():

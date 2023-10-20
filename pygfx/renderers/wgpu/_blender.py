@@ -284,7 +284,7 @@ class SimpleTransparencyPass(BasePass):
 
 
 class WeightedTransparencyPass(BasePass):
-    """A pass that implements weighted blended order-independed
+    """A pass that implements weighted blended order-independent
     blending for transparent fragments, as proposed by McGuire in 2013.
     Multiple weight functions are supported.
     """

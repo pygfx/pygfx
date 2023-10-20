@@ -64,7 +64,7 @@ def test_examples_run(module, force_offscreen):
 
     runpy.run_module(module_name, run_name="__main__")
 
-    # If any erors occured in the draw callback, they are logged
+    # If any errors occurred in the draw callback, they are logged
     if log_handler.records:
         raise RuntimeError("Example generated errors during draw")
 
