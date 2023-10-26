@@ -36,6 +36,9 @@ def geometry_from_trimesh(mesh):
         # the coordinate origin is in the upper left corner, while the opengl coordinate
         # origin is in the lower left corner.
         # trimesh loads textures according to the opengl coordinate system.
+        if mesh.visual.uv is None:
+            mesh.visual.uv = [[0,0]]
+            
         wgpu_uv = mesh.visual.uv * np.array([1, -1]) + np.array(
             [0, 1]
         )  # uv.y = 1 - uv.y
