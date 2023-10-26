@@ -30,7 +30,10 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
 
     if not isinstance(image, Image):
         raise NotImplementedError()
-
+    
+    if image.width != image.height:
+        image = image.resize([image.width if image.width > image.height else image.height] * 2)
+    
     m = memoryview(image.tobytes())
 
     im_channels = len(image.getbands())
