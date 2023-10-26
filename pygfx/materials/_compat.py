@@ -60,7 +60,10 @@ def material_from_trimesh(material):
         raise NotImplementedError()
 
     gfx_material = MeshStandardMaterial()
-
+    
+    if material.baseColorFactor is not None:
+        gfx_material.color = material.baseColorFactor/255
+    
     if material.baseColorTexture is not None:
         gfx_material.map = texture_from_pillow_image(material.baseColorTexture)
 
