@@ -255,7 +255,7 @@ class PerspectiveCamera(Camera):
             # Pre-apply the reference aspect ratio
             height = 2 * size / (1 + self.aspect)
             width = height * self.aspect
-            # Increase eihter the width or height, depending on the view size
+            # Increase either the width or height, depending on the view size
             if not self._maintain_aspect:
                 pass
             elif self.aspect < self._view_aspect:

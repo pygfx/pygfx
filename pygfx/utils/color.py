@@ -57,7 +57,7 @@ class Color:
 
     Hex colors:
 
-        * `Color("#ff0000")` the commmon hex format.
+        * `Color("#ff0000")` the common hex format.
         * `Color("#ff0000ff")` the hex format that includes alpha.
         * `Color("#ff0")` the short form hex format.
         * `Color("#ff0f")` the short form hex format that includes alpha.

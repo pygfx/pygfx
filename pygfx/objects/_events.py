@@ -179,14 +179,14 @@ class PointerEvent(Event):
     modifiers : list
         The modifiers that were pressed while the key was pressed.
     ntouches : int
-        The total number of syncronous touches.
+        The total number of synchronous touches.
     touches : list
-        A list of all currently occuring touches.
+        A list of all currently occurring touches.
     pick_info : dict
         Values of pickable fields. The exact content is specific to the
         WorldObject triggering the event.
     clicks : int
-        The total number of syncronous clicks.
+        The total number of synchronous clicks.
     pointer_id : Any
         The value set by `set_pointer_capture()`.
     kwargs : Any

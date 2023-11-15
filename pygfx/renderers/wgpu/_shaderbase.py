@@ -355,7 +355,7 @@ class BaseShader:
             try:
                 code2 = t.render(**shader_kwargs)
             except jinja2.UndefinedError as err:
-                err_msg = f"Canot compose shader: {err.args[0]}"
+                err_msg = f"Cannot compose shader: {err.args[0]}"
 
             if err_msg:
                 # Don't raise within handler to avoid recursive tb

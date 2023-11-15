@@ -40,7 +40,7 @@ class BackgroundMaterial(Material):
     def set_colors(self, *colors):
         """Set the background colors. If one color is given, it will be used
         as a uniform color. If two colors are given, it will be used for
-        the botton and top. If four colors are given, it will be used for the
+        the bottom and top. If four colors are given, it will be used for the
         four corners.
         """
         colors = [Color(c) for c in colors]

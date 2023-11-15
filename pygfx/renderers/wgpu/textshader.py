@@ -141,7 +141,7 @@ class TextShader(WorldObjectShader):
             let corner = corners[sub_index];
 
             // Apply slanting, a.k.a. automated obliques, a.k.a. fake italics
-            let slant_factor = f32(is_slanted) * 0.23;  // emperically selected based on NotoSans-Italic
+            let slant_factor = f32(is_slanted) * 0.23;  // empirically selected based on NotoSans-Italic
             let slant = vec2<f32>(0.5 - corner.y, 0.0) * slant_factor;
 
             let pos_corner_factor = corner * vec2<f32>(1.0, -1.0);
@@ -153,7 +153,7 @@ class TextShader(WorldObjectShader):
                 // We take the object's pos (model pos is origin), move to NDC, and apply the
                 // glyph-positioning in logical screen coords. The text position is affected
                 // by the world_transform, but the local scale and rotation do not affect the position.
-                // We apply these seperately in screen space, so the user can scale and rotate the text that way.
+                // We apply these separately in screen space, so the user can scale and rotate the text that way.
 
                 let raw_pos = vec3<f32>(0.0, 0.0, 0.0);
                 let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
@@ -240,9 +240,9 @@ class TextShader(WorldObjectShader):
             // The maximum value at which we can still detect the edge is just below 0.5.
             let distance = (0.5 - atlas_value);
 
-            // Load tickness factors
+            // Load thickness factors
             let weight_offset = clamp(varyings.weight_offset + u_material.weight_offset, -400.0, 1600.0);
-            let weight_thickness = weight_offset * 0.00031;  // emperically derived factor
+            let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
             let outline_thickness = u_material.outline_thickness;
 
             // The softness is calculated from the scale of one atlas-pixel in screen space.
@@ -262,7 +262,7 @@ class TextShader(WorldObjectShader):
             // same text, rendered in a browser, where the text is white on a dark bg (I
             // checked against Firefox on MacOS, with retina display). Note that modern
             // browsers compensate for the white-on-dark effect. We cannot, because we don't
-            // know whats behind the text, but the user can use weight_offset when the text
+            // know what's behind the text, but the user can use weight_offset when the text
             // is darker than the bg. More info at issue #358.
             let cut_off_correction = 0.25 * softness;
 

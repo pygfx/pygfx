@@ -344,9 +344,9 @@ class LineShader(WorldObjectShader):
             // v_vec_from_node_p. Furthermore, consider a thick line with dense
             // nodes jumping all over the place, causing a lot of overlap anyway.
             // In summary, this viz relies on depth testing with "less" (or
-            // semi-tranparent lines would break).
+            // semi-transparent lines would break).
             //
-            // Possible improvents:
+            // Possible improvements:
             //
             // - can we do dashes/stipling?
             // - also implement bevel and miter joins

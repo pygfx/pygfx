@@ -269,7 +269,7 @@ class TextGeometry(Geometry):
         """
 
         # This function can be considered the core of the text rendering.
-        # Everyting comes together here.
+        # Everything comes together here.
 
         # We cannot have nonzero buffers, so if we have nothing create a single space
         if not text_items:
@@ -352,7 +352,7 @@ class TextGeometry(Geometry):
         self.sizes.update_range(0, self.indices.nitems)
         self.indices.update_range(0, self.indices.nitems)
 
-        # Finalize the buffers by applying the layout algorithmm.
+        # Finalize the buffers by applying the layout algorithm.
         self.apply_layout()
 
     # %%%%% Entrypoint and itemization
@@ -697,8 +697,8 @@ class TextGeometry(Geometry):
         return self._line_height
 
     @line_height.setter
-    def line_height(self, heigh):
-        self._line_height = float(heigh or 1.2)
+    def line_height(self, height):
+        self._line_height = float(height or 1.2)
         self.apply_layout()
 
     @property

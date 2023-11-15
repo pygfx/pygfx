@@ -50,7 +50,7 @@ class CanvasWithOverlay(WgpuCanvas):
 
 
 class Overlay(QtWidgets.QWidget):
-    """Overlay that draws 2D featues using the canvas API.
+    """Overlay that draws 2D features using the canvas API.
 
     We cannot draw in the wgpu widget directly, because that widget has
     no paint engine (we have to remove it to prevent Qt from overwriting

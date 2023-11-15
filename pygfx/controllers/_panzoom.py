@@ -123,7 +123,7 @@ class PanZoomController(Controller):
             delta = delta[1]
         assert isinstance(delta, (int, float))
 
-        # Actuall only zoom in one direction
+        # Actually only zoom in one direction
         fy = 2**delta
 
         new_cam_state = self._zoom(fy, fy, self._get_camera_state())

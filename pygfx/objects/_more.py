@@ -65,7 +65,7 @@ class Line(WorldObject):
     """An object representing a line using a list of vertices (3D positions).
 
     Some materials will render the line as a continuous line, while other materials
-    will consider each pair of consequtive points a segment.
+    will consider each pair of consecutive points a segment.
 
     The picking info of a Line (the result of ``renderer.get_pick_info()``) will
     for most materials include ``vertex_index`` (int) and ``segment_coord``
@@ -76,7 +76,7 @@ class Line(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -105,7 +105,7 @@ class Points(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -136,7 +136,7 @@ class Mesh(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -196,7 +196,7 @@ class Image(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -239,7 +239,7 @@ class Volume(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -278,7 +278,7 @@ class Text(WorldObject):
     geometry : TextGeometry
         The data defining the glyphs that make up the text.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
