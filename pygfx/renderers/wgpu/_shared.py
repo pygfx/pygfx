@@ -49,16 +49,10 @@ class Shared(Trackable):
         assert Shared._instance is None
         Shared._instance = self
 
-        # Create adapter and device objects - there should be just one per canvas.
-        # Having a global device provides the benefit that we can draw any object
-        # anywhere.
-        # We could pass the canvas to request_adapter(), so we get an adapter that is
-        # at least compatible with the first canvas that a renderer is create for.
-        # However, passing the object has been shown to prevent the creation of
-        # a canvas (on Linux + wx), so, we never pass it for now.
-        self._adapter = wgpu.gpu.request_adapter(
-            canvas=None, power_preference="high-performance"
-        )
+        # Create adapter and device objects - there should be just one per
+        # process. Having a global device provides the benefit that we can draw
+        # any object anywhere.
+        self._adapter = wgpu.gpu.request_adapter(power_preference="high-performance")
         self._device = self.adapter.request_device(
             required_features=list(Shared._features), required_limits={}
         )
