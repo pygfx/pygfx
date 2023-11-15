@@ -56,7 +56,7 @@ class Shared(Trackable):
         # at least compatible with the first canvas that a renderer is create for.
         # However, passing the object has been shown to prevent the creation of
         # a canvas (on Linux + wx), so, we never pass it for now.
-        self._adapter = wgpu.request_adapter(
+        self._adapter = wgpu.gpu.request_adapter(
             canvas=None, power_preference="high-performance"
         )
         self._device = self.adapter.request_device(

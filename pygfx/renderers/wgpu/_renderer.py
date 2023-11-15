@@ -7,7 +7,7 @@ import time
 import weakref
 
 import numpy as np
-import wgpu.backends.rs
+import wgpu
 
 from .. import Renderer
 from ...objects._base import id_provider
