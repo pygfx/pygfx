@@ -142,8 +142,8 @@ class RenderFlusher:
         # NOTE: src_depth_tex is not used yet, see #492
         # NOTE: cannot actually use src_depth_tex as a sample texture (BindingCollision)?
         assert src_depth_tex is None
-        assert isinstance(src_color_tex, wgpu.base.GPUTextureView)
-        assert isinstance(dst_color_tex, wgpu.base.GPUTextureView)
+        assert isinstance(src_color_tex, wgpu.GPUTextureView)
+        assert isinstance(dst_color_tex, wgpu.GPUTextureView)
 
         # Make sure we have the render_pipeline
         if self._render_pipeline is None:
