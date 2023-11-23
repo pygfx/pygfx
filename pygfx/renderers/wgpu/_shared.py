@@ -161,9 +161,12 @@ def print_wgpu_report():
 
     print()
     print("FEATURES:".ljust(50), "adapter".rjust(10), "device".rjust(10))
-    for key in adapter.features:
+    feature_names = list(wgpu.FeatureName)
+    feature_names += sorted(adapter.features.difference(wgpu.FeatureName))
+    for key in feature_names:
+        adapter_has_it = "Y" if key in adapter.features else "-"
         device_has_it = "Y" if key in device.features else "-"
-        print(f"{key}:".rjust(50), "Y".rjust(10), device_has_it.rjust(10))
+        print(f"{key}:".rjust(50), adapter_has_it.rjust(10), device_has_it.rjust(10))
 
     print()
     print("LIMITS:".ljust(50), "adapter".rjust(10), "device".rjust(10))
