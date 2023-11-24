@@ -786,9 +786,6 @@ class RenderPipelineContainer(PipelineContainer):
             )
             pipelines[pass_index] = pipeline
 
-            # Make sure it holds a ref to the layout (keep wgpu-py in check)
-            assert pipeline._layout is pipeline_layout
-
         return pipelines
 
     def draw(self, render_pass, environment, pass_index, render_mask):
