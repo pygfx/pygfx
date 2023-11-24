@@ -40,6 +40,7 @@ class Shared(Trackable):
     # the native-only feature 'texture_adapter_specific_format_features'.
 
     _features = set(["texture_adapter_specific_format_features"])
+
     _instance = None
 
     def __init__(self, *, canvas=None):
