@@ -62,7 +62,7 @@ def layout(event=None):
     Update the viewports when the canvas is resized
     """
     w, h = renderer.logical_size
-    w2, h2 = w / 2, h / 2
+    w2, h2 = w / 2 - 15, h / 2 - 15
     viewports[0].rect = 10, 10, w2, h2
     viewports[1].rect = w / 2 + 5, 10, w2, h2
     viewports[2].rect = 10, h / 2 + 5, w2, h2
