@@ -155,7 +155,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._canvas_context.configure(
                 device=self._device,
                 format=target_format,
-                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
         else:
             target_format = self._target.format
@@ -535,7 +534,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Get the wgpu texture view.
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            wgpu_tex_view = self._canvas_context.get_current_texture()
+            wgpu_tex_view = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
             wgpu_tex_view = getattr(target, "_wgpu_default_view", None)

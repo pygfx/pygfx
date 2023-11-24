@@ -513,6 +513,8 @@ class BaseFragmentBlender:
         )
 
         # The depth buffer is 32 bit - we need that precision.
+        # Note that there is also depth32float-stencil8, but it needs the
+        # (webgpu) extension with the same name.
         self._texture_info["depth"] = (
             wgpu.TextureFormat.depth32float,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,

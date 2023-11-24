@@ -27,7 +27,7 @@ del pylinalg
 __version__ = "0.1.16"
 version_info = tuple(map(int, __version__.split(".")))
 
-__wgpu_version_range__ = "0.12.0", "0.13.0"
+__wgpu_version_range__ = "0.13.0", "0.14.0"
 __pylinalg_version_range__ = "0.4.1", "0.5.0"
 
 
