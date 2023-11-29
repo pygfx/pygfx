@@ -8,7 +8,6 @@ always be on top.
 """
 # test_example = true
 
-import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import pylinalg as la
@@ -17,41 +16,36 @@ import pylinalg as la
 # Create a canvas and renderer
 
 canvas = WgpuCanvas(size=(500, 300))
-renderer = gfx.renderers.WgpuRenderer(canvas)
+renderer = gfx.renderers.WgpuRenderer(canvas, sort_objects=True)
 scene = gfx.Scene()
 
 # Compose a scene with a 3D cube at the origin
 
-cube1 = gfx.Mesh(
-    gfx.box_geometry(),
-    gfx.MeshPhongMaterial(color="#ff0"),
-)
-rot = la.quat_from_euler((0.2, 0.3), order="XY")
-cube1.local.rotation = la.quat_mul(rot, cube1.local.rotation)
-scene.add(cube1)
+# Define cubes in the order that we want them rendered
+cubes = [
+    (2.0, "#f00", 1),
+    (1.8, "#ff0", 1),
+    (1.6, "#0f0", 2),
+    (1.4, "#0ff", 2),
+]
 
-# Second object
+# We can mangle them a bit, because we define render order
+cubes = cubes[2:] + cubes[0:2]
 
-positions = np.array(
-    [
-        [-1, -1, 0.0],
-        [-1, +1, 0.0],
-        [+1, +1, 0.0],
-        [+1, -1, 0.0],
-        [-1, -1, 0.0],
-        [+1, +1, 0.0],
-    ],
-    np.float32,
-)
-line2 = gfx.Line(
-    gfx.Geometry(positions=positions * 0.5),
-    gfx.LineMaterial(thickness=5.0, color="#f0f", depth_test=False),
-)
-scene.add(line2)
+for size, color, render_order in cubes:
+    cube = gfx.Mesh(
+        gfx.box_geometry(size, size, size),
+        gfx.MeshPhongMaterial(color=color, side="front", depth_test=False),
+    )
+    cube.render_order = render_order
+    rot = la.quat_from_euler((0.2, 0.3), order="XY")
+    cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
+    scene.add(cube)
+
 
 # Camera
 
-camera = gfx.OrthographicCamera(2, 2)
+camera = gfx.OrthographicCamera(3, 3)
 scene.add(camera.add(gfx.DirectionalLight()))
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
