@@ -2,10 +2,9 @@
 Scene Overlay
 =============
 
-Example showing a 3D scene with a 2D overlay.
-
-The idea is to render both scenes, but clear the depth before rendering
-the overlay, so that it's always on top.
+Example showing a 3D scene, with an object overload via
+``Material.depth_test``, and a 2D scene overlay over it all using an
+overlay render pass.
 """
 # sphinx_gallery_pygfx_render = True
 
@@ -24,13 +23,23 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 
 scene1 = gfx.Scene()
 
-geometry1 = gfx.box_geometry(200, 200, 200)
-material1 = gfx.MeshPhongMaterial(color="#ff0")
-cube1 = gfx.Mesh(geometry1, material1)
+cube1 = gfx.Mesh(
+    gfx.box_geometry(200, 200, 200),
+    gfx.MeshPhongMaterial(color="#ff0"),
+)
 scene1.add(cube1)
 
 camera = gfx.OrthographicCamera(300, 300)
 scene1.add(camera.add(gfx.DirectionalLight()))
+
+# Add an object that is drawn on top, even though it's inside the bigger cube
+
+cube2 = gfx.Mesh(
+    gfx.box_geometry(75, 75, 75),
+    gfx.MeshPhongMaterial(color="#00f", depth_test=False, side="front"),
+)
+scene1.add(cube2)
+
 
 # Compose another scene, a 2D overlay
 
@@ -47,15 +56,17 @@ positions = np.array(
     ],
     np.float32,
 )
-geometry2 = gfx.Geometry(positions=positions * 100)
-material2 = gfx.LineMaterial(thickness=5.0, color="#f0f")
-line2 = gfx.Line(geometry2, material2)
+line2 = gfx.Line(
+    gfx.Geometry(positions=positions * 100),
+    gfx.LineMaterial(thickness=5.0, color="#f0f"),
+)
 scene2.add(line2)
 
 
 def animate():
     rot = la.quat_from_euler((0.005, 0.01), order="XY")
     cube1.local.rotation = la.quat_mul(rot, cube1.local.rotation)
+    cube2.local.rotation = cube1.local.rotation
 
     renderer.render(scene1, camera, flush=False)
     renderer.render(scene2, camera)
