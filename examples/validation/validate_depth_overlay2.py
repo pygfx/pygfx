@@ -54,7 +54,8 @@ scene.add(line2)
 camera = gfx.OrthographicCamera(2, 2)
 scene.add(camera.add(gfx.DirectionalLight()))
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    print(__doc__)
     run()

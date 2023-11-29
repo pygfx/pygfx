@@ -64,6 +64,8 @@ def draw():
     renderer.flush()
 
 
+canvas.request_draw(draw)
+
 if __name__ == "__main__":
-    canvas.request_draw(draw)
+    print(__doc__)
     run()
