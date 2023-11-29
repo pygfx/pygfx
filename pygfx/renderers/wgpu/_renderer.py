@@ -580,6 +580,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blender = self._blender
         if clear_color:
             blender.clear()
+        else:
+            blender.clear_depth()
 
         # ----- compute pipelines
 
