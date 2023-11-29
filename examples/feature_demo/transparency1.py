@@ -17,7 +17,6 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 background = gfx.Background(None, gfx.BackgroundMaterial("#000"))
-scene.add(background)
 
 geometry = gfx.plane_geometry(50, 50)
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4)))
@@ -28,7 +27,7 @@ plane1.local.position = (-10, -10, 1)
 plane2.local.position = (0, 0, 2)
 plane3.local.position = (10, 10, 3)
 
-scene.add(plane1, plane2, plane3)
+scene.add(background, plane1, plane2, plane3)
 
 camera = gfx.OrthographicCamera(100, 100)
 
@@ -40,12 +39,9 @@ def handle_event(event):
         scene.add(scene.children[1])  # skip bg
         canvas.request_draw()
     elif event.key == ".":
-        print("Changing background color")
-        print(background.material.color_bottom_left)
-        if background.material.color_bottom_left == "#000":
-            background.material.set_colors("#fff")
-        else:
-            background.material.set_colors("#000")
+        clr = "#fff" if background.material.color_bottom_left == "#000" else "#000"
+        print(f"Changing background color to {clr}")
+        background.material.set_colors(clr)
         canvas.request_draw()
     elif event.key in "0123456789":
         m = [
