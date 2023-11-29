@@ -23,7 +23,10 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
-
+    depth_test : bool
+        Whether the object takes the depth buffer into account.
+        Default True. If False, the object is like a ghost: not testing
+        against the depth buffer and also not writing to it.
     """
 
     uniform_type = dict(
@@ -31,7 +34,9 @@ class Material(Trackable):
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
-    def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
+    def __init__(
+        self, *, opacity=1, clipping_planes=None, clipping_mode="any", depth_test=True
+    ):
         super().__init__()
 
         self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
@@ -39,6 +44,7 @@ class Material(Trackable):
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
         self.clipping_mode = clipping_mode
+        self.depth_test = depth_test
 
     def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
@@ -159,6 +165,18 @@ class Material(Trackable):
             self._clipping_mode = mode
         else:
             raise ValueError(f"Unexpected clipping_mode: {value}")
+
+    @property
+    def depth_test(self):
+        """Whether the object takes the depth buffer into account."""
+        return self._store.depth_test
+
+    @depth_test.setter
+    def depth_test(self, value):
+        # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
+        if not isinstance(value, (bool, int)):
+            raise TypeError("Material.depth_test must be bool.")
+        self._store.depth_test = bool(value)
 
 
 class ColorMode(enum.Enum):

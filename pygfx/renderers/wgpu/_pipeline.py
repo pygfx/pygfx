@@ -530,7 +530,7 @@ class PipelineContainer:
             changed.add("compose_pipeline")
             shader_modules = self.wgpu_shaders[env_hash]
             self.wgpu_pipelines[env_hash] = self._compose_pipelines(
-                environment, shader_modules
+                wobject, environment, shader_modules
             )
 
     def update_shader_hash(self):
@@ -631,7 +631,7 @@ class ComputePipelineContainer(PipelineContainer):
         shader_module = get_cached_shader_module(self.device, self.shader, {})
         return {0: shader_module}
 
-    def _compose_pipelines(self, env, shader_modules):
+    def _compose_pipelines(self, wobject, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -740,7 +740,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         return shader_modules
 
-    def _compose_pipelines(self, env, shader_modules):
+    def _compose_pipelines(self, wobject, env, shader_modules):
         """Create a list of wgpu pipeline objects from the shader, bind group
         layouts and other pipeline info (one for each pass of the blender).
         """
@@ -767,8 +767,9 @@ class RenderPipelineContainer(PipelineContainer):
             if not render_mask & blender.passes[pass_index].render_mask:
                 continue
 
+            depth_test = wobject.material.depth_test
             color_descriptors = blender.get_color_descriptors(pass_index)
-            depth_descriptor = blender.get_depth_descriptor(pass_index)
+            depth_descriptor = blender.get_depth_descriptor(pass_index, depth_test)
             if not color_descriptors:
                 continue
 

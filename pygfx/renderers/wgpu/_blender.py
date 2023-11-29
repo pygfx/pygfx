@@ -569,9 +569,13 @@ class BaseFragmentBlender:
     def get_color_attachments(self, pass_index):
         return self.passes[pass_index].get_color_attachments(self)
 
-    def get_depth_descriptor(self, pass_index):
+    def get_depth_descriptor(self, pass_index, depth_test=True):
+        des = self.passes[pass_index].get_depth_descriptor(self)
+        if not depth_test:
+            des["depth_compare"] = wgpu.CompareFunction.always
+            des["depth_write_enabled"] = False
         return {
-            **self.passes[pass_index].get_depth_descriptor(self),
+            **des,
             "stencil_read_mask": 0,
             "stencil_write_mask": 0,
             "stencil_front": {},  # use defaults
