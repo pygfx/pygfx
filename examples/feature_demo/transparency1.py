@@ -16,6 +16,9 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
+background = gfx.Background(None, gfx.BackgroundMaterial("#000"))
+scene.add(background)
+
 geometry = gfx.plane_geometry(50, 50)
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4)))
 plane2 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(0, 1, 0, 0.4)))
@@ -34,7 +37,15 @@ camera = gfx.OrthographicCamera(100, 100)
 def handle_event(event):
     if event.key == " ":
         print("Rotating scene element order")
-        scene.add(scene.children[0])
+        scene.add(scene.children[1])  # skip bg
+        canvas.request_draw()
+    elif event.key == ".":
+        print("Changing background color")
+        print(background.material.color_bottom_left)
+        if background.material.color_bottom_left == "#000":
+            background.material.set_colors("#fff")
+        else:
+            background.material.set_colors("#000")
         canvas.request_draw()
     elif event.key in "0123456789":
         m = [
