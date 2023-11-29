@@ -1,10 +1,10 @@
 """
-Depth Overlay 1
+Depth Overlay 2
 ===============
 
 Example (and test) for behavior of the depth buffer w.r.t. overlays,
-implemented by multiple render calls. The overlay should always be on
-top.
+implemented using ``Material.depth_test``. The overlaid object should
+always be on top.
 """
 # test_example = true
 
@@ -18,10 +18,9 @@ import pylinalg as la
 
 canvas = WgpuCanvas(size=(500, 300))
 renderer = gfx.renderers.WgpuRenderer(canvas)
+scene = gfx.Scene()
 
 # Compose a scene with a 3D cube at the origin
-
-scene1 = gfx.Scene()
 
 cube1 = gfx.Mesh(
     gfx.box_geometry(),
@@ -29,11 +28,9 @@ cube1 = gfx.Mesh(
 )
 rot = la.quat_from_euler((0.2, 0.3), order="XY")
 cube1.local.rotation = la.quat_mul(rot, cube1.local.rotation)
-scene1.add(cube1)
+scene.add(cube1)
 
-# Compose a scene with a 2D square at the origin, in the xy plane
-
-scene2 = gfx.Scene()
+# Second object
 
 positions = np.array(
     [
@@ -48,22 +45,16 @@ positions = np.array(
 )
 line2 = gfx.Line(
     gfx.Geometry(positions=positions * 0.5),
-    gfx.LineMaterial(thickness=5.0, color="#f0f"),
+    gfx.LineMaterial(thickness=5.0, color="#f0f", depth_test=False),
 )
-scene2.add(line2)
+scene.add(line2)
 
 # Camera
 
 camera = gfx.OrthographicCamera(2, 2)
-scene1.add(camera.add(gfx.DirectionalLight()))
-
-
-def draw():
-    renderer.render(scene1, camera, flush=False)
-    renderer.render(scene2, camera, flush=False)
-    renderer.flush()
+scene.add(camera.add(gfx.DirectionalLight()))
 
 
 if __name__ == "__main__":
-    canvas.request_draw(draw)
+    canvas.request_draw(lambda: renderer.render(scene, camera))
     run()
