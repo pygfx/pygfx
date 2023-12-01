@@ -16,7 +16,7 @@ import pylinalg as la
 # Create a canvas and renderer
 
 canvas = WgpuCanvas(size=(500, 300))
-renderer = gfx.renderers.WgpuRenderer(canvas, sort_objects=True)
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 # Compose a scene with a 3D cube at the origin

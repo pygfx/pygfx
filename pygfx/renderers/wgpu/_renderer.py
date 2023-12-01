@@ -90,12 +90,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
     blend_mode : str
         The method for handling transparency. If None, use ``"ordered2"``.
     sort_objects : bool
-        If True, sort all objects in the scene before rendering them. The sort
+        If True, sort objects by depth before rendering. The sorting
         uses a hierarchical index based on the object's (1) ``render_order``,
         (2) distance to the camera (based on the local frame's origin), (3) the
         position in the scene graph (flattened depth-first). If False, the
-        rendering order is based on the position in the scene graph (flattened
-        in depth-first order).
+        rendering order is based on the objects ``render_order`` and position
+        in the scene graph only.
     enable_events : bool
         If True, forward wgpu events to pygfx's event system.
     gamma_correction : float
@@ -318,12 +318,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def sort_objects(self):
-        """Whether to sort world objects before rendering. Default False.
+        """Whether to sort world objects by depth before rendering. Default False.
 
         * ``True``: the render order is defined by 1) the object's ``render_order``
           property; 2) the object's distance to the camera; 3) the position object
           in the scene graph (based on a depth-first search).
-        * ``False``: don't sort, the render order is defined by the scene graph alone.
+        * ``False``: don't sort, the render order is only defined by the
+          ``render_order`` and scene graph position.
         """
         return self._sort_objects
 
@@ -462,14 +463,23 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get environment
         environment = get_environment(self, scene)
 
-        # Get the list of objects to render, as they appear in the scene graph
-        wobject_list = []
-        scene.traverse(wobject_list.append, True)
+        # Flatten the scenegraph, categorised by render_order
+        wobject_dict = {}
+        scene.traverse(
+            lambda ob: wobject_dict.setdefault(ob.render_order, []).append(ob), True
+        )
 
-        # Sort objects
-        if self.sort_objects:
-            sort_func = _get_sort_function(camera)
-            wobject_list.sort(key=sort_func)
+        # Produce a sorted list of world objects
+        wobject_list = []
+        if self._sort_objects:
+            depth_sort_func = _get_sort_function(camera)
+            for render_order in sorted(wobject_dict.keys()):
+                wobjects = wobject_dict[render_order]
+                wobjects.sort(key=depth_sort_func)
+                wobject_list.extend(wobjects)
+        else:
+            for render_order in sorted(wobject_dict.keys()):
+                wobject_list.extend(wobject_dict[render_order])
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []
