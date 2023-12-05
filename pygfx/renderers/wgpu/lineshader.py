@@ -132,12 +132,17 @@ class LineShader(WorldObjectShader):
                 )
             )
 
+        bindings.extend(self._get_extra_bindings(wobject))
+
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
 
         return {
             0: bindings,
         }
+
+    def _get_extra_bindings(self, wobject):
+        return []  # for subclasses to provide more bindings
 
     def get_pipeline_info(self, wobject, shared):
         return {
@@ -210,6 +215,7 @@ class LineShader(WorldObjectShader):
             pos: vec4<f32>,
             thickness_p: f32,
             vec_from_node_p: vec2<f32>,
+            cum_dist: f32,
         };
         """
 
@@ -259,6 +265,11 @@ class LineShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
             varyings.thickness_p = f32(result.thickness_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
+            //varyings.cum_dist = f32(result.cum_dist);
+
+            // TODO: remove result.cum_dist
+            // TODO: fix this hack, bc it breaks non-dashed lines :P
+            varyings.cum_dist = f32(load_s_cumdist(i0));
 
             // Picking
             // Note: in theory, we can store ints up to 16_777_216 in f32,
@@ -347,10 +358,10 @@ class LineShader(WorldObjectShader):
             // nodes jumping all over the place, causing a lot of overlap anyway.
             // In summary, this viz relies on depth testing with "less" (or
             // semi-transparent lines would break).
+            // TODO give unfolding another try? With https://diglib.eg.org/bitstream/handle/10.2312/SBM.SBM10.033-040/033-040.pdf?sequence=1&isAllowed=y
             //
             // Possible improvements:
             //
-            // - can we do dashes/stipling?
             // - also implement bevel and miter joins
             // - also implement different caps
             // - we can prepare the nodes' screen coordinates in a compute shader.
@@ -432,6 +443,7 @@ class LineShader(WorldObjectShader):
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
+            out.cum_dist = 0.0;
             return out;
         }
         """
@@ -516,10 +528,20 @@ class LineDashedShader(LineShader):
         self.line_distance_buffer = Buffer(distance_array)
         self._positions_hash = None
 
+    def _get_extra_bindings(self, wobject):
+        rbuffer = "buffer/read_only_storage"
+        return [
+            Binding("s_cumdist", rbuffer, self.line_distance_buffer, "VERTEX"),
+        ]
+
     def bake_function(self, wobject, camera):
+        # Prepare
+        positions_buffer = wobject.geometry.positions
+        dash_offset = wobject.material.dash_offset
+        r_offset, r_size = positions_buffer.draw_range
+
         # Prepare arrays
-        r_offset, r_size = wobject.geometry.positions.draw_range
-        positions_array = wobject.geometry.positions.data[r_offset : r_offset + r_size]
+        positions_array = positions_buffer.data[r_offset : r_offset + r_size]
         distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
 
         # Get vertices in the appropriate coordinate frame
@@ -528,10 +550,7 @@ class LineDashedShader(LineShader):
             # todo: use camera projection and pylinalg to project positions_array to screen space
         else:
             # Skip this step if the position data has not changed
-            positions_hash = (
-                id(wobject.geometry.positions),
-                wobject.geometry.positions.rev,
-            )
+            positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
             if positions_hash == self._positions_hash:
                 return
             self._positions_hash = positions_hash
@@ -543,11 +562,100 @@ class LineDashedShader(LineShader):
         cum_distances = np.cumsum(distances)
 
         # Apply
-        distance_array[0] = 0
-        distance_array[1:] = cum_distances
+        distance_array[0] = dash_offset
+        distance_array[1:] = cum_distances + dash_offset
 
         # Mark that the data has changed
         self.line_distance_buffer.update_range(r_offset, r_size)
+
+    def code_fragment(self):
+        return """
+        @fragment
+        fn fs_main(varyings: Varyings) -> FragmentOutput {
+
+            let vec_from_node_p = varyings.vec_from_node_p;
+
+            let dash_size = u_material.dash_size;
+            let dash_ratio = u_material.dash_ratio;
+            let dash_progress = (varyings.cum_dist % dash_size) / dash_size;
+
+            // Get distance to dash-stroke. We make the stroke the center
+            // of the dash period, which makes the math easier.
+            //
+            //        ratio e.g. 0.6
+            //       /       \
+            //  ----|---------|----
+            //  0       0.5       1    dash_progress
+            // 0.2  0  -0.3   0  0.2   dist_to_stroke
+
+            // TODO: perhaps an offset to cum_dist to make it start with a stroke?
+            let dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
+
+            if (dist_to_stroke > 0.0) {
+                discard;
+            }
+
+            // Discard fragments outside of the radius. This is what makes round
+            // joins and caps. If we ever want bevel or miter joins, we should
+            // change the vertex positions a bit, and drop these lines below.
+            let dist_to_node_p = length(vec_from_node_p);
+            if (dist_to_node_p > varyings.thickness_p * 0.5) {
+                discard;
+            }
+
+            // Prep
+            var alpha: f32 = 1.0;
+
+            // Anti-aliasing. Note that because of the discarding above, we cannot use MSAA.
+            // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
+            // here this will help the end result. Because this produces semitransparent fragments,
+            // it relies on a good blend method, and the object gets drawn twice.
+            $$ if aa
+                let aa_width = 1.0;
+                alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
+                alpha = clamp(alpha, 0.0, 1.0);
+            $$ endif
+
+            $$ if color_mode == 'vertex' or color_mode == 'face'
+                let color = varyings.color;
+            $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
+                let color = sample_colormap(varyings.texcoord);
+            $$ else
+                let color = u_material.color;
+            $$ endif
+
+            let physical_color = srgb2physical(color.rgb);
+            let opacity = min(1.0, color.a) * alpha * u_material.opacity;
+            let out_color = vec4<f32>(physical_color, opacity);
+
+            // Wrap up
+            apply_clipping_planes(varyings.world_pos);
+            var out = get_fragment_output(varyings.position.z, out_color);
+
+            // Set picking info.
+            $$ if write_pick
+            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
+            // The pick_idx is int-truncated, so going from a to b, it still has the value of a
+            // even right up to b. The pick_zigzag alternates between 0 (even indices) and 1 (odd indices).
+            // Here we decode that. The result is that we can support vertex indices of ~32 bits if we want.
+            let is_even = varyings.pick_idx % 2u == 0u;
+            var coord = select(varyings.pick_zigzag, 1.0 - varyings.pick_zigzag, is_even);
+            coord = select(coord, coord - 1.0, coord > 0.5);
+            let idx = varyings.pick_idx + select(0u, 1u, coord < 0.0);
+            out.pick = (
+                pick_pack(u32(u_wobject.id), 20) +
+                pick_pack(u32(idx), 26) +
+                pick_pack(u32(coord * 100000.0 + 100000.0), 18)
+            );
+            $$ endif
+
+            // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
+            // This is only necessary for blend method "ordered1"
+            //out.depth = varyings.position.z + 0.0001 * (0.8 - min(0.8, alpha));
+
+            return out;
+        }
+        """
 
 
 @register_wgpu_render_function(Line, LineSegmentMaterial)

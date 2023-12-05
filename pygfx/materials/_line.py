@@ -182,6 +182,12 @@ class LineDashedMaterial(LineMaterial):
         If False, the dash is expressed in model/world coordinates.
     """
 
+    uniform_type = dict(
+        LineMaterial.uniform_type,
+        dash_size="f4",
+        dash_ratio="f4",
+    )
+
     def __init__(
         self,
         *args,
@@ -200,20 +206,24 @@ class LineDashedMaterial(LineMaterial):
     @property
     def dash_size(self):
         """The size of one dash cycle (stroke plus gap), i.e. the period."""
-        return self._store.dash_size
+        return float(self.uniform_buffer.data["dash_size"])
 
     @dash_size.setter
     def dash_size(self, value):
-        self._store.dash_size = max(0.0, float(value))
+        value = max(0.0, float(value))
+        self.uniform_buffer.data["dash_size"] = value
+        self.uniform_buffer.update_range(0, 1)
 
     @property
     def dash_ratio(self):
         """The fraction (0..1) of the dash that is a stroke, the remainder being the gap."""
-        return self.dash_ratio.dash_ratio
+        return float(self.uniform_buffer.data["dash_ratio"])
 
     @dash_ratio.setter
     def dash_ratio(self, value):
-        self._store.dash_ratio = max(0.0, min(1.0, float(value)))
+        value = max(0.0, min(1.0, float(value)))
+        self.uniform_buffer.data["dash_ratio"] = value
+        self.uniform_buffer.update_range(0, 1)
 
     @property
     def dash_offset(self):
