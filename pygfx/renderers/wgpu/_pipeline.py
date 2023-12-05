@@ -369,6 +369,7 @@ class PipelineContainerGroup:
     def __init__(self):
         self.compute_containers = None
         self.render_containers = None
+        self.bake_functions = None
 
     def update(self, wobject, environment, changed):
         """Update the pipeline containers that are wrapped. Creates (and re-creates)
@@ -378,6 +379,7 @@ class PipelineContainerGroup:
         if "create" in changed:
             self.compute_containers = []
             self.render_containers = []
+            self.bake_functions = []
 
             # Get render function for this world object,
             # and use it to get a high-level description of pipelines.
@@ -403,6 +405,8 @@ class PipelineContainerGroup:
                     self.render_containers.append(RenderPipelineContainer(shader))
                 else:
                     raise ValueError(f"Shader type {shader.type} is unknown.")
+                if shader.needs_bake_function:
+                    self.bake_functions.append(shader.bake_function)
 
         for container in self.compute_containers:
             container.update(wobject, environment, changed)

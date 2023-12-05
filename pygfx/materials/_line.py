@@ -19,9 +19,8 @@ class LineMaterial(Material):
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
     aa : bool
-        Whether or not the line should be anti-aliased. Aliasing gives prettier
-        results, but may affect performance for very large datasets. Default
-        True.
+        Whether or not the line is anti-aliased in the shader. This gives smoother
+        edges, but may affect performance for very large datasets. Default True.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -163,6 +162,92 @@ class LineMaterial(Material):
         self._store.map_interpolation = value
 
 
+class LineDashedMaterial(LineMaterial):
+    """Line dashed material.
+
+    A meterial that renders dashed lines.
+
+    Parameters
+    ----------
+    dash_size : float
+        The size of one dash cycle (stroke plus gap). Default 3.0.
+    dash_ratio : float
+        The fraction of the dash that is a stroke, the remainder being the gap.
+        This is a fraction between 0 and 1. Zero being fully a gap, and one having
+        no gap. Default 0.5.
+    dash_offset : float
+        The offset into the dash cycle to start drawing at. Default 0.0.
+    dash_is_screen_space : bool
+        Whether the dash measures are expressed in screen space. Default True.
+        If False, the dash is expressed in model/world coordinates.
+    """
+
+    def __init__(
+        self,
+        *args,
+        dash_size=3.0,
+        dash_ratio=0.5,
+        dash_offset=0,
+        dash_is_screen_space=True,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.dash_size = dash_size
+        self.dash_ratio = dash_ratio
+        self.dash_offset = dash_offset
+        self.dash_is_screen_space = dash_is_screen_space
+
+    @property
+    def dash_size(self):
+        """The size of one dash cycle (stroke plus gap), i.e. the period."""
+        return self._store.dash_size
+
+    @dash_size.setter
+    def dash_size(self, value):
+        self._store.dash_size = max(0.0, float(value))
+
+    @property
+    def dash_ratio(self):
+        """The fraction (0..1) of the dash that is a stroke, the remainder being the gap."""
+        return self.dash_ratio.dash_ratio
+
+    @dash_ratio.setter
+    def dash_ratio(self, value):
+        self._store.dash_ratio = max(0.0, min(1.0, float(value)))
+
+    @property
+    def dash_offset(self):
+        """The offset into the dash cycle to start drawing at, i.e. the phase."""
+        return self._store.dash_offset
+
+    @dash_offset.setter
+    def dash_offset(self, value):
+        self._store.dash_offset = float(value)
+
+    @property
+    def dash_is_screen_space(self):
+        """Whether the dash measures are expressed in screen space."""
+        return self._store.dash_is_screen_space
+
+    @dash_is_screen_space.setter
+    def dash_is_screen_space(self, value):
+        self._store.dash_is_screen_space = bool(value)
+
+
+class LineSegmentMaterial(LineMaterial):
+    """Line segment material.
+
+    A material that renders line segments between each two subsequent points.
+    """
+
+
+class LineArrowMaterial(LineSegmentMaterial):
+    """Arrow (vector) line material.
+
+    A material that renders line segments that look like little vectors.
+    """
+
+
 class LineThinMaterial(LineMaterial):
     """Thin line material.
 
@@ -187,15 +272,3 @@ class LineThinSegmentMaterial(LineMaterial):
     useful for debugging as it is more performant than other line materials.
 
     """
-
-
-class LineSegmentMaterial(LineMaterial):
-    """Line segment material.
-
-    A material that renders line segments between each two subsequent points."""
-
-
-class LineArrowMaterial(LineSegmentMaterial):
-    """Arrow (vector) line material.
-
-    A material that renders line segments that look like little vectors."""

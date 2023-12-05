@@ -28,10 +28,11 @@ colormaps, the strength of specular reflections, etc.
     GaussianPointsMaterial
 
     LineMaterial
-    LineThinMaterial
-    LineThinSegmentMaterial
+    LineDashedMaterial
     LineSegmentMaterial
     LineArrowMaterial
+    LineThinMaterial
+    LineThinSegmentMaterial
 
     ImageBasicMaterial
 
@@ -65,10 +66,11 @@ from ._mesh import (
 from ._points import PointsMaterial, GaussianPointsMaterial
 from ._line import (
     LineMaterial,
-    LineThinMaterial,
-    LineThinSegmentMaterial,
+    LineDashedMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
+    LineThinMaterial,
+    LineThinSegmentMaterial,
 )
 from ._image import ImageBasicMaterial
 from ._volume import (

@@ -490,6 +490,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             container_group = get_pipeline_container_group(wobject, environment)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
+            # Enable pipelines to update data on the CPU. This usually includes
+            # baking data into buffers. This is CPU intensive, but in practice
+            # it is only used by a few materials.
+            for func in container_group.bake_functions:
+                func(wobject, camera)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):

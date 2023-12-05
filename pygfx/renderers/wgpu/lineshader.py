@@ -1,4 +1,5 @@
 import wgpu  # only for flags/enums
+import numpy as np
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...utils import array_from_shadertype
@@ -10,6 +11,7 @@ from ...materials import (
     LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
+    LineDashedMaterial,
 )
 
 
@@ -34,7 +36,7 @@ from ...materials import (
 # But a hybrid approach may be viable: the current approach using VertexId,
 # but preparing some data in a buffer.
 
-# todo: we can learn about dashing, unfolding and more at http://jcgt.org/published/0002/02/08/paper.pdf
+# todo: --> http://jcgt.org/published/0002/02/08/paper.pdf
 
 
 renderer_uniform_type = dict(last_i="i4")
@@ -500,6 +502,52 @@ class LineShader(WorldObjectShader):
             return out;
         }
         """
+
+
+@register_wgpu_render_function(Line, LineDashedMaterial)
+class LineDashedShader(LineShader):
+    needs_bake_function = True
+
+    def __init__(self, wobject):
+        super().__init__(wobject)
+
+        n_verts = wobject.geometry.positions.nitems
+        distance_array = np.zeros((n_verts,), np.float32)
+        self.line_distance_buffer = Buffer(distance_array)
+        self._positions_hash = None
+
+    def bake_function(self, wobject, camera):
+        # Prepare arrays
+        r_offset, r_size = wobject.geometry.positions.draw_range
+        positions_array = wobject.geometry.positions.data[r_offset : r_offset + r_size]
+        distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
+
+        # Get vertices in the appropriate coordinate frame
+        if False:  # wobject.material.dash_is_screen_space:
+            pass
+            # todo: use camera projection and pylinalg to project positions_array to screen space
+        else:
+            # Skip this step if the position data has not changed
+            positions_hash = (
+                id(wobject.geometry.positions),
+                wobject.geometry.positions.rev,
+            )
+            if positions_hash == self._positions_hash:
+                return
+            self._positions_hash = positions_hash
+            vertex_array = positions_array
+
+        # Calculate cumulative distances
+        distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
+        distances[~np.isfinite(distances)] = 0.0
+        cum_distances = np.cumsum(distances)
+
+        # Apply
+        distance_array[0] = 0
+        distance_array[1:] = cum_distances
+
+        # Mark that the data has changed
+        self.line_distance_buffer.update_range(r_offset, r_size)
 
 
 @register_wgpu_render_function(Line, LineSegmentMaterial)
