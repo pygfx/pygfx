@@ -1,5 +1,6 @@
 import wgpu  # only for flags/enums
 import numpy as np
+import pylinalg as la
 
 from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 from ...utils import array_from_shadertype
@@ -534,7 +535,7 @@ class LineDashedShader(LineShader):
             Binding("s_cumdist", rbuffer, self.line_distance_buffer, "VERTEX"),
         ]
 
-    def bake_function(self, wobject, camera):
+    def bake_function(self, wobject, camera, logical_size):
         # Prepare
         positions_buffer = wobject.geometry.positions
         dash_offset = wobject.material.dash_offset
@@ -545,9 +546,9 @@ class LineDashedShader(LineShader):
         distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
 
         # Get vertices in the appropriate coordinate frame
-        if False:  # wobject.material.dash_is_screen_space:
-            pass
-            # todo: use camera projection and pylinalg to project positions_array to screen space
+        if wobject.material.dash_is_screen_space:
+            xyz = la.vec_transform(positions_array, camera.camera_matrix)
+            vertex_array = xyz[:, :2] * 0.5 * np.array(logical_size)
         else:
             # Skip this step if the position data has not changed
             positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
@@ -573,8 +574,6 @@ class LineDashedShader(LineShader):
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
-            let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-
             let vec_from_node_p = varyings.vec_from_node_p;
 
             let dash_size = u_material.dash_size;
@@ -594,9 +593,14 @@ class LineDashedShader(LineShader):
             var dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
             dist_to_stroke = max(0.0, dist_to_stroke);
 
-            // Convert to pixel units. I'm not sure where the factor 4 comes from, tbh.
-            let dpd_cumdist = length(vec2<f32>(dpdx(varyings.cum_dist), dpdy(varyings.cum_dist)));
-            let dist_to_stroke_p = 4.0 * l2p * dist_to_stroke/dpd_cumdist;
+            // Convert to pixel units
+            let dpd_cumdist = length(vec2<f32>(dpdxFine(varyings.cum_dist), dpdyFine(varyings.cum_dist)));
+            let dist_to_stroke_p = dash_size * dist_to_stroke/dpd_cumdist;
+
+            // Butt caps
+            if (dist_to_stroke > 0.0) {
+            //    discard;
+            }
 
             // Round caps
             let vec_from_gap = vec2<f32>(dist_to_stroke_p, length(vec_from_node_p));

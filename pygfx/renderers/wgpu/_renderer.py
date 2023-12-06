@@ -494,7 +494,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             # baking data into buffers. This is CPU intensive, but in practice
             # it is only used by a few materials.
             for func in container_group.bake_functions:
-                func(wobject, camera)
+                func(wobject, camera, logical_size)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
