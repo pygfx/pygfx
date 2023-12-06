@@ -557,14 +557,13 @@ class LineDashedShader(LineShader):
             self._positions_hash = positions_hash
             vertex_array = positions_array
 
-        # Calculate cumulative distances
+        # Calculate distances
         distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
         distances[~np.isfinite(distances)] = 0.0
-        np.cumsum(distances, out=distance_array[1:])
 
-        # Apply
+        # Store cumulatives
         distance_array[0] = dash_offset
-        distance_array[1:] = cum_distances + dash_offset
+        np.cumsum(distances, out=distance_array[1:])
 
         # Mark that the data has changed
         self.line_distance_buffer.update_range(r_offset, r_size)
