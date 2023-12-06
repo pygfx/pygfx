@@ -573,6 +573,8 @@ class LineDashedShader(LineShader):
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
+            let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
+
             let vec_from_node_p = varyings.vec_from_node_p;
 
             let dash_size = u_material.dash_size;
@@ -589,9 +591,16 @@ class LineDashedShader(LineShader):
             // 0.2  0  -0.3   0  0.2   dist_to_stroke
 
             // TODO: perhaps an offset to cum_dist to make it start with a stroke?
-            let dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
+            var dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
+            dist_to_stroke = max(0.0, dist_to_stroke);
 
-            if (dist_to_stroke > 0.0) {
+            // Convert to pixel units. I'm not sure where the factor 4 comes from, tbh.
+            let dpd_cumdist = length(vec2<f32>(dpdx(varyings.cum_dist), dpdy(varyings.cum_dist)));
+            let dist_to_stroke_p = 4.0 * l2p * dist_to_stroke/dpd_cumdist;
+
+            // Round caps
+            let vec_from_gap = vec2<f32>(dist_to_stroke_p, length(vec_from_node_p));
+            if (length(vec_from_gap) > varyings.thickness_p * 0.5) {
                 discard;
             }
 
