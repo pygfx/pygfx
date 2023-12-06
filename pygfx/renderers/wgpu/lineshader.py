@@ -560,7 +560,7 @@ class LineDashedShader(LineShader):
         # Calculate cumulative distances
         distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
         distances[~np.isfinite(distances)] = 0.0
-        cum_distances = np.cumsum(distances)
+        np.cumsum(distances, out=distance_array[1:])
 
         # Apply
         distance_array[0] = dash_offset
