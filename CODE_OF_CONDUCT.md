@@ -1,6 +1,6 @@
 # pygfx code of conduct
 
-# Introduction
+## Introduction
 
 This code of conduct applies to all spaces managed by the pygfx project, 
 including all public and private mailing lists, issue trackers, wikis, blogs, 
@@ -19,7 +19,7 @@ follow this code in spirit as much as in letter, to create a friendly and
 productive environment that enriches the surrounding community.
 
 
-# Specific guidelines
+## Specific guidelines
 
 We strive to:
 
@@ -65,29 +65,7 @@ We strive to:
   - Advocating for, or encouraging, any of the above behavior.
 
 
-# Diversity statement
-
-The pygfx project welcomes and encourages participation by everyone. We are
-committed to being a community that everyone enjoys being part of. Although
-we may not always be able to accommodate each individual's preferences, we try
-our best to treat everyone kindly.
-
-No matter how you identify yourself or how others perceive you: we welcome you.
-Though no list can hope to be comprehensive, we explicitly honor diversity in:
-age, culture, ethnicity, genotype, gender identity or expression, language,
-national origin, neurotype, phenotype, political beliefs, profession, race,
-religion, sexual orientation, socioeconomic status, subculture and technical
-ability, to the extent that these do not conflict with this code of conduct.
-
-Though we welcome people fluent in all languages, pygfx development is
-conducted in English.
-
-Standards for behavior in the pygfx community are detailed in the Code of
-Conduct above. Participants in our community should uphold these standards
-in all their interactions and help others to do so as well (see next section).
-
-
-# Reporting guidelines
+## Reporting guidelines
 
 We know that it is painfully common for internet communication to start at or
 devolve into obvious and flagrant abuse. We also recognize that sometimes
@@ -111,7 +89,7 @@ If your report involves any members of the pygfx core team, or if they feel they
 a conflict of interest in handling it, then they will recuse themselves from
 considering your report.
 
-# Incident reporting resolution & Code of Conduct enforcement
+## Incident reporting resolution & Code of Conduct enforcement
 
 We will investigate and respond to all complaints. The pygfx Code of Conduct
 Committee and the pygfx Steering Committee (if involved) will protect the
@@ -131,11 +109,10 @@ report will be:
 3. mediation (if feedback didn't help, and only if both reporter and reportee agree to this)
 4. enforcement via transparent decision
 
-The committee will respond to any report as soon as possible, and at most
-within 72 hours.
+The committee will respond to any report as soon as possible.
 
 
-# Endnotes
+## Endnotes
 
 We are thankful to the groups behind the following documents, from which we
 drew content and inspiration:
