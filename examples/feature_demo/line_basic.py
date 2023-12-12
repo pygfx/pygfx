@@ -36,7 +36,10 @@ for i in range(len(positions)):
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    gfx.LineDashedMaterial(thickness=12.0, color=(0.8, 0.7, 0.0)),
+    # gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5),
+    gfx.LineDashedMaterial(
+        thickness=12.0, color=(0.8, 0.7, 0.0), dash_size=24, dash_ratio=0.2
+    ),
 )
 scene.add(line)
 
@@ -45,8 +48,20 @@ camera.local.position = (300, 250, 0)
 
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
+alpha = 0
+d_alpha = 0.05
+
+def animate():
+    global alpha
+    alpha += d_alpha
+    # todo: if we make this line piece shorter, we see artifacts due to vertex displacement beyond line segment
+    line.geometry.positions.data[-1,:2] = 400 +  40 * np.sin(alpha), 370 + 40 * np.cos(alpha)
+    line.geometry.positions.update_range(46, 1)
+    renderer.render(scene, camera)
+    canvas.request_draw()
+
 
 if __name__ == "__main__":
     renderer_svg.render(scene, camera)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    canvas.request_draw(animate)
     run()

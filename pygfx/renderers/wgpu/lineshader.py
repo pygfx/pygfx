@@ -153,7 +153,7 @@ class LineShader(WorldObjectShader):
 
     def _get_n(self, positions):
         offset, size = positions.draw_range
-        return offset * 5, size * 5
+        return offset * 6, size * 6
 
     def get_render_info(self, wobject, shared):
         material = wobject.material
@@ -216,6 +216,9 @@ class LineShader(WorldObjectShader):
             pos: vec4<f32>,
             thickness_p: f32,
             vec_from_node_p: vec2<f32>,
+            vec_from_node_p_corner: vec2<f32>,
+            is_corner: f32,
+            side: f32,
             cum_dist: f32,
         };
         """
@@ -266,6 +269,10 @@ class LineShader(WorldObjectShader):
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
             varyings.thickness_p = f32(result.thickness_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
+            varyings.vec_from_node_p_corner = vec2<f32>(result.vec_from_node_p_corner);
+            varyings.is_corner = f32(result.is_corner);
+            varyings.side = f32(result.side);
+
             //varyings.cum_dist = f32(result.cum_dist);
 
             // TODO: remove result.cum_dist
@@ -326,9 +333,8 @@ class LineShader(WorldObjectShader):
             index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
         ) -> VertexFuncOutput {
             // This vertex shader uses VertexId and storage buffers instead of
-            // vertex buffers. It creates 5 vertices for each point on the line.
-            // You could do with 4 to get bevel joins, but round joins are so
-            // much nicer. The extra vertex is used to cover more fragments at
+            // vertex buffers. It creates 6 vertices for each point on the line.
+            // The extra vertices are used to cover more fragments at
             // the joins (and caps). In the fragment shader we discard fragments
             // that are "out of range", based on a varying that represents the
             // vector from the node to the vertex.
@@ -345,10 +351,10 @@ class LineShader(WorldObjectShader):
             //
             //            /  o     node 3
             //           /  /  /
-            //          d  /  /
-            //   - - - b  /  /     corners rectangles a, b, c, d
-            //   o-------o  /      the vertex e is extra
-            //   - - - - a c
+            //          f  /  /
+            //   - - - b  /  /     corners rectangles a, b, e, f
+            //   o-------o  /      the vertices c and are in between
+            //   - - - - a e
             //                node 2
             //  node 1
             //
@@ -367,8 +373,9 @@ class LineShader(WorldObjectShader):
             // - also implement different caps
             // - we can prepare the nodes' screen coordinates in a compute shader.
 
-            let i = index / 5;
-            let fi = (index + 2) / 5;
+            let i = index / 6;
+            let sub_index = index % 6;
+            let fi = (index + 2) / 6;
 
             // Sample the current node and it's two neighbours, and convert to NDC
             // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
@@ -381,46 +388,80 @@ class LineShader(WorldObjectShader):
             let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
             let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
 
-            // Get vectors normal to the line segments
+            // Get vectors representing the two incident line segments
             var v1: vec2<f32> = ppos2.xy - ppos1.xy;
             var v2: vec2<f32> = ppos3.xy - ppos2.xy;
+
+            // Declare (relative) vectors representing the 6 vertices
             var na: vec2<f32>;
             var nb: vec2<f32>;
             var nc: vec2<f32>;
             var nd: vec2<f32>;
             var ne: vec2<f32>;
+            var nf: vec2<f32>;
 
-            let prev = load_s_positions(i - 1);
+            // Declare matching line cords (x along line, y perpendicular to it)
+            var lla: vec2<f32>;
+            var llb: vec2<f32>;
+            var llc: vec2<f32>;
+            var lld: vec2<f32>;
+            var lle: vec2<f32>;
+            var llf: vec2<f32>;
+
+            var is_corner = 0.0;
+
+            var vectors_ll_corner = array<vec2<f32>,6>(llc, lld, llc, lld, llc, lld);
 
             if ( i == 0 || is_nan_or_zero(npos1.w) ) {
                 // This is the first point on the line: create a cap.
                 v1 = v2;
-                nc = normalize(vec2<f32>(v2.y, -v2.x));
-                nd = -nc;
-                na = nd;
-                nb = nd - normalize(v2);
-                ne = nc - normalize(v2);
+
+                ne = normalize(vec2<f32>(v2.y, -v2.x));
+                nf = -ne;
+                na = ne - normalize(v2);
+                nb = nf - normalize(v2);
+                nc = na;
+                nd = nb;
+
+                lla = na;
+                llb = nb;
+                llc = nc;
+                lld = nd;
+                lle = ne;
+                llf = nf;
+
             } else if ( i == u_renderer.last_i || is_nan_or_zero(npos3.w) )  {
                 // This is the last point on the line: create a cap.
                 v2 = v1;
+
                 na = normalize(vec2<f32>(v1.y, -v1.x));
                 nb = -na;
-                ne = nb + normalize(v1);
                 nc = na + normalize(v1);
-                nd = na;
+                nd = nb + normalize(v1);
+                ne = nc;
+                nf = nd;
+
+                lla = na;
+                llb = nb;
+                llc = nc;
+                lld = nd;
+                lle = ne;
+                llf = nf;
+
             } else {
                 // Create a join
+
                 na = normalize(vec2<f32>(v1.y, -v1.x));
                 nb = -na;
-                nc = normalize(vec2<f32>(v2.y, -v2.x));
-                nd = -nc;
+                ne = normalize(vec2<f32>(v2.y, -v2.x));
+                nf = -ne;
 
                 // Determine the angle between two of the normals. If this angle is smaller
-                // than zero, the inside of the join is at nb/nd, otherwise it is at na/nc.
-                let angle = -atan2( na.x * nc.y - na.y * nc.x, na.x * nc.x + na.y * nc.y );
+                // than zero, the inside of the join is at nb/nf, otherwise it is at na/ne.
+                let angle = -atan2( na.x * ne.y - na.y * ne.x, na.x * ne.x + na.y * ne.y );
 
-                // Determine the direction of ne
-                let vec_dir = select(na + nc, nb + nd, angle >= 0.0);
+                // Determine the direction of nc and nd
+                let inner_corner_is_at_ace = angle >= 0.0;
 
                 // From the angle we can also determine how long the ne vector should be.
                 // We express it in a vector magnifier, and limit it to a factor 2,
@@ -428,22 +469,92 @@ class LineShader(WorldObjectShader):
                 // For a bevel join we can omit ne (or set vec_mag to 1.0).
                 // For a miter join we'd need an extra vertex to smoothly transition
                 // from a miter to a bevel when the angle is too small.
-                let vec_mag = 1.0 / max(0.25, cos(0.5 * angle));
+                let vec_mag = 1.0 / cos(0.5 * angle);
+                let vec_mag_clamped = clamp(vec_mag, 1.0, 4.0);
 
-                ne = normalize(vec_dir) * vec_mag;
+                //let vec_dir = normalize(select(na + ne, nb + nf, inner_corner_is_at_ace));
+                let corner_is_smooth = vec_mag_clamped == vec_mag;
+
+                nc = normalize(na + ne) * vec_mag_clamped;
+                nd = -nc;
+
+                if (false) {
+                    // Miter
+                    // TODO: do this using templating
+                } else if (corner_is_smooth) {
+                    // Round or miter, shallow (enough) corner
+
+                    lla = na;
+                    llb = nb;
+                    llc = nc;
+                    lld = nd;
+                    lle = ne;
+                    llf = nf;
+
+                    // TODO: limit displacement if line segment is too short
+                    if (true){ //(vec_mag < 2.0) {
+                        na = select(na, nc, inner_corner_is_at_ace);
+                        ne = select(ne, nc, inner_corner_is_at_ace);
+                        nb = select(nd, nb, inner_corner_is_at_ace);
+                        nf = select(nd, nf, inner_corner_is_at_ace);
+                    }
+                    // -> resize a b c d, such that dist to line is 1
+                    // put the oposing vertices exactly on other end of the line
+
+                    if (inner_corner_is_at_ace) {
+                        is_corner = f32(sub_index==3);
+                        vectors_ll_corner[0] = llc;
+                        vectors_ll_corner[1] = llb;
+                        vectors_ll_corner[2] = llc;
+                        vectors_ll_corner[3] = lld;
+                        vectors_ll_corner[4] = llc;
+                        vectors_ll_corner[5] = llf;
+                    } else {
+                        is_corner = -f32(sub_index==2);
+                        vectors_ll_corner[0] = lla;
+                        vectors_ll_corner[1] = lld;
+                        vectors_ll_corner[2] = llc;
+                        vectors_ll_corner[3] = lld;
+                        vectors_ll_corner[4] = lle;
+                        vectors_ll_corner[5] = lld;
+                    }
+
+                } else {
+                    // Place the two middle points into the same positions,
+                    // Creating two degenerate triangles, and two normal overlapping triangles.
+                    // This way we have exactly 1x overlap, which is what we want.
+                    nc = select(nc, nd, inner_corner_is_at_ace);
+                    nd = nc;
+
+                    lla = na;
+                    llb = nb;
+                    llc = nc;
+                    lld = nd;
+                    lle = ne;
+                    llf = nf;
+                }
             }
 
             // Select the correct vector, note that all except ne are unit.
-            var vectors = array<vec2<f32>,5>(na, nb, ne, nc, nd);
-            let the_vec = vectors[index % 5] * half_thickness;
+            var vectors_n = array<vec2<f32>,6>(na, nb, nc, nd, ne, nf);
+            let the_vec = vectors_n[index % 6] * half_thickness;
             let the_pos = ppos2 + the_vec;
+
+            var vectors_ll = array<vec2<f32>,6>(lla, llb, llc, lld, lle, llf);
+
+            let the_ll_vec = vectors_ll[sub_index];
+            let the_ll_vec_corner = vectors_ll_corner[sub_index];
 
             var out : VertexFuncOutput;
             out.i = i;
             out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
-            out.vec_from_node_p = the_vec * l2p;
+            //out.vec_from_node_p = the_vec * 2.0 * l2p; // TODO: rename
+            out.vec_from_node_p = the_ll_vec;
+            out.vec_from_node_p_corner = the_ll_vec_corner;
+            out.is_corner = f32(is_corner);
+            out.side = (f32(index%2) * 2.0 - 1.0) * length(the_ll_vec_corner);
             out.cum_dist = 0.0;
             return out;
         }
@@ -457,9 +568,21 @@ class LineShader(WorldObjectShader):
             // Discard fragments outside of the radius. This is what makes round
             // joins and caps. If we ever want bevel or miter joins, we should
             // change the vertex positions a bit, and drop these lines below.
-            let dist_to_node_p = length(varyings.vec_from_node_p);
-            if (dist_to_node_p > varyings.thickness_p * 0.5) {
-                discard;
+
+            // Butt cap
+            //if (varyings.vec_from_node_p.x > 0.0) {
+            //     discard;
+            //}
+
+            let is_corner = varyings.is_corner != 0.0;
+            let vec_from_node_p = select(varyings.vec_from_node_p, varyings.vec_from_node_p_corner, is_corner);
+
+            let free_zone = (varyings.is_corner * varyings.side) < 0.0;
+
+            let dist_to_node_p = length(vec_from_node_p);
+            //if (dist_to_node_p > varyings.thickness_p) {
+            if (dist_to_node_p > 1.0 && !free_zone) {
+               discard;
             }
 
             // Prep
@@ -469,7 +592,7 @@ class LineShader(WorldObjectShader):
             // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
             // here this will help the end result. Because this produces semitransparent fragments,
             // it relies on a good blend method, and the object gets drawn twice.
-            $$ if aa
+            $$ if false
                 let aa_width = 1.0;
                 alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
                 alpha = clamp(alpha, 0.0, 1.0);
@@ -483,7 +606,10 @@ class LineShader(WorldObjectShader):
                 let color = u_material.color;
             $$ endif
 
-            let physical_color = srgb2physical(color.rgb);
+            var physical_color = srgb2physical(color.rgb);
+            if (false) {
+                physical_color = vec3<f32>(1.0, 0.0, 0.0);
+            }
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 
@@ -563,6 +689,7 @@ class LineDashedShader(LineShader):
 
         # Store cumulatives
         distance_array[0] = dash_offset
+        distances[0] += dash_offset
         np.cumsum(distances, out=distance_array[1:])
 
         # Mark that the data has changed
