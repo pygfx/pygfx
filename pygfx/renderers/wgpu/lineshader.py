@@ -217,7 +217,7 @@ class LineShader(WorldObjectShader):
             thickness_p: f32,
             vec_from_node_p: vec2<f32>,
             vec_from_node_p_corner: vec2<f32>,
-            is_corner: f32,
+            is_join: f32,
             side: f32,
             cum_dist: f32,
         };
@@ -270,7 +270,7 @@ class LineShader(WorldObjectShader):
             varyings.thickness_p = f32(result.thickness_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
             varyings.vec_from_node_p_corner = vec2<f32>(result.vec_from_node_p_corner);
-            varyings.is_corner = f32(result.is_corner);
+            varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
 
             //varyings.cum_dist = f32(result.cum_dist);
@@ -332,229 +332,258 @@ class LineShader(WorldObjectShader):
         fn get_vertex_result(
             index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
         ) -> VertexFuncOutput {
+            //
             // This vertex shader uses VertexId and storage buffers instead of
             // vertex buffers. It creates 6 vertices for each point on the line.
             // The extra vertices are used to cover more fragments at
-            // the joins (and caps). In the fragment shader we discard fragments
-            // that are "out of range", based on a varying that represents the
-            // vector from the node to the vertex.
+            // the joins and caps. In the fragment shader we discard fragments
+            // that are "out of range" for the current join/cap shape, using
+            // parameters passed as varyings.
+            //
+            // Definitions:
+            //
+            // - node: the positions that define the line. In other contexts these
+            //   may be called vertices or points.
+            // - vertex: the "virtual vertices" generated in the vertex shader,
+            //   in order to create a thick line with nice joins and caps.
+            // - segment: the straight piece of the line between two consecutive
+            //   nodes. A quadrilateral (two faces) but not necesarily rectangular.
+            // - join: the piece of the line to connect two segments. There are
+            //   a few different shapes that can be applied.
+            // - cap: the beginning/end of the line and dashes. It typically extends
+            //   a bit beyond the node (or dash end). There are multiple cap shapes.
+            // - dash: the visible contiguous piece of the line when dashing is
+            //   enabled. Can go over a join, i.e. is not always straight. Has caps.
+            // - broken join: joins with too sharp corners are rendered as two
+            //   separate segments with caps.
             //
             // Basic algorithm and definitions:
             //
             // - We read the positions of three nodes, the current, previous, and next.
             // - These are converted to logical pixel screen space.
-            // - We define four normal vectors (na, nb, nc, nd) which represent the
-            //   vertices. Two for the previous segment, two for the next. One extra
-            //   normal/vertex is defined at the join.
+            // - We define six normal vectors which represent the (virtual) vertices.
+            //   The first two close the previous segment, the last two start the next
+            //   segment, the two in the middle help define the join.
             // - These calculations are done for each vertex (yeah, bit of a waste),
             //   we select just one as output.
             //
             //            /  o     node 3
             //           /  /  /
-            //          f  /  /
-            //   - - - b  /  /     corners rectangles a, b, e, f
-            //   o-------o  /      the vertices c and are in between
-            //   - - - - a e
+            //          6  /  /
+            //   - - - 2  /  /     segment-vertices 1, 2, 5, 6
+            //   o-------o  /      the vertices 3 and 4 are in between to help the join
+            //   - - - - 1 5
             //                node 2
             //  node 1
             //
-            // Note that at the inside of a join, the normals (b and d above)
-            // move past each-other, causing the rectangles of both segments to
-            // overlap. We could prevent this, but that would screw up
-            // v_vec_from_node_p. Furthermore, consider a thick line with dense
-            // nodes jumping all over the place, causing a lot of overlap anyway.
-            // In summary, this viz relies on depth testing with "less" (or
-            // semi-transparent lines would break).
-            // TODO give unfolding another try? With https://diglib.eg.org/bitstream/handle/10.2312/SBM.SBM10.033-040/033-040.pdf?sequence=1&isAllowed=y
             //
             // Possible improvements:
             //
-            // - also implement bevel and miter joins
-            // - also implement different caps
             // - we can prepare the nodes' screen coordinates in a compute shader.
 
+            // Indexing
             let i = index / 6;
             let sub_index = index % 6;
             let fi = (index + 2) / 6;
 
             // Sample the current node and it's two neighbours, and convert to NDC
             // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-            let npos1 = get_point_ndc(max(0, i - 1));
-            let npos2 = get_point_ndc(i);
-            let npos3 = get_point_ndc(min(u_renderer.last_i, i + 1));
+            let node1n = get_point_ndc(max(0, i - 1));
+            let node2n = get_point_ndc(i);
+            let node3n = get_point_ndc(min(u_renderer.last_i, i + 1));
 
             // Convert to logical screen coordinates, because that's where the lines work
-            let ppos1 = (npos1.xy / npos1.w + 1.0) * screen_factor;
-            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
+            let node1s = (node1n.xy / node1n.w + 1.0) * screen_factor;
+            let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
+            let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
 
             // Get vectors representing the two incident line segments
-            var v1: vec2<f32> = ppos2.xy - ppos1.xy;
-            var v2: vec2<f32> = ppos3.xy - ppos2.xy;
+            var nodevec1: vec2<f32> = node2s.xy - node1s.xy;
+            var nodevec2: vec2<f32> = node3s.xy - node2s.xy;
 
-            // Declare (relative) vectors representing the 6 vertices
-            var na: vec2<f32>;
-            var nb: vec2<f32>;
-            var nc: vec2<f32>;
-            var nd: vec2<f32>;
-            var ne: vec2<f32>;
-            var nf: vec2<f32>;
+            // Declare (relative) vectors representing the 6 vertices.
+            // These are relarive to node2 (in screen space).
+            var vert1: vec2<f32>;
+            var vert2: vec2<f32>;
+            var vert3: vec2<f32>;
+            var vert4: vec2<f32>;
+            var vert5: vec2<f32>;
+            var vert6: vec2<f32>;
 
             // Declare matching line cords (x along line, y perpendicular to it)
-            var lla: vec2<f32>;
-            var llb: vec2<f32>;
-            var llc: vec2<f32>;
-            var lld: vec2<f32>;
-            var lle: vec2<f32>;
-            var llf: vec2<f32>;
+            var coord1: vec2<f32>;
+            var coord2: vec2<f32>;
+            var coord3: vec2<f32>;
+            var coord4: vec2<f32>;
+            var coord5: vec2<f32>;
+            var coord6: vec2<f32>;
 
-            var is_corner = 0.0;
+            // Whether the current vertex represents the join. Only nonzero for
+            // subindex 2 or 3, the signs is -1 and +1, respectively, signaling the side.
+            var is_join = 0.0;
 
-            var vectors_ll_corner = array<vec2<f32>,6>(llc, lld, llc, lld, llc, lld);
+            var vectors_ll_corner = array<vec2<f32>,6>(coord3, coord4, coord3, coord4, coord3, coord4);
 
-            if ( i == 0 || is_nan_or_zero(npos1.w) ) {
+            if ( i == 0 || is_nan_or_zero(node1n.w) ) {
                 // This is the first point on the line: create a cap.
-                v1 = v2;
+                nodevec1 = nodevec2;
 
-                ne = normalize(vec2<f32>(v2.y, -v2.x));
-                nf = -ne;
-                na = ne - normalize(v2);
-                nb = nf - normalize(v2);
-                nc = na;
-                nd = nb;
+                vert5 = normalize(vec2<f32>(nodevec2.y, -nodevec2.x));
+                vert6 = -vert5;
+                vert1 = vert5 - normalize(nodevec2);
+                vert2 = vert6 - normalize(nodevec2);
+                vert3 = vert1;
+                vert4 = vert2;
 
-                lla = na;
-                llb = nb;
-                llc = nc;
-                lld = nd;
-                lle = ne;
-                llf = nf;
+                coord1 = vert1;
+                coord2 = vert2;
+                coord3 = vert3;
+                coord4 = vert4;
+                coord5 = vert5;
+                coord6 = vert6;
 
-            } else if ( i == u_renderer.last_i || is_nan_or_zero(npos3.w) )  {
+            } else if ( i == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
                 // This is the last point on the line: create a cap.
-                v2 = v1;
+                nodevec2 = nodevec1;
 
-                na = normalize(vec2<f32>(v1.y, -v1.x));
-                nb = -na;
-                nc = na + normalize(v1);
-                nd = nb + normalize(v1);
-                ne = nc;
-                nf = nd;
+                vert1 = normalize(vec2<f32>(nodevec1.y, -nodevec1.x));
+                vert2 = -vert1;
+                vert3 = vert1 + normalize(nodevec1);
+                vert4 = vert2 + normalize(nodevec1);
+                vert5 = vert3;
+                vert6 = vert4;
 
-                lla = na;
-                llb = nb;
-                llc = nc;
-                lld = nd;
-                lle = ne;
-                llf = nf;
+                coord1 = vert1;
+                coord2 = vert2;
+                coord3 = vert3;
+                coord4 = vert4;
+                coord5 = vert5;
+                coord6 = vert6;
 
             } else {
                 // Create a join
 
-                na = normalize(vec2<f32>(v1.y, -v1.x));
-                nb = -na;
-                ne = normalize(vec2<f32>(v2.y, -v2.x));
-                nf = -ne;
+                vert1 = normalize(vec2<f32>(nodevec1.y, -nodevec1.x));
+                vert2 = -vert1;
+                vert5 = normalize(vec2<f32>(nodevec2.y, -nodevec2.x));
+                vert6 = -vert5;
 
-                // Determine the angle between two of the normals. If this angle is smaller
-                // than zero, the inside of the join is at nb/nf, otherwise it is at na/ne.
-                let angle = -atan2( na.x * ne.y - na.y * ne.x, na.x * ne.x + na.y * ne.y );
+                // Determine the angle of the corner. If this angle is smaller than zero,
+                // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
+                let angle = -atan2( nodevec1.x * nodevec2.y - nodevec1.y * nodevec2.x,
+                                    nodevec1.x * nodevec2.x + nodevec1.y * nodevec2.y );
 
-                // Determine the direction of nc and nd
-                let inner_corner_is_at_ace = angle >= 0.0;
+                // Determine the direction of vert3 and vert4
+                let inner_corner_is_at_135 = angle >= 0.0;
 
-                // From the angle we can also determine how long the ne vector should be.
-                // We express it in a vector magnifier, and limit it to a factor 2,
+                // From the angle we can also determine how long the miter (created by vert3 or vert4)
+                // should be. We express it in a vector magnifier, and limit it,
                 // since when the angle is ~pi, the intersection is near infinity.
-                // For a bevel join we can omit ne (or set vec_mag to 1.0).
+                // TODO: revisit below comment
+                // For a bevel join we can omit vert5 (or set vec_mag to 1.0).
                 // For a miter join we'd need an extra vertex to smoothly transition
                 // from a miter to a bevel when the angle is too small.
                 let vec_mag = 1.0 / cos(0.5 * angle);
                 let vec_mag_clamped = clamp(vec_mag, 1.0, 4.0);
 
-                //let vec_dir = normalize(select(na + ne, nb + nf, inner_corner_is_at_ace));
-                let corner_is_smooth = vec_mag_clamped == vec_mag;
+                // Is the join contiguous or broken, i.e. is the corner shallow enough?
+                let join_is_contiguous = vec_mag_clamped == vec_mag;
 
-                nc = normalize(na + ne) * vec_mag_clamped;
-                nd = -nc;
+                // Calculate position of middle vertices. For the inner corner
+                // this is the intersection of the line edges, i.e. the point where
+                // we should move the two other vertices-at-the-inner-corner to.
+                // For the outer corner this is the extra space we need to draw the join shape.
+                vert3 = normalize(vert1 + vert5) * vec_mag_clamped;
+                vert4 = -vert3;
 
                 if (false) {
                     // Miter
                     // TODO: do this using templating
-                } else if (corner_is_smooth) {
+                } else if (join_is_contiguous) {
                     // Round or miter, shallow (enough) corner
 
-                    lla = na;
-                    llb = nb;
-                    llc = nc;
-                    lld = nd;
-                    lle = ne;
-                    llf = nf;
+                    coord1 = vert1;
+                    coord2 = vert2;
+                    coord3 = vert3;
+                    coord4 = vert4;
+                    coord5 = vert5;
+                    coord6 = vert6;
 
                     // TODO: limit displacement if line segment is too short
-                    if (true){ //(vec_mag < 2.0) {
-                        na = select(na, nc, inner_corner_is_at_ace);
-                        ne = select(ne, nc, inner_corner_is_at_ace);
-                        nb = select(nd, nb, inner_corner_is_at_ace);
-                        nf = select(nd, nf, inner_corner_is_at_ace);
+
+                    // Put the 3 vertices in the inner corner at the same (center) position.
+                    if (inner_corner_is_at_135) {
+                        vert1 = vert3;
+                        vert5 = vert3;
+                    } else {
+                        vert2 = vert4;
+                        vert6 = vert4;
                     }
-                    // -> resize a b c d, such that dist to line is 1
+
+                    // -> resize such that dist to line is 1
                     // put the oposing vertices exactly on other end of the line
 
-                    if (inner_corner_is_at_ace) {
-                        is_corner = f32(sub_index==3);
-                        vectors_ll_corner[0] = llc;
-                        vectors_ll_corner[1] = llb;
-                        vectors_ll_corner[2] = llc;
-                        vectors_ll_corner[3] = lld;
-                        vectors_ll_corner[4] = llc;
-                        vectors_ll_corner[5] = llf;
+                    if (inner_corner_is_at_135) {
+                        is_join = f32(sub_index == 3);
+                        vectors_ll_corner[0] = coord3;
+                        vectors_ll_corner[1] = coord2;
+                        vectors_ll_corner[2] = coord3;
+                        vectors_ll_corner[3] = coord4;
+                        vectors_ll_corner[4] = coord3;
+                        vectors_ll_corner[5] = coord6;
                     } else {
-                        is_corner = -f32(sub_index==2);
-                        vectors_ll_corner[0] = lla;
-                        vectors_ll_corner[1] = lld;
-                        vectors_ll_corner[2] = llc;
-                        vectors_ll_corner[3] = lld;
-                        vectors_ll_corner[4] = lle;
-                        vectors_ll_corner[5] = lld;
+                        is_join = -f32(sub_index == 2);
+                        vectors_ll_corner[0] = coord1;
+                        vectors_ll_corner[1] = coord4;
+                        vectors_ll_corner[2] = coord3;
+                        vectors_ll_corner[3] = coord4;
+                        vectors_ll_corner[4] = coord5;
+                        vectors_ll_corner[5] = coord4;
                     }
 
                 } else {
-                    // Place the two middle points into the same positions,
-                    // Creating two degenerate triangles, and two normal overlapping triangles.
-                    // This way we have exactly 1x overlap, which is what we want.
-                    nc = select(nc, nd, inner_corner_is_at_ace);
-                    nd = nc;
+                    // Broken join: render as separate segments with caps.
 
-                    lla = na;
-                    llb = nb;
-                    llc = nc;
-                    lld = nd;
-                    lle = ne;
-                    llf = nf;
+                    // Place the two middle points into the same positions,
+                    // Creating two degenerate triangles, and two regular overlapping triangles.
+                    // This way we have exactly 1x overlap, which is what we want.
+                    vert3 = select(vert3, vert4, inner_corner_is_at_135);
+                    vert4 = vert3;
+
+                    coord1 = vert1;
+                    coord2 = vert2;
+                    coord3 = vert3;
+                    coord4 = vert4;
+                    coord5 = vert5;
+                    coord6 = vert6;
                 }
             }
 
-            // Select the correct vector, note that all except ne are unit.
-            var vectors_n = array<vec2<f32>,6>(na, nb, nc, nd, ne, nf);
-            let the_vec = vectors_n[index % 6] * half_thickness;
-            let the_pos = ppos2 + the_vec;
+            // Select the current vector.
+            var vert_array = array<vec2<f32>,6>(vert1, vert2, vert3, vert4, vert5, vert6);
+            let the_vert_s = vert_array[index % 6] * half_thickness;
+            let the_pos_s = node2s + the_vert_s;
+            let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.zw);
 
-            var vectors_ll = array<vec2<f32>,6>(lla, llb, llc, lld, lle, llf);
 
-            let the_ll_vec = vectors_ll[sub_index];
+            var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
+
+            let the_ll_vec = coord_array[sub_index];
             let the_ll_vec_corner = vectors_ll_corner[sub_index];
+
+            // Calculate side
+            let side = (f32(index % 2) * 2.0 - 1.0) * length(the_ll_vec_corner);
 
             var out : VertexFuncOutput;
             out.i = i;
             out.fi = fi;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
+            out.pos = the_pos_n;
             out.thickness_p = half_thickness * 2.0 * l2p;
-            //out.vec_from_node_p = the_vec * 2.0 * l2p; // TODO: rename
+            //out.vec_from_node_p = the_vert_s * 2.0 * l2p; // TODO: rename
             out.vec_from_node_p = the_ll_vec;
             out.vec_from_node_p_corner = the_ll_vec_corner;
-            out.is_corner = f32(is_corner);
-            out.side = (f32(index%2) * 2.0 - 1.0) * length(the_ll_vec_corner);
+            out.is_join = is_join;
+            out.side = side;
             out.cum_dist = 0.0;
             return out;
         }
@@ -574,10 +603,10 @@ class LineShader(WorldObjectShader):
             //     discard;
             //}
 
-            let is_corner = varyings.is_corner != 0.0;
-            let vec_from_node_p = select(varyings.vec_from_node_p, varyings.vec_from_node_p_corner, is_corner);
+            let is_join = varyings.is_join != 0.0;
+            let vec_from_node_p = select(varyings.vec_from_node_p, varyings.vec_from_node_p_corner, is_join);
 
-            let free_zone = (varyings.is_corner * varyings.side) < 0.0;
+            let free_zone = (varyings.is_join * varyings.side) < 0.0;
 
             let dist_to_node_p = length(vec_from_node_p);
             //if (dist_to_node_p > varyings.thickness_p) {
@@ -822,45 +851,45 @@ class LineSegmentShader(LineShader):
 
             // Sample the current node and either of its neighbours
             let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let npos2 = get_point_ndc(i);
-            let npos3 = get_point_ndc(i3);
+            let node2n = get_point_ndc(i);
+            let node3n = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
-            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
+            let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
+            let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
 
             // Get vectors normal to the line segments
-            var na: vec2<f32>;
-            var nb: vec2<f32>;
-            var nc: vec2<f32>;
-            var nd: vec2<f32>;
+            var vert1: vec2<f32>;
+            var vert2: vec2<f32>;
+            var vert3: vec2<f32>;
+            var vert4: vec2<f32>;
 
             // Get vectors normal to the line segments
             if ((i % 2) == 0) {
                 // A left-cap
-                let v = normalize(ppos3.xy - ppos2.xy);
-                nc = vec2<f32>(v.y, -v.x);
-                nd = -nc;
-                na = nc - v;
-                nb = nd - v;
+                let v = normalize(node3s.xy - node2s.xy);
+                vert3 = vec2<f32>(v.y, -v.x);
+                vert4 = -vert3;
+                vert1 = vert3 - v;
+                vert2 = vert4 - v;
             } else {
                 // A right cap
-                let v = normalize(ppos2.xy - ppos3.xy);
-                na = vec2<f32>(v.y, -v.x);
-                nb = -na;
-                nc = na + v;
-                nd = nb + v;
+                let v = normalize(node2s.xy - node3s.xy);
+                vert1 = vec2<f32>(v.y, -v.x);
+                vert2 = -vert1;
+                vert3 = vert1 + v;
+                vert4 = vert2 + v;
             }
 
             // Select the correct vector
             // Note the replicated vertices to create degenerate triangles
-            var vectors = array<vec2<f32>,10>(na, na, nb, nc, nd, na, nb, nc, nd, nd);
+            var vectors = array<vec2<f32>,10>(vert1, vert1, vert2, vert3, vert4, vert1, vert2, vert3, vert4, vert4);
             let the_vec = vectors[index % 10] * half_thickness;
-            let the_pos = ppos2 + the_vec;
+            let the_pos = node2s + the_vec;
 
             var out : VertexFuncOutput;
             out.i = i;
             out.fi = fi;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = the_vec * l2p;
             return out;
@@ -893,39 +922,39 @@ class LineArrowShader(LineShader):
 
             // Sample the current node and either of its neighbours
             let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let npos2 = get_point_ndc(i);
-            let npos3 = get_point_ndc(i3);
+            let node2n = get_point_ndc(i);
+            let node3n = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
-            let ppos2 = (npos2.xy / npos2.w + 1.0) * screen_factor;
-            let ppos3 = (npos3.xy / npos3.w + 1.0) * screen_factor;
+            let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
+            let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
 
             // Get vectors normal to the line segments
-            var na: vec2<f32>;
-            var nb: vec2<f32>;
+            var vert1: vec2<f32>;
+            var vert2: vec2<f32>;
 
             // Get vectors normal to the line segments
             if ((i % 2) == 0) {
                 // A left-cap
-                let v = ppos3.xy - ppos2.xy;
-                na = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
-                nb = v;
+                let v = node3s.xy - node2s.xy;
+                vert1 = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
+                vert2 = v;
             } else {
                 // A right cap
-                let v = ppos2.xy - ppos3.xy;
-                na = -0.75 * v;
-                nb = normalize(vec2<f32>(-v.y, v.x)) * half_thickness - v;
+                let v = node2s.xy - node3s.xy;
+                vert1 = -0.75 * v;
+                vert2 = normalize(vec2<f32>(-v.y, v.x)) * half_thickness - v;
             }
 
             // Select the correct vector
             // Note the replicated vertices to create degenerate triangles
-            var vectors = array<vec2<f32>,6>(na, na, nb, na, nb, nb);
+            var vectors = array<vec2<f32>,6>(vert1, vert1, vert2, vert1, vert2, vert2);
             let the_vec = vectors[index % 6];
-            let the_pos = ppos2 + the_vec;
+            let the_pos = node2s + the_vec;
 
             var out : VertexFuncOutput;
             out.i = i;
             out.fi = fi;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * npos2.w, npos2.zw);
+            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
             out.vec_from_node_p = vec2<f32>(0.0, 0.0);
             return out;
