@@ -378,14 +378,18 @@ class WeightedTransparencyPass(BasePass):
             @location(1) reveal: f32,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= alpha_compare_epsilon) { discard; }
-            let premultiplied = color.rgb * color.a;
-            let alpha = color.a;  // could take user-specified transmittance into account
+            let alpha = abs(color.a);  // could take user-specified transmittance into account
+            if (alpha <= alpha_compare_epsilon) { discard; }
+            let premultiplied = color.rgb * alpha;
             WEIGHT_CODE
             var out : FragmentOutput;
             out.accum = vec4<f32>(premultiplied, alpha) * weight;
-            out.reveal = alpha;
+            out.reveal = alpha;  // yes, alpha, not weight
             return out;
+            // To undo a fragment contribution, one would do this:
+            //    out.accum = - out.accum;
+            //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
+            // Note that this'd need both the accum and reveal buffer to be float to avoid clamping.
         }
         """.replace(
             "WEIGHT_CODE", self._weight_code
@@ -704,7 +708,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         # We also found that on Metal r16float produces a FormatNotBlendable error,
         # while r8unorm and r32float do work. See #207.
         self._texture_info["reveal"] = (
-            wgpu.TextureFormat.r8unorm,
+            wgpu.TextureFormat.r16float,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
