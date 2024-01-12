@@ -149,7 +149,7 @@ class LineShader(WorldObjectShader):
         # Cull backfaces so that overlapping faces are not drawn.
         return {
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "cull_mode": wgpu.CullMode.front,  # todo: flip something in shader sp we can cull the back
+            "cull_mode": wgpu.CullMode.back,
         }
 
     def _get_n(self, positions):
@@ -431,7 +431,7 @@ class LineShader(WorldObjectShader):
                 // This is the first point on the line: create a cap.
                 nodevec1 = nodevec2;
 
-                vert5 = normalize(vec2<f32>(nodevec2.y, -nodevec2.x));
+                vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
                 vert6 = -vert5;
                 vert3 = vert5 - normalize(nodevec2);  // location of first vertex
                 vert4 = vert6 - normalize(nodevec2);
@@ -451,7 +451,7 @@ class LineShader(WorldObjectShader):
                 // This is the last point on the line: create a cap.
                 nodevec2 = nodevec1;
 
-                vert1 = normalize(vec2<f32>(nodevec1.y, -nodevec1.x));
+                vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
                 vert2 = -vert1;
                 vert3 = vert1 + normalize(nodevec1);
                 vert4 = vert2 + normalize(nodevec1);  // location of last vertex
@@ -471,14 +471,14 @@ class LineShader(WorldObjectShader):
                 // Create a join
 
                 // Outer vertices are straightforward
-                vert1 = normalize(vec2<f32>(nodevec1.y, -nodevec1.x));
+                vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
                 vert2 = -vert1;
-                vert5 = normalize(vec2<f32>(nodevec2.y, -nodevec2.x));
+                vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
                 vert6 = -vert5;
 
                 // Determine the angle of the corner. If this angle is smaller than zero,
                 // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
-                let angle = -atan2( nodevec1.x * nodevec2.y - nodevec1.y * nodevec2.x,
+                let angle = atan2( nodevec1.x * nodevec2.y - nodevec1.y * nodevec2.x,
                                     nodevec1.x * nodevec2.x + nodevec1.y * nodevec2.y );
 
                 // Determine the direction of vert3 and vert4
