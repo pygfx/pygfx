@@ -716,7 +716,7 @@ class LineDashedShader(LineShader):
         # Get vertices in the appropriate coordinate frame
         if wobject.material.dash_is_screen_space:
             xyz = la.vec_transform(positions_array, camera.camera_matrix)
-            vertex_array = xyz[:, :2] * 0.5 * np.array(logical_size)
+            vertex_array = xyz[:, :2] * (0.5 * np.array(logical_size))
         else:
             # Skip this step if the position data has not changed
             positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
