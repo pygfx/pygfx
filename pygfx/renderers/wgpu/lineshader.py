@@ -146,9 +146,10 @@ class LineShader(WorldObjectShader):
         return []  # for subclasses to provide more bindings
 
     def get_pipeline_info(self, wobject, shared):
+        # Cull backfaces so that overlapping faces are not drawn.
         return {
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "cull_mode": wgpu.CullMode.none,
+            "cull_mode": wgpu.CullMode.front,  # todo: flip something in shader sp we can cull the back
         }
 
     def _get_n(self, positions):
@@ -215,8 +216,8 @@ class LineShader(WorldObjectShader):
             fi: i32,
             pos: vec4<f32>,
             thickness_p: f32,
+            vec_from_line_p: vec2<f32>,
             vec_from_node_p: vec2<f32>,
-            vec_from_node_p_corner: vec2<f32>,
             is_join: f32,
             side: f32,
             cum_dist: f32,
@@ -268,8 +269,8 @@ class LineShader(WorldObjectShader):
             varyings.position = vec4<f32>(result.pos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
             varyings.thickness_p = f32(result.thickness_p);
+            varyings.vec_from_line_p = vec2<f32>(result.vec_from_line_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
-            varyings.vec_from_node_p_corner = vec2<f32>(result.vec_from_node_p_corner);
             varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
 
@@ -420,6 +421,8 @@ class LineShader(WorldObjectShader):
 
             // Whether the current vertex represents the join. Only nonzero for
             // subindex 2 or 3, the signs is -1 and +1, respectively, signaling the side.
+            // In the fragmnent shader this is used to determine whether the
+            // vec_from_line or vec_from_node is used as the coord to sample the shape.
             var is_join = 0.0;
 
             var vectors_ll_corner = array<vec2<f32>,6>(coord3, coord4, coord3, coord4, coord3, coord4);
@@ -430,10 +433,12 @@ class LineShader(WorldObjectShader):
 
                 vert5 = normalize(vec2<f32>(nodevec2.y, -nodevec2.x));
                 vert6 = -vert5;
-                vert1 = vert5 - normalize(nodevec2);
-                vert2 = vert6 - normalize(nodevec2);
-                vert3 = vert1;
-                vert4 = vert2;
+                vert3 = vert5 - normalize(nodevec2);  // location of first vertex
+                vert4 = vert6 - normalize(nodevec2);
+
+                // Unused vertices go into first vertex
+                vert1 = vert3;
+                vert2 = vert3;
 
                 coord1 = vert1;
                 coord2 = vert2;
@@ -449,8 +454,10 @@ class LineShader(WorldObjectShader):
                 vert1 = normalize(vec2<f32>(nodevec1.y, -nodevec1.x));
                 vert2 = -vert1;
                 vert3 = vert1 + normalize(nodevec1);
-                vert4 = vert2 + normalize(nodevec1);
-                vert5 = vert3;
+                vert4 = vert2 + normalize(nodevec1);  // location of last vertex
+
+                 // Unused vertices go into last vertex
+                vert5 = vert4;
                 vert6 = vert4;
 
                 coord1 = vert1;
@@ -463,6 +470,7 @@ class LineShader(WorldObjectShader):
             } else {
                 // Create a join
 
+                // Outer vertices are straightforward
                 vert1 = normalize(vec2<f32>(nodevec1.y, -nodevec1.x));
                 vert2 = -vert1;
                 vert5 = normalize(vec2<f32>(nodevec2.y, -nodevec2.x));
@@ -476,31 +484,41 @@ class LineShader(WorldObjectShader):
                 // Determine the direction of vert3 and vert4
                 let inner_corner_is_at_135 = angle >= 0.0;
 
-                // From the angle we can also determine how long the miter (created by vert3 or vert4)
-                // should be. We express it in a vector magnifier, and limit it,
-                // since when the angle is ~pi, the intersection is near infinity.
-                // TODO: revisit below comment
-                // For a bevel join we can omit vert5 (or set vec_mag to 1.0).
-                // For a miter join we'd need an extra vertex to smoothly transition
-                // from a miter to a bevel when the angle is too small.
+                // The direction in which to place the vert3 and vert4.
+                let join_vec = normalize(vert1 + vert5);
+
+                // Now calculate how far along this vector we can still without
+                // introducing overlapping faces, which would result in glitchy artifacts.
+                let nodevec1_norm = normalize(nodevec1);
+                let nodevec2_norm = normalize(nodevec2);
+                let join_vec_on_nodevec1 = dot(join_vec, nodevec1_norm) * nodevec1_norm;
+                let join_vec_on_nodevec2 = dot(join_vec, nodevec2_norm) * nodevec2_norm;
+                var max_vec_mag = 100.0;
+                max_vec_mag = min(max_vec_mag, 0.99 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
+                max_vec_mag = min(max_vec_mag, 0.99 * length(nodevec2) / length(join_vec_on_nodevec2) / half_thickness);
+
+                // Now use the angle to determine the join_vec magnitude required to draw this join.
+                // For the inner corner this represent the intersection of the line edges,
+                // i.e. the point where we should move the two other vertices-at-the-inner-corner to.
+                // For the outer corner this represents the miter,
+                // i.e. the extra space we need to draw the join shape.
+                // Note that when the angle is ~pi, the magnitude is near infinity.
                 let vec_mag = 1.0 / cos(0.5 * angle);
-                let vec_mag_clamped = clamp(vec_mag, 1.0, 4.0);
 
-                // Is the join contiguous or broken, i.e. is the corner shallow enough?
-                let join_is_contiguous = vec_mag_clamped == vec_mag;
+                // Clamp the magnitude with the limit we calculated above.
+                let vec_mag_clamped = clamp(vec_mag, 1.0, max_vec_mag);
 
-                // Calculate position of middle vertices. For the inner corner
-                // this is the intersection of the line edges, i.e. the point where
-                // we should move the two other vertices-at-the-inner-corner to.
-                // For the outer corner this is the extra space we need to draw the join shape.
-                vert3 = normalize(vert1 + vert5) * vec_mag_clamped;
-                vert4 = -vert3;
+                // If the magnitude got clamped, we cannot draw the join as a contiguous line.
+                var join_is_contiguous = vec_mag_clamped == vec_mag;
 
                 if (false) {
                     // Miter
                     // TODO: do this using templating
                 } else if (join_is_contiguous) {
                     // Round or miter, shallow (enough) corner
+
+                    vert3 = join_vec * vec_mag_clamped;
+                    vert4 = -vert3;
 
                     coord1 = vert1;
                     coord2 = vert2;
@@ -509,21 +527,14 @@ class LineShader(WorldObjectShader):
                     coord5 = vert5;
                     coord6 = vert6;
 
-                    // TODO: limit displacement if line segment is too short
-
                     // Put the 3 vertices in the inner corner at the same (center) position.
+                    // Adjust the corner_coords in the same way, or they would not be correct.
+
+                    // TODO: rename vectors_ll_corner -> node_coord, being vec to the node.
+                    // TODO: move this bit to the root and end of the function?
                     if (inner_corner_is_at_135) {
                         vert1 = vert3;
                         vert5 = vert3;
-                    } else {
-                        vert2 = vert4;
-                        vert6 = vert4;
-                    }
-
-                    // -> resize such that dist to line is 1
-                    // put the oposing vertices exactly on other end of the line
-
-                    if (inner_corner_is_at_135) {
                         is_join = f32(sub_index == 3);
                         vectors_ll_corner[0] = coord3;
                         vectors_ll_corner[1] = coord2;
@@ -532,6 +543,8 @@ class LineShader(WorldObjectShader):
                         vectors_ll_corner[4] = coord3;
                         vectors_ll_corner[5] = coord6;
                     } else {
+                        vert2 = vert4;
+                        vert6 = vert4;
                         is_join = -f32(sub_index == 2);
                         vectors_ll_corner[0] = coord1;
                         vectors_ll_corner[1] = coord4;
@@ -544,11 +557,11 @@ class LineShader(WorldObjectShader):
                 } else {
                     // Broken join: render as separate segments with caps.
 
-                    // Place the two middle points into the same positions,
-                    // Creating two degenerate triangles, and two regular overlapping triangles.
-                    // This way we have exactly 1x overlap, which is what we want.
-                    vert3 = select(vert3, vert4, inner_corner_is_at_135);
-                    vert4 = vert3;
+                    // Place the two middle point to form a miter that is long
+                    // enough to draw a good-looking round cap. The face between
+                    // the miters is flipped and therefore culled.
+                    vert3 = normalize(nodevec1) * 4.0;
+                    vert4 = normalize(-nodevec2) * 4.0;
 
                     coord1 = vert1;
                     coord2 = vert2;
@@ -564,11 +577,9 @@ class LineShader(WorldObjectShader):
             let the_vert_s = vert_array[index % 6] * half_thickness;
             let the_pos_s = node2s + the_vert_s;
             let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.zw);
-
-
             var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
 
-            let the_ll_vec = coord_array[sub_index];
+            let vec_from_line_p = coord_array[sub_index];
             let the_ll_vec_corner = vectors_ll_corner[sub_index];
 
             // Calculate side
@@ -579,9 +590,9 @@ class LineShader(WorldObjectShader):
             out.fi = fi;
             out.pos = the_pos_n;
             out.thickness_p = half_thickness * 2.0 * l2p;
-            //out.vec_from_node_p = the_vert_s * 2.0 * l2p; // TODO: rename
-            out.vec_from_node_p = the_ll_vec;
-            out.vec_from_node_p_corner = the_ll_vec_corner;
+            //out.vec_from_line_p = the_vert_s * 2.0 * l2p; // TODO: rename
+            out.vec_from_line_p = vec_from_line_p;
+            out.vec_from_node_p = the_ll_vec_corner;
             out.is_join = is_join;
             out.side = side;
             out.cum_dist = 0.0;
@@ -592,23 +603,23 @@ class LineShader(WorldObjectShader):
     def code_fragment(self):
         return """
         @fragment
-        fn fs_main(varyings: Varyings) -> FragmentOutput {
+        fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
             // Discard fragments outside of the radius. This is what makes round
             // joins and caps. If we ever want bevel or miter joins, we should
             // change the vertex positions a bit, and drop these lines below.
 
             // Butt cap
-            //if (varyings.vec_from_node_p.x > 0.0) {
+            //if (varyings.vec_from_line_p.x > 0.0) {
             //     discard;
             //}
 
             let is_join = varyings.is_join != 0.0;
-            let vec_from_node_p = select(varyings.vec_from_node_p, varyings.vec_from_node_p_corner, is_join);
+            let line_coord_p = select(varyings.vec_from_line_p, varyings.vec_from_node_p, is_join);
 
             let free_zone = (varyings.is_join * varyings.side) < 0.0;
 
-            let dist_to_node_p = length(vec_from_node_p);
+            let dist_to_node_p = length(line_coord_p);
             //if (dist_to_node_p > varyings.thickness_p) {
             if (dist_to_node_p > 1.0 && !free_zone) {
                discard;
@@ -640,6 +651,8 @@ class LineShader(WorldObjectShader):
                 physical_color = vec3<f32>(1.0, 0.0, 0.0);
             }
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
+
+            //let opacity_multiplier = select(-1.0, 1.0, !is_front);
             let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up
@@ -729,7 +742,7 @@ class LineDashedShader(LineShader):
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
-            let vec_from_node_p = varyings.vec_from_node_p;
+            let line_coord_p = varyings.vec_from_line_p;
 
             let dash_size = u_material.dash_size;
             let dash_ratio = u_material.dash_ratio;
@@ -758,7 +771,7 @@ class LineDashedShader(LineShader):
             }
 
             // Round caps
-            let vec_from_gap = vec2<f32>(dist_to_stroke_p, length(vec_from_node_p));
+            let vec_from_gap = vec2<f32>(dist_to_stroke_p, length(line_coord_p));
             if (length(vec_from_gap) > varyings.thickness_p * 0.5) {
                 discard;
             }
@@ -766,7 +779,7 @@ class LineDashedShader(LineShader):
             // Discard fragments outside of the radius. This is what makes round
             // joins and caps. If we ever want bevel or miter joins, we should
             // change the vertex positions a bit, and drop these lines below.
-            let dist_to_node_p = length(vec_from_node_p);
+            let dist_to_node_p = length(line_coord_p);
             if (dist_to_node_p > varyings.thickness_p * 0.5) {
                 discard;
             }
@@ -891,7 +904,7 @@ class LineSegmentShader(LineShader):
             out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
-            out.vec_from_node_p = the_vec * l2p;
+            out.vec_from_line_p = the_vec * l2p;
             return out;
         }
         """
@@ -956,7 +969,7 @@ class LineArrowShader(LineShader):
             out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
             out.thickness_p = half_thickness * 2.0 * l2p;
-            out.vec_from_node_p = vec2<f32>(0.0, 0.0);
+            out.vec_from_line_p = vec2<f32>(0.0, 0.0);
             return out;
         }
         """
