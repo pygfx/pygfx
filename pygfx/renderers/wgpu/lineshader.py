@@ -54,6 +54,7 @@ class LineShader(WorldObjectShader):
 
         self["line_type"] = "line"
         self["aa"] = material.aa
+        self["dashing"] = False
 
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
@@ -220,7 +221,7 @@ class LineShader(WorldObjectShader):
             vec_from_node_p: vec2<f32>,
             is_join: f32,
             side: f32,
-            cum_dist: f32,
+            dist_offset: f32,
         };
         """
 
@@ -274,11 +275,19 @@ class LineShader(WorldObjectShader):
             varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
 
-            //varyings.cum_dist = f32(result.cum_dist);
 
-            // TODO: remove result.cum_dist
-            // TODO: fix this hack, bc it breaks non-dashed lines :P
-            varyings.cum_dist = f32(load_s_cumdist(i0));
+            $$ if dashing
+                var cumdist = f32(load_s_cumdist(i0));
+                let dist_offset = result.dist_offset;
+                if (dist_offset < 0.0) {
+                    let cumdist_before = f32(load_s_cumdist(i0 - 1));
+                    cumdist = cumdist + dist_offset * (cumdist - cumdist_before);
+                } else if (dist_offset > 0.0) {
+                    let cumdist_after = f32(load_s_cumdist(i0 + 1));
+                    cumdist = cumdist + dist_offset * (cumdist_after - cumdist);
+                }
+                varyings.cum_dist = f32(cumdist);
+            $$ endif
 
             // Picking
             // Note: in theory, we can store ints up to 16_777_216 in f32,
@@ -351,12 +360,13 @@ class LineShader(WorldObjectShader):
             //   nodes. A quadrilateral (two faces) but not necesarily rectangular.
             // - join: the piece of the line to connect two segments. There are
             //   a few different shapes that can be applied.
-            // - cap: the beginning/end of the line and dashes. It typically extends
-            //   a bit beyond the node (or dash end). There are multiple cap shapes.
-            // - dash: the visible contiguous piece of the line when dashing is
-            //   enabled. Can go over a join, i.e. is not always straight. Has caps.
             // - broken join: joins with too sharp corners are rendered as two
             //   separate segments with caps.
+            // - cap: the beginning/end of the line and dashes. It typically extends
+            //   a bit beyond the node (or dash end). There are multiple cap shapes.
+            // - stroke: when dashing is enabled, the stoke represents the "on" piece.
+            //   This is the visible piece to which caps are added. Can go over a
+            //   join, i.e. is not always straight.
             //
             // Basic algorithm and definitions:
             //
@@ -403,7 +413,8 @@ class LineShader(WorldObjectShader):
             var nodevec2: vec2<f32> = node3s.xy - node2s.xy;
 
             // Declare (relative) vectors representing the 6 vertices.
-            // These are relarive to node2 (in screen space).
+            // These are relative to node2, and expressed as a coordinate that must be
+            // scaled with half_line_width to get into screen space.
             var vert1: vec2<f32>;
             var vert2: vec2<f32>;
             var vert3: vec2<f32>;
@@ -420,12 +431,18 @@ class LineShader(WorldObjectShader):
             var coord6: vec2<f32>;
 
             // Whether the current vertex represents the join. Only nonzero for
-            // subindex 2 or 3, the signs is -1 and +1, respectively, signaling the side.
+            // sub_index 2 or 3, the signs is -1 and +1, respectively, signaling the side.
             // In the fragmnent shader this is used to determine whether the
             // vec_from_line or vec_from_node is used as the coord to sample the shape.
             var is_join = 0.0;
 
             var vectors_ll_corner = array<vec2<f32>,6>(coord3, coord4, coord3, coord4, coord3, coord4);
+
+            // The offset of this vertex for the cumulative distance for dashing.
+            // This value is expressed as a fraction of the segment length.
+            // Negative means it relates to the segment before, positive means it
+            // relates to the next segment.
+            var dist_offset = 0.0;
 
             if ( i == 0 || is_nan_or_zero(node1n.w) ) {
                 // This is the first point on the line: create a cap.
@@ -470,7 +487,9 @@ class LineShader(WorldObjectShader):
             } else {
                 // Create a join
 
-                // Outer vertices are straightforward
+                // TODO: if the line is solid and not dashed, it may be more performant to just draw the separate line segments (broken joins allways)
+
+                // Outer vertices are straightforward, but may be re-positioned later.
                 vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
                 vert2 = -vert1;
                 vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
@@ -511,6 +530,8 @@ class LineShader(WorldObjectShader):
                 // If the magnitude got clamped, we cannot draw the join as a contiguous line.
                 var join_is_contiguous = vec_mag_clamped == vec_mag;
 
+                //join_is_contiguous = false;
+
                 if (false) {
                     // Miter
                     // TODO: do this using templating
@@ -527,12 +548,44 @@ class LineShader(WorldObjectShader):
                     coord5 = vert5;
                     coord6 = vert6;
 
+                    let dash_gap = distance(vert1, vert5) * 0.0;  // == distance(vert2, vert6) * 0.5
+                    let dist_offset_inner_corner = distance(vert1, vert3);
+                    let dist_offset_divisor = select(-length(nodevec1), length(nodevec2), sub_index > 2) / half_thickness;
+                    let dist_offset_sign = select(-1.0, 1.0, sub_index > 2);
+
+                    let gap_mul = (1.0 - dash_gap / abs(dist_offset_divisor));
+
                     // Put the 3 vertices in the inner corner at the same (center) position.
                     // Adjust the corner_coords in the same way, or they would not be correct.
 
                     // TODO: rename vectors_ll_corner -> node_coord, being vec to the node.
                     // TODO: move this bit to the root and end of the function?
                     if (inner_corner_is_at_135) {
+
+                        $$ if dashing
+                            /*
+                            var dist_offset_array = array<f32,6>(
+                                dash_gap * 2.0,
+                                dash_gap,
+                                0.0,
+                                0.0,
+                                dash_gap * 2.0,
+                                dash_gap,
+                                //(1.0 - dist_offset_inner_corner / dist_offset_divisor) * gap_mul,
+                                //gap_mul,
+                                //1.0,
+                                //1.0,
+                                //(1.0 - dist_offset_inner_corner / dist_offset_divisor) * gap_mul,
+                                //gap_mul,
+                            );
+                            //dist_offset = dist_offset_sign * (1.0 - dist_offset_array[sub_index]);\
+                            dist_offset = dist_offset_sign *  dist_offset_array[sub_index] / dist_offset_divisor;
+                            */
+                            if (sub_index == 0 || sub_index == 4) {
+                                dist_offset = distance(vert1, vert3) / dist_offset_divisor;
+                            }
+                        $$ endif
+
                         vert1 = vert3;
                         vert5 = vert3;
                         is_join = f32(sub_index == 3);
@@ -542,7 +595,26 @@ class LineShader(WorldObjectShader):
                         vectors_ll_corner[3] = coord4;
                         vectors_ll_corner[4] = coord3;
                         vectors_ll_corner[5] = coord6;
+
                     } else {
+
+                        $$ if dashing
+                            /*
+                            var dist_offset_array = array<f32,6>(
+                                dash_gap,
+                                dash_gap * 2.0,
+                                0.0,
+                                0.0,
+                                dash_gap,
+                                dash_gap * 2.0,
+                            );
+                            dist_offset = dist_offset_sign * dist_offset_array[sub_index] / dist_offset_divisor;
+                            */
+                            if (sub_index == 1 || sub_index == 5) {
+                                dist_offset = distance(vert1, vert3) / dist_offset_divisor;
+                            }
+                        $$ endif
+
                         vert2 = vert4;
                         vert6 = vert4;
                         is_join = -f32(sub_index == 2);
@@ -574,7 +646,7 @@ class LineShader(WorldObjectShader):
 
             // Select the current vector.
             var vert_array = array<vec2<f32>,6>(vert1, vert2, vert3, vert4, vert5, vert6);
-            let the_vert_s = vert_array[index % 6] * half_thickness;
+            let the_vert_s = vert_array[sub_index] * half_thickness;
             let the_pos_s = node2s + the_vert_s;
             let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.zw);
             var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
@@ -583,7 +655,8 @@ class LineShader(WorldObjectShader):
             let the_ll_vec_corner = vectors_ll_corner[sub_index];
 
             // Calculate side
-            let side = (f32(index % 2) * 2.0 - 1.0) * length(the_ll_vec_corner);
+            let side_scale = length(the_vert_s);
+            let side = (f32(index % 2) * 2.0 - 1.0);// * side_scale  * l2p;
 
             var out : VertexFuncOutput;
             out.i = i;
@@ -595,7 +668,10 @@ class LineShader(WorldObjectShader):
             out.vec_from_node_p = the_ll_vec_corner;
             out.is_join = is_join;
             out.side = side;
-            out.cum_dist = 0.0;
+
+            out.dist_offset = dist_offset;
+
+
             return out;
         }
         """
@@ -614,10 +690,57 @@ class LineShader(WorldObjectShader):
             //     discard;
             //}
 
+            // Determine whether we are at a join (i.e. an unbroken corner)
             let is_join = varyings.is_join != 0.0;
+
+            // Get the line coord in physical pixels. We need a different varying
+            // depending on whether this is a join. The vector's direction is in "screen coords",
+            // we can only really use it's length.
             let line_coord_p = select(varyings.vec_from_line_p, varyings.vec_from_node_p, is_join);
 
             let free_zone = (varyings.is_join * varyings.side) < 0.0;
+
+            $$ if dashing
+
+                // A builtin offset to position the dash nicer.
+                let local_dash_offset = 0.0;
+
+                // Calculate dash_progress, a number 0..1, indicating the fase of the dash.
+                let dash_size = u_material.dash_size;
+                let dash_ratio = u_material.dash_ratio;
+                let dash_progress = ((varyings.cum_dist + local_dash_offset) % dash_size) / dash_size;
+
+                // Get distance to dash-stroke. We make the stroke the center
+                // of the dash period, which makes the math easier.
+                //
+                //        ratio e.g. 0.6
+                //       /       \
+                //  ----|---------|----
+                //  0       0.5       1    dash_progress
+                // 0.2  0  -0.3   0  0.2   dist_to_stroke
+                //
+                var dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
+                dist_to_stroke = max(0.0, dist_to_stroke);
+
+                // Convert to (physical) pixel units
+                let dpd_cumdist = length(vec2<f32>(dpdxFine(varyings.cum_dist), dpdyFine(varyings.cum_dist)));
+                let dist_to_stroke_p = dash_size * dist_to_stroke/dpd_cumdist;
+
+                // The vector to the stoke (at the line-center)
+                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, varyings.side);
+
+                // Butt caps
+                if (dist_to_stroke > 0.0) {
+                    discard;
+                }
+
+                // Round caps
+                if (length(vec_to_stroke_p) > varyings.thickness_p * 0.5) {
+                    discard;
+                }
+
+
+            $$ endif
 
             let dist_to_node_p = length(line_coord_p);
             //if (dist_to_node_p > varyings.thickness_p) {
@@ -648,7 +771,7 @@ class LineShader(WorldObjectShader):
 
             var physical_color = srgb2physical(color.rgb);
             if (false) {
-                physical_color = vec3<f32>(1.0, 0.0, 0.0);
+                physical_color = vec3<f32>(varyings.side, 0.0, 0.0);
             }
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 
@@ -691,6 +814,8 @@ class LineDashedShader(LineShader):
 
     def __init__(self, wobject):
         super().__init__(wobject)
+
+        self["dashing"] = True
 
         n_verts = wobject.geometry.positions.nitems
         distance_array = np.zeros((n_verts,), np.float32)
@@ -736,107 +861,6 @@ class LineDashedShader(LineShader):
 
         # Mark that the data has changed
         self.line_distance_buffer.update_range(r_offset, r_size)
-
-    def code_fragment(self):
-        return """
-        @fragment
-        fn fs_main(varyings: Varyings) -> FragmentOutput {
-
-            let line_coord_p = varyings.vec_from_line_p;
-
-            let dash_size = u_material.dash_size;
-            let dash_ratio = u_material.dash_ratio;
-            let dash_progress = (varyings.cum_dist % dash_size) / dash_size;
-
-            // Get distance to dash-stroke. We make the stroke the center
-            // of the dash period, which makes the math easier.
-            //
-            //        ratio e.g. 0.6
-            //       /       \
-            //  ----|---------|----
-            //  0       0.5       1    dash_progress
-            // 0.2  0  -0.3   0  0.2   dist_to_stroke
-
-            // TODO: perhaps an offset to cum_dist to make it start with a stroke?
-            var dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
-            dist_to_stroke = max(0.0, dist_to_stroke);
-
-            // Convert to pixel units
-            let dpd_cumdist = length(vec2<f32>(dpdxFine(varyings.cum_dist), dpdyFine(varyings.cum_dist)));
-            let dist_to_stroke_p = dash_size * dist_to_stroke/dpd_cumdist;
-
-            // Butt caps
-            if (dist_to_stroke > 0.0) {
-            //    discard;
-            }
-
-            // Round caps
-            let vec_from_gap = vec2<f32>(dist_to_stroke_p, length(line_coord_p));
-            if (length(vec_from_gap) > varyings.thickness_p * 0.5) {
-                discard;
-            }
-
-            // Discard fragments outside of the radius. This is what makes round
-            // joins and caps. If we ever want bevel or miter joins, we should
-            // change the vertex positions a bit, and drop these lines below.
-            let dist_to_node_p = length(line_coord_p);
-            if (dist_to_node_p > varyings.thickness_p * 0.5) {
-                discard;
-            }
-
-            // Prep
-            var alpha: f32 = 1.0;
-
-            // Anti-aliasing. Note that because of the discarding above, we cannot use MSAA.
-            // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
-            // here this will help the end result. Because this produces semitransparent fragments,
-            // it relies on a good blend method, and the object gets drawn twice.
-            $$ if aa
-                let aa_width = 1.0;
-                alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
-                alpha = clamp(alpha, 0.0, 1.0);
-            $$ endif
-
-            $$ if color_mode == 'vertex' or color_mode == 'face'
-                let color = varyings.color;
-            $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
-                let color = sample_colormap(varyings.texcoord);
-            $$ else
-                let color = u_material.color;
-            $$ endif
-
-            let physical_color = srgb2physical(color.rgb);
-            let opacity = min(1.0, color.a) * alpha * u_material.opacity;
-            let out_color = vec4<f32>(physical_color, opacity);
-
-            // Wrap up
-            apply_clipping_planes(varyings.world_pos);
-            var out = get_fragment_output(varyings.position.z, out_color);
-
-            // Set picking info.
-            $$ if write_pick
-            // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
-            // The pick_idx is int-truncated, so going from a to b, it still has the value of a
-            // even right up to b. The pick_zigzag alternates between 0 (even indices) and 1 (odd indices).
-            // Here we decode that. The result is that we can support vertex indices of ~32 bits if we want.
-            let is_even = varyings.pick_idx % 2u == 0u;
-            var coord = select(varyings.pick_zigzag, 1.0 - varyings.pick_zigzag, is_even);
-            coord = select(coord, coord - 1.0, coord > 0.5);
-            let idx = varyings.pick_idx + select(0u, 1u, coord < 0.0);
-            out.pick = (
-                pick_pack(u32(u_wobject.id), 20) +
-                pick_pack(u32(idx), 26) +
-                pick_pack(u32(coord * 100000.0 + 100000.0), 18)
-            );
-            $$ endif
-
-            // The outer edges with lower alpha for aa are pushed a bit back to avoid artifacts.
-            // This is only necessary for blend method "ordered1"
-            //out.depth = varyings.position.z + 0.0001 * (0.8 - min(0.8, alpha));
-
-            return out;
-        }
-        """
 
 
 @register_wgpu_render_function(Line, LineSegmentMaterial)
