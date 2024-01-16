@@ -221,6 +221,7 @@ class LineShader(WorldObjectShader):
             vec_from_node_p: vec2<f32>,
             is_join: f32,
             side: f32,
+            valid: f32,
             dist_offset: f32,
         };
         """
@@ -244,6 +245,10 @@ class LineShader(WorldObjectShader):
             // So we and up with an equation that detects either NaN or zero,
             // which is fine if we use it on a .w attribute.
             return !(v < 0.0) && !(v > 0.0);
+        }
+
+        fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
+            return vec2<f32>(cos(angle) * v.x - sin(angle) * v.y, sin(angle) * v.x + cos(angle) * v.y);
         }
         """
 
@@ -274,6 +279,7 @@ class LineShader(WorldObjectShader):
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
             varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
+            varyings.valid = f32(result.valid);
 
 
             $$ if dashing
@@ -395,6 +401,7 @@ class LineShader(WorldObjectShader):
             // Indexing
             let i = index / 6;
             let sub_index = index % 6;
+            let vertex_num = sub_index + 1;
             let fi = (index + 2) / 6;
 
             // Sample the current node and it's two neighbours, and convert to NDC
@@ -412,6 +419,9 @@ class LineShader(WorldObjectShader):
             var nodevec1: vec2<f32> = node2s.xy - node1s.xy;
             var nodevec2: vec2<f32> = node3s.xy - node2s.xy;
 
+            var angle1 = atan2(nodevec1.y, nodevec1.x);
+            var angle2 = atan2(nodevec2.y, nodevec2.x);
+
             // Declare (relative) vectors representing the 6 vertices.
             // These are relative to node2, and expressed as a coordinate that must be
             // scaled with half_line_width to get into screen space.
@@ -423,6 +433,7 @@ class LineShader(WorldObjectShader):
             var vert6: vec2<f32>;
 
             // Declare matching line cords (x along line, y perpendicular to it)
+            // The coords 1 and 5 have a positive y coord, the coords 2 and 6 a negative.
             var coord1: vec2<f32>;
             var coord2: vec2<f32>;
             var coord3: vec2<f32>;
@@ -430,11 +441,27 @@ class LineShader(WorldObjectShader):
             var coord5: vec2<f32>;
             var coord6: vec2<f32>;
 
+            var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+
+
+            /*
+            var segment_coord_array = array<vec2<f32>>(
+                vec2<f32>(0.0,  1.0);
+                vec2<f32>(0.0, -1.0);
+                vec2<f32>(0.0,  1.0);
+                vec2<f32>(0.0, -1.0);
+                vec2<f32>(0.0,  1.0);
+                vec2<f32>(0.0, -1.0);
+            );
+            */
+
             // Whether the current vertex represents the join. Only nonzero for
             // sub_index 2 or 3, the signs is -1 and +1, respectively, signaling the side.
             // In the fragmnent shader this is used to determine whether the
             // vec_from_line or vec_from_node is used as the coord to sample the shape.
             var is_join = 0.0;
+
+            var node_is_join = false;
 
             var vectors_ll_corner = array<vec2<f32>,6>(coord3, coord4, coord3, coord4, coord3, coord4);
 
@@ -447,42 +474,51 @@ class LineShader(WorldObjectShader):
             if ( i == 0 || is_nan_or_zero(node1n.w) ) {
                 // This is the first point on the line: create a cap.
                 nodevec1 = nodevec2;
+                angle1 = angle2;
 
+                coord1 = vec2<f32>(-1.0, 1.0);
+                coord2 = coord1;
+                coord3 = coord2;
+                coord4 = vec2<f32>(-1.0, -1.0);
+                coord5 = vec2<f32>(0.0, 1.0);
+                coord6 = vec2<f32>(0.0, -1.0);
+
+                //is_join = f32(vertex_num == 3) + f32(vertex_num == 4);
+
+                /*
                 vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
                 vert6 = -vert5;
                 vert3 = vert5 - normalize(nodevec2);  // location of first vertex
                 vert4 = vert6 - normalize(nodevec2);
+                */
 
-                // Unused vertices go into first vertex
-                vert1 = vert3;
-                vert2 = vert3;
 
-                coord1 = vert1;
-                coord2 = vert2;
-                coord3 = vert3;
-                coord4 = vert4;
-                coord5 = vert5;
-                coord6 = vert6;
 
             } else if ( i == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
                 // This is the last point on the line: create a cap.
                 nodevec2 = nodevec1;
+                angle2 = angle1;
 
+                coord1 = vec2<f32>(0.0, 1.0);
+                coord2 = vec2<f32>(0.0, -1.0);
+                coord3 = vec2<f32>(1.0, 1.0);
+                coord4 = vec2<f32>(1.0, -1.0);
+                coord5 = coord4;
+                coord6 = coord4;
+
+                // TODO: need to rename isjoin
+                //is_join = f32(vertex_num == 3) + f32(vertex_num == 4);
+
+                /*
                 vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
                 vert2 = -vert1;
                 vert3 = vert1 + normalize(nodevec1);
                 vert4 = vert2 + normalize(nodevec1);  // location of last vertex
-
-                 // Unused vertices go into last vertex
+                // Unused vertices go into last vertex
                 vert5 = vert4;
                 vert6 = vert4;
+                */
 
-                coord1 = vert1;
-                coord2 = vert2;
-                coord3 = vert3;
-                coord4 = vert4;
-                coord5 = vert5;
-                coord6 = vert6;
 
             } else {
                 // Create a join
@@ -490,23 +526,28 @@ class LineShader(WorldObjectShader):
                 // TODO: if the line is solid and not dashed, it may be more performant to just draw the separate line segments (broken joins allways)
 
                 // Outer vertices are straightforward, but may be re-positioned later.
+                /*
                 vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
                 vert2 = -vert1;
                 vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
                 vert6 = -vert5;
+                */
 
                 // Determine the angle of the corner. If this angle is smaller than zero,
                 // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
                 let angle = atan2( nodevec1.x * nodevec2.y - nodevec1.y * nodevec2.x,
                                     nodevec1.x * nodevec2.x + nodevec1.y * nodevec2.y );
 
-                // Determine the direction of vert3 and vert4
+                // Which way does the join bent?
                 let inner_corner_is_at_135 = angle >= 0.0;
 
                 // The direction in which to place the vert3 and vert4.
+                // TODO: maybe refactor this to not have to calculate vert1 and vert5
+                vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
+                vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
                 let join_vec = normalize(vert1 + vert5);
 
-                // Now calculate how far along this vector we can still without
+                // Now calculate how far along this vector we can go without
                 // introducing overlapping faces, which would result in glitchy artifacts.
                 let nodevec1_norm = normalize(nodevec1);
                 let nodevec2_norm = normalize(nodevec2);
@@ -538,22 +579,25 @@ class LineShader(WorldObjectShader):
                 } else if (join_is_contiguous) {
                     // Round or miter, shallow (enough) corner
 
-                    vert3 = join_vec * vec_mag_clamped;
-                    vert4 = -vert3;
+                    node_is_join = true;
 
-                    coord1 = vert1;
-                    coord2 = vert2;
-                    coord3 = vert3;
-                    coord4 = vert4;
-                    coord5 = vert5;
-                    coord6 = vert6;
+                    // Get the avg angle
+                    let avg_vec = normalize(nodevec1) + normalize(nodevec2);
+                    angle1 = atan2(avg_vec.y, avg_vec.x);
+                    angle2 = angle1;
 
-                    let dash_gap = distance(vert1, vert5) * 0.0;  // == distance(vert2, vert6) * 0.5
-                    let dist_offset_inner_corner = distance(vert1, vert3);
-                    let dist_offset_divisor = select(-length(nodevec1), length(nodevec2), sub_index > 2) / half_thickness;
-                    let dist_offset_sign = select(-1.0, 1.0, sub_index > 2);
+                    let half_angle = angle / 2.0;
+                    coord1 = rotate_vec2(vec2<f32>(0.0, 1.0), -half_angle);
+                    coord2 = -coord1;
+                    coord5 = vec2<f32>(-coord1.x, coord1.y);  //rotate_vec2(vec2<f32>(0.0, 1.0), half_angle);
+                    coord6 = -coord5;
 
-                    let gap_mul = (1.0 - dash_gap / abs(dist_offset_divisor));
+                    coord3 = vec2<f32>(0.0, 1.0) * vec_mag_clamped;
+                    coord4 = -coord3;
+
+
+                    let dist_offset_inner_corner = distance(coord1, coord3);
+                    let dist_offset_divisor = select(-length(nodevec1), length(nodevec2), vertex_num >= 4) / half_thickness;
 
                     // Put the 3 vertices in the inner corner at the same (center) position.
                     // Adjust the corner_coords in the same way, or they would not be correct.
@@ -563,67 +607,46 @@ class LineShader(WorldObjectShader):
                     if (inner_corner_is_at_135) {
 
                         $$ if dashing
-                            /*
-                            var dist_offset_array = array<f32,6>(
-                                dash_gap * 2.0,
-                                dash_gap,
-                                0.0,
-                                0.0,
-                                dash_gap * 2.0,
-                                dash_gap,
-                                //(1.0 - dist_offset_inner_corner / dist_offset_divisor) * gap_mul,
-                                //gap_mul,
-                                //1.0,
-                                //1.0,
-                                //(1.0 - dist_offset_inner_corner / dist_offset_divisor) * gap_mul,
-                                //gap_mul,
-                            );
-                            //dist_offset = dist_offset_sign * (1.0 - dist_offset_array[sub_index]);\
-                            dist_offset = dist_offset_sign *  dist_offset_array[sub_index] / dist_offset_divisor;
-                            */
-                            if (sub_index == 0 || sub_index == 4) {
-                                dist_offset = distance(vert1, vert3) / dist_offset_divisor;
+                            if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
+                                dist_offset = dist_offset_inner_corner / dist_offset_divisor;
                             }
                         $$ endif
 
-                        vert1 = vert3;
-                        vert5 = vert3;
-                        is_join = f32(sub_index == 3);
+                        coord1 = coord3;
+                        coord5 = coord3;
+                        is_join = -f32(vertex_num == 4);
+
+                        /*
                         vectors_ll_corner[0] = coord3;
                         vectors_ll_corner[1] = coord2;
                         vectors_ll_corner[2] = coord3;
                         vectors_ll_corner[3] = coord4;
                         vectors_ll_corner[4] = coord3;
                         vectors_ll_corner[5] = coord6;
+                        */
 
                     } else {
 
                         $$ if dashing
-                            /*
-                            var dist_offset_array = array<f32,6>(
-                                dash_gap,
-                                dash_gap * 2.0,
-                                0.0,
-                                0.0,
-                                dash_gap,
-                                dash_gap * 2.0,
-                            );
-                            dist_offset = dist_offset_sign * dist_offset_array[sub_index] / dist_offset_divisor;
-                            */
-                            if (sub_index == 1 || sub_index == 5) {
-                                dist_offset = distance(vert1, vert3) / dist_offset_divisor;
+                            if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
+                                dist_offset = dist_offset_inner_corner / dist_offset_divisor;
                             }
                         $$ endif
 
-                        vert2 = vert4;
-                        vert6 = vert4;
-                        is_join = -f32(sub_index == 2);
+                        //coord1 = coord3;
+                        //coord5 = coord3;
+
+                        coord2 = coord4;
+                        coord6 = coord4;
+                        is_join = f32(vertex_num == 3);
+                        /*
                         vectors_ll_corner[0] = coord1;
                         vectors_ll_corner[1] = coord4;
                         vectors_ll_corner[2] = coord3;
                         vectors_ll_corner[3] = coord4;
                         vectors_ll_corner[4] = coord5;
                         vectors_ll_corner[5] = coord4;
+                        */
                     }
 
                 } else {
@@ -632,17 +655,33 @@ class LineShader(WorldObjectShader):
                     // Place the two middle point to form a miter that is long
                     // enough to draw a good-looking round cap. The face between
                     // the miters is flipped and therefore culled.
+                    /*
                     vert3 = normalize(nodevec1) * 4.0;
                     vert4 = normalize(-nodevec2) * 4.0;
+                    */
 
-                    coord1 = vert1;
-                    coord2 = vert2;
-                    coord3 = vert3;
-                    coord4 = vert4;
-                    coord5 = vert5;
-                    coord6 = vert6;
+                    coord1 = vec2<f32>( 0.0, 1.0);
+                    coord2 = vec2<f32>( 0.0, -1.0);
+                    coord3 = vec2<f32>( 4.0, 0.0);
+                    coord4 = vec2<f32>(-4.0, 0.0);
+                    coord5 = vec2<f32>( 0.0, 1.0);
+                    coord6 = vec2<f32>( 0.0, -1.0);
+
+                    //is_join = f32(vertex_num == 3) - f32(vertex_num == 4);
+
+                    valid_array[1] = 0.0;
+                    valid_array[2] = 0.0;
+                    valid_array[3] = 0.0;
+                    valid_array[4] = 0.0;
                 }
             }
+
+            vert1 = rotate_vec2(coord1, angle1);
+            vert2 = rotate_vec2(coord2, angle1);
+            vert3 = rotate_vec2(coord3, angle1);
+            vert4 = rotate_vec2(coord4, angle2);
+            vert5 = rotate_vec2(coord5, angle2);
+            vert6 = rotate_vec2(coord6, angle2);
 
             // Select the current vector.
             var vert_array = array<vec2<f32>,6>(vert1, vert2, vert3, vert4, vert5, vert6);
@@ -651,12 +690,13 @@ class LineShader(WorldObjectShader):
             let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.zw);
             var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
 
-            let vec_from_line_p = coord_array[sub_index];
+            let the_coord = coord_array[sub_index];
             let the_ll_vec_corner = vectors_ll_corner[sub_index];
 
             // Calculate side
-            let side_scale = length(the_vert_s);
-            let side = (f32(index % 2) * 2.0 - 1.0);// * side_scale  * l2p;
+            let side = f32(vertex_num % 2) * 2.0 - 1.0;  // positive for coord1
+
+            let segment_coord = select(the_coord, vec2<f32>(0.0, side), node_is_join);
 
             var out : VertexFuncOutput;
             out.i = i;
@@ -664,10 +704,11 @@ class LineShader(WorldObjectShader):
             out.pos = the_pos_n;
             out.thickness_p = half_thickness * 2.0 * l2p;
             //out.vec_from_line_p = the_vert_s * 2.0 * l2p; // TODO: rename
-            out.vec_from_line_p = vec_from_line_p;
-            out.vec_from_node_p = the_ll_vec_corner;
+            out.vec_from_line_p = segment_coord * half_thickness * l2p;
+            out.vec_from_node_p = the_coord * half_thickness * l2p;  // TODO: rename to line-vec-join or something
             out.is_join = is_join;
-            out.side = side;
+            out.valid = valid_array[sub_index];
+            //out.side = side; // todo: remove varying
 
             out.dist_offset = dist_offset;
 
@@ -690,7 +731,16 @@ class LineShader(WorldObjectShader):
             //     discard;
             //}
 
-            // Determine whether we are at a join (i.e. an unbroken corner)
+            let half_thickness_p = 0.5 * varyings.thickness_p;
+
+            // Discard invalid faces.
+            // These are faces for which *all* 3 verts are set to zero.
+            if (varyings.valid == 0.0) {
+                discard;
+            }
+
+            // Determine whether we are at a join (i.e. an unbroken corner).
+            // These are faces for which *any* vert is nonzero.
             let is_join = varyings.is_join != 0.0;
 
             // Get the line coord in physical pixels. We need a different varying
@@ -698,7 +748,9 @@ class LineShader(WorldObjectShader):
             // we can only really use it's length.
             let line_coord_p = select(varyings.vec_from_line_p, varyings.vec_from_node_p, is_join);
 
-            let free_zone = (varyings.is_join * varyings.side) < 0.0;
+            let side = varyings.vec_from_node_p.y;
+
+            let free_zone = is_join && (varyings.is_join * side) < 0.0;
 
             $$ if dashing
 
@@ -727,24 +779,23 @@ class LineShader(WorldObjectShader):
                 let dist_to_stroke_p = dash_size * dist_to_stroke/dpd_cumdist;
 
                 // The vector to the stoke (at the line-center)
-                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, varyings.side);
+                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, length(line_coord_p));
 
                 // Butt caps
                 if (dist_to_stroke > 0.0) {
-                    discard;
+                    //discard;
                 }
 
                 // Round caps
-                if (length(vec_to_stroke_p) > varyings.thickness_p * 0.5) {
-                    discard;
+                if (length(vec_to_stroke_p) > half_thickness_p) {
+                    //discard;
                 }
 
 
             $$ endif
 
             let dist_to_node_p = length(line_coord_p);
-            //if (dist_to_node_p > varyings.thickness_p) {
-            if (dist_to_node_p > 1.0 && !free_zone) {
+            if (dist_to_node_p > half_thickness_p && !free_zone) {
                discard;
             }
 
@@ -757,7 +808,7 @@ class LineShader(WorldObjectShader):
             // it relies on a good blend method, and the object gets drawn twice.
             $$ if false
                 let aa_width = 1.0;
-                alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
+                alpha = (half_thickness_p - abs(dist_to_node_p)) / aa_width;
                 alpha = clamp(alpha, 0.0, 1.0);
             $$ endif
 
@@ -770,8 +821,8 @@ class LineShader(WorldObjectShader):
             $$ endif
 
             var physical_color = srgb2physical(color.rgb);
-            if (false) {
-                physical_color = vec3<f32>(varyings.side, 0.0, 0.0);
+            if (true) {
+                physical_color = vec3<f32>(dist_to_stroke_p / 20.0, 0.0, 0.0);
             }
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 
