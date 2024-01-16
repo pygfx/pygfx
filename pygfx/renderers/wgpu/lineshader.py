@@ -223,6 +223,7 @@ class LineShader(WorldObjectShader):
             side: f32,
             valid: f32,
             dist_offset: f32,
+            zero_cumdist_join: bool,
         };
         """
 
@@ -293,6 +294,9 @@ class LineShader(WorldObjectShader):
                     cumdist = cumdist + dist_offset * (cumdist_after - cumdist);
                 }
                 varyings.cum_dist = f32(cumdist);
+                varyings.cum_dist_join = f32(select(cumdist, 0.0, result.zero_cumdist_join));
+                // Varying to scale cumdist
+                varyings.cum_dist_divisor = f32(!result.zero_cumdist_join);
             $$ endif
 
             // Picking
@@ -443,6 +447,7 @@ class LineShader(WorldObjectShader):
 
             var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 
+            var zero_cumdist_join = false;
 
             /*
             var segment_coord_array = array<vec2<f32>>(
@@ -607,13 +612,31 @@ class LineShader(WorldObjectShader):
                     if (inner_corner_is_at_135) {
 
                         $$ if dashing
+
+                            // Doing this seems more correct, and works also for sharp angles
+                            //if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
+                            //    dist_offset = dist_offset_inner_corner / dist_offset_divisor;
+                            //}
+
+                            // But this gives some cumdist-space in the corner, and works fine
+                            // up to 90 degree corners
                             if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
-                                dist_offset = dist_offset_inner_corner / dist_offset_divisor;
+                                dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
+                                zero_cumdist_join = true;
                             }
+                            if (vertex_num == 2 || vertex_num == 6) {
+                                dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
+                            }
+
                         $$ endif
 
-                        coord1 = coord3;
-                        coord5 = coord3;
+                        let d1 = coord3 - coord1;
+                        let d2 = coord3 - coord5;
+                        coord1 = coord1 + d1;
+                        coord5 = coord5 + d2;
+                        coord2 = coord2 + d1;
+                        coord6 = coord6 + d2;
+
                         is_join = -f32(vertex_num == 4);
 
                         /*
@@ -629,15 +652,25 @@ class LineShader(WorldObjectShader):
 
                         $$ if dashing
                             if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
-                                dist_offset = dist_offset_inner_corner / dist_offset_divisor;
+                                dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
+                                zero_cumdist_join = true;
+                            }
+                            if (vertex_num == 1 || vertex_num == 5) {
+                               dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
                             }
                         $$ endif
 
-                        //coord1 = coord3;
-                        //coord5 = coord3;
 
-                        coord2 = coord4;
-                        coord6 = coord4;
+                        //coord2 = coord4;
+                        //coord6 = coord4;
+
+                        let d1 = coord4 - coord2;
+                        let d2 = coord4 - coord6;
+                        coord2 = coord2 + d1;
+                        coord6 = coord6 + d2;
+                        coord1 = coord1 + d1;
+                        coord5 = coord5 + d2;
+
                         is_join = f32(vertex_num == 3);
                         /*
                         vectors_ll_corner[0] = coord1;
@@ -698,6 +731,9 @@ class LineShader(WorldObjectShader):
 
             let segment_coord = select(the_coord, vec2<f32>(0.0, side), node_is_join);
 
+            //let join_coord = (the_coord + side * vec2<f32>(0.0, -1.0)) * half_thickness * l2p;
+            let join_coord = the_coord * half_thickness * l2p;
+
             var out : VertexFuncOutput;
             out.i = i;
             out.fi = fi;
@@ -705,13 +741,13 @@ class LineShader(WorldObjectShader):
             out.thickness_p = half_thickness * 2.0 * l2p;
             //out.vec_from_line_p = the_vert_s * 2.0 * l2p; // TODO: rename
             out.vec_from_line_p = segment_coord * half_thickness * l2p;
-            out.vec_from_node_p = the_coord * half_thickness * l2p;  // TODO: rename to line-vec-join or something
+            out.vec_from_node_p = join_coord;  // TODO: rename to line-vec-join or something
             out.is_join = is_join;
             out.valid = valid_array[sub_index];
-            //out.side = side; // todo: remove varying
+            out.side = the_coord.y; // todo: remove varying?
 
             out.dist_offset = dist_offset;
-
+            out.zero_cumdist_join = zero_cumdist_join;
 
             return out;
         }
@@ -754,13 +790,16 @@ class LineShader(WorldObjectShader):
 
             $$ if dashing
 
+                let cum_dist = select(varyings.cum_dist, varyings.cum_dist_join / varyings.cum_dist_divisor, is_join);
+                //let cum_dist =  varyings.cum_dist;
+
                 // A builtin offset to position the dash nicer.
                 let local_dash_offset = 0.0;
 
                 // Calculate dash_progress, a number 0..1, indicating the fase of the dash.
                 let dash_size = u_material.dash_size;
                 let dash_ratio = u_material.dash_ratio;
-                let dash_progress = ((varyings.cum_dist + local_dash_offset) % dash_size) / dash_size;
+                let dash_progress = ((cum_dist + local_dash_offset) % dash_size) / dash_size;
 
                 // Get distance to dash-stroke. We make the stroke the center
                 // of the dash period, which makes the math easier.
@@ -776,10 +815,12 @@ class LineShader(WorldObjectShader):
 
                 // Convert to (physical) pixel units
                 let dpd_cumdist = length(vec2<f32>(dpdxFine(varyings.cum_dist), dpdyFine(varyings.cum_dist)));
-                let dist_to_stroke_p = dash_size * dist_to_stroke/dpd_cumdist;
+
+
+                let dist_to_stroke_p = dash_size * dist_to_stroke / dpd_cumdist;
 
                 // The vector to the stoke (at the line-center)
-                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, length(line_coord_p));
+                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, line_coord_p.y);
 
                 // Butt caps
                 if (dist_to_stroke > 0.0) {
@@ -795,8 +836,8 @@ class LineShader(WorldObjectShader):
             $$ endif
 
             let dist_to_node_p = length(line_coord_p);
-            if (dist_to_node_p > half_thickness_p && !free_zone) {
-               discard;
+            if (dist_to_node_p >  half_thickness_p && !free_zone) {
+               //discard;
             }
 
             // Prep
@@ -821,9 +862,9 @@ class LineShader(WorldObjectShader):
             $$ endif
 
             var physical_color = srgb2physical(color.rgb);
-            if (true) {
-                physical_color = vec3<f32>(dist_to_stroke_p / 20.0, 0.0, 0.0);
-            }
+            $$ if dashing
+                physical_color = vec3<f32>(abs(1.0/line_coord_p.y), 0.0, 0.0);
+            $$ endif
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 
             //let opacity_multiplier = select(-1.0, 1.0, !is_front);
