@@ -23,6 +23,9 @@
             // These are faces for which *any* vert is nonzero.
             let is_join = varyings.is_join != 0.0;
 
+            //let join_coord = (varyings.join_coord.x / varyings.join_coord.y);
+            let join_coord = varyings.join_coord.x;
+        
             // Get the line coord in physical pixels. We need a different varying
             // depending on whether this is a join. The vector's direction is in "screen coords",
             // we can only really use it's length.
@@ -30,7 +33,8 @@
 
             let side = varyings.vec_from_node_p.y;
 
-            let free_zone = is_join && (varyings.is_join * side) < 0.0;
+            //let free_zone = abs(line_coord_p.x) > 0.5 * varyings.segment_inset;//is_join && (varyings.is_join * side) < 0.0;
+            let free_zone =is_join &&  abs(join_coord) > 0.5;
 
             $$ if dashing
 
@@ -106,9 +110,8 @@
             $$ if false 
                 // DEBUG
                 //physical_color = vec3<f32>(abs(1.0/vec_to_stroke_p.y), 0.0, 0.0);
-                physical_color = vec3<f32>(abs(0.01 * vec_to_stroke_p.x), 0.0, 0.0);
-                //physical_color = vec3<f32>(0.0, dist_to_stroke, 0.0);
-                
+                // physical_color = vec3<f32>(abs(0.01 * vec_to_stroke_p.x), 0.0, 0.0);
+                physical_color = vec3<f32>(0.0,f32(abs(join_coord)), 1.0);
             $$ endif
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 

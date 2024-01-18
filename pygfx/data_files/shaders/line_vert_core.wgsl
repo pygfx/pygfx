@@ -97,6 +97,7 @@
             var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 
             var zero_cumdist_join = false;
+            var vertex_is_inner_corner = false;
 
             /*
             var segment_coord_array = array<vec2<f32>>(
@@ -113,9 +114,11 @@
             // sub_index 2 or 3, the signs is -1 and +1, respectively, signaling the side.
             // In the fragmnent shader this is used to determine whether the
             // vec_from_line or vec_from_node is used as the coord to sample the shape.
-            var is_join = 0.0;
+            var is_join = 0.0;  // todo: rename to vertex_is_outer_corner?
 
             var node_is_join = false;
+
+            var segment_inset = 0.0;
 
             var vectors_ll_corner = array<vec2<f32>,6>(coord3, coord4, coord3, coord4, coord3, coord4);
 
@@ -249,6 +252,9 @@
                     coord3 = vec2<f32>(0.0, 1.0) * vec_mag_clamped;
                     coord4 = -coord3;
 
+                    //var vertex_index_sign_array =  array<f32,6>(-1.0, -1.0, 0.0, 0.0, 1.0, 1.0);
+                    //let segment_inset_sign = vertex_index_sign_array[sub_index];
+                    //segment_inset = segment_inset_sign * length(coord3 - coord1);
 
                     let dist_offset_inner_corner = distance(coord1, coord3);
                     let dist_offset_divisor = select(-length(nodevec1), length(nodevec2), vertex_num >= 4) / half_thickness;
@@ -259,6 +265,10 @@
                     // TODO: rename vectors_ll_corner -> node_coord, being vec to the node.
                     // TODO: move this bit to the root and end of the function?
                     if (inner_corner_is_at_135) {
+
+                        if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
+                                vertex_is_inner_corner = true;
+                        }
 
                         $$ if dashing
 
@@ -285,7 +295,7 @@
                         coord5 = coord5 + d2;
                         coord2 = coord2 + d1;
                         coord6 = coord6 + d2;
-
+        
                         is_join = -f32(vertex_num == 4);
 
                         /*
@@ -298,10 +308,14 @@
                         */
 
                     } else {
+                        
+                        if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
+                            vertex_is_inner_corner = true;
+                        }
 
-                        $$ if dashing
+                        $$ if true
                             if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
-                               zero_cumdist_join = true;
+                                zero_cumdist_join = true;
                                 dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
                             }
                             if (vertex_num == 1 || vertex_num == 5) {
@@ -380,8 +394,18 @@
 
             let segment_coord = select(the_coord, vec2<f32>(0.0, side), node_is_join);
 
-            //let join_coord = (the_coord + side * vec2<f32>(0.0, -1.0)) * half_thickness * l2p;
-            let join_coord = the_coord * half_thickness * l2p;
+            //let vec_from_node_p = (the_coord + side * vec2<f32>(0.0, -1.0)) * half_thickness * l2p;
+            let vec_from_node_p = the_coord * half_thickness * l2p;
+
+             segment_inset = select(1.0, 0.0, vertex_num == 3 || vertex_num == 4);
+            
+            // The join coord interpolates (in a join) from -1 to 0 and then from 0 to 1, in the
+            // direction of the respective segments. To realize this, we use a "barycentric coords trick"
+            // using a vec2, where the second element is a divisor that we apply in the frag shader.
+            // This looks a bit like the w element for perspective division.
+            var join_coord_x = select(-1.0, 1.0, vertex_num >= 4);
+            join_coord_x = select(join_coord_x, 0.0, is_join != 0.0);
+            let join_coord = vec2<f32>(join_coord_x, f32(!vertex_is_inner_corner));
 
             var out : VertexFuncOutput;
             out.i = i;
@@ -390,13 +414,14 @@
             out.thickness_p = half_thickness * 2.0 * l2p;
             //out.vec_from_line_p = the_vert_s * 2.0 * l2p; // TODO: rename
             out.vec_from_line_p = segment_coord * half_thickness * l2p;
-            out.vec_from_node_p = join_coord;  // TODO: rename to line-vec-join or something
+            out.vec_from_node_p = vec_from_node_p;  // TODO: rename to line-vec-join or something
             out.is_join = is_join;
             out.valid = valid_array[sub_index];
             out.side = the_coord.y; // todo: remove varying?
-
+            out.segment_inset = segment_inset;
             out.dist_offset = dist_offset;
             out.zero_cumdist_join = zero_cumdist_join;
+            out.join_coord = join_coord;
 
             return out;
         }
