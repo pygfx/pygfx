@@ -11,11 +11,14 @@ Some basic line drawing.
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import pylinalg as la
+import numpy as np
 
-
-canvas = WgpuCanvas()
+canvas = WgpuCanvas(size=(1000, 800))
 renderer = gfx.WgpuRenderer(canvas)
 renderer_svg = gfx.SvgRenderer(640, 480, "~/line.svg")
+
+renderer.blend_mode = "weighted"
 
 scene = gfx.Scene()
 positions = [[200 + np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
@@ -23,9 +26,13 @@ positions += [[np.nan, np.nan, np.nan]]
 positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
 positions += [[np.nan, np.nan, np.nan]]
 positions += [
-    [450, 400, 0],
-    [375, 400, 0],
+    [100, 440, 0],
+    [100, 450, 0],
+    [200, 450, 0],
+    [200, 445, 0],
+    [400, 440, 0],
     [300, 400, 0],
+    [300, 390, 0],
     [400, 370, 0],
     [300, 340, 0],
 ]
@@ -36,10 +43,7 @@ for i in range(len(positions)):
 
 line = gfx.Line(
     gfx.Geometry(positions=positions),
-    # gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5),
-    gfx.LineDashedMaterial(
-        thickness=12.0, color=(0.8, 0.7, 0.0), dash_size=24, dash_ratio=0.2
-    ),
+    gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5),
 )
 scene.add(line)
 
@@ -51,14 +55,42 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 alpha = 0
 d_alpha = 0.05
 
+
+@renderer.add_event_handler("key_down")
+def change_material(event):
+    print(event.key)
+    if event.key == "1":
+        line.material = gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5)
+    elif event.key == "2":
+        line.material = gfx.LineDashedMaterial(
+            thickness=22.0, color=(0.8, 0.7, 0.0), dash_size=40, dash_ratio=0.2
+        )
+    renderer.request_draw()
+
+@renderer.add_event_handler("pointer_move", "pointer_down")
+def set_node(event):
+    if event.modifiers:
+        return
+    if 3 in event.buttons or event.button == 3:
+        w, h = canvas.get_logical_size()
+        ndcx, ndcy = 2 * event.x / w - 1, 1 -2 * event.y / h
+        pos = la.vec_transform((ndcx, ndcy, 0), np.linalg.inv(camera.camera_matrix))
+        line.geometry.positions.data[-1, :2] = pos[0], pos[1]
+        line.geometry.positions.update_range(len(positions) - 1, 1)
+        renderer.request_draw()
+
+
 def animate():
     global alpha
     alpha += d_alpha
     # todo: if we make this line piece shorter, we see artifacts due to vertex displacement beyond line segment
-    line.geometry.positions.data[-1,:2] = 400 +  40 * np.sin(alpha), 370 + 40 * np.cos(alpha)
-    line.geometry.positions.update_range(46, 1)
+    # line.geometry.positions.data[-1, :2] = 400 + 40 * np.sin(alpha), 370 + 40 * np.cos(
+    #     alpha
+    # )
+    # line.geometry.positions.update_range(len(positions) - 1, 1)
+    # canvas.request_draw()
+
     renderer.render(scene, camera)
-    canvas.request_draw()
 
 
 if __name__ == "__main__":
