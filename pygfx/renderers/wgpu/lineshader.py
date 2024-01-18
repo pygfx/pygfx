@@ -230,7 +230,6 @@ class LineShader(WorldObjectShader):
             valid: f32,
             dist_offset: f32,
             zero_cumdist_join: bool,
-            segment_inset: f32,
             join_coord: vec2<f32>,
         };
         """
@@ -289,7 +288,6 @@ class LineShader(WorldObjectShader):
             varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
             varyings.valid = f32(result.valid);
-            varyings.segment_inset = f32(result.segment_inset);
             varyings.join_coord = vec2<f32>(result.join_coord);
 
             $$ if dashing

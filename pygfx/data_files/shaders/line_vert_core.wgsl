@@ -94,21 +94,11 @@
             var coord5: vec2<f32>;
             var coord6: vec2<f32>;
 
+            // Valued for the valid varying. A triangle is dropped if all it's valid are one's.
             var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 
             var zero_cumdist_join = false;
             var vertex_is_inner_corner = false;
-
-            /*
-            var segment_coord_array = array<vec2<f32>>(
-                vec2<f32>(0.0,  1.0);
-                vec2<f32>(0.0, -1.0);
-                vec2<f32>(0.0,  1.0);
-                vec2<f32>(0.0, -1.0);
-                vec2<f32>(0.0,  1.0);
-                vec2<f32>(0.0, -1.0);
-            );
-            */
 
             // Whether the current vertex represents the join. Only nonzero for
             // sub_index 2 or 3, the signs is -1 and +1, respectively, signaling the side.
@@ -116,11 +106,8 @@
             // vec_from_line or vec_from_node is used as the coord to sample the shape.
             var is_join = 0.0;  // todo: rename to vertex_is_outer_corner?
 
+            // Whether this node represents a join, and thus not a cap or broken join (which has two caps).
             var node_is_join = false;
-
-            var segment_inset = 0.0;
-
-            var vectors_ll_corner = array<vec2<f32>,6>(coord3, coord4, coord3, coord4, coord3, coord4);
 
             // The offset of this vertex for the cumulative distance for dashing.
             // This value is expressed as a fraction of the segment length.
@@ -140,17 +127,6 @@
                 coord5 = vec2<f32>(0.0, 1.0);
                 coord6 = vec2<f32>(0.0, -1.0);
 
-                //is_join = f32(vertex_num == 3) + f32(vertex_num == 4);
-
-                /*
-                vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
-                vert6 = -vert5;
-                vert3 = vert5 - normalize(nodevec2);  // location of first vertex
-                vert4 = vert6 - normalize(nodevec2);
-                */
-
-
-
             } else if ( i == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
                 // This is the last point on the line: create a cap.
                 nodevec2 = nodevec1;
@@ -162,33 +138,11 @@
                 coord4 = vec2<f32>(1.0, -1.0);
                 coord5 = coord4;
                 coord6 = coord4;
-
-                // TODO: need to rename isjoin
-                //is_join = f32(vertex_num == 3) + f32(vertex_num == 4);
-
-                /*
-                vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
-                vert2 = -vert1;
-                vert3 = vert1 + normalize(nodevec1);
-                vert4 = vert2 + normalize(nodevec1);  // location of last vertex
-                // Unused vertices go into last vertex
-                vert5 = vert4;
-                vert6 = vert4;
-                */
-
-
+              
             } else {
                 // Create a join
 
                 // TODO: if the line is solid and not dashed, it may be more performant to just draw the separate line segments (broken joins allways)
-
-                // Outer vertices are straightforward, but may be re-positioned later.
-                /*
-                vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
-                vert2 = -vert1;
-                vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
-                vert6 = -vert5;
-                */
 
                 // Determine the angle of the corner. If this angle is smaller than zero,
                 // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
@@ -228,12 +182,7 @@
                 // If the magnitude got clamped, we cannot draw the join as a contiguous line.
                 var join_is_contiguous = vec_mag_clamped == vec_mag;
 
-                //join_is_contiguous = false;
-
-                if (false) {
-                    // Miter
-                    // TODO: do this using templating
-                } else if (join_is_contiguous) {
+                if (join_is_contiguous) {
                     // Round or miter, shallow (enough) corner
 
                     node_is_join = true;
@@ -252,17 +201,12 @@
                     coord3 = vec2<f32>(0.0, 1.0) * vec_mag_clamped;
                     coord4 = -coord3;
 
-                    //var vertex_index_sign_array =  array<f32,6>(-1.0, -1.0, 0.0, 0.0, 1.0, 1.0);
-                    //let segment_inset_sign = vertex_index_sign_array[sub_index];
-                    //segment_inset = segment_inset_sign * length(coord3 - coord1);
-
                     let dist_offset_inner_corner = distance(coord1, coord3);
                     let dist_offset_divisor = select(-length(nodevec1), length(nodevec2), vertex_num >= 4) / half_thickness;
 
                     // Put the 3 vertices in the inner corner at the same (center) position.
                     // Adjust the corner_coords in the same way, or they would not be correct.
 
-                    // TODO: rename vectors_ll_corner -> node_coord, being vec to the node.
                     // TODO: move this bit to the root and end of the function?
                     if (inner_corner_is_at_135) {
 
@@ -272,12 +216,7 @@
 
                         $$ if dashing
 
-                            // Doing this seems more correct, and works also for sharp angles
-                            //if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
-                            //    dist_offset = dist_offset_inner_corner / dist_offset_divisor;
-                            //}
-
-                            // But this gives some cumdist-space in the corner, and works fine
+                            // This gives some cumdist-space in the corner, and works fine
                             // up to 90 degree corners
                             if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
                                 zero_cumdist_join = true;
@@ -298,22 +237,13 @@
         
                         is_join = -f32(vertex_num == 4);
 
-                        /*
-                        vectors_ll_corner[0] = coord3;
-                        vectors_ll_corner[1] = coord2;
-                        vectors_ll_corner[2] = coord3;
-                        vectors_ll_corner[3] = coord4;
-                        vectors_ll_corner[4] = coord3;
-                        vectors_ll_corner[5] = coord6;
-                        */
-
                     } else {
                         
                         if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
                             vertex_is_inner_corner = true;
                         }
 
-                        $$ if true
+                        $$ if dashing
                             if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
                                 zero_cumdist_join = true;
                                 dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
@@ -324,9 +254,6 @@
                         $$ endif
 
 
-                        //coord2 = coord4;
-                        //coord6 = coord4;
-
                         let d1 = coord4 - coord2;
                         let d2 = coord4 - coord6;
                         coord2 = coord2 + d1;
@@ -335,26 +262,10 @@
                         coord5 = coord5 + d2;
 
                         is_join = f32(vertex_num == 3);
-                        /*
-                        vectors_ll_corner[0] = coord1;
-                        vectors_ll_corner[1] = coord4;
-                        vectors_ll_corner[2] = coord3;
-                        vectors_ll_corner[3] = coord4;
-                        vectors_ll_corner[4] = coord5;
-                        vectors_ll_corner[5] = coord4;
-                        */
                     }
 
                 } else {
                     // Broken join: render as separate segments with caps.
-
-                    // Place the two middle point to form a miter that is long
-                    // enough to draw a good-looking round cap. The face between
-                    // the miters is flipped and therefore culled.
-                    /*
-                    vert3 = normalize(nodevec1) * 4.0;
-                    vert4 = normalize(-nodevec2) * 4.0;
-                    */
 
                     coord1 = vec2<f32>( 0.0, 1.0);
                     coord2 = vec2<f32>( 0.0, -1.0);
@@ -362,8 +273,6 @@
                     coord4 = vec2<f32>(-4.0, 0.0);
                     coord5 = vec2<f32>( 0.0, 1.0);
                     coord6 = vec2<f32>( 0.0, -1.0);
-
-                    //is_join = f32(vertex_num == 3) - f32(vertex_num == 4);
 
                     valid_array[1] = 0.0;
                     valid_array[2] = 0.0;
@@ -387,7 +296,6 @@
             var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
 
             let the_coord = coord_array[sub_index];
-            let the_ll_vec_corner = vectors_ll_corner[sub_index];
 
             // Calculate side
             let side = f32(vertex_num % 2) * 2.0 - 1.0;  // positive for coord1
@@ -397,10 +305,10 @@
             //let vec_from_node_p = (the_coord + side * vec2<f32>(0.0, -1.0)) * half_thickness * l2p;
             let vec_from_node_p = the_coord * half_thickness * l2p;
 
-             segment_inset = select(1.0, 0.0, vertex_num == 3 || vertex_num == 4);
-            
             // The join coord interpolates (in a join) from -1 to 0 and then from 0 to 1, in the
-            // direction of the respective segments. To realize this, we use a "barycentric coords trick"
+            // direction of the respective segments.
+            // We also allow it to interpolate skewed, for the cumdist ... XXXX
+            // To realize this, we use a "barycentric coords trick"
             // using a vec2, where the second element is a divisor that we apply in the frag shader.
             // This looks a bit like the w element for perspective division.
             var join_coord_x = select(-1.0, 1.0, vertex_num >= 4);
@@ -412,13 +320,11 @@
             out.fi = fi;
             out.pos = the_pos_n;
             out.thickness_p = half_thickness * 2.0 * l2p;
-            //out.vec_from_line_p = the_vert_s * 2.0 * l2p; // TODO: rename
             out.vec_from_line_p = segment_coord * half_thickness * l2p;
-            out.vec_from_node_p = vec_from_node_p;  // TODO: rename to line-vec-join or something
+            out.vec_from_node_p = vec_from_node_p;
             out.is_join = is_join;
             out.valid = valid_array[sub_index];
             out.side = the_coord.y; // todo: remove varying?
-            out.segment_inset = segment_inset;
             out.dist_offset = dist_offset;
             out.zero_cumdist_join = zero_cumdist_join;
             out.join_coord = join_coord;

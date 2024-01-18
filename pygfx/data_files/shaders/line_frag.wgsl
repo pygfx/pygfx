@@ -33,8 +33,7 @@
 
             let side = varyings.vec_from_node_p.y;
 
-            //let free_zone = abs(line_coord_p.x) > 0.5 * varyings.segment_inset;//is_join && (varyings.is_join * side) < 0.0;
-            let free_zone =is_join &&  abs(join_coord) > 0.5;
+            let free_zone = is_join &&  abs(join_coord) > 0.5;
 
             $$ if dashing
 
