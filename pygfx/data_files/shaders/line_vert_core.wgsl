@@ -270,8 +270,8 @@
                             // But this gives some cumdist-space in the corner, and works fine
                             // up to 90 degree corners
                             if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
-                                dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
                                 zero_cumdist_join = true;
+                                dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
                             }
                             if (vertex_num == 2 || vertex_num == 6) {
                                 dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
@@ -301,8 +301,8 @@
 
                         $$ if dashing
                             if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
+                               zero_cumdist_join = true;
                                 dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
-                                zero_cumdist_join = true;
                             }
                             if (vertex_num == 1 || vertex_num == 5) {
                                dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;

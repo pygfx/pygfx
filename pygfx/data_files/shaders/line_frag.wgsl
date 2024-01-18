@@ -9,6 +9,7 @@
             //if (varyings.vec_from_line_p.x > 0.0) {
             //     discard;
             //}
+            let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
             let half_thickness_p = 0.5 * varyings.thickness_p;
 
@@ -57,13 +58,10 @@
                 dist_to_stroke = max(0.0, dist_to_stroke);
 
                 // Convert to (physical) pixel units
-                let dpd_cumdist = length(vec2<f32>(dpdxFine(varyings.cum_dist), dpdyFine(varyings.cum_dist)));
-
-
-                let dist_to_stroke_p = dash_size * dist_to_stroke / dpd_cumdist;
+                let dist_to_stroke_p = dash_size * dist_to_stroke * l2p;
 
                 // The vector to the stoke (at the line-center)
-                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, line_coord_p.y);
+                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, varyings.vec_from_line_p.y);
 
                 // Butt caps
                 if (dist_to_stroke > 0.0) {
@@ -72,7 +70,7 @@
 
                 // Round caps
                 if (length(vec_to_stroke_p) > half_thickness_p) {
-                    //discard;
+                    discard;
                 }
 
 
@@ -80,7 +78,7 @@
 
             let dist_to_node_p = length(line_coord_p);
             if (dist_to_node_p >  half_thickness_p && !free_zone) {
-               //discard;
+                discard;
             }
 
             // Prep
@@ -105,8 +103,12 @@
             $$ endif
 
             var physical_color = srgb2physical(color.rgb);
-            $$ if dashing
-                physical_color = vec3<f32>(abs(1.0/line_coord_p.y), 0.0, 0.0);
+            $$ if false 
+                // DEBUG
+                //physical_color = vec3<f32>(abs(1.0/vec_to_stroke_p.y), 0.0, 0.0);
+                physical_color = vec3<f32>(abs(0.01 * vec_to_stroke_p.x), 0.0, 0.0);
+                //physical_color = vec3<f32>(0.0, dist_to_stroke, 0.0);
+                
             $$ endif
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 
