@@ -23,8 +23,10 @@
             // These are faces for which *any* vert is nonzero.
             let is_join = varyings.is_join != 0.0;
 
-            //let join_coord = (varyings.join_coord.x / varyings.join_coord.y);
             let join_coord = varyings.join_coord.x;
+            
+            // Use the below to correct the cum_dist?
+            let join_coord_xx = (varyings.join_coord.x / varyings.join_coord.y);
         
             // Get the line coord in physical pixels. We need a different varying
             // depending on whether this is a join. The vector's direction is in "screen coords",
@@ -68,7 +70,7 @@
 
                 // Butt caps
                 if (dist_to_stroke > 0.0) {
-                    //discard;
+                    discard;
                 }
 
                 // Round caps

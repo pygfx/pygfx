@@ -34,7 +34,8 @@ positions += [
     [300, 400, 0],
     [300, 390, 0],
     [400, 370, 0],
-    [300, 340, 0],
+    # [300, 380, 0],
+    [350, 350, 0],
 ]
 
 # Spiral away in z (to make the depth buffer less boring)
@@ -60,12 +61,19 @@ d_alpha = 0.05
 def change_material(event):
     print(event.key)
     if event.key == "1":
-        line.material = gfx.LineMaterial(thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5)
+        line.material = gfx.LineMaterial(
+            thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5
+        )
     elif event.key == "2":
         line.material = gfx.LineDashedMaterial(
-            thickness=22.0, color=(0.8, 0.7, 0.0), dash_size=40, dash_ratio=0.2
+            thickness=22.0,
+            color=(0.8, 0.7, 0.0),
+            dash_size=40,
+            dash_ratio=0.2,
+            dash_is_screen_space=False,
         )
     renderer.request_draw()
+
 
 @renderer.add_event_handler("pointer_move", "pointer_down")
 def set_node(event):
@@ -73,7 +81,7 @@ def set_node(event):
         return
     if 3 in event.buttons or event.button == 3:
         w, h = canvas.get_logical_size()
-        ndcx, ndcy = 2 * event.x / w - 1, 1 -2 * event.y / h
+        ndcx, ndcy = 2 * event.x / w - 1, 1 - 2 * event.y / h
         pos = la.vec_transform((ndcx, ndcy, 0), np.linalg.inv(camera.camera_matrix))
         line.geometry.positions.data[-1, :2] = pos[0], pos[1]
         line.geometry.positions.update_range(len(positions) - 1, 1)
@@ -83,7 +91,6 @@ def set_node(event):
 def animate():
     global alpha
     alpha += d_alpha
-    # todo: if we make this line piece shorter, we see artifacts due to vertex displacement beyond line segment
     # line.geometry.positions.data[-1, :2] = 400 + 40 * np.sin(alpha), 370 + 40 * np.cos(
     #     alpha
     # )

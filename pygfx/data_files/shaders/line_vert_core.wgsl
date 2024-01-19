@@ -165,8 +165,8 @@
                 let join_vec_on_nodevec1 = dot(join_vec, nodevec1_norm) * nodevec1_norm;
                 let join_vec_on_nodevec2 = dot(join_vec, nodevec2_norm) * nodevec2_norm;
                 var max_vec_mag = 100.0;
-                max_vec_mag = min(max_vec_mag, 0.99 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
-                max_vec_mag = min(max_vec_mag, 0.99 * length(nodevec2) / length(join_vec_on_nodevec2) / half_thickness);
+                max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
+                max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec2) / length(join_vec_on_nodevec2) / half_thickness);
 
                 // Now use the angle to determine the join_vec magnitude required to draw this join.
                 // For the inner corner this represent the intersection of the line edges,
