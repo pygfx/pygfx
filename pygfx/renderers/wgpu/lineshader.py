@@ -230,7 +230,7 @@ class LineShader(WorldObjectShader):
             valid: f32,
             dist_offset: f32,
             zero_cumdist_join: bool,
-            join_coord: vec2<f32>,
+            join_coord: vec3<f32>,
         };
         """
 
@@ -288,22 +288,21 @@ class LineShader(WorldObjectShader):
             varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
             varyings.valid = f32(result.valid);
-            varyings.join_coord = vec2<f32>(result.join_coord);
+            varyings.join_coord = vec3<f32>(result.join_coord);
 
             $$ if dashing
-                var cumdist = f32(load_s_cumdist(i0));
+                let cumdist_node = f32(load_s_cumdist(i0));
+                var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
                 let dist_offset = result.dist_offset;
                 if (dist_offset < 0.0) {
                     let cumdist_before = f32(load_s_cumdist(i0 - 1));
-                    cumdist = cumdist + dist_offset * (cumdist - cumdist_before);
+                    cumdist_vertex = cumdist_node + dist_offset * (cumdist_node - cumdist_before);
                 } else if (dist_offset > 0.0) {
                     let cumdist_after = f32(load_s_cumdist(i0 + 1));
-                    cumdist = cumdist + dist_offset * (cumdist_after - cumdist);
+                    cumdist_vertex = cumdist_node + dist_offset * (cumdist_after - cumdist_node);
                 }
-                varyings.cum_dist = f32(cumdist);
-                varyings.cum_dist_join = f32(select(cumdist, 0.0, result.zero_cumdist_join));
-                // Varying to scale cumdist
-                varyings.cum_dist_divisor = f32(!result.zero_cumdist_join);
+                varyings.cumdist_node = f32(cumdist_node);
+                varyings.cumdist_vertex = f32(cumdist_vertex);
             $$ endif
 
             // Picking

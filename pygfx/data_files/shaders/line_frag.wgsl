@@ -23,14 +23,24 @@
             // These are faces for which *any* vert is nonzero.
             let is_join = varyings.is_join != 0.0;
 
+            //  join_coord          corner_coord / join_coord_xx
+            //
+            // | | | | |-          | | | / / ╱
+            // | | | |- -          | | | / ╱ ⟋
+            // | | |- - -          | | | ╱ ⟋ ⟋
+            //      - - -                - - -
+            //      - - -                - - -
+
             let join_coord = varyings.join_coord.x;
             
-            // Use the below to correct the cum_dist?
-            let join_coord_xx = (varyings.join_coord.x / varyings.join_coord.y);
+            // Use the below to correct the cumdist?
+            let join_coord_xx = (varyings.join_coord.y / varyings.join_coord.z);
         
             // Get the line coord in physical pixels. We need a different varying
             // depending on whether this is a join. The vector's direction is in "screen coords",
             // we can only really use it's length.
+            
+
             let line_coord_p = select(varyings.vec_from_line_p, varyings.vec_from_node_p, is_join);
 
             let side = varyings.vec_from_node_p.y;
@@ -39,8 +49,26 @@
 
             $$ if dashing
 
-                let cum_dist = select(varyings.cum_dist, varyings.cum_dist_join / varyings.cum_dist_divisor, is_join);
-                //let cum_dist =  varyings.cum_dist;
+                // Calculate the cumulative distance along the line. We need a continuous value to parametrize
+                // the dash (and its cap). Going around the corner, it will compress on the inside, and expand
+                // on the outer side, deforming dashes as they move around the corner, appropriately.
+                // We also need a linear value to map to physical screen coords (by taking its derivative).
+                var cumdist_continuous : f32;
+                var cumdist_linear: f32;
+                if (is_join) {
+                    // First calculate the cumdist at the edge where segment and join meet. 
+                    // Note that cumdist_vertex == cumdist_node at the outer-corner-vertex.
+                    let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / abs(join_coord);
+                    // Calculate the continous cumdist, by interpolating using join_coord_xx
+                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, 1.0 - abs(join_coord_xx));
+                    // Almost the same mix, but using join_coord, and a factor two, because the vertex in the outer corner
+                    // is actually further than the node (with a factor 2), from the pov of the segments.
+                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 - 2.0 * abs(join_coord)));
+                } else {
+                    // In a segment everything is straight.
+                    cumdist_continuous = varyings.cumdist_vertex;
+                    cumdist_linear = cumdist_continuous;
+                }
 
                 // A builtin offset to position the dash nicer.
                 let local_dash_offset = 0.0;
@@ -48,7 +76,7 @@
                 // Calculate dash_progress, a number 0..1, indicating the fase of the dash.
                 let dash_size = u_material.dash_size;
                 let dash_ratio = u_material.dash_ratio;
-                let dash_progress = ((cum_dist + local_dash_offset) % dash_size) / dash_size;
+                let dash_progress = ((cumdist_continuous + local_dash_offset) % dash_size) / dash_size;
 
                 // Get distance to dash-stroke. We make the stroke the center
                 // of the dash period, which makes the math easier.
@@ -63,14 +91,15 @@
                 dist_to_stroke = max(0.0, dist_to_stroke);
 
                 // Convert to (physical) pixel units
-                let dist_to_stroke_p = dash_size * dist_to_stroke * l2p;
+                let dpd_cumdist = length(vec2<f32>(dpdxFine(cumdist_linear), dpdyFine(cumdist_linear)));
+                let dist_to_stroke_p = dash_size * dist_to_stroke  / dpd_cumdist;
 
                 // The vector to the stoke (at the line-center)
                 let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, varyings.vec_from_line_p.y);
 
                 // Butt caps
                 if (dist_to_stroke > 0.0) {
-                    discard;
+                   // discard;
                 }
 
                 // Round caps
@@ -110,9 +139,9 @@
             var physical_color = srgb2physical(color.rgb);
             $$ if false 
                 // DEBUG
-                //physical_color = vec3<f32>(abs(1.0/vec_to_stroke_p.y), 0.0, 0.0);
+                //physical_color = vec3<f32>(abs(dist_to_stroke) / 20.0, 0.0, 0.0);
                 // physical_color = vec3<f32>(abs(0.01 * vec_to_stroke_p.x), 0.0, 0.0);
-                physical_color = vec3<f32>(0.0,f32(abs(join_coord)), 1.0);
+                physical_color = vec3<f32>(0.0, f32(abs(cumdist_linear % 10.0) / 10.0), 1.0);
             $$ endif
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 

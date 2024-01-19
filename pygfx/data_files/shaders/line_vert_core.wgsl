@@ -313,7 +313,8 @@
             // This looks a bit like the w element for perspective division.
             var join_coord_x = select(-1.0, 1.0, vertex_num >= 4);
             join_coord_x = select(join_coord_x, 0.0, is_join != 0.0);
-            let join_coord = vec2<f32>(join_coord_x, f32(!vertex_is_inner_corner));
+            let join_coord_multiplier = f32(!vertex_is_inner_corner);
+            let join_coord = vec3<f32>(join_coord_x, join_coord_x * join_coord_multiplier, join_coord_multiplier);
 
             var out : VertexFuncOutput;
             out.i = i;
