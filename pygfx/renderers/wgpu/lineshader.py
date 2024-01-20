@@ -229,6 +229,7 @@ class LineShader(WorldObjectShader):
             side: f32,
             valid: f32,
             dist_offset: f32,
+            dist_offset_multiplier: f32,
             zero_cumdist_join: bool,
             join_coord: vec3<f32>,
         };
@@ -294,12 +295,13 @@ class LineShader(WorldObjectShader):
                 let cumdist_node = f32(load_s_cumdist(i0));
                 var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
                 let dist_offset = result.dist_offset;
+                let dist_offset_multiplier = result.dist_offset_multiplier;
                 if (dist_offset < 0.0) {
                     let cumdist_before = f32(load_s_cumdist(i0 - 1));
-                    cumdist_vertex = cumdist_node + dist_offset * (cumdist_node - cumdist_before);
+                    cumdist_vertex = cumdist_node + dist_offset_multiplier * dist_offset * (cumdist_node - cumdist_before);
                 } else if (dist_offset > 0.0) {
                     let cumdist_after = f32(load_s_cumdist(i0 + 1));
-                    cumdist_vertex = cumdist_node + dist_offset * (cumdist_after - cumdist_node);
+                    cumdist_vertex = cumdist_node + dist_offset_multiplier * dist_offset * (cumdist_after - cumdist_node);
                 }
                 varyings.cumdist_node = f32(cumdist_node);
                 varyings.cumdist_vertex = f32(cumdist_vertex);

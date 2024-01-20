@@ -70,29 +70,47 @@
                     cumdist_linear = cumdist_continuous;
                 }
 
-                // A builtin offset to position the dash nicer.
-                let local_dash_offset = 0.0;
-
                 // Calculate dash_progress, a number 0..1, indicating the fase of the dash.
+                // The local_dash_offset is to counter the effect of how we define a dash further below,
+                // so that a line begins with a stroke.
                 let dash_size = u_material.dash_size;
                 let dash_ratio = u_material.dash_ratio;
+                let local_dash_offset = (0.5 - 0.5 * dash_ratio) * dash_size;
                 let dash_progress = ((cumdist_continuous + local_dash_offset) % dash_size) / dash_size;
 
                 // Get distance to dash-stroke. We make the stroke the center
-                // of the dash period, which makes the math easier.
+                // of the dash period, which makes the math easier, as well as the logic for the caps.
                 //
                 //        ratio e.g. 0.6
-                //       /       \
-                //  ----|---------|----
-                //  0       0.5       1    dash_progress
-                // 0.2  0  -0.3   0  0.2   dist_to_stroke
+                //       /          \
+                //  ----|------------|----
+                //  0         0.5        1    dash_progress
+                // 0.2  0    -0.3    0  0.2   dist_to_stroke
                 //
-                var dist_to_stroke = abs(dash_progress - 0.5) - 0.5 * dash_ratio;
-                dist_to_stroke = max(0.0, dist_to_stroke);
+                let dist_to_begin = (0.5 - 0.5 * dash_ratio) - dash_progress;
+                let dist_to_end = dash_progress - (0.5 + 0.5 * dash_ratio);
+                let dist_to_stroke = max(0.0, max(dist_to_begin, dist_to_end));
+
+                // Get cumdist scale factor
+                let dpd_cumdist = length(vec2<f32>(dpdxFine(cumdist_linear), dpdyFine(cumdist_linear)));
+                let dashdist_to_physical = dash_size / dpd_cumdist;
 
                 // Convert to (physical) pixel units
-                let dpd_cumdist = length(vec2<f32>(dpdxFine(cumdist_linear), dpdyFine(cumdist_linear)));
-                let dist_to_stroke_p = dash_size * dist_to_stroke  / dpd_cumdist;
+                let dist_to_begin_p = dist_to_begin * dashdist_to_physical;
+                let dist_to_end_p = dist_to_end * dashdist_to_physical;
+                let dist_to_stroke_p = dist_to_stroke * dashdist_to_physical;
+
+                // At broken joins there is overlapping cumdist in both caps. The code below
+                // avoids (not 100% prevents) the begin or end of a cap to be drawn twice.
+                // The logic is basically: if we are in the cap (of a broken join), and if the
+                // current dash would not be drawn in the segment attached to this cap, we
+                // don't draw it here either.
+                if (!is_join && line_coord_p.x != 0.0){
+                    let dist_at_segment_p = select(dist_to_end_p, dist_to_begin_p, line_coord_p.x > 0.0) + abs(line_coord_p.x);
+                    if (dist_at_segment_p > half_thickness_p) {
+                       discard;
+                    } 
+                }
 
                 // The vector to the stoke (at the line-center)
                 let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, varyings.vec_from_line_p.y);
@@ -140,8 +158,8 @@
             $$ if false 
                 // DEBUG
                 //physical_color = vec3<f32>(abs(dist_to_stroke) / 20.0, 0.0, 0.0);
-                // physical_color = vec3<f32>(abs(0.01 * vec_to_stroke_p.x), 0.0, 0.0);
-                physical_color = vec3<f32>(0.0, f32(abs(cumdist_linear % 10.0) / 10.0), 1.0);
+                //physical_color = vec3<f32>(line_coord_p.x * 0.5 + 0.5, 0.0, 0.0);
+                physical_color = vec3<f32>(0.0, f32(abs(dash_progress % 10.0) / 10.0), 1.0);
             $$ endif
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 

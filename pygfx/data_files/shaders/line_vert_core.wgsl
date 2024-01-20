@@ -114,6 +114,7 @@
             // Negative means it relates to the segment before, positive means it
             // relates to the next segment.
             var dist_offset = 0.0;
+            var dist_offset_multiplier = 1.0;
 
             if ( i == 0 || is_nan_or_zero(node1n.w) ) {
                 // This is the first point on the line: create a cap.
@@ -127,6 +128,13 @@
                 coord5 = vec2<f32>(0.0, 1.0);
                 coord6 = vec2<f32>(0.0, -1.0);
 
+                $$ if dashing
+                    if (vertex_num <= 4) {
+                        dist_offset = half_thickness / length(nodevec2);
+                        dist_offset_multiplier = -1.0;
+                    }
+                $$ endif
+
             } else if ( i == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
                 // This is the last point on the line: create a cap.
                 nodevec2 = nodevec1;
@@ -138,7 +146,14 @@
                 coord4 = vec2<f32>(1.0, -1.0);
                 coord5 = coord4;
                 coord6 = coord4;
-              
+
+                $$ if dashing
+                    if (vertex_num >= 3) {
+                        dist_offset = -half_thickness / length(nodevec1);
+                        dist_offset_multiplier = -1.0;
+                    }
+                $$ endif
+
             } else {
                 // Create a join
 
@@ -164,7 +179,7 @@
                 let nodevec2_norm = normalize(nodevec2);
                 let join_vec_on_nodevec1 = dot(join_vec, nodevec1_norm) * nodevec1_norm;
                 let join_vec_on_nodevec2 = dot(join_vec, nodevec2_norm) * nodevec2_norm;
-                var max_vec_mag = 100.0;
+                var max_vec_mag = {{ "1.5" if dashing else "100.0" }};  // 1.5 corresponds to about 90 degrees
                 max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
                 max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec2) / length(join_vec_on_nodevec2) / half_thickness);
 
@@ -267,17 +282,29 @@
                 } else {
                     // Broken join: render as separate segments with caps.
 
-                    coord1 = vec2<f32>( 0.0, 1.0);
-                    coord2 = vec2<f32>( 0.0, -1.0);
-                    coord3 = vec2<f32>( 4.0, 0.0);
-                    coord4 = vec2<f32>(-4.0, 0.0);
-                    coord5 = vec2<f32>( 0.0, 1.0);
-                    coord6 = vec2<f32>( 0.0, -1.0);
+                    let miter_length = 4.0;
+
+                    coord1 = vec2<f32>(          0.0, 1.0);
+                    coord2 = vec2<f32>(          0.0, -1.0);
+                    coord3 = vec2<f32>( miter_length, 0.0);
+                    coord4 = vec2<f32>(-miter_length, 0.0);
+                    coord5 = vec2<f32>(          0.0, 1.0);
+                    coord6 = vec2<f32>(          0.0, -1.0);
 
                     valid_array[1] = 0.0;
                     valid_array[2] = 0.0;
                     valid_array[3] = 0.0;
                     valid_array[4] = 0.0;
+
+                    $$ if dashing
+                        if (vertex_num == 3) {
+                            dist_offset = - miter_length * half_thickness / length(nodevec1);
+                            dist_offset_multiplier = -1.0;
+                        } else if (vertex_num == 4) {
+                            dist_offset = miter_length * half_thickness / length(nodevec2);
+                            dist_offset_multiplier = -1.0;
+                        }
+                    $$ endif
                 }
             }
 
@@ -327,6 +354,7 @@
             out.valid = valid_array[sub_index];
             out.side = the_coord.y; // todo: remove varying?
             out.dist_offset = dist_offset;
+            out.dist_offset_multiplier = dist_offset_multiplier;
             out.zero_cumdist_join = zero_cumdist_join;
             out.join_coord = join_coord;
 
