@@ -222,16 +222,20 @@ class LineShader(WorldObjectShader):
             i: i32,
             fi: i32,
             pos: vec4<f32>,
-            thickness_p: f32,
+            // Varying used to discard faces in broken joins
+            valid_if_nonzero: f32,
+            // Varying specifying the half-thickness of the line (i.e. radius) in physical pixels.
+            half_thickness_p: f32,
+            // Varying that is one for the outer corner in a join. For faces that make up a join this value is nonzero.
+            is_join: f32,
+            // Varying vectors to create line coordinates
             vec_from_line_p: vec2<f32>,
             vec_from_node_p: vec2<f32>,
-            is_join: f32,
             side: f32,
-            valid: f32,
+            join_coord: vec3<f32>,
+            // Values (not varyings) used to calculate the actual cumdist for dashing 
             dist_offset: f32,
             dist_offset_multiplier: f32,
-            zero_cumdist_join: bool,
-            join_coord: vec3<f32>,
         };
         """
 
@@ -283,15 +287,16 @@ class LineShader(WorldObjectShader):
             var varyings: Varyings;
             varyings.position = vec4<f32>(result.pos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
-            varyings.thickness_p = f32(result.thickness_p);
+            varyings.half_thickness_p = f32(result.half_thickness_p);
             varyings.vec_from_line_p = vec2<f32>(result.vec_from_line_p);
             varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
             varyings.is_join = f32(result.is_join);
             varyings.side = f32(result.side);
-            varyings.valid = f32(result.valid);
+            varyings.valid_if_nonzero = f32(result.valid_if_nonzero);
             varyings.join_coord = vec3<f32>(result.join_coord);
 
             $$ if dashing
+                // TODO: move this logic into the vert core?
                 let cumdist_node = f32(load_s_cumdist(i0));
                 var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
                 let dist_offset = result.dist_offset;
@@ -481,7 +486,7 @@ class LineSegmentShader(LineShader):
             out.i = i;
             out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
-            out.thickness_p = half_thickness * 2.0 * l2p;
+            out.half_thickness_p = half_thickness * l2p;
             out.vec_from_line_p = the_vec * l2p;
             return out;
         }
@@ -546,7 +551,7 @@ class LineArrowShader(LineShader):
             out.i = i;
             out.fi = fi;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
-            out.thickness_p = half_thickness * 2.0 * l2p;
+            out.half_thickness_p = half_thickness * l2p;
             out.vec_from_line_p = vec2<f32>(0.0, 0.0);
             return out;
         }

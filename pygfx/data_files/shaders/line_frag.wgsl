@@ -11,11 +11,11 @@
             //}
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-            let half_thickness_p = 0.5 * varyings.thickness_p;
+            let half_thickness_p = varyings.half_thickness_p;
 
             // Discard invalid faces.
             // These are faces for which *all* 3 verts are set to zero.
-            if (varyings.valid == 0.0) {
+            if (varyings.valid_if_nonzero == 0.0) {
                 discard;
             }
 
@@ -23,29 +23,26 @@
             // These are faces for which *any* vert is nonzero.
             let is_join = varyings.is_join != 0.0;
 
-            //  join_coord          corner_coord / join_coord_xx
+            // Obtain the join_coord. It comes in two flavours, linear and fan-shaped,
+            // which each serve a different purpose. These represent trick 3 and 4, respectively.
+            //
+            //  join_coord_lin      join_coord_fan
             //
             // | | | | |-          | | | / / ╱
             // | | | |- -          | | | / ╱ ⟋
             // | | |- - -          | | | ╱ ⟋ ⟋
             //      - - -                - - -
             //      - - -                - - -
-
-            let join_coord = varyings.join_coord.x;
-            
-            // Use the below to correct the cumdist?
-            let join_coord_xx = (varyings.join_coord.y / varyings.join_coord.z);
+            //
+            let join_coord_lin = varyings.join_coord.x;
+            let join_coord_fan = (varyings.join_coord.y / varyings.join_coord.z);
         
             // Get the line coord in physical pixels. We need a different varying
             // depending on whether this is a join. The vector's direction is in "screen coords",
             // we can only really use it's length.
-            
-
             let line_coord_p = select(varyings.vec_from_line_p, varyings.vec_from_node_p, is_join);
 
-            let side = varyings.vec_from_node_p.y;
-
-            let free_zone = is_join &&  abs(join_coord) > 0.5;
+            let free_zone = is_join &&  abs(join_coord_lin) > 0.5;
 
             $$ if dashing
 
@@ -58,12 +55,12 @@
                 if (is_join) {
                     // First calculate the cumdist at the edge where segment and join meet. 
                     // Note that cumdist_vertex == cumdist_node at the outer-corner-vertex.
-                    let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / abs(join_coord);
-                    // Calculate the continous cumdist, by interpolating using join_coord_xx
-                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, 1.0 - abs(join_coord_xx));
-                    // Almost the same mix, but using join_coord, and a factor two, because the vertex in the outer corner
+                    let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / abs(join_coord_lin);
+                    // Calculate the continous cumdist, by interpolating using join_coord_fan
+                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, 1.0 - abs(join_coord_fan));
+                    // Almost the same mix, but using join_coord_lin, and a factor two, because the vertex in the outer corner
                     // is actually further than the node (with a factor 2), from the pov of the segments.
-                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 - 2.0 * abs(join_coord)));
+                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 - 2.0 * abs(join_coord_lin)));
                 } else {
                     // In a segment everything is straight.
                     cumdist_continuous = varyings.cumdist_vertex;
@@ -105,7 +102,8 @@
                 // The logic is basically: if we are in the cap (of a broken join), and if the
                 // current dash would not be drawn in the segment attached to this cap, we
                 // don't draw it here either.
-                if (!is_join && line_coord_p.x != 0.0){
+                let is_broken_join = !is_join && line_coord_p.x != 0.0;
+                if (is_broken_join){
                     let dist_at_segment_p = select(dist_to_end_p, dist_to_begin_p, line_coord_p.x > 0.0) + abs(line_coord_p.x);
                     if (dist_at_segment_p > half_thickness_p) {
                        discard;
@@ -125,9 +123,10 @@
                     discard;
                 }
 
-
+                // end dashing
             $$ endif
 
+            // TODO: can't we use join_coord_lin + something else to shape the joins?
             let dist_to_node_p = length(line_coord_p);
             if (dist_to_node_p >  half_thickness_p && !free_zone) {
                 discard;

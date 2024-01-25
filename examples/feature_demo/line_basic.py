@@ -59,7 +59,6 @@ d_alpha = 0.05
 
 @renderer.add_event_handler("key_down")
 def change_material(event):
-    print(event.key)
     if event.key == "1":
         line.material = gfx.LineMaterial(
             thickness=22.0, color=(0.8, 0.7, 0.0), opacity=0.5

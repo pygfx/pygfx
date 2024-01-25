@@ -4,8 +4,8 @@
             //
             // This vertex shader uses VertexId and storage buffers instead of
             // vertex buffers. It creates 6 vertices for each point on the line.
-            // The extra vertices are used to cover more fragments at
-            // the joins and caps. In the fragment shader we discard fragments
+            // The extra faces are used to create the joins and caps.
+            // In the fragment shader we discard fragments
             // that are "out of range" for the current join/cap shape, using
             // parameters passed as varyings.
             //
@@ -15,8 +15,7 @@
             //   may be called vertices or points.
             // - vertex: the "virtual vertices" generated in the vertex shader,
             //   in order to create a thick line with nice joins and caps.
-            // - segment: the straight piece of the line between two consecutive
-            //   nodes. A quadrilateral (two faces) but not necesarily rectangular.
+            // - segment: the rectangular piece of the line between two nodes.
             // - join: the piece of the line to connect two segments. There are
             //   a few different shapes that can be applied.
             // - broken join: joins with too sharp corners are rendered as two
@@ -38,11 +37,11 @@
             //   we select just one as output.
             //
             //            /  o     node 3
-            //           /  /  /
-            //          6  /  /
-            //   - - - 2  /  /     segment-vertices 1, 2, 5, 6
-            //   o-------o  /      the vertices 3 and 4 are in between to help the join
-            //   - - - - 1 5
+            //       5   /  /  /
+            //        3 /  /  /
+            //   - - - 1  /  /     segment-vertices 1, 2, 5, 6
+            //   o-------o  6      the vertices 3 and 4 in between shape the join
+            //   - - - 2 - 4
             //                node 2
             //  node 1
             //
@@ -94,19 +93,19 @@
             var coord5: vec2<f32>;
             var coord6: vec2<f32>;
 
-            // Valued for the valid varying. A triangle is dropped if all it's valid are one's.
+            // Valued for the valid_if_nonzero varying. A triangle is dropped if (and only if) all verts have their value set to zero. (Trick 5)
             var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 
-            var zero_cumdist_join = false;
             var vertex_is_inner_corner = false;
 
-            // Whether the current vertex represents the join. Only nonzero for
-            // sub_index 2 or 3, the signs is -1 and +1, respectively, signaling the side.
-            // In the fragmnent shader this is used to determine whether the
-            // vec_from_line or vec_from_node is used as the coord to sample the shape.
-            var is_join = 0.0;  // todo: rename to vertex_is_outer_corner?
+            // Whether the current vertex represents the outer corner of a join. Only nonzero for
+            // sub_index 2 or 3. In the fragment shader we can identify join faces with it (trick 5)
+            //  the signs is -1 and +1, respectively, signaling the side (though that's not currently used).
+            // In the fragmnent shader this is used for multiple purposes.
+            var is_join = 0.0;
 
             // Whether this node represents a join, and thus not a cap or broken join (which has two caps).
+            // Used internally in this shader (not a varying).
             var node_is_join = false;
 
             // The offset of this vertex for the cumulative distance for dashing.
@@ -234,7 +233,6 @@
                             // This gives some cumdist-space in the corner, and works fine
                             // up to 90 degree corners
                             if (vertex_num == 1 || vertex_num == 3 || vertex_num == 5) {
-                                zero_cumdist_join = true;
                                 dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
                             }
                             if (vertex_num == 2 || vertex_num == 6) {
@@ -260,7 +258,6 @@
 
                         $$ if dashing
                             if (vertex_num == 2 || vertex_num == 4 || vertex_num == 6 ) {
-                                zero_cumdist_join = true;
                                 dist_offset = 1.0 * dist_offset_inner_corner / dist_offset_divisor;
                             }
                             if (vertex_num == 1 || vertex_num == 5) {
@@ -347,15 +344,14 @@
             out.i = i;
             out.fi = fi;
             out.pos = the_pos_n;
-            out.thickness_p = half_thickness * 2.0 * l2p;
+            out.half_thickness_p = half_thickness * l2p;
             out.vec_from_line_p = segment_coord * half_thickness * l2p;
             out.vec_from_node_p = vec_from_node_p;
             out.is_join = is_join;
-            out.valid = valid_array[sub_index];
+            out.valid_if_nonzero = valid_array[sub_index];
             out.side = the_coord.y; // todo: remove varying?
             out.dist_offset = dist_offset;
             out.dist_offset_multiplier = dist_offset_multiplier;
-            out.zero_cumdist_join = zero_cumdist_join;
             out.join_coord = join_coord;
 
             return out;
