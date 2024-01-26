@@ -156,7 +156,7 @@ class LineShader(WorldObjectShader):
         # Cull backfaces so that overlapping faces are not drawn.
         return {
             "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
-            "cull_mode": wgpu.CullMode.back,
+            "cull_mode": wgpu.CullMode.none,
         }
 
     def _get_n(self, positions):
@@ -219,23 +219,24 @@ class LineShader(WorldObjectShader):
         };
 
         struct VertexFuncOutput {
-            i: i32,
-            fi: i32,
+            node_index: i32,
+            face_index: i32,
             pos: vec4<f32>,
-            // Varying used to discard faces in broken joins
-            valid_if_nonzero: f32,
-            // Varying specifying the half-thickness of the line (i.e. radius) in physical pixels.
+            // Varying specifying the half-thickness of the line (i.e. radius), in physical pixels.
             half_thickness_p: f32,
-            // Varying that is one for the outer corner in a join. For faces that make up a join this value is nonzero.
-            is_join: f32,
-            // Varying vectors to create line coordinates
-            vec_from_line_p: vec2<f32>,
-            vec_from_node_p: vec2<f32>,
-            side: f32,
-            join_coord: vec3<f32>,
-            // Values (not varyings) used to calculate the actual cumdist for dashing 
-            dist_offset: f32,
-            dist_offset_multiplier: f32,
+            // Varying vector representing the distance from the segment's centerline, in physical pixels.
+            segment_coord_p: vec2<f32>,
+            // Varying that is -1 or 1 for the outer corner in a join, for vertex 3 and 4, respectively. Is also used to identify faces that are a join.
+            join_coord: f32,
+            // Varying that is 1 for vertices in the outer corner of a join. Used in combination with join_coord to obtain a coord that fans around the corner.
+            is_outer_corner: f32,
+            // Varying used to discard faces in broken joins.
+            valid_if_nonzero: f32,
+            $$ if dashing
+                // Values (not varyings) used to calculate the actual cumdist for dashing.
+                dist_offset: f32,
+                dist_offset_multiplier: f32,
+            $$ endif
         };
         """
 
@@ -281,19 +282,17 @@ class LineShader(WorldObjectShader):
             let half_thickness:f32 = u_material.thickness * 0.5 + extra_thick;  // logical pixels
 
             let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
-            let i0 = result.i;
-            let face_index = result.fi;
+            let i0 = result.node_index;
+            let face_index = result.face_index;
 
             var varyings: Varyings;
             varyings.position = vec4<f32>(result.pos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
             varyings.half_thickness_p = f32(result.half_thickness_p);
-            varyings.vec_from_line_p = vec2<f32>(result.vec_from_line_p);
-            varyings.vec_from_node_p = vec2<f32>(result.vec_from_node_p);
-            varyings.is_join = f32(result.is_join);
-            varyings.side = f32(result.side);
+            varyings.segment_coord_p = vec2<f32>(result.segment_coord_p);
+            varyings.join_coord = f32(result.join_coord);
+            varyings.is_outer_corner = f32(result.is_outer_corner);
             varyings.valid_if_nonzero = f32(result.valid_if_nonzero);
-            varyings.join_coord = vec3<f32>(result.join_coord);
 
             $$ if dashing
                 // TODO: move this logic into the vert core?
@@ -308,6 +307,7 @@ class LineShader(WorldObjectShader):
                     let cumdist_after = f32(load_s_cumdist(i0 + 1));
                     cumdist_vertex = cumdist_node + dist_offset_multiplier * dist_offset * (cumdist_after - cumdist_node);
                 }
+                // Set two varyings, so that we can correctly interpolate the cumdist in the joins
                 varyings.cumdist_node = f32(cumdist_node);
                 varyings.cumdist_vertex = f32(cumdist_vertex);
             $$ endif
@@ -316,8 +316,8 @@ class LineShader(WorldObjectShader):
             // Note: in theory, we can store ints up to 16_777_216 in f32,
             // but in practice, its about 4_000_000 for f32 varyings (in my tests).
             // We use a real u32 to not lose presision, see frag shader for details.
-            varyings.pick_idx = u32(result.i);
-            varyings.pick_zigzag = f32(select(0.0, 1.0, result.i % 2 == 0));
+            varyings.pick_idx = u32(result.node_index);
+            varyings.pick_zigzag = f32(select(0.0, 1.0, result.node_index % 2 == 0));
 
             // per-vertex or per-face coloring
             $$ if color_mode == 'face' or color_mode == 'vertex'
@@ -442,12 +442,12 @@ class LineSegmentShader(LineShader):
             // a degenerate triangle for the space in between. So we only draw
             // caps, no joins.
 
-            let i = index / 5;
-            let fi = i / 2;
+            let node_index = index / 5;
+            let face_index = node_index / 2;
 
             // Sample the current node and either of its neighbours
-            let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let node2n = get_point_ndc(i);
+            let i3 = node_index + 1 - (node_index % 2) * 2;  // (node_index + 1) if node_index is even else (node_index - 1)
+            let node2n = get_point_ndc(node_index);
             let node3n = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
             let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
@@ -460,7 +460,7 @@ class LineSegmentShader(LineShader):
             var vert4: vec2<f32>;
 
             // Get vectors normal to the line segments
-            if ((i % 2) == 0) {
+            if ((node_index % 2) == 0) {
                 // A left-cap
                 let v = normalize(node3s.xy - node2s.xy);
                 vert3 = vec2<f32>(v.y, -v.x);
@@ -483,11 +483,10 @@ class LineSegmentShader(LineShader):
             let the_pos = node2s + the_vec;
 
             var out : VertexFuncOutput;
-            out.i = i;
-            out.fi = fi;
+            out.node_index = node_index;
+            out.face_index = face_index;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
             out.half_thickness_p = half_thickness * l2p;
-            out.vec_from_line_p = the_vec * l2p;
             return out;
         }
         """
@@ -513,12 +512,12 @@ class LineArrowShader(LineShader):
             // to create a degenerate triangle for the space in between. So we
             // only draw caps, no joins.
 
-            let i = index / 3;
-            let fi = i / 2;
+            let node_index = index / 3;
+            let face_index = node_index / 2;
 
             // Sample the current node and either of its neighbours
-            let i3 = i + 1 - (i % 2) * 2;  // (i + 1) if i is even else (i - 1)
-            let node2n = get_point_ndc(i);
+            let i3 = node_index + 1 - (node_index % 2) * 2;  // (node_index + 1) if node_index is even else (node_index - 1)
+            let node2n = get_point_ndc(node_index);
             let node3n = get_point_ndc(i3);
             // Convert to logical screen coordinates, because that's were the lines work
             let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
@@ -529,7 +528,7 @@ class LineArrowShader(LineShader):
             var vert2: vec2<f32>;
 
             // Get vectors normal to the line segments
-            if ((i % 2) == 0) {
+            if ((node_index % 2) == 0) {
                 // A left-cap
                 let v = node3s.xy - node2s.xy;
                 vert1 = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
@@ -548,11 +547,11 @@ class LineArrowShader(LineShader):
             let the_pos = node2s + the_vec;
 
             var out : VertexFuncOutput;
-            out.i = i;
-            out.fi = fi;
+            out.node_index = node_index;
+            out.face_index = face_index;
             out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
             out.half_thickness_p = half_thickness * l2p;
-            out.vec_from_line_p = vec2<f32>(0.0, 0.0);
+            out.segment_coord_p = vec2<f32>(0.0, 0.0);
             return out;
         }
         """

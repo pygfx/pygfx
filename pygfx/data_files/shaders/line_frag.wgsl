@@ -1,32 +1,22 @@
 @fragment
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
-            // Discard fragments outside of the radius. This is what makes round
-            // joins and caps. If we ever want bevel or miter joins, we should
-            // change the vertex positions a bit, and drop these lines below.
-
-            // Butt cap
-            //if (varyings.vec_from_line_p.x > 0.0) {
-            //     discard;
-            //}
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-
             let half_thickness_p = varyings.half_thickness_p;
 
-            // Discard invalid faces.
-            // These are faces for which *all* 3 verts are set to zero.
+            // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
             if (varyings.valid_if_nonzero == 0.0) {
                 discard;
             }
 
             // Determine whether we are at a join (i.e. an unbroken corner).
-            // These are faces for which *any* vert is nonzero.
-            let is_join = varyings.is_join != 0.0;
+            // These are faces for which *any* vert is nonzero. (trick 5a)
+            let is_join = varyings.join_coord != 0.0;
 
-            // Obtain the join_coord. It comes in two flavours, linear and fan-shaped,
+            // Obtain the join coordinates. It comes in two flavours, linear and fan-shaped,
             // which each serve a different purpose. These represent trick 3 and 4, respectively.
             //
-            //  join_coord_lin      join_coord_fan
+            // join_coord_lin      join_coord_fan
             //
             // | | | | |-          | | | / / ╱
             // | | | |- -          | | | / ╱ ⟋
@@ -34,15 +24,17 @@
             //      - - -                - - -
             //      - - -                - - -
             //
-            let join_coord_lin = varyings.join_coord.x;
-            let join_coord_fan = (varyings.join_coord.y / varyings.join_coord.z);
+            let join_coord_lin = varyings.join_coord;
+            let join_coord_fan = join_coord_lin / varyings.is_outer_corner;
         
-            // Get the line coord in physical pixels. We need a different varying
-            // depending on whether this is a join. The vector's direction is in "screen coords",
-            // we can only really use it's length.
-            let line_coord_p = select(varyings.vec_from_line_p, varyings.vec_from_node_p, is_join);
-
-            let free_zone = is_join &&  abs(join_coord_lin) > 0.5;
+            // Get the line coord in physical pixels.
+            // For joins, the outer vertices are inset, and we need to take that into account.
+            var segment_coord_p = varyings.segment_coord_p;
+            if (is_join) {
+                let dist_from_segment = abs(join_coord_lin);
+                let a = segment_coord_p.x / dist_from_segment;
+                segment_coord_p = vec2<f32>(max(0.0, dist_from_segment - 0.5) * a, segment_coord_p.y);
+            }
 
             $$ if dashing
 
@@ -55,12 +47,12 @@
                 if (is_join) {
                     // First calculate the cumdist at the edge where segment and join meet. 
                     // Note that cumdist_vertex == cumdist_node at the outer-corner-vertex.
-                    let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / abs(join_coord_lin);
+                    let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / (1.0 - abs(join_coord_lin));
                     // Calculate the continous cumdist, by interpolating using join_coord_fan
-                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, 1.0 - abs(join_coord_fan));
+                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, abs(join_coord_fan));
                     // Almost the same mix, but using join_coord_lin, and a factor two, because the vertex in the outer corner
                     // is actually further than the node (with a factor 2), from the pov of the segments.
-                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 - 2.0 * abs(join_coord_lin)));
+                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 * abs(join_coord_lin)));
                 } else {
                     // In a segment everything is straight.
                     cumdist_continuous = varyings.cumdist_vertex;
@@ -102,20 +94,24 @@
                 // The logic is basically: if we are in the cap (of a broken join), and if the
                 // current dash would not be drawn in the segment attached to this cap, we
                 // don't draw it here either.
-                let is_broken_join = !is_join && line_coord_p.x != 0.0;
+                let is_broken_join = !is_join && segment_coord_p.x != 0.0;
                 if (is_broken_join){
-                    let dist_at_segment_p = select(dist_to_end_p, dist_to_begin_p, line_coord_p.x > 0.0) + abs(line_coord_p.x);
+                    let dist_at_segment_p = select(dist_to_end_p, dist_to_begin_p, segment_coord_p.x > 0.0) + abs(segment_coord_p.x);
                     if (dist_at_segment_p > half_thickness_p) {
                        discard;
                     } 
                 }
 
                 // The vector to the stoke (at the line-center)
-                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, varyings.vec_from_line_p.y);
+                var yy = length(segment_coord_p.y);
+                if (abs(join_coord_lin) > 0.5) {
+                    yy = length(segment_coord_p);  // smoother dash-turns
+                }
+                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, yy);
 
                 // Butt caps
                 if (dist_to_stroke > 0.0) {
-                   // discard;
+                   //discard;
                 }
 
                 // Round caps
@@ -126,9 +122,9 @@
                 // end dashing
             $$ endif
 
-            // TODO: can't we use join_coord_lin + something else to shape the joins?
-            let dist_to_node_p = length(line_coord_p);
-            if (dist_to_node_p >  half_thickness_p && !free_zone) {
+            // Round caps and joins
+            let dist_to_node_p = length(segment_coord_p);
+            if (dist_to_node_p >  half_thickness_p) {
                 discard;
             }
 
@@ -154,11 +150,11 @@
             $$ endif
 
             var physical_color = srgb2physical(color.rgb);
-            $$ if false 
+            $$ if false
                 // DEBUG
-                //physical_color = vec3<f32>(abs(dist_to_stroke) / 20.0, 0.0, 0.0);
-                //physical_color = vec3<f32>(line_coord_p.x * 0.5 + 0.5, 0.0, 0.0);
-                physical_color = vec3<f32>(0.0, f32(abs(dash_progress % 10.0) / 10.0), 1.0);
+                //physical_color = vec3<f32>(1.0, 0.0, 0.0);
+                physical_color = vec3<f32>(abs(vec_to_stroke_p.y / 20.0), 0.0, 0.0);
+                //physical_color = vec3<f32>(0.0, f32(abs(vec_to_stroke_p.y) / 10.0), 1.0);
             $$ endif
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 

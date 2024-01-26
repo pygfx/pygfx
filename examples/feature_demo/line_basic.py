@@ -12,7 +12,6 @@ import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import pylinalg as la
-import numpy as np
 
 canvas = WgpuCanvas(size=(1000, 800))
 renderer = gfx.WgpuRenderer(canvas)
@@ -65,10 +64,10 @@ def change_material(event):
         )
     elif event.key == "2":
         line.material = gfx.LineDashedMaterial(
-            thickness=12.0,
+            thickness=20.0,
             color=(0.8, 0.7, 0.0),
-            dash_size=50,
-            dash_ratio=0.5,
+            dash_size=30,
+            dash_ratio=0.2,
             dash_is_screen_space=True,
             opacity=0.5,
         )
