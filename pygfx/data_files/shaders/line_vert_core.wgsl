@@ -106,9 +106,9 @@
                 // The offset of this vertex for the cumulative distance for dashing.
                 // This value is expressed as a fraction of the segment length.
                 // Negative means it relates to the segment before, positive means it
-                // relates to the next segment.
-                var dist_offset = 0.0;
-                var dist_offset_multiplier = 1.0;
+                // relates to the next segment. The multiplier (sign) is used so we can extrapolate in the caps.
+                var cumdist_offset = 0.0;
+                var cumdist_multiplier = 1.0;
             $$ endif
 
             if ( node_index == 0 || is_nan_or_zero(node1n.w) ) {
@@ -125,8 +125,8 @@
 
                 $$ if dashing
                     if (vertex_num <= 4) {
-                        dist_offset = half_thickness / length(nodevec2);
-                        dist_offset_multiplier = -1.0;
+                        cumdist_offset = half_thickness / length(nodevec2);
+                        cumdist_multiplier = -1.0;
                     }
                 $$ endif
 
@@ -144,8 +144,8 @@
 
                 $$ if dashing
                     if (vertex_num >= 3) {
-                        dist_offset = -half_thickness / length(nodevec1);
-                        dist_offset_multiplier = -1.0;
+                        cumdist_offset = -half_thickness / length(nodevec1);
+                        cumdist_multiplier = -1.0;
                     }
                 $$ endif
 
@@ -208,11 +208,11 @@
 
                     $$ if dashing
                         if (vertex_num == 3) {
-                            dist_offset = - miter_length * half_thickness / length(nodevec1);
-                            dist_offset_multiplier = -1.0;
+                            cumdist_offset = - miter_length * half_thickness / length(nodevec1);
+                            cumdist_multiplier = -1.0;
                         } else if (vertex_num == 4) {
-                            dist_offset = miter_length * half_thickness / length(nodevec2);
-                            dist_offset_multiplier = -1.0;
+                            cumdist_offset = miter_length * half_thickness / length(nodevec2);
+                            cumdist_multiplier = -1.0;
                         }
                     $$ endif
                     
@@ -246,29 +246,10 @@
                     }
 
                     $$ if dashing
-                        let dist_offset_divisor = select(-length(nodevec1), length(nodevec2), vertex_num >= 4) / half_thickness;
-                        if (inner_corner_is_at_15) {
-
-                            // This gives some cumdist-space in the corner, and works fine
-                            // up to 90 degree corners
-                            if (vertex_num == 1 || vertex_num == 5) {
-                                dist_offset = 1.0 * vertex_inset / dist_offset_divisor;
-                            }
-                            if (vertex_num == 2 || vertex_num == 6) {
-                                dist_offset = 1.0 * vertex_inset / dist_offset_divisor;
-                            }
-
-                        } else {
-
-                            if (vertex_num == 2 || vertex_num == 6 ) {
-                                dist_offset = 1.0 * vertex_inset / dist_offset_divisor;
-                            }
-                            if (vertex_num == 1 || vertex_num == 5) {
-                               dist_offset = 1.0 * vertex_inset / dist_offset_divisor;
-                            }
+                        if (!(vertex_num == 3 || vertex_num == 4)) {
+                            cumdist_offset = vertex_inset * half_thickness / select(-length(nodevec1), length(nodevec2), vertex_num >= 4);
                         }
                     $$ endif
-                    
                 }
             }
 
@@ -301,10 +282,22 @@
             out.join_coord = join_coord;
             out.is_outer_corner = is_outer_corner;
             out.valid_if_nonzero = valid_array[vertex_index];
+            
             $$ if dashing
-                // Distance measures (translated to different varyings)
-                out.dist_offset = dist_offset;
-                out.dist_offset_multiplier = dist_offset_multiplier;
+                // Calculate the cumdist for the node and vertex edge
+                let cumdist_node = f32(load_s_cumdist(node_index));
+                var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
+                if (cumdist_offset < 0.0) {
+                    let cumdist_before = f32(load_s_cumdist(node_index - 1));
+                    cumdist_vertex = cumdist_node + cumdist_multiplier * cumdist_offset * (cumdist_node - cumdist_before);
+                } else if (cumdist_offset > 0.0) {
+                    let cumdist_after = f32(load_s_cumdist(node_index + 1));
+                    cumdist_vertex = cumdist_node + cumdist_multiplier * cumdist_offset * (cumdist_after - cumdist_node);
+                }
+                // Set two varyings, so that we can correctly interpolate the cumdist in the joins
+                out.cumdist_node = cumdist_node;
+                out.cumdist_vertex = cumdist_vertex;
             $$ endif
+
             return out;
         }

@@ -232,10 +232,10 @@ class LineShader(WorldObjectShader):
             is_outer_corner: f32,
             // Varying used to discard faces in broken joins.
             valid_if_nonzero: f32,
+            // Varyings required for dashing
             $$ if dashing
-                // Values (not varyings) used to calculate the actual cumdist for dashing.
-                dist_offset: f32,
-                dist_offset_multiplier: f32,
+                cumdist_node: f32,
+                cumdist_vertex: f32,
             $$ endif
         };
         """
@@ -293,23 +293,9 @@ class LineShader(WorldObjectShader):
             varyings.join_coord = f32(result.join_coord);
             varyings.is_outer_corner = f32(result.is_outer_corner);
             varyings.valid_if_nonzero = f32(result.valid_if_nonzero);
-
             $$ if dashing
-                // TODO: move this logic into the vert core?
-                let cumdist_node = f32(load_s_cumdist(i0));
-                var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
-                let dist_offset = result.dist_offset;
-                let dist_offset_multiplier = result.dist_offset_multiplier;
-                if (dist_offset < 0.0) {
-                    let cumdist_before = f32(load_s_cumdist(i0 - 1));
-                    cumdist_vertex = cumdist_node + dist_offset_multiplier * dist_offset * (cumdist_node - cumdist_before);
-                } else if (dist_offset > 0.0) {
-                    let cumdist_after = f32(load_s_cumdist(i0 + 1));
-                    cumdist_vertex = cumdist_node + dist_offset_multiplier * dist_offset * (cumdist_after - cumdist_node);
-                }
-                // Set two varyings, so that we can correctly interpolate the cumdist in the joins
-                varyings.cumdist_node = f32(cumdist_node);
-                varyings.cumdist_vertex = f32(cumdist_vertex);
+                varyings.cumdist_node = f32(result.cumdist_node);
+                varyings.cumdist_vertex = f32(result.cumdist_vertex);
             $$ endif
 
             // Picking

@@ -28,7 +28,8 @@
             let join_coord_fan = join_coord_lin / varyings.is_outer_corner;
         
             // Get the line coord in physical pixels.
-            // For joins, the outer vertices are inset, and we need to take that into account.
+            // For joins, the outer vertices are inset, and we need to take that into account,
+            // so that the origin is at the node (i.e. the pivot point).
             var segment_coord_p = varyings.segment_coord_p;
             if (is_join) {
                 let dist_from_segment = abs(join_coord_lin);
