@@ -2,7 +2,10 @@
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
 
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-            let half_thickness_p = varyings.half_thickness_p;
+
+            // Get the half-thickness in physical coordinates. This is the reference thickness.
+            // If aa is used, the line is actually a bit thicker, leaving space to do aa.
+            let half_thickness_p = 0.5 * varyings.thickness_p; 
 
             // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
             if (varyings.valid_if_nonzero == 0.0) {
@@ -36,6 +39,9 @@
                 let a = segment_coord_p.x / dist_from_segment;
                 segment_coord_p = vec2<f32>(max(0.0, dist_from_segment - 0.5) * a, segment_coord_p.y);
             }
+
+            // Calculate the distance to the stroke's edge. Negative means inside, positive means outside. Just like SDF.
+            var dist_to_stroke_p = length(segment_coord_p) - half_thickness_p;
 
             $$ if dashing
 
@@ -75,11 +81,11 @@
                 //       /          \
                 //  ----|------------|----
                 //  0         0.5        1    dash_progress
-                // 0.2  0    -0.3    0  0.2   dist_to_stroke
+                // 0.2  0    -0.3    0  0.2   dist_to_dash
                 //
                 let dist_to_begin = (0.5 - 0.5 * dash_ratio) - dash_progress;
                 let dist_to_end = dash_progress - (0.5 + 0.5 * dash_ratio);
-                let dist_to_stroke = max(0.0, max(dist_to_begin, dist_to_end));
+                let dist_to_dash = max(0.0, max(dist_to_begin, dist_to_end));
 
                 // Get cumdist scale factor
                 let dpd_cumdist = length(vec2<f32>(dpdxFine(cumdist_linear), dpdyFine(cumdist_linear)));
@@ -88,7 +94,7 @@
                 // Convert to (physical) pixel units
                 let dist_to_begin_p = dist_to_begin * dashdist_to_physical;
                 let dist_to_end_p = dist_to_end * dashdist_to_physical;
-                let dist_to_stroke_p = dist_to_stroke * dashdist_to_physical;
+                let dist_to_dash_p = dist_to_dash * dashdist_to_physical;
 
                 // At broken joins there is overlapping cumdist in both caps. The code below
                 // avoids (not 100% prevents) the begin or end of a cap to be drawn twice.
@@ -108,40 +114,32 @@
                 if (abs(join_coord_lin) > 0.5) {
                     yy = length(segment_coord_p);  // smoother dash-turns
                 }
-                let vec_to_stroke_p = vec2<f32>(dist_to_stroke_p, yy);
-
-                // Butt caps
-                if (dist_to_stroke > 0.0) {
-                   //discard;
-                }
-
-                // Round caps
-                if (length(vec_to_stroke_p) > half_thickness_p) {
-                    discard;
-                }
+                let vec_to_dash_p = vec2<f32>(dist_to_dash_p, yy);
+                
+                // Apply cap
+                //let dist_to_stroke_dash_p = vec_to_dash_p.x;  // Butt caps
+                let dist_to_stroke_dash_p = length(vec_to_dash_p) - half_thickness_p; // Round caps
+               
+                // Update dist_to_stroke_p with dash info
+                dist_to_stroke_p = max(dist_to_stroke_p, dist_to_stroke_dash_p);
 
                 // end dashing
             $$ endif
 
-            // Round caps and joins
-            let dist_to_node_p = length(segment_coord_p);
-            if (dist_to_node_p >  half_thickness_p) {
-                discard;
-            }
-
-            // Prep
-            var alpha: f32 = 1.0;
-
-            // Anti-aliasing. Note that because of the discarding above, we cannot use MSAA.
+            // Anti-aliasing.
             // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
             // here this will help the end result. Because this produces semitransparent fragments,
             // it relies on a good blend method, and the object gets drawn twice.
-            $$ if false
-                let aa_width = 1.0;
-                alpha = (half_thickness_p - abs(dist_to_node_p)) / aa_width;
-                alpha = clamp(alpha, 0.0, 1.0);
+            var alpha: f32 = 1.0;
+            $$ if aa
+                alpha = clamp(0.5 - dist_to_stroke_p, 0.0, 1.0);
+                alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
+                if (alpha <= 0.0) { discard; }
+            $$ else
+                if (dist_to_stroke_p > 0.0) { discard; }
             $$ endif
 
+            // Determine srgb color
             $$ if color_mode == 'vertex' or color_mode == 'face'
                 let color = varyings.color;
             $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
@@ -150,16 +148,14 @@
                 let color = u_material.color;
             $$ endif
 
-            var physical_color = srgb2physical(color.rgb);
+            // DEBUG
             $$ if false
-                // DEBUG
-                //physical_color = vec3<f32>(1.0, 0.0, 0.0);
-                physical_color = vec3<f32>(abs(vec_to_stroke_p.y / 20.0), 0.0, 0.0);
-                //physical_color = vec3<f32>(0.0, f32(abs(vec_to_stroke_p.y) / 10.0), 1.0);
+                physical_color = vec3<f32>(abs(vec_to_dash_p.y / 20.0), 0.0, 0.0);
             $$ endif
-            let opacity = min(1.0, color.a) * alpha * u_material.opacity;
 
-            //let opacity_multiplier = select(-1.0, 1.0, !is_front);
+            // Determine final rgba value            
+            var physical_color = srgb2physical(color.rgb);
+            let opacity = min(1.0, color.a) * alpha * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 
             // Wrap up

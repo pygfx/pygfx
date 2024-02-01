@@ -1,5 +1,5 @@
  fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
+            index:i32, screen_factor:vec2<f32>, thickness:f32, l2p:f32
         ) -> VertexFuncOutput {
             //
             // This vertex shader uses VertexId and storage buffers instead of vertex buffers.
@@ -73,6 +73,13 @@
             // Calculate the angle between them. We use this at the end to rotate the coord.
             var angle1 = atan2(nodevec1.y, nodevec1.x);
             var angle2 = atan2(nodevec2.y, nodevec2.x);
+
+            // The thickness of the line in terms of geometry is a wee bit thicker.
+            // Just enough so that fragments that are partially on the line, are also included
+            // in the fragment shader. That way we can do aa without making the lines thinner.
+            // All logic in this function works with the ticker line width. But we pass the real line width as a varying.
+            let extra_thick = 0.5 / l2p;  // on each side.
+            let half_thickness = 0.5 * thickness + extra_thick * {{ '1.0' if aa else '0.0' }};
 
             // Declare vertex cords (x along segment, y perpendicular to it).
             // The coords 1 and 5 have a positive y coord, the coords 2 and 6 negative.
@@ -277,8 +284,8 @@
             out.face_index = face_index;
             out.pos = the_pos_n;
             // Varyings
-            out.half_thickness_p = half_thickness * l2p;
-            out.segment_coord_p = the_coord * half_thickness * l2p;
+            out.thickness_p = thickness * l2p;  // the real thickness
+            out.segment_coord_p = the_coord * half_thickness * l2p;  // uses a slightly wider thickness
             out.join_coord = join_coord;
             out.is_outer_corner = is_outer_corner;
             out.valid_if_nonzero = valid_array[vertex_index];

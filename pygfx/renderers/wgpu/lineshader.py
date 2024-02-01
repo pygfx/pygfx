@@ -222,8 +222,8 @@ class LineShader(WorldObjectShader):
             node_index: i32,
             face_index: i32,
             pos: vec4<f32>,
-            // Varying specifying the half-thickness of the line (i.e. radius), in physical pixels.
-            half_thickness_p: f32,
+            // Varying specifying the thickness of the line, in physical pixels.
+            thickness_p: f32,
             // Varying vector representing the distance from the segment's centerline, in physical pixels.
             segment_coord_p: vec2<f32>,
             // Varying that is -1 or 1 for the outer corner in a join, for vertex 3 and 4, respectively. Is also used to identify faces that are a join.
@@ -278,17 +278,16 @@ class LineShader(WorldObjectShader):
             let index = i32(in.index);
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-            let extra_thick = {{ '0.5' if aa else '0.0' }} / l2p;
-            let half_thickness:f32 = u_material.thickness * 0.5 + extra_thick;  // logical pixels
+            let thickness:f32 = u_material.thickness;  // logical pixels
 
-            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, half_thickness, l2p);
+            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, thickness, l2p);
             let i0 = result.node_index;
             let face_index = result.face_index;
 
             var varyings: Varyings;
             varyings.position = vec4<f32>(result.pos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
-            varyings.half_thickness_p = f32(result.half_thickness_p);
+            varyings.thickness_p = f32(result.thickness_p);
             varyings.segment_coord_p = vec2<f32>(result.segment_coord_p);
             varyings.join_coord = f32(result.join_coord);
             varyings.is_outer_corner = f32(result.is_outer_corner);
