@@ -129,6 +129,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             raise TypeError(
                 f"Render target must be a Canvas or Texture, not a {target.__class__.__name__}"
             )
+        self._flusher_filter = True  # Whether the flusher applies a filter
         self._target = target
         self.pixel_ratio = pixel_ratio
 
@@ -199,9 +200,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """The ratio between the number of internal pixels versus the logical pixels on the canvas.
 
         This can be used to configure the size of the render texture
-        relative to the canvas' logical size. By default (value is None) the
-        used pixel ratio follows the screens pixel ratio on high-res
-        displays, and is 2 otherwise.
+        relative to the canvas' logical size. Can be set to None to set the default.
+        By default the pixel_ratio follows the screens pixel ratio on high-res
+        displays, and is 2.0 otherwise.
 
         If the used pixel ratio causes the render texture to be larger
         than the physical size of the canvas, SSAA is applied, resulting
@@ -213,10 +214,17 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @pixel_ratio.setter
     def pixel_ratio(self, value):
+        if not value:
+            value = None
         if value is None:
-            self._pixel_ratio = None
+            # Use 2 on non-hidpi displays. On hidpi displays follow screen.
+            canvas_ratio = self._target.get_pixel_ratio()
+            self._pixel_ratio = float(canvas_ratio) if canvas_ratio > 1 else 2.0
+            self._flusher_filter = True
         elif isinstance(value, (int, float)):
-            self._pixel_ratio = None if value <= 0 else float(value)
+            # Use absolute value
+            self._pixel_ratio = abs(float(value))
+            self._flusher_filter = value > 0  # undocumented dev-trick
         else:
             raise TypeError(
                 f"Rendered.pixel_ratio expected None or number, not {value}"
@@ -565,6 +573,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             None,
             wgpu_tex_view,
             self._gamma_correction * self._gamma_correction_srgb,
+            self._flusher_filter,
         )
         self._device.queue.submit(command_buffers)
 

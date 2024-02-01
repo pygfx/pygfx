@@ -136,7 +136,9 @@ class RenderFlusher:
         self._bind_group = None
         self._bind_group_hash = None
 
-    def render(self, src_color_tex, src_depth_tex, dst_color_tex, gamma=1.0):
+    def render(
+        self, src_color_tex, src_depth_tex, dst_color_tex, gamma=1.0, filter=True
+    ):
         """Render the (internal) result of the renderer to a texture view."""
 
         # NOTE: src_depth_tex is not used yet, see #492
@@ -158,10 +160,10 @@ class RenderFlusher:
             )
 
         # Ready to go!
-        self._update_uniforms(src_color_tex, dst_color_tex, gamma)
+        self._update_uniforms(src_color_tex, dst_color_tex, gamma, filter)
         return self._render(dst_color_tex)
 
-    def _update_uniforms(self, src_color_tex, dst_color_tex, gamma):
+    def _update_uniforms(self, src_color_tex, dst_color_tex, gamma, filter):
         # Get factor between texture sizes
         factor_x = src_color_tex.size[0] / dst_color_tex.size[0]
         factor_y = src_color_tex.size[1] / dst_color_tex.size[1]
@@ -182,6 +184,11 @@ class RenderFlusher:
             # But we also smooth to reduce the blockiness.
             sigma = 0.5
             support = 2
+
+        # Setting support to zero will only sample the center/actual pixel.
+        # This results one to see the pixels if the factor < 1
+        if not filter:
+            support = 0
 
         # Compose
         self._uniform_data["size"] = src_color_tex.size[:2]
