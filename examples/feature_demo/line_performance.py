@@ -4,6 +4,7 @@ Line Drawing Performance
 
 Display a line depicting a noisy signal consisting of a lot of points.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

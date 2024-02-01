@@ -8,6 +8,7 @@ This is a feature necessary to implement e.g. subplots. This example
 uses a low-level approach without using the Viewport object. See
 scene_subplot2.py for a slightly higher-level approach.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

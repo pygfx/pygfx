@@ -6,6 +6,7 @@ Spotlight Shadow
 
 Spotlights and shadows example
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import time

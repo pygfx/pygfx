@@ -7,6 +7,7 @@ Example showing orbit camera controller.
 Press 's' to save the state, and
 press 'l' to load the last saved state.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio

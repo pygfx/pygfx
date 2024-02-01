@@ -9,6 +9,7 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 * The other corners must be black, cut off at exactly half way: the depth is 0-1.
 
 """
+
 # test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run

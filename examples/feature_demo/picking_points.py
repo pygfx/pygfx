@@ -5,6 +5,7 @@ Point Picking
 Example showing picking points. When clicking on a point, it's location
 is changed. With a small change, a line is shown instead.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

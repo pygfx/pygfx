@@ -9,6 +9,7 @@ One of the shown objects is semi-transparent. In order for picking to
 work on such objects, the ``renderer.blend_mode`` must be set to
 "weighted_plus".
 """
+
 # sphinx_gallery_pygfx_render = True
 
 # todo: if we have per-vertex coloring, we can paint on the mesh instead :D

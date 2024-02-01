@@ -4,6 +4,7 @@ Use gfx.show to show a Scene
 
 Demonstrates show utility for a scene
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 

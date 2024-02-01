@@ -4,6 +4,7 @@ Look At
 
 This example shows how the look_at function can be used.
 """
+
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_target_name = "disp"
 from time import perf_counter

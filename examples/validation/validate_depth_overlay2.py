@@ -6,6 +6,7 @@ Example (and test) for behavior of the depth buffer w.r.t. overlays,
 implemented using ``Material.depth_test``. The overlaid object should
 always be on top.
 """
+
 # test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run

@@ -12,6 +12,7 @@ compensates for this effect.
 On the right the text uses an outline to give a good appearance on any
 background.
 """
+
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_target_name = "renderer"
 

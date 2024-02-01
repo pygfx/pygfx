@@ -8,6 +8,7 @@ rectangles near the near and far clipping planes.
 * Only the two green ones should be visible.
 * The greener square should be in the upper-left.
 """
+
 # test_example = true
 
 from wgpu.gui.auto import WgpuCanvas, run

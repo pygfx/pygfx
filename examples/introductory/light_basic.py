@@ -6,6 +6,7 @@ Lights
 Simple light example.
 This example shows a cube with MeshPhongMaterial illuminated by a point light and a directional light.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import time
