@@ -4,6 +4,7 @@ Render a Triangle
 
 Replicating the WGPU triangle example, but with about 10x less code.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run

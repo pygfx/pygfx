@@ -6,6 +6,7 @@ Example showing a 3D scene, with an object overload via
 ``Material.depth_test``, and a 2D scene overlay over it all using an
 overlay render pass.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

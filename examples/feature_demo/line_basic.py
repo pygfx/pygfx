@@ -5,6 +5,7 @@ Line Drawing
 
 Some basic line drawing.
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "canvas"
 

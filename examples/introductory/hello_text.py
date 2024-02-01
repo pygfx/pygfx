@@ -4,6 +4,7 @@ Hello text
 
 Example showing text in world and screen space.
 """
+
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_target_name = "disp"
 

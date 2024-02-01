@@ -4,6 +4,7 @@ Sphere Geometry
 
 Example showing different types of geometric cylinders.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

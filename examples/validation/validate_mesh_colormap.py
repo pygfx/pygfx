@@ -7,6 +7,7 @@ Show meshes with 1D, 2D, and 3D colormaps, and per-vertex colors too.
 * You should see four cylinders with block-pattern colors.
 * The right-most cylinder is smoothly colored matching its normal.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

@@ -6,6 +6,7 @@ PBR Rendering 2
 This example shows the lighting rendering affect of materials with different
 metalness and roughness. Every second sphere has an IBL environment map on it.
 """
+
 # run_example = false
 # sphinx_gallery_pygfx_animate = True
 # sphinx_gallery_pygfx_duration = 3

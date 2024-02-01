@@ -4,6 +4,7 @@ Thick Lines
 
 Display very thick lines to show how lines stay pretty on large scales.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import random

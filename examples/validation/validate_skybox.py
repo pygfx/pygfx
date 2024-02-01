@@ -9,6 +9,7 @@ it also covers the internal cube-camera-renderer.
 Note that the blue -Z side is marked "back", but since camera's look down the
 -Z direction, it'd be what the camera would see if it was not rotated.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

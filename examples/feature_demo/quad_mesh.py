@@ -9,6 +9,7 @@ This example also demonstrates per-vertex and per-face coloring.
 
 Contributed by S. Shaji
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np
