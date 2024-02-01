@@ -1,4 +1,5 @@
 """Global configuration for pytest"""
+
 import numpy as np
 import pytest
 

@@ -10,6 +10,7 @@ Example test to validate winding and culling.
 * Hit space to toggle flat shading.
 
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

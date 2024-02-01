@@ -5,6 +5,7 @@ Map Screen to World
 This shows how to map from the screen to the world
 by adding scatter points at click event locations
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run

@@ -9,6 +9,7 @@ normal lines material.
 This shows a flattened cylinder, with normal lines sticking out both
 at the front and back faces.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

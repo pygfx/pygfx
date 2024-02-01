@@ -9,6 +9,7 @@ This example shows text with different sizes.
 * On the right the text is in world space. The text must sit snugly with its
   baseline on the bottom line.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

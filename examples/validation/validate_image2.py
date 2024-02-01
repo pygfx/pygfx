@@ -8,6 +8,7 @@ Show an image displayed the correct way.
 * The green dots should be in the center of these pixels.
 * The darker corner is in the bottom left.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

@@ -5,6 +5,7 @@ Reference Color
 This example draws squares of reference colors. These can be compared to
 similar output from e.g. Matplotlib.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

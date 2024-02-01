@@ -5,6 +5,7 @@ Use a Skybox
 Example with a skybox background in a rotating scene.
 
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio
