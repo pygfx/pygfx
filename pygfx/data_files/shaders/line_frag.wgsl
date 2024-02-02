@@ -1,6 +1,10 @@
-@fragment
-        fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+$$ if dashing
+    const dash_count = {{dash_count}};
+$$ endif
 
+@fragment
+fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+            
             let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
             // Get the half-thickness in physical coordinates. This is the reference thickness.
@@ -44,7 +48,7 @@
             var dist_to_stroke_p = length(segment_coord_p) - half_thickness_p;
 
             $$ if dashing
-
+                
                 // Calculate the cumulative distance along the line. We need a continuous value to parametrize
                 // the dash (and its cap). Going around the corner, it will compress on the inside, and expand
                 // on the outer side, deforming dashes as they move around the corner, appropriately.
@@ -66,16 +70,14 @@
                     cumdist_linear = cumdist_continuous;
                 }
 
-                // Calculate the total dash size, and the size of the last gap
-                var dash_pattern = mat4x2<f32>(u_material.dash_pattern);
-                let n_dashes = 4;  // TODO: maybe template this for efficiency?
+                // Calculate the total dash size, and the size of the last gap. The dash_count is a const
+                var stroke_sizes = array<f32,dash_count>{{dash_pattern[::2]}};
+                var gap_sizes = array<f32,dash_count>{{dash_pattern[1::2]}};
                 var dash_size = 0.0;
                 var last_gap = 0.0;
-                for (var i=0; i<n_dashes; i+=1) {
-                    if (dash_pattern[i][0] < 0) { break; }  // can be removed if we template n_dashes
-                    if (dash_pattern[i][1] < 0) { break; }  // can be removed if we template n_dashes
-                    dash_size += dash_pattern[i][0];
-                    last_gap = dash_pattern[i][1];
+                for (var i=0; i<dash_count; i+=1) {
+                    dash_size += stroke_sizes[i];
+                    last_gap = gap_sizes[i];
                     dash_size += last_gap;
                 }
 
@@ -96,13 +98,10 @@
                 var dist_to_end = 0.0;
                 var gap_begin = -0.5 * last_gap;
                 var stroke_begin = 0.0;
-                for (var i=0; i<n_dashes; i+=1) {
-                    if (dash_pattern[i][0] < 0) { break; }  // can be removed if we template n_dashes
-                    if (dash_pattern[i][1] < 0) { break; }  // can be removed if we template n_dashes
-                    let stoke_size = dash_pattern[i][0];
-                    let gap_size = dash_pattern[i][1];
-                    let stroke_end = stroke_begin + stoke_size;
-                    let gap_end = stroke_end + 0.5 * gap_size;
+                for (var i=0; i<dash_count; i+=1) {
+                    let half_gap_size = 0.5 * gap_sizes[i];
+                    let stroke_end = stroke_begin + stroke_sizes[i];
+                    let gap_end = stroke_end + half_gap_size;
                     if (dash_progress >= gap_begin && dash_progress <= gap_end) {
                         dist_to_begin = stroke_begin - dash_progress;
                         dist_to_end = dash_progress - stroke_end;
@@ -110,7 +109,7 @@
                     }
                     // Next
                     gap_begin = gap_end;
-                    stroke_begin = gap_end + 0.5 * gap_size;
+                    stroke_begin = gap_end + half_gap_size;
                 }
 
                 // The distance to the dash's stoke is now easy to calculate.

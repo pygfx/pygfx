@@ -359,7 +359,9 @@ class LineDashedShader(LineShader):
     def __init__(self, wobject):
         super().__init__(wobject)
 
-        self["dashing"] = True
+        self["dashing"] = bool(wobject.material.dash_pattern)
+        self["dash_pattern"] = wobject.material.dash_pattern
+        self["dash_count"] = len(wobject.material.dash_pattern) // 2
 
         n_verts = wobject.geometry.positions.nitems
         distance_array = np.zeros((n_verts,), np.float32)

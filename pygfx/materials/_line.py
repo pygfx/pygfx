@@ -178,11 +178,6 @@ class LineDashedMaterial(LineMaterial):
         If False, the dash is expressed in model/world coordinates.
     """
 
-    uniform_type = dict(
-        LineMaterial.uniform_type,
-        dash_pattern="4x2xf4",
-    )
-
     def __init__(
         self,
         *args,
@@ -204,9 +199,7 @@ class LineDashedMaterial(LineMaterial):
         describes a a stroke of 5 unnits, a gap of 2, then short stroke of 1, and another gap of 2.
         Units are relative to the line thickness.
         """
-        return tuple(
-            float(v) for v in self.uniform_buffer.data["dash_pattern"].flat if v >= 0
-        )
+        return self._store.dash_pattern
 
     @dash_pattern.setter
     def dash_pattern(self, value):
@@ -214,14 +207,9 @@ class LineDashedMaterial(LineMaterial):
             raise TypeError(
                 "Line dash_pattern must be a sequence of floats, not '{value}'"
             )
-        if len(value) not in (2, 4, 6, 8):
-            raise ValueError("Line dash_pattern must have 2, 4, 6, or 8 elements.")
-        pattern = [max(0.0, float(v)) for v in value]
-        while len(pattern) < 8:
-            pattern.append(-1)
-
-        self.uniform_buffer.data["dash_pattern"].flat = pattern
-        self.uniform_buffer.update_range(0, 1)
+        if len(value) % 2:
+            raise ValueError("Line dash_pattern must have an even number of elements.")
+        self._store.dash_pattern = tuple(max(0.0, float(v)) for v in value)
 
     @property
     def dash_offset(self):
