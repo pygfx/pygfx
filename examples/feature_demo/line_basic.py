@@ -66,8 +66,9 @@ def change_material(event):
         line.material = gfx.LineDashedMaterial(
             thickness=20.0,
             color=(0.8, 0.7, 0.0),
-            dash_size=30,
-            dash_ratio=0.2,
+            # dash_size=30,
+            # dash_ratio=0.2,
+            dash_pattern=(0, 25, 40, 25),
             dash_is_screen_space=True,
             opacity=0.5,
         )

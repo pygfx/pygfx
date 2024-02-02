@@ -169,12 +169,8 @@ class LineDashedMaterial(LineMaterial):
 
     Parameters
     ----------
-    dash_size : float
-        The size of one dash cycle (stroke plus gap). Default 3.0.
-    dash_ratio : float
-        The fraction of the dash that is a stroke, the remainder being the gap.
-        This is a fraction between 0 and 1. Zero being fully a gap, and one having
-        no gap. Default 0.5.
+    dash_pattern : tuple
+        The pattern of the dash, expressed as a series of (2, 4, 6, or 8) floats.
     dash_offset : float
         The offset into the dash cycle to start drawing at. Default 0.0.
     dash_is_screen_space : bool
@@ -184,45 +180,47 @@ class LineDashedMaterial(LineMaterial):
 
     uniform_type = dict(
         LineMaterial.uniform_type,
-        dash_size="f4",
-        dash_ratio="f4",
+        dash_pattern="4x2xf4",
     )
 
     def __init__(
         self,
         *args,
-        dash_size=3.0,
-        dash_ratio=0.5,
+        dash_pattern=(1, 1),
         dash_offset=0,
         dash_is_screen_space=True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.dash_size = dash_size
-        self.dash_ratio = dash_ratio
+        self.dash_pattern = dash_pattern
         self.dash_offset = dash_offset
         self.dash_is_screen_space = dash_is_screen_space
 
     @property
-    def dash_size(self):
-        """The size of one dash cycle (stroke plus gap), i.e. the period."""
-        return float(self.uniform_buffer.data["dash_size"])
+    def dash_pattern(self):
+        """The dash pattern.
 
-    @dash_size.setter
-    def dash_size(self, value):
-        value = max(0.0, float(value))
-        self.uniform_buffer.data["dash_size"] = value
-        self.uniform_buffer.update_range(0, 1)
+        A sequence of floats describing the length of strokes and gaps. For example, (5, 2, 1, 2)
+        describes a a stroke of 5 unnits, a gap of 2, then short stroke of 1, and another gap of 2.
+        Units are relative to the line thickness.
+        """
+        return tuple(
+            float(v) for v in self.uniform_buffer.data["dash_pattern"].flat if v >= 0
+        )
 
-    @property
-    def dash_ratio(self):
-        """The fraction (0..1) of the dash that is a stroke, the remainder being the gap."""
-        return float(self.uniform_buffer.data["dash_ratio"])
+    @dash_pattern.setter
+    def dash_pattern(self, value):
+        if not isinstance(value, (tuple, list)):
+            raise TypeError(
+                "Line dash_pattern must be a sequence of floats, not '{value}'"
+            )
+        if len(value) not in (2, 4, 6, 8):
+            raise ValueError("Line dash_pattern must have 2, 4, 6, or 8 elements.")
+        pattern = [max(0.0, float(v)) for v in value]
+        while len(pattern) < 8:
+            pattern.append(-1)
 
-    @dash_ratio.setter
-    def dash_ratio(self, value):
-        value = max(0.0, min(1.0, float(value)))
-        self.uniform_buffer.data["dash_ratio"] = value
+        self.uniform_buffer.data["dash_pattern"].flat = pattern
         self.uniform_buffer.update_range(0, 1)
 
     @property

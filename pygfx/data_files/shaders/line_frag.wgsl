@@ -66,30 +66,61 @@
                     cumdist_linear = cumdist_continuous;
                 }
 
-                // Calculate dash_progress, a number 0..1, indicating the fase of the dash.
-                // The local_dash_offset is to counter the effect of how we define a dash further below,
-                // so that a line begins with a stroke.
-                let dash_size = u_material.dash_size;
-                let dash_ratio = u_material.dash_ratio;
-                let local_dash_offset = (0.5 - 0.5 * dash_ratio) * dash_size;
-                let dash_progress = ((cumdist_continuous + local_dash_offset) % dash_size) / dash_size;
+                // Calculate the total dash size, and the size of the last gap
+                var dash_pattern = mat4x2<f32>(u_material.dash_pattern);
+                let n_dashes = 4;  // TODO: maybe template this for efficiency?
+                var dash_size = 0.0;
+                var last_gap = 0.0;
+                for (var i=0; i<n_dashes; i+=1) {
+                    if (dash_pattern[i][0] < 0) { break; }  // can be removed if we template n_dashes
+                    if (dash_pattern[i][1] < 0) { break; }  // can be removed if we template n_dashes
+                    dash_size += dash_pattern[i][0];
+                    last_gap = dash_pattern[i][1];
+                    dash_size += last_gap;
+                }
 
-                // Get distance to dash-stroke. We make the stroke the center
-                // of the dash period, which makes the math easier, as well as the logic for the caps.
+                // Calculate dash_progress, a number 0..dash_size, indicating the fase of the dash.
+                // Except that we shift it, so that half of the final gap gets in front (as a negative number).
+                let dash_progress = (cumdist_continuous + 0.5 * last_gap) % dash_size - 0.5 * last_gap;
+                
+                // Its looks a bit like this. Now we select the nearest stroke, and calculate the
+                // distance to the beginning and end of that stroke. 
                 //
-                //        ratio e.g. 0.6
-                //       /          \
-                //  ----|------------|----
-                //  0         0.5        1    dash_progress
-                // 0.2  0    -0.3    0  0.2   dist_to_dash
+                //  -0.5*last_gap      0                                              dash_size-0.5*last_gap     dash_size
+                //     |               |                                                          |               |
+                //     |---------------|XXXXXXXXXXXXXXX|-------|-------|XXXXXXXXXX|---------------|...............|
+                //     |               |               |       |
+                //  gap_begin    stroke_begin    stroke_end    gap_end (i.e. begin of next stroke)
                 //
-                let dist_to_begin = (0.5 - 0.5 * dash_ratio) - dash_progress;
-                let dist_to_end = dash_progress - (0.5 + 0.5 * dash_ratio);
+                var dist_to_begin = 0.0;
+                var dist_to_end = 0.0;
+                var gap_begin = -0.5 * last_gap;
+                var stroke_begin = 0.0;
+                for (var i=0; i<n_dashes; i+=1) {
+                    if (dash_pattern[i][0] < 0) { break; }  // can be removed if we template n_dashes
+                    if (dash_pattern[i][1] < 0) { break; }  // can be removed if we template n_dashes
+                    let stoke_size = dash_pattern[i][0];
+                    let gap_size = dash_pattern[i][1];
+                    let stroke_end = stroke_begin + stoke_size;
+                    let gap_end = stroke_end + 0.5 * gap_size;
+                    if (dash_progress >= gap_begin && dash_progress <= gap_end) {
+                        dist_to_begin = stroke_begin - dash_progress;
+                        dist_to_end = dash_progress - stroke_end;
+                        break;
+                    }
+                    // Next
+                    gap_begin = gap_end;
+                    stroke_begin = gap_end + 0.5 * gap_size;
+                }
+
+                // The distance to the dash's stoke is now easy to calculate.
+                // Note that it's also possible to calculate dist_to_dash without dist_to_begin
+                // and dist_to_end, but we need these for the trick in broken joins below.
                 let dist_to_dash = max(0.0, max(dist_to_begin, dist_to_end));
 
                 // Get cumdist scale factor
                 let dpd_cumdist = length(vec2<f32>(dpdxFine(cumdist_linear), dpdyFine(cumdist_linear)));
-                let dashdist_to_physical = dash_size / dpd_cumdist;
+                let dashdist_to_physical = 1.0 / dpd_cumdist;
 
                 // Convert to (physical) pixel units
                 let dist_to_begin_p = dist_to_begin * dashdist_to_physical;
