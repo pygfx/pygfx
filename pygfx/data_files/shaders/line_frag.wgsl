@@ -9,7 +9,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
             // Get the half-thickness in physical coordinates. This is the reference thickness.
             // If aa is used, the line is actually a bit thicker, leaving space to do aa.
+            // TODO: might as well pass the screen thicknes as a varying :)
             let half_thickness_p = 0.5 * varyings.thickness_p; 
+            let thickness_s = half_thickness_p * 2.0 / l2p;
 
             // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
             if (varyings.valid_if_nonzero == 0.0) {
@@ -70,9 +72,15 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                     cumdist_linear = cumdist_continuous;
                 }
 
-                // Calculate the total dash size, and the size of the last gap. The dash_count is a const
+                // Define dash pattern, scale with (local) thickness
                 var stroke_sizes = array<f32,dash_count>{{dash_pattern[::2]}};
                 var gap_sizes = array<f32,dash_count>{{dash_pattern[1::2]}};
+                for (var i=0; i<dash_count; i+=1) {
+                    stroke_sizes[i] = stroke_sizes[i] * thickness_s;
+                    gap_sizes[i] = gap_sizes[i] * thickness_s;
+                }
+
+                // Calculate the total dash size, and the size of the last gap. The dash_count is a const
                 var dash_size = 0.0;
                 var last_gap = 0.0;
                 for (var i=0; i<dash_count; i+=1) {

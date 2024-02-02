@@ -66,14 +66,14 @@ def change_material(event):
         line.material = gfx.LineDashedMaterial(
             thickness=20.0,
             color=(0.8, 0.7, 0.0),
-            # dash_size=30,
-            # dash_ratio=0.2,
-            dash_pattern=(0, 25, 40, 25),
+            dash_pattern=(4, 2, 3, 2, 2, 2, 1, 2, 0, 2),
             dash_is_screen_space=True,
             opacity=0.5,
         )
     elif event.key == "o":
         line.material.dash_offset += 4
+    elif event.key == "a":
+        line.material.aa = not line.material.aa
     renderer.request_draw()
 
 
