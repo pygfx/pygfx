@@ -8,6 +8,7 @@ In this case the wireframe is lit while the solid mesh is not,
 producing a look of a metallic frame around a soft tube.
 
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run

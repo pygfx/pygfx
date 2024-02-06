@@ -61,6 +61,7 @@ class LineShader(WorldObjectShader):
         self["line_type"] = "line"
         self["aa"] = material.aa
         self["dashing"] = False
+        self["thickness_space"] = material.thickness_space
 
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
@@ -223,9 +224,9 @@ class LineShader(WorldObjectShader):
             face_index: i32,
             pos: vec4<f32>,
             // Varying specifying the thickness of the line, in physical pixels.
-            thickness_p: f32,
+            thickness_pw: f32,
             // Varying vector representing the distance from the segment's centerline, in physical pixels.
-            segment_coord_p: vec2<f32>,
+            segment_coord_pw: vec2<f32>,
             // Varying that is -1 or 1 for the outer corner in a join, for vertex 3 and 4, respectively. Is also used to identify faces that are a join.
             join_coord: f32,
             // Varying that is 1 for vertices in the outer corner of a join. Used in combination with join_coord to obtain a coord that fans around the corner.
@@ -234,8 +235,8 @@ class LineShader(WorldObjectShader):
             valid_if_nonzero: f32,
             // Varyings required for dashing
             $$ if dashing
-                cumdist_node: f32,
-                cumdist_vertex: f32,
+                cumdist_node_w: f32,
+                cumdist_vertex_w: f32,
             $$ endif
         };
         """
@@ -243,6 +244,13 @@ class LineShader(WorldObjectShader):
     def code_helpers(self):
         return """
 
+        fn get_point_world(index:i32) -> vec4<f32> {
+            let raw_pos = load_s_positions(index);
+            let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
+            return world_pos;
+        }
+
+        // todo: remove?
         fn get_point_ndc(index:i32) -> vec4<f32> {
             let raw_pos = load_s_positions(index);
             let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
@@ -278,23 +286,23 @@ class LineShader(WorldObjectShader):
             let index = i32(in.index);
             let screen_factor = u_stdinfo.logical_size.xy / 2.0;
             let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-            let thickness:f32 = u_material.thickness;  // logical pixels
 
-            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, thickness, l2p);
+            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, l2p);
             let i0 = result.node_index;
             let face_index = result.face_index;
 
             var varyings: Varyings;
             varyings.position = vec4<f32>(result.pos);
             varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
-            varyings.thickness_p = f32(result.thickness_p);
-            varyings.segment_coord_p = vec2<f32>(result.segment_coord_p);
+            varyings.w = f32(result.pos.w);
+            varyings.thickness_pw = f32(result.thickness_pw);
+            varyings.segment_coord_pw = vec2<f32>(result.segment_coord_pw);
             varyings.join_coord = f32(result.join_coord);
             varyings.is_outer_corner = f32(result.is_outer_corner);
             varyings.valid_if_nonzero = f32(result.valid_if_nonzero);
             $$ if dashing
-                varyings.cumdist_node = f32(result.cumdist_node);
-                varyings.cumdist_vertex = f32(result.cumdist_vertex);
+                varyings.cumdist_node_w = f32(result.cumdist_node_w);
+                varyings.cumdist_vertex_w = f32(result.cumdist_vertex_w);
             $$ endif
 
             // Picking
@@ -360,7 +368,7 @@ class LineDashedShader(LineShader):
         super().__init__(wobject)
 
         self["dashing"] = bool(wobject.material.dash_pattern)
-        self["dash_pattern"] = wobject.material.dash_pattern
+        self["dash_pattern"] = tuple(wobject.material.dash_pattern)
         self["dash_count"] = len(wobject.material.dash_pattern) // 2
 
         n_verts = wobject.geometry.positions.nitems
@@ -385,16 +393,20 @@ class LineDashedShader(LineShader):
         distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
 
         # Get vertices in the appropriate coordinate frame
-        if wobject.material.dash_is_screen_space:
-            xyz = la.vec_transform(positions_array, camera.camera_matrix)
-            vertex_array = xyz[:, :2] * (0.5 * np.array(logical_size))
-        else:
+        if wobject.material.thickness_space == "model":
             # Skip this step if the position data has not changed
             positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
             if positions_hash == self._positions_hash:
                 return
             self._positions_hash = positions_hash
             vertex_array = positions_array
+        elif wobject.material.thickness_space == "world":
+            vertex_array = la.vec_transform(positions_array, wobject.world.matrix)
+        else:  # wobject.material.thickness_space == "screen":
+            xyz = la.vec_transform(
+                positions_array, camera.camera_matrix @ wobject.world.matrix
+            )
+            vertex_array = xyz[:, :2] * (0.5 * np.array(logical_size))
 
         # Calculate distances
         distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)

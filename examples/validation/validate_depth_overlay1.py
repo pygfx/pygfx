@@ -6,6 +6,7 @@ Example (and test) for behavior of the depth buffer w.r.t. overlays,
 implemented by multiple render calls. The overlay should always be on
 top.
 """
+
 # test_example = true
 
 import numpy as np

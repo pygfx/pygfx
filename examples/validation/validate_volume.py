@@ -7,6 +7,7 @@ Render a volume and volume slices. You should see:
 * On the right: three orthogonal slices inside - and through the middle of - a green box.
 * The volume has its corners darker and its very center is brighter.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

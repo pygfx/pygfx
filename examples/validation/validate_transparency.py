@@ -4,6 +4,7 @@ Transparency
 
 This example draws a series of semitransparent planes using weighted_plus.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

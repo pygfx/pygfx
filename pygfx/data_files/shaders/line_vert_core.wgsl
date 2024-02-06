@@ -1,5 +1,5 @@
  fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, thickness:f32, l2p:f32
+            index:i32, screen_factor:vec2<f32>, l2p:f32
         ) -> VertexFuncOutput {
             //
             // This vertex shader uses VertexId and storage buffers instead of vertex buffers.
@@ -55,12 +55,19 @@
             let vertex_num = vertex_index + 1;
             let face_index = (index + 2) / 6;
 
-            // Sample the current node and it's two neighbours, and convert to NDC
+            // Sample the current node and it's two neighbours. Model coords.
             // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-            let node1n = get_point_ndc(max(0, node_index - 1));
-            let node2n = get_point_ndc(node_index);
-            let node3n = get_point_ndc(min(u_renderer.last_i, node_index + 1));
-
+            let node1m = load_s_positions(max(0, node_index - 1));
+            let node2m = load_s_positions(node_index);
+            let node3m = load_s_positions(min(u_renderer.last_i, node_index + 1));
+            // Convert to world
+            let node1w = u_wobject.world_transform * vec4<f32>(node1m.xyz, 1.0);
+            let node2w = u_wobject.world_transform * vec4<f32>(node2m.xyz, 1.0);
+            let node3w = u_wobject.world_transform * vec4<f32>(node3m.xyz, 1.0);
+            // convert to NDC
+            let node1n = u_stdinfo.projection_transform * u_stdinfo.cam_transform * node1w;
+            let node2n = u_stdinfo.projection_transform * u_stdinfo.cam_transform * node2w;
+            let node3n = u_stdinfo.projection_transform * u_stdinfo.cam_transform * node3w;
             // Convert to logical screen coordinates, because that's where the lines work
             let node1s = (node1n.xy / node1n.w + 1.0) * screen_factor;
             let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
@@ -78,6 +85,29 @@
             // Just enough so that fragments that are partially on the line, are also included
             // in the fragment shader. That way we can do aa without making the lines thinner.
             // All logic in this function works with the ticker line width. But we pass the real line width as a varying.
+            $$ if thickness_space == "screen"
+                let thickness_ratio = 1.0;
+            $$ else
+                // The thickness is expressed in world space. So we first check where a point, moved 1 logic pixel away
+                // from the node, ends up in world space. We actually do that for both x and y, in case there's anisotropy.
+                let node2s_shiftedx = node2s + vec2<f32>(1.0, 0.0);
+                let node2s_shiftedy = node2s + vec2<f32>(0.0, 1.0);
+                let node2n_shiftedx = vec4<f32>((node2s_shiftedx / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
+                let node2n_shiftedy = vec4<f32>((node2s_shiftedy / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
+                let node2w_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * node2n_shiftedx;
+                let node2w_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * node2n_shiftedy;
+                $$ if thickness_space == "model"
+                    // Transform back to model space
+                    let node2m_shiftedx = u_wobject.world_transform_inv * node2w_shiftedx;
+                    let node2m_shiftedy = u_wobject.world_transform_inv * node2w_shiftedy;
+                    // Distance in model space
+                    let thickness_ratio = 0.5 * (distance(node2m.xyz, node2m_shiftedx.xyz) + distance(node2m.xyz, node2m_shiftedy.xyz));
+                $$ else
+                    // Distance in world space
+                    let thickness_ratio = 0.5 * (distance(node2w.xyz, node2w_shiftedx.xyz) + distance(node2w.xyz, node2w_shiftedy.xyz));
+                $$ endif 
+            $$ endif
+            let thickness:f32 = u_material.thickness / thickness_ratio;  // Logical pixels
             let extra_thick = 0.5 / l2p;  // on each side.
             let half_thickness = 0.5 * thickness + extra_thick * {{ '1.0' if aa else '0.0' }};
 
@@ -275,35 +305,49 @@
             let relative_vert_s = rotate_vec2(ref_coord + vertex_offset, ref_angle) * half_thickness;
 
             // Calculate vertex position.
+            // NOTE: the extrapolated positions (most notably the caps) are at the same depth as the node.
+            // From the use-cases I have seen so far this is not a problem (might even be favorable?),
+            // but something to keep in mind when someone encounters unexpected behavior related to caps and depth.
             let the_pos_s = node2s + relative_vert_s;
-            let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.zw);
+            let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
+
+            // A note on perspective division. Imagine a quad, oriented so it appear smaller in the distance.
+            // For each varying we must ask whether its mean value (in between the value at both ends) is
+            // reached halfway on *screen*, or halfway on the *face* (indicated below). If it's the latter
+            // (as in e.g. ndc position) then we must apply perspective division using w.
+            // TODO: check the joins
+            //  _______________________
+            // |              |        |   
+            // |              |  _ . -     
+            // |         _ . -
+            // | _ . -   
 
             // Build output
             var out : VertexFuncOutput;
             out.node_index = node_index;
             out.face_index = face_index;
             out.pos = the_pos_n;
-            // Varyings
-            out.thickness_p = thickness * l2p;  // the real thickness
-            out.segment_coord_p = the_coord * half_thickness * l2p;  // uses a slightly wider thickness
+            // Varyings. 
+            out.thickness_pw = thickness * l2p * node2n.w;  // the real thickness, in physical coords, scaled with w
+            out.segment_coord_pw = the_coord * half_thickness * l2p * node2n.w;  // uses a slightly wider thickness
             out.join_coord = join_coord;
             out.is_outer_corner = is_outer_corner;
             out.valid_if_nonzero = valid_array[vertex_index];
             
             $$ if dashing
                 // Calculate the cumdist for the node and vertex edge
-                let cumdist_node = f32(load_s_cumdist(node_index));
+                let cumdist_node = f32(load_s_cumdist(node_index)) * node2n.w;
                 var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
                 if (cumdist_offset < 0.0) {
-                    let cumdist_before = f32(load_s_cumdist(node_index - 1));
+                    let cumdist_before = f32(load_s_cumdist(node_index - 1)) * node1n.w;
                     cumdist_vertex = cumdist_node + cumdist_multiplier * cumdist_offset * (cumdist_node - cumdist_before);
                 } else if (cumdist_offset > 0.0) {
-                    let cumdist_after = f32(load_s_cumdist(node_index + 1));
+                    let cumdist_after = f32(load_s_cumdist(node_index + 1)) * node1n.w;
                     cumdist_vertex = cumdist_node + cumdist_multiplier * cumdist_offset * (cumdist_after - cumdist_node);
                 }
                 // Set two varyings, so that we can correctly interpolate the cumdist in the joins
-                out.cumdist_node = cumdist_node;
-                out.cumdist_vertex = cumdist_vertex;
+                out.cumdist_node_w = cumdist_node;
+                out.cumdist_vertex_w = cumdist_vertex;
             $$ endif
 
             return out;

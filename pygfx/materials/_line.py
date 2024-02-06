@@ -12,6 +12,8 @@ class LineMaterial(Material):
         The uniform color of the line (used depending on the ``color_mode``).
     thickness : float
         The line thickness expressed in logical pixels.
+    thickness_space : str
+        The coordinate space in which the thickness (and dash_pattern) are expressed. Default "screen".
     color_mode : enum or str
         The mode by which the line is coloured. Default 'auto'.
     map : Texture
@@ -37,6 +39,7 @@ class LineMaterial(Material):
         self,
         color=(1, 1, 1, 1),
         thickness=2.0,
+        thickness_space="screen",
         color_mode="auto",
         map=None,
         map_interpolation="linear",
@@ -50,6 +53,7 @@ class LineMaterial(Material):
         self.map = map
         self.map_interpolation = map_interpolation
         self.thickness = thickness
+        self.thickness_space = thickness_space
         self.color_mode = color_mode
 
     def _wgpu_get_pick_info(self, pick_value):
@@ -138,6 +142,28 @@ class LineMaterial(Material):
         self.uniform_buffer.update_range(0, 1)
 
     @property
+    def thickness_space(self):
+        """The coordinate space in which the thickness (and dash_pattern) are expressed.
+
+        Possible values are:
+        * "screen": logical screen pixels. The Default.
+        * "world": the world / scene coordinate frame.
+        * "model": the line's local coordinate frame (same as the line's positions).
+        """
+        return self._store.thickness_space
+
+    @thickness_space.setter
+    def thickness_space(self, value):
+        if value is None:
+            value = "screen"
+        if not isinstance(value, str):
+            raise TypeError("LineMaterial.thickness_space must be str")
+        value = value.lower()
+        if value not in ["screen", "world", "model"]:
+            raise ValueError(f"Invalid value for LineMaterial.thickness_space: {value}")
+        self._store.thickness_space = value
+
+    @property
     def map(self):
         """The texture map specifying the color for each texture coordinate.
         Can be None. The dimensionality of the map can be 1D, 2D or 3D,
@@ -173,9 +199,6 @@ class LineDashedMaterial(LineMaterial):
         The pattern of the dash, expressed as a series of (2, 4, 6, or 8) floats.
     dash_offset : float
         The offset into the dash cycle to start drawing at. Default 0.0.
-    dash_is_screen_space : bool
-        Whether the dash measures are expressed in screen space. Default True.
-        If False, the dash is expressed in model/world coordinates.
     """
 
     def __init__(
@@ -183,21 +206,20 @@ class LineDashedMaterial(LineMaterial):
         *args,
         dash_pattern=(1, 1),
         dash_offset=0,
-        dash_is_screen_space=True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.dash_pattern = dash_pattern
         self.dash_offset = dash_offset
-        self.dash_is_screen_space = dash_is_screen_space
 
     @property
     def dash_pattern(self):
         """The dash pattern.
 
         A sequence of floats describing the length of strokes and gaps. For example, (5, 2, 1, 2)
-        describes a a stroke of 5 unnits, a gap of 2, then short stroke of 1, and another gap of 2.
-        Units are relative to the line thickness.
+        describes a a stroke of 5 units, a gap of 2, then a short stroke of 1, and another gap of 2.
+        Units are relative to the line thickness (and therefore `thickness_space` also applies
+        to the `dash_pattern`).
         """
         return self._store.dash_pattern
 
@@ -219,15 +241,6 @@ class LineDashedMaterial(LineMaterial):
     @dash_offset.setter
     def dash_offset(self, value):
         self._store.dash_offset = float(value)
-
-    @property
-    def dash_is_screen_space(self):
-        """Whether the dash measures are expressed in screen space."""
-        return self._store.dash_is_screen_space
-
-    @dash_is_screen_space.setter
-    def dash_is_screen_space(self, value):
-        self._store.dash_is_screen_space = bool(value)
 
 
 class LineSegmentMaterial(LineMaterial):

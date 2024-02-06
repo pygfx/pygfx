@@ -5,13 +5,9 @@ $$ endif
 @fragment
 fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
             
-            let l2p = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-
             // Get the half-thickness in physical coordinates. This is the reference thickness.
             // If aa is used, the line is actually a bit thicker, leaving space to do aa.
-            // TODO: might as well pass the screen thicknes as a varying :)
-            let half_thickness_p = 0.5 * varyings.thickness_p; 
-            let thickness_s = half_thickness_p * 2.0 / l2p;
+            let half_thickness_p = 0.5 * varyings.thickness_pw / varyings.w; 
 
             // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
             if (varyings.valid_if_nonzero == 0.0) {
@@ -39,7 +35,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             // Get the line coord in physical pixels.
             // For joins, the outer vertices are inset, and we need to take that into account,
             // so that the origin is at the node (i.e. the pivot point).
-            var segment_coord_p = varyings.segment_coord_p;
+            var segment_coord_p = varyings.segment_coord_pw / varyings.w;
             if (is_join) {
                 let dist_from_segment = abs(join_coord_lin);
                 let a = segment_coord_p.x / dist_from_segment;
@@ -60,24 +56,28 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 if (is_join) {
                     // First calculate the cumdist at the edge where segment and join meet. 
                     // Note that cumdist_vertex == cumdist_node at the outer-corner-vertex.
-                    let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / (1.0 - abs(join_coord_lin));
+                    let cumdist_segment = varyings.cumdist_node_w - (varyings.cumdist_node_w - varyings.cumdist_vertex_w) / (1.0 - abs(join_coord_lin));
                     // Calculate the continous cumdist, by interpolating using join_coord_fan
-                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, abs(join_coord_fan));
+                    cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node_w, abs(join_coord_fan));
                     // Almost the same mix, but using join_coord_lin, and a factor two, because the vertex in the outer corner
                     // is actually further than the node (with a factor 2), from the pov of the segments.
-                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 * abs(join_coord_lin)));
+                    cumdist_linear = mix(cumdist_segment, varyings.cumdist_node_w, (2.0 * abs(join_coord_lin)));
                 } else {
                     // In a segment everything is straight.
-                    cumdist_continuous = varyings.cumdist_vertex;
+                    cumdist_continuous = varyings.cumdist_vertex_w;
                     cumdist_linear = cumdist_continuous;
                 }
+                cumdist_continuous = cumdist_continuous / varyings.w;
+                cumdist_linear = cumdist_linear / varyings.w;
+                
 
-                // Define dash pattern, scale with (local) thickness
+                // Define dash pattern, scale with (uniform) thickness.
+                // Note how the pattern is templated (triggering recompilation when it changes), wheras the thickness is a uniform.
                 var stroke_sizes = array<f32,dash_count>{{dash_pattern[::2]}};
                 var gap_sizes = array<f32,dash_count>{{dash_pattern[1::2]}};
                 for (var i=0; i<dash_count; i+=1) {
-                    stroke_sizes[i] = stroke_sizes[i] * thickness_s;
-                    gap_sizes[i] = gap_sizes[i] * thickness_s;
+                    stroke_sizes[i] = stroke_sizes[i] * u_material.thickness;
+                    gap_sizes[i] = gap_sizes[i] * u_material.thickness;
                 }
 
                 // Calculate the total dash size, and the size of the last gap. The dash_count is a const
@@ -185,14 +185,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ else
                 let color = u_material.color;
             $$ endif
+            var physical_color = srgb2physical(color.rgb);
 
             // DEBUG
             $$ if false
-                physical_color = vec3<f32>(abs(vec_to_dash_p.y / 20.0), 0.0, 0.0);
+                physical_color = vec3<f32>(abs( varyings.segment_coord_p.y / 20.0), 0.0, 0.0);
             $$ endif
 
             // Determine final rgba value            
-            var physical_color = srgb2physical(color.rgb);
             let opacity = min(1.0, color.a) * alpha * u_material.opacity;
             let out_color = vec4<f32>(physical_color, opacity);
 

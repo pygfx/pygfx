@@ -4,6 +4,7 @@ Rotating Polyhedra
 
 Example showing multiple rotating polyhedrons.
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 

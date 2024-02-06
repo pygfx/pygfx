@@ -5,6 +5,7 @@ Transform Control without Matrix Updating
 
 Example showing transform control flow without matrix auto updating.
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 

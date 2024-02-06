@@ -6,6 +6,7 @@ Example with a skybox background.
 
 Inspired by https://github.com/gfx-rs/wgpu-rs/blob/master/examples/skybox/main.rs
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio

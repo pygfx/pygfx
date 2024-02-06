@@ -5,6 +5,7 @@ Text anchor
 This example shows texts with different anchors, so the text can be
 aligned in the scene.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

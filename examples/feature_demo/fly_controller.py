@@ -4,6 +4,7 @@ Fly controller
 
 Show the fly controller in action.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run

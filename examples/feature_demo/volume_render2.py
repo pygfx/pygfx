@@ -4,6 +4,7 @@ Volume Rendering 2
 
 Render three volumes using different world transforms.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio

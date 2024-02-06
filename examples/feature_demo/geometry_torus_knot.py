@@ -4,6 +4,7 @@ Torus knot
 
 Example showing a Torus knot, with a texture and lighting.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio

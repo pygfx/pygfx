@@ -49,7 +49,6 @@ colormaps, the strength of specular reflections, etc.
 
 """
 
-
 # flake8: noqa
 
 from ._base import Material

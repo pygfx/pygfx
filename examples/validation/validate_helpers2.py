@@ -8,6 +8,7 @@ Example showing the axes and grid helpers with a perspective camera.
 * The green axis (y) stick up from the plane.
 * The red box fits snugly around the grid.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 
