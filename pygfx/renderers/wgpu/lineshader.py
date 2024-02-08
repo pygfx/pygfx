@@ -12,8 +12,9 @@ from . import (
 from ...utils import array_from_shadertype
 from ...resources import Buffer
 from ...objects import Line
-from ...materials import (
+from ...materials._line import (
     LineMaterial,
+    LineDebugMaterial,
     LineThinMaterial,
     LineThinSegmentMaterial,
     LineSegmentMaterial,
@@ -59,6 +60,7 @@ class LineShader(WorldObjectShader):
         geometry = wobject.geometry
 
         self["line_type"] = "line"
+        self["debug"] = False
         self["aa"] = material.aa
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
@@ -300,6 +302,10 @@ class LineShader(WorldObjectShader):
             varyings.join_coord = f32(result.join_coord);
             varyings.is_outer_corner = f32(result.is_outer_corner);
             varyings.valid_if_nonzero = f32(result.valid_if_nonzero);
+            $$ if debug
+                let vertex_index = index % 6;
+                varyings.bary = vec3<f32>(f32(vertex_index % 3 == 0), f32(vertex_index % 3 == 1), f32(vertex_index % 3 == 2));
+            $$ endif
             $$ if dashing
                 varyings.cumdist_node_w = f32(result.cumdist_node_w);
                 varyings.cumdist_vertex_w = f32(result.cumdist_vertex_w);
@@ -358,6 +364,14 @@ class LineShader(WorldObjectShader):
 
     def code_fragment(self):
         return load_shader("line_frag.wgsl")
+
+
+@register_wgpu_render_function(Line, LineDebugMaterial)
+class LineDebugShader(LineShader):
+    def __init__(self, wobject):
+        super().__init__(wobject)
+
+        self["debug"] = True
 
 
 @register_wgpu_render_function(Line, LineDashedMaterial)

@@ -33,6 +33,7 @@ colormaps, the strength of specular reflections, etc.
     LineArrowMaterial
     LineThinMaterial
     LineThinSegmentMaterial
+    LineDebugMaterial
 
     ImageBasicMaterial
 
@@ -70,6 +71,7 @@ from ._line import (
     LineArrowMaterial,
     LineThinMaterial,
     LineThinSegmentMaterial,
+    LineDebugMaterial,
 )
 from ._image import ImageBasicMaterial
 from ._volume import (

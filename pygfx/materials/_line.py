@@ -188,6 +188,15 @@ class LineMaterial(Material):
         self._store.map_interpolation = value
 
 
+class LineDebugMaterial(LineMaterial):
+    """Line debug material.
+
+    A material that renders the triangles that the line is made up off.
+    """
+
+    pass
+
+
 class LineDashedMaterial(LineMaterial):
     """Line dashed material.
 

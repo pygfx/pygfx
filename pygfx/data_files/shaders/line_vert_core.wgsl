@@ -125,6 +125,12 @@
             // The value will depend on the angle between the segments, and the line thickness.
             var vertex_inset = 0.0;
 
+            // A value to offset certain varyings towards the neighbouring nodes. The first value
+            // represents moving towards node1, the second value represents moving towards node2.
+            // Only one should be nonzero. A negative value results in extrapolation (in the other direction).
+            // Used to set correct values for e.g. depth, cumdist, per-vertex colors.
+            var offset_ratio_multiplier = vec2<f32>(0.0, 0.0);
+
             // Array for the valid_if_nonzero varying. A triangle is dropped if (and only if) all verts have their value set to zero. (Trick 5)
             var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 
@@ -139,15 +145,6 @@
             // In joins, this is 1.0 for the vertices in the outer corner.
             var is_outer_corner = 0.0;
 
-            $$ if dashing
-                // The offset of this vertex for the cumulative distance for dashing.
-                // This value is expressed as a fraction of the segment length.
-                // Negative means it relates to the segment before, positive means it
-                // relates to the next segment. The multiplier (sign) is used so we can extrapolate in the caps.
-                var cumdist_offset = 0.0;
-                var cumdist_multiplier = 1.0;
-            $$ endif
-
             if ( node_index == 0 || is_nan_or_zero(node1n.w) ) {
                 // This is the first point on the line: create a cap.
                 nodevec1 = nodevec2;
@@ -160,12 +157,9 @@
                 coord5 = vec2<f32>(0.0, 1.0);
                 coord6 = vec2<f32>(0.0, -1.0);
 
-                $$ if dashing
-                    if (vertex_num <= 4) {
-                        cumdist_offset = half_thickness / length(nodevec2);
-                        cumdist_multiplier = -1.0;
-                    }
-                $$ endif
+                if (vertex_num <= 4) { 
+                    offset_ratio_multiplier = vec2<f32>(0.0, - 1.0);
+                }
 
             } else if ( node_index == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
                 // This is the last point on the line: create a cap.
@@ -179,12 +173,9 @@
                 coord5 = coord4;
                 coord6 = coord4;
 
-                $$ if dashing
-                    if (vertex_num >= 3) {
-                        cumdist_offset = -half_thickness / length(nodevec1);
-                        cumdist_multiplier = -1.0;
-                    }
-                $$ endif
+                if (vertex_num >= 3) {
+                    offset_ratio_multiplier = vec2<f32>(- 1.0, 0.0);
+                }
 
             } else {
                 // Create a join
@@ -243,15 +234,11 @@
                     valid_array[3] = 0.0;
                     valid_array[4] = 0.0;
 
-                    $$ if dashing
-                        if (vertex_num == 3) {
-                            cumdist_offset = - miter_length * half_thickness / length(nodevec1);
-                            cumdist_multiplier = -1.0;
-                        } else if (vertex_num == 4) {
-                            cumdist_offset = miter_length * half_thickness / length(nodevec2);
-                            cumdist_multiplier = -1.0;
-                        }
-                    $$ endif
+                    if (vertex_num == 3) {
+                        offset_ratio_multiplier = vec2<f32>(-miter_length, 0.0);
+                    } else if (vertex_num == 4) {
+                        offset_ratio_multiplier = vec2<f32>(0.0, -miter_length); 
+                    }
                     
                 } else {
                     // Create a proper join
@@ -267,6 +254,8 @@
                     
                     // Express coords in segment coordinates. 
                     // Note that coord3 and coord4 are different, but the respective vertex positions will be the same (except for float inaccuraries).
+                    // These represent the segment coords. They are also used to calculate the vertex position, by rotating it and adding to node2.
+                    // However, the point of rotation will be shifted with the vertex_inset (see use of vertex_inset further down).
                     coord1 = vec2<f32>(0.0, 1.0);
                     coord2 = vec2<f32>(0.0, -1.0);
                     coord3 = vec2<f32>( 2.0 * vertex_inset, sign34);
@@ -274,6 +263,13 @@
                     coord5 = vec2<f32>(0.0, 1.0);
                     coord6 = vec2<f32>(0.0, -1.0);
                     
+                    // For 
+                    if ( vertex_num <= 2) {
+                        offset_ratio_multiplier = vec2<f32>(vertex_inset, 0.0);
+                    } else if (vertex_num >= 5) {
+                        offset_ratio_multiplier = vec2<f32>(0.0, vertex_inset);
+                    }
+
                     // Get wheter this is an outer corner
                     let vertex_num_is_even = (vertex_num % 2) == 0;
                     if (inner_corner_is_at_15) { 
@@ -281,13 +277,37 @@
                     } else {
                         is_outer_corner = f32((!vertex_num_is_even) || vertex_num == 4);
                     }
-
-                    $$ if dashing
-                        if (!(vertex_num == 3 || vertex_num == 4)) {
-                            cumdist_offset = vertex_inset * half_thickness / select(-length(nodevec1), length(nodevec2), vertex_num >= 4);
-                        }
-                    $$ endif
                 }
+            }
+
+            // Zero the multiplier if the divisor is going to be zero
+            offset_ratio_multiplier = offset_ratio_multiplier * vec2<f32>(f32(length(nodevec1) > 0.0), f32(length(nodevec2) > 0.0));
+            
+            // Prepare values for applying offset_ratio_multiplier
+            var z = node2n.z;
+            var w = node2n.w;
+             $$ if dashing
+                let cumdist_node = f32(load_s_cumdist(node_index));
+                var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
+            $$ endif
+            
+            // Interpolate / extrapolate
+            if (offset_ratio_multiplier.x != 0.0) {
+                let ratio = offset_ratio_multiplier.x * half_thickness / length(nodevec1);
+                z = (1.0 - ratio) * z + ratio * node1n.z;
+                w = (1.0 - ratio) * w + ratio * node1n.w;
+                $$ if dashing
+                    let cumdist_before = f32(load_s_cumdist(node_index - 1));
+                    cumdist_vertex = (1.0 - ratio) * cumdist_node + ratio * cumdist_before;
+                $$ endif
+            } else if (offset_ratio_multiplier.y != 0.0) {
+                let ratio = offset_ratio_multiplier.y * half_thickness / length(nodevec2);
+                z = (1.0 - ratio) * z + ratio * node3n.z;
+                w = (1.0 - ratio) * w + ratio * node3n.w;
+                $$ if dashing
+                    let cumdist_after = f32(load_s_cumdist(node_index + 1));
+                    cumdist_vertex = (1.0 - ratio) * cumdist_node + ratio * cumdist_after;
+                $$ endif
             }
 
             // Select the current coord
@@ -295,7 +315,7 @@
             let the_coord = coord_array[vertex_index];
 
             // Calculate the relative vertex, in screen coords, from the coord.
-            // If the vertex_num is 4, the resulting vertex should be the same, but it might not be
+            // If the vertex_num is 4, the resulting vertex should be the same as 3, but it might not be
             // due to floating point errors. So we use the coord3-path in that case.
             let override_use_coord3 = node_is_join && vertex_num == 4;
             let use_456 = vertex_num >= 4 && !override_use_coord3;
@@ -309,7 +329,7 @@
             // From the use-cases I have seen so far this is not a problem (might even be favorable?),
             // but something to keep in mind when someone encounters unexpected behavior related to caps and depth.
             let the_pos_s = node2s + relative_vert_s;
-            let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
+            let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
 
             // A note on perspective division. Imagine a quad, oriented so it appear smaller in the distance.
             // For each varying we must ask whether its mean value (in between the value at both ends) is
@@ -328,26 +348,16 @@
             out.face_index = face_index;
             out.pos = the_pos_n;
             // Varyings. 
-            out.thickness_pw = thickness * l2p * node2n.w;  // the real thickness, in physical coords, scaled with w
-            out.segment_coord_pw = the_coord * half_thickness * l2p * node2n.w;  // uses a slightly wider thickness
+            out.thickness_pw = thickness * l2p * w;  // the real thickness, in physical coords, scaled with w
+            out.segment_coord_pw = the_coord * half_thickness * l2p * w;  // uses a slightly wider thickness
             out.join_coord = join_coord;
             out.is_outer_corner = is_outer_corner;
             out.valid_if_nonzero = valid_array[vertex_index];
             
             $$ if dashing
-                // Calculate the cumdist for the node and vertex edge
-                let cumdist_node = f32(load_s_cumdist(node_index)) * node2n.w;
-                var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
-                if (cumdist_offset < 0.0) {
-                    let cumdist_before = f32(load_s_cumdist(node_index - 1)) * node1n.w;
-                    cumdist_vertex = cumdist_node + cumdist_multiplier * cumdist_offset * (cumdist_node - cumdist_before);
-                } else if (cumdist_offset > 0.0) {
-                    let cumdist_after = f32(load_s_cumdist(node_index + 1)) * node1n.w;
-                    cumdist_vertex = cumdist_node + cumdist_multiplier * cumdist_offset * (cumdist_after - cumdist_node);
-                }
                 // Set two varyings, so that we can correctly interpolate the cumdist in the joins
-                out.cumdist_node_w = cumdist_node;
-                out.cumdist_vertex_w = cumdist_vertex;
+                out.cumdist_node_w = cumdist_node * w;
+                out.cumdist_vertex_w = cumdist_vertex * w;
             $$ endif
 
             return out;

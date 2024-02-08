@@ -68,7 +68,7 @@ def change_material(event):
             thickness=20.0,
             color=(0.8, 0.7, 0.0),
             dash_pattern=(4, 2, 3, 2, 2, 2, 1, 2, 0, 2),
-            dash_is_screen_space=True,
+            thickness_space="screen",
             opacity=0.5,
         )
     elif event.key == "o":

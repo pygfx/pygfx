@@ -164,6 +164,14 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 // end dashing
             $$ endif
 
+            $$ if debug
+                // In debug-mode, use barycentric coords to draw the edges of the faces.
+                dist_to_stroke_p = -1.0;
+                if (min(varyings.bary.x, min(varyings.bary.y, varyings.bary.z)) > 0.1) {
+                    dist_to_stroke_p = 1.0;
+                }
+            $$ endif
+
             // Anti-aliasing.
             // By default, the renderer uses SSAA (super-sampling), but if we apply AA for the edges
             // here this will help the end result. Because this produces semitransparent fragments,
@@ -187,9 +195,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             $$ endif
             var physical_color = srgb2physical(color.rgb);
 
-            // DEBUG
             $$ if false
-                physical_color = vec3<f32>(abs( varyings.segment_coord_p.y / 20.0), 0.0, 0.0);
+                // Alternative debug options during dev.
+                /physical_color = vec3<f32>(abs(segment_coord_p / 20.0), 0.0, 0.0);
             $$ endif
 
             // Determine final rgba value            
