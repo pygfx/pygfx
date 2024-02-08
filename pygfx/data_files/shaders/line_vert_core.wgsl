@@ -74,12 +74,12 @@
             let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
 
             // Get vectors representing the two incident line segments
-            var nodevec1: vec2<f32> = node2s.xy - node1s.xy;
-            var nodevec2: vec2<f32> = node3s.xy - node2s.xy;
+            var nodevec1: vec2<f32> = node2s.xy - node1s.xy;  // from node 1 (to node 2)
+            var nodevec3: vec2<f32> = node3s.xy - node2s.xy;  // to node 3 (from node 2)
 
             // Calculate the angle between them. We use this at the end to rotate the coord.
             var angle1 = atan2(nodevec1.y, nodevec1.x);
-            var angle2 = atan2(nodevec2.y, nodevec2.x);
+            var angle3 = atan2(nodevec3.y, nodevec3.x);
 
             // The thickness of the line in terms of geometry is a wee bit thicker.
             // Just enough so that fragments that are partially on the line, are also included
@@ -147,8 +147,8 @@
 
             if ( node_index == 0 || is_nan_or_zero(node1n.w) ) {
                 // This is the first point on the line: create a cap.
-                nodevec1 = nodevec2;
-                angle1 = angle2;
+                nodevec1 = nodevec3;
+                angle1 = angle3;
 
                 coord1 = vec2<f32>(-1.0, 1.0);
                 coord2 = coord1;
@@ -163,8 +163,8 @@
 
             } else if ( node_index == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
                 // This is the last point on the line: create a cap.
-                nodevec2 = nodevec1;
-                angle2 = angle1;
+                nodevec3 = nodevec1;
+                angle3 = angle1;
 
                 coord1 = vec2<f32>(0.0, 1.0);
                 coord2 = vec2<f32>(0.0, -1.0);
@@ -182,26 +182,26 @@
 
                 // Determine the angle of the corner. If this angle is smaller than zero,
                 // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
-                let angle = atan2( nodevec1.x * nodevec2.y - nodevec1.y * nodevec2.x,
-                                   nodevec1.x * nodevec2.x + nodevec1.y * nodevec2.y );
+                let angle = atan2( nodevec1.x * nodevec3.y - nodevec1.y * nodevec3.x,
+                                   nodevec1.x * nodevec3.x + nodevec1.y * nodevec3.y );
 
                 // Which way does the join bent?
                 let inner_corner_is_at_15 = angle >= 0.0;
 
                 // The direction in which to place the vert3 and vert4.
                 let vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
-                let vert5 = normalize(vec2<f32>(-nodevec2.y, nodevec2.x));
+                let vert5 = normalize(vec2<f32>(-nodevec3.y, nodevec3.x));
                 let join_vec = normalize(vert1 + vert5);
 
                 // Now calculate how far along this vector we can go without
                 // introducing overlapping faces, which would result in glitchy artifacts.
                 let nodevec1_norm = normalize(nodevec1);
-                let nodevec2_norm = normalize(nodevec2);
+                let nodevec3_norm = normalize(nodevec3);
                 let join_vec_on_nodevec1 = dot(join_vec, nodevec1_norm) * nodevec1_norm;
-                let join_vec_on_nodevec2 = dot(join_vec, nodevec2_norm) * nodevec2_norm;
+                let join_vec_on_nodevec3 = dot(join_vec, nodevec3_norm) * nodevec3_norm;
                 var max_vec_mag = {{ "1.5" if dashing else "100.0" }};  // 1.5 corresponds to about 90 degrees
                 max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
-                max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec2) / length(join_vec_on_nodevec2) / half_thickness);
+                max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec3) / length(join_vec_on_nodevec3) / half_thickness);
 
                 // Now use the angle to determine the join_vec magnitude required to draw this join.
                 // For the inner corner this represents the intersection of the line edges,
@@ -281,7 +281,7 @@
             }
 
             // Zero the multiplier if the divisor is going to be zero
-            offset_ratio_multiplier = offset_ratio_multiplier * vec2<f32>(f32(length(nodevec1) > 0.0), f32(length(nodevec2) > 0.0));
+            offset_ratio_multiplier = offset_ratio_multiplier * vec2<f32>(f32(length(nodevec1) > 0.0), f32(length(nodevec3) > 0.0));
             
             // Prepare values for applying offset_ratio_multiplier
             var z = node2n.z;
@@ -301,7 +301,7 @@
                     cumdist_vertex = (1.0 - ratio) * cumdist_node + ratio * cumdist_before;
                 $$ endif
             } else if (offset_ratio_multiplier.y != 0.0) {
-                let ratio = offset_ratio_multiplier.y * half_thickness / length(nodevec2);
+                let ratio = offset_ratio_multiplier.y * half_thickness / length(nodevec3);
                 z = (1.0 - ratio) * z + ratio * node3n.z;
                 w = (1.0 - ratio) * w + ratio * node3n.w;
                 $$ if dashing
@@ -321,7 +321,7 @@
             let use_456 = vertex_num >= 4 && !override_use_coord3;
             let vertex_offset = vec2<f32>(select(-vertex_inset, vertex_inset, use_456), 0.0);
             let ref_coord = select(the_coord, coord3, override_use_coord3);
-            let ref_angle = select(angle1, angle2, use_456);
+            let ref_angle = select(angle1, angle3, use_456);
             let relative_vert_s = rotate_vec2(ref_coord + vertex_offset, ref_angle) * half_thickness;
 
             // Calculate vertex position.
