@@ -60,10 +60,10 @@ class LineShader(WorldObjectShader):
         geometry = wobject.geometry
 
         self["line_type"] = "line"
-        self["debug"] = False
-        self["aa"] = material.aa
         self["dashing"] = False
         self["thickness_space"] = material.thickness_space
+        self["aa"] = material.aa
+        self["debug"] = False
 
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
@@ -98,6 +98,20 @@ class LineShader(WorldObjectShader):
             self["color_buffer_channels"] = 0
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
+
+        # Optimization: when the line is opaque, has a uniform color, and no dashing,
+        # it can be rendered pretty safely without joins. I *think* this is faster,
+        # because a lot of logic related joins becomes simpler. However, the miters
+        # result in extra fragments that need to be processed, so we'd need to do
+        # some benchmarks to be sure.
+        if (
+            self["color_mode"] == "uniform"
+            and not material.is_transparent
+            and not material.color_is_transparent
+            and not self["dashing"]
+        ):
+            pass  # TODO: do benchmarks and enable if it makes things faster
+            # self["line_type"] = "quickline"
 
     def get_bindings(self, wobject, shared):
         material = wobject.material
@@ -310,6 +324,9 @@ class LineShader(WorldObjectShader):
                 varyings.cumdist_node_w = f32(result.cumdist_node_w);
                 varyings.cumdist_vertex_w = f32(result.cumdist_vertex_w);
             $$ endif
+            $$ if line_type == 'arrow'
+                varyings.line_type_segment_coord = f32(i0 % 2);
+            $$ endif
 
             // Picking
             // Note: in theory, we can store ints up to 16_777_216 in f32,
@@ -437,137 +454,24 @@ class LineDashedShader(LineShader):
 
 @register_wgpu_render_function(Line, LineSegmentMaterial)
 class LineSegmentShader(LineShader):
+    """This shader is baded on the normal line shader, but it does not draw joins.
+    Still needs 6 vertices in for nodes that have a cap on each side.
+    """
+
     def __init__(self, wobject):
         super().__init__(wobject)
         self["line_type"] = "segment"
 
-    def _get_n(self, positions):
-        offset, size = positions.draw_range
-        return (offset // 2) * 2 * 5, (size // 2) * 2 * 5
-
-    def code_vertex_core(self):
-        return """
-        fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
-        ) -> VertexFuncOutput {
-            // Similar to the regular line shader, except we only draw segments,
-            // using 5 vertices per node. Four for the segments, and 1 to create
-            // a degenerate triangle for the space in between. So we only draw
-            // caps, no joins.
-
-            let node_index = index / 5;
-            let face_index = node_index / 2;
-
-            // Sample the current node and either of its neighbours
-            let i3 = node_index + 1 - (node_index % 2) * 2;  // (node_index + 1) if node_index is even else (node_index - 1)
-            let node2n = get_point_ndc(node_index);
-            let node3n = get_point_ndc(i3);
-            // Convert to logical screen coordinates, because that's were the lines work
-            let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
-            let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
-
-            // Get vectors normal to the line segments
-            var vert1: vec2<f32>;
-            var vert2: vec2<f32>;
-            var vert3: vec2<f32>;
-            var vert4: vec2<f32>;
-
-            // Get vectors normal to the line segments
-            if ((node_index % 2) == 0) {
-                // A left-cap
-                let v = normalize(node3s.xy - node2s.xy);
-                vert3 = vec2<f32>(v.y, -v.x);
-                vert4 = -vert3;
-                vert1 = vert3 - v;
-                vert2 = vert4 - v;
-            } else {
-                // A right cap
-                let v = normalize(node2s.xy - node3s.xy);
-                vert1 = vec2<f32>(v.y, -v.x);
-                vert2 = -vert1;
-                vert3 = vert1 + v;
-                vert4 = vert2 + v;
-            }
-
-            // Select the correct vector
-            // Note the replicated vertices to create degenerate triangles
-            var vectors = array<vec2<f32>,10>(vert1, vert1, vert2, vert3, vert4, vert1, vert2, vert3, vert4, vert4);
-            let the_vec = vectors[index % 10] * half_thickness;
-            let the_pos = node2s + the_vec;
-
-            var out : VertexFuncOutput;
-            out.node_index = node_index;
-            out.face_index = face_index;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
-            out.half_thickness_p = half_thickness * l2p;
-            return out;
-        }
-        """
-
 
 @register_wgpu_render_function(Line, LineArrowMaterial)
 class LineArrowShader(LineShader):
+    """Shader to draw arrows. This shader does not use the caps, so it could be drawn
+    with less vertices, but that'd make the code more complex, so for now this is fine.
+    """
+
     def __init__(self, wobject):
         super().__init__(wobject)
         self["line_type"] = "arrow"
-
-    def _get_n(self, positions):
-        offset, size = positions.draw_range
-        return (offset // 2) * 2 * 4, (size // 2) * 2 * 4
-
-    def code_vertex_core(self):
-        return """
-        fn get_vertex_result(
-            index:i32, screen_factor:vec2<f32>, half_thickness:f32, l2p:f32
-        ) -> VertexFuncOutput {
-            // Similar to the normal vertex shader, except we only draw segments,
-            // using 3 vertices per node: 6 per segment. 4 for the arrow, and 2
-            // to create a degenerate triangle for the space in between. So we
-            // only draw caps, no joins.
-
-            let node_index = index / 3;
-            let face_index = node_index / 2;
-
-            // Sample the current node and either of its neighbours
-            let i3 = node_index + 1 - (node_index % 2) * 2;  // (node_index + 1) if node_index is even else (node_index - 1)
-            let node2n = get_point_ndc(node_index);
-            let node3n = get_point_ndc(i3);
-            // Convert to logical screen coordinates, because that's were the lines work
-            let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
-            let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
-
-            // Get vectors normal to the line segments
-            var vert1: vec2<f32>;
-            var vert2: vec2<f32>;
-
-            // Get vectors normal to the line segments
-            if ((node_index % 2) == 0) {
-                // A left-cap
-                let v = node3s.xy - node2s.xy;
-                vert1 = normalize(vec2<f32>(v.y, -v.x)) * half_thickness;
-                vert2 = v;
-            } else {
-                // A right cap
-                let v = node2s.xy - node3s.xy;
-                vert1 = -0.75 * v;
-                vert2 = normalize(vec2<f32>(-v.y, v.x)) * half_thickness - v;
-            }
-
-            // Select the correct vector
-            // Note the replicated vertices to create degenerate triangles
-            var vectors = array<vec2<f32>,6>(vert1, vert1, vert2, vert1, vert2, vert2);
-            let the_vec = vectors[index % 6];
-            let the_pos = node2s + the_vec;
-
-            var out : VertexFuncOutput;
-            out.node_index = node_index;
-            out.face_index = face_index;
-            out.pos = vec4<f32>((the_pos / screen_factor - 1.0) * node2n.w, node2n.zw);
-            out.half_thickness_p = half_thickness * l2p;
-            out.segment_coord_p = vec2<f32>(0.0, 0.0);
-            return out;
-        }
-        """
 
 
 @register_wgpu_render_function(Line, LineThinMaterial)

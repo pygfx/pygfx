@@ -53,7 +53,7 @@
             let node_index = index / 6;
             let vertex_index = index % 6;
             let vertex_num = vertex_index + 1;
-            let face_index = (index + 2) / 6;
+            let face_index = (index + 2) / 6;  // TODO: depends on whether a join or cap is used
 
             // Sample the current node and it's two neighbours. Model coords.
             // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
@@ -167,9 +167,15 @@
             // Determine capp-ness
             let minor_dist_threshold = 0.0001;
             let major_dist_threshold = 0.5 * max(1.0, half_thickness);
-            let left_is_cap = is_nan_or_zero(node1n.w) || length(nodevec1) < select(minor_dist_threshold, major_dist_threshold, nodevec1_has_significant_depth_component);
-            let right_is_cap = is_nan_or_zero(node3n.w) || length(nodevec3) < select(minor_dist_threshold, major_dist_threshold, nodevec3_has_significant_depth_component);
-           
+            var left_is_cap = is_nan_or_zero(node1n.w) || length(nodevec1) < select(minor_dist_threshold, major_dist_threshold, nodevec1_has_significant_depth_component);
+            var right_is_cap = is_nan_or_zero(node3n.w) || length(nodevec3) < select(minor_dist_threshold, major_dist_threshold, nodevec3_has_significant_depth_component);
+
+            $$ if line_type in ['segment', 'arrow']
+                // Implementing segments is pretty easy
+                left_is_cap = left_is_cap || node_index % 2 == 0;
+                right_is_cap = right_is_cap || node_index % 2 == 1;
+            $$ endif
+
             // The big triage ...
 
             if (left_is_cap && right_is_cap) {
@@ -219,6 +225,30 @@
                 }
 
             } else {
+                $$ if line_type == 'quickline'
+
+                // Joins in quick lines are always broken
+                let miter_length = 4.0;
+                coord1 = vec2<f32>(          0.0,  1.0);
+                coord2 = vec2<f32>(          0.0, -1.0);
+                coord3 = vec2<f32>( miter_length,  0.0);
+                coord4 = vec2<f32>(-miter_length,  0.0);
+                coord5 = vec2<f32>(          0.0,  1.0);
+                coord6 = vec2<f32>(          0.0, -1.0);
+                // Drop two triangles in between
+                valid_array[1] = 0.0;
+                valid_array[2] = 0.0;
+                valid_array[3] = 0.0;
+                valid_array[4] = 0.0;
+                // Handle offset
+                if (vertex_num == 3) {
+                    offset_ratio_multiplier = vec2<f32>(-miter_length, 0.0);
+                } else if (vertex_num == 4) {
+                    offset_ratio_multiplier = vec2<f32>(0.0, -miter_length); 
+                }
+
+                $$ elif line_type == 'line'
+
                 // Create a join
 
                 // Determine the angle of the corner. If this angle is smaller than zero,
@@ -319,6 +349,7 @@
                         is_outer_corner = f32((!vertex_num_is_even) || vertex_num == 4);
                     }
                 }
+                $$ endif
             }
 
             // Zero the multiplier if the divisor is going to be zero

@@ -16,7 +16,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
             // Determine whether we are at a join (i.e. an unbroken corner).
             // These are faces for which *any* vert is nonzero. (trick 5a)
+            $$ if line_type == 'quickline'
+            let is_join = false;  // hard-coded to false. I'm assuming the Naga optimizer will eliminate dead code.
+            $$ else
             let is_join = varyings.join_coord != 0.0;
+            $$ endif
 
             // Obtain the join coordinates. It comes in two flavours, linear and fan-shaped,
             // which each serve a different purpose. These represent trick 3 and 4, respectively.
@@ -170,6 +174,18 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
                 if (min(varyings.bary.x, min(varyings.bary.y, varyings.bary.z)) > 0.1) {
                     dist_to_stroke_p = 1.0;
                 }
+            $$ endif
+
+            $$ if line_type == 'arrow' 
+                // Arrow shape
+                let arrow_head_factor = 1.0 - varyings.line_type_segment_coord;
+                let arrow_tail_factor = 1.0 - varyings.line_type_segment_coord * 3.0;
+                dist_to_stroke_p = max(
+                       abs(segment_coord_p.y) - half_thickness_p * arrow_head_factor,
+                       half_thickness_p * arrow_tail_factor- abs(segment_coord_p.y)
+               );
+               // Ignore caps
+               dist_to_stroke_p = select(dist_to_stroke_p, 9999999.0, segment_coord_p.x != 0.0);
             $$ endif
 
             // Anti-aliasing.
