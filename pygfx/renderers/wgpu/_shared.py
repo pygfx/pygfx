@@ -34,12 +34,20 @@ class Shared(Trackable):
     """
 
     # Vanilla WGPU does not support interpolating samplers for float32
-    # textures, which is sad for e.g. volume rendering. WebGPU specifies
-    # the 'float32-filterable' feature for this, but its not yet available
-    # in wgpu-core. Fortunately, we can enable the same functionality via
-    # the native-only feature 'texture_adapter_specific_format_features'.
+    # textures, which is sad for e.g. volume rendering. We require the
+    # 'float32-filterable' feature for this.
+    #
+    # Previously (when this feature was not yet available) we used the
+    # native-only feature 'texture_adapter_specific_format_features',
+    # but that one enables far more than we want.
+    #
+    # Technically we can check if the feature is available and fall
+    # back (in some way) when it's not available, but this easily
+    # results in complex code. I think we can probably get away with
+    # requiring only a few features that are available on the main
+    # target platforms.
 
-    _features = set(["texture_adapter_specific_format_features"])
+    _features = set(["float32-filterable"])
 
     _instance = None
 
