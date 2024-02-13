@@ -26,6 +26,11 @@ positions += [[np.nan, np.nan, np.nan]]
 positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
 positions += [[np.nan, np.nan, np.nan]]
 positions += [
+    [40, 440, 0],
+    [42, 440, 0],
+    [44, 440, 0],
+    [46, 440, 0],
+    [48, 440, 0],
     [100, 440, 0],
     [100, 450, 0],
     [200, 450, 0],

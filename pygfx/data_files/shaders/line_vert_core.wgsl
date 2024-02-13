@@ -64,10 +64,14 @@
             let node1w = u_wobject.world_transform * vec4<f32>(node1m.xyz, 1.0);
             let node2w = u_wobject.world_transform * vec4<f32>(node2m.xyz, 1.0);
             let node3w = u_wobject.world_transform * vec4<f32>(node3m.xyz, 1.0);
+            // Convert to camera view
+            let node1c = u_stdinfo.cam_transform * node1w;
+            let node2c = u_stdinfo.cam_transform * node2w;
+            let node3c = u_stdinfo.cam_transform * node3w;
             // convert to NDC
-            let node1n = u_stdinfo.projection_transform * u_stdinfo.cam_transform * node1w;
-            let node2n = u_stdinfo.projection_transform * u_stdinfo.cam_transform * node2w;
-            let node3n = u_stdinfo.projection_transform * u_stdinfo.cam_transform * node3w;
+            let node1n = u_stdinfo.projection_transform * node1c;
+            let node2n = u_stdinfo.projection_transform * node2c;
+            let node3n = u_stdinfo.projection_transform * node3c;
             // Convert to logical screen coordinates, because that's where the lines work
             let node1s = (node1n.xy / node1n.w + 1.0) * screen_factor;
             let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
@@ -145,8 +149,45 @@
             // In joins, this is 1.0 for the vertices in the outer corner.
             var is_outer_corner = 0.0;
 
-            if ( node_index == 0 || is_nan_or_zero(node1n.w) ) {
-                // This is the first point on the line: create a cap.
+            // Determine whether to draw a cap. Either on the left, the right, or both! In the latter case
+            // we draw a double-cap, which results in a circle for round caps.
+            // A cap is needed when:
+            // - This is the first / last point on the line.
+            // - The neighbouring node is nan.
+            // - The neighbouring node is equal: length(nodevec) < eps (because round-off errors)
+            // - If the line segment's direction has a significant component in the camera view direction,
+            //   i.e. a depth component, then a cap is created if there is sufficient overlap with the neighbouring cap.
+            //   This prevents that the extrapolation of the segment's cap takes up a large portion of the screen.
+
+            // Is this a line that "goes deep"?
+            let nodevec1_c = vec3<f32>(node2c.xyz - node1c.xyz);
+            let nodevec3_c = vec3<f32>(node3c.xyz - node2c.xyz);
+            let nodevec1_has_significant_depth_component = abs(nodevec1_c.z) > 1.0 * length(nodevec1_c.xy);
+            let nodevec3_has_significant_depth_component = abs(nodevec3_c.z) > 1.0 * length(nodevec3_c.xy);
+            // Determine capp-ness
+            let minor_dist_threshold = 0.0001;
+            let major_dist_threshold = 0.5 * max(1.0, half_thickness);
+            let left_is_cap = is_nan_or_zero(node1n.w) || length(nodevec1) < select(minor_dist_threshold, major_dist_threshold, nodevec1_has_significant_depth_component);
+            let right_is_cap = is_nan_or_zero(node3n.w) || length(nodevec3) < select(minor_dist_threshold, major_dist_threshold, nodevec3_has_significant_depth_component);
+           
+            // The big triage ...
+
+            if (left_is_cap && right_is_cap) {
+                // Create two caps
+                nodevec1 = vec2<f32>(0.0, 0.0);
+                nodevec3 = nodevec1;
+                angle1 = 0.0;
+                angle3 = 0.0;
+
+                coord1 = vec2<f32>(-1.0, 1.0);
+                coord2 = coord1;
+                coord3 = vec2<f32>(-1.0, -1.0);
+                coord4 = vec2<f32>(1.0, 1.0);
+                coord5 = vec2<f32>(1.0, -1.0);
+                coord6 = coord5;
+
+            } else if (left_is_cap) {
+                /// Create a cap using vertex 4, 5, 6
                 nodevec1 = nodevec3;
                 angle1 = angle3;
 
@@ -161,8 +202,8 @@
                     offset_ratio_multiplier = vec2<f32>(0.0, - 1.0);
                 }
 
-            } else if ( node_index == u_renderer.last_i || is_nan_or_zero(node3n.w) )  {
-                // This is the last point on the line: create a cap.
+            } else if (right_is_cap)  {
+                // Create a cap using vertex 4, 5, 6
                 nodevec3 = nodevec1;
                 angle3 = angle1;
 
@@ -309,7 +350,7 @@
                     cumdist_vertex = (1.0 - ratio) * cumdist_node + ratio * cumdist_after;
                 $$ endif
             }
-
+        
             // Select the current coord
             var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
             let the_coord = coord_array[vertex_index];
