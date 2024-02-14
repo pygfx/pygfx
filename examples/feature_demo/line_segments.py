@@ -26,7 +26,7 @@ colors[:, 3] = 1
 
 line = gfx.Line(
     gfx.Geometry(positions=positions, colors=colors),
-    gfx.LineSegmentMaterial(thickness=6.0, color_mode="face", map=gfx.cm.viridis),
+    gfx.LineSegmentMaterial(thickness=26.0, color_mode="face", map=gfx.cm.viridis),
 )
 scene.add(line)
 

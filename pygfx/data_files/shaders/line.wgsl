@@ -107,7 +107,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let node_index = index / 6;
     let vertex_index = index % 6;
     let vertex_num = vertex_index + 1;
-    let face_index = (index + 2) / 6;  // TODO: depends on whether a join or cap is used
+    var face_index = node_index;  // corrected below, depending on configuration
 
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
@@ -277,8 +277,11 @@ fn vs_main(in: VertexInput) -> Varyings {
         if (vertex_num >= 3) {
             offset_ratio_multiplier = vec2<f32>(- 1.0, 0.0);
         }
+        face_index = face_index - 1;  // belongs to previous face
 
     } else {
+        face_index = face_index - i32(vertex_num <= 3);
+
         $$ if line_type == 'quickline'
 
         // Joins in quick lines are always broken
@@ -480,6 +483,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.join_coord = f32(join_coord);
     varyings.is_outer_corner = f32(is_outer_corner);
     varyings.valid_if_nonzero = f32(valid_array[vertex_index]);
+    
     $$ if debug
         // Include barycentric coords so we can draw the triangles that make up the line
         varyings.bary = vec3<f32>(f32(vertex_index % 3 == 0), f32(vertex_index % 3 == 1), f32(vertex_index % 3 == 2));
@@ -504,7 +508,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // per-vertex or per-face coloring
     $$ if color_mode == 'face' or color_mode == 'vertex'
         $$ if color_mode == 'face'
-        let color_index = face_index;
+            let color_index = face_index;
         $$ else
             let color_index = node_index;
         $$ endif
