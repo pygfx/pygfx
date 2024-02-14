@@ -1,8 +1,12 @@
 """
-Validate line
-=============
+Lines in 2D
+===========
 
-
+* This shows a 2D line in 3 flavours.
+* It shows a gap due to nan values.
+* It has duplicate points to test correct handling for that.
+* It also puts a few points in quick succession to test that it staus a continuous line (with joins, no caps).
+* It includes a point that only has its z-value different, which should behave like a duplicate point.
 """
 
 import numpy as np
@@ -69,7 +73,7 @@ geometry = gfx.Geometry(positions=positions, colors=colors)
 
 line1 = gfx.Line(
     geometry,
-    gfx.materials._line.LineDebugMaterial(
+    gfx.LineDebugMaterial(
         thickness=40,
         thickness_space="screen",
         color=(0.0, 1.0, 1.0),
@@ -79,7 +83,7 @@ line1 = gfx.Line(
 
 line2 = gfx.Line(
     geometry,
-    gfx.materials.LineMaterial(
+    gfx.LineMaterial(
         thickness=40,
         thickness_space="screen",
         color_mode="vertex",

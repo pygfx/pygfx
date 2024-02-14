@@ -1,10 +1,11 @@
 """
-Cubes drawn with dashed lines
-=============================
+Lines in 3D
+===========
 
-* The red cubes have thickness in screen space, and should all look the same.
-* The blue cubes have thickness in world space, and should look the same.
-* The green cubes have thickness in model space, and should have increasing thickness.
+* This example is to demonstrate lines in 3D, with a perspective camera.
+* Dashing and colors should be continuous for non-broken joins (i.e. correct handling of depth and w).
+* Lines that are nearly completely in the view direction only have their caps drawn.
+ 
 """
 
 import numpy as np
@@ -44,6 +45,26 @@ geometry = gfx.Geometry(positions=positions, colors=colors)
 
 line1 = gfx.Line(
     geometry,
+    gfx.LineDebugMaterial(
+        thickness=100,
+        thickness_space="screen",
+        color=(0.0, 1.0, 1.0),
+        opacity=1,
+    ),
+)
+
+line2 = gfx.Line(
+    geometry,
+    gfx.LineMaterial(
+        thickness=40,
+        thickness_space="screen",
+        color_mode="vertex",
+        opacity=1.0,
+    ),
+)
+
+line3 = gfx.Line(
+    geometry,
     gfx.LineDashedMaterial(
         thickness=40,
         thickness_space="screen",
@@ -54,25 +75,6 @@ line1 = gfx.Line(
     ),
 )
 
-line2 = gfx.Line(
-    geometry,
-    gfx.materials.LineMaterial(
-        thickness=40,
-        thickness_space="screen",
-        color_mode="vertex",
-        opacity=1.0,
-    ),
-)
-
-line3 = gfx.Line(
-    geometry,
-    gfx.materials._line.LineDebugMaterial(
-        thickness=100,
-        thickness_space="screen",
-        color=(0.0, 1.0, 1.0),
-        opacity=0.5,
-    ),
-)
 
 line1.local.position = 0, 4, 0
 line3.local.position = 0, -4, 0
@@ -82,7 +84,7 @@ scene.add(line1, line2, line3)  # , middle, bottom)
 
 
 camera = gfx.PerspectiveCamera(50)
-camera.show_object(scene)
+camera.show_object(scene, scale=1.0)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
