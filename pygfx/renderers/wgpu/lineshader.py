@@ -220,167 +220,7 @@ class LineShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_more_definitions()
-            + self.code_common()
-            + self.code_helpers()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_more_definitions(self):
-        return """
-        struct VertexInput {
-            @builtin(vertex_index) index : u32,
-        };
-
-        struct VertexFuncOutput {
-            node_index: i32,
-            face_index: i32,
-            pos: vec4<f32>,
-            // Varying specifying the thickness of the line, in physical pixels.
-            thickness_pw: f32,
-            // Varying vector representing the distance from the segment's centerline, in physical pixels.
-            segment_coord_pw: vec2<f32>,
-            // Varying that is -1 or 1 for the outer corner in a join, for vertex 3 and 4, respectively. Is also used to identify faces that are a join.
-            join_coord: f32,
-            // Varying that is 1 for vertices in the outer corner of a join. Used in combination with join_coord to obtain a coord that fans around the corner.
-            is_outer_corner: f32,
-            // Varying used to discard faces in broken joins.
-            valid_if_nonzero: f32,
-            // Varyings required for dashing
-            $$ if dashing
-                cumdist_node_w: f32,
-                cumdist_vertex_w: f32,
-            $$ endif
-        };
-        """
-
-    def code_helpers(self):
-        return """
-
-        fn get_point_world(index:i32) -> vec4<f32> {
-            let raw_pos = load_s_positions(index);
-            let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
-            return world_pos;
-        }
-
-        // todo: remove?
-        fn get_point_ndc(index:i32) -> vec4<f32> {
-            let raw_pos = load_s_positions(index);
-            let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos.xyz, 1.0);
-            return u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
-        }
-
-        fn is_nan_or_zero(v:f32) -> bool {
-            // Naga has removed isNan checks, because backends may be using fast-math,
-            // in which case nan is assumed not to happen, and isNan would always be false.
-            // If we assume that some nan mechanics still work, we can still detect it.
-            // This won't work however: `return v != v`, because the compiler will
-            // optimize it out. The same holds for similar constructs.
-            // Maybe the same happens if we turn `<`  into `<=`.
-            // So we and up with an equation that detects either NaN or zero,
-            // which is fine if we use it on a .w attribute.
-            return !(v < 0.0) && !(v > 0.0);
-        }
-
-        fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
-            return vec2<f32>(cos(angle) * v.x - sin(angle) * v.y, sin(angle) * v.x + cos(angle) * v.y);
-        }
-        """
-
-    def code_vertex(self):
-        core = self.code_vertex_core()
-
-        return (
-            core
-            + """
-        @vertex
-        fn vs_main(in: VertexInput) -> Varyings {
-
-            let index = i32(in.index);
-            let screen_factor = u_stdinfo.logical_size.xy / 2.0;
-            let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-
-            let result: VertexFuncOutput = get_vertex_result(index, screen_factor, l2p);
-            let i0 = result.node_index;
-            let face_index = result.face_index;
-
-            var varyings: Varyings;
-            varyings.position = vec4<f32>(result.pos);
-            varyings.world_pos = vec3<f32>(ndc_to_world_pos(result.pos));
-            varyings.w = f32(result.pos.w);
-            varyings.thickness_pw = f32(result.thickness_pw);
-            varyings.segment_coord_pw = vec2<f32>(result.segment_coord_pw);
-            varyings.join_coord = f32(result.join_coord);
-            varyings.is_outer_corner = f32(result.is_outer_corner);
-            varyings.valid_if_nonzero = f32(result.valid_if_nonzero);
-            $$ if debug
-                let vertex_index = index % 6;
-                varyings.bary = vec3<f32>(f32(vertex_index % 3 == 0), f32(vertex_index % 3 == 1), f32(vertex_index % 3 == 2));
-            $$ endif
-            $$ if dashing
-                varyings.cumdist_node_w = f32(result.cumdist_node_w);
-                varyings.cumdist_vertex_w = f32(result.cumdist_vertex_w);
-            $$ endif
-            $$ if line_type == 'arrow'
-                varyings.line_type_segment_coord = f32(i0 % 2);
-            $$ endif
-
-            // Picking
-            // Note: in theory, we can store ints up to 16_777_216 in f32,
-            // but in practice, its about 4_000_000 for f32 varyings (in my tests).
-            // We use a real u32 to not lose presision, see frag shader for details.
-            varyings.pick_idx = u32(result.node_index);
-            varyings.pick_zigzag = f32(select(0.0, 1.0, result.node_index % 2 == 0));
-
-            // per-vertex or per-face coloring
-            $$ if color_mode == 'face' or color_mode == 'vertex'
-                $$ if color_mode == 'face'
-                let color_index = face_index;
-                $$ else
-                    let color_index = i0;
-                $$ endif
-                $$ if color_buffer_channels == 1
-                    let cvalue = load_s_colors(color_index);
-                    varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
-                $$ elif color_buffer_channels == 2
-                    let cvalue = load_s_colors(color_index);
-                    varyings.color = vec4<f32>(cvalue.r, cvalue.r, cvalue.r, cvalue.g);
-                $$ elif color_buffer_channels == 3
-                    varyings.color = vec4<f32>(load_s_colors(color_index), 1.0);
-                $$ elif color_buffer_channels == 4
-                    varyings.color = vec4<f32>(load_s_colors(color_index));
-                $$ endif
-            $$ endif
-
-            // How to index into tex-coords
-            $$ if color_mode == 'face_map'
-            let tex_coord_index = face_index;
-            $$ else
-            let tex_coord_index = i0;
-            $$ endif
-
-            // Set texture coords
-            $$ if colormap_dim == '1d'
-            varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
-            $$ elif colormap_dim == '2d'
-            varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
-            $$ elif colormap_dim == '3d'
-            varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
-            $$ endif
-
-            return varyings;
-        }
-        """
-        )
-
-    def code_vertex_core(self):
-        return load_shader("line_vert_core.wgsl")
-
-    def code_fragment(self):
-        return load_shader("line_frag.wgsl")
+        return self.code_definitions() + self.code_common() + load_shader("line.wgsl")
 
 
 @register_wgpu_render_function(Line, LineDebugMaterial)
@@ -472,6 +312,9 @@ class LineArrowShader(LineShader):
     def __init__(self, wobject):
         super().__init__(wobject)
         self["line_type"] = "arrow"
+
+
+# -----  shaders for thin lines
 
 
 @register_wgpu_render_function(Line, LineThinMaterial)
