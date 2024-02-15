@@ -221,9 +221,19 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if not value:
             value = None
         if value is None:
-            # Use 2 on non-hidpi displays. On hidpi displays follow screen.
-            canvas_ratio = self._target.get_pixel_ratio()
-            self._pixel_ratio = float(canvas_ratio) if canvas_ratio > 1 else 2.0
+            # Get target sizes
+            target = self._target
+            if isinstance(target, wgpu.gui.WgpuCanvasBase):
+                target_psize = target.get_physical_size()
+            elif isinstance(target, Texture):
+                target_psize = target.size[:2]
+            else:
+                raise TypeError(f"Unexpected render target {target.__class__.__name__}")
+            target_lsize = self.logical_size
+            # Determine target ratio
+            target_ratio = target_psize[0] / target_lsize[0]
+            # Use 2 on non-hidpi displays. On hidpi displays follow target.
+            self._pixel_ratio = float(target_ratio) if target_ratio > 1 else 2.0
         elif isinstance(value, (int, float)):
             self._pixel_ratio = abs(float(value))
         else:
@@ -272,27 +282,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def physical_size(self):
         """The physical size of the internal render texture."""
-
-        # Get physical size of the target
-        target = self._target
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            target_psize = target.get_physical_size()
-        elif isinstance(target, Texture):
-            target_psize = target.size[:2]
-        else:
-            raise TypeError(f"Unexpected render target {target.__class__.__name__}")
-
+        pixel_ratio = self._pixel_ratio
         target_lsize = self.logical_size
-
-        # Determine the pixel ratio of the render texture
-        if self._pixel_ratio:
-            pixel_ratio = self._pixel_ratio
-        else:
-            pixel_ratio = target_psize[0] / target_lsize[0]
-            if pixel_ratio <= 1:
-                pixel_ratio = 2.0  # use 2 on non-hidpi displays
-
-        # Determine the physical size of the internal render textures
         return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
 
     @property
