@@ -400,6 +400,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if color_mode == 'vertex'
         let color_node = load_s_colors(node_index);  // type depends on color depth
         var color_vert = color_node;
+    $$ elif color_mode == 'vertex_map'
+        let texcoord_node = load_s_texcoords(node_index);
+        var texcoord_vert = texcoord_node;
     $$ endif
     
     // Interpolate / extrapolate
@@ -420,7 +423,10 @@ fn vs_main(in: VertexInput) -> Varyings {
             $$ if color_mode == 'vertex'
                 let color_before = load_s_colors(node_index - 1);
                 color_vert = mix(color_vert, color_before, ratio);
-             $$ endif
+            $$ elif color_mode == 'vertex_map'
+                let texcoord_before = load_s_texcoords(node_index - 1);
+                texcoord_vert = mix(texcoord_vert, texcoord_before, ratio);
+            $$ endif
         }
     } else if (offset_ratio_multiplier.y != 0.0) {
          // Get ratio in screen space, and then correct for perspective.
@@ -438,6 +444,9 @@ fn vs_main(in: VertexInput) -> Varyings {
             $$ if color_mode == 'vertex'
                 let color_after = load_s_colors(node_index + 1); 
                 color_vert = mix(color_vert, color_after, ratio);
+            $$ elif color_mode == 'vertex_map'
+                let texcoord_after = load_s_texcoords(node_index + 1);
+                texcoord_vert = mix(texcoord_vert, texcoord_after, ratio);
             $$ endif
         }
     }
@@ -523,20 +532,24 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     $$ endif
 
-    // How to index into tex-coords
-    $$ if color_mode == 'face_map'
-    let tex_coord_index = face_index;
-    $$ else
-    let tex_coord_index = node_index;
-    $$ endif
-
-    // Set texture coords
-    $$ if colormap_dim == '1d'
-    varyings.texcoord = f32(load_s_texcoords(tex_coord_index));
-    $$ elif colormap_dim == '2d'
-    varyings.texcoord = vec2<f32>(load_s_texcoords(tex_coord_index));
-    $$ elif colormap_dim == '3d'
-    varyings.texcoord = vec3<f32>(load_s_texcoords(tex_coord_index));
+    // per-vertex or per-face texcoords
+    $$ if color_mode == 'face_map' or color_mode == 'vertex_map'
+        $$ if color_mode == 'face_map'
+            let texcoord_node = load_s_texcoords(face_index);
+            let texcoord_vert = texcoord_node;
+        $$ else
+            // The texcoord_node and texcoord_vert are defined (and interpolated) above.
+        $$ endif
+        $$ if colormap_dim == '1d'
+            varyings.texcoord_node = f32(texcoord_node);
+            varyings.texcoord_vert = f32(texcoord_vert);
+        $$ elif colormap_dim == '2d'
+            varyings.texcoord_node = vec2<f32>(texcoord_node);
+            varyings.texcoord_vert = vec2<f32>(texcoord_vert);
+        $$ elif colormap_dim == '3d'
+            varyings.texcoord_node = vec3<f32>(texcoord_node);
+            varyings.texcoord_vert = vec3<f32>(texcoord_vert);
+        $$ endif
     $$ endif
 
     return varyings;
@@ -760,8 +773,15 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ elif color_mode == 'face'
         let color = varyings.color_vert;
-    $$ elif color_mode == 'vertex_map' or color_mode == 'face_map'
-        let color = sample_colormap(varyings.texcoord);
+    $$ elif color_mode == 'vertex_map'
+        var texcoord = varyings.texcoord_vert;
+        if (is_join) {
+            let texcoord_segment = varyings.texcoord_node - (varyings.texcoord_node - varyings.texcoord_vert) / (1.0 - abs(join_coord_lin));
+            texcoord = mix(texcoord_segment, varyings.texcoord_node, abs(join_coord_fan));
+        }
+        let color = sample_colormap(texcoord);
+    $$ elif color_mode == 'face_map'
+        let color = sample_colormap(varyings.texcoord_vert);
     $$ else
         let color = u_material.color;
     $$ endif
