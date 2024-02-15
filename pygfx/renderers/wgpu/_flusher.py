@@ -136,7 +136,14 @@ class RenderFlusher:
         self._bind_group = None
         self._bind_group_hash = None
 
-    def render(self, src_color_tex, src_depth_tex, dst_color_tex, gamma=1.0):
+    def render(
+        self,
+        src_color_tex,
+        src_depth_tex,
+        dst_color_tex,
+        gamma=1.0,
+        filter_strength=1.0,
+    ):
         """Render the (internal) result of the renderer to a texture view."""
 
         # NOTE: src_depth_tex is not used yet, see #492
@@ -158,30 +165,28 @@ class RenderFlusher:
             )
 
         # Ready to go!
-        self._update_uniforms(src_color_tex, dst_color_tex, gamma)
+        self._update_uniforms(src_color_tex, dst_color_tex, gamma, filter_strength)
         return self._render(dst_color_tex)
 
-    def _update_uniforms(self, src_color_tex, dst_color_tex, gamma):
+    def _update_uniforms(self, src_color_tex, dst_color_tex, gamma, filter_strength):
         # Get factor between texture sizes
         factor_x = src_color_tex.size[0] / dst_color_tex.size[0]
         factor_y = src_color_tex.size[1] / dst_color_tex.size[1]
         factor = (factor_x + factor_y) / 2
 
         if factor == 1:
-            # With equal res, we smooth a tiny bit.
-            # A bit less crisp, but also less flicker.
-            sigma = 0.5
-            support = 2
+            # With equal res, we smooth a tiny bit. A bit less crisp, but also less flicker.
+            ref_sigma = 0.5
         elif factor > 1:
-            # With src a higher res, we will do ssaa.
-            # Kernel scales with input res.
-            sigma = 0.5 * factor
-            support = min(5, int(sigma * 3))
+            # With src a higher res, we will do SSAA.
+            ref_sigma = 0.5 * factor
         else:
-            # With src a lower res, the output is interpolated.
-            # But we also smooth to reduce the blockiness.
-            sigma = 0.5
-            support = 2
+            # With src a lower res, the output is interpolated. But we also smooth to reduce blockiness.
+            ref_sigma = 0.5
+
+        # Determine kernel sigma and support
+        sigma = ref_sigma * float(filter_strength)
+        support = int(sigma * 3)  # is limited in shader
 
         # Compose
         self._uniform_data["size"] = src_color_tex.size[:2]
@@ -232,7 +237,8 @@ class RenderFlusher:
 
         fragment_code = """
             // Get info about the smoothing
-            let sigma = u_render.sigma;
+            // The limits here may give the compiler info on max iters of the loop below.
+            let sigma = max(0.1, u_render.sigma);
             let support = min(5, u_render.support);
 
             // The reference index is the subpixel index in the source texture that
