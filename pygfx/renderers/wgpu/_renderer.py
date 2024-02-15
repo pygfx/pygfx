@@ -84,6 +84,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         buffer to a display buffer. If smaller than 1, pixels from the render
         buffer are replicated while converting to a display buffer. This has
         positive performance implications.
+    pixel_filter : float, optional
+        The strength of the filter when copying the result to the target/canvas.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
@@ -115,6 +117,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target,
         *args,
         pixel_ratio=None,
+        pixel_filter=None,
         show_fps=False,
         blend_mode="default",
         sort_objects=False,
@@ -131,6 +134,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
+        self.pixel_filter = pixel_filter
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
@@ -199,28 +203,65 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """The ratio between the number of internal pixels versus the logical pixels on the canvas.
 
         This can be used to configure the size of the render texture
-        relative to the canvas' logical size. By default (value is None) the
-        used pixel ratio follows the screens pixel ratio on high-res
-        displays, and is 2 otherwise.
+        relative to the canvas' *logical* size. Can be set to None to
+        set the default. By default the pixel_ratio is 2 on "regular"
+        screens, and the same as the screen pixel ratio on HiDPI screens
+        (usually also 2).
 
         If the used pixel ratio causes the render texture to be larger
-        than the physical size of the canvas, SSAA is applied, resulting
-        in a smoother final image with less jagged edges. Alternatively,
-        this value can be set to e.g. 0.5 to lower* the resolution (e.g.
-        for performance during interaction).
+        than the physical size of the canvas, SSAA (super sampling
+        antialiasing) is applied, resulting in a smoother final image
+        with less jagged edges. Alternatively, this value can be set
+        to e.g. 0.5 to *lower* the resolution.
         """
         return self._pixel_ratio
 
     @pixel_ratio.setter
     def pixel_ratio(self, value):
+        if not value:
+            value = None
         if value is None:
-            self._pixel_ratio = None
+            # Get target sizes
+            target = self._target
+            if isinstance(target, wgpu.gui.WgpuCanvasBase):
+                target_psize = target.get_physical_size()
+            elif isinstance(target, Texture):
+                target_psize = target.size[:2]
+            else:
+                raise TypeError(f"Unexpected render target {target.__class__.__name__}")
+            target_lsize = self.logical_size
+            # Determine target ratio
+            target_ratio = target_psize[0] / target_lsize[0]
+            # Use 2 on non-hidpi displays. On hidpi displays follow target.
+            self._pixel_ratio = float(target_ratio) if target_ratio > 1 else 2.0
         elif isinstance(value, (int, float)):
-            self._pixel_ratio = None if value <= 0 else float(value)
+            self._pixel_ratio = abs(float(value))
         else:
             raise TypeError(
                 f"Rendered.pixel_ratio expected None or number, not {value}"
             )
+
+    @property
+    def pixel_filter(self):
+        """The strength of the filter applied to the final pixels.
+
+        The renderer renders everything to an internal texture, which,
+        depending on the `pixel_ratio`, may have a differens size than
+        the target (i.e. canvas). In the process of rendering the result
+        to the target, a filter is applied, resulting in SSAA if the
+        size was larger, and a smoothing effect otherwise.
+
+        When the `pixel_filter` is 1.0, the default optimal filter is
+        used. Higher values result in more blur. Can be set to 0 to
+        disable the filter.
+        """
+        return self._pixel_filter
+
+    @pixel_filter.setter
+    def pixel_filter(self, value):
+        if value is None:
+            value = 1.0
+        self._pixel_filter = max(0.0, float(value))
 
     @property
     def rect(self):
@@ -241,27 +282,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def physical_size(self):
         """The physical size of the internal render texture."""
-
-        # Get physical size of the target
-        target = self._target
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            target_psize = target.get_physical_size()
-        elif isinstance(target, Texture):
-            target_psize = target.size[:2]
-        else:
-            raise TypeError(f"Unexpected render target {target.__class__.__name__}")
-
+        pixel_ratio = self._pixel_ratio
         target_lsize = self.logical_size
-
-        # Determine the pixel ratio of the render texture
-        if self._pixel_ratio:
-            pixel_ratio = self._pixel_ratio
-        else:
-            pixel_ratio = target_psize[0] / target_lsize[0]
-            if pixel_ratio <= 1:
-                pixel_ratio = 2.0  # use 2 on non-hidpi displays
-
-        # Determine the physical size of the internal render textures
         return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
 
     @property
@@ -570,6 +592,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             None,
             wgpu_tex_view,
             self._gamma_correction * self._gamma_correction_srgb,
+            self._pixel_filter,
         )
         self._device.queue.submit(command_buffers)
 

@@ -34,12 +34,20 @@ class Shared(Trackable):
     """
 
     # Vanilla WGPU does not support interpolating samplers for float32
-    # textures, which is sad for e.g. volume rendering. WebGPU specifies
-    # the 'float32-filterable' feature for this, but its not yet available
-    # in wgpu-core. Fortunately, we can enable the same functionality via
-    # the native-only feature 'texture_adapter_specific_format_features'.
+    # textures, which is sad for e.g. volume rendering. We require the
+    # 'float32-filterable' feature for this.
+    #
+    # Previously (when this feature was not yet available) we used the
+    # native-only feature 'texture_adapter_specific_format_features',
+    # but that one enables far more than we want.
+    #
+    # Technically we can check if the feature is available and fall
+    # back (in some way) when it's not available, but this easily
+    # results in complex code. I think we can probably get away with
+    # requiring only a few features that are available on the main
+    # target platforms.
 
-    _features = set(["texture_adapter_specific_format_features"])
+    _features = set(["float32-filterable"])
 
     _instance = None
 
@@ -56,6 +64,8 @@ class Shared(Trackable):
         self._device = self.adapter.request_device(
             required_features=list(Shared._features), required_limits={}
         )
+
+        self._create_diagnostics()
 
         # Create a uniform buffer for std info
         # Stored on _store so if we'd ever swap it out for another buffer,
@@ -108,6 +118,16 @@ class Shared(Trackable):
         """A buffer containing per-glyph metadata (rects and more)."""
         return self._store.glyph_atlas_info_buffer
 
+    def _create_diagnostics(self):
+        # Since diagnostics objects, are shown in order of creation,
+        # its good to instantiate our diagnostics objects right after loading
+        # the wgpu_native backend from wgpu.
+        PyGfxAdapterInfoDiagnostics("pygfx_adapter_info")
+        PyGfxFeaturesDiagnostics("pygfx_features")
+        PyGfxLimitsDiagnostics("pygfx_limits")
+        PygfxCacheDiagnostics("pygfx_caches")
+        PygfxResourceDiagnostics("pygfx_resources")
+
 
 def enable_wgpu_features(*features):
     """Enable specific features (as strings) on the wgpu device.
@@ -144,56 +164,70 @@ def get_shared():
     """
     if Shared._instance is None:
         Shared()
+
     return Shared._instance
+
+
+class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
+
+    def get_dict(self):
+        shared = get_shared()
+        adapter = shared.adapter
+        return adapter.request_adapter_info()
+
+
+class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
+
+    def get_dict(self):
+        shared = get_shared()
+        adapter = shared.adapter
+        device = shared.device
+
+        feature_names = list(wgpu.FeatureName)
+        feature_names += sorted(adapter.features.difference(wgpu.FeatureName))
+        result = {}
+        for key in feature_names:
+            result[key] = {
+                "adapter": key in adapter.features,
+                "device": key in device.features,
+            }
+        return result
+
+
+class PyGfxLimitsDiagnostics(wgpu.DiagnosticsBase):
+
+    def get_dict(self):
+        shared = get_shared()
+        adapter = shared.adapter
+        device = shared.device
+
+        result = {}
+        for key in adapter.limits.keys():
+            result[key] = {
+                "adapter": adapter.limits[key],
+                "device": device.limits.get(key, False),
+            }
+        return result
+
+
+class PygfxCacheDiagnostics(wgpu.DiagnosticsBase):
+
+    def get_dict(self):
+        result = {}
+        for cache_name, stats in gpu_caches.get_stats().items():
+            count, hits, misses = stats
+            result[cache_name] = {"count": count, "hits": hits, "misses": misses}
+        return result
+
+
+class PygfxResourceDiagnostics(wgpu.DiagnosticsBase):
+
+    def get_dict(self):
+        return Resource._resource_counts
 
 
 def print_wgpu_report():
     """Print a report on the internal status of WGPU. Can be useful
     in debugging, and for providing details when making a bug report.
     """
-    shared = get_shared()
-    adapter = shared.adapter
-    device = shared.device
-
-    print()
-    print("ADAPTER INFO:")
-    for key, val in adapter.request_adapter_info().items():
-        print(f"{key.rjust(50)}: {val}")
-
-    print()
-    print("FEATURES:".ljust(50), "adapter".rjust(10), "device".rjust(10))
-    feature_names = list(wgpu.FeatureName)
-    feature_names += sorted(adapter.features.difference(wgpu.FeatureName))
-    for key in feature_names:
-        adapter_has_it = "Y" if key in adapter.features else "-"
-        device_has_it = "Y" if key in device.features else "-"
-        print(f"{key}:".rjust(50), adapter_has_it.rjust(10), device_has_it.rjust(10))
-
-    print()
-    print("LIMITS:".ljust(50), "adapter".rjust(10), "device".rjust(10))
-    for key in adapter.limits.keys():
-        val1 = adapter.limits[key]
-        val2 = device.limits.get(key, "-")
-        print(f"{key}:".rjust(50), str(val1).rjust(10), str(val2).rjust(10))
-
-    print()
-    print("CACHES:".ljust(20), "Count".rjust(10), "Hits".rjust(10), "Misses".rjust(10))
-    for cache_name, stats in gpu_caches.get_stats().items():
-        count, hits, misses = stats
-        print(
-            f"{cache_name}".rjust(20),
-            str(count).rjust(10),
-            str(hits).rjust(10),
-            str(misses).rjust(10),
-        )
-
-    print()
-    print("RESOURCES:".ljust(20), "Count".rjust(10))
-    for name, count in Resource._resource_counts.items():
-        print(
-            f"{name}:".rjust(20),
-            str(count).rjust(10),
-        )
-
-    print()
-    wgpu.print_report()
+    wgpu.diagnostics.print_report()
