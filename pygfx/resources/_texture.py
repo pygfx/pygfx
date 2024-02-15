@@ -126,6 +126,16 @@ class Texture(Resource):
         """
         return self._data
 
+    @data.setter
+    def data(self, data):
+        self._data = data
+        self._mem = memoryview(data)
+        self._store.nbytes = self._mem.nbytes
+        self._store.size = self._size_from_data(self._mem, self.dim, self.size)
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
     @property
     def mem(self):
         """The data for this buffer as a memoryview. Can be None if
