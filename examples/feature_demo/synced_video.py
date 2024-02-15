@@ -47,7 +47,7 @@ for i in range(3):
 def animate():
     # update with new random image
     for img in images:
-        img.geometry.grid.data[:] = np.random.rand(512, 512).astype(np.float32) * 255
+        img.geometry.grid.data = np.random.rand(512, 512).astype(np.float32) * 255
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
 
     renderer.render(scene, camera)
