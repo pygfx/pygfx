@@ -94,7 +94,7 @@ def animate():
     for ob in scene.iter():
         if isinstance(ob, gfx.Line):
             if hasattr(ob.material, "dash_offset"):
-                ob.material.dash_offset += 0.5
+                ob.material.dash_offset += 0.02 * line3.material.thickness
 
 
 if __name__ == "__main__":

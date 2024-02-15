@@ -120,7 +120,7 @@ add_three_cubes(
     ),
 )
 
-camera = gfx.PerspectiveCamera(70)
+camera = gfx.PerspectiveCamera(90)
 camera.show_object(scene)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
