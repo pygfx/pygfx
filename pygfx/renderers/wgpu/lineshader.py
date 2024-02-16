@@ -14,12 +14,11 @@ from ...resources import Buffer
 from ...objects import Line
 from ...materials._line import (
     LineMaterial,
-    LineDebugMaterial,
-    LineThinMaterial,
-    LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
-    LineDashedMaterial,
+    LineThinMaterial,
+    LineThinSegmentMaterial,
+    LineDebugMaterial,
 )
 
 
@@ -65,6 +64,7 @@ class LineShader(WorldObjectShader):
         self["aa"] = material.aa
         self["debug"] = False
 
+        # Handle color
         color_mode = str(material.color_mode).split(".")[-1]
         if color_mode == "auto":
             if material.map is not None:
@@ -113,6 +113,59 @@ class LineShader(WorldObjectShader):
             pass  # TODO: do benchmarks and enable if it makes things faster
             # self["line_type"] = "quickline"
 
+        # Handle dashing
+        if material.dash_pattern:
+            # Set dash props
+            self["dashing"] = True
+            self["dash_pattern"] = tuple(wobject.material.dash_pattern)
+            self["dash_count"] = len(wobject.material.dash_pattern) // 2
+            # For line segments we can calculate the distance between nodes in the shader.
+            # For normal lines, we need a cumulative distance.
+            if not isinstance(material, LineSegmentMaterial):
+                self.needs_bake_function = True
+                self._positions_hash = None
+                self.line_distance_buffer = Buffer(
+                    np.zeros((geometry.positions.nitems,), np.float32)
+                )
+
+    def bake_function(self, wobject, camera, logical_size):
+        # Prepare
+        positions_buffer = wobject.geometry.positions
+        dash_offset = wobject.material.dash_offset
+        r_offset, r_size = positions_buffer.draw_range
+
+        # Prepare arrays
+        positions_array = positions_buffer.data[r_offset : r_offset + r_size]
+        distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
+
+        # Get vertices in the appropriate coordinate frame
+        if wobject.material.thickness_space == "model":
+            # Skip this step if the position data has not changed
+            positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
+            if positions_hash == self._positions_hash:
+                return
+            self._positions_hash = positions_hash
+            vertex_array = positions_array
+        elif wobject.material.thickness_space == "world":
+            vertex_array = la.vec_transform(positions_array, wobject.world.matrix)
+        else:  # wobject.material.thickness_space == "screen":
+            xyz = la.vec_transform(
+                positions_array, camera.camera_matrix @ wobject.world.matrix
+            )
+            vertex_array = xyz[:, :2] * (0.5 * np.array(logical_size))
+
+        # Calculate distances
+        distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
+        distances[~np.isfinite(distances)] = 0.0
+
+        # Store cumulatives
+        distance_array[0] = dash_offset
+        distances[0] += dash_offset
+        np.cumsum(distances, out=distance_array[1:])
+
+        # Mark that the data has changed
+        self.line_distance_buffer.update_range(r_offset, r_size)
+
     def get_bindings(self, wobject, shared):
         material = wobject.material
         geometry = wobject.geometry
@@ -157,7 +210,11 @@ class LineShader(WorldObjectShader):
                 )
             )
 
-        bindings.extend(self._get_extra_bindings(wobject))
+        # Need a buffer for the cumdist?
+        if hasattr(self, "line_distance_buffer"):
+            bindings.append(
+                Binding("s_cumdist", rbuffer, self.line_distance_buffer, "VERTEX")
+            )
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
@@ -165,9 +222,6 @@ class LineShader(WorldObjectShader):
         return {
             0: bindings,
         }
-
-    def _get_extra_bindings(self, wobject):
-        return []  # for subclasses to provide more bindings
 
     def get_pipeline_info(self, wobject, shared):
         # Cull backfaces so that overlapping faces are not drawn.
@@ -229,67 +283,6 @@ class LineDebugShader(LineShader):
         super().__init__(wobject)
 
         self["debug"] = True
-
-
-@register_wgpu_render_function(Line, LineDashedMaterial)
-class LineDashedShader(LineShader):
-    needs_bake_function = True
-
-    def __init__(self, wobject):
-        super().__init__(wobject)
-
-        self["dashing"] = bool(wobject.material.dash_pattern)
-        self["dash_pattern"] = tuple(wobject.material.dash_pattern)
-        self["dash_count"] = len(wobject.material.dash_pattern) // 2
-
-        n_verts = wobject.geometry.positions.nitems
-        distance_array = np.zeros((n_verts,), np.float32)
-        self.line_distance_buffer = Buffer(distance_array)
-        self._positions_hash = None
-
-    def _get_extra_bindings(self, wobject):
-        rbuffer = "buffer/read_only_storage"
-        return [
-            Binding("s_cumdist", rbuffer, self.line_distance_buffer, "VERTEX"),
-        ]
-
-    def bake_function(self, wobject, camera, logical_size):
-        # Prepare
-        positions_buffer = wobject.geometry.positions
-        dash_offset = wobject.material.dash_offset
-        r_offset, r_size = positions_buffer.draw_range
-
-        # Prepare arrays
-        positions_array = positions_buffer.data[r_offset : r_offset + r_size]
-        distance_array = self.line_distance_buffer.data[r_offset : r_offset + r_size]
-
-        # Get vertices in the appropriate coordinate frame
-        if wobject.material.thickness_space == "model":
-            # Skip this step if the position data has not changed
-            positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
-            if positions_hash == self._positions_hash:
-                return
-            self._positions_hash = positions_hash
-            vertex_array = positions_array
-        elif wobject.material.thickness_space == "world":
-            vertex_array = la.vec_transform(positions_array, wobject.world.matrix)
-        else:  # wobject.material.thickness_space == "screen":
-            xyz = la.vec_transform(
-                positions_array, camera.camera_matrix @ wobject.world.matrix
-            )
-            vertex_array = xyz[:, :2] * (0.5 * np.array(logical_size))
-
-        # Calculate distances
-        distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)
-        distances[~np.isfinite(distances)] = 0.0
-
-        # Store cumulatives
-        distance_array[0] = dash_offset
-        distances[0] += dash_offset
-        np.cumsum(distances, out=distance_array[1:])
-
-        # Mark that the data has changed
-        self.line_distance_buffer.update_range(r_offset, r_size)
 
 
 @register_wgpu_render_function(Line, LineSegmentMaterial)
@@ -399,7 +392,7 @@ class ThinLineShader(LineShader):
         )
 
     def code_vertex(self):
-        return """
+        return """//wgsl
         struct VertexInput {
             @builtin(vertex_index) index : u32,
         };
@@ -448,7 +441,7 @@ class ThinLineShader(LineShader):
         """
 
     def code_fragment(self):
-        return """
+        return """//wgsl
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 

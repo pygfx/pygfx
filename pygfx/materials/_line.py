@@ -8,18 +8,23 @@ class LineMaterial(Material):
 
     Parameters
     ----------
-    color : Color
-        The uniform color of the line (used depending on the ``color_mode``).
     thickness : float
         The line thickness expressed in logical pixels.
     thickness_space : str
         The coordinate space in which the thickness (and dash_pattern) are expressed. Default "screen".
+    color : Color
+        The uniform color of the line (used depending on the ``color_mode``).
     color_mode : enum or str
         The mode by which the line is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate. Optional.
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
+    dash_pattern : tuple
+        The pattern of the dash, expressed as an even number of floats. Defaults to an empty tuple,
+        meaning no dashing.
+    dash_offset : float
+        The offset into the dash cycle to start drawing at. Default 0.0.
     aa : bool
         Whether or not the line is anti-aliased in the shader. This gives smoother
         edges, but may affect performance for very large datasets. Default True.
@@ -37,24 +42,28 @@ class LineMaterial(Material):
 
     def __init__(
         self,
-        color=(1, 1, 1, 1),
         thickness=2.0,
         thickness_space="screen",
+        color=(1, 1, 1, 1),
         color_mode="auto",
         map=None,
         map_interpolation="linear",
+        dash_pattern=(),
+        dash_offset=0,
         aa=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        self.color = color
-        self.aa = aa
-        self.map = map
-        self.map_interpolation = map_interpolation
         self.thickness = thickness
         self.thickness_space = thickness_space
+        self.color = color
         self.color_mode = color_mode
+        self.map = map
+        self.map_interpolation = map_interpolation
+        self.dash_pattern = dash_pattern
+        self.dash_offset = dash_offset
+        self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -187,40 +196,6 @@ class LineMaterial(Material):
         assert value in ("nearest", "linear")
         self._store.map_interpolation = value
 
-
-class LineDebugMaterial(LineMaterial):
-    """Line debug material.
-
-    A material that renders the triangles that the line is made up off.
-    """
-
-    pass
-
-
-class LineDashedMaterial(LineMaterial):
-    """Line dashed material.
-
-    A meterial that renders dashed lines.
-
-    Parameters
-    ----------
-    dash_pattern : tuple
-        The pattern of the dash, expressed as a series of (2, 4, 6, or 8) floats.
-    dash_offset : float
-        The offset into the dash cycle to start drawing at. Default 0.0.
-    """
-
-    def __init__(
-        self,
-        *args,
-        dash_pattern=(1, 1),
-        dash_offset=0,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.dash_pattern = dash_pattern
-        self.dash_offset = dash_offset
-
     @property
     def dash_pattern(self):
         """The dash pattern.
@@ -228,12 +203,15 @@ class LineDashedMaterial(LineMaterial):
         A sequence of floats describing the length of strokes and gaps. For example, (5, 2, 1, 2)
         describes a a stroke of 5 units, a gap of 2, then a short stroke of 1, and another gap of 2.
         Units are relative to the line thickness (and therefore `thickness_space` also applies
-        to the `dash_pattern`).
+        to the `dash_pattern`). There must be an even number of numbers in the pattern.
+        Setting to None or the empty tuple means no dashing.
         """
         return self._store.dash_pattern
 
     @dash_pattern.setter
     def dash_pattern(self, value):
+        if value is None:
+            value = ()
         if not isinstance(value, (tuple, list)):
             raise TypeError(
                 "Line dash_pattern must be a sequence of floats, not '{value}'"
@@ -252,6 +230,15 @@ class LineDashedMaterial(LineMaterial):
         self._store.dash_offset = float(value)
 
 
+class LineDebugMaterial(LineMaterial):
+    """Line debug material.
+
+    A material that renders the triangles that the line is made up off.
+    """
+
+    pass
+
+
 class LineSegmentMaterial(LineMaterial):
     """Line segment material.
 
@@ -262,7 +249,7 @@ class LineSegmentMaterial(LineMaterial):
 class LineArrowMaterial(LineSegmentMaterial):
     """Arrow (vector) line material.
 
-    A material that renders line segments that look like little vectors.
+    A material that renders line segments that look like little arrows.
     """
 
 
@@ -270,9 +257,9 @@ class LineThinMaterial(LineMaterial):
     """Thin line material.
 
     A simple line, drawn with line_strip primitives that has a thickness
-    of one physical pixel (the thickness property is ignored).
+    of one physical pixel. Thickness, dashing, and aa are ignored.
 
-    While you probably don't want to use this property in your application (its
+    While you typically don't want to use this in your application (its
     width is inconsistent and looks *very* thin on HiDPI monitors), it can be
     useful for debugging as it is more performant than other line materials.
 
@@ -283,9 +270,9 @@ class LineThinSegmentMaterial(LineMaterial):
     """Thin line segment material.
 
     Simple line segments, drawn with line primitives that has a thickness
-    of one physical pixel (the thickness property is ignored).
+    of one physical pixel. Thickness, dashing, and aa are ignored.
 
-    While you probably don't want to use this property in your application (its
+    While you typically don't want to use this in your application (its
     width is inconsistent and looks *very* thin on HiDPI monitors), it can be
     useful for debugging as it is more performant than other line materials.
 

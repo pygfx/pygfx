@@ -93,7 +93,7 @@ line2 = gfx.Line(
 
 line3 = gfx.Line(
     geometry,
-    gfx.LineDashedMaterial(
+    gfx.LineMaterial(
         thickness=20,
         thickness_space="screen",
         color_mode="uniform",

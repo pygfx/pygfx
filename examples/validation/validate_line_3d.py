@@ -5,7 +5,7 @@ Lines in 3D
 * This example is to demonstrate lines in 3D, with a perspective camera.
 * Dashing and colors should be continuous for non-broken joins (i.e. correct handling of depth and w).
 * Lines that are nearly completely in the view direction only have their caps drawn.
- 
+
 """
 
 import numpy as np
@@ -65,7 +65,7 @@ line2 = gfx.Line(
 
 line3 = gfx.Line(
     geometry,
-    gfx.LineDashedMaterial(
+    gfx.LineMaterial(
         thickness=40,
         thickness_space="screen",
         color_mode="uniform",

@@ -89,7 +89,7 @@ scene.add(top, middle, bottom)
 
 add_three_cubes(
     top,
-    gfx.LineDashedMaterial(
+    gfx.LineMaterial(
         thickness=10,
         thickness_space="screen",
         dash_pattern=[0, 2],
@@ -100,7 +100,7 @@ add_three_cubes(
 
 add_three_cubes(
     middle,
-    gfx.LineDashedMaterial(
+    gfx.LineMaterial(
         thickness=0.1,
         thickness_space="world",
         dash_pattern=[0, 2],
@@ -111,7 +111,7 @@ add_three_cubes(
 
 add_three_cubes(
     bottom,
-    gfx.LineDashedMaterial(
+    gfx.LineMaterial(
         thickness=0.1,
         thickness_space="model",
         dash_pattern=[0, 2],
