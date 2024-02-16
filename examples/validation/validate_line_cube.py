@@ -43,10 +43,15 @@ position_pairs = [
     [-1, -1, 1],
 ]
 
-positions = np.zeros((3 * len(position_pairs) // 2, 3), np.float32)
-positions[0::3] = position_pairs[0::2]
-positions[1::3] = position_pairs[1::2]
-positions[2::3] = np.nan
+if True:  # use segment
+    Material = gfx.LineSegmentMaterial  # noqa
+    positions = np.array(position_pairs, np.float32)
+else:  # use nans
+    Material = gfx.LineMaterial  # noqa
+    positions = np.zeros((3 * len(position_pairs) // 2, 3), np.float32)
+    positions[0::3] = position_pairs[0::2]
+    positions[1::3] = position_pairs[1::2]
+    positions[2::3] = np.nan
 
 
 def add_three_cubes(parent, material):
@@ -89,7 +94,7 @@ scene.add(top, middle, bottom)
 
 add_three_cubes(
     top,
-    gfx.LineMaterial(
+    Material(
         thickness=10,
         thickness_space="screen",
         dash_pattern=[0, 2],
@@ -100,7 +105,7 @@ add_three_cubes(
 
 add_three_cubes(
     middle,
-    gfx.LineMaterial(
+    Material(
         thickness=0.1,
         thickness_space="world",
         dash_pattern=[0, 2],
@@ -111,7 +116,7 @@ add_three_cubes(
 
 add_three_cubes(
     bottom,
-    gfx.LineMaterial(
+    Material(
         thickness=0.1,
         thickness_space="model",
         dash_pattern=[0, 2],

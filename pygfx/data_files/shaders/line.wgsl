@@ -86,6 +86,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let vertex_index = index % 6;
     let vertex_num = vertex_index + 1;
     var face_index = node_index;  // corrected below, depending on configuration
+    let node_index_is_even = node_index % 2 == 0;
 
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
@@ -394,7 +395,19 @@ fn vs_main(in: VertexInput) -> Varyings {
     var z = node2n.z;
     var w = node2n.w;
     $$ if dashing
-        let cumdist_node = f32(load_s_cumdist(node_index));
+        $$ if line_type == 'line'
+            let cumdist_node = f32(load_s_cumdist(node_index));
+        $$ else
+            let cumdist_before = 0.0;
+            $$ if thickness_space == 'screen'
+            let cumdist_after = length(node2s.xy - select(node1s.xy, node3s.xy, node_index_is_even));
+            $$ elif thickness_space == 'world'
+            let cumdist_after = length(node2w.xyz - select(node1w.xyz, node3w.xyz, node_index_is_even));
+            $$ elif thickness_space == 'model'
+            let cumdist_after = length(node2m.xyz - select(node1m.xyz, node3m.xyz, node_index_is_even));
+            $$ endif
+            let cumdist_node = select(cumdist_before, cumdist_after, !node_index_is_even);
+        $$ endif
         var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
     $$ endif
     $$ if color_mode == 'vertex'
@@ -415,7 +428,9 @@ fn vs_main(in: VertexInput) -> Varyings {
         z = mix(z, node1n.z, ratio);
         w = mix(w, node1n.w, ratio);
         $$ if dashing
+            $$ if line_type == 'line'
             let cumdist_before = f32(load_s_cumdist(node_index - 1));
+            $$ endif
             cumdist_vertex = mix(cumdist_node, cumdist_before, ratio);
         $$ endif
         if (node_is_join) {
@@ -436,7 +451,9 @@ fn vs_main(in: VertexInput) -> Varyings {
         z = mix(z, node3n.z, ratio);
         w = mix(w, node3n.w, ratio);
         $$ if dashing
+            $$ if line_type == 'line'
             let cumdist_after = f32(load_s_cumdist(node_index + 1));
+            $$ endif
             cumdist_vertex = mix(cumdist_node, cumdist_after, ratio);
         $$ endif
         if (node_is_join) {
