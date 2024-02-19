@@ -1,5 +1,5 @@
 // Line shader
-// 
+//
 // The vertex shader uses VertexId and storage buffers instead of vertex buffers.
 // It creates 6 vertices for each point on the line, and a triangle-strip topology.
 // That gives 6 faces, of which 4 are used: 2 for the rectangular segment to the
@@ -142,7 +142,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ else
             // Distance in world space
             let thickness_ratio = 0.5 * (distance(node2w.xyz, node2w_shiftedx.xyz) + distance(node2w.xyz, node2w_shiftedy.xyz));
-        $$ endif 
+        $$ endif
     $$ endif
     let thickness:f32 = u_material.thickness / thickness_ratio;  // Logical pixels
     let extra_thick = 0.5 / l2p;  // on each side.
@@ -237,7 +237,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         coord5 = vec2<f32>(0.0, 1.0);
         coord6 = vec2<f32>(0.0, -1.0);
 
-        if (vertex_num <= 4) { 
+        if (vertex_num <= 4) {
             offset_ratio_multiplier = vec2<f32>(0.0, - 1.0);
         }
 
@@ -280,7 +280,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         if (vertex_num == 3) {
             offset_ratio_multiplier = vec2<f32>(-miter_length, 0.0);
         } else if (vertex_num == 4) {
-            offset_ratio_multiplier = vec2<f32>(0.0, -miter_length); 
+            offset_ratio_multiplier = vec2<f32>(0.0, -miter_length);
         }
 
         $$ elif line_type == 'line'
@@ -344,9 +344,9 @@ fn vs_main(in: VertexInput) -> Varyings {
             if (vertex_num == 3) {
                 offset_ratio_multiplier = vec2<f32>(-miter_length, 0.0);
             } else if (vertex_num == 4) {
-                offset_ratio_multiplier = vec2<f32>(0.0, -miter_length); 
+                offset_ratio_multiplier = vec2<f32>(0.0, -miter_length);
             }
-            
+
         } else {
             // Create a proper join
 
@@ -358,8 +358,8 @@ fn vs_main(in: VertexInput) -> Varyings {
 
             // Vertex 3 and 4 are both in the ourer corner.
             let sign34 = select(1.0, -1.0, inner_corner_is_at_15);
-            
-            // Express coords in segment coordinates. 
+
+            // Express coords in segment coordinates.
             // Note that coord3 and coord4 are different, but the respective vertex positions will be the same (except for float inaccuraries).
             // These represent the segment coords. They are also used to calculate the vertex position, by rotating it and adding to node2.
             // However, the point of rotation will be shifted with the vertex_inset (see use of vertex_inset further down).
@@ -369,8 +369,8 @@ fn vs_main(in: VertexInput) -> Varyings {
             coord4 = vec2<f32>(-2.0 * vertex_inset, sign34);
             coord5 = vec2<f32>(0.0, 1.0);
             coord6 = vec2<f32>(0.0, -1.0);
-            
-            // For 
+
+            // For
             if ( vertex_num <= 2) {
                 offset_ratio_multiplier = vec2<f32>(vertex_inset, 0.0);
             } else if (vertex_num >= 5) {
@@ -379,7 +379,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
             // Get wheter this is an outer corner
             let vertex_num_is_even = (vertex_num % 2) == 0;
-            if (inner_corner_is_at_15) { 
+            if (inner_corner_is_at_15) {
                 is_outer_corner = f32(vertex_num_is_even || vertex_num == 3);
             } else {
                 is_outer_corner = f32((!vertex_num_is_even) || vertex_num == 4);
@@ -390,7 +390,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Zero the multiplier if the divisor is going to be zero
     offset_ratio_multiplier = offset_ratio_multiplier * vec2<f32>(f32(length(nodevec1) > 0.0), f32(length(nodevec3) > 0.0));
-    
+
     // Prepare values for applying offset_ratio_multiplier
     var z = node2n.z;
     var w = node2n.w;
@@ -417,7 +417,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         let texcoord_node = load_s_texcoords(node_index);
         var texcoord_vert = texcoord_node;
     $$ endif
-    
+
     // Interpolate / extrapolate
     if (offset_ratio_multiplier.x != 0.0) {
         // Get ratio in screen space, and then correct for perspective.
@@ -459,7 +459,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         if (node_is_join) {
             // Some values only interpolate for joins
             $$ if color_mode == 'vertex'
-                let color_after = load_s_colors(node_index + 1); 
+                let color_after = load_s_colors(node_index + 1);
                 color_vert = mix(color_vert, color_after, ratio);
             $$ elif color_mode == 'vertex_map'
                 let texcoord_after = load_s_texcoords(node_index + 1);
@@ -490,7 +490,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
 
     // Build varyings output
-    
+
     var varyings: Varyings;
     // Position
     varyings.position = vec4<f32>(the_pos_n);
@@ -503,7 +503,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     varyings.join_coord = f32(join_coord);
     varyings.is_outer_corner = f32(is_outer_corner);
     varyings.valid_if_nonzero = f32(valid_array[vertex_index]);
-    
+
     $$ if debug
         // Include barycentric coords so we can draw the triangles that make up the line
         varyings.bary = vec3<f32>(f32(vertex_index % 3 == 0), f32(vertex_index % 3 == 1), f32(vertex_index % 3 == 2));
@@ -583,10 +583,10 @@ $$ endif
 
 @fragment
 fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
-            
+
     // Get the half-thickness in physical coordinates. This is the reference thickness.
     // If aa is used, the line is actually a bit thicker, leaving space to do aa.
-    let half_thickness_p = 0.5 * varyings.thickness_pw / varyings.w; 
+    let half_thickness_p = 0.5 * varyings.thickness_pw / varyings.w;
 
     // Discard invalid faces. These are faces for which *all* 3 verts are set to zero. (trick 5b)
     if (varyings.valid_if_nonzero == 0.0) {
@@ -629,7 +629,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     var dist_to_stroke_p = length(segment_coord_p) - half_thickness_p;
 
     $$ if dashing
-        
+
         // Calculate the cumulative distance along the line. We need a continuous value to parametrize
         // the dash (and its cap). Going around the corner, it will compress on the inside, and expand
         // on the outer side, deforming dashes as they move around the corner, appropriately.
@@ -637,7 +637,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         var cumdist_continuous : f32;
         var cumdist_linear: f32;
         if (is_join) {
-            // First calculate the cumdist at the edge where segment and join meet. 
+            // First calculate the cumdist at the edge where segment and join meet.
             // Note that cumdist_vertex == cumdist_node at the outer-corner-vertex.
             let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / (1.0 - abs(join_coord_lin));
             // Calculate the continous cumdist, by interpolating using join_coord_fan
@@ -676,9 +676,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // Calculate dash_progress, a number 0..dash_size, indicating the fase of the dash.
         // Except that we shift it, so that half of the final gap gets in front (as a negative number).
         let dash_progress = (cumdist_continuous + 0.5 * last_gap) % dash_size - 0.5 * last_gap;
-        
+
         // Its looks a bit like this. Now we select the nearest stroke, and calculate the
-        // distance to the beginning and end of that stroke. 
+        // distance to the beginning and end of that stroke.
         //
         //  -0.5*last_gap      0                                              dash_size-0.5*last_gap     dash_size
         //     |               |                                                          |               |
@@ -728,7 +728,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             let dist_at_segment_p = select(dist_to_end_p, dist_to_begin_p, segment_coord_p.x > 0.0) + abs(segment_coord_p.x);
             if (dist_at_segment_p > half_thickness_p) {
                 discard;
-            } 
+            }
         }
 
         // The vector to the stoke (at the line-center)
@@ -737,11 +737,11 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             yy = length(segment_coord_p);  // smoother dash-turns
         }
         let vec_to_dash_p = vec2<f32>(dist_to_dash_p, yy);
-        
+
         // Apply cap
         //let dist_to_stroke_dash_p = vec_to_dash_p.x;  // Butt caps
         let dist_to_stroke_dash_p = length(vec_to_dash_p) - half_thickness_p; // Round caps
-        
+
         // Update dist_to_stroke_p with dash info
         dist_to_stroke_p = max(dist_to_stroke_p, dist_to_stroke_dash_p);
 
@@ -756,7 +756,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         }
     $$ endif
 
-    $$ if line_type == 'arrow' 
+    $$ if line_type == 'arrow'
         // Arrow shape
         let arrow_head_factor = 1.0 - varyings.line_type_segment_coord;
         let arrow_tail_factor = 1.0 - varyings.line_type_segment_coord * 3.0;
@@ -809,7 +809,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         physical_color = vec3<f32>(abs(cumdist_linear % 1.0) / 1.0, 0.0, 0.0);
     $$ endif
 
-    // Determine final rgba value            
+    // Determine final rgba value
     let opacity = min(1.0, color.a) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
