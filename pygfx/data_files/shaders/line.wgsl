@@ -1,4 +1,12 @@
-// Line shader
+// # Line shader
+//
+// ## References:
+//
+// * https://almarklein.org/line_rendering.html -> for a high level understaning of what this shader does.
+// * https://almarklein.org/triangletricks.html -> for an explanation of some of the referred tricks.
+// * https://jcgt.org/published/0002/02/08/paper.pdf -> Nicolas Rougier's paper that was a great inspiration.
+//
+// ## Summary
 //
 // The vertex shader uses VertexId and storage buffers instead of vertex buffers.
 // It creates 6 vertices for each point on the line, and a triangle-strip topology.
@@ -9,7 +17,7 @@
 // The resulting shapes are made up of triangles. In the fragment shader we discard
 // fragments depending on join and cap shapes, and we use aa for crisp edges.
 //
-// Definitions:
+// ## Definitions
 //
 // - node: the positions that define the line. In other contexts these
 //   may be called vertices or points.
@@ -25,7 +33,7 @@
 //   This is the visible piece to which caps are added. Can go over a
 //   join, i.e. is not always straight. The gap is the off-piece.
 //
-// Basic algorithm and definitions:
+// ## Basic algorithm
 //
 // - We read the positions of three nodes, the previous, current, and next.
 // - These are converted to logical pixel screen space.
@@ -41,16 +49,13 @@
 //           /  /  /
 //        5 /  /  /
 //   - - - 1  /  /     segment-vertices 1, 2, 5, 6
-//   o-------o  6      the vertices 3 and 4 are in the outer corner.
+//   o-------o  6      the vertices 3 and 4 are both in the outer corner.
 //   - - - 2 - 34
 //                node 2
 //  node 1
 //
 
-
-struct VertexInput {
-    @builtin(vertex_index) index : u32,
-};
+// -------------------- functions --------------------
 
 
 fn is_nan_or_zero(v:f32) -> bool {
@@ -74,6 +79,11 @@ fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
 // -------------------- vertex shader --------------------
 
 
+struct VertexInput {
+    @builtin(vertex_index) index : u32,
+};
+
+
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
 
@@ -85,7 +95,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let node_index = index / 6;
     let vertex_index = index % 6;
     let vertex_num = vertex_index + 1;
-    var face_index = node_index;  // corrected below, depending on configuration
+    var face_index = node_index;  // corrected below if necessary, depending on configuration
     let node_index_is_even = node_index % 2 == 0;
 
     // Sample the current node and it's two neighbours. Model coords.
@@ -110,7 +120,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
     let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
 
-    // Get vectors representing the two incident line segments
+    // Get vectors representing the two incident line segments (screen coords)
     var nodevec1: vec2<f32> = node2s.xy - node1s.xy;  // from node 1 (to node 2)
     var nodevec3: vec2<f32> = node3s.xy - node2s.xy;  // to node 3 (from node 2)
 
@@ -122,7 +132,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Just enough so that fragments that are partially on the line, are also included
     // in the fragment shader. That way we can do aa without making the lines thinner.
     // All logic in this function works with the ticker line width. But we pass the real line width as a varying.
-    $$ if thickness_space == "screen"
+    $$ if thickness_space == 'screen'
         let thickness_ratio = 1.0;
     $$ else
         // The thickness is expressed in world space. So we first check where a point, moved 1 logic pixel away
@@ -133,7 +143,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         let node2n_shiftedy = vec4<f32>((node2s_shiftedy / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
         let node2w_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * node2n_shiftedx;
         let node2w_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * node2n_shiftedy;
-        $$ if thickness_space == "model"
+        $$ if thickness_space == 'model'
             // Transform back to model space
             let node2m_shiftedx = u_wobject.world_transform_inv * node2w_shiftedx;
             let node2m_shiftedy = u_wobject.world_transform_inv * node2w_shiftedy;
@@ -199,14 +209,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     let nodevec3_has_significant_depth_component = abs(nodevec3_c.z) > 1.0 * length(nodevec3_c.xy);
     // Determine capp-ness
     let minor_dist_threshold = 0.0001;
-    let major_dist_threshold = 0.5 * max(1.0, half_thickness);
+    let major_dist_threshold = 0.25 * max(1.0, half_thickness);
     var left_is_cap = is_nan_or_zero(node1n.w) || length(nodevec1) < select(minor_dist_threshold, major_dist_threshold, nodevec1_has_significant_depth_component);
     var right_is_cap = is_nan_or_zero(node3n.w) || length(nodevec3) < select(minor_dist_threshold, major_dist_threshold, nodevec3_has_significant_depth_component);
 
     $$ if line_type in ['segment', 'arrow']
         // Implementing segments is pretty easy
-        left_is_cap = left_is_cap || node_index % 2 == 0;
-        right_is_cap = right_is_cap || node_index % 2 == 1;
+        left_is_cap = left_is_cap || node_index_is_even;
+        right_is_cap = right_is_cap || !node_index_is_even;
     $$ endif
 
     // The big triage ...
@@ -263,6 +273,8 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         $$ if line_type == 'quickline'
 
+        // Probably faster than lines with joins, but have not tested yet.
+
         // Joins in quick lines are always broken
         let miter_length = 4.0;
         coord1 = vec2<f32>(          0.0,  1.0);
@@ -306,7 +318,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         let nodevec3_norm = normalize(nodevec3);
         let join_vec_on_nodevec1 = dot(join_vec, nodevec1_norm) * nodevec1_norm;
         let join_vec_on_nodevec3 = dot(join_vec, nodevec3_norm) * nodevec3_norm;
-        var max_vec_mag = {{ "1.5" if dashing else "100.0" }};  // 1.5 corresponds to about 90 degrees
+        var max_vec_mag = {{ '1.5' if dashing else '100.0' }};  // 1.5 corresponds to about 90 degrees
         max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
         max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec3) / length(join_vec_on_nodevec3) / half_thickness);
 
@@ -370,7 +382,6 @@ fn vs_main(in: VertexInput) -> Varyings {
             coord5 = vec2<f32>(0.0, 1.0);
             coord6 = vec2<f32>(0.0, -1.0);
 
-            // For
             if ( vertex_num <= 2) {
                 offset_ratio_multiplier = vec2<f32>(vertex_inset, 0.0);
             } else if (vertex_num >= 5) {
@@ -411,7 +422,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
     $$ endif
     $$ if color_mode == 'vertex'
-        let color_node = load_s_colors(node_index);  // type depends on color depth
+        let color_node = load_s_colors(node_index);
         var color_vert = color_node;
     $$ elif color_mode == 'vertex_map'
         let texcoord_node = load_s_texcoords(node_index);
@@ -421,7 +432,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Interpolate / extrapolate
     if (offset_ratio_multiplier.x != 0.0) {
         // Get ratio in screen space, and then correct for perspective.
-        // I derived that step by calculating the new w from the ratio, and then substituting terms.
+        // I derived this step by calculating the new w from the ratio, and then substituting terms.
         var ratio = offset_ratio_multiplier.x * half_thickness / length(nodevec1);
         ratio = (1.0 - ratio) * ratio * node2n.w / node1n.w + ratio * ratio;
         // Interpolate on the left
@@ -482,15 +493,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     let ref_angle = select(angle1, angle3, use_456);
     let relative_vert_s = rotate_vec2(ref_coord + vertex_offset, ref_angle) * half_thickness;
 
-    // Calculate vertex position.
-    // NOTE: the extrapolated positions (most notably the caps) are at the same depth as the node.
-    // From the use-cases I have seen so far this is not a problem (might even be favorable?),
-    // but something to keep in mind when someone encounters unexpected behavior related to caps and depth.
+    // Calculate vertex position in NDC.The z and w are inter/extra-polated.
     let the_pos_s = node2s + relative_vert_s;
     let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
 
     // Build varyings output
-
     var varyings: Varyings;
     // Position
     varyings.position = vec4<f32>(the_pos_n);
@@ -511,12 +518,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if dashing
         // Set two varyings, so that we can correctly interpolate the cumdist in the joins.
         // If the thickness is in screen space, we need to correct for perspective division
-        varyings.cumdist_node = f32(cumdist_node)  {{ '* w' if thickness_space == "screen" else '' }};
-        varyings.cumdist_vertex = f32(cumdist_vertex)  {{ '* w' if thickness_space == "screen" else '' }};
-    $$ endif
-    $$ if line_type == 'arrow'
-        // Include coord that goes from 0 to 1 over the segment, so we can shape the arrow
-        varyings.line_type_segment_coord = f32(node_index % 2);
+        varyings.cumdist_node = f32(cumdist_node)  {{ '* w' if thickness_space == 'screen' else '' }};
+        varyings.cumdist_vertex = f32(cumdist_vertex)  {{ '* w' if thickness_space == 'screen' else '' }};
     $$ endif
 
     // Picking
@@ -524,7 +527,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // but in practice, its about 4_000_000 for f32 varyings (in my tests).
     // We use a real u32 to not lose presision, see frag shader for details.
     varyings.pick_idx = u32(node_index);
-    varyings.pick_zigzag = f32(select(0.0, 1.0, node_index % 2 == 0));
+    varyings.pick_zigzag = f32(node_index_is_even);
 
     // per-vertex or per-face coloring
     $$ if color_mode == 'face' or color_mode == 'vertex'
@@ -577,7 +580,8 @@ fn vs_main(in: VertexInput) -> Varyings {
 
 
 $$ if dashing
-    const dash_count = {{dash_count}};
+// Constant to help compiler create fixed-size arrays and loops.
+const dash_count = {{dash_count}};
 $$ endif
 
 
@@ -650,7 +654,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             cumdist_continuous = varyings.cumdist_vertex;
             cumdist_linear = cumdist_continuous;
         }
-        $$ if thickness_space == "screen"
+        $$ if thickness_space == 'screen'
             cumdist_continuous = cumdist_continuous / varyings.w;
             cumdist_linear = cumdist_linear / varyings.w;
         $$ endif
@@ -757,12 +761,12 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     $$ endif
 
     $$ if line_type == 'arrow'
-        // Arrow shape
-        let arrow_head_factor = 1.0 - varyings.line_type_segment_coord;
-        let arrow_tail_factor = 1.0 - varyings.line_type_segment_coord * 3.0;
+        // Arrow shape. Use pick_zigzag, because it has exactly what we need.
+        let arrow_head_factor = varyings.pick_zigzag;
+        let arrow_tail_factor = varyings.pick_zigzag * 3.0 - 2.0;
         dist_to_stroke_p = max(
-                abs(segment_coord_p.y) - half_thickness_p * arrow_head_factor,
-                half_thickness_p * arrow_tail_factor- abs(segment_coord_p.y)
+            abs(segment_coord_p.y) - half_thickness_p * arrow_head_factor,
+            half_thickness_p * arrow_tail_factor- abs(segment_coord_p.y)
         );
         // Ignore caps
         dist_to_stroke_p = select(dist_to_stroke_p, 9999999.0, segment_coord_p.x != 0.0);
