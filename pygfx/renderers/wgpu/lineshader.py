@@ -1,3 +1,6 @@
+""" pygfx line shader. See line.wgsl for details.
+"""
+
 import wgpu  # only for flags/enums
 import numpy as np
 import pylinalg as la
@@ -20,31 +23,6 @@ from ...materials._line import (
     LineThinSegmentMaterial,
     LineDebugMaterial,
 )
-
-
-# ## Notes
-#
-# Rendering lines on the GPU is hard! The approach used here uses
-# VertexId and storage buffers instead of vertex buffers. That way we
-# can create multiple vertices for each point on the line. These
-# vertices are positioned such that rendering with triangle_strip
-# results in a tick line. More info below.
-#
-# An alternative (used by e.g. ThreeJS) is to draw the geometry of a
-# line segment many times using instancing. Note that some Intel drivers
-# limit the number of instances to about 5-10k, which is not much considering
-# that lines consisting of millions of points can normally run realtime.
-# https://wwwtyro.net/2019/11/18/instanced-lines.html
-#
-# Another alternative is a geometry shader, but wgpu does not have that.
-# But we have compute shaders, which can be used to prepare the triangle-based
-# geometry and store it in a buffer, which can be used as a vertex buffer in
-# the render pass. The downside of this approach is the memory consumption.
-# But a hybrid approach may be viable: the current approach using VertexId,
-# but preparing some data in a buffer.
-
-# todo: --> http://jcgt.org/published/0002/02/08/paper.pdf
-
 
 renderer_uniform_type = dict(last_i="i4")
 

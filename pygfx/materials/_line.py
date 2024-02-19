@@ -9,9 +9,9 @@ class LineMaterial(Material):
     Parameters
     ----------
     thickness : float
-        The line thickness expressed in logical pixels.
+        The line thickness expressed in logical pixels. Default 2.0.
     thickness_space : str
-        The coordinate space in which the thickness (and dash_pattern) are expressed. Default "screen".
+        The coordinate space in which the thickness is expressed. Default "screen".
     color : Color
         The uniform color of the line (used depending on the ``color_mode``).
     color_mode : enum or str
@@ -19,19 +19,15 @@ class LineMaterial(Material):
     map : Texture
         The texture map specifying the color for each texture coordinate. Optional.
     map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
+        The method to interpolate the color map ('nearest' or 'linear'). Default 'linear'.
     dash_pattern : tuple
-        The pattern of the dash, expressed as an even number of floats. Defaults to an empty tuple,
-        meaning no dashing.
+        The pattern of the dash. Defaults to an empty tuple, meaning no dashing.
     dash_offset : float
-        The offset into the dash cycle to start drawing at. Default 0.0.
+        The offset into the dash phase. Default 0.0.
     aa : bool
-        Whether or not the line is anti-aliased in the shader. This gives smoother
-        edges, but may affect performance for very large datasets. Default True.
+        Whether or not the line is anti-aliased in the shader. Default True.
     kwargs : Any
-        Additional kwargs will be passed to the :class:`material base class
-        <pygfx.Material>`.
-
+        Additional kwargs will be passed to the :class:`material base class <pygfx.Material>`.
     """
 
     uniform_type = dict(
@@ -92,9 +88,15 @@ class LineMaterial(Material):
 
     @property
     def aa(self):
-        """Whether or not the line should be anti-aliased. Aliasing
-        gives prettier results, but may affect performance for very large
-        datasets. Default True.
+        """Whether the line's edges are anti-aliased.
+
+        Aliasing gives prettier results by producing semi-transparent fragments
+        at the edges. This may affect blending with other (semi-transparent)
+        objects.
+
+        It can also affect performance for very large datasets. In particular,
+        when the line itself is opaque, the line is (in most blend modes) drawn
+        twice to account for both the opaque and semi-transparent fragments.
         """
         return self._store.aa
 
@@ -142,7 +144,11 @@ class LineMaterial(Material):
 
     @property
     def thickness(self):
-        """The line thickness expressed in logical pixels."""
+        """The line thickness.
+
+        The interpretation depends on `thickness_space`, but is in logical
+        pixels by default.
+        """
         return float(self.uniform_buffer.data["thickness"])
 
     @thickness.setter
@@ -175,9 +181,9 @@ class LineMaterial(Material):
     @property
     def map(self):
         """The texture map specifying the color for each texture coordinate.
-        Can be None. The dimensionality of the map can be 1D, 2D or 3D,
-        but should match the number of columns in the geometry's
-        texcoords.
+
+        Can be None. The dimensionality of the map can be 1D, 2D or 3D, but
+        should match the number of columns in the geometry's texcoords.
         """
         return self._map
 
@@ -188,7 +194,10 @@ class LineMaterial(Material):
 
     @property
     def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        """The method to interpolate the colormap.
+
+        Either 'nearest' or 'linear'.
+        """
         return self._store.map_interpolation
 
     @map_interpolation.setter
@@ -200,10 +209,14 @@ class LineMaterial(Material):
     def dash_pattern(self):
         """The dash pattern.
 
-        A sequence of floats describing the length of strokes and gaps. For example, (5, 2, 1, 2)
-        describes a a stroke of 5 units, a gap of 2, then a short stroke of 1, and another gap of 2.
-        Units are relative to the line thickness (and therefore `thickness_space` also applies
-        to the `dash_pattern`). There must be an even number of numbers in the pattern.
+        A sequence of floats describing the length of strokes and gaps. A
+        sequence of floats describing the length of strokes and gaps.
+
+        For example, (5, 2, 1, 2) describes a a stroke of 5 units, a gap of 2,
+        then a short stroke of 1, and another gap of 2. Units are relative to
+        the line thickness (and therefore `thickness_space` also applies to  the
+        `dash_pattern`).
+
         Setting to None or the empty tuple means no dashing.
         """
         return self._store.dash_pattern
