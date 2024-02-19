@@ -157,12 +157,20 @@ class AffineBase:
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         try:
-            return la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
+            decomposed = la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
         except ValueError:
             # the matrix has been set manually
             # and so there is no scaling component to preserve
             # any decomposed scaling is acceptable
-            return la.mat_decompose(self.matrix)
+            decomposed = la.mat_decompose(self.matrix)
+
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        for m in decomposed:
+            m.flags['WRITEABLE'] = False
+
+        return decomposed
 
     @cached
     def _directions(self):
