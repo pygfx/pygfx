@@ -647,16 +647,13 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             cumdist_per_pixel = varyings.cumdist_per_pixel * varyings.w;
         $$ endif
 
-        // Apply dash offset
-        cumdist_continuous = cumdist_continuous + u_material.dash_offset * u_material.thickness;
-
         // Define dash pattern, scale with (uniform) thickness.
         // Note how the pattern is templated (triggering recompilation when it changes), wheras the thickness is a uniform.
         var stroke_sizes = array<f32,dash_count>{{dash_pattern[::2]}};
         var gap_sizes = array<f32,dash_count>{{dash_pattern[1::2]}};
         for (var i=0; i<dash_count; i+=1) {
-            stroke_sizes[i] = stroke_sizes[i] * u_material.thickness;
-            gap_sizes[i] = gap_sizes[i] * u_material.thickness;
+            stroke_sizes[i] = stroke_sizes[i];
+            gap_sizes[i] = gap_sizes[i];
         }
 
         // Calculate the total dash size, and the size of the last gap. The dash_count is a const
@@ -670,7 +667,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         // Calculate dash_progress, a number 0..dash_size, indicating the fase of the dash.
         // Except that we shift it, so that half of the final gap gets in front (as a negative number).
-        let dash_progress = (cumdist_continuous + 0.5 * last_gap) % dash_size - 0.5 * last_gap;
+        let cumdist_corrected = cumdist_continuous / u_material.thickness + u_material.dash_offset;
+        let dash_progress = (cumdist_corrected + 0.5 * last_gap) % dash_size - 0.5 * last_gap;
 
         // Its looks a bit like this. Now we select the nearest stroke, and calculate the
         // distance to the beginning and end of that stroke.
@@ -705,7 +703,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         let dist_to_dash = max(0.0, max(dist_to_begin, dist_to_end));
 
         // Convert to (physical) pixel units
-        let dashdist_to_physical = 1.0 / cumdist_per_pixel;
+        let dashdist_to_physical = u_material.thickness / cumdist_per_pixel;
         let dist_to_begin_p = dist_to_begin * dashdist_to_physical;
         let dist_to_end_p = dist_to_end * dashdist_to_physical;
         let dist_to_dash_p = dist_to_dash * dashdist_to_physical;
