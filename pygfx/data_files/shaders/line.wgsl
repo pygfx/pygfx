@@ -100,33 +100,33 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Sample the current node and it's two neighbours. Model coords.
     // Note that if we sample out of bounds, this affects the shader in mysterious ways (21-12-2021).
-    let node1m = load_s_positions(max(0, node_index - 1));
-    let node2m = load_s_positions(node_index);
-    let node3m = load_s_positions(min(u_renderer.last_i, node_index + 1));
+    let pos_m_prev = load_s_positions(max(0, node_index - 1));
+    let pos_m_node = load_s_positions(node_index);
+    let pos_m_next = load_s_positions(min(u_renderer.last_i, node_index + 1));
     // Convert to world
-    let node1w = u_wobject.world_transform * vec4<f32>(node1m.xyz, 1.0);
-    let node2w = u_wobject.world_transform * vec4<f32>(node2m.xyz, 1.0);
-    let node3w = u_wobject.world_transform * vec4<f32>(node3m.xyz, 1.0);
+    let pos_w_prev = u_wobject.world_transform * vec4<f32>(pos_m_prev.xyz, 1.0);
+    let pos_w_node = u_wobject.world_transform * vec4<f32>(pos_m_node.xyz, 1.0);
+    let pos_w_next = u_wobject.world_transform * vec4<f32>(pos_m_next.xyz, 1.0);
     // Convert to camera view
-    let node1c = u_stdinfo.cam_transform * node1w;
-    let node2c = u_stdinfo.cam_transform * node2w;
-    let node3c = u_stdinfo.cam_transform * node3w;
+    let pos_c_prev = u_stdinfo.cam_transform * pos_w_prev;
+    let pos_c_node = u_stdinfo.cam_transform * pos_w_node;
+    let pos_c_next = u_stdinfo.cam_transform * pos_w_next;
     // convert to NDC
-    let node1n = u_stdinfo.projection_transform * node1c;
-    let node2n = u_stdinfo.projection_transform * node2c;
-    let node3n = u_stdinfo.projection_transform * node3c;
+    let pos_n_prev = u_stdinfo.projection_transform * pos_c_prev;
+    let pos_n_node = u_stdinfo.projection_transform * pos_c_node;
+    let pos_n_next = u_stdinfo.projection_transform * pos_c_next;
     // Convert to logical screen coordinates, because that's where the lines work
-    let node1s = (node1n.xy / node1n.w + 1.0) * screen_factor;
-    let node2s = (node2n.xy / node2n.w + 1.0) * screen_factor;
-    let node3s = (node3n.xy / node3n.w + 1.0) * screen_factor;
+    let pos_s_prev = (pos_n_prev.xy / pos_n_prev.w + 1.0) * screen_factor;
+    let pos_s_node = (pos_n_node.xy / pos_n_node.w + 1.0) * screen_factor;
+    let pos_s_next = (pos_n_next.xy / pos_n_next.w + 1.0) * screen_factor;
 
     // Get vectors representing the two incident line segments (screen coords)
-    var nodevec1: vec2<f32> = node2s.xy - node1s.xy;  // from node 1 (to node 2)
-    var nodevec3: vec2<f32> = node3s.xy - node2s.xy;  // to node 3 (from node 2)
+    var vec_s_prev: vec2<f32> = pos_s_node.xy - pos_s_prev.xy;  // from node 1 (to node 2)
+    var vec_s_next: vec2<f32> = pos_s_next.xy - pos_s_node.xy;  // to node 3 (from node 2)
 
     // Calculate the angle between them. We use this at the end to rotate the coord.
-    var angle1 = atan2(nodevec1.y, nodevec1.x);
-    var angle3 = atan2(nodevec3.y, nodevec3.x);
+    var angle1 = atan2(vec_s_prev.y, vec_s_prev.x);
+    var angle3 = atan2(vec_s_next.y, vec_s_next.x);
 
     // The thickness of the line in terms of geometry is a wee bit thicker.
     // Just enough so that fragments that are partially on the line, are also included
@@ -137,21 +137,21 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ else
         // The thickness is expressed in world space. So we first check where a point, moved 1 logic pixel away
         // from the node, ends up in world space. We actually do that for both x and y, in case there's anisotropy.
-        let node2s_shiftedx = node2s + vec2<f32>(1.0, 0.0);
-        let node2s_shiftedy = node2s + vec2<f32>(0.0, 1.0);
-        let node2n_shiftedx = vec4<f32>((node2s_shiftedx / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
-        let node2n_shiftedy = vec4<f32>((node2s_shiftedy / screen_factor - 1.0) * node2n.w, node2n.z, node2n.w);
-        let node2w_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * node2n_shiftedx;
-        let node2w_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * node2n_shiftedy;
+        let pos_s_node_shiftedx = pos_s_node + vec2<f32>(1.0, 0.0);
+        let pos_s_node_shiftedy = pos_s_node + vec2<f32>(0.0, 1.0);
+        let pos_n_node_shiftedx = vec4<f32>((pos_s_node_shiftedx / screen_factor - 1.0) * pos_n_node.w, pos_n_node.z, pos_n_node.w);
+        let pos_n_node_shiftedy = vec4<f32>((pos_s_node_shiftedy / screen_factor - 1.0) * pos_n_node.w, pos_n_node.z, pos_n_node.w);
+        let pos_w_node_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_node_shiftedx;
+        let pos_w_node_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_node_shiftedy;
         $$ if thickness_space == 'model'
             // Transform back to model space
-            let node2m_shiftedx = u_wobject.world_transform_inv * node2w_shiftedx;
-            let node2m_shiftedy = u_wobject.world_transform_inv * node2w_shiftedy;
+            let pos_m_node_shiftedx = u_wobject.world_transform_inv * pos_w_node_shiftedx;
+            let pos_m_node_shiftedy = u_wobject.world_transform_inv * pos_w_node_shiftedy;
             // Distance in model space
-            let thickness_ratio = 0.5 * (distance(node2m.xyz, node2m_shiftedx.xyz) + distance(node2m.xyz, node2m_shiftedy.xyz));
+            let thickness_ratio = 0.5 * (distance(pos_m_node.xyz, pos_m_node_shiftedx.xyz) + distance(pos_m_node.xyz, pos_m_node_shiftedy.xyz));
         $$ else
             // Distance in world space
-            let thickness_ratio = 0.5 * (distance(node2w.xyz, node2w_shiftedx.xyz) + distance(node2w.xyz, node2w_shiftedy.xyz));
+            let thickness_ratio = 0.5 * (distance(pos_w_node.xyz, pos_w_node_shiftedx.xyz) + distance(pos_w_node.xyz, pos_w_node_shiftedy.xyz));
         $$ endif
     $$ endif
     let thickness:f32 = u_material.thickness / thickness_ratio;  // Logical pixels
@@ -191,8 +191,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     var offset_ratio = 0.0;
 
     // Init other "other" values
-    var node0n = node2n;
-    var node0s = node2s;
+    var pos_n_other = pos_n_node;
+    var pos_s_other = pos_s_node;
 
     $$ if dashing
         $$ if line_type == 'line'
@@ -201,11 +201,11 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ else
             let cumdist_before = 0.0;
             $$ if thickness_space == 'screen'
-            let cumdist_after = length(node2s.xy - select(node1s.xy, node3s.xy, node_index_is_even));
+            let cumdist_after = length(pos_s_node.xy - select(pos_s_prev.xy, pos_s_next.xy, node_index_is_even));
             $$ elif thickness_space == 'world'
-            let cumdist_after = length(node2w.xyz - select(node1w.xyz, node3w.xyz, node_index_is_even));
+            let cumdist_after = length(pos_w_node.xyz - select(pos_w_prev.xyz, pos_w_next.xyz, node_index_is_even));
             $$ elif thickness_space == 'model'
-            let cumdist_after = length(node2m.xyz - select(node1m.xyz, node3m.xyz, node_index_is_even));
+            let cumdist_after = length(pos_m_node.xyz - select(pos_m_prev.xyz, pos_m_next.xyz, node_index_is_even));
             $$ endif
             let cumdist_node = select(cumdist_before, cumdist_after, !node_index_is_even);
             let cumdist_other = select(cumdist_before, cumdist_after, node_index_is_even);
@@ -231,15 +231,15 @@ fn vs_main(in: VertexInput) -> Varyings {
     //   This prevents that the extrapolation of the segment's cap takes up a large portion of the screen.
 
     // Is this a line that "goes deep"?
-    let nodevec1_c = vec3<f32>(node2c.xyz - node1c.xyz);
-    let nodevec3_c = vec3<f32>(node3c.xyz - node2c.xyz);
-    let nodevec1_has_significant_depth_component = abs(nodevec1_c.z) > 1.0 * length(nodevec1_c.xy);
-    let nodevec3_has_significant_depth_component = abs(nodevec3_c.z) > 1.0 * length(nodevec3_c.xy);
+    let vec_s_prev_c = vec3<f32>(pos_c_node.xyz - pos_c_prev.xyz);
+    let vec_s_next_c = vec3<f32>(pos_c_next.xyz - pos_c_node.xyz);
+    let vec_s_prev_has_significant_depth_component = abs(vec_s_prev_c.z) > 1.0 * length(vec_s_prev_c.xy);
+    let vec_s_next_has_significant_depth_component = abs(vec_s_next_c.z) > 1.0 * length(vec_s_next_c.xy);
     // Determine capp-ness
     let minor_dist_threshold = 0.0001;
     let major_dist_threshold = 0.25 * max(1.0, half_thickness);
-    var left_is_cap = is_nan_or_zero(node1n.w) || length(nodevec1) < select(minor_dist_threshold, major_dist_threshold, nodevec1_has_significant_depth_component);
-    var right_is_cap = is_nan_or_zero(node3n.w) || length(nodevec3) < select(minor_dist_threshold, major_dist_threshold, nodevec3_has_significant_depth_component);
+    var left_is_cap = is_nan_or_zero(pos_n_prev.w) || length(vec_s_prev) < select(minor_dist_threshold, major_dist_threshold, vec_s_prev_has_significant_depth_component);
+    var right_is_cap = is_nan_or_zero(pos_n_next.w) || length(vec_s_next) < select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
 
     $$ if line_type in ['segment', 'arrow']
         // Implementing segments is pretty easy
@@ -251,8 +251,8 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     if (left_is_cap && right_is_cap) {
         // Create two caps
-        nodevec1 = vec2<f32>(0.0, 0.0);
-        nodevec3 = nodevec1;
+        vec_s_prev = vec2<f32>(0.0, 0.0);
+        vec_s_next = vec_s_prev;
         angle1 = 0.0;
         angle3 = 0.0;
 
@@ -265,7 +265,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     } else if (left_is_cap) {
         /// Create a cap using vertex 4, 5, 6
-        nodevec1 = nodevec3;
+        vec_s_prev = vec_s_next;
         angle1 = angle3;
 
         coord1 = vec2<f32>(-1.0, 1.0);
@@ -279,15 +279,15 @@ fn vs_main(in: VertexInput) -> Varyings {
             offset_ratio = -1.0;
         }
 
-        node0s = node3s;
-        node0n = node3n;
+        pos_s_other = pos_s_next;
+        pos_n_other = pos_n_next;
         $$ if dashing and line_type == 'line'
         cumdist_other = f32(load_s_cumdist(node_index + 1));
         $$ endif
 
     } else if (right_is_cap)  {
         // Create a cap using vertex 4, 5, 6
-        nodevec3 = nodevec1;
+        vec_s_next = vec_s_prev;
         angle3 = angle1;
 
         coord1 = vec2<f32>(0.0, 1.0);
@@ -302,8 +302,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         }
         face_index = face_index - 1;  // belongs to previous face
 
-        node0s = node1s;
-        node0n = node1n;
+        pos_s_other = pos_s_prev;
+        pos_n_other = pos_n_prev;
         $$ if dashing and line_type == 'line'
         cumdist_other = f32(load_s_cumdist(node_index - 1));
         $$ endif
@@ -311,8 +311,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     } else {
         face_index = face_index - i32(vertex_num <= 3);
 
-        node0s = select(node1s, node3s, vertex_num >= 4);
-        node0n = select(node1n, node3n, vertex_num >= 4);
+        pos_s_other = select(pos_s_prev, pos_s_next, vertex_num >= 4);
+        pos_n_other = select(pos_n_prev, pos_n_next, vertex_num >= 4);
         $$ if dashing and line_type == 'line'
         cumdist_other = load_s_cumdist(node_index + select(-1, 1, vertex_num >= 4));
         $$ endif
@@ -350,26 +350,26 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         // Determine the angle of the corner. If this angle is smaller than zero,
         // the inside of the join is at vert2/vert6, otherwise it is at vert1/vert5.
-        let angle = atan2( nodevec1.x * nodevec3.y - nodevec1.y * nodevec3.x,
-                            nodevec1.x * nodevec3.x + nodevec1.y * nodevec3.y );
+        let angle = atan2( vec_s_prev.x * vec_s_next.y - vec_s_prev.y * vec_s_next.x,
+                            vec_s_prev.x * vec_s_next.x + vec_s_prev.y * vec_s_next.y );
 
         // Which way does the join bent?
         let inner_corner_is_at_15 = angle >= 0.0;
 
         // The direction in which to place the vert3 and vert4.
-        let vert1 = normalize(vec2<f32>(-nodevec1.y, nodevec1.x));
-        let vert5 = normalize(vec2<f32>(-nodevec3.y, nodevec3.x));
+        let vert1 = normalize(vec2<f32>(-vec_s_prev.y, vec_s_prev.x));
+        let vert5 = normalize(vec2<f32>(-vec_s_next.y, vec_s_next.x));
         let join_vec = normalize(vert1 + vert5);
 
         // Now calculate how far along this vector we can go without
         // introducing overlapping faces, which would result in glitchy artifacts.
-        let nodevec1_norm = normalize(nodevec1);
-        let nodevec3_norm = normalize(nodevec3);
-        let join_vec_on_nodevec1 = dot(join_vec, nodevec1_norm) * nodevec1_norm;
-        let join_vec_on_nodevec3 = dot(join_vec, nodevec3_norm) * nodevec3_norm;
+        let vec_s_prev_norm = normalize(vec_s_prev);
+        let vec_s_next_norm = normalize(vec_s_next);
+        let join_vec_on_vec_s_prev = dot(join_vec, vec_s_prev_norm) * vec_s_prev_norm;
+        let join_vec_on_vec_s_next = dot(join_vec, vec_s_next_norm) * vec_s_next_norm;
         var max_vec_mag = {{ '1.5' if dashing else '100.0' }};  // 1.5 corresponds to about 90 degrees
-        max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec1) / length(join_vec_on_nodevec1) / half_thickness);
-        max_vec_mag = min(max_vec_mag, 0.49 * length(nodevec3) / length(join_vec_on_nodevec3) / half_thickness);
+        max_vec_mag = min(max_vec_mag, 0.49 * length(vec_s_prev) / length(join_vec_on_vec_s_prev) / half_thickness);
+        max_vec_mag = min(max_vec_mag, 0.49 * length(vec_s_next) / length(join_vec_on_vec_s_next) / half_thickness);
 
         // Now use the angle to determine the join_vec magnitude required to draw this join.
         // For the inner corner this represents the intersection of the line edges,
@@ -447,14 +447,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Calculate interpolation ratio.
     // Get ratio in screen space, and then correct for perspective.
     // I derived this step by calculating the new w from the ratio, and then substituting terms.
-    let ratio_divisor = length(node2s - node0s);
+    let ratio_divisor = length(pos_s_node - pos_s_other);
     var ratio_interp = offset_ratio * half_thickness / ratio_divisor;
     ratio_interp = select(ratio_interp, 0.0, ratio_divisor==0.0);  // prevent inf
-    ratio_interp = (1.0 - ratio_interp) * ratio_interp * node2n.w / node0n.w + ratio_interp * ratio_interp;
+    ratio_interp = (1.0 - ratio_interp) * ratio_interp * pos_n_node.w / pos_n_other.w + ratio_interp * ratio_interp;
 
     // Interpolate / extrapolate
-    let z = mix(node2n.z, node0n.z, ratio_interp);
-    let w = mix(node2n.w, node0n.w, ratio_interp);
+    let z = mix(pos_n_node.z, pos_n_other.z, ratio_interp);
+    let w = mix(pos_n_node.w, pos_n_other.w, ratio_interp);
     $$ if dashing
         let cumdist_vertex = mix(cumdist_node, cumdist_other, ratio_interp);
     $$ endif
@@ -479,7 +479,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     let relative_vert_s = rotate_vec2(ref_coord + vertex_offset, ref_angle) * half_thickness;
 
     // Calculate vertex position in NDC.The z and w are inter/extra-polated.
-    let the_pos_s = node2s + relative_vert_s;
+    let the_pos_s = pos_s_node + relative_vert_s;
     let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * w, z, w);
 
     // Build varyings output
@@ -505,7 +505,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         // If the thickness is in screen space, we need to correct for perspective division
         varyings.cumdist_node = f32(cumdist_node)  {{ '* w' if thickness_space == 'screen' else '' }};
         varyings.cumdist_vertex = f32(cumdist_vertex)  {{ '* w' if thickness_space == 'screen' else '' }};
-        varyings.cumdist_per_pixel = f32( abs(cumdist_node - cumdist_other) / length(node2s - node0s) / l2p )  {{ '' if thickness_space == 'screen' else '* (node2n.w / node0n.w) / w' }};
+        varyings.cumdist_per_pixel = f32( abs(cumdist_node - cumdist_other) / length(pos_s_node - pos_s_other) / l2p )  {{ '' if thickness_space == 'screen' else '* (pos_n_node.w / pos_n_other.w) / w' }};
     $$ endif
 
     // Picking
