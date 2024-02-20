@@ -225,7 +225,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     // A cap is needed when:
     // - This is the first / last point on the line.
     // - The neighbouring node is nan.
-    // - The neighbouring node is equal: length(nodevec) < eps (because round-off errors)
+    // - The neighbouring node is equal.
     // - If the line segment's direction has a significant component in the camera view direction,
     //   i.e. a depth component, then a cap is created if there is sufficient overlap with the neighbouring cap.
     //   This prevents that the extrapolation of the segment's cap takes up a large portion of the screen.
@@ -233,11 +233,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Is this a line that "goes deep"?
     let vec_s_prev_c = vec3<f32>(pos_c_node.xyz - pos_c_prev.xyz);
     let vec_s_next_c = vec3<f32>(pos_c_next.xyz - pos_c_node.xyz);
-    let vec_s_prev_has_significant_depth_component = abs(vec_s_prev_c.z) > 1.0 * length(vec_s_prev_c.xy);
-    let vec_s_next_has_significant_depth_component = abs(vec_s_next_c.z) > 1.0 * length(vec_s_next_c.xy);
+    let vec_s_prev_has_significant_depth_component = abs(vec_s_prev_c.z) > 10.0 * length(vec_s_prev_c.xy);
+    let vec_s_next_has_significant_depth_component = abs(vec_s_next_c.z) > 10.0 * length(vec_s_next_c.xy);
     // Determine capp-ness
-    let minor_dist_threshold = 0.0001;
-    let major_dist_threshold = 0.25 * max(1.0, half_thickness);
+    let minor_dist_threshold = 0.0;
+    let major_dist_threshold = 0.125 * max(1.0, half_thickness);
     var left_is_cap = is_nan_or_zero(pos_n_prev.w) || length(vec_s_prev) < select(minor_dist_threshold, major_dist_threshold, vec_s_prev_has_significant_depth_component);
     var right_is_cap = is_nan_or_zero(pos_n_next.w) || length(vec_s_next) < select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
 
