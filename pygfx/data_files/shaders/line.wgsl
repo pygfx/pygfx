@@ -228,7 +228,13 @@ fn vs_main(in: VertexInput) -> Varyings {
     // - The neighbouring node is equal.
     // - If the line segment's direction has a significant component in the camera view direction,
     //   i.e. a depth component, then a cap is created if there is sufficient overlap with the neighbouring cap.
-    //   This prevents that the extrapolation of the segment's cap takes up a large portion of the screen.
+    //
+    // Note that in densely sampled lines, rendering caps for a series of nodes
+    // makes transparent lines appear opaque. This can happen when the line has
+    // sharp corners, even if the corner (on screen) is due to 3D camera
+    // orientation. So let's be pretty conservative. However, caps can still be
+    // introduced by broken joins, so we cannot completely prevent the
+    // aforementioned effect by turning things off/down here.
 
     // Is this a line that "goes deep"?
     let vec_s_prev_c = vec3<f32>(pos_c_node.xyz - pos_c_prev.xyz);
@@ -242,9 +248,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     var right_is_cap = is_nan_or_zero(pos_n_next.w) || length(vec_s_next) < select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
 
     $$ if line_type in ['segment', 'arrow']
-        // Implementing segments is pretty easy
-        left_is_cap = left_is_cap || node_index_is_even;
-        right_is_cap = right_is_cap || !node_index_is_even;
+    left_is_cap = left_is_cap || node_index_is_even;
+    right_is_cap = right_is_cap || !node_index_is_even;
     $$ endif
 
     // The big triage ...
