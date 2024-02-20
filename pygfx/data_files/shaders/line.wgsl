@@ -647,6 +647,9 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
             cumdist_per_pixel = varyings.cumdist_per_pixel * varyings.w;
         $$ endif
 
+        // Apply dash offset
+        cumdist_continuous = cumdist_continuous + u_material.dash_offset * u_material.thickness;
+
         // Define dash pattern, scale with (uniform) thickness.
         // Note how the pattern is templated (triggering recompilation when it changes), wheras the thickness is a uniform.
         var stroke_sizes = array<f32,dash_count>{{dash_pattern[::2]}};

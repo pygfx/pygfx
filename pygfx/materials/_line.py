@@ -34,6 +34,7 @@ class LineMaterial(Material):
         Material.uniform_type,
         color="4xf4",
         thickness="f4",
+        dash_offset="f4",
     )
 
     def __init__(
@@ -236,11 +237,12 @@ class LineMaterial(Material):
     @property
     def dash_offset(self):
         """The offset into the dash cycle to start drawing at, i.e. the phase."""
-        return self._store.dash_offset
+        return float(self.uniform_buffer.data["dash_offset"])
 
     @dash_offset.setter
     def dash_offset(self, value):
-        self._store.dash_offset = float(value)
+        self.uniform_buffer.data["dash_offset"] = float(value)
+        self.uniform_buffer.update_range(0, 1)
 
 
 class LineDebugMaterial(LineMaterial):

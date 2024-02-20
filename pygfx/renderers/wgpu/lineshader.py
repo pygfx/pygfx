@@ -109,7 +109,6 @@ class LineShader(WorldObjectShader):
     def bake_function(self, wobject, camera, logical_size):
         # Prepare
         positions_buffer = wobject.geometry.positions
-        dash_offset = wobject.material.dash_offset
         r_offset, r_size = positions_buffer.draw_range
 
         # Prepare arrays
@@ -119,7 +118,7 @@ class LineShader(WorldObjectShader):
         # Get vertices in the appropriate coordinate frame
         if wobject.material.thickness_space == "model":
             # Skip this step if the position data has not changed
-            positions_hash = (id(positions_buffer), positions_buffer.rev, dash_offset)
+            positions_hash = (id(positions_buffer), positions_buffer.rev)
             if positions_hash == self._positions_hash:
                 return
             self._positions_hash = positions_hash
@@ -137,8 +136,6 @@ class LineShader(WorldObjectShader):
         distances[~np.isfinite(distances)] = 0.0
 
         # Store cumulatives
-        distance_array[0] = dash_offset
-        distances[0] += dash_offset
         np.cumsum(distances, out=distance_array[1:])
 
         # Mark that the data has changed
