@@ -168,16 +168,6 @@ fn vs_main(in: VertexInput) -> Varyings {
     var coord5: vec2<f32>;
     var coord6: vec2<f32>;
 
-    // The vertex inset, in coord-coords. Is set for joins to keep the segments rectangular.
-    // The value will depend on the angle between the segments, and the line thickness.
-    var vertex_inset = 0.0;
-
-    // A value to offset certain varyings towards the neighbouring nodes. The first value
-    // represents moving towards node1, the second value represents moving towards node2.
-    // Only one should be nonzero. A negative value results in extrapolation (in the other direction).
-    // Used to set correct values for e.g. depth, cumdist, per-vertex colors.
-    var offset_ratio_multiplier = vec2<f32>(0.0, 0.0);
-
     // Array for the valid_if_nonzero varying. A triangle is dropped if (and only if) all verts have their value set to zero. (Trick 5)
     var valid_array = array<f32,6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 
@@ -191,6 +181,44 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // In joins, this is 1.0 for the vertices in the outer corner.
     var is_outer_corner = 0.0;
+
+    // The vertex inset, in coord-coords. Is set for joins to keep the segments rectangular.
+    // The value will depend on the angle between the segments, and the line thickness.
+    var vertex_inset = 0.0;
+
+    // A value to offset certain varyings towards the neighbouring nodes. The value indicated how
+    // much a value should be moved towards the "other" value. In units of thickness.
+    var offset_ratio = 0.0;
+
+    // Init other "other" values
+    var node0n = node2n;
+    var node0s = node2s;
+
+    $$ if dashing
+        $$ if line_type == 'line'
+            let cumdist_node = f32(load_s_cumdist(node_index));
+            var cumdist_other = 0.0;
+        $$ else
+            let cumdist_before = 0.0;
+            $$ if thickness_space == 'screen'
+            let cumdist_after = length(node2s.xy - select(node1s.xy, node3s.xy, node_index_is_even));
+            $$ elif thickness_space == 'world'
+            let cumdist_after = length(node2w.xyz - select(node1w.xyz, node3w.xyz, node_index_is_even));
+            $$ elif thickness_space == 'model'
+            let cumdist_after = length(node2m.xyz - select(node1m.xyz, node3m.xyz, node_index_is_even));
+            $$ endif
+            let cumdist_node = select(cumdist_before, cumdist_after, !node_index_is_even);
+            let cumdist_other = select(cumdist_before, cumdist_after, node_index_is_even);
+        $$ endif
+    $$ endif
+
+    $$ if color_mode == 'vertex'
+        let color_node = load_s_colors(node_index);
+        var color_other = color_node;
+    $$ elif color_mode == 'vertex_map'
+        let texcoord_node = load_s_texcoords(node_index);
+        var texcoord_other = texcoord_node;
+    $$ endif
 
     // Determine whether to draw a cap. Either on the left, the right, or both! In the latter case
     // we draw a double-cap, which results in a circle for round caps.
@@ -248,8 +276,14 @@ fn vs_main(in: VertexInput) -> Varyings {
         coord6 = vec2<f32>(0.0, -1.0);
 
         if (vertex_num <= 4) {
-            offset_ratio_multiplier = vec2<f32>(0.0, - 1.0);
+            offset_ratio = -1.0;
         }
+
+        node0s = node3s;
+        node0n = node3n;
+        $$ if dashing and line_type == 'line'
+        cumdist_other = f32(load_s_cumdist(node_index + 1));
+        $$ endif
 
     } else if (right_is_cap)  {
         // Create a cap using vertex 4, 5, 6
@@ -264,12 +298,29 @@ fn vs_main(in: VertexInput) -> Varyings {
         coord6 = coord4;
 
         if (vertex_num >= 3) {
-            offset_ratio_multiplier = vec2<f32>(- 1.0, 0.0);
+            offset_ratio = -1.0;
         }
         face_index = face_index - 1;  // belongs to previous face
 
+        node0s = node1s;
+        node0n = node1n;
+        $$ if dashing and line_type == 'line'
+        cumdist_other = f32(load_s_cumdist(node_index - 1));
+        $$ endif
+
     } else {
         face_index = face_index - i32(vertex_num <= 3);
+
+        node0s = select(node1s, node3s, vertex_num >= 4);
+        node0n = select(node1n, node3n, vertex_num >= 4);
+        $$ if dashing and line_type == 'line'
+        cumdist_other = load_s_cumdist(node_index + select(-1, 1, vertex_num >= 4));
+        $$ endif
+        $$ if color_mode == 'vertex'
+        color_other = load_s_colors(node_index + select(-1, 1, vertex_num >= 4));
+        $$ elif color_mode == 'vertex_map'
+        texcoord_other = load_s_texcoords(node_index + select(-1, 1, vertex_num >= 4));
+        $$ endif
 
         $$ if line_type == 'quickline'
 
@@ -289,10 +340,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         valid_array[3] = 0.0;
         valid_array[4] = 0.0;
         // Handle offset
-        if (vertex_num == 3) {
-            offset_ratio_multiplier = vec2<f32>(-miter_length, 0.0);
-        } else if (vertex_num == 4) {
-            offset_ratio_multiplier = vec2<f32>(0.0, -miter_length);
+        if (vertex_num == 3 || vertex_num == 4) {
+            offset_ratio = -miter_length;
         }
 
         $$ elif line_type == 'line'
@@ -353,10 +402,8 @@ fn vs_main(in: VertexInput) -> Varyings {
             valid_array[3] = 0.0;
             valid_array[4] = 0.0;
 
-            if (vertex_num == 3) {
-                offset_ratio_multiplier = vec2<f32>(-miter_length, 0.0);
-            } else if (vertex_num == 4) {
-                offset_ratio_multiplier = vec2<f32>(0.0, -miter_length);
+            if (vertex_num == 3 || vertex_num == 4) {
+                offset_ratio = -miter_length;
             }
 
         } else {
@@ -382,10 +429,8 @@ fn vs_main(in: VertexInput) -> Varyings {
             coord5 = vec2<f32>(0.0, 1.0);
             coord6 = vec2<f32>(0.0, -1.0);
 
-            if ( vertex_num <= 2) {
-                offset_ratio_multiplier = vec2<f32>(vertex_inset, 0.0);
-            } else if (vertex_num >= 5) {
-                offset_ratio_multiplier = vec2<f32>(0.0, vertex_inset);
+            if ( vertex_num <= 2 || vertex_num >= 5) {
+                offset_ratio = vertex_inset;
             }
 
             // Get wheter this is an outer corner
@@ -399,85 +444,25 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     }
 
-    // Zero the multiplier if the divisor is going to be zero
-    offset_ratio_multiplier = offset_ratio_multiplier * vec2<f32>(f32(length(nodevec1) > 0.0), f32(length(nodevec3) > 0.0));
-
-    // Prepare values for applying offset_ratio_multiplier
-    var z = node2n.z;
-    var w = node2n.w;
-    $$ if dashing
-        $$ if line_type == 'line'
-            let cumdist_node = f32(load_s_cumdist(node_index));
-        $$ else
-            let cumdist_before = 0.0;
-            $$ if thickness_space == 'screen'
-            let cumdist_after = length(node2s.xy - select(node1s.xy, node3s.xy, node_index_is_even));
-            $$ elif thickness_space == 'world'
-            let cumdist_after = length(node2w.xyz - select(node1w.xyz, node3w.xyz, node_index_is_even));
-            $$ elif thickness_space == 'model'
-            let cumdist_after = length(node2m.xyz - select(node1m.xyz, node3m.xyz, node_index_is_even));
-            $$ endif
-            let cumdist_node = select(cumdist_before, cumdist_after, !node_index_is_even);
-        $$ endif
-        var cumdist_vertex = cumdist_node;  // Important default, see frag-shader.
-    $$ endif
-    $$ if color_mode == 'vertex'
-        let color_node = load_s_colors(node_index);
-        var color_vert = color_node;
-    $$ elif color_mode == 'vertex_map'
-        let texcoord_node = load_s_texcoords(node_index);
-        var texcoord_vert = texcoord_node;
-    $$ endif
+    // Calculate interpolation ratio.
+    // Get ratio in screen space, and then correct for perspective.
+    // I derived this step by calculating the new w from the ratio, and then substituting terms.
+    let ratio_divisor = length(node2s - node0s);
+    var ratio_interp = offset_ratio * half_thickness / ratio_divisor;
+    ratio_interp = select(ratio_interp, 0.0, ratio_divisor==0.0);  // prevent inf
+    ratio_interp = (1.0 - ratio_interp) * ratio_interp * node2n.w / node0n.w + ratio_interp * ratio_interp;
 
     // Interpolate / extrapolate
-    if (offset_ratio_multiplier.x != 0.0) {
-        // Get ratio in screen space, and then correct for perspective.
-        // I derived this step by calculating the new w from the ratio, and then substituting terms.
-        var ratio = offset_ratio_multiplier.x * half_thickness / length(nodevec1);
-        ratio = (1.0 - ratio) * ratio * node2n.w / node1n.w + ratio * ratio;
-        // Interpolate on the left
-        z = mix(z, node1n.z, ratio);
-        w = mix(w, node1n.w, ratio);
-        $$ if dashing
-            $$ if line_type == 'line'
-            let cumdist_before = f32(load_s_cumdist(node_index - 1));
-            $$ endif
-            cumdist_vertex = mix(cumdist_node, cumdist_before, ratio);
-        $$ endif
-        if (node_is_join) {
-            // Some values only interpolate for joins
-            $$ if color_mode == 'vertex'
-                let color_before = load_s_colors(node_index - 1);
-                color_vert = mix(color_vert, color_before, ratio);
-            $$ elif color_mode == 'vertex_map'
-                let texcoord_before = load_s_texcoords(node_index - 1);
-                texcoord_vert = mix(texcoord_vert, texcoord_before, ratio);
-            $$ endif
-        }
-    } else if (offset_ratio_multiplier.y != 0.0) {
-         // Get ratio in screen space, and then correct for perspective.
-        var ratio = offset_ratio_multiplier.y * half_thickness / length(nodevec3);
-        ratio =  (1.0 - ratio) * ratio * node2n.w / node3n.w + ratio * ratio;
-        // Interpolate on the right
-        z = mix(z, node3n.z, ratio);
-        w = mix(w, node3n.w, ratio);
-        $$ if dashing
-            $$ if line_type == 'line'
-            let cumdist_after = f32(load_s_cumdist(node_index + 1));
-            $$ endif
-            cumdist_vertex = mix(cumdist_node, cumdist_after, ratio);
-        $$ endif
-        if (node_is_join) {
-            // Some values only interpolate for joins
-            $$ if color_mode == 'vertex'
-                let color_after = load_s_colors(node_index + 1);
-                color_vert = mix(color_vert, color_after, ratio);
-            $$ elif color_mode == 'vertex_map'
-                let texcoord_after = load_s_texcoords(node_index + 1);
-                texcoord_vert = mix(texcoord_vert, texcoord_after, ratio);
-            $$ endif
-        }
-    }
+    let z = mix(node2n.z, node0n.z, ratio_interp);
+    let w = mix(node2n.w, node0n.w, ratio_interp);
+    $$ if dashing
+        let cumdist_vertex = mix(cumdist_node, cumdist_other, ratio_interp);
+    $$ endif
+    $$ if color_mode == 'vertex'
+        let color_vert = mix(color_node, color_other, ratio_interp);
+    $$ elif color_mode == 'vertex_map'
+        let texcoord_vert = mix(texcoord_node, texcoord_other, ratio_interp);;
+    $$ endif
 
     // Select the current coord
     var coord_array = array<vec2<f32>,6>(coord1, coord2, coord3, coord4, coord5, coord6);
@@ -520,6 +505,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         // If the thickness is in screen space, we need to correct for perspective division
         varyings.cumdist_node = f32(cumdist_node)  {{ '* w' if thickness_space == 'screen' else '' }};
         varyings.cumdist_vertex = f32(cumdist_vertex)  {{ '* w' if thickness_space == 'screen' else '' }};
+        varyings.cumdist_per_pixel = f32( abs(cumdist_node - cumdist_other) / length(node2s - node0s) / l2p )  {{ '' if thickness_space == 'screen' else '* (node2n.w / node0n.w) / w' }};
     $$ endif
 
     // Picking
@@ -637,26 +623,23 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // Calculate the cumulative distance along the line. We need a continuous value to parametrize
         // the dash (and its cap). Going around the corner, it will compress on the inside, and expand
         // on the outer side, deforming dashes as they move around the corner, appropriately.
-        // We also need a linear value to map to physical screen coords (by taking its derivative).
         var cumdist_continuous : f32;
-        var cumdist_linear: f32;
+        var cumdist_per_pixel : f32;
         if (is_join) {
             // First calculate the cumdist at the edge where segment and join meet.
             // Note that cumdist_vertex == cumdist_node at the outer-corner-vertex.
             let cumdist_segment = varyings.cumdist_node - (varyings.cumdist_node - varyings.cumdist_vertex) / (1.0 - abs(join_coord_lin));
             // Calculate the continous cumdist, by interpolating using join_coord_fan
             cumdist_continuous = mix(cumdist_segment, varyings.cumdist_node, abs(join_coord_fan));
-            // Almost the same mix, but using join_coord_lin, and a factor two, because the vertex in the outer corner
-            // is actually further than the node (with a factor 2), from the pov of the segments.
-            cumdist_linear = mix(cumdist_segment, varyings.cumdist_node, (2.0 * abs(join_coord_lin)));
         } else {
             // In a segment everything is straight.
             cumdist_continuous = varyings.cumdist_vertex;
-            cumdist_linear = cumdist_continuous;
         }
         $$ if thickness_space == 'screen'
             cumdist_continuous = cumdist_continuous / varyings.w;
-            cumdist_linear = cumdist_linear / varyings.w;
+            cumdist_per_pixel = varyings.cumdist_per_pixel;
+        $$ else
+            cumdist_per_pixel = varyings.cumdist_per_pixel * varyings.w;
         $$ endif
 
         // Define dash pattern, scale with (uniform) thickness.
@@ -713,11 +696,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         // and dist_to_end, but we need these for the trick in broken joins below.
         let dist_to_dash = max(0.0, max(dist_to_begin, dist_to_end));
 
-        // Get cumdist scale factor
-        let dpd_cumdist = length(vec2<f32>(dpdxFine(cumdist_linear), dpdyFine(cumdist_linear)));
-        let dashdist_to_physical = 1.0 / dpd_cumdist;
-
         // Convert to (physical) pixel units
+        let dashdist_to_physical = 1.0 / cumdist_per_pixel;
         let dist_to_begin_p = dist_to_begin * dashdist_to_physical;
         let dist_to_end_p = dist_to_end * dashdist_to_physical;
         let dist_to_dash_p = dist_to_dash * dashdist_to_physical;
@@ -743,7 +723,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         let vec_to_dash_p = vec2<f32>(dist_to_dash_p, yy);
 
         // Apply cap
-        //let dist_to_stroke_dash_p = vec_to_dash_p.x;  // Butt caps
+        // let dist_to_stroke_dash_p = vec_to_dash_p.x;  // Butt caps
         let dist_to_stroke_dash_p = length(vec_to_dash_p) - half_thickness_p; // Round caps
 
         // Update dist_to_stroke_p with dash info
@@ -810,7 +790,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
     $$ if false
         // Alternative debug options during dev.
-        physical_color = vec3<f32>(abs(cumdist_linear % 1.0) / 1.0, 0.0, 0.0);
+        physical_color = vec3<f32>(abs(dist_to_dash_p) / 20.0, 0.0, 0.0);
     $$ endif
 
     // Determine final rgba value
