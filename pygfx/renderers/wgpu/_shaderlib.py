@@ -24,16 +24,13 @@ class Shaderlib:
         return """
         // TODO smoothstep and saturate probably exists when Naga gets updated
         fn _smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
-            let t = clamp( ( x - low ) / ( high - low ), 0.0, 1.0 );
+            let t = saturate( ( x - low ) / ( high - low ));
             return t * t * ( 3.0 - 2.0 * t );
-        }
-        fn _saturate( x: f32) -> f32 {
-            return clamp(x, 0.0, 1.0);
         }
         fn getDistanceAttenuation(light_distance: f32, cutoff_distance: f32, decay_exponent: f32) -> f32 {
             var distance_falloff: f32 = 1.0 / max( pow( light_distance, decay_exponent ), 0.01 );
             if ( cutoff_distance > 0.0 ) {
-                distance_falloff *= pow2( _saturate( 1.0 - pow4( light_distance / cutoff_distance ) ) );
+                distance_falloff *= pow2( saturate( 1.0 - pow4( light_distance / cutoff_distance ) ) );
             }
             return distance_falloff;
         }
@@ -174,7 +171,7 @@ class Shaderlib:
             return out_reflected_light;
         }
         fn RE_Direct_Physical(direct_light: IncidentLight, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ReflectedLight) -> ReflectedLight {
-            let dot_nl = clamp( dot( geometry.normal, direct_light.direction ), 0.0, 1.0 );
+            let dot_nl = saturate( dot( geometry.normal, direct_light.direction ));
             let irradiance = dot_nl * direct_light.color;
             var out_reflected_light: ReflectedLight = reflected_light;
             out_reflected_light.direct_specular += irradiance * BRDF_GGX( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_f90, material.roughness );
@@ -182,10 +179,10 @@ class Shaderlib:
             return out_reflected_light;
         }
         fn RE_AmbientOcclusion_Physical(ambientOcclusion: f32, geometry: GeometricContext, material: PhysicalMaterial, reflected_light: ReflectedLight) -> ReflectedLight {
-            let dot_nv = clamp( dot( geometry.normal, geometry.view_dir ), 0.0, 1.0);
+            let dot_nv = saturate( dot( geometry.normal, geometry.view_dir ) );
             let ao_nv = dot_nv + ambientOcclusion;
             let ao_exp = exp2( -16.0 * material.roughness - 1.0 );
-            let ao = clamp( pow(ao_nv, ao_exp) - 1.0 + ambientOcclusion, 0.0, 1.0 );
+            let ao = saturate( pow(ao_nv, ao_exp) - 1.0 + ambientOcclusion, );
             var out_reflected_light: ReflectedLight = reflected_light;
             out_reflected_light.indirect_diffuse *= ambientOcclusion;
             out_reflected_light.indirect_specular *= ao;
@@ -224,17 +221,17 @@ class Shaderlib:
         fn BRDF_GGX(light_dir: vec3<f32>, view_dir: vec3<f32>, normal: vec3<f32>, f0: vec3<f32>, f90: f32, roughness: f32) -> vec3<f32> {
             let alpha = pow( roughness, 2.0 );
             let half_dir = normalize( light_dir + view_dir );
-            let dot_nl = clamp( dot( normal, light_dir ), 0.0, 1.0 );
-            let dot_nv = clamp( dot( normal, view_dir ), 0.0, 1.0 );
-            let dot_nh = clamp( dot( normal, half_dir ), 0.0, 1.0 );
-            let dot_vh = clamp( dot( view_dir, half_dir ), 0.0, 1.0 );
+            let dot_nl = saturate( dot( normal, light_dir ) );
+            let dot_nv = saturate( dot( normal, view_dir ) );
+            let dot_nh = saturate( dot( normal, half_dir ) );
+            let dot_vh = saturate( dot( view_dir, half_dir ) );
             let F = F_Schlick( f0, f90, dot_vh);
             let V = V_GGX_SmithCorrelated( alpha, dot_nl, dot_nv );
             let D = D_GGX( alpha, dot_nh );
             return F * ( V * D );
         }
         fn DFGApprox( normal: vec3<f32>, view_dir: vec3<f32>, roughness: f32 ) -> vec2<f32>{
-            let dot_nv = clamp( dot( normal, view_dir ), 0.0, 1.0);
+            let dot_nv = saturate( dot( normal, view_dir ) );
             let c0 = vec4<f32>(- 1.0, - 0.0275, - 0.572, 0.022);
             let c1 = vec4<f32>(1.0, 0.0425, 1.04, - 0.04);
             let r = roughness * c0 + c1;
@@ -258,7 +255,7 @@ class Shaderlib:
                 return 1.0;
             }
             var depth:f32 = proj_coords.z - bias;
-            depth = clamp(depth, 0.0, 1.0);
+            depth = saturate(depth);
             var shadow: f32 = 0.0;
             shadow += textureSampleCompareLevel(t_shadow, u_shadow_sampler, light_local, layer_index, depth, vec2<i32>(0, 0));
             shadow += textureSampleCompareLevel(t_shadow, u_shadow_sampler, light_local, layer_index, depth, vec2<i32>(1, 0));
@@ -329,7 +326,7 @@ class Shaderlib:
             let flip_correction = vec2<f32>(0.5, -0.5);
             let light_local = proj_coords.xy * flip_correction + vec2<f32>(0.5, 0.5);
             var depth:f32 = proj_coords.z - bias; // bias?
-            depth = clamp(depth, 0.0, 1.0);
+            depth = saturate(depth);
             var dir = uv_to_direction(faceIndex, light_local);
             var shadow = textureSampleCompareLevel(t_shadow, u_shadow_sampler, dir, layer_index, depth);
             return shadow;
@@ -363,12 +360,12 @@ class Shaderlib:
             let ambient_color = light_color * ambient_factor;
 
             // Diffuse (blinn-phong reflection model)
-            let lambert_term = clamp(dot(light, normal), 0.0, 1.0);
+            let lambert_term = saturate(dot(light, normal));
             let diffuse_color = diffuse_factor * light_color * lambert_term;
 
             // Specular
             let halfway = normalize(light + view);  // halfway vector
-            var specular_term = pow(clamp(dot(halfway,  normal), 0.0, 1.0), shininess);
+            var specular_term = pow(saturate(dot(halfway,  normal)), shininess);
             specular_term = select(0.0, specular_term, shininess > 0.0);
             let specular_color = specular_factor * specular_term * light_color;
 
@@ -403,8 +400,8 @@ class Shaderlib:
             shininess: f32,
         ) -> vec3<f32> {
             let half_dir = normalize(light_dir + view_dir);
-            let dot_nh = clamp(dot(normal, half_dir), 0.0, 1.0);
-            let dot_vh = clamp(dot(view_dir, half_dir), 0.0, 1.0);
+            let dot_nh = saturate(dot(normal, half_dir));
+            let dot_vh = saturate(dot(view_dir, half_dir));
             let F = F_Schlick(specular_color, 1.0, dot_vh);
             let G = G_BlinnPhong_Implicit();
             let D = D_BlinnPhong(shininess, dot_nh);
@@ -423,7 +420,7 @@ class Shaderlib:
             material: BlinnPhongMaterial,
             reflected_light: ReflectedLight,
         ) -> ReflectedLight {
-            let dot_nl = clamp(dot(geometry.normal, direct_light.direction), 0.0, 1.0);
+            let dot_nl = saturate(dot(geometry.normal, direct_light.direction));
             let irradiance = dot_nl * direct_light.color;
             let direct_diffuse = irradiance * BRDF_Lambert( material.diffuse_color );
             let direct_specular = irradiance * BRDF_BlinnPhong( direct_light.direction, geometry.view_dir, geometry.normal, material.specular_color, material.specular_shininess ) * material.specular_strength;

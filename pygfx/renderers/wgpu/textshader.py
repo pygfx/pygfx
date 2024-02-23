@@ -221,7 +221,7 @@ class TextShader(WorldObjectShader):
         return """
 
         fn _sdf_smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
-            let t = clamp( ( x - low ) / ( high - low ), 0.0, 1.0 );
+            let t = saturate( ( x - low ) / ( high - low ));
             return t * t * ( 3.0 - 2.0 * t );
         }
 

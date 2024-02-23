@@ -457,7 +457,7 @@ class LineShader(WorldObjectShader):
             $$ if aa
                 let aa_width = 1.0;
                 alpha = ((0.5 * varyings.thickness_p) - abs(dist_to_node_p)) / aa_width;
-                alpha = clamp(alpha, 0.0, 1.0);
+                alpha = saturate(alpha);
             $$ endif
 
             $$ if color_mode == 'vertex' or color_mode == 'face'
