@@ -168,7 +168,7 @@ class AffineBase:
         # that we return from these operations
         # https://github.com/pygfx/pygfx/issues/651
         for m in decomposed:
-            m.flags['WRITEABLE'] = False
+            m.flags.writeable = False
 
         return decomposed
 
@@ -181,7 +181,12 @@ class AffineBase:
         axes_target = la.vec_transform(axes_source, self.matrix)
         origin_target = la.vec_transform((0, 0, 0), self.matrix)
 
-        return axes_target - origin_target
+        directions = axes_target - origin_target
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        directions.flags.writeable = False
+        return directions
 
     @cached
     def _direction_components(self):
@@ -189,11 +194,23 @@ class AffineBase:
 
     @cached
     def _rotation_matrix(self):
-        return la.mat_from_quat(self._decomposed[1])
+        rotation = la.mat_from_quat(self._decomposed[1])
+
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        rotation.flags.writeable = False
+        return rotation
 
     @cached
     def _euler(self):
-        return la.quat_to_euler(self._decomposed[1])
+        euler = la.quat_to_euler(self._decomposed[1])
+
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        euler.flags.writeable = False
+        return euler
 
     def flag_update(self):
         """Signal that this transform has updated."""
@@ -552,6 +569,9 @@ class AffineTransform(AffineBase):
     @property
     def matrix(self):
         view_array = self.untracked_matrix.view()
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
         view_array.flags.writeable = False
         return view_array
 

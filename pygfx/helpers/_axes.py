@@ -82,8 +82,7 @@ class AxesHelper(Line):
             # Do not use +=
             # see: https://github.com/pygfx/pygfx/issues/651
             arrow_head.local.position = (
-                arrow_head.local.position +
-                arrow_size / 2 * la.vec_normalize(pos)
+                arrow_head.local.position + arrow_size / 2 * la.vec_normalize(pos)
             )
             arrow_head.local.rotation = la.quat_from_vecs(
                 (0, 0, 1), la.vec_normalize(pos)
