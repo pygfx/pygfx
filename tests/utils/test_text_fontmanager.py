@@ -61,6 +61,13 @@ def test_select_font():
     assert pieces[0][0] == "Hello World "
     assert pieces[1][0] == "مرحبا بالعالم"
 
+    # this test ensures there isn't any of by one error in the font selection
+    text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    for i in range(1, 26):
+        this_text = text[:i]
+        pieces = font_manager.select_font(this_text, FontProps("Arial"))
+        assert pieces[0][0] == this_text
+
 
 def test_font_fallback1():
     # The preferred order of fonts. The default font is implicitly appended.
