@@ -243,7 +243,7 @@ class FontManager:
                 codepoint, preferred_fonts
             )
             last_i = i = 0
-            for i in range(2, len(text)):
+            for i in range(1, len(text)):
                 codepoint = ord(text[i])
                 font = self._select_preferred_font_for_codepoint(
                     codepoint, preferred_fonts
