@@ -378,7 +378,7 @@ class WeightedTransparencyPass(BasePass):
             @location(1) reveal: f32,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            let alpha = abs(color.a);  // could take user-specified transmittance into account
+            let alpha = color.a;
             if (alpha <= alpha_compare_epsilon) { discard; }
             let premultiplied = color.rgb * alpha;
             WEIGHT_CODE
@@ -386,10 +386,12 @@ class WeightedTransparencyPass(BasePass):
             out.accum = vec4<f32>(premultiplied, alpha) * weight;
             out.reveal = alpha;  // yes, alpha, not weight
             return out;
-            // To undo a fragment contribution, one would do this:
+            // Note 1: could also take user-specified transmittance into account.
+            // Note 2: its also possible to undo a fragment contribution. For this the accum
+            // and reveal buffer must be float to avoid clamping. And we'd do `abs(color.a)` above.
+            // The formula would then be:
             //    out.accum = - out.accum;
             //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
-            // Note that this'd need both the accum and reveal buffer to be float to avoid clamping.
         }
         """.replace(
             "WEIGHT_CODE", self._weight_code
