@@ -122,7 +122,7 @@ def animate():
     for ob in scene.iter():
         if isinstance(ob, gfx.Line):
             if hasattr(ob.material, "dash_offset"):
-                ob.material.dash_offset += 0.4
+                ob.material.dash_offset += 0.1
 
 
 if __name__ == "__main__":
