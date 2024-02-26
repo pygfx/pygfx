@@ -154,9 +154,13 @@ fn vs_main(in: VertexInput) -> Varyings {
             let thickness_ratio = 0.5 * (distance(pos_w_node.xyz, pos_w_node_shiftedx.xyz) + distance(pos_w_node.xyz, pos_w_node_shiftedy.xyz));
         $$ endif
     $$ endif
+    $$ if aa
     let thickness:f32 = u_material.thickness / thickness_ratio;  // Logical pixels
-    let extra_thick = 0.5 / l2p;  // on each side.
-    let half_thickness = 0.5 * thickness + extra_thick * {{ '1.0' if aa else '0.0' }};
+    let half_thickness = 0.5 * thickness + 0.5 / l2p;  // 0.5 physical pixel on each side.
+    $$ else
+    let thickness:f32 = max(1.0/l2p, u_material.thickness / thickness_ratio);  // non-aa lines get no thinner than 1 px
+    let half_thickness = 0.5 * thickness;
+    $$ endif
 
     // Declare vertex cords (x along segment, y perpendicular to it).
     // The coords 1 and 5 have a positive y coord, the coords 2 and 6 negative.
@@ -765,6 +769,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     var alpha: f32 = 1.0;
     $$ if aa
         alpha = clamp(0.5 - dist_to_stroke_p, 0.0, 1.0);
+        alpha = alpha * select(1.0, half_thickness_p * 2.0, half_thickness_p < 0.5);  // diminish alpha for lines thinner than physical pixels
         alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
         if (alpha <= 0.0) { discard; }
     $$ else
