@@ -220,11 +220,6 @@ class TextShader(WorldObjectShader):
     def code_fragment(self):
         return """
 
-        fn _sdf_smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
-            let t = clamp( ( x - low ) / ( high - low ), 0.0, 1.0 );
-            return t * t * ( 3.0 - 2.0 * t );
-        }
-
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 
@@ -277,13 +272,13 @@ class TextShader(WorldObjectShader):
 
             $$ if aa
                 // We use smoothstep to include alpha blending.
-                let outside_ness = _sdf_smoothstep(cut_off - softness, cut_off + softness, distance);
+                let outside_ness = smoothstep(cut_off - softness, cut_off + softness, distance);
                 aa_alpha = (1.0 - outside_ness);
                 // High softness values also result in lower alpha to prevent artifacts under high angles.
                 soften_alpha = 1.0 - max(softness / max_softness - 0.1, 0.0);
                 // Outline
                 let outline_softness = min(softness, 0.5 * outline_thickness);
-                outline = _sdf_smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
+                outline = smoothstep(outline_cutoff - outline_softness, outline_cutoff + outline_softness, distance);
             $$ else
                 // Do a hard transition
                 aa_alpha = select(0.0, 1.0, distance < cut_off);
