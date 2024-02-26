@@ -12,6 +12,7 @@ import math
 from PySide6 import QtWidgets, QtGui, QtCore
 from wgpu.gui.qt import WgpuWidget
 import pygfx as gfx
+import pylinalg as la
 
 
 class LightViewer(QtWidgets.QWidget):
@@ -243,14 +244,14 @@ class LightViewer(QtWidgets.QWidget):
             material=gfx.MeshPhongMaterial(color="#00aaff"),
         )
 
-        # mesh.rotation.set_from_euler(gfx.linalg.Euler(math.pi / 6, math.pi / 6))
+        # mesh.rotation.set_from_euler(la.Euler(math.pi / 6, math.pi / 6))
         scene.add(self.mesh)
 
         # Point Light1
         point_light1 = gfx.PointLight("#ffffff")
         self.point_light1 = point_light1
-        point_light1.position.x = 25
-        point_light1.position.y = 20
+        point_light1.world.x = 25
+        point_light1.world.y = 20
 
         point_light1.add(gfx.PointLightHelper())
         scene.add(point_light1)
@@ -259,8 +260,8 @@ class LightViewer(QtWidgets.QWidget):
         point_light2 = gfx.PointLight("#80ff80")
         self.point_light2 = point_light2
         point_light2.visible = False
-        point_light2.position.x = -25
-        point_light2.position.y = 20
+        point_light2.world.x = -25
+        point_light2.world.y = 20
 
         point_light2.add(gfx.PointLightHelper())
         scene.add(point_light2)
@@ -269,8 +270,8 @@ class LightViewer(QtWidgets.QWidget):
         directional_light = gfx.DirectionalLight("#ffff00")
         self.directional_light = directional_light
         directional_light.visible = False
-        directional_light.position.x = -25
-        directional_light.position.y = 20
+        directional_light.world.x = -25
+        directional_light.world.y = 20
 
         directional_light.add(gfx.DirectionalLightHelper(5))
         scene.add(directional_light)
@@ -280,7 +281,7 @@ class LightViewer(QtWidgets.QWidget):
         scene.add(self.ambient_light)
 
         camera = gfx.PerspectiveCamera(70, 16 / 9)
-        camera.position.z = 50
+        camera.world.z = 50
         camera.show_pos((0, 0, 0))
 
         gfx.OrbitController(camera, register_events=renderer)
@@ -289,38 +290,36 @@ class LightViewer(QtWidgets.QWidget):
         t2 = 0
         scale = 30
 
-        point_light1.position.x = math.sin(t1 + math.pi / 3) * scale
-        point_light1.position.y = math.sin(t1 + 1) * 5 + 15
-        point_light1.position.z = math.cos(t1 + math.pi / 3) * scale
+        point_light1.world.x = math.sin(t1 + math.pi / 3) * scale
+        point_light1.world.y = math.sin(t1 + 1) * 5 + 15
+        point_light1.world.z = math.cos(t1 + math.pi / 3) * scale
 
-        point_light2.position.x = math.sin(t2 - math.pi / 3) * scale
-        point_light2.position.y = math.sin(t2 + 2) * 5 + 15
-        point_light2.position.z = math.cos(t2 - math.pi / 3) * scale
+        point_light2.world.x = math.sin(t2 - math.pi / 3) * scale
+        point_light2.world.y = math.sin(t2 + 2) * 5 + 15
+        point_light2.world.z = math.cos(t2 - math.pi / 3) * scale
 
         def animate():
             if self.mesh_rotate_checkbox.isChecked():
-                rot = gfx.linalg.Quaternion().set_from_euler(
-                    gfx.linalg.Euler(0.01, 0.02)
-                )
+                rot = la.Quaternion().set_from_euler(la.Euler(0.01, 0.02))
                 self.mesh.rotation.multiply(rot)
 
             nonlocal t1, t2, scale
 
             if self.point_light1_move.isChecked() and self.point_light1.visible:
                 t1 += 0.01
-                point_light1.position.x = math.sin(t1 + math.pi / 3) * scale
-                point_light1.position.y = math.sin(t1 + 1) * 5 + 15
-                point_light1.position.z = math.cos(t1 + math.pi / 3) * scale
+                point_light1.world.x = math.sin(t1 + math.pi / 3) * scale
+                point_light1.world.y = math.sin(t1 + 1) * 5 + 15
+                point_light1.world.z = math.cos(t1 + math.pi / 3) * scale
 
             if self.point_light2_move.isChecked() and self.point_light2.visible:
                 t2 += 0.02
-                point_light2.position.x = math.sin(t2 - math.pi / 3) * scale
-                point_light2.position.y = math.sin(t2 + 2) * 5 + 15
-                point_light2.position.z = math.cos(t2 - math.pi / 3) * scale
+                point_light2.world.x = math.sin(t2 - math.pi / 3) * scale
+                point_light2.world.y = math.sin(t2 + 2) * 5 + 15
+                point_light2.world.z = math.cos(t2 - math.pi / 3) * scale
 
-            # light1.position.x = math.cos(t) * math.cos(3*t) * scale
-            # light1.position.y = math.cos(3*t) * math.sin(t) * scale
-            # light1.position.z = math.sin(3*t) * scale
+            # light1.world.x = math.cos(t) * math.cos(3*t) * scale
+            # light1.world.y = math.cos(3*t) * math.sin(t) * scale
+            # light1.world.z = math.sin(3*t) * scale
 
             renderer.render(scene, camera)
             renderer.request_draw()
