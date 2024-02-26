@@ -81,7 +81,8 @@ camera.show_object(scene)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    print(__doc__)
     run()

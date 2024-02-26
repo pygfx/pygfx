@@ -128,6 +128,8 @@ def animate():
                 ob.material.dash_offset += 0.1
 
 
+canvas.request_draw(animate)
+
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    print(__doc__)
     run()

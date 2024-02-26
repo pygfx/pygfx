@@ -48,7 +48,8 @@ for aa in [False, True]:
 camera = gfx.OrthographicCamera()
 camera.show_object(scene)
 
+canvas.request_draw(lambda: renderer.render(scene, camera))
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    print(__doc__)
     run()
