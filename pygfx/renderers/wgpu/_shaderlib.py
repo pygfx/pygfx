@@ -22,11 +22,6 @@
 class Shaderlib:
     def light_deps_basic(self):
         return """
-        // TODO smoothstep and saturate probably exists when Naga gets updated
-        fn _smoothstep( low : f32, high : f32, x : f32 ) -> f32 {
-            let t = saturate( ( x - low ) / ( high - low ));
-            return t * t * ( 3.0 - 2.0 * t );
-        }
         fn getDistanceAttenuation(light_distance: f32, cutoff_distance: f32, decay_exponent: f32) -> f32 {
             var distance_falloff: f32 = 1.0 / max( pow( light_distance, decay_exponent ), 0.01 );
             if ( cutoff_distance > 0.0 ) {
@@ -35,7 +30,7 @@ class Shaderlib:
             return distance_falloff;
         }
         fn getSpotAttenuation( cone_cosine: f32, penumbra_cosine: f32, angle_cosine: f32 ) -> f32 {
-            return _smoothstep( cone_cosine, penumbra_cosine, angle_cosine );
+            return smoothstep( cone_cosine, penumbra_cosine, angle_cosine );
         }
         fn getAmbientLightIrradiance( ambientlight_color: vec3<f32> ) -> vec3<f32> {
             let irradiance = ambientlight_color;
