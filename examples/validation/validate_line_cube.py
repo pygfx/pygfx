@@ -7,6 +7,9 @@ Cubes drawn with dashed lines
 * The green cubes have thickness in model space, and should have increasing thickness.
 """
 
+# test_example = true
+# sphinx_gallery_pygfx_render = True
+
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
