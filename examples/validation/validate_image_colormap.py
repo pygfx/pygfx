@@ -4,8 +4,9 @@ Simple Colormap
 
 Show an image with a simple colormap.
 
-* You should see a square image with 3 equally sized vertical bands.
-* The bands should be red, green, and blue.
+* You should see two rectangles with a colormap.
+* The top goes smoothly from red to green to blue.
+* The bottom shows three equally thick bands (red, green blue).
 """
 
 # test_example = true
@@ -16,25 +17,30 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas()
-renderer = gfx.renderers.WgpuRenderer(canvas)
-scene = gfx.Scene()
+renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(600, 600)))
 
-im = np.repeat(np.linspace(0, 1, 99).reshape(1, -1), 99, 0).astype(np.float32)
+im = np.repeat(np.linspace(0, 1, 100).reshape(1, -1), 48, 0).astype(np.float32)
+colormap = gfx.Texture(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], np.float32), dim=1)
 
-colormap_data = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], np.float32)
-colormap = gfx.Texture(colormap_data, dim=1)
-
-image = gfx.Image(
+image1 = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
     gfx.ImageBasicMaterial(clim=(0, 1), map=colormap, map_interpolation="nearest"),
 )
-scene.add(image)
+
+image2 = gfx.Image(
+    gfx.Geometry(grid=gfx.Texture(im, dim=2)),
+    gfx.ImageBasicMaterial(clim=(0, 1), map=colormap, map_interpolation="linear"),
+)
+image2.local.y = 52
+
+scene = gfx.Scene()
+scene.add(image1, image2)
 
 camera = gfx.OrthographicCamera()
-camera.show_rect(0.5, 99.5, 0.5, 99.5)
+camera.show_rect(-4, 103, -4, 103)
 
-canvas.request_draw(lambda: renderer.render(scene, camera))
+renderer.request_draw(lambda: renderer.render(scene, camera))
+
 
 if __name__ == "__main__":
     run()
