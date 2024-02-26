@@ -71,7 +71,7 @@ class Geometry(Trackable):
                     if not ("x" not in format or format.startswith(("1x", "2x", "3x"))):
                         raise ValueError("Expected Nx1, Nx2 or Nx3 data for texcoords")
                 elif name == "colors":
-                    if not (format.startswith("4x") or format.startswith("3x")):
+                    if not format.startswith(("3x", "4x")):
                         raise ValueError("Expected Nx3 or Nx4 data for colors")
                 elif name == "sizes":
                     if not ("x" not in format):

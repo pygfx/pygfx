@@ -154,7 +154,7 @@ class LineMaterial(Material):
 
     @thickness.setter
     def thickness(self, thickness):
-        self.uniform_buffer.data["thickness"] = thickness
+        self.uniform_buffer.data["thickness"] = max(0.0, float(thickness))
         self.uniform_buffer.update_range(0, 1)
 
     @property
