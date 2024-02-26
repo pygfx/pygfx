@@ -92,12 +92,17 @@ class LineMaterial(Material):
         """Whether the line's edges are anti-aliased.
 
         Aliasing gives prettier results by producing semi-transparent fragments
-        at the edges. This may affect blending with other (semi-transparent)
-        objects.
+        at the edges. Lines thinner than one physical pixel are also diminished
+        by making them more transparent.
 
-        It can also affect performance for very large datasets. In particular,
-        when the line itself is opaque, the line is (in most blend modes) drawn
-        twice to account for both the opaque and semi-transparent fragments.
+        Note that by default, pygfx uses SSAA to anti-alias the total renderered
+        result. Line-based aa results in additional improvement.
+
+        Because semi-transparent fragments are introduced, it may affect how the
+        line blends with other (semi-transparent) objects. It can also affect
+        performance for very large datasets. In particular, when the line itself
+        is opaque, the line is (in most blend modes) drawn twice to account for
+        both the opaque and semi-transparent fragments.
         """
         return self._store.aa
 
@@ -147,7 +152,7 @@ class LineMaterial(Material):
     def thickness(self):
         """The line thickness.
 
-        The interpretation depends on `thickness_space`, but is in logical
+        The interpretation depends on `thickness_space`, which is in logical
         pixels by default.
         """
         return float(self.uniform_buffer.data["thickness"])
@@ -210,15 +215,14 @@ class LineMaterial(Material):
     def dash_pattern(self):
         """The dash pattern.
 
-        A sequence of floats describing the length of strokes and gaps. A
-        sequence of floats describing the length of strokes and gaps.
+        A sequence of floats describing the length of strokes and gaps. The
+        length of the sequence must be an even number. Setting to None or the
+        empty tuple means no dashing.
 
         For example, (5, 2, 1, 2) describes a a stroke of 5 units, a gap of 2,
         then a short stroke of 1, and another gap of 2. Units are relative to
         the line thickness (and therefore `thickness_space` also applies to  the
         `dash_pattern`).
-
-        Setting to None or the empty tuple means no dashing.
         """
         return self._store.dash_pattern
 

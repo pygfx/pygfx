@@ -705,10 +705,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         # McGuire: "Using R16F for the revealage render target will give slightly better
         # precision and make it easier to tune the algorithm, but a 2x savings on bandwidth
         # and memory footprint for that texture may make it worth compressing into R8 format."
-        # We also found that on Metal r16float produces a FormatNotBlendable error,
-        # while r8unorm and r32float do work. See #207.
         self._texture_info["reveal"] = (
-            wgpu.TextureFormat.r16float,
+            wgpu.TextureFormat.r8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,
         )
 
