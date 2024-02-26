@@ -11,6 +11,7 @@ import pygfx as gfx
 
 from PySide6 import QtWidgets  # Replace PySide6 with PyQt6, PyQt5 or PySide2
 from wgpu.gui.qt import WgpuCanvas
+import pylinalg as la
 
 
 app = QtWidgets.QApplication([])
@@ -26,15 +27,17 @@ cube = gfx.Mesh(
 scene.add(cube)
 
 scene.add(gfx.AmbientLight())
-scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
+directional_light = gfx.DirectionalLight()
+directional_light.world.z = 1
+scene.add(directional_light)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.world.z = 400
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube.rotation.multiply(rot)
+    rot = la.quaternion.quat_from_euler((0.005, 0.01, 0))
+    cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()
