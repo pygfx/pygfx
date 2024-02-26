@@ -2,7 +2,6 @@
 Line Drawing
 ============
 
-
 Some basic line drawing.
 """
 
@@ -26,20 +25,16 @@ positions += [[np.nan, np.nan, np.nan]]
 positions += [[400 - np.sin(i) * i * 6, 200 + np.cos(i) * i * 6, 0] for i in range(20)]
 positions += [[np.nan, np.nan, np.nan]]
 positions += [
-    [40, 440, 0],
-    [42, 440, 0],
-    [44, 440, 0],
-    [46, 440, 0],
-    [48, 440, 0],
-    [100, 440, 0],
     [100, 450, 0],
+    [102, 450, 0],
+    [104, 450, 0],
+    [106, 450, 0],
     [200, 450, 0],
     [200, 445, 0],
     [400, 440, 0],
     [300, 400, 0],
     [300, 390, 0],
     [400, 370, 0],
-    # [300, 380, 0],
     [350, 350, 0],
 ]
 
@@ -84,7 +79,7 @@ def change_material(event):
 
 
 @renderer.add_event_handler("pointer_move", "pointer_down")
-def set_node(event):
+def set_last_node(event):
     if event.modifiers:
         return
     if 3 in event.buttons or event.button == 3:
@@ -97,15 +92,9 @@ def set_node(event):
 
 
 def animate():
-    global alpha
-    alpha += d_alpha
-    # line.geometry.positions.data[-1, :2] = 400 + 40 * np.sin(alpha), 370 + 40 * np.cos(
-    #     alpha
-    # )
-    # line.geometry.positions.update_range(len(positions) - 1, 1)
-    # canvas.request_draw()
-
+    line.material.dash_offset += 0.1
     renderer.render(scene, camera)
+    canvas.request_draw()
 
 
 if __name__ == "__main__":

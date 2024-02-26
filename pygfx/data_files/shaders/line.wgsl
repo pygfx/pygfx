@@ -667,7 +667,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
 
         // Calculate dash_progress, a number 0..dash_size, indicating the fase of the dash.
         // Except that we shift it, so that half of the final gap gets in front (as a negative number).
-        let cumdist_corrected = cumdist_continuous / u_material.thickness + u_material.dash_offset;
+        let cumdist_corrected = cumdist_continuous / u_material.thickness + u_material.dash_offset % dash_size;
         let dash_progress = (cumdist_corrected + 0.5 * last_gap) % dash_size - 0.5 * last_gap;
 
         // Its looks a bit like this. Now we select the nearest stroke, and calculate the
