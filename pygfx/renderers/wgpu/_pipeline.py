@@ -369,6 +369,7 @@ class PipelineContainerGroup:
     def __init__(self):
         self.compute_containers = None
         self.render_containers = None
+        self.bake_functions = None
 
     def update(self, wobject, environment, changed):
         """Update the pipeline containers that are wrapped. Creates (and re-creates)
@@ -376,8 +377,9 @@ class PipelineContainerGroup:
         """
 
         if "create" in changed:
-            self.compute_containers = []
-            self.render_containers = []
+            self.compute_containers = ()
+            self.render_containers = ()
+            self.bake_functions = ()
 
             # Get render function for this world object,
             # and use it to get a high-level description of pipelines.
@@ -395,14 +397,24 @@ class PipelineContainerGroup:
                     shaders = [shaders]
 
             # Divide result over two bins, one for compute, and one for render
+            compute_containers = []
+            render_containers = []
+            bake_functions = []
             for shader in shaders:
                 assert isinstance(shader, BaseShader)
                 if shader.type == "compute":
-                    self.compute_containers.append(ComputePipelineContainer(shader))
+                    compute_containers.append(ComputePipelineContainer(shader))
                 elif shader.type == "render":
-                    self.render_containers.append(RenderPipelineContainer(shader))
+                    render_containers.append(RenderPipelineContainer(shader))
                 else:
                     raise ValueError(f"Shader type {shader.type} is unknown.")
+                if shader.needs_bake_function:
+                    bake_functions.append(shader.bake_function)
+
+            # Store results
+            self.compute_containers = tuple(compute_containers)
+            self.render_containers = tuple(render_containers)
+            self.bake_functions = tuple(bake_functions)
 
         for container in self.compute_containers:
             container.update(wobject, environment, changed)

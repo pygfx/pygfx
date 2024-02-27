@@ -12,7 +12,7 @@ from ._shared import (
 )
 from ._renderer import WgpuRenderer
 from ._pipeline import Binding
-from ._shader import BaseShader, WorldObjectShader
+from ._shader import BaseShader, WorldObjectShader, load_shader
 from ._shaderlib import shaderlib
 
 # Import the modules that implement the shaders

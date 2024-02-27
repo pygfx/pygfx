@@ -1,6 +1,17 @@
+import os
+import functools
+
+from ...utils import get_resources_dir
 from ...resources import Buffer, Texture
 from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureView
 from ._shaderbase import BaseShader
+
+
+@functools.lru_cache(maxsize=None)
+def load_shader(shader_name):
+    filename = os.path.join(get_resources_dir(), "shaders", shader_name)
+    with open(filename, "rb") as f:
+        return f.read().decode()
 
 
 class WorldObjectShader(BaseShader):
@@ -10,6 +21,7 @@ class WorldObjectShader(BaseShader):
     """
 
     type = "render"  # must be "compute" or "render"
+    needs_bake_function = False
 
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)
