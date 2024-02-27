@@ -11,7 +11,7 @@ class LineMaterial(Material):
     thickness : float
         The line thickness expressed in logical pixels. Default 2.0.
     thickness_space : str
-        The coordinate space in which the thickness is expressed. Default "screen".
+        The coordinate space in which the thickness is expressed ('screen', 'world', 'model'). Default 'screen'.
     color : Color
         The uniform color of the line (used depending on the ``color_mode``).
     color_mode : enum or str
@@ -21,7 +21,7 @@ class LineMaterial(Material):
     map_interpolation: str
         The method to interpolate the color map ('nearest' or 'linear'). Default 'linear'.
     dash_pattern : tuple
-        The pattern of the dash. Defaults to an empty tuple, meaning no dashing.
+        The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
     dash_offset : float
         The offset into the dash phase. Default 0.0.
     aa : bool
@@ -152,8 +152,8 @@ class LineMaterial(Material):
     def thickness(self):
         """The line thickness.
 
-        The interpretation depends on `thickness_space`, which is in logical
-        pixels by default.
+        The interpretation depends on `thickness_space`. By default it is in logical
+        pixels, but it can also be in world or model coordinates.
         """
         return float(self.uniform_buffer.data["thickness"])
 
