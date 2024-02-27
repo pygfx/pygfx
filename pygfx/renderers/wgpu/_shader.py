@@ -7,7 +7,7 @@ from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureV
 from ._shaderbase import BaseShader
 
 
-@functools.cache
+@functools.lru_cache(maxsize=None)
 def load_shader(shader_name):
     filename = os.path.join(get_resources_dir(), "shaders", shader_name)
     with open(filename, "rb") as f:
