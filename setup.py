@@ -63,7 +63,7 @@ extras_require = {
     ],
 }
 
-resources_globs = ["*.ttf", "*.otf", "*.json"]
+resources_globs = ["*.ttf", "*.otf", "*.json", "shaders/*.wgsl"]
 
 setup(
     name=NAME,

@@ -13,7 +13,7 @@ def test_pyi_shaders(pyi_builder):
     pyi_builder.test_source(
         """
         from pygfx.renderers.wgpu import load_shader
-        wgsl = load_shader("line.wgslx")
+        wgsl = load_shader("line.wgsl")
         assert "fn vs_main(" in wgsl
         """
     )
