@@ -74,6 +74,8 @@ def change_material(event):
             thickness_space="screen",
             opacity=0.5,
         )
+    elif event.key == "3":
+        line.material = gfx.LineDebugMaterial(thickness=22.0, color=(0.8, 0.7, 0.0))
     elif event.key == "o":
         line.material.dash_offset += 4
     elif event.key == "a":

@@ -58,16 +58,17 @@
 // -------------------- functions --------------------
 
 
-fn is_nan_or_zero(v:f32) -> bool {
+fn is_nan_or_le_zero(w:f32) -> bool {
     // Naga has removed isNan checks, because backends may be using fast-math,
-    // in which case nan is assumed not to happen, and isNan would always be false.
-    // If we assume that some nan mechanics still work, we can still detect it.
-    // This won't work however: `return v != v`, because the compiler will
-    // optimize it out. The same holds for similar constructs.
-    // Maybe the same happens if we turn `<`  into `<=`.
-    // So we and up with an equation that detects either NaN or zero,
-    // which is fine if we use it on a .w attribute.
-    return !(v < 0.0) && !(v > 0.0);
+    // in which case nan is assumed not to happen, and isNan would always be
+    // false. If we assume that some nan mechanics still work, we can still
+    // detect it. This won't work however: `return v != v`, because the compiler
+    // will optimize it out. The same holds for similar constructs. Maybe the
+    // same happens if we turn `<`  into `<=`. So we and up with an equation
+    // that detects either NaN or zero, which is fine if we use it on a .w
+    // attribute. The w < 0.0 term is needed to make it work on Metal, probably
+    // because it prevents the compiler from optimizing something out.
+    return (w < 0.0) || (!(w < 0.0) && !(w > 0.0));
 }
 
 
@@ -248,8 +249,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Determine capp-ness
     let minor_dist_threshold = 0.0;
     let major_dist_threshold = 0.125 * max(1.0, half_thickness);
-    var left_is_cap = is_nan_or_zero(pos_n_prev.w) || length(vec_s_prev) < select(minor_dist_threshold, major_dist_threshold, vec_s_prev_has_significant_depth_component);
-    var right_is_cap = is_nan_or_zero(pos_n_next.w) || length(vec_s_next) < select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
+    var left_is_cap = is_nan_or_le_zero(pos_n_prev.w) || length(vec_s_prev) <= select(minor_dist_threshold, major_dist_threshold, vec_s_prev_has_significant_depth_component);
+    var right_is_cap = is_nan_or_le_zero(pos_n_next.w) || length(vec_s_next) <= select(minor_dist_threshold, major_dist_threshold, vec_s_next_has_significant_depth_component);
 
     $$ if line_type in ['segment', 'arrow']
     left_is_cap = left_is_cap || node_index_is_even;
