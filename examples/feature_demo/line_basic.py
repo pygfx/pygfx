@@ -2,7 +2,10 @@
 Line Drawing
 ============
 
-Some basic line drawing.
+Drawing a line with a shape that makes it interesting for demonstrating/testing
+various aspects of line rendering. Use the middle-mouse button to set the
+position of the last point. Use '1' and '2' to toggle between normal and dashed
+mode.
 """
 
 # sphinx_gallery_pygfx_render = True
