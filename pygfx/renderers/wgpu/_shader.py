@@ -1,12 +1,13 @@
-from pkg_resources import resource_filename
+import os
 
+from ...utils import get_resources_dir
 from ...resources import Buffer, Texture
 from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureView
 from ._shaderbase import BaseShader
 
 
 def load_shader(shader_name):
-    filename = resource_filename("pygfx.data_files", f"shaders/{shader_name}")
+    filename = os.path.join(get_resources_dir(), "shaders", shader_name)
     with open(filename, "rb") as f:
         return f.read().decode()
 
