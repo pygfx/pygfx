@@ -10,7 +10,7 @@ from ._shaderbase import BaseShader
 @functools.cache
 def load_shader(shader_name):
     filename = os.path.join(get_resources_dir(), "shaders", shader_name)
-    with open(filename, "rb", encoding="utf-8") as f:
+    with open(filename, "rb") as f:
         return f.read().decode()
 
 
