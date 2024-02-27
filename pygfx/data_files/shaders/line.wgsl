@@ -74,7 +74,7 @@ fn is_nan(w:f32) -> bool {
     return min(w, 1.0) == 1.0 && max(w, -1.0) == -1.0;
     // Version that detects nan or zero, at some point anyway.
     // return !(w < 0.0) && !(w > 0.0);
-    // Version that detects nan or below zero, on Metal and Linux/Vulkan, but now Windows/Vulkan.
+    // Version that detects nan or below zero, on Metal and Linux/Vulkan, but not Windows/Vulkan.
     // return (w < 0.0) || (!(w < 0.0) && !(w > 0.0));
 }
 
