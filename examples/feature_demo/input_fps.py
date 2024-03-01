@@ -97,10 +97,7 @@ def update():
             np.pi * 0.49,
         )
     if dx or dy:
-        camera.local.rotation = la.quat_mul(
-            la.quat_from_euler(yaw, order="Y"),
-            la.quat_from_euler(pitch, order="X"),
-        )
+        camera.local.rotation = la.quat_from_euler([yaw, pitch], order="YX")
 
     # adjust camera position based on key state
     movement = np.array([0.0, 0.0, 0.0])
