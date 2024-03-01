@@ -58,10 +58,9 @@ class Input:
                 # prevent emitting a bogus delta when we don't have a previous
                 # position for the mouse
                 if (prev := self._pointer_pos_prev.get(pointer_id)) is not None:
-                    prev_x, prev_y = prev
                     self._pointer_delta[pointer_id] = (
-                        x - prev_x,
-                        y - prev_y,
+                        x - prev[0],
+                        y - prev[1],
                     )
             elif type == "pointer_down":
                 key = (pointer_id, event.button)
