@@ -1,21 +1,26 @@
 """
-Input state
-===========
+First person shooter controls with GLFW GUI
+=========================================
 
-Example showing how to use the Input class.
+Example showing how to use the Input class to implement FPS controls.
 """
 
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 
+import glfw
 import numpy as np
 import pylinalg as la
 import pygfx as gfx
-from wgpu.gui.auto import WgpuCanvas, run
+from wgpu.gui.glfw import WgpuCanvas, run
 
 
-renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
+canvas = WgpuCanvas()
+renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Group()
+
+# hide the cursor, lock it to the window and keep it centered
+glfw.set_input_mode(canvas._window, glfw.CURSOR, glfw.CURSOR_DISABLED)
 
 # add background
 background = gfx.Background(None, gfx.BackgroundMaterial("#ccc"))
@@ -24,7 +29,7 @@ scene.add(background)
 # add floor
 floor = gfx.Mesh(
     gfx.plane_geometry(20, 20),
-    gfx.MeshPhongMaterial(color="#808080", side="Front"),
+    gfx.MeshPhongMaterial(color="#808080"),
 )
 floor.local.euler_x = np.pi * -0.5
 floor.receive_shadow = True
@@ -59,47 +64,59 @@ camera.look_at((0, 2, 0))
 
 # add input
 input = gfx.Input(register_events=renderer)
+time = gfx.Time(register_events=renderer)
+
+# fps controls state
 velocity = 0.1
-mouse_sensitivity = 0.01
-invert_x = -1
+fly = False
+mouse_sensitivity = 0.2
 invert_y = -1
+yaw, pitch = camera.local.euler_y, camera.local.euler_x
+
+
+def clamp(x, a, b):
+    return min(max(x, a), b)
 
 
 def update():
-    # TODO: technically we also need the time delta since the last frame
-    #       to be robust against varying frame rates
-    # TODO: clamp pitch to (-90, 90) degrees
-    # TODO: how to always capture mouse events even if the pointer is not over the window?
-    # TODO: how to keep the mouse anchored to the center of the window?
+    # FPS controls
+    global yaw, pitch, fly
+
+    # adjust settings
+    if input.key_down("f"):
+        fly = not fly
 
     # adjust camera angle based on mouse delta
-    rotation = input.pointer_delta()
-    if rotation != (0, 0):
-        pitch = la.quat_from_euler(
-            rotation[1] * mouse_sensitivity * invert_y, order="X"
+    dx, dy = input.pointer_delta()
+    if dx:
+        yaw = (yaw + dx * mouse_sensitivity * time.delta * -1) % (np.pi * 2)
+    if dy:
+        pitch = clamp(
+            pitch + dy * mouse_sensitivity * time.delta * invert_y,
+            -np.pi * 0.49,
+            np.pi * 0.49,
         )
-        yaw = la.quat_from_euler(rotation[0] * mouse_sensitivity * invert_x, order="Y")
+    if dx or dy:
         camera.local.rotation = la.quat_mul(
-            la.quat_mul(
-                yaw,
-                camera.local.rotation,
-            ),
-            pitch,
+            la.quat_from_euler(yaw, order="Y"),
+            la.quat_from_euler(pitch, order="X"),
         )
 
-    # implement basic FPS controls
+    # adjust camera position based on key state
     movement = np.array([0.0, 0.0, 0.0])
     if input.key("w"):
         movement += camera.local.forward * velocity
+    if input.key("s"):
+        movement += camera.local.forward * -velocity
     if input.key("a"):
         movement += camera.local.right * -velocity
     if input.key("d"):
         movement += camera.local.right * velocity
-    if input.key("s"):
-        movement += camera.local.forward * -velocity
-
-    # TODO: project movement vector onto floor (fly vs walk; toggle?)
-
+    if not fly:
+        # project movement vector onto the floor
+        movement -= (
+            np.dot(movement, camera.local.reference_up) * camera.local.reference_up
+        )
     camera.local.position = camera.local.position + movement
 
 
