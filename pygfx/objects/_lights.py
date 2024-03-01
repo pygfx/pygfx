@@ -559,14 +559,14 @@ class LightShadow:
         target = get_pos_from_camera_parent_or_target(light)
         shadow_camera.look_at(target)
 
-        self._gfx_matrix_buffer.data[
-            "light_view_proj_matrix"
-        ] = shadow_camera.camera_matrix.T
+        self._gfx_matrix_buffer.data["light_view_proj_matrix"] = (
+            shadow_camera.camera_matrix.T
+        )
         self._gfx_matrix_buffer.update_range(0, 1)
 
-        light.uniform_buffer.data[
-            "light_view_proj_matrix"
-        ] = shadow_camera.camera_matrix.T
+        light.uniform_buffer.data["light_view_proj_matrix"] = (
+            shadow_camera.camera_matrix.T
+        )
 
 
 class DirectionalLightShadow(LightShadow):
