@@ -169,6 +169,7 @@ def get_shared():
 
 
 class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
+
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
@@ -176,6 +177,7 @@ class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
+
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
@@ -193,6 +195,7 @@ class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PyGfxLimitsDiagnostics(wgpu.DiagnosticsBase):
+
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
@@ -208,6 +211,7 @@ class PyGfxLimitsDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PygfxCacheDiagnostics(wgpu.DiagnosticsBase):
+
     def get_dict(self):
         result = {}
         for cache_name, stats in gpu_caches.get_stats().items():
@@ -217,6 +221,7 @@ class PygfxCacheDiagnostics(wgpu.DiagnosticsBase):
 
 
 class PygfxResourceDiagnostics(wgpu.DiagnosticsBase):
+
     def get_dict(self):
         return Resource._resource_counts
 
