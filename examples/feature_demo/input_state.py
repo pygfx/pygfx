@@ -69,7 +69,6 @@ def update():
     # TODO: technically we also need the time delta since the last frame
     #       to be robust against varying frame rates
     # TODO: clamp pitch to (-90, 90) degrees
-    # TODO: clamp pitch to (-90, 90) degrees
     # TODO: how to always capture mouse events even if the pointer is not over the window?
     # TODO: how to keep the mouse anchored to the center of the window?
 

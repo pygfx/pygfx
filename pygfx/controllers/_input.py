@@ -55,6 +55,8 @@ class Input:
                 x, y = event.x, event.y
                 self._pointer_pos[pointer_id] = (x, y)
 
+                # prevent emitting a bogus delta when we don't have a previous
+                # position for the mouse
                 if (prev := self._pointer_pos_prev.get(pointer_id)) is not None:
                     prev_x, prev_y = prev
                     self._pointer_delta[pointer_id] = (
