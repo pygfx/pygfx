@@ -67,7 +67,9 @@ input = gfx.Input(register_events=renderer)
 time = gfx.Time(register_events=renderer)
 
 # fps controls state
-velocity = 0.1
+acceleration = 1.0  # per second
+velocity = 0
+max_velocity = 0.1
 fly = False
 accept_pointer = True
 mouse_sensitivity = 0.2
@@ -81,7 +83,7 @@ def clamp(x, a, b):
 
 def update():
     # FPS controls
-    global yaw, pitch, fly, accept_pointer
+    global yaw, pitch, fly, accept_pointer, velocity
 
     # adjust settings
     if input.key_down("f"):
@@ -95,8 +97,8 @@ def update():
         glfw.set_input_mode(canvas._window, glfw.CURSOR, glfw.CURSOR_NORMAL)
         accept_pointer = False
 
+    # adjust camera angle based on mouse delta
     if accept_pointer:
-        # adjust camera angle based on mouse delta
         dx, dy = input.pointer_delta()
         if dx:
             yaw = (yaw + dx * mouse_sensitivity * time.delta * -1) % (np.pi * 2)
@@ -110,15 +112,28 @@ def update():
             camera.local.rotation = la.quat_from_euler([yaw, pitch], order="YX")
 
     # adjust camera position based on key state
-    movement = np.array([0.0, 0.0, 0.0])
+    move = False
+    direction = np.array([0.0, 0.0, 0.0])
     if input.key("w"):
-        movement += camera.local.forward * velocity
+        move = True
+        direction += camera.local.forward
     if input.key("s"):
-        movement += camera.local.forward * -velocity
+        move = True
+        direction += camera.local.forward * -1
     if input.key("a"):
-        movement += camera.local.right * -velocity
+        move = True
+        direction += camera.local.right * -1
     if input.key("d"):
-        movement += camera.local.right * velocity
+        move = True
+        direction += camera.local.right
+
+    if move:
+        # gradually increase velocity up to a maximum
+        velocity = min(velocity + acceleration * time.delta, max_velocity)
+    else:
+        velocity = 0
+    movement = direction * velocity
+
     if not fly:
         # project movement vector onto the floor
         movement -= (
