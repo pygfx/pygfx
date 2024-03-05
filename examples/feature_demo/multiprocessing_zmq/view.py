@@ -55,8 +55,7 @@ data = np.random.rand(512, 512).astype(np.float32)
 
 image = pygfx.Image(
     geometry=pygfx.Geometry(grid=pygfx.Texture(data, dim=2)),
-    material=pygfx.ImageBasicMaterial(clim=(0, 1), map=pygfx.cm.plasma)
-
+    material=pygfx.ImageBasicMaterial(clim=(0, 1), map=pygfx.cm.plasma),
 )
 
 scene.add(image)
