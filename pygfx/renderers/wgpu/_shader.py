@@ -39,7 +39,7 @@ class WorldObjectShader(BaseShader):
         self.kwargs.setdefault("lighting", "")
 
         # Apply_clip_planes
-        self["n_clipping_planes"] = len(wobject.material.clipping_planes)
+        self["n_clipping_planes"] = wobject.material.clipping_plane_count
         self["clipping_mode"] = wobject.material.clipping_mode
 
     # ----- What subclasses must implement
