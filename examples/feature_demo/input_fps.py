@@ -69,6 +69,7 @@ time = gfx.Time(register_events=renderer)
 # fps controls state
 velocity = 0.1
 fly = False
+accept_pointer = True
 mouse_sensitivity = 0.2
 invert_y = -1
 yaw, pitch = camera.local.euler_y, camera.local.euler_x
@@ -80,24 +81,33 @@ def clamp(x, a, b):
 
 def update():
     # FPS controls
-    global yaw, pitch, fly
+    global yaw, pitch, fly, accept_pointer
 
     # adjust settings
     if input.key_down("f"):
         fly = not fly
 
-    # adjust camera angle based on mouse delta
-    dx, dy = input.pointer_delta()
-    if dx:
-        yaw = (yaw + dx * mouse_sensitivity * time.delta * -1) % (np.pi * 2)
-    if dy:
-        pitch = clamp(
-            pitch + dy * mouse_sensitivity * time.delta * invert_y,
-            -np.pi * 0.49,
-            np.pi * 0.49,
-        )
-    if dx or dy:
-        camera.local.rotation = la.quat_from_euler([yaw, pitch], order="YX")
+    # release and re-capture the mouse
+    if input.pointer_button_down(1):
+        glfw.set_input_mode(canvas._window, glfw.CURSOR, glfw.CURSOR_DISABLED)
+        accept_pointer = True
+    if input.key_down("escape"):
+        glfw.set_input_mode(canvas._window, glfw.CURSOR, glfw.CURSOR_NORMAL)
+        accept_pointer = False
+
+    if accept_pointer:
+        # adjust camera angle based on mouse delta
+        dx, dy = input.pointer_delta()
+        if dx:
+            yaw = (yaw + dx * mouse_sensitivity * time.delta * -1) % (np.pi * 2)
+        if dy:
+            pitch = clamp(
+                pitch + dy * mouse_sensitivity * time.delta * invert_y,
+                -np.pi * 0.49,
+                np.pi * 0.49,
+            )
+        if dx or dy:
+            camera.local.rotation = la.quat_from_euler([yaw, pitch], order="YX")
 
     # adjust camera position based on key state
     movement = np.array([0.0, 0.0, 0.0])
