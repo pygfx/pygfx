@@ -45,10 +45,6 @@ extras_require = {
         "imageio-ffmpeg>=0.4.7",
         "scikit-image",
         "trimesh",
-        "torch",
-        "torch_geometric",
-        "lightning[extra]",
-        "libigl",
     ],
     "docs": [
         "sphinx>7.2",

@@ -2,13 +2,17 @@
 
 """
 Pytorch Integration
-=============================
+===================
 
 Pygfx Integration with PyTorch Lightning and PyTorch Geometric: A Practical Example.
 
 In this demonstration, we train a graph neural network on a 3D mesh. As the training progresses, we simultaneously render
 the results on a pygfx window in a separate process. The network aims to overfit the Gaussian curvature of each
 mesh point, striving to match the known curvature values precisely.
+
+In order to run this example, you should install the following dependencies:
+
+    pip install libigl lightning torch_geometric
 
 """
 
@@ -37,24 +41,24 @@ import igl
 
 # pygfx
 import pygfx as gfx
-from pygfx import (
-    Viewport,
-    Renderer,
-    Scene,
-    Group,
-    Background,
-    BackgroundMaterial,
-    Color,
-    Camera,
-    PerspectiveCamera,
-    NDCCamera,
-    PointLight,
-    OrbitController,
-    Geometry,
-    WorldObject,
-    Mesh,
-    MeshPhongMaterial,
-    Buffer)
+# from pygfx import (
+#     Viewport,
+#     Renderer,
+#     Scene,
+#     Group,
+#     Background,
+#     BackgroundMaterial,
+#     Color,
+#     Camera,
+#     PerspectiveCamera,
+#     NDCCamera,
+#     PointLight,
+#     OrbitController,
+#     Geometry,
+#     WorldObject,
+#     Mesh,
+#     MeshPhongMaterial,
+#     Buffer)
 from pygfx.renderers import WgpuRenderer
 
 # wgpu
@@ -103,10 +107,10 @@ class MeshData:
 
 @dataclass
 class SceneState:
-    gt_group: Group = Group()
-    pred_group: Group = Group()
-    gt_mesh: WorldObject = None
-    pred_mesh: WorldObject = None
+    gt_group: gfx.Group = gfx.Group()
+    pred_group: gfx.Group = gfx.Group()
+    gt_mesh: gfx.WorldObject = None
+    pred_mesh: gfx.WorldObject = None
     first_data: bool = True
 
 
@@ -245,8 +249,8 @@ class ExampleModule(LightningModule):
     def __init__(self):
         super().__init__()
         convolutions = [
-            torch_geometric.nn.conv.GATv2Conv(9, 16, head=2),
-            torch_geometric.nn.conv.GATv2Conv(16, 32, head=2),
+            torch_geometric.nn.conv.ResGatedGraphConv(9, 16),
+            torch_geometric.nn.conv.ResGatedGraphConv(16, 32),
         ]
         self._gnn = create_gnn(convolutions=convolutions, activation='sine', batch_norm=False)
         self._mlp = create_mlp(features=[32, 16, 8, 4, 1], activation='sine', batch_norm=False)
@@ -270,12 +274,7 @@ class ExampleModule(LightningModule):
         }
 
 
-class PyGfxCallback(Callback):
-    def __init__(self):
-        super().__init__()
-        self._queue = mp.Queue()
-        self._process = None
-
+class SceneHandler:
     @staticmethod
     def _rescale_k(k: np.ndarray) -> np.ndarray:
         # rescale gaussian curvature so it will range between 0 and 1
@@ -286,7 +285,7 @@ class PyGfxCallback(Callback):
 
     @staticmethod
     def _get_vertex_colors_from_k(k: np.ndarray) -> np.ndarray:
-        k = PyGfxCallback._rescale_k(k=k)
+        k = SceneHandler._rescale_k(k=k)
         k_one_minus = 1 - k
 
         # convex combinations between red and blue colors, based on the predicted gaussian curvature
@@ -297,24 +296,24 @@ class PyGfxCallback(Callback):
         return c
 
     @staticmethod
-    def _create_world_object_for_mesh(mesh_data: MeshData, k: np.ndarray, color: Color = '#ffffff') -> WorldObject:
-        c = PyGfxCallback._get_vertex_colors_from_k(k=k)
-        geometry = Geometry(
+    def _create_world_object_for_mesh(mesh_data: MeshData, k: np.ndarray, color: gfx.Color = '#ffffff') -> gfx.WorldObject:
+        c = SceneHandler._get_vertex_colors_from_k(k=k)
+        geometry = gfx.Geometry(
             indices=np.ascontiguousarray(mesh_data.faces),
             positions=np.ascontiguousarray(mesh_data.vertices),
             colors=np.ascontiguousarray(c))
 
-        material = MeshPhongMaterial(
+        material = gfx.MeshPhongMaterial(
             color=color,
-            vertex_colors=True)
+            color_mode='vertex')
 
-        mesh = Mesh(
+        mesh = gfx.Mesh(
             geometry=geometry,
             material=material)
         return mesh
 
     @staticmethod
-    def _create_world_object_for_text(text_string: str, anchor: str, position: np.ndarray, font_size: int) -> WorldObject:
+    def _create_world_object_for_text(text_string: str, anchor: str, position: np.ndarray, font_size: int) -> gfx.WorldObject:
         geometry = gfx.TextGeometry(
             text=text_string,
             anchor=anchor,
@@ -322,8 +321,8 @@ class PyGfxCallback(Callback):
             screen_space=True)
 
         material = gfx.TextMaterial(
-            color=Color("#ffffff"),
-            outline_color=Color('#000000'),
+            color=gfx.Color("#ffffff"),
+            outline_color=gfx.Color('#000000'),
             outline_thickness=0.5)
 
         text = gfx.Text(
@@ -334,34 +333,34 @@ class PyGfxCallback(Callback):
         return text
 
     @staticmethod
-    def _create_background(top_color: Color, bottom_color: Color) -> Background:
-        return Background(geometry=None, material=BackgroundMaterial(top_color, bottom_color))
+    def _create_background(top_color: gfx.Color, bottom_color: gfx.Color) -> gfx.Background:
+        return gfx.Background(geometry=None, material=gfx.BackgroundMaterial(top_color, bottom_color))
 
     @staticmethod
-    def _create_background_scene(renderer: Renderer, color: Color) -> Tuple[Viewport, Camera, Background]:
-        viewport = Viewport(renderer)
-        camera = NDCCamera()
-        background = PyGfxCallback._create_background(top_color=color, bottom_color=color)
+    def _create_background_scene(renderer: gfx.Renderer, color: gfx.Color) -> Tuple[gfx.Viewport, gfx.Camera, gfx.Background]:
+        viewport = gfx.Viewport(renderer)
+        camera = gfx.NDCCamera()
+        background = SceneHandler._create_background(top_color=color, bottom_color=color)
         return viewport, camera, background
 
     @staticmethod
-    def _create_scene(renderer: Renderer, light_color: Color, background_top_color: Color, background_bottom_color: Color, rect_length: int = 1) -> Tuple[Viewport, Camera, Scene]:
-        viewport = Viewport(renderer)
-        camera = PerspectiveCamera()
+    def _create_scene(renderer: gfx.Renderer, light_color: gfx.Color, background_top_color: gfx.Color, background_bottom_color: gfx.Color, rect_length: int = 1) -> Tuple[gfx.Viewport, gfx.Camera, gfx.Scene]:
+        viewport = gfx.Viewport(renderer)
+        camera = gfx.PerspectiveCamera()
         camera.show_rect(left=-rect_length, right=rect_length, top=-rect_length, bottom=rect_length, view_dir=(-1, -1, -1), up=(0, 0, 1))
-        controller = OrbitController(camera=camera, register_events=viewport)
-        light = PointLight(color=light_color, intensity=5, decay=0)
-        background = PyGfxCallback._create_background(top_color=background_top_color, bottom_color=background_bottom_color)
-        scene = Scene()
+        controller = gfx.OrbitController(camera=camera, register_events=viewport)
+        light = gfx.PointLight(color=light_color, intensity=5, decay=0)
+        background = SceneHandler._create_background(top_color=background_top_color, bottom_color=background_bottom_color)
+        scene = gfx.Scene()
         scene.add(light)
         scene.add(background)
         return viewport, camera, scene
 
     @staticmethod
-    def _create_text_scene(text_string: str, position: np.ndarray, anchor: str, font_size: int) -> Tuple[Scene, Camera]:
-        scene = Scene()
+    def _create_text_scene(text_string: str, position: np.ndarray, anchor: str, font_size: int) -> Tuple[gfx.Scene, gfx.Camera]:
+        scene = gfx.Scene()
         camera = gfx.ScreenCoordsCamera()
-        text = PyGfxCallback._create_world_object_for_text(
+        text = SceneHandler._create_world_object_for_text(
             text_string=text_string,
             anchor=anchor,
             position=position,
@@ -370,108 +369,117 @@ class PyGfxCallback(Callback):
         return scene, camera
 
     @staticmethod
-    def _plot_handler(
+    def _animate():
+        try:
+            mesh_data = cast(MeshData, SceneHandler._in_queue.get_nowait())
+
+            # if that's the first mesh-data message, create meshes
+            if SceneHandler._scene_state.first_data:
+                SceneHandler._scene_state.gt_mesh = SceneHandler._create_world_object_for_mesh(
+                    mesh_data=mesh_data,
+                    k=mesh_data.k)
+                SceneHandler._scene_state.pred_mesh = SceneHandler._create_world_object_for_mesh(
+                    mesh_data=mesh_data,
+                    k=mesh_data.pred_k)
+                SceneHandler._scene_state.gt_group.add(SceneHandler._scene_state.gt_mesh)
+                SceneHandler._scene_state.pred_group.add(SceneHandler._scene_state.pred_mesh)
+                SceneHandler._scene_state.first_data = False
+            # otherwise, update mesh colors
+            else:
+                c_pred = SceneHandler._get_vertex_colors_from_k(k=mesh_data.pred_k)
+                SceneHandler._scene_state.pred_mesh.geometry.colors = gfx.Buffer(data=c_pred)
+        except queue.Empty:
+            pass
+
+        # place point-light at the camera's position
+        SceneHandler._gt_mesh_scene.children[0].local.position = SceneHandler._gt_mesh_camera.local.position
+        SceneHandler._pred_mesh_scene.children[0].local.position = SceneHandler._pred_mesh_camera.local.position
+
+        # render white background
+        SceneHandler._background_viewport.render(SceneHandler._background_scene, SceneHandler._background_camera)
+
+        # render ground-truth mesh
+        SceneHandler._gt_mesh_viewport.render(SceneHandler._gt_mesh_scene, SceneHandler._gt_mesh_camera)
+        SceneHandler._gt_mesh_viewport.render(SceneHandler._gt_mesh_text_scene, SceneHandler._gt_mesh_text_camera)
+
+        # render prediction mesh
+        SceneHandler._pred_mesh_viewport.render(SceneHandler._pred_mesh_scene, SceneHandler._pred_mesh_camera)
+        SceneHandler._pred_mesh_viewport.render(SceneHandler._pred_mesh_text_scene, SceneHandler._pred_mesh_text_camera)
+
+        SceneHandler._renderer.flush()
+        SceneHandler._renderer.request_draw()
+
+    @staticmethod
+    def start(
             in_queue: Queue,
-            light_color: Color = Color("#ffffff"),
-            background_color: Color = Color('#ffffff'),
-            scene_background_top_color: Color = Color("#bbbbbb"),
-            scene_background_bottom_color: Color = Color("#666666")):
+            light_color: gfx.Color = gfx.Color("#ffffff"),
+            background_color: gfx.Color = gfx.Color('#ffffff'),
+            scene_background_top_color: gfx.Color = gfx.Color("#bbbbbb"),
+            scene_background_bottom_color: gfx.Color = gfx.Color("#666666")):
         border_size = 5.0
         text_position = np.array([10, 10, 0])
         text_font_size = 30
         text_anchor = 'bottom-left'
-        scene_state = SceneState()
 
-        renderer = WgpuRenderer(WgpuCanvas())
+        SceneHandler._scene_state = SceneState()
+        SceneHandler._in_queue = in_queue
+        SceneHandler._renderer = WgpuRenderer(WgpuCanvas())
 
-        background_viewport, background_camera, background_scene = PyGfxCallback._create_background_scene(
-            renderer=renderer,
+        SceneHandler._background_viewport, SceneHandler._background_camera, SceneHandler._background_scene = SceneHandler._create_background_scene(
+            renderer=SceneHandler._renderer,
             color=background_color)
 
-        gt_mesh_viewport, gt_mesh_camera, gt_mesh_scene = PyGfxCallback._create_scene(
-            renderer=renderer,
+        SceneHandler._gt_mesh_viewport, SceneHandler._gt_mesh_camera, SceneHandler._gt_mesh_scene = SceneHandler._create_scene(
+            renderer=SceneHandler._renderer,
             light_color=light_color,
             background_top_color=scene_background_top_color,
             background_bottom_color=scene_background_bottom_color)
 
-        pred_mesh_viewport, pred_mesh_camera, pred_mesh_scene = PyGfxCallback._create_scene(
-            renderer=renderer,
+        SceneHandler._pred_mesh_viewport, SceneHandler._pred_mesh_camera, SceneHandler._pred_mesh_scene = SceneHandler._create_scene(
+            renderer=SceneHandler._renderer,
             light_color=light_color,
             background_top_color=scene_background_top_color,
             background_bottom_color=scene_background_bottom_color)
 
-        gt_mesh_scene.add(scene_state.gt_group)
-        pred_mesh_scene.add(scene_state.pred_group)
+        SceneHandler._gt_mesh_scene.add(SceneHandler._scene_state.gt_group)
+        SceneHandler._pred_mesh_scene.add(SceneHandler._scene_state.pred_group)
 
-        gt_mesh_text_scene, gt_mesh_text_camera = PyGfxCallback._create_text_scene(
+        SceneHandler._gt_mesh_text_scene, SceneHandler._gt_mesh_text_camera = SceneHandler._create_text_scene(
             text_string='Ground Truth',
             position=text_position,
             anchor=text_anchor,
             font_size=text_font_size)
 
-        pred_mesh_text_scene, pred_mesh_text_camera = PyGfxCallback._create_text_scene(
+        SceneHandler._pred_mesh_text_scene, SceneHandler._pred_mesh_text_camera = SceneHandler._create_text_scene(
             text_string='Prediction',
             position=text_position,
             anchor=text_anchor,
             font_size=text_font_size)
 
-        @renderer.add_event_handler("resize")
+        @SceneHandler._renderer.add_event_handler("resize")
         def on_resize(event: Optional[gfx.WindowEvent] = None):
-            w, h = renderer.logical_size
+            w, h = SceneHandler._renderer.logical_size
             w2, h2 = w / 2, h / 2
-            gt_mesh_viewport.rect = 0, 0, w2 - border_size, h
-            pred_mesh_viewport.rect = w2 + border_size, 0, w2 - border_size, h
-
-        def animate():
-            try:
-                mesh_data = cast(MeshData, in_queue.get_nowait())
-
-                # if that's the first mesh-data message, create meshes
-                if scene_state.first_data:
-                    scene_state.gt_mesh = PyGfxCallback._create_world_object_for_mesh(
-                        mesh_data=mesh_data,
-                        k=mesh_data.k)
-                    scene_state.pred_mesh = PyGfxCallback._create_world_object_for_mesh(
-                        mesh_data=mesh_data,
-                        k=mesh_data.pred_k)
-                    scene_state.gt_group.add(scene_state.gt_mesh)
-                    scene_state.pred_group.add(scene_state.pred_mesh)
-                    scene_state.first_data = False
-                # otherwise, update mesh colors
-                else:
-                    c_pred = PyGfxCallback._get_vertex_colors_from_k(k=mesh_data.pred_k)
-                    scene_state.pred_mesh.geometry.colors = Buffer(data=c_pred)
-            except queue.Empty:
-                pass
-
-            # place point-light at the camera's position
-            gt_mesh_scene.children[0].local.position = gt_mesh_camera.local.position
-            pred_mesh_scene.children[0].local.position = pred_mesh_camera.local.position
-
-            # render white background
-            background_viewport.render(background_scene, background_camera)
-
-            # render ground-truth mesh
-            gt_mesh_viewport.render(gt_mesh_scene, gt_mesh_camera)
-            gt_mesh_viewport.render(gt_mesh_text_scene, gt_mesh_text_camera)
-
-            # render prediction mesh
-            pred_mesh_viewport.render(pred_mesh_scene, pred_mesh_camera)
-            pred_mesh_viewport.render(pred_mesh_text_scene, pred_mesh_text_camera)
-
-            renderer.flush()
-            renderer.request_draw()
+            SceneHandler._gt_mesh_viewport.rect = 0, 0, w2 - border_size, h
+            SceneHandler._pred_mesh_viewport.rect = w2 + border_size, 0, w2 - border_size, h
 
         on_resize()
-        renderer.request_draw(animate)
+        SceneHandler._renderer.request_draw(SceneHandler._animate)
         run()
+
+
+class PyGfxCallback(Callback):
+    def __init__(self):
+        super().__init__()
+        self._queue = mp.Queue()
+        self._process = None
 
     def on_fit_start(
             self,
             trainer: Trainer,
             pl_module: LightningModule) -> None:
         self._process = mp.Process(
-            target=PyGfxCallback._plot_handler,
+            target=SceneHandler.start,
             args=(self._queue,))
         self._process.start()
 
