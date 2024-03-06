@@ -193,7 +193,7 @@ def check_speed():
         f"{1000*dt/(10000):0.3f} ms per glyph",
     )
 
-    # On 29-11-2022 (with only very basic layour mechanics),
+    # On 29-11-2022 (with only very basic layout mechanics),
     # this takes about 8ms, which translates to 0.001 ms per glyph.
 
 

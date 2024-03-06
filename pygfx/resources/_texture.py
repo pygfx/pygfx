@@ -31,7 +31,7 @@ class Texture(Resource):
             If this data is used as color, it is interpreted to be in this
             colorspace. Can be "srgb" or "physical". Default "srgb".
         generate_mipmaps : bool
-            If True, automatically generates mipmaps when transfering data to
+            If True, automatically generates mipmaps when transferring data to
             the GPU.
 
     """
@@ -84,7 +84,10 @@ class Texture(Resource):
             if len(shape) == len(collapsed_size) + 1:
                 nchannels = shape[-1]
             else:
-                assert len(shape) == len(collapsed_size)
+                if not len(shape) == len(collapsed_size):
+                    raise ValueError(
+                        "Incompatible data shape for image data, there must be > 1 pixel to draw per channel"
+                    )
                 nchannels = 1
             if not (1 <= nchannels <= 4):
                 raise ValueError(
@@ -146,7 +149,7 @@ class Texture(Resource):
     def format(self):
         """The texture format as a string. Usually a pygfx format specifier
         (e.g. u2 for scalar uint16, or 3xf4 for RGB float32),
-        but can also be a overriden to a backend-specific format.
+        but can also be a overridden to a backend-specific format.
         """
         return self._format
 

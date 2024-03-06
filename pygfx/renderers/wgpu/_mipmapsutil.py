@@ -190,7 +190,7 @@ def get_mipmap_pipeline(device, texture):
 
         MIPMAP_CACHE.set(format, pipeline)
 
-    # Strore a ref of the pipeline, the cache uses weak refs.
+    # Store a ref of the pipeline, the cache uses weak refs.
     # I.e. the pipeline for this format is in the cache for as long as
     # any textures that use it are alive.
     texture._wgpu_mipmap_pipeline = pipeline

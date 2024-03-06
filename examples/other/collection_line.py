@@ -1,10 +1,11 @@
 """
-Peformance of drawing many Lines
-================================
+Performance of drawing many Lines
+=================================
 
 Display a lot of line objects. Because of the architecture of wgpu,
 this is still performant.
 """
+
 # run_example = false - because it takes too long and times out
 
 # sphinx_gallery_pygfx_render = True

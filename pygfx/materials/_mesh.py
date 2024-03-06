@@ -1,5 +1,5 @@
 import math
-from ._base import Material
+from ._base import Material, ColorMode
 from ..resources import Texture
 from ..utils import logger
 from ..utils.color import Color
@@ -13,9 +13,9 @@ class MeshAbstractMaterial(Material):
     Parameters
     ----------
     color : Color
-        The (uniform) color of the mesh. Ignored if vertex_colors is True.
-    vertex_colors : bool
-        Whether to use the vertex colors provided in the geometry.
+        The uniform color of the mesh (used depending on the ``color_mode``).
+    color_mode : enum or str
+        The mode by which the mesh is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color at each texture coordinate. Optional.
     map_interpolation: str
@@ -52,8 +52,7 @@ class MeshAbstractMaterial(Material):
     def __init__(
         self,
         color="#fff",
-        vertex_colors=False,
-        face_colors=False,
+        color_mode="auto",
         map=None,
         map_interpolation="linear",
         side="BOTH",
@@ -62,8 +61,7 @@ class MeshAbstractMaterial(Material):
         super().__init__(**kwargs)
 
         self.color = color
-        self.vertex_colors = bool(vertex_colors)
-        self.face_colors = bool(face_colors)
+        self.color_mode = color_mode
         self.map = map
         self.map_interpolation = map_interpolation
         self.side = side
@@ -88,22 +86,43 @@ class MeshAbstractMaterial(Material):
         return self._store.color_is_transparent
 
     @property
+    def color_mode(self):
+        """The way that color is applied to the mesh.
+
+        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
+        * uniform: use the material's color property for the whole mesh.
+        * vertex: use the geometry `colors` buffer, one color per vertex.
+        * face: use the geometry `colors` buffer, one color per face.
+        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
+        * faces_map: use the geometry texcoords buffer to sample (per face) in the material's ``map`` texture.
+        """
+        # todo: does 'auto' take the presence of texcoords into account?
+        return self._store.color_mode
+
+    @color_mode.setter
+    def color_mode(self, value):
+        if isinstance(value, ColorMode):
+            pass
+        elif isinstance(value, str):
+            if value.startswith("ColorMode."):
+                value = value.split(".")[-1]
+            try:
+                value = getattr(ColorMode, value.lower())
+            except AttributeError:
+                raise ValueError(f"Invalid color_mode: '{value}'")
+        else:
+            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        self._store.color_mode = value
+
+    @property
     def vertex_colors(self):
-        """Whether to use the vertex colors provided in the geometry."""
-        return self._store.vertex_colors
+        return self.color_mode == ColorMode.vertex
 
     @vertex_colors.setter
     def vertex_colors(self, value):
-        self._store.vertex_colors = bool(value)
-
-    @property
-    def face_colors(self):
-        """Whether to use the face colors provided in the geometry."""
-        return self._store.face_colors
-
-    @face_colors.setter
-    def face_colors(self, value):
-        self._store.face_colors = bool(value)
+        raise DeprecationWarning(
+            "vertex_colors is deprecated, use ``color_mode='vertex'``"
+        )
 
     @property
     def map(self):
@@ -270,7 +289,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
         """Whether the mesh is rendered with flat shading. When true,
         the shader will apply per-face surface normals, resulting in
         per-face lighting and a "pixelated", non-interpolated look,
-        which can be usefull to show the (size of) the triangle faces,
+        which can be useful to show the (size of) the triangle faces,
         or simply for the retro appearance. Note that the face normals
         are calculated from the vertex positions, ignoring the normal
         data in the geometry.

@@ -4,6 +4,7 @@ Instancing
 
 Example rendering the same mesh object multiple times, using instancing.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

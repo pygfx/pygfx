@@ -9,6 +9,7 @@ Example showing the axes helper.
 * The green axes (y) must be to the top.
 * The blue axes (z) is not visible.
 """
+
 # test_example = true
 # sphinx_gallery_pygfx_render = True
 

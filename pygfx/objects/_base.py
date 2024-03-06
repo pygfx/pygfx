@@ -95,11 +95,11 @@ class WorldObject(EventTarget, RootTrackable):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
-    render_order : int
-        The render order (when applicable for the renderer's blend mode).
+    render_order : float
+        Value that helps controls the order in which objects are rendered.
     render_mask : str
         Determines the render passes that the object is rendered in. It's
         recommended to let the renderer decide, using "auto".
@@ -123,7 +123,7 @@ class WorldObject(EventTarget, RootTrackable):
     _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
 
     # The uniform type describes the structured info for this object, which represents
-    # every "propery" that a renderer would need to know in order to visualize it.
+    # every "property" that a renderer would need to know in order to visualize it.
     # Put larger items first for alignment, also note that host-sharable structs
     # align at power-of-two only, so e.g. vec3 needs padding.
     # todo: rename uniform to info or something?
@@ -224,7 +224,7 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def visible(self):
-        """Wheter is object is rendered or not. Default True."""
+        """Whether is object is rendered or not. Default True."""
         return self._store.visible
 
     @visible.setter
@@ -233,9 +233,9 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def render_order(self):
-        """This value allows the default rendering order of scene graph
-        objects to be controlled. Default 0. See ``Renderer.sort_objects``
-        for details.
+        """A number that helps control the order in which objects are rendered.
+        Objects with higher ``render_order`` get rendered later.
+        Default 0. Also see ``Renderer.sort_objects``.
         """
         return self._store.render_order
 
@@ -299,7 +299,7 @@ class WorldObject(EventTarget, RootTrackable):
 
     @property
     def material(self):
-        """Wheter is object is rendered or not. Default True."""
+        """Whether is object is rendered or not. Default True."""
         return self._store.material
 
     @material.setter

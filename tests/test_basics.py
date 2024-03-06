@@ -24,7 +24,7 @@ def test_shared_object_not_created_at_import():
 
     print(result)
     assert result.endswith("None")
-    # If this fails, either the test is broken, or pygfx calles get_shared()
+    # If this fails, either the test is broken, or pygfx calls get_shared()
     # at import-time somewhere, which we don't want to do.
 
 
@@ -38,5 +38,5 @@ def test_shared_object():
     assert isinstance(get_shared().adapter, wgpu.GPUAdapter)
     assert isinstance(get_shared().device, wgpu.GPUDevice)
 
-    # Check that multiple invokations produce the same object - its a singleton
+    # Check that multiple invocations produce the same object - its a singleton
     assert get_shared() is get_shared()

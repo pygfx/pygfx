@@ -347,9 +347,9 @@ class VolumeSliceShader(BaseVolumeShader):
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
             out.pick = (
                 pick_pack(u32(u_wobject.id), 20) +
-                pick_pack(u32(varyings.texcoord.x * 16384.0), 14) +
-                pick_pack(u32(varyings.texcoord.y * 16384.0), 14) +
-                pick_pack(u32(varyings.texcoord.z * 16384.0), 14)
+                pick_pack(u32(varyings.texcoord.x * 16383.0), 14) +
+                pick_pack(u32(varyings.texcoord.y * 16383.0), 14) +
+                pick_pack(u32(varyings.texcoord.z * 16383.0), 14)
             );
             $$ endif
 
@@ -495,7 +495,7 @@ class VolumeRayShader(BaseVolumeShader):
             let nsteps = i32(-dist / relative_step_size + 0.5);
             if( nsteps < 1 ) { discard; }
 
-            // Get starting positon and step vector in texture coordinates.
+            // Get starting position and step vector in texture coordinates.
             let start_coord = (front_pos + vec3<f32>(0.5, 0.5, 0.5)) / sizef;
             let step_coord = ((back_pos - front_pos) / sizef) / f32(nsteps);
 
@@ -511,7 +511,7 @@ class VolumeRayShader(BaseVolumeShader):
             apply_clipping_planes(world_pos.xyz);
 
             // Get fragment output. Note that the depth arg only affects the
-            // blending - setting the depth attribute acually sets the fragment depth.
+            // blending - setting the depth attribute actually sets the fragment depth.
             let depth = ndc_pos.z / ndc_pos.w;
             var out = get_fragment_output(depth, render_out.color);
             out.depth = depth;
@@ -520,9 +520,9 @@ class VolumeRayShader(BaseVolumeShader):
             // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
             out.pick = (
                 pick_pack(u32(u_wobject.id), 20) +
-                pick_pack(u32(render_out.coord.x * 16384.0), 14) +
-                pick_pack(u32(render_out.coord.y * 16384.0), 14) +
-                pick_pack(u32(render_out.coord.z * 16384.0), 14)
+                pick_pack(u32(render_out.coord.x * 16383.0), 14) +
+                pick_pack(u32(render_out.coord.y * 16383.0), 14) +
+                pick_pack(u32(render_out.coord.z * 16383.0), 14)
             );
             $$ endif
             return out;

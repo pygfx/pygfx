@@ -11,6 +11,7 @@ on which the subscene is displayed.
 The sub-scene is rendered to a texture, and that texture is used for the
 surface of the cube in the outer scene.
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "renderer2"
 

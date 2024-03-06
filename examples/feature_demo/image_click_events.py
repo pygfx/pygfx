@@ -37,7 +37,7 @@ colors = np.vstack([[0.0, 0.0, 1.0, 1.0]] * len(xx)).astype(np.float32)
 
 points = gfx.Points(
     gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)], colors=colors),
-    gfx.PointsMaterial(vertex_colors=True, size=10),
+    gfx.PointsMaterial(color_mode="vertex", size=10),
 )
 points.local.z = 1  # move points in front of the image
 scene.add(points)

@@ -64,6 +64,8 @@ class GridHelper(Line):
         geometry = Geometry(
             positions=positions.reshape((-1, 3)), colors=colors.reshape((-1, 4))
         )
-        material = LineSegmentMaterial(vertex_colors=True, thickness=thickness, aa=True)
+        material = LineSegmentMaterial(
+            color_mode="vertex", thickness=thickness, aa=True
+        )
 
         super().__init__(geometry, material)

@@ -13,7 +13,7 @@ class OrthographicCamera(PerspectiveCamera):
         may be wider if the viewport is relatively wide.
     height: float
         The (minimum) height of the view-cube. The actual view
-        may be heigher if the viewport is relatively heigh.
+        may be taller if the viewport is relatively high.
     zoom: float
         An additional zoom factor, equivalent to attaching a zoom lens.
     maintain_aspect: bool

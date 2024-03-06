@@ -67,7 +67,7 @@ class TextMaterial(Material):
         values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
         return {
             "glyph_index": values["index"],
-            "point_coord": (values["x"] / 512.0, values["y"] / 512.0),
+            "point_coord": (values["x"] / 511.0, values["y"] / 511.0),
         }
 
     @property

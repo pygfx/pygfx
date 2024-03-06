@@ -81,7 +81,7 @@ class ResourceUpdateRegistry:
         self._syncable = weakref.WeakSet()
 
     def _gfx_mark_for_sync(self, resource):
-        """Register the given resource for synchonization. Only adds the resource
+        """Register the given resource for synchronization. Only adds the resource
         if it's wgpu-counterpart already exists, and when it has pending uploads.
         """
         # Note: this method is very specific to the wgpu renderer, and

@@ -190,8 +190,8 @@ def ensure_wgpu_object(resource):
                 format=fmt,
                 dimension=resource.view_dim,
                 aspect=resource.aspect,
-                base_mip_level=0,
-                mip_level_count=resource.texture._wgpu_mip_level_count,
+                base_mip_level=resource.mip_range[0],
+                mip_level_count=(resource.mip_range[1] - resource.mip_range[0]),
                 base_array_layer=resource.layer_range[0],
                 array_layer_count=(resource.layer_range[1] - resource.layer_range[0]),
             )

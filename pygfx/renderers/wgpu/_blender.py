@@ -284,7 +284,7 @@ class SimpleTransparencyPass(BasePass):
 
 
 class WeightedTransparencyPass(BasePass):
-    """A pass that implements weighted blended order-independed
+    """A pass that implements weighted blended order-independent
     blending for transparent fragments, as proposed by McGuire in 2013.
     Multiple weight functions are supported.
     """
@@ -378,14 +378,20 @@ class WeightedTransparencyPass(BasePass):
             @location(1) reveal: f32,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= alpha_compare_epsilon) { discard; }
-            let premultiplied = color.rgb * color.a;
-            let alpha = color.a;  // could take user-specified transmittance into account
+            let alpha = color.a;
+            if (alpha <= alpha_compare_epsilon) { discard; }
+            let premultiplied = color.rgb * alpha;
             WEIGHT_CODE
             var out : FragmentOutput;
             out.accum = vec4<f32>(premultiplied, alpha) * weight;
-            out.reveal = alpha;
+            out.reveal = alpha;  // yes, alpha, not weight
             return out;
+            // Note 1: could also take user-specified transmittance into account.
+            // Note 2: its also possible to undo a fragment contribution. For this the accum
+            // and reveal buffer must be float to avoid clamping. And we'd do `abs(color.a)` above.
+            // The formula would then be:
+            //    out.accum = - out.accum;
+            //    out.reveal = 1.0 - 1.0 / (1.0 - alpha);
         }
         """.replace(
             "WEIGHT_CODE", self._weight_code
@@ -513,6 +519,8 @@ class BaseFragmentBlender:
         )
 
         # The depth buffer is 32 bit - we need that precision.
+        # Note that there is also depth32float-stencil8, but it needs the
+        # (webgpu) extension with the same name.
         self._texture_info["depth"] = (
             wgpu.TextureFormat.depth32float,
             usg.RENDER_ATTACHMENT | usg.COPY_SRC,
@@ -529,6 +537,10 @@ class BaseFragmentBlender:
         """Clear the buffers."""
         for key in self._texture_info.keys():
             setattr(self, key + "_clear", True)
+
+    def clear_depth(self):
+        """Clear the deph buffer only."""
+        self.depth_clear = True
 
     def ensure_target_size(self, size):
         """If necessary, resize render-textures to match the target size."""
@@ -563,9 +575,13 @@ class BaseFragmentBlender:
     def get_color_attachments(self, pass_index):
         return self.passes[pass_index].get_color_attachments(self)
 
-    def get_depth_descriptor(self, pass_index):
+    def get_depth_descriptor(self, pass_index, depth_test=True):
+        des = self.passes[pass_index].get_depth_descriptor(self)
+        if not depth_test:
+            des["depth_compare"] = wgpu.CompareFunction.always
+            des["depth_write_enabled"] = False
         return {
-            **self.passes[pass_index].get_depth_descriptor(self),
+            **des,
             "stencil_read_mask": 0,
             "stencil_write_mask": 0,
             "stencil_front": {},  # use defaults
@@ -691,8 +707,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         # McGuire: "Using R16F for the revealage render target will give slightly better
         # precision and make it easier to tune the algorithm, but a 2x savings on bandwidth
         # and memory footprint for that texture may make it worth compressing into R8 format."
-        # We also found that on Metal r16float produces a FormatNotBlendable error,
-        # while r8unorm and r32float do work. See #207.
         self._texture_info["reveal"] = (
             wgpu.TextureFormat.r8unorm,
             usg.RENDER_ATTACHMENT | usg.TEXTURE_BINDING,

@@ -4,6 +4,7 @@ Render a Triangle
 
 Replicating the WGPU triangle example, but with about 10x less code.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -20,7 +21,7 @@ triangle = gfx.Mesh(
         positions=[(0.0, -0.5, 0), (0.5, 0.5, 0), (-0.5, 0.75, 0)],
         colors=[(1, 1, 0, 1), (1, 0, 1, 1), (0, 1, 1, 1)],
     ),
-    gfx.MeshBasicMaterial(vertex_colors=True),
+    gfx.MeshBasicMaterial(color_mode="vertex"),
 )
 
 

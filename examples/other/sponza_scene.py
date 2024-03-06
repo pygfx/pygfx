@@ -11,6 +11,7 @@ The current implementation assumes that you cloned that repo
 in this directory, or *any* of its parent directories.
 
 """
+
 # run_example = false - because it depends on external files
 
 from pathlib import Path
@@ -53,8 +54,7 @@ def configure(obj):
 
 
 # Load scene
-meshes = gfx.load_scene(gltf_path.as_posix())
-scene.add(*meshes)
+scene.add(*gfx.load_meshes(gltf_path.as_posix()))
 scene.traverse(configure)
 
 # Add ambient light

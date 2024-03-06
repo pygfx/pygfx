@@ -131,7 +131,7 @@ class Buffer(Resource):
         """The buffer format.
 
         Usually a pygfx format specifier (e.g. u2 for scalar uint16,
-        or 3xf4 for 3xfloat32), but can also be a overriden to a
+        or 3xf4 for 3xfloat32), but can also be a overridden to a
         backend-specific format. Can also be None e.g. for uniform buffers.
         """
         return self._format
@@ -176,6 +176,7 @@ class Buffer(Resource):
                 f"`offset` and `size` must be native `int` type, you have passed: "
                 f"offset: <{type(offset)}>, size: <{type(size)}>"
             )
+        offset, size = int(offset), int(size)  # convert np ints to real ints
 
         if size == 0:
             return

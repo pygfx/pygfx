@@ -10,6 +10,7 @@ Clicking on a cube will select it. Double-clicking a cube will select
 all the items from that group (because the group has a double-click
 event handler). Holding shift will add to the selection.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from functools import partial

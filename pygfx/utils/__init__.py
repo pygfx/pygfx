@@ -6,7 +6,8 @@ Utility functions for pygfx.
     :template: ../_templates/custom_layout.rst
 
     Color
-    load.load_scene
+    load.load_mesh
+    load.load_meshes
     show.show
     show.Display
     viewport.Viewport
@@ -29,7 +30,6 @@ completeness and you will likely never have to instantiate them directly.
     transform.RecursiveTransform
 
 """
-
 
 import os
 import logging

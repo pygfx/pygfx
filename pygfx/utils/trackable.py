@@ -19,7 +19,7 @@ In particular:
 
 The last two points mean that the code must be aware of the tree
 structure, but must also be able to track external Trackable objects
-(wich may also have a tree).
+(which may also have a tree).
 
 ## High level overview
 
@@ -74,6 +74,8 @@ simple_value_types = None.__class__, bool, int, float, str
 def get_comp_value(value):
     if isinstance(value, simple_value_types):
         return value
+    elif isinstance(value, tuple):
+        return tuple(get_comp_value(v) for v in value)
     else:
         return f"id:{id(value)}"
 

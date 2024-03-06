@@ -1,6 +1,17 @@
+import os
+import functools
+
+from ...utils import get_resources_dir
 from ...resources import Buffer, Texture
 from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureView
 from ._shaderbase import BaseShader
+
+
+@functools.lru_cache(maxsize=None)
+def load_shader(shader_name):
+    filename = os.path.join(get_resources_dir(), "shaders", shader_name)
+    with open(filename, "rb") as f:
+        return f.read().decode()
 
 
 class WorldObjectShader(BaseShader):
@@ -10,6 +21,7 @@ class WorldObjectShader(BaseShader):
     """
 
     type = "render"  # must be "compute" or "render"
+    needs_bake_function = False
 
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)
@@ -27,7 +39,7 @@ class WorldObjectShader(BaseShader):
         self.kwargs.setdefault("lighting", "")
 
         # Apply_clip_planes
-        self["n_clipping_planes"] = len(wobject.material.clipping_planes)
+        self["n_clipping_planes"] = wobject.material.clipping_plane_count
         self["clipping_mode"] = wobject.material.clipping_mode
 
     # ----- What subclasses must implement
@@ -74,15 +86,16 @@ class WorldObjectShader(BaseShader):
 
     # ----- Colormap stuff
 
-    def define_vertex_colormap(self, texture, texcoords, interpolation="linear"):
-        """Define the given texture view as the colormap to be used to
-        lookup the final color from the per- vertex texcoords.
+    def define_texcoords_and_colormap(self, texture, texcoords, interpolation="linear"):
+        """Define the given texture as the colormap to be used to
+        lookup the final color from the (per-vertex or per-face) texcoords.
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
         from ._pipeline import Binding  # avoid recursive import
 
         sampler = GfxSampler(interpolation, "repeat")
+        self["colormap_interpolation"] = interpolation
 
         if not isinstance(texture, Texture):
             raise TypeError("texture must be a Texture")
@@ -127,6 +140,7 @@ class WorldObjectShader(BaseShader):
         from ._pipeline import Binding  # avoid recursive import
 
         sampler = GfxSampler(interpolation, "clamp")
+        self["colormap_interpolation"] = interpolation
 
         if not isinstance(texture, Texture):
             raise TypeError("texture must be a Texture")
@@ -161,38 +175,45 @@ class WorldObjectShader(BaseShader):
             return ""
 
         typemap = {"1d": "f32", "2d": "vec2<f32>", "3d": "vec3<f32>"}
-        self["colormap_coord_type"] = typemap.get(self["colormap_dim"], "f32")
+        self.derived_kwargs["colormap_coord_type"] = typemap.get(
+            self["colormap_dim"], "f32"
+        )
 
         return """
         fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
+
+            // Determine colormap texture dimensions
+            $$ if colormap_dim == '1d'
+                let texcoords_dim = f32(textureDimensions(t_colormap));
+            $$ elif colormap_dim == '2d'
+                let texcoords_dim = vec2<f32>(textureDimensions(t_colormap));
+            $$ elif colormap_dim == '3d'
+                let texcoords_dim = vec3<f32>(textureDimensions(t_colormap));
+            $$ endif
+
+            // Get final texture coord. With linear interpolation, the colormap's endpoints represent the min and max.
+            $$ if colormap_interpolation == 'nearest'
+                let tf = texcoord;
+            $$ else
+                let tf = texcoord * (texcoords_dim - 1.0) / texcoords_dim + 0.5 / texcoords_dim;
+            $$ endif
+
             // Sample in the colormap. We get a vec4 color, but not all channels may be used.
             $$ if not colormap_dim
                 let color_value = vec4<f32>(0.0);
-            $$ elif colormap_dim == '1d'
-                $$ if colormap_format == 'f32'
-                    let color_value = textureSample(t_colormap, s_colormap, texcoord);
-                $$ else
-                    let texcoords_dim = f32(textureDimensions(t_colormap));
-                    let texcoords_u = i32(texcoord * texcoords_dim % texcoords_dim);
-                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
+            $$ elif colormap_format == 'f32'
+                let color_value = textureSample(t_colormap, s_colormap, tf);
+            $$ else
+                $$ if colormap_dim == '1d'
+                let ti = i32(tf * texcoords_dim % texcoords_dim);
+                $$ elif colormap_dim == '2d'
+                let ti = vec2<i32>(tf * texcoords_dim % texcoords_dim);
+                $$ elif colormap_dim == '3d'
+                let ti = vec3<i32>(tf * texcoords_dim % texcoords_dim);
                 $$ endif
-            $$ elif colormap_dim == '2d'
-                $$ if colormap_format == 'f32'
-                    let color_value = textureSample(t_colormap, s_colormap, texcoord.xy);
-                $$ else
-                    let texcoords_dim = vec2<f32>(textureDimensions(t_colormap));
-                    let texcoords_u = vec2<i32>(texcoord.xy * texcoords_dim % texcoords_dim);
-                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
-                $$ endif
-            $$ elif colormap_dim == '3d'
-                $$ if colormap_format == 'f32'
-                    let color_value = textureSample(t_colormap, s_colormap, texcoord.xyz);
-                $$ else
-                    let texcoords_dim = vec3<f32>(textureDimensions(t_colormap));
-                    let texcoords_u = vec3<i32>(texcoord.xyz * texcoords_dim % texcoords_dim);
-                    let color_value = vec4<f32>(textureLoad(t_colormap, texcoords_u, 0));
-                $$ endif
+                let color_value = vec4<f32>(textureLoad(t_colormap, ti, 0));
             $$ endif
+
             // Depending on the number of channels we makeGfxTextureView grayscale, rgb, etc.
             $$ if colormap_nchannels == 1
                 let color = vec4<f32>(color_value.rrr, 1.0);
@@ -216,14 +237,14 @@ class WorldObjectShader(BaseShader):
         """
 
         math = """
-        let PI = 3.141592653589793;
-        let RECIPROCAL_PI = 0.3183098861837907;
+        const PI = 3.141592653589793;
+        const RECIPROCAL_PI = 0.3183098861837907;
         fn pow2(x:f32) -> f32 { return x*x; }
         fn pow4(x:f32) -> f32 { let x2 = x * x; return x2*x2; }
         """
 
         blending_code = """
-        let alpha_compare_epsilon : f32 = 1e-6;
+        const alpha_compare_epsilon : f32 = 1e-6;
         {{ blending_code }}
         """
 
@@ -315,7 +336,8 @@ class WorldObjectShader(BaseShader):
             // See #212 for details.
             //
             // Clip the given value
-            let v = min(value, u32(exp2(f32(bits))));
+            let maxval = u32(exp2(f32(bits))) - u32(1);
+            let v = max(u32(0), min(value, maxval));
             // Determine bit-shift for each component
             let shift = vec4<i32>(
                 p_pick_bits_used, p_pick_bits_used - 16, p_pick_bits_used - 32, p_pick_bits_used - 48,

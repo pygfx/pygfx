@@ -142,3 +142,7 @@ tests for the examples.
 
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
+
+### Code of Conduct
+
+Our code of conduct can be found here: [Code of Conduct](./CODE_OF_CONDUCT.md)

@@ -51,7 +51,7 @@ extras_require = {
         "libigl",
     ],
     "docs": [
-        "sphinx",
+        "sphinx>7.2",
         "numpy",
         "wgpu",
         "jinja2",
@@ -67,7 +67,7 @@ extras_require = {
     ],
 }
 
-resources_globs = ["*.ttf", "*.otf", "*.json"]
+resources_globs = ["*.ttf", "*.otf", "*.json", "shaders/*.wgsl"]
 
 setup(
     name=NAME,

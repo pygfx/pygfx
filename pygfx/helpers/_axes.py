@@ -67,7 +67,9 @@ class AxesHelper(Line):
         line_positions *= line_size
 
         geometry = Geometry(positions=line_positions, colors=colors)
-        material = LineSegmentMaterial(vertex_colors=True, thickness=thickness, aa=True)
+        material = LineSegmentMaterial(
+            color_mode="vertex", thickness=thickness, aa=True
+        )
 
         super().__init__(geometry, material)
 
@@ -77,7 +79,11 @@ class AxesHelper(Line):
             arrow_head.local.position = pos
             # offset by half of height since the cones
             # are centered around the origin
-            arrow_head.local.position += arrow_size / 2 * la.vec_normalize(pos)
+            # Do not use +=
+            # see: https://github.com/pygfx/pygfx/issues/651
+            arrow_head.local.position = (
+                arrow_head.local.position + arrow_size / 2 * la.vec_normalize(pos)
+            )
             arrow_head.local.rotation = la.quat_from_vecs(
                 (0, 0, 1), la.vec_normalize(pos)
             )

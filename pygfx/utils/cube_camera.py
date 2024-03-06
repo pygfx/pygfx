@@ -21,7 +21,12 @@ class _CubeCameraRenderer(WgpuRenderer):
         self._target_views = []
         for layer in range(6):
             self._target_views.append(
-                GfxTextureView(target, view_dim="2d", layer_range=(layer, layer + 1))
+                GfxTextureView(
+                    target,
+                    view_dim="2d",
+                    layer_range=(layer, layer + 1),
+                    mip_range=(0, 1),
+                )
             )
 
     def flush(self, layer):

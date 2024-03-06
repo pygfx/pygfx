@@ -6,6 +6,7 @@ Render two volumes using different world transforms.
 Prints the world bounding box of the scene which used
 to trigger an Exception.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import imageio.v3 as iio

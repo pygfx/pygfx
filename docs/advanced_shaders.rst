@@ -33,7 +33,7 @@ The shader must implement a few methods. A typical shader is shown below:
 
         type = "render"  # must be "render" or "compute"
 
-        def get_binding(self, wobject, shared):
+        def get_bindings(self, wobject, shared):
             # Collect bindings. We must return a dict mapping slot
             # indices to Binding objects. But it's sometimes easier to
             # collect bindings in a list and then convert to a dict.

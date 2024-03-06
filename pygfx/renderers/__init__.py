@@ -18,7 +18,7 @@ and is finally rendered into its render target (the canvas or texture)::
 
 The internal representation is managed by the blender object. The internal
 render textures are typically at a higher resolution to reduce aliasing (SSAA).
-The blender has auxilary buffers such as a depth buffer, pick buffer, and
+The blender has auxiliary buffers such as a depth buffer, pick buffer, and
 buffers for transparent fragments. Depending on the blend mode, a single render
 call may consist of multiple passes (to deal with semi-transparent fragments).
 

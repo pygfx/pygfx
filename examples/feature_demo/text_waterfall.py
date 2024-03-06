@@ -6,6 +6,7 @@ An example showing a waterfall of text. On the left it shows the
 contents of the glyph atlas. One goal of this example is to strain the
 text rendering to its limits.
 """
+
 # sphinx_gallery_pygfx_animate = False
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -62,7 +63,7 @@ for i in range(100):
 
 # The animate function makes the text objects fall down, and update the objects
 # with a new character once they start their fall again.
-# Until we have real garbadge collection for glyphs, we fake it here.
+# Until we have real garbage collection for glyphs, we fake it here.
 
 
 def animate():

@@ -65,7 +65,7 @@ class Line(WorldObject):
     """An object representing a line using a list of vertices (3D positions).
 
     Some materials will render the line as a continuous line, while other materials
-    will consider each pair of consequtive points a segment.
+    will consider each pair of consecutive points a segment.
 
     The picking info of a Line (the result of ``renderer.get_pick_info()``) will
     for most materials include ``vertex_index`` (int) and ``segment_coord``
@@ -76,7 +76,7 @@ class Line(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -105,7 +105,7 @@ class Points(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -136,7 +136,7 @@ class Mesh(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -155,9 +155,9 @@ class Mesh(WorldObject):
         )
         face_index = values["index"]
         face_coord = [
-            values["coord1"] / 64,
-            values["coord2"] / 64,
-            values["coord3"] / 64,
+            values["coord1"] / 63,
+            values["coord2"] / 63,
+            values["coord3"] / 63,
         ]
         if (
             self.geometry.indices.data is not None
@@ -196,7 +196,7 @@ class Image(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -215,8 +215,8 @@ class Image(WorldObject):
             tex = tex.texture  # tex was a view
         # This should match with the shader
         values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
-        x = values["x"] / 4194304 * tex.size[0] - 0.5
-        y = values["y"] / 4194304 * tex.size[1] - 0.5
+        x = values["x"] / 4194303 * tex.size[0] - 0.5
+        y = values["y"] / 4194303 * tex.size[1] - 0.5
         ix, iy = int(x + 0.5), int(y + 0.5)
         return {
             "index": (ix, iy),
@@ -239,7 +239,7 @@ class Volume(WorldObject):
     geometry : Geometry
         The data defining the shape of the object.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int
@@ -260,7 +260,7 @@ class Volume(WorldObject):
         values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
         texcoords_encoded = values["x"], values["y"], values["z"]
         size = tex.size
-        x, y, z = [(v / 16384) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
+        x, y, z = [(v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
         ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
         return {
             "index": (ix, iy, iz),
@@ -278,7 +278,7 @@ class Text(WorldObject):
     geometry : TextGeometry
         The data defining the glyphs that make up the text.
     material : Material
-        The data defining the appearence of the object.
+        The data defining the appearance of the object.
     visible : bool
         Whether the object is visible.
     render_order : int

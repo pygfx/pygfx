@@ -184,7 +184,7 @@ def get_system_fonts():
     this function is called, it checks whether any of the directories
     that may contain fonts have changed (files are deleted, added, or
     renamed). If so, we search that directory again. This way we are
-    able to detect new fonts without an exaustive search each process
+    able to detect new fonts without an exhaustive search each process
     startup (which would be slow).
     """
 

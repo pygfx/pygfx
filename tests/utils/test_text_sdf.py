@@ -59,7 +59,7 @@ def check_speed():
     )
 
     # If I tweak generate_glyph() to include the time in the hash,
-    # I can measure that it taks about 1 ms per glyph when SDF must be generated.
+    # I can measure that it takes about 1 ms per glyph when SDF must be generated.
     # Otherwise, looking up the atlas indices takes about 0.5 us per glyph.
 
 

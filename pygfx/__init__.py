@@ -13,7 +13,7 @@ from .controllers import *
 from .renderers import *
 
 from .utils.color import Color
-from .utils.load import load_scene
+from .utils.load import load_mesh, load_meshes, load_scene
 from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils.text import font_manager
@@ -24,10 +24,10 @@ import pylinalg
 
 del pylinalg
 
-__version__ = "0.1.13"
+__version__ = "0.1.17"
 version_info = tuple(map(int, __version__.split(".")))
 
-__wgpu_version_range__ = "0.9.4", "0.10.0"
+__wgpu_version_range__ = "0.14.1", "0.15.0"
 __pylinalg_version_range__ = "0.4.1", "0.5.0"
 
 

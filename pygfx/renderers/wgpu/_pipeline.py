@@ -187,8 +187,8 @@ class Binding:
         resource (buffer or texture) is bound to a shader. In this subpackage it
         likely means a Binding object like this.
     * This binding can be represented with a binding_descriptor and
-        binding_layout_desciptor. These are dicts to be passed to wgpu.
-    * A list of these binding_layout_desciptor's can be passed to create_bind_group_layout.
+        binding_layout_descriptor. These are dicts to be passed to wgpu.
+    * A list of these binding_layout_descriptor's can be passed to create_bind_group_layout.
     * A list of these binding_layout's can be passed to create_bind_group.
     * Multiple bind_group_layout's can be combined into a pipeline_layout.
 
@@ -244,7 +244,7 @@ class Binding:
             }
             # Note: we set min_binding_size, rather than relying on the default (None),
             # otherwise the layout for different buffers look equal, and are thus
-            # re-used (using caching), but they wont be compatible.
+            # re-used (using caching), but they won't be compatible.
             binding_layout = {
                 "binding": slot,
                 "visibility": self.visibility,
@@ -363,12 +363,13 @@ class Binding:
 class PipelineContainerGroup:
     """This is a thin wrapper for a list of compute pipeline containers,
     and render pipeline containers. The purpose of this object is to
-    obtain the appropiate shader objects and store them.
+    obtain the appropriate shader objects and store them.
     """
 
     def __init__(self):
         self.compute_containers = None
         self.render_containers = None
+        self.bake_functions = None
 
     def update(self, wobject, environment, changed):
         """Update the pipeline containers that are wrapped. Creates (and re-creates)
@@ -376,8 +377,9 @@ class PipelineContainerGroup:
         """
 
         if "create" in changed:
-            self.compute_containers = []
-            self.render_containers = []
+            self.compute_containers = ()
+            self.render_containers = ()
+            self.bake_functions = ()
 
             # Get render function for this world object,
             # and use it to get a high-level description of pipelines.
@@ -395,14 +397,24 @@ class PipelineContainerGroup:
                     shaders = [shaders]
 
             # Divide result over two bins, one for compute, and one for render
+            compute_containers = []
+            render_containers = []
+            bake_functions = []
             for shader in shaders:
                 assert isinstance(shader, BaseShader)
                 if shader.type == "compute":
-                    self.compute_containers.append(ComputePipelineContainer(shader))
+                    compute_containers.append(ComputePipelineContainer(shader))
                 elif shader.type == "render":
-                    self.render_containers.append(RenderPipelineContainer(shader))
+                    render_containers.append(RenderPipelineContainer(shader))
                 else:
                     raise ValueError(f"Shader type {shader.type} is unknown.")
+                if shader.needs_bake_function:
+                    bake_functions.append(shader.bake_function)
+
+            # Store results
+            self.compute_containers = tuple(compute_containers)
+            self.render_containers = tuple(render_containers)
+            self.bake_functions = tuple(bake_functions)
 
         for container in self.compute_containers:
             container.update(wobject, environment, changed)
@@ -439,7 +451,7 @@ class PipelineContainer:
         self.wgpu_bind_group_layouts = []
         self.wgpu_bind_groups = []
 
-        # A flag to indicate that an error occured and we cannot dispatch
+        # A flag to indicate that an error occurred and we cannot dispatch
         self.broken = False
 
     def _check_bindings(self):
@@ -497,8 +509,10 @@ class PipelineContainer:
             changed.update(("bindings", "pipeline_info", "render_info"))
 
         if "bindings" in changed:
+            self.shader.unlock_hash()
             with wobject.tracker.track_usage("!bindings"):
                 self.bindings_dicts = self.shader.get_bindings(wobject, self.shared)
+            self.shader.lock_hash()
             self._check_bindings()
             self.update_shader_hash()
             self.update_bind_groups()
@@ -528,7 +542,7 @@ class PipelineContainer:
             changed.add("compose_pipeline")
             shader_modules = self.wgpu_shaders[env_hash]
             self.wgpu_pipelines[env_hash] = self._compose_pipelines(
-                environment, shader_modules
+                wobject, environment, shader_modules
             )
 
     def update_shader_hash(self):
@@ -629,7 +643,7 @@ class ComputePipelineContainer(PipelineContainer):
         shader_module = get_cached_shader_module(self.device, self.shader, {})
         return {0: shader_module}
 
-    def _compose_pipelines(self, env, shader_modules):
+    def _compose_pipelines(self, wobject, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -728,7 +742,8 @@ class RenderPipelineContainer(PipelineContainer):
 
             blender_kwargs = blender.get_shader_kwargs(pass_index)
             env_kwargs = env.get_shader_kwargs(env_bind_group_index)
-            shader_kwargs = blender_kwargs | env_kwargs
+            shader_kwargs = blender_kwargs.copy()
+            shader_kwargs.update(env_kwargs)
 
             shader_module = get_cached_shader_module(
                 self.device, self.shader, shader_kwargs
@@ -737,7 +752,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         return shader_modules
 
-    def _compose_pipelines(self, env, shader_modules):
+    def _compose_pipelines(self, wobject, env, shader_modules):
         """Create a list of wgpu pipeline objects from the shader, bind group
         layouts and other pipeline info (one for each pass of the blender).
         """
@@ -764,8 +779,9 @@ class RenderPipelineContainer(PipelineContainer):
             if not render_mask & blender.passes[pass_index].render_mask:
                 continue
 
+            depth_test = wobject.material.depth_test
             color_descriptors = blender.get_color_descriptors(pass_index)
-            depth_descriptor = blender.get_depth_descriptor(pass_index)
+            depth_descriptor = blender.get_depth_descriptor(pass_index, depth_test)
             if not color_descriptors:
                 continue
 
@@ -782,9 +798,6 @@ class RenderPipelineContainer(PipelineContainer):
                 color_descriptors,
             )
             pipelines[pass_index] = pipeline
-
-            # Make sure it holds a ref to the layout (keep wgpu-py in check)
-            assert pipeline._layout is pipeline_layout
 
         return pipelines
 

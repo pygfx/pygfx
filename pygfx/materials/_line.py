@@ -1,4 +1,4 @@
-from ._base import Material
+from ._base import Material, ColorMode
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
 
@@ -8,51 +8,59 @@ class LineMaterial(Material):
 
     Parameters
     ----------
-    color : Color
-        The uniform color of the line. Ignored if ``vertex_colors`` is True.
     thickness : float
-        The line thickness expressed in logical pixels.
-    vertex_colors : bool
-        Whether to use the vertex colors provided in the geometry to color the
-        line. If True, color will be ignored.
+        The line thickness expressed in logical pixels. Default 2.0.
+    thickness_space : str
+        The coordinate space in which the thickness is expressed ('screen', 'world', 'model'). Default 'screen'.
+    color : Color
+        The uniform color of the line (used depending on the ``color_mode``).
+    color_mode : enum or str
+        The mode by which the line is coloured. Default 'auto'.
     map : Texture
-        The texture map specifying the color for each texture coordinate. Opional.
+        The texture map specifying the color for each texture coordinate. Optional.
     map_interpolation: str
-        The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
+        The method to interpolate the color map ('nearest' or 'linear'). Default 'linear'.
+    dash_pattern : tuple
+        The pattern of the dash, e.g. `[2, 3]`. See `dash_pattern` docs for details. Defaults to an empty tuple, i.e. no dashing.
+    dash_offset : float
+        The offset into the dash phase. Default 0.0.
     aa : bool
-        Whether or not the line should be anti-aliased. Aliasing gives prettier
-        results, but may affect performance for very large datasets. Default
-        True.
+        Whether or not the line is anti-aliased in the shader. Default True.
     kwargs : Any
-        Additional kwargs will be passed to the :class:`material base class
-        <pygfx.Material>`.
-
+        Additional kwargs will be passed to the :class:`material base class <pygfx.Material>`.
     """
 
     uniform_type = dict(
         Material.uniform_type,
         color="4xf4",
         thickness="f4",
+        dash_offset="f4",
     )
 
     def __init__(
         self,
-        color=(1, 1, 1, 1),
         thickness=2.0,
-        vertex_colors=False,
+        thickness_space="screen",
+        color=(1, 1, 1, 1),
+        color_mode="auto",
         map=None,
         map_interpolation="linear",
+        dash_pattern=(),
+        dash_offset=0,
         aa=True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 
+        self.thickness = thickness
+        self.thickness_space = thickness_space
         self.color = color
-        self.aa = aa
+        self.color_mode = color_mode
         self.map = map
         self.map_interpolation = map_interpolation
-        self.thickness = thickness
-        self._vertex_colors = bool(vertex_colors)
+        self.dash_pattern = dash_pattern
+        self.dash_offset = dash_offset
+        self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -81,9 +89,20 @@ class LineMaterial(Material):
 
     @property
     def aa(self):
-        """Whether or not the line should be anti-aliased. Aliasing
-        gives prettier results, but may affect performance for very large
-        datasets. Default True.
+        """Whether the line's edges are anti-aliased.
+
+        Aliasing gives prettier results by producing semi-transparent fragments
+        at the edges. Lines thinner than one physical pixel are also diminished
+        by making them more transparent.
+
+        Note that by default, pygfx uses SSAA to anti-alias the total renderered
+        result. Line-based aa results in additional improvement.
+
+        Because semi-transparent fragments are introduced, it may affect how the
+        line blends with other (semi-transparent) objects. It can also affect
+        performance for very large datasets. In particular, when the line itself
+        is opaque, the line is (in most blend modes) drawn twice to account for
+        both the opaque and semi-transparent fragments.
         """
         return self._store.aa
 
@@ -92,32 +111,85 @@ class LineMaterial(Material):
         self._store.aa = bool(aa)
 
     @property
+    def color_mode(self):
+        """The way that color is applied to the mesh.
+
+        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
+        * uniform: use the material's color property for the whole mesh.
+        * vertex: use the geometry `colors` buffer, one color per vertex.
+        * face: use the geometry `colors` buffer, one color per line-piece.
+        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
+        * faces_map: use the geometry texcoords buffer to sample (per line-piece) in the material's ``map`` texture.
+        """
+        return self._store.color_mode
+
+    @color_mode.setter
+    def color_mode(self, value):
+        if isinstance(value, ColorMode):
+            pass
+        elif isinstance(value, str):
+            if value.startswith("ColorMode."):
+                value = value.split(".")[-1]
+            try:
+                value = getattr(ColorMode, value.lower())
+            except AttributeError:
+                raise ValueError(f"Invalid color_mode: '{value}'")
+        else:
+            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        self._store.color_mode = value
+
+    @property
     def vertex_colors(self):
-        """Whether to use the vertex colors provided in the geometry."""
-        return self._vertex_colors
+        return self.color_mode == ColorMode.vertex
 
     @vertex_colors.setter
     def vertex_colors(self, value):
-        value = bool(value)
-        if value != self._vertex_colors:
-            self._vertex_colors = value
+        raise DeprecationWarning(
+            "vertex_colors is deprecated, use ``color_mode='vertex'``"
+        )
 
     @property
     def thickness(self):
-        """The line thickness expressed in logical pixels."""
+        """The line thickness.
+
+        The interpretation depends on `thickness_space`. By default it is in logical
+        pixels, but it can also be in world or model coordinates.
+        """
         return float(self.uniform_buffer.data["thickness"])
 
     @thickness.setter
     def thickness(self, thickness):
-        self.uniform_buffer.data["thickness"] = thickness
+        self.uniform_buffer.data["thickness"] = max(0.0, float(thickness))
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def thickness_space(self):
+        """The coordinate space in which the thickness (and dash_pattern) are expressed.
+
+        Possible values are:
+        * "screen": logical screen pixels. The Default.
+        * "world": the world / scene coordinate frame.
+        * "model": the line's local coordinate frame (same as the line's positions).
+        """
+        return self._store.thickness_space
+
+    @thickness_space.setter
+    def thickness_space(self, value):
+        if value is None:
+            value = "screen"
+        if not isinstance(value, str):
+            raise TypeError("LineMaterial.thickness_space must be str")
+        value = value.lower()
+        if value not in ["screen", "world", "model"]:
+            raise ValueError(f"Invalid value for LineMaterial.thickness_space: {value}")
+        self._store.thickness_space = value
 
     @property
     def map(self):
         """The texture map specifying the color for each texture coordinate.
-        Can be None. The dimensionality of the map can be 1D, 2D or 3D,
-        but should match the number of columns in the geometry's
-        texcoords.
+
+        Can be None. The dimensionality of the map can be 1D, 2D or 3D, but
+        should match the number of columns in the geometry's texcoords.
         """
         return self._map
 
@@ -128,7 +200,10 @@ class LineMaterial(Material):
 
     @property
     def map_interpolation(self):
-        """The method to interpolate the colormap. Either 'nearest' or 'linear'."""
+        """The method to interpolate the colormap.
+
+        Either 'nearest' or 'linear'.
+        """
         return self._store.map_interpolation
 
     @map_interpolation.setter
@@ -136,14 +211,74 @@ class LineMaterial(Material):
         assert value in ("nearest", "linear")
         self._store.map_interpolation = value
 
+    @property
+    def dash_pattern(self):
+        """The dash pattern.
+
+        A sequence of floats describing the length of strokes and gaps. The
+        length of the sequence must be an even number. Setting to None or the
+        empty tuple means no dashing.
+
+        For example, (5, 2, 1, 2) describes a a stroke of 5 units, a gap of 2,
+        then a short stroke of 1, and another gap of 2. Units are relative to
+        the line thickness (and therefore `thickness_space` also applies to  the
+        `dash_pattern`).
+        """
+        return self._store.dash_pattern
+
+    @dash_pattern.setter
+    def dash_pattern(self, value):
+        if value is None:
+            value = ()
+        if not isinstance(value, (tuple, list)):
+            raise TypeError(
+                "Line dash_pattern must be a sequence of floats, not '{value}'"
+            )
+        if len(value) % 2:
+            raise ValueError("Line dash_pattern must have an even number of elements.")
+        self._store.dash_pattern = tuple(max(0.0, float(v)) for v in value)
+
+    @property
+    def dash_offset(self):
+        """The offset into the dash cycle to start drawing at, i.e. the phase."""
+        return float(self.uniform_buffer.data["dash_offset"])
+
+    @dash_offset.setter
+    def dash_offset(self, value):
+        self.uniform_buffer.data["dash_offset"] = float(value)
+        self.uniform_buffer.update_range(0, 1)
+
+
+class LineDebugMaterial(LineMaterial):
+    """Line debug material.
+
+    A material that renders the triangles that the line is made up off.
+    """
+
+    pass
+
+
+class LineSegmentMaterial(LineMaterial):
+    """Line segment material.
+
+    A material that renders line segments between each two subsequent points.
+    """
+
+
+class LineArrowMaterial(LineSegmentMaterial):
+    """Arrow (vector) line material.
+
+    A material that renders line segments that look like little arrows.
+    """
+
 
 class LineThinMaterial(LineMaterial):
     """Thin line material.
 
     A simple line, drawn with line_strip primitives that has a thickness
-    of one physical pixel (the thickness property is ignored).
+    of one physical pixel. Thickness, dashing, and aa are ignored.
 
-    While you probably don't want to use this property in your application (its
+    While you typically don't want to use this in your application (its
     width is inconsistent and looks *very* thin on HiDPI monitors), it can be
     useful for debugging as it is more performant than other line materials.
 
@@ -154,22 +289,10 @@ class LineThinSegmentMaterial(LineMaterial):
     """Thin line segment material.
 
     Simple line segments, drawn with line primitives that has a thickness
-    of one physical pixel (the thickness property is ignored).
+    of one physical pixel. Thickness, dashing, and aa are ignored.
 
-    While you probably don't want to use this property in your application (its
+    While you typically don't want to use this in your application (its
     width is inconsistent and looks *very* thin on HiDPI monitors), it can be
     useful for debugging as it is more performant than other line materials.
 
     """
-
-
-class LineSegmentMaterial(LineMaterial):
-    """Line segment material.
-
-    A material that renders line segments between each two subsequent points."""
-
-
-class LineArrowMaterial(LineSegmentMaterial):
-    """Arrow (vector) line material.
-
-    A material that renders line segments that look like little vectors."""

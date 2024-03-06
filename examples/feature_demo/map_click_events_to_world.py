@@ -5,6 +5,7 @@ Map Screen to World
 This shows how to map from the screen to the world
 by adding scatter points at click event locations
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -62,7 +63,7 @@ def layout(event=None):
     Update the viewports when the canvas is resized
     """
     w, h = renderer.logical_size
-    w2, h2 = w / 2, h / 2
+    w2, h2 = w / 2 - 15, h / 2 - 15
     viewports[0].rect = 10, 10, w2, h2
     viewports[1].rect = w / 2 + 5, 10, w2, h2
     viewports[2].rect = 10, h / 2 + 5, w2, h2
@@ -110,10 +111,8 @@ def add_point(ev):
 
         # add point
         point = gfx.Points(
-            gfx.Geometry(
-                positions=point_data, sizes=[10], colors=[pygfx.Color("black")]
-            ),
-            material=gfx.PointsMaterial(vertex_colors=True, vertex_sizes=True),
+            gfx.Geometry(positions=point_data),
+            material=gfx.PointsMaterial(color="black", size=10),
         )
 
         scene.add(point)

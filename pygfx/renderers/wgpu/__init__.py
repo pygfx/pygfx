@@ -12,7 +12,7 @@ from ._shared import (
 )
 from ._renderer import WgpuRenderer
 from ._pipeline import Binding
-from ._shader import BaseShader, WorldObjectShader
+from ._shader import BaseShader, WorldObjectShader, load_shader
 from ._shaderlib import shaderlib
 
 # Import the modules that implement the shaders
@@ -113,7 +113,7 @@ environment's hash. The environment includes a system to detect that
 it is no longer used to that all objects related to that environment
 can be cleaned up.
 
-TOOD: We also want to re-use wgpu objects like pipelines and shadermodules.
+TODO: We also want to re-use wgpu objects like pipelines and shadermodules.
 If there are a lot of objects in a scene, its likely that many of these
 have the same material.
 

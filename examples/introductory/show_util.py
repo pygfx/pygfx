@@ -4,6 +4,7 @@ Use gfx.show
 
 Demonstrates show utility
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 

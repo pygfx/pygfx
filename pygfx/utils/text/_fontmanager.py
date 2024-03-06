@@ -239,13 +239,13 @@ class FontManager:
         text_pieces1 = []
         if preferred_fonts:
             codepoint = ord(text[0])
-            last_font = self._select_prefered_font_for_codepoint(
+            last_font = self._select_preferred_font_for_codepoint(
                 codepoint, preferred_fonts
             )
             last_i = i = 0
-            for i in range(2, len(text)):
+            for i in range(1, len(text)):
                 codepoint = ord(text[i])
-                font = self._select_prefered_font_for_codepoint(
+                font = self._select_preferred_font_for_codepoint(
                     codepoint, preferred_fonts
                 )
                 if font is not last_font:
@@ -298,7 +298,7 @@ class FontManager:
 
         return text_pieces2
 
-    def _select_prefered_font_for_codepoint(self, codepoint, preferred_fonts):
+    def _select_preferred_font_for_codepoint(self, codepoint, preferred_fonts):
         # Select one font, in order of preference
         for ff in preferred_fonts:
             if ff.has_codepoint(codepoint):

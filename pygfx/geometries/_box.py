@@ -19,7 +19,7 @@ def box_geometry(
     Creates a box (a rectangular cuboid) of the given size that is centered
     around the local frame's origin. Faces may be subdivided by specifying the
     number of segments along each axis. This will result in all faces parallel to
-    the given axis to be evenly devided into the requested number of segments.
+    the given axis to be evenly divided into the requested number of segments.
 
     Parameters
     ----------

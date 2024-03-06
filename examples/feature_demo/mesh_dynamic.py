@@ -4,6 +4,7 @@ Mesh dynamic
 
 Example showing a Torus knot, dynamically changing what faces are shown.
 """
+
 # sphinx_gallery_pygfx_render = True
 # sphinx_gallery_pygfx_target_name = "disp"
 

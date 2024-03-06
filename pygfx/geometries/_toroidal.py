@@ -81,7 +81,7 @@ def klein_bottle_geometry(scale=1.0, stitch=False):
         # manifold! Note that in doing that, we also make it
         # not-orientable - the orientation of the faces (i.e. the
         # winding) switches where we apply the stitch. Also note that
-        # in the current implememntation we're left with n unused
+        # in the current implementation we're left with n unused
         # vertices.
 
         # In the code below, i1 are one end of the tube, and i2 the

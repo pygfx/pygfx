@@ -5,6 +5,7 @@ Point Picking
 Example showing picking points. When clicking on a point, it's location
 is changed. With a small change, a line is shown instead.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np
@@ -19,10 +20,7 @@ scene = gfx.Scene()
 xx = np.linspace(-50, 50, 10)
 yy = np.random.uniform(20, 50, 10)
 geometry = gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)])
-if True:  # Set to False to try this for a line
-    ob = gfx.Points(geometry, gfx.PointsMaterial(color=(0, 1, 1, 1), size=20))
-else:
-    ob = gfx.Line(geometry, gfx.LineMaterial(color=(0, 1, 1, 1), thickness=12))
+ob = gfx.Points(geometry, gfx.PointsMaterial(color=(0, 1, 1, 1), size=20))
 scene.add(ob)
 
 camera = gfx.OrthographicCamera(120, 120)

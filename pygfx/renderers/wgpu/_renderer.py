@@ -7,7 +7,7 @@ import time
 import weakref
 
 import numpy as np
-import wgpu.backends.rs
+import wgpu
 
 from .. import Renderer
 from ...objects._base import id_provider
@@ -67,7 +67,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
           based on alpha weights and depth [1]. Note that the depth range
           affects the (quality of the) visual result.
         * "weighted_plus": three-pass approach for order independent
-          transparency, in wich the front-most transparent layer is rendered
+          transparency, in which the front-most transparent layer is rendered
           correctly, while transparent layers behind it are blended using alpha
           weights.
 
@@ -84,18 +84,20 @@ class WgpuRenderer(RootEventHandler, Renderer):
         buffer to a display buffer. If smaller than 1, pixels from the render
         buffer are replicated while converting to a display buffer. This has
         positive performance implications.
+    pixel_filter : float, optional
+        The strength of the filter when copying the result to the target/canvas.
     show_fps : bool
         Whether to display the frames per second. Beware that
         depending on the GUI toolkit, the canvas may impose a frame rate limit.
     blend_mode : str
         The method for handling transparency. If None, use ``"ordered2"``.
     sort_objects : bool
-        If True, sort all objects in the scene before rendering them. The sort
+        If True, sort objects by depth before rendering. The sorting
         uses a hierarchical index based on the object's (1) ``render_order``,
         (2) distance to the camera (based on the local frame's origin), (3) the
         position in the scene graph (flattened depth-first). If False, the
-        rendering order is based on the position in the scene graph (flattened
-        in depth-first order).
+        rendering order is based on the objects ``render_order`` and position
+        in the scene graph only.
     enable_events : bool
         If True, forward wgpu events to pygfx's event system.
     gamma_correction : float
@@ -115,6 +117,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         target,
         *args,
         pixel_ratio=None,
+        pixel_filter=None,
         show_fps=False,
         blend_mode="default",
         sort_objects=False,
@@ -131,6 +134,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             )
         self._target = target
         self.pixel_ratio = pixel_ratio
+        self.pixel_filter = pixel_filter
 
         # Make sure we have a shared object (the first renderer creates the instance)
         self._shared = get_shared()
@@ -144,7 +148,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._gamma_correction_srgb = 1.0
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
             self._canvas_context = self._target.get_context()
-            # Select output format. We currenly don't have a way of knowing
+            # Select output format. We currently don't have a way of knowing
             # what formats are available, so if not srgb, we gamma-correct in shader.
             target_format = self._canvas_context.get_preferred_format(
                 self._shared.adapter
@@ -155,7 +159,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             self._canvas_context.configure(
                 device=self._device,
                 format=target_format,
-                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
             )
         else:
             target_format = self._target.format
@@ -200,28 +203,65 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """The ratio between the number of internal pixels versus the logical pixels on the canvas.
 
         This can be used to configure the size of the render texture
-        relative to the canvas' logical size. By default (value is None) the
-        used pixel ratio follows the screens pixel ratio on high-res
-        displays, and is 2 otherwise.
+        relative to the canvas' *logical* size. Can be set to None to
+        set the default. By default the pixel_ratio is 2 on "regular"
+        screens, and the same as the screen pixel ratio on HiDPI screens
+        (usually also 2).
 
         If the used pixel ratio causes the render texture to be larger
-        than the physical size of the canvas, SSAA is applied, resulting
-        in a smoother final image with less jagged edges. Alternatively,
-        this value can be set to e.g. 0.5 to lower* the resolution (e.g.
-        for performance during interaction).
+        than the physical size of the canvas, SSAA (super sampling
+        antialiasing) is applied, resulting in a smoother final image
+        with less jagged edges. Alternatively, this value can be set
+        to e.g. 0.5 to *lower* the resolution.
         """
         return self._pixel_ratio
 
     @pixel_ratio.setter
     def pixel_ratio(self, value):
+        if not value:
+            value = None
         if value is None:
-            self._pixel_ratio = None
+            # Get target sizes
+            target = self._target
+            if isinstance(target, wgpu.gui.WgpuCanvasBase):
+                target_psize = target.get_physical_size()
+            elif isinstance(target, Texture):
+                target_psize = target.size[:2]
+            else:
+                raise TypeError(f"Unexpected render target {target.__class__.__name__}")
+            target_lsize = self.logical_size
+            # Determine target ratio
+            target_ratio = target_psize[0] / target_lsize[0]
+            # Use 2 on non-hidpi displays. On hidpi displays follow target.
+            self._pixel_ratio = float(target_ratio) if target_ratio > 1 else 2.0
         elif isinstance(value, (int, float)):
-            self._pixel_ratio = None if value <= 0 else float(value)
+            self._pixel_ratio = abs(float(value))
         else:
             raise TypeError(
                 f"Rendered.pixel_ratio expected None or number, not {value}"
             )
+
+    @property
+    def pixel_filter(self):
+        """The strength of the filter applied to the final pixels.
+
+        The renderer renders everything to an internal texture, which,
+        depending on the `pixel_ratio`, may have a differens size than
+        the target (i.e. canvas). In the process of rendering the result
+        to the target, a filter is applied, resulting in SSAA if the
+        size was larger, and a smoothing effect otherwise.
+
+        When the `pixel_filter` is 1.0, the default optimal filter is
+        used. Higher values result in more blur. Can be set to 0 to
+        disable the filter.
+        """
+        return self._pixel_filter
+
+    @pixel_filter.setter
+    def pixel_filter(self, value):
+        if value is None:
+            value = 1.0
+        self._pixel_filter = max(0.0, float(value))
 
     @property
     def rect(self):
@@ -242,27 +282,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def physical_size(self):
         """The physical size of the internal render texture."""
-
-        # Get physical size of the target
-        target = self._target
-        if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            target_psize = target.get_physical_size()
-        elif isinstance(target, Texture):
-            target_psize = target.size[:2]
-        else:
-            raise TypeError(f"Unexpected render target {target.__class__.__name__}")
-
+        pixel_ratio = self._pixel_ratio
         target_lsize = self.logical_size
-
-        # Determine the pixel ratio of the render texture
-        if self._pixel_ratio:
-            pixel_ratio = self._pixel_ratio
-        else:
-            pixel_ratio = target_psize[0] / target_lsize[0]
-            if pixel_ratio <= 1:
-                pixel_ratio = 2.0  # use 2 on non-hidpi displays
-
-        # Determine the physical size of the internal render textures
         return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
 
     @property
@@ -282,7 +303,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
           with weights based on alpha and depth (McGuire 2013). Note that the depth
           range affects the (quality of the) visual result.
         * "weighted_plus": three-pass approach for order independent transparency,
-          in wich the front-most transparent layer is rendered correctly, while
+          in which the front-most transparent layer is rendered correctly, while
           transparent layers behind it are blended using alpha weights.
         """
         return self._blend_mode
@@ -319,12 +340,13 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
     @property
     def sort_objects(self):
-        """Whether to sort world objects before rendering. Default False.
+        """Whether to sort world objects by depth before rendering. Default False.
 
         * ``True``: the render order is defined by 1) the object's ``render_order``
           property; 2) the object's distance to the camera; 3) the position object
           in the scene graph (based on a depth-first search).
-        * ``False``: don't sort, the render order is defined by the scene graph alone.
+        * ``False``: don't sort, the render order is only defined by the
+          ``render_order`` and scene graph position.
         """
         return self._sort_objects
 
@@ -357,7 +379,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Renderers with the same blend mode can safely share these
         # wobject_pipeline dicts. Therefore, we make use of a global
         # collection. Since this global collection is a
-        # WeakValueDictionary, if all renderes stop using a certain
+        # WeakValueDictionary, if all renderers stop using a certain
         # blend mode, the associated pipelines are removed as well.
         #
         # In a diagram:
@@ -463,14 +485,23 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Get environment
         environment = get_environment(self, scene)
 
-        # Get the list of objects to render, as they appear in the scene graph
-        wobject_list = []
-        scene.traverse(wobject_list.append, True)
+        # Flatten the scenegraph, categorised by render_order
+        wobject_dict = {}
+        scene.traverse(
+            lambda ob: wobject_dict.setdefault(ob.render_order, []).append(ob), True
+        )
 
-        # Sort objects
-        if self.sort_objects:
-            sort_func = _get_sort_function(camera)
-            wobject_list.sort(key=sort_func)
+        # Produce a sorted list of world objects
+        wobject_list = []
+        if self._sort_objects:
+            depth_sort_func = _get_sort_function(camera)
+            for render_order in sorted(wobject_dict.keys()):
+                wobjects = wobject_dict[render_order]
+                wobjects.sort(key=depth_sort_func)
+                wobject_list.extend(wobjects)
+        else:
+            for render_order in sorted(wobject_dict.keys()):
+                wobject_list.extend(wobject_dict[render_order])
 
         # Collect all pipeline container objects
         compute_pipeline_containers = []
@@ -481,6 +512,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
             container_group = get_pipeline_container_group(wobject, environment)
             compute_pipeline_containers.extend(container_group.compute_containers)
             render_pipeline_containers.extend(container_group.render_containers)
+            # Enable pipelines to update data on the CPU. This usually includes
+            # baking data into buffers. This is CPU intensive, but in practice
+            # it is only used by a few materials.
+            for func in container_group.bake_functions:
+                func(wobject, camera, logical_size)
 
         # Update *all* buffers and textures that have changed
         for resource in resource_update_registry.get_syncable_resources(flush=True):
@@ -489,7 +525,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Command buffers cannot be reused. If we want some sort of re-use we should
         # look into render bundles. See https://github.com/gfx-rs/wgpu-native/issues/154
         # If we do get this to work, we should trigger a new recording
-        # when the wobject's children, visibile, render_order, or render_pass changes.
+        # when the wobject's children, visible, render_order, or render_pass changes.
 
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
@@ -535,7 +571,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         # Get the wgpu texture view.
         if isinstance(target, wgpu.gui.WgpuCanvasBase):
-            wgpu_tex_view = self._canvas_context.get_current_texture()
+            wgpu_tex_view = self._canvas_context.get_current_texture().create_view()
         elif isinstance(target, Texture):
             need_mipmaps = target.generate_mipmaps
             wgpu_tex_view = getattr(target, "_wgpu_default_view", None)
@@ -546,7 +582,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             need_mipmaps = target.texture.generate_mipmaps
             wgpu_tex_view = ensure_wgpu_object(target)
         else:
-            raise TypeError("Unexepcted target type.")
+            raise TypeError("Unexpected target type.")
 
         # Reset counter (so we can auto-clear the first next draw)
         self._renders_since_last_flush = 0
@@ -556,6 +592,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             None,
             wgpu_tex_view,
             self._gamma_correction * self._gamma_correction_srgb,
+            self._pixel_filter,
         )
         self._device.queue.submit(command_buffers)
 
@@ -581,6 +618,8 @@ class WgpuRenderer(RootEventHandler, Renderer):
         blender = self._blender
         if clear_color:
             blender.clear()
+        else:
+            blender.clear_depth()
 
         # ----- compute pipelines
 
@@ -672,7 +711,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         self._device.queue.submit([encoder.finish()])
 
         # Collect data from the buffer
-        data = self._pixel_info_buffer.map_read()
+        self._pixel_info_buffer.map("read")
+        try:
+            data = self._pixel_info_buffer.read_mapped()
+        finally:
+            self._pixel_info_buffer.unmap()
         color = Color(x / 255 for x in tuple(data[0:4].cast("B")))
         pick_value = tuple(data[8:16].cast("Q"))[0]
         wobject_id = pick_value & 1048575  # 2**20-1

@@ -1,3 +1,5 @@
+import enum
+
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
@@ -21,7 +23,10 @@ class Material(Trackable):
         is "any" (the default) a fragment is discarded if it is clipped by any
         clipping plane. If this is "all", a fragment is discarded only if it is
         clipped by *all* of the clipping planes.
-
+    depth_test : bool
+        Whether the object takes the depth buffer into account.
+        Default True. If False, the object is like a ghost: not testing
+        against the depth buffer and also not writing to it.
     """
 
     uniform_type = dict(
@@ -29,7 +34,9 @@ class Material(Trackable):
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
     )
 
-    def __init__(self, *, opacity=1, clipping_planes=None, clipping_mode="any"):
+    def __init__(
+        self, *, opacity=1, clipping_planes=None, clipping_mode="any", depth_test=True
+    ):
         super().__init__()
 
         self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
@@ -37,6 +44,7 @@ class Material(Trackable):
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
         self.clipping_mode = clipping_mode
+        self.depth_test = depth_test
 
     def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
@@ -136,9 +144,15 @@ class Material(Trackable):
         # Apply
         # Note that we can create a null-plane using (0, 0, 0, 0)
         self._set_size_of_uniform_array("clipping_planes", len(planes2))
+        self._store.clipping_plane_count = len(planes2)
         for i in range(len(planes2)):
             self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def clipping_plane_count(self):
+        """The number of clipping planes (readonly)."""
+        return self._store.clipping_plane_count
 
     @property
     def clipping_mode(self):
@@ -157,3 +171,24 @@ class Material(Trackable):
             self._clipping_mode = mode
         else:
             raise ValueError(f"Unexpected clipping_mode: {value}")
+
+    @property
+    def depth_test(self):
+        """Whether the object takes the depth buffer into account."""
+        return self._store.depth_test
+
+    @depth_test.setter
+    def depth_test(self, value):
+        # Explicit test that this is a bool. We *could* maybe later allow e.g. 'greater'.
+        if not isinstance(value, (bool, int)):
+            raise TypeError("Material.depth_test must be bool.")
+        self._store.depth_test = bool(value)
+
+
+class ColorMode(enum.Enum):
+    auto = 0
+    uniform = 1
+    vertex = 2
+    face = 3
+    vertex_map = 4
+    face_map = 5

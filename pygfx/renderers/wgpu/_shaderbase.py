@@ -248,7 +248,16 @@ class BaseShader:
     """
 
     def __init__(self, **kwargs):
+        # The shader kwargs
         self.kwargs = kwargs
+        # Additional shader kwargs for private stuff. Only use for derived values:
+        # values that are already defined by an item in kwargs!!
+        self.derived_kwargs = {}
+        # The stored hash. If set, the hash is locked, and kwargs cannot
+        # be set. This is to prevent the shader implementations setting
+        # shader kwargs *after* the pipeline has obtained the hash.
+        self._hash = None
+
         self._typedefs = {}
         self._binding_codes = {}
         self._uniform_struct_names = {}  # dtype -> name
@@ -257,23 +266,39 @@ class BaseShader:
         if hasattr(self.__class__, key):
             msg = f"Templating variable {key} causes name clash with class attribute."
             raise KeyError(msg)
+        if self._hash is not None:
+            raise RuntimeError(
+                "Shader is trying to set shaders kwargs while they're locked."
+            )
         self.kwargs[key] = value
 
     def __getitem__(self, key):
         return self.kwargs[key]
+
+    def lock_hash(self):
+        self._hash = self._get_hash()
+
+    def unlock_hash(self):
+        self._hash = None
 
     @property
     def hash(self):
         """A hash of the current state of the shader. If the hash changed,
         it's likely that the shader changed.
         """
+        if self._hash is None:
+            return self._get_hash()
+        else:
+            return self._hash
+
+    def _get_hash(self):
         # The full name of this shader class.
         fullname = self.__class__.__module__ + "." + self.__class__.__name__
 
         # If we assume that the shader class produces the same code for
         # a specific set of kwargs, we can use the fullname in the hash
         # instead of the actual code. This assumption is valid in
-        # general, but can breaks down in a few specific situation, the
+        # general, but can break down in a few specific situations, the
         # most common one being an interactive session. In this case,
         # the fullname would be something like "__main__.CustomShader".
         # To be on the safe side, we use the full code when the fullname
@@ -311,19 +336,26 @@ class BaseShader:
         the templating variables, varyings, and depth output.
         """
 
-        old_kwargs = self.kwargs
-        self.kwargs = old_kwargs.copy()
-        self.kwargs.update(kwargs)
+        # Compose shader kwargs
+        shader_kwargs = self.kwargs.copy()
+        shader_kwargs.update(kwargs)
+
+        # Set self.kwargs, because self.get_code() might use it.
+        ori_kwargs = self.kwargs
+        self.kwargs = shader_kwargs
 
         try:
             code1 = self.get_code()
             t = jinja_env.from_string(code1)
 
+            # Also add some additional kwargs, some of these may be set during get_code()
+            shader_kwargs.update(self.derived_kwargs)
+
             err_msg = None
             try:
-                code2 = t.render(**self.kwargs)
+                code2 = t.render(**shader_kwargs)
             except jinja2.UndefinedError as err:
-                err_msg = f"Canot compose shader: {err.args[0]}"
+                err_msg = f"Cannot compose shader: {err.args[0]}"
 
             if err_msg:
                 # Don't raise within handler to avoid recursive tb
@@ -332,9 +364,8 @@ class BaseShader:
                 code2 = resolve_varyings(code2)
                 code2 = resolve_depth_output(code2)
                 return code2
-
         finally:
-            self.kwargs = old_kwargs
+            self.kwargs = ori_kwargs
 
     def define_bindings(self, bindgroup, bindings_dict):
         """Define a collection of bindings organized in a dict."""

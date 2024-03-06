@@ -1,4 +1,4 @@
-from ._base import Material
+from ._base import Material, ColorMode
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
 
@@ -11,14 +11,12 @@ class PointsMaterial(Material):
     Parameters
     ----------
     color : Color
-        The (uniform) color of the points. Ignored if either map or vertex_color
-        are set.
+        The uniform color of the points (used depending on the ``color_mode``).
     size : int
         The size (diameter) of the points in screen space (px). Ignored if
         vertex_size is True.
-    vertex_color : bool
-        If True, use the vertex colors provided in the geometry to set point
-        colors.
+    color_mode : enum or str
+        The mode by which the line is coloured. Default 'auto'.
     vertex_sizes : bool
         If True, use the vertex sizes provided in the geometry to set point
         sizes.
@@ -42,16 +40,16 @@ class PointsMaterial(Material):
         self,
         color=(1, 1, 1, 1),
         size=1,
-        vertex_colors=False,
+        color_mode="auto",
         vertex_sizes=False,
         map=None,
         map_interpolation="linear",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 
         self.color = color
-        self._vertex_colors = bool(vertex_colors)
+        self.color_mode = color_mode
         self.map = map
         self.map_interpolation = map_interpolation
         self.size = size
@@ -83,15 +81,42 @@ class PointsMaterial(Material):
         return self._store.color_is_transparent
 
     @property
+    def color_mode(self):
+        """The way that color is applied to the mesh.
+
+        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
+        * uniform: use the material's color property for the whole mesh.
+        * vertex: use the geometry `colors` buffer, one color per vertex.
+        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
+        """
+        return self._store.color_mode
+
+    @color_mode.setter
+    def color_mode(self, value):
+        if isinstance(value, ColorMode):
+            pass
+        elif isinstance(value, str):
+            if value.startswith("ColorMode."):
+                value = value.split(".")[-1]
+            try:
+                value = getattr(ColorMode, value.lower())
+            except AttributeError:
+                raise ValueError(f"Invalid color_mode: '{value}'")
+        else:
+            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        if value == ColorMode.face or value == ColorMode.face_map:
+            raise ValueError(f"Points cannot have color_mode {value}")
+        self._store.color_mode = value
+
+    @property
     def vertex_colors(self):
-        """Whether to use the vertex colors provided in the geometry."""
-        return self._vertex_colors
+        return self.color_mode == ColorMode.vertex
 
     @vertex_colors.setter
     def vertex_colors(self, value):
-        value = bool(value)
-        if value != self._vertex_colors:
-            self._vertex_colors = value
+        raise DeprecationWarning(
+            "vertex_colors is deprecated, use ``color_mode='vertex'``"
+        )
 
     @property
     def size(self):

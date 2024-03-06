@@ -5,6 +5,7 @@ Color Picking
 Example showing picking the color from the scene. Depending on the
 object being clicked, more detailed picking info is available.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 import numpy as np

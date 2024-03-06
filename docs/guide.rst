@@ -24,7 +24,7 @@ What is pygfx?
 
 Pygfx is a render engine. It renders objects that are organized in a scene, and
 provides a way to define what the appearance of these objects should be.
-For the actual renderering, multiple render backends are available, but the
+For the actual rendering, multiple render backends are available, but the
 main one is based on WGPU.
 
 The `WGPU <https://github.com/pygfx/wgpu-py>`_ library provides the low level API to
@@ -220,7 +220,7 @@ Multiple world objects may share a geometry.
 **Materials**
 
 All world objects that have an appearance, have a material that defines
-that apperance. (Objects that do not have an apperance are for example
+that appearance. (Objects that do not have an appearance are for example
 groups or cameras.) For each type of object there are typically a few
 different material classes, e.g. for meshes you have a
 ``MeshBasicMaterial`` that is not affected by lights, a
@@ -350,7 +350,7 @@ content. All controllers work with both perspective and orthographic cameras.
 Updating transforms
 -------------------
 
-WorldObjects declare two reference frames that we can use to manouver them
+WorldObjects declare two reference frames that we can use to maneuver them
 around: `local` and `world`. `local` allows us to position an object relative to
 its parent and `world` allows us to position objects relative to the world's
 inertial frame.
@@ -491,10 +491,10 @@ will be looked up. The texture can be 1D, 2D or 3D, and the number of columns
 in the `geometry.texcoords` should match. This allows for a wide variety of
 visualizations.
 
-Per-vertex colors can be specified as `geometry.colors`. They must be enabled
-by setting `material.vertex_colors` to `True`.
-
-The colors specified in `material.map` and in `geometry.colors` can have 1-4 values.
+Per-vertex or per-face colors can be specified as `geometry.colors`.
+They must be enabled by setting `material.color_mode` to "vertex" or
+"face". The colors specified in `material.map` and in `geometry.colors`
+can have 1-4 values.
 
 
 Colors in Image and Volume

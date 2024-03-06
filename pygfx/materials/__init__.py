@@ -28,10 +28,11 @@ colormaps, the strength of specular reflections, etc.
     GaussianPointsMaterial
 
     LineMaterial
-    LineThinMaterial
-    LineThinSegmentMaterial
     LineSegmentMaterial
     LineArrowMaterial
+    LineThinMaterial
+    LineThinSegmentMaterial
+    LineDebugMaterial
 
     ImageBasicMaterial
 
@@ -47,7 +48,6 @@ colormaps, the strength of specular reflections, etc.
     TextMaterial
 
 """
-
 
 # flake8: noqa
 
@@ -65,10 +65,11 @@ from ._mesh import (
 from ._points import PointsMaterial, GaussianPointsMaterial
 from ._line import (
     LineMaterial,
-    LineThinMaterial,
-    LineThinSegmentMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
+    LineThinMaterial,
+    LineThinSegmentMaterial,
+    LineDebugMaterial,
 )
 from ._image import ImageBasicMaterial
 from ._volume import (

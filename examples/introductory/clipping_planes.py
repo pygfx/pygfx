@@ -4,6 +4,7 @@ Clipping Planes
 
 Example demonstrating clipping planes on a mesh.
 """
+
 # sphinx_gallery_pygfx_render = True
 
 from wgpu.gui.auto import WgpuCanvas, run

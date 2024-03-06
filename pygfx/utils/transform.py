@@ -157,12 +157,20 @@ class AffineBase:
     @cached
     def _decomposed(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         try:
-            return la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
+            decomposed = la.mat_decompose(self.matrix, scaling_signs=self.scaling_signs)
         except ValueError:
             # the matrix has been set manually
             # and so there is no scaling component to preserve
             # any decomposed scaling is acceptable
-            return la.mat_decompose(self.matrix)
+            decomposed = la.mat_decompose(self.matrix)
+
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        for m in decomposed:
+            m.flags.writeable = False
+
+        return decomposed
 
     @cached
     def _directions(self):
@@ -173,7 +181,12 @@ class AffineBase:
         axes_target = la.vec_transform(axes_source, self.matrix)
         origin_target = la.vec_transform((0, 0, 0), self.matrix)
 
-        return axes_target - origin_target
+        directions = axes_target - origin_target
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        directions.flags.writeable = False
+        return directions
 
     @cached
     def _direction_components(self):
@@ -181,11 +194,23 @@ class AffineBase:
 
     @cached
     def _rotation_matrix(self):
-        return la.mat_from_quat(self._decomposed[1])
+        rotation = la.mat_from_quat(self._decomposed[1])
+
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        rotation.flags.writeable = False
+        return rotation
 
     @cached
     def _euler(self):
-        return la.quat_to_euler(self._decomposed[1])
+        euler = la.quat_to_euler(self._decomposed[1])
+
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
+        euler.flags.writeable = False
+        return euler
 
     def flag_update(self):
         """Signal that this transform has updated."""
@@ -196,7 +221,7 @@ class AffineBase:
         """Subscribe to updates of this transform.
 
         The provided callback will be executed after this transform has updated
-        using the signature ``callback(self)``, i.e., it is pased a reference to
+        using the signature ``callback(self)``, i.e., it is passed a reference to
         this transform.
 
         Parameters
@@ -544,6 +569,9 @@ class AffineTransform(AffineBase):
     @property
     def matrix(self):
         view_array = self.untracked_matrix.view()
+        # Stop the user from accidentally writing the temporary arrays
+        # that we return from these operations
+        # https://github.com/pygfx/pygfx/issues/651
         view_array.flags.writeable = False
         return view_array
 
@@ -565,11 +593,11 @@ class AffineTransform(AffineBase):
 
 
 class RecursiveTransform(AffineBase):
-    """A transform that may be preceeded by another transform.
+    """A transform that may be preceded by another transform.
 
     This transform behaves semantically identical to an ordinary
     ``AffineTransform`` (same properties), except that users may define a
-    ``parent`` transform which preceeds the ``matrix`` used by the ordinary
+    ``parent`` transform which precedes the ``matrix`` used by the ordinary
     ``AffineTransform``. The resulting ``RecursiveTransform`` then controls the
     total transform that results from combinign the two transforms via::
 
@@ -603,7 +631,7 @@ class RecursiveTransform(AffineBase):
     matrix : AffineBase, ndarray [4, 4]
         The base transform that will be wrapped by this transform.
     parent : AffineBase, optional
-        The parent transform that preceeds the base transform.
+        The parent transform that precedes the base transform.
     reference_up : ndarray, [3]
         The direction of the reference_up vector expressed in the target
         frame. It is used by the axis properties (right, up, forward)
