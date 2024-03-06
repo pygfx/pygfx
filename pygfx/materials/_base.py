@@ -144,9 +144,15 @@ class Material(Trackable):
         # Apply
         # Note that we can create a null-plane using (0, 0, 0, 0)
         self._set_size_of_uniform_array("clipping_planes", len(planes2))
+        self._store.clipping_plane_count = len(planes2)
         for i in range(len(planes2)):
             self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def clipping_plane_count(self):
+        """The number of clipping planes (readonly)."""
+        return self._store.clipping_plane_count
 
     @property
     def clipping_mode(self):
