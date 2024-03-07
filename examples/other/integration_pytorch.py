@@ -41,24 +41,6 @@ import igl
 
 # pygfx
 import pygfx as gfx
-# from pygfx import (
-#     Viewport,
-#     Renderer,
-#     Scene,
-#     Group,
-#     Background,
-#     BackgroundMaterial,
-#     Color,
-#     Camera,
-#     PerspectiveCamera,
-#     NDCCamera,
-#     PointLight,
-#     OrbitController,
-#     Geometry,
-#     WorldObject,
-#     Mesh,
-#     MeshPhongMaterial,
-#     Buffer)
 from pygfx.renderers import WgpuRenderer
 
 # wgpu
