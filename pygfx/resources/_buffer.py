@@ -52,6 +52,8 @@ class Buffer(Resource):
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
+            if not mem.c_contiguous:
+                raise ValueError("Buffer data must be C-contiguous.")
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape

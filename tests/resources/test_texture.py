@@ -109,3 +109,14 @@ def test_unsupported_shapes():
         a = np.zeros((10, 10, 10, i), np.float32)
         with pytest.raises(ValueError):
             gfx.Texture(a, dim=3)
+
+
+def test_contiguous():
+    im0 = np.zeros((100, 100), np.float32)
+    im1 = im0[10:-10, 10:-10]
+    im2 = np.ascontiguousarray(im1)
+
+    with pytest.raises(ValueError):
+        gfx.Texture(im1, dim=2)
+
+    gfx.Texture(im2, dim=2)

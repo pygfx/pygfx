@@ -83,3 +83,18 @@ def test_special_data():
     a = np.zeros((), dtype=[("a", "<i4"), ("b", "<f4")])
     b = gfx.Buffer(a)
     assert b.format is None
+
+
+def test_contiguous():
+    xs = np.linspace(0, 20 * np.pi, 500)
+    ys = np.sin(xs) * 10
+    zs = np.zeros(xs.size)
+
+    # This won't work
+    positions1 = np.vstack([xs, ys, zs]).astype(np.float32).T
+    with pytest.raises(ValueError):
+        gfx.Buffer(positions1)
+
+    # This will work
+    positions2 = np.ascontiguousarray(positions1)
+    gfx.Buffer(positions2)
