@@ -201,8 +201,8 @@ class Buffer(Resource):
 
     def _get_subdata(self, offset, size):
         """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy
-        if offset == 0 and size == self.nitems and self.mem.contiguous:
+        # If this is a full range, this is easy (and fast)
+        if offset == 0 and size == self.nitems and self.mem.c_contiguous:
             return self.mem
         # Get a numpy array, because memoryviews do not support nd slicing
         if isinstance(self.data, np.ndarray):

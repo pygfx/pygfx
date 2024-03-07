@@ -83,3 +83,22 @@ def test_special_data():
     a = np.zeros((), dtype=[("a", "<i4"), ("b", "<f4")])
     b = gfx.Buffer(a)
     assert b.format is None
+
+
+def test_contiguous():
+    xs = np.linspace(0, 20 * np.pi, 500)
+    ys = np.sin(xs) * 10
+    zs = np.zeros(xs.size)
+
+    # This works, because at upload time the data is copied if necessary
+    positions1 = np.vstack([xs, ys, zs]).astype(np.float32).T
+    buf = gfx.Buffer(positions1)
+    mem = buf._get_subdata(0, buf.nitems)
+    assert mem.c_contiguous
+
+    # This work, and avoids the aforementioned copy
+    positions2 = np.ascontiguousarray(positions1)
+    buf = gfx.Buffer(positions2)
+    mem = buf._get_subdata(0, buf.nitems)
+    assert mem.c_contiguous
+    assert mem is buf.mem
