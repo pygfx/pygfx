@@ -136,7 +136,7 @@ def test_reactivity_mesh3():
     # Test swapping colormap
 
     geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)
-    geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0].copy())
+    geometry.texcoords = gfx.Buffer(geometry.texcoords.data[:, 0])
 
     tex1 = gfx.cm.cividis
     tex2 = gfx.cm.inferno
