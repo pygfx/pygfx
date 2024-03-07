@@ -234,7 +234,7 @@ class Texture(Resource):
             offset == (0, 0, 0)
             and size == self.size
             and self.mem.c_contiguous
-            and not pixel_padding
+            and pixel_padding is None
         ):
             return self.mem
         # Get a numpy array, because memoryviews do not support nd slicing
@@ -252,7 +252,7 @@ class Texture(Resource):
         for d in reversed(range(3)):
             slices.append(slice(offset[d], offset[d] + size[d]))
         sub_arr = arr[tuple(slices)]
-        if pixel_padding:
+        if pixel_padding is not None:
             padding = np.ones(sub_arr.shape[:3] + (1,), dtype=sub_arr.dtype)
             sub_arr = np.concatenate([sub_arr, pixel_padding * padding], -1)
         return memoryview(np.ascontiguousarray(sub_arr))
