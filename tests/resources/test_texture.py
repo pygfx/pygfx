@@ -114,10 +114,13 @@ def test_unsupported_shapes():
 def test_contiguous():
 
     im1 = np.zeros((100, 100), np.float32)[10:-10, 10:-10]
+
+    # This works, because at upload time the data is copied if necessary
     tex = gfx.Texture(im1, dim=2)
     mem = tex._get_subdata((0, 0, 0), im1.shape + (1,))
     assert mem.c_contiguous
 
+    # This works, and avoids the aforementioned copy
     im2 = np.ascontiguousarray(im1)
     tex = gfx.Texture(im2, dim=2)
     mem = tex._get_subdata((0, 0, 0), im2.shape + (1,))
