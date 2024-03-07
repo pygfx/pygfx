@@ -73,7 +73,7 @@ class Texture(Resource):
             self._data = data
             self._mem = mem = memoryview(data)
             if not mem.c_contiguous:
-                raise ValueError("Buffer data must be C-contiguous.")
+                raise ValueError("Texture data must be C-contiguous.")
             self._store.nbytes = mem.nbytes
             self._store.size = self._size_from_data(mem, dim, size)
             subformat = get_item_format_from_memoryview(mem)
