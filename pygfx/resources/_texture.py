@@ -13,7 +13,7 @@ class Texture(Resource):
     Parameters:
         data : array, optional
             Array data of any type that supports the buffer-protocol, (e.g. a
-            bytes or numpy array). If None, nbytes and nitems must be provided.
+            bytes or numpy array). If None, nbytes and size must be provided.
             The dtype must be compatible with the rendering backend.
         dim : int
             The dimensionality of the array (1, 2 or 3).
@@ -72,8 +72,6 @@ class Texture(Resource):
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
-            if not mem.c_contiguous:
-                raise ValueError("Texture data must be C-contiguous.")
             self._store.nbytes = mem.nbytes
             self._store.size = self._size_from_data(mem, dim, size)
             subformat = get_item_format_from_memoryview(mem)
@@ -231,8 +229,13 @@ class Texture(Resource):
 
     def _get_subdata(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy
-        if offset == 0 and size == self.nitems and self.mem.contiguous:
+        # If this is a full range, this is easy (and fast)
+        if (
+            offset == (0, 0, 0)
+            and size == self.size
+            and self.mem.c_contiguous
+            and not pixel_padding
+        ):
             return self.mem
         # Get a numpy array, because memoryviews do not support nd slicing
         if isinstance(self.data, np.ndarray):
@@ -249,7 +252,7 @@ class Texture(Resource):
         for d in reversed(range(3)):
             slices.append(slice(offset[d], offset[d] + size[d]))
         sub_arr = arr[tuple(slices)]
-        if pixel_padding is not None:
+        if pixel_padding:
             padding = np.ones(sub_arr.shape[:3] + (1,), dtype=sub_arr.dtype)
             sub_arr = np.concatenate([sub_arr, pixel_padding * padding], -1)
         return memoryview(np.ascontiguousarray(sub_arr))

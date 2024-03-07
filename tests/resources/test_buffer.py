@@ -90,11 +90,15 @@ def test_contiguous():
     ys = np.sin(xs) * 10
     zs = np.zeros(xs.size)
 
-    # This won't work
+    # This works work
     positions1 = np.vstack([xs, ys, zs]).astype(np.float32).T
-    with pytest.raises(ValueError):
-        gfx.Buffer(positions1)
+    buf = gfx.Buffer(positions1)
+    mem = buf._get_subdata(0, buf.nitems)
+    assert mem.c_contiguous
 
-    # This will work
+    # This will work, obviously
     positions2 = np.ascontiguousarray(positions1)
-    gfx.Buffer(positions2)
+    buf = gfx.Buffer(positions2)
+    mem = buf._get_subdata(0, buf.nitems)
+    assert mem.c_contiguous
+    assert mem is buf.mem

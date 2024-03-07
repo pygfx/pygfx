@@ -52,8 +52,6 @@ class Buffer(Resource):
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
-            if not mem.c_contiguous:
-                raise ValueError("Buffer data must be C-contiguous.")
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
@@ -203,8 +201,8 @@ class Buffer(Resource):
 
     def _get_subdata(self, offset, size):
         """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy
-        if offset == 0 and size == self.nitems and self.mem.contiguous:
+        # If this is a full range, this is easy (and fast)
+        if offset == 0 and size == self.nitems and self.mem.c_contiguous:
             return self.mem
         # Get a numpy array, because memoryviews do not support nd slicing
         if isinstance(self.data, np.ndarray):

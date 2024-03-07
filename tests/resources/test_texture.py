@@ -112,11 +112,14 @@ def test_unsupported_shapes():
 
 
 def test_contiguous():
-    im0 = np.zeros((100, 100), np.float32)
-    im1 = im0[10:-10, 10:-10]
+
+    im1 = np.zeros((100, 100), np.float32)[10:-10, 10:-10]
+    tex = gfx.Texture(im1, dim=2)
+    mem = tex._get_subdata((0, 0, 0), im1.shape + (1,))
+    assert mem.c_contiguous
+
     im2 = np.ascontiguousarray(im1)
-
-    with pytest.raises(ValueError):
-        gfx.Texture(im1, dim=2)
-
-    gfx.Texture(im2, dim=2)
+    tex = gfx.Texture(im2, dim=2)
+    mem = tex._get_subdata((0, 0, 0), im2.shape + (1,))
+    assert mem.c_contiguous
+    assert mem is tex.mem
