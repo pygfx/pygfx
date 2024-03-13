@@ -14,6 +14,8 @@ independent of any GUI toolkits.
     OrbitController
     TrackballController
     FlyController
+    Input
+    Time
 
 """
 
@@ -22,6 +24,8 @@ from ._panzoom import PanZoomController
 from ._orbit import OrbitController
 from ._trackball import TrackballController
 from ._fly import FlyController
+from ._input import Input
+from ._time import Time
 
 
 __all__ = [
@@ -30,4 +34,6 @@ __all__ = [
     "OrbitController",
     "TrackballController",
     "FlyController",
+    "Input",
+    "Time",
 ]

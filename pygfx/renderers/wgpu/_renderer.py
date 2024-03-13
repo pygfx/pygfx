@@ -599,6 +599,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
         if need_mipmaps:
             generate_texture_mipmaps(target)
 
+        # Let event handlers know we've completed rendering the current frame
+        ev = WindowEvent(
+            "after_flush",
+            target=None,
+            root=self,
+        )
+        self.dispatch_event(ev)
+
     def _render_recording(
         self,
         environment,
