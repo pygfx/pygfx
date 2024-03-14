@@ -1,4 +1,4 @@
-from pygfx.renderers.wgpu._shaderbase import resolve_varyings
+from pygfx.renderers.wgpu.shader.base1 import resolve_varyings
 from pytest import raises
 
 

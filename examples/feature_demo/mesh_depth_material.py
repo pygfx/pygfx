@@ -9,7 +9,7 @@ import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
-from pygfx.renderers.wgpu.meshshader import MeshShader
+from pygfx.renderers.wgpu.shaders.meshshader import MeshShader
 
 
 class DepthMaterial(gfx.MeshBasicMaterial):
