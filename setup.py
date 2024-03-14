@@ -68,7 +68,7 @@ setup(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
     package_data={
-        "pygfx.data_files": ["*.ttf", "*.otf", "*.json", "shaders/*.wgsl"],
+        "pygfx.data_files": ["*.ttf", "*.otf", "*.json"],
         "pygfx.renderers.wgpu.wgsl": ["*.wgsl"],
     },
     python_requires=">=3.8.0",
