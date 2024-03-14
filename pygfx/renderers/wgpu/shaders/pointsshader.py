@@ -1,8 +1,9 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ...objects import Points
-from ...materials import PointsMaterial, GaussianPointsMaterial
+from ....objects import Points
+from ....materials import PointsMaterial, GaussianPointsMaterial
+
+from .. import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
 
 
 @register_wgpu_render_function(Points, PointsMaterial)

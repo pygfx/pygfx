@@ -7,7 +7,8 @@ import weakref
 
 import wgpu
 
-from .._base import RenderFunctionRegistry
+from ....utils.renderfunctionregistry import RenderFunctionRegistry
+
 
 registry = RenderFunctionRegistry()
 

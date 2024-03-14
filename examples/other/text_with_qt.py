@@ -11,6 +11,7 @@ be useful in specific use-cases.
 
 import numpy as np
 import pygfx as gfx
+import pylinalg as la
 
 from PySide6 import QtWidgets, QtCore, QtGui
 from wgpu.gui.qt import WgpuCanvas
@@ -106,7 +107,7 @@ class TextOverlay(gfx.WorldObject):
         self.text = str(text)
         self.size = int(size)
         self.color = color
-        self.position = gfx.linalg.Vector3(*position)
+        self.local.position = position
         # Other options: font, bold, background, pixel-offset, alignment
 
 
@@ -143,16 +144,16 @@ class QtOverlayRenderer(Renderer):
         scene.traverse(visit)
 
         # Set the pixel position of each text overlay object
-        for wobject in q:
-            pos = wobject.position.clone()
-            pos = pos.apply_matrix4(wobject.matrix_world).project(camera)
-            # I don't understand this 0.25 value. I would expect it to be 0.5
-            # but for some reason it needs to be 0.25.
-            pos_pix = (
-                (+pos.x * 0.25 + 0.5) * logical_size[0],
-                (-pos.y * 0.25 + 0.5) * logical_size[1],
-            )
-            wobject.ppos = pos_pix
+        # for wobject in q:
+        #     pos = wobject.local.position
+        #     pos = la.sometjingwobject.matrix_world).project(camera)
+        #     # I don't understand this 0.25 value. I would expect it to be 0.5
+        #     # but for some reason it needs to be 0.25.
+        #     pos_pix = (
+        #         (+pos.x * 0.25 + 0.5) * logical_size[0],
+        #         (-pos.y * 0.25 + 0.5) * logical_size[1],
+        #     )
+        #     wobject.ppos = pos_pix
 
         # Store the labels for the overlay, and schedule a draw.
         self._canvas.set_text_labels(q)

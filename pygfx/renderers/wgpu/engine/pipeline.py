@@ -6,14 +6,14 @@ actual dispatching / drawing.
 
 import wgpu
 
-from ...resources import Buffer
-from ...utils import logger
-from ._shader import BaseShader
-from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ._utils import GpuCache, hash_from_value
-from ._update import ensure_wgpu_object, ALTTEXFORMAT
-from ._shared import get_shared
-from . import registry
+from ....resources import Buffer
+from ....utils import logger
+
+from ..shader.base1 import ShaderInterface
+from .utils import to_texture_format, GfxSampler, GfxTextureView
+from .utils import registry, GpuCache, hash_from_value
+from .update import ensure_wgpu_object, ALTTEXFORMAT
+from .shared import get_shared
 
 
 visibility_render = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
@@ -393,7 +393,7 @@ class PipelineContainerGroup:
             # Call render function
             with wobject.tracker.track_usage("create"):
                 shaders = renderfunc(wobject)
-                if isinstance(shaders, BaseShader):
+                if isinstance(shaders, ShaderInterface):
                     shaders = [shaders]
 
             # Divide result over two bins, one for compute, and one for render
@@ -401,7 +401,7 @@ class PipelineContainerGroup:
             render_containers = []
             bake_functions = []
             for shader in shaders:
-                assert isinstance(shader, BaseShader)
+                assert isinstance(shader, ShaderInterface)
                 if shader.type == "compute":
                     compute_containers.append(ComputePipelineContainer(shader))
                 elif shader.type == "render":
@@ -428,7 +428,7 @@ class PipelineContainer:
     then only the steps below it need to be re-run.
     """
 
-    def __init__(self, shader):
+    def __init__(self, shader: ShaderInterface):
         self.shader = shader
         self.shared = get_shared()  # the globally Shared object
         self.device = self.shared.device

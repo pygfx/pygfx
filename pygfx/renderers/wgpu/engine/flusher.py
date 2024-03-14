@@ -6,8 +6,8 @@ to the canvas.
 import wgpu
 import numpy as np
 
-from ._utils import GpuCache, hash_from_value
-from ._shared import get_shared
+from .utils import GpuCache, hash_from_value
+from .shared import get_shared
 
 # This cache enables sharing some gpu objects between code that uses
 # full-quad shaders. The gain here won't be large in general, but can

@@ -1,10 +1,17 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import GfxSampler, GfxTextureView
-from ...objects import Text
-from ...materials import TextMaterial
-from ...utils.text._shaper import REF_GLYPH_SIZE
+from ....objects import Text
+from ....materials import TextMaterial
+from ....utils.text._shaper import REF_GLYPH_SIZE
+
+from .. import (
+    register_wgpu_render_function,
+    WorldObjectShader,
+    Binding,
+    RenderMask,
+    GfxSampler,
+    GfxTextureView,
+)
 
 
 @register_wgpu_render_function(Text, TextMaterial)

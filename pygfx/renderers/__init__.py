@@ -39,6 +39,10 @@ canvas, averaging neighbouring fragments for anti-aliasing.
 
 # flake8: noqa
 
-from ._base import Renderer
+
+class Renderer:
+    pass
+
+
 from .wgpu import WgpuRenderer, print_wgpu_report
 from .svg import SvgRenderer

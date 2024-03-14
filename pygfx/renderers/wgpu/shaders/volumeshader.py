@@ -1,10 +1,19 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ...objects import Volume
-from ...materials import VolumeSliceMaterial, VolumeRayMaterial
-from ...resources import Texture
+from ....objects import Volume
+from ....materials import VolumeSliceMaterial, VolumeRayMaterial
+from ....resources import Texture
+
+from .. import (
+    register_wgpu_render_function,
+    WorldObjectShader,
+    Binding,
+    RenderMask,
+    to_texture_format,
+    GfxSampler,
+    GfxTextureView,
+)
+
 from .imageshader import sampled_value_to_color
 
 

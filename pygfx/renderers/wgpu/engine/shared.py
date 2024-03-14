@@ -4,11 +4,12 @@ A global object shared by all renderers.
 
 import wgpu
 
-from ...resources import Resource, Buffer
-from ...utils.trackable import Trackable
-from ...utils import array_from_shadertype
-from ...utils.text import glyph_atlas
-from ._utils import gpu_caches
+from ....resources import Resource, Buffer
+from ....utils.trackable import Trackable
+from ....utils import array_from_shadertype
+from ....utils.text import glyph_atlas
+
+from .utils import gpu_caches
 
 
 # Definition uniform struct with standard info related to transforms,

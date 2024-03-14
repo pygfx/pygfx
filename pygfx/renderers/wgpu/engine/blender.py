@@ -6,8 +6,8 @@ object.
 
 import wgpu  # only for flags/enums
 
-from ._flusher import create_full_quad_pipeline
-from ._shared import get_shared
+from .flusher import create_full_quad_pipeline
+from .shared import get_shared
 
 # Notes:
 # - The user code provides color as-is in rgba.

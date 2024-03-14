@@ -7,18 +7,19 @@ import weakref
 import numpy as np
 import wgpu
 
-from ...utils.trackable import Trackable
-from ...objects import (
+from ....utils.trackable import Trackable
+from ....objects import (
     PointLight,
     DirectionalLight,
     SpotLight,
     AmbientLight,
 )
-from ...resources import Buffer
-from ...utils import array_from_shadertype
-from ._pipeline import Binding
-from ._utils import generate_uniform_struct
-from ._shared import get_shared
+from ....resources import Buffer
+from ....utils import array_from_shadertype
+
+from .pipeline import Binding
+from .utils import generate_uniform_struct
+from .shared import get_shared
 
 
 class Environment(Trackable):
