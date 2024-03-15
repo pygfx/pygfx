@@ -1,6 +1,8 @@
 """
 Utility functions for pygfx.
 
+.. currentmodule:: pygfx.utils
+
 .. autosummary::
     :toctree: utils/
     :template: ../_templates/custom_layout.rst

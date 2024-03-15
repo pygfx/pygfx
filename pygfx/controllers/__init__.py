@@ -1,6 +1,6 @@
-# flake8: noqa
-
 """ Objects to control cameras.
+
+.. currentmodule:: pygfx.controllers
 
 Controllers define how cameras can be interacted with. They are
 independent of any GUI toolkits.
@@ -16,6 +16,8 @@ independent of any GUI toolkits.
     FlyController
 
 """
+
+# flake8: noqa
 
 from ._base import Controller
 from ._panzoom import PanZoomController

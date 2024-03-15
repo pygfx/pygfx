@@ -6,6 +6,7 @@ General functions and classes to operate more closely with the wgpu backend.
 
 .. autosummary::
     :toctree: _autosummary/renderers/wgpu
+    :template: ../_templates/custom_layout.rst
 
     WgpuRenderer
     register_wgpu_render_function
@@ -19,6 +20,7 @@ Classes and functions required to implement custom shaders:
 
 .. autosummary::
     :toctree: _autosummary/renderers/wgpu
+    :template: ../_templates/custom_layout.rst
 
     WorldObjectShader
     RenderMask
@@ -33,6 +35,7 @@ Lower level functions that may or may not be needed in custom shaders:
 
 .. autosummary::
     :toctree: _autosummary/renderers/wgpu
+    :template: ../_templates/custom_layout.rst
 
     to_vertex_format
     to_texture_format
