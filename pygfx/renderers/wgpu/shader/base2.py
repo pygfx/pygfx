@@ -1,17 +1,12 @@
-import os
-import functools
+from ....resources import Buffer, Texture
 
-from ...utils import get_resources_dir
-from ...resources import Buffer, Texture
-from ._utils import to_vertex_format, to_texture_format, GfxSampler, GfxTextureView
-from ._shaderbase import BaseShader
-
-
-@functools.lru_cache(maxsize=None)
-def load_shader(shader_name):
-    filename = os.path.join(get_resources_dir(), "shaders", shader_name)
-    with open(filename, "rb") as f:
-        return f.read().decode()
+from ..engine.utils import (
+    to_vertex_format,
+    to_texture_format,
+    GfxSampler,
+    GfxTextureView,
+)
+from .base1 import BaseShader
 
 
 class WorldObjectShader(BaseShader):
@@ -92,7 +87,8 @@ class WorldObjectShader(BaseShader):
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
-        from ._pipeline import Binding  # avoid recursive import
+        # TODO: this is an indication that Binding needs its own module. See similar case further down
+        from ..engine.pipeline import Binding  # avoid recursive import
 
         sampler = GfxSampler(interpolation, "repeat")
         self["colormap_interpolation"] = interpolation
@@ -137,7 +133,7 @@ class WorldObjectShader(BaseShader):
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
-        from ._pipeline import Binding  # avoid recursive import
+        from ..engine.pipeline import Binding  # avoid recursive import
 
         sampler = GfxSampler(interpolation, "clamp")
         self["colormap_interpolation"] = interpolation

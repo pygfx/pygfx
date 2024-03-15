@@ -48,7 +48,7 @@ def test_render_registry_api():
 
 
 def test_render_registry_fails():
-    r = gfx.renderers._base.RenderFunctionRegistry()
+    r = gfx.utils.renderfunctionregistry.RenderFunctionRegistry()
 
     # This is ok
     r.register(Object1, Material1, foo1)
@@ -87,7 +87,7 @@ def test_render_registry_fails():
 
 
 def test_render_registry_selection():
-    r = gfx.renderers._base.RenderFunctionRegistry()
+    r = gfx.utils.renderfunctionregistry.RenderFunctionRegistry()
 
     # Register one combo
     r.register(Object1, Material1, foo1)
@@ -154,7 +154,7 @@ def test_render_registry_selection():
 
 
 def test_render_registry_of_wgpu():
-    r = gfx.renderers.wgpu.registry
+    r = gfx.renderers.wgpu.engine.utils.registry
 
     assert None is r.get_render_function(Object1(Material1()))
 

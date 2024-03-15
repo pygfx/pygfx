@@ -12,8 +12,8 @@ def test_pyi_fonts(pyi_builder):
 def test_pyi_shaders(pyi_builder):
     pyi_builder.test_source(
         """
-        from pygfx.renderers.wgpu import load_shader
-        wgsl = load_shader("line.wgsl")
+        from pygfx.renderers.wgpu import load_wgsl
+        wgsl = load_wgsl("line.wgsl")
         assert "fn vs_main(" in wgsl
         """
     )

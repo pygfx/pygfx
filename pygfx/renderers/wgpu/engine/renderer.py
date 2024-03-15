@@ -8,10 +8,10 @@ import weakref
 
 import numpy as np
 import wgpu
+import pylinalg as la
 
-from .. import Renderer
-from ...objects._base import id_provider
-from ...objects import (
+from ....objects._base import id_provider
+from ....objects import (
     KeyboardEvent,
     RootEventHandler,
     PointerEvent,
@@ -19,21 +19,21 @@ from ...objects import (
     WindowEvent,
     WorldObject,
 )
-from ...cameras import Camera
-from ...resources import Texture
-from ...resources._base import resource_update_registry
-from ...utils import Color
-import pylinalg as la
+from ....cameras import Camera
+from ....resources import Texture
+from ....resources._base import resource_update_registry
+from ....utils import Color
 
-from . import _blender as blender_module
-from ._flusher import RenderFlusher
-from ._pipeline import get_pipeline_container_group
-from ._update import update_resource, ensure_wgpu_object
-from ._shared import get_shared
-from ._environment import get_environment
-from ._shadowutil import render_shadow_maps
-from ._mipmapsutil import generate_texture_mipmaps
-from ._utils import GfxTextureView
+from ... import Renderer
+from . import blender as blender_module
+from .flusher import RenderFlusher
+from .pipeline import get_pipeline_container_group
+from .update import update_resource, ensure_wgpu_object
+from .shared import get_shared
+from .environment import get_environment
+from .shadowutil import render_shadow_maps
+from .mipmapsutil import generate_texture_mipmaps
+from .utils import GfxTextureView
 
 
 def _get_sort_function(camera: Camera):

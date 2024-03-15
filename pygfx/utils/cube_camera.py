@@ -2,7 +2,7 @@ from ..objects._base import WorldObject
 from ..cameras import PerspectiveCamera
 from ..resources import Texture
 from ..renderers import WgpuRenderer
-from ..renderers.wgpu._utils import GfxTextureView
+from ..renderers.wgpu import GfxTextureView
 
 
 def _is_cube_texture(texture):

@@ -3,11 +3,11 @@
 
 import os
 from pygfx.utils import get_resources_dir
-from pygfx.renderers.wgpu import load_shader
+from pygfx.renderers.wgpu import load_wgsl
 
 
-def test_can_load_shaders():
-    wgsl = load_shader("line.wgsl")
+def test_can_load_wgsl():
+    wgsl = load_wgsl("line.wgsl")
     assert "fn vs_main(" in wgsl
 
 

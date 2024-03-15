@@ -1,15 +1,10 @@
 import wgpu  # only for flags/enums
 
-from . import (
-    register_wgpu_render_function,
-    WorldObjectShader,
-    Binding,
-    RenderMask,
-    shaderlib,
-)
-from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ...objects import Mesh, InstancedMesh
-from ...materials import (
+
+from ....objects import Mesh, InstancedMesh
+from ....resources import Buffer, Texture
+from ....utils import normals_from_vertices
+from ....materials import (
     MeshBasicMaterial,
     MeshPhongMaterial,
     MeshNormalMaterial,
@@ -17,8 +12,17 @@ from ...materials import (
     MeshSliceMaterial,
     MeshStandardMaterial,
 )
-from ...resources import Buffer, Texture
-from ...utils import normals_from_vertices
+
+from .. import (
+    register_wgpu_render_function,
+    WorldObjectShader,
+    Binding,
+    RenderMask,
+    shaderlib,
+    to_texture_format,
+    GfxSampler,
+    GfxTextureView,
+)
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)

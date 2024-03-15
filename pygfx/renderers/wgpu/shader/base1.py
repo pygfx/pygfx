@@ -10,9 +10,10 @@ import re
 import jinja2
 import numpy as np
 
-from ...utils import array_from_shadertype
-from ...resources import Buffer
-from ._utils import (
+from ....utils import array_from_shadertype
+from ....resources import Buffer
+
+from ..engine.utils import (
     to_vertex_format,
     to_texture_format,
     generate_uniform_struct,
@@ -234,7 +235,43 @@ def resolve_depth_output(wgsl):
     return "\n".join(lines)
 
 
-class BaseShader:
+class ShaderInterface:
+    """Define what a shader object must look like from the pov from the pipeline."""
+
+    def __init__(self):
+        self._hash = None
+
+    def lock_hash(self):
+        self._hash = self._get_hash()
+
+    def unlock_hash(self):
+        self._hash = None
+
+    @property
+    def hash(self):
+        """A hash of the current state of the shader. If the hash changed, it's likely that the shader changed."""
+        if self._hash is None:
+            return self._get_hash()
+        else:
+            return self._hash
+
+    def _get_hash(self):
+        raise NotImplementedError()
+
+    def generate_wgsl(self, **kwargs):
+        raise NotImplementedError()
+
+    def get_bindings(self, wobject, shared):
+        raise NotImplementedError()
+
+    def get_pipeline_info(self, wobject, shared):
+        raise NotImplementedError()
+
+    def get_render_info(self, wobject, shared):
+        raise NotImplementedError()
+
+
+class BaseShader(ShaderInterface):
     """Base shader object to compose and template shaders using jinja2.
 
     Templating variables can be provided as kwargs, set (and get) as attributes,
@@ -274,22 +311,6 @@ class BaseShader:
 
     def __getitem__(self, key):
         return self.kwargs[key]
-
-    def lock_hash(self):
-        self._hash = self._get_hash()
-
-    def unlock_hash(self):
-        self._hash = None
-
-    @property
-    def hash(self):
-        """A hash of the current state of the shader. If the hash changed,
-        it's likely that the shader changed.
-        """
-        if self._hash is None:
-            return self._get_hash()
-        else:
-            return self._hash
 
     def _get_hash(self):
         # The full name of this shader class.

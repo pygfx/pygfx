@@ -1,9 +1,10 @@
 import numpy as np
 import wgpu
 
-from ...resources._texture import Texture
-from ._utils import GfxTextureView, GpuCache
-from ._shared import get_shared
+from ....resources._texture import Texture
+
+from .utils import GfxTextureView, GpuCache
+from .shared import get_shared
 
 
 # This cache enables re-using gpu pipelines for calculating mipmaps, so

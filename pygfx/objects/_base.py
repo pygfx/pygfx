@@ -75,6 +75,13 @@ id_provider = IdProvider()
 
 
 class RenderMask(enum.IntFlag):
+    """A flag indicating how the object participates in the different render passes.
+
+    It defines whether an object should be rendered in the opaque pass, the
+    transparent pass, or all. By default (auto), this is determined from the
+    materials properties (e.g. opacity, color, color_mode).
+    """
+
     auto = 0
     opaque = 1
     transparent = 2

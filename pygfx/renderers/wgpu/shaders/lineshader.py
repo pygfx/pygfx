@@ -5,17 +5,10 @@ import wgpu  # only for flags/enums
 import numpy as np
 import pylinalg as la
 
-from . import (
-    register_wgpu_render_function,
-    WorldObjectShader,
-    Binding,
-    RenderMask,
-    load_shader,
-)
-from ...utils import array_from_shadertype
-from ...resources import Buffer
-from ...objects import Line
-from ...materials._line import (
+from ....utils import array_from_shadertype
+from ....resources import Buffer
+from ....objects import Line
+from ....materials._line import (
     LineMaterial,
     LineSegmentMaterial,
     LineArrowMaterial,
@@ -23,6 +16,15 @@ from ...materials._line import (
     LineThinSegmentMaterial,
     LineDebugMaterial,
 )
+
+from .. import (
+    register_wgpu_render_function,
+    WorldObjectShader,
+    Binding,
+    RenderMask,
+    load_wgsl,
+)
+
 
 renderer_uniform_type = dict(last_i="i4")
 
@@ -249,7 +251,7 @@ class LineShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return self.code_definitions() + self.code_common() + load_shader("line.wgsl")
+        return self.code_definitions() + self.code_common() + load_wgsl("line.wgsl")
 
 
 @register_wgpu_render_function(Line, LineDebugMaterial)

@@ -2,10 +2,11 @@ import os
 import io
 import pylinalg as la
 
-from .._base import Renderer, RenderFunctionRegistry
+from ...utils.renderfunctionregistry import RenderFunctionRegistry
 
 from ...objects import WorldObject
 from ...cameras import Camera
+from .. import Renderer
 
 
 registry = RenderFunctionRegistry()
@@ -32,6 +33,8 @@ def register_svg_render_function(wobject_cls, material_cls):
 
 class SvgRenderer(Renderer):
     """Turns scenes into SVG images.
+
+    Notice: this renderer is just an experimental stub for now.
 
     Parameters
     ----------

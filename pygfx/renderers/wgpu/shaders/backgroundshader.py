@@ -1,10 +1,18 @@
 import wgpu  # only for flags/enums
 
-from . import register_wgpu_render_function, WorldObjectShader, Binding, RenderMask
-from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ...objects import Background
-from ...materials import BackgroundMaterial, BackgroundImageMaterial
-from ...resources import Texture
+from ....objects import Background
+from ....materials import BackgroundMaterial, BackgroundImageMaterial
+from ....resources import Texture
+
+from .. import (
+    register_wgpu_render_function,
+    WorldObjectShader,
+    Binding,
+    RenderMask,
+    to_texture_format,
+    GfxSampler,
+    GfxTextureView,
+)
 
 
 @register_wgpu_render_function(Background, BackgroundMaterial)

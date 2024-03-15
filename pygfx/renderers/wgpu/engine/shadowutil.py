@@ -1,9 +1,9 @@
 import wgpu
 
-from ... import objects
-from ._update import ensure_wgpu_object, update_resource
-from ._utils import to_vertex_format, GpuCache
-from ._shared import get_shared
+from .... import objects
+from .update import ensure_wgpu_object, update_resource
+from .utils import to_vertex_format, GpuCache
+from .shared import get_shared
 
 
 # This cache enables re-using gpu pipelines for calculating shadows,

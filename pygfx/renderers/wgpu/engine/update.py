@@ -4,10 +4,11 @@ Functions to update resources.
 
 import wgpu
 
-from ...resources import Texture, Buffer
-from ._utils import to_texture_format, GfxSampler, GfxTextureView
-from ._mipmapsutil import get_mip_level_count, generate_texture_mipmaps
-from ._shared import get_shared
+from ....resources import Texture, Buffer
+
+from .utils import to_texture_format, GfxSampler, GfxTextureView
+from .mipmapsutil import get_mip_level_count, generate_texture_mipmaps
+from .shared import get_shared
 
 
 # Alternative texture formats that we support by padding channels as needed.
