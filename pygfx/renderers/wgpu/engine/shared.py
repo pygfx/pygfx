@@ -159,9 +159,11 @@ def enable_wgpu_features(*features):
 
 
 def get_shared():
-    """Get the globally shared instance. Creates it if it does not yet exist.
-    This should not be called at the import time of any module.
-    Use this to get the global device: `get_shared().device`.
+    """Get the globally shared instance.
+
+    Creates it if it does not yet exist. This should not be called at the import
+    time of any module. Use this to get the global device:
+    ``get_shared().device``.
     """
     if Shared._instance is None:
         Shared()

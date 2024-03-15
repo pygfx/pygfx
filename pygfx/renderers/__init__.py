@@ -1,15 +1,32 @@
-"""Objects to draw a scene onto a canvas.
-
+"""
 The purpose of a renderer is to render (i.e. draw) a scene to a canvas or
 texture. It also provides picking, defines the anti-aliasing parameters, and any
 post processing effects.
 
+Classes
+-------
+
+.. autoclass:: pygfx.renderers.Renderer
+    :members:
+
+The system is designed such that different renderer implementations can
+co-exist. However, :class:`~wgpu.WgpuRenderer` is likely the
+only renderer you'll use.
+
+The ``WgpuRenderer`` is capable of randering all types of objects. Other
+renderers will likely be limited to a subset. E.g. the experimental
+:class:`~svg.SVGRenderer` for lines, points and text.
+
+Details
+-------
+
 A renderer is directly associated with its target and can only render to that
 target. Different renderers can render to the same target though.
 
-It provides a ``.render()`` method that can be called one or more times to
-render scenes. This creates a visual representation that is stored internally,
-and is finally rendered into its render target (the canvas or texture)::
+A renderer provides a ``.render()`` method that can be called one or more times
+to render scenes. This creates a visual representation that is stored
+internally, and is finally rendered into its render target (the canvas or
+texture)::
 
                               __________
                              | blender  |
@@ -25,23 +42,17 @@ call may consist of multiple passes (to deal with semi-transparent fragments).
 The flush-step resolves the internal representation into the target texture or
 canvas, averaging neighbouring fragments for anti-aliasing.
 
-.. currentmodule:: pygfx.renderers
-
-.. autosummary::
-    :toctree: renderers/
-    :template: ../_templates/custom_layout.rst
-
-    WgpuRenderer
-    SvgRenderer
-    print_wgpu_report
-
 """
 
 # flake8: noqa
 
 
 class Renderer:
-    pass
+    """Base (abstract) renderer class that all renderers inherit from."""
+
+    def render(self, scene, camera):
+        """The method to call to render a scene from a camera viewpoint."""
+        raise NotImplementedError()
 
 
 from .wgpu import WgpuRenderer, print_wgpu_report

@@ -34,6 +34,8 @@ def register_svg_render_function(wobject_cls, material_cls):
 class SvgRenderer(Renderer):
     """Turns scenes into SVG images.
 
+    Notice: this renderer is just an experimental stub for now.
+
     Parameters
     ----------
     width : int

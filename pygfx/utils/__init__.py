@@ -11,7 +11,7 @@ Utility functions for pygfx.
     show.show
     show.Display
     viewport.Viewport
-    text.font_manager
+    text.FontManager
     cm
 
 Transform classes
