@@ -14,7 +14,7 @@ First run `view.py`, and then separately run `compute.py`
 import numpy as np
 import zmq
 
-import pygfx
+import pygfx as gfx
 from wgpu.gui.auto import WgpuCanvas, run
 
 context = zmq.Context()
@@ -45,17 +45,17 @@ def get_bytes():
 
 
 canvas = WgpuCanvas()
-renderer = pygfx.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas)
 
-scene = pygfx.Scene()
-camera = pygfx.OrthographicCamera()
+scene = gfx.Scene()
+camera = gfx.OrthographicCamera()
 
 # initialize some data, must be of same dtype and shape as data sent by publisher
 data = np.random.rand(512, 512).astype(np.float32)
 
-image = pygfx.Image(
-    geometry=pygfx.Geometry(grid=pygfx.Texture(data, dim=2)),
-    material=pygfx.ImageBasicMaterial(clim=(0, 1), map=pygfx.cm.plasma),
+image = gfx.Image(
+    geometry=gfx.Geometry(grid=gfx.Texture(data, dim=2)),
+    material=gfx.ImageBasicMaterial(clim=(0, 1), map=gfx.cm.plasma),
 )
 
 scene.add(image)

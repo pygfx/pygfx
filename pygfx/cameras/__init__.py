@@ -1,5 +1,7 @@
 """ Objects to view a scene.
 
+.. currentmodule:: pygfx.cameras
+
 .. autosummary::
     :toctree: cameras/
     :template: ../_templates/custom_layout.rst
