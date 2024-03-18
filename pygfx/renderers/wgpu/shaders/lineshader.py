@@ -125,13 +125,30 @@ class LineShader(WorldObjectShader):
                 return
             self._positions_hash = positions_hash
             vertex_array = positions_array
-        elif wobject.material.thickness_space == "world":
-            vertex_array = la.vec_transform(positions_array, wobject.world.matrix)
-        else:  # wobject.material.thickness_space == "screen":
-            xyz = la.vec_transform(
-                positions_array, camera.camera_matrix @ wobject.world.matrix
-            )
-            vertex_array = xyz[:, :2] * (0.5 * np.array(logical_size))
+        else:
+            # Prep
+            finites = np.isfinite(positions_array).all(axis=1)
+            has_non_finites = not finites.all()
+            if has_non_finites:
+                positions_array_sub = positions_array[finites, :]
+            else:
+                positions_array_sub = positions_array
+            # Transform
+            if wobject.material.thickness_space == "world":
+                vertex_array_sub = la.vec_transform(
+                    positions_array_sub, wobject.world.matrix
+                )
+            else:  # wobject.material.thickness_space == "screen":
+                xyz = la.vec_transform(
+                    positions_array_sub, camera.camera_matrix @ wobject.world.matrix
+                )
+                vertex_array_sub = xyz[:, :2] * (0.5 * np.array(logical_size))
+            # Fix up
+            if has_non_finites:
+                vertex_array = np.full((len(positions_array), 2), np.nan, np.float32)
+                vertex_array[finites] = vertex_array_sub
+            else:
+                vertex_array = vertex_array_sub
 
         # Calculate distances
         distances = np.linalg.norm(vertex_array[1:] - vertex_array[:-1], axis=1)

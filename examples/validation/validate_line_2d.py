@@ -23,14 +23,22 @@ renderer.blend_mode = "weighted"
 
 positions = [
     # Cap
-    [0, 0, 0],
+    [-1, 0, 0],
     # Some joins / corners
-    [1, 1, 0],
-    [2, -0.5, 0],
-    [3, 0, 0],
-    # A nan point, creating a gap
-    [4, 0, 1],
+    [0, 1, 0],
+    [1, -0.5, 0],
+    [2, 0, 0],
+    # nan and inf create gaps, should trigger when *any* field is nonfinite.
+    # 4 gaps in total.
+    [2.5, 0, 1],
     [np.nan, np.nan, np.nan],
+    [3, 0, 1],
+    [np.nan, 0, 1],
+    [3.5, 0, 1],
+    [3.75, np.inf, 1],
+    [4.0, 0, 1],
+    [4.25, 0, -np.inf],
+    [4.5, 0, 1],
     [5, 0, 1],
     # A duplicate point
     [6, 1, 1],
