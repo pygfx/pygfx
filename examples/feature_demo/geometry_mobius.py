@@ -9,7 +9,7 @@ the ends meet.
 """
 
 # example_testing: run
-# example_gallery: screenshot
+# sphinx_gallery_pygfx = 'screenshot'
 
 import pygfx as gfx
 

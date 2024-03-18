@@ -6,7 +6,8 @@ Example demonstrating colormaps in 4 modes: grayscale, gray+alpha, RGB, RGBA.
 """
 
 # example_testing: run
-# example_gallery: screenshot
+# sphinx_gallery_pygfx = 'screenshot'
+# sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np
 import pygfx as gfx

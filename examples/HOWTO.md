@@ -31,13 +31,13 @@ Examples have three possible modes with regards to testing. For this purpose the
 ## Gallery
 
 There are a few modes by which an example can appear in the gallery.
-For this purpose the `# example_gallery:` comment must be present in each
+For this purpose the `# sphinx_gallery_pygf` comment must be present in each
 example.
 
-* `example_gallery: hidden` - not present in the gallery.
-* `example_gallery: code` - present only as code (don't run the code when building docs).
-* `example_gallery: screenshot` - present in the gallery with a screenshot.
-* `example_gallery: animate 3s` - present in the gallery with an animation (length specified in seconds).
+* `sphinx_gallery_pygfx = 'hidden'` - not present in the gallery.
+* `sphinx_gallery_pygfx = 'code'` - present only as code (don't run the code when building docs).
+* `sphinx_gallery_pygfx = 'screenshot'` - present in the gallery with a screenshot.
+* `sphinx_gallery_pygfx = 'animate 3s'` - present in the gallery with an animation (length specified in seconds).
 
 Examples that are animated should ``from time import perf_counter``, and use it
 to determine the speed of the animation. The ``perf_counter`` variable is

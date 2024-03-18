@@ -8,7 +8,7 @@ text rendering to its limits.
 """
 
 # example_testing: run
-# example_gallery: animate 3s
+# sphinx_gallery_pygfx = 'animate 4s'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

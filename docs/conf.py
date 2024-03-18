@@ -83,6 +83,8 @@ sphinx_gallery_conf = {
         "Scene",
         "Light",
     },
+    # Remove any comment that starts with "sphinx_gallery_"
+    "remove_config_comments": True,
     # Define order of appearance of the examples
     "subsection_order": ExplicitOrder(
         [

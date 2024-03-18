@@ -1,11 +1,13 @@
 # Contributor's Guide
 
+
 ## Who can contribute?
 
 We accept contributions from anyone as long as these contributions meet our standards.
 While we will accept contributions from anyone, we especially value ideas and
 contributions from folks with diverse backgrounds and identities. There are
 many ways to contribute (see below) and no contribution is too small.
+
 
 ## What can be contributed?
 
@@ -41,12 +43,11 @@ the main GitHub repository: https://github.com/pygfx/pygfx
   early gives maintainers a chance to provide an early review of your code if
   that's something you're looking for.
 
-
-
 No matter how you contribute, the maintainers will try their best to read,
 research, and respond to your query as soon as possible. For code changes,
 automated checks and tests will run on GitHub to provide an initial "review"
 of your changes.
+
 
 ## What if I need help?
 

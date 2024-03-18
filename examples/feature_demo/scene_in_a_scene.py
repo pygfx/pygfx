@@ -13,7 +13,7 @@ surface of the cube in the outer scene.
 """
 
 # example_testing: run
-# example_gallery: screenshot
+# sphinx_gallery_pygfx = 'screenshot'
 
 import numpy as np
 import imageio.v3 as iio
