@@ -128,7 +128,7 @@ class LineShader(WorldObjectShader):
         else:
             # Prep
             finites = np.isfinite(positions_array).all(axis=1)
-            has_non_finites = finites.sum() != finites.size
+            has_non_finites = not finites.all()
             if has_non_finites:
                 positions_array_sub = positions_array[finites, :]
             else:
