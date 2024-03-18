@@ -1,5 +1,11 @@
+"""
+Utilities for scraping examples to create a gallery.
+"""
+
+import os
 import re
 import time
+import warnings
 from pathlib import Path
 
 import imageio.v3 as iio
@@ -11,6 +17,63 @@ from .show import Display
 
 
 gallery_pattern = re.compile(r"^# example_gallery:(.+)$", re.MULTILINE)
+
+
+def find_examples_for_gallery(examples_dir):
+    """Find examples to include in the gallery.
+
+    Examples are collected based on the value of the ``example_gallery:``
+    comment in the example files:
+
+    * ``example_gallery: hidden`` - not present in the gallery.
+    * ``example_gallery: code`` - present only as code (don't run the code when building docs).
+    * ``example_gallery: screenshot`` - present in the gallery with a screenshot.
+    * ``example_gallery: animate 3s 15fps`` - present in the gallery with an animation (duration and fps are optional).
+
+    Returns a dict that can be merged with the sphinx_gallery_conf.
+
+    The Sphinx gallery does not have very good support to configure on a
+    per-file basis. This utility function helps collect a lists of files, and
+    pour these into regexp's for Sphinx to consume.
+    """
+
+    examples_dir = Path(examples_dir).absolute()
+
+    examples_to_hide = []
+    examples_to_show = []  # This is Sphinx' default; not actually used.
+    examples_to_run = []
+
+    # Collect files
+    for filename in examples_dir.glob("**/*.py"):
+        fname = str(filename.relative_to(examples_dir))
+        example_code = filename.read_text(encoding="UTF-8")
+        match = gallery_pattern.search(example_code)
+        config = match.group(1).lower().strip() if match else "<missing>"
+        if not match:
+            examples_to_hide.append(fname)
+        elif config == "hidden":
+            examples_to_hide.append(fname)
+        elif config == "code":
+            examples_to_show.append(fname)
+        elif config.startswith(("screenshot", "animate")):
+            examples_to_run.append(fname)
+        else:
+            raise RuntimeError(
+                f"Unexpected value for '# example_gallery: ' in {fname}: '{config}'."
+                + " Expecting 'hidden', 'code', 'screenshot' or 'animate'."
+            )
+
+    # Convert to regexp, because that's what Sphinx needs
+    patternize = lambda path: (os.sep + path).replace("\\", "\\\\").replace(".", "\\.")
+    hide_pattern = "(" + "|".join(patternize(x) for x in examples_to_hide) + ")"
+    run_pattern = "(" + "|".join(patternize(x) for x in examples_to_run) + ")"
+
+    # Return dict that can be merged with the sphinx_gallery_conf
+    return {
+        "examples_dirs": str(examples_dir),
+        "ignore_pattern": hide_pattern,
+        "filename_pattern": run_pattern,
+    }
 
 
 def split_val_unit(s):

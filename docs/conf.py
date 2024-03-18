@@ -56,46 +56,13 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- Sphix Gallery -----------------------------------------------------
 
+from pygfx.utils.gallery_scraper import find_examples_for_gallery
+
 # Force offscreen rendering
 os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 
-# The Sphinx gallery does not have very good support to configure on a per-file
-# basis. So we do that ourselves. We collect lists of files, and then pour these
-# into regexp's for Sphinx to consume.
-examples_to_hide = []
-examples_to_show = []  # This is Sphinx' default, added for completenes, but not used.
-examples_to_run = []
-
-gallery_pattern = re.compile(r"^# example_gallery:(.+)$", re.MULTILINE)
-
-# Collect files
-for filename in EXAMPLES_DIR.glob("**/*.py"):
-    fname = str(filename.relative_to(EXAMPLES_DIR))
-    if "tests" in filename.parts:
-        continue
-    example_code = filename.read_text(encoding="UTF-8")
-    match = gallery_pattern.search(example_code)
-    config = match.group(1).lower().strip() if match else "<missing>"
-    if config == "hidden":
-        examples_to_hide.append(fname)
-    elif config == "code":
-        examples_to_show.append(fname)
-    elif config.startswith(("screenshot", "animate")):
-        examples_to_run.append(fname)
-    else:
-        examples_to_hide.append(fname)
-        warnings.warn(
-            f"Unexpected value for '# example_gallery: ' in {fname}: {config}."
-        )
-
-# Convert to regexp, because that's what Sphinx needs
-patternize = lambda path: (os.sep + path).replace("\\", "\\\\").replace(".", "\\.")
-sphinx_hide_pattern = "(" + "|".join(patternize(x) for x in examples_to_hide) + ")"
-sphinx_run_pattern = "(" + "|".join(patternize(x) for x in examples_to_run) + ")"
-
 # The gallery conf. See https://sphinx-gallery.github.io/stable/configuration.html
 sphinx_gallery_conf = {
-    "examples_dirs": "../examples",
     "gallery_dirs": "_gallery",
     "backreferences_dir": "_gallery/backreferences",
     "doc_module": ("pygfx",),
@@ -125,10 +92,9 @@ sphinx_gallery_conf = {
             "../examples/other",
         ]
     ),
-    # Patterns to exclude and run examples, respectively
-    "ignore_pattern": sphinx_hide_pattern,
-    "filename_pattern": sphinx_run_pattern,
 }
+
+sphinx_gallery_conf.update(find_examples_for_gallery(ROOT_DIR / "examples"))
 
 
 # -- Options for HTML output -------------------------------------------------
