@@ -1,3 +1,5 @@
+import re
+import time
 from pathlib import Path
 
 import imageio.v3 as iio
@@ -7,22 +9,15 @@ from wgpu.gui import WgpuCanvasBase
 from ..renderers import Renderer
 from .show import Display
 
-# The scraper's default configuration. An example code-block
-# may overwrite these values by setting comments of the form
-#
-#     # sphinx_gallery_pygfx_<name> = <value>
-#
-# inside the code block. These comments will not be shown in the generated
-# gallery example and will be reset after each code block.
-default_config = {
-    "render": False,  # if True, render an image
-    "animate": False,  # if True, render a GIF (TODO)
-    "target_name": "renderer",  # the display to use
-    # GIF settings
-    "duration": 3,  # how many seconds to record
-    "loop": 0,  # loop forever
-    "lossless": True,  # whether to compress the result
-}
+
+gallery_pattern = re.compile(r"^# example_gallery:(.+)$", re.MULTILINE)
+
+
+def split_val_unit(s):
+    for i in range(len(s)):
+        if s[i] not in "-+0.123456789":
+            break
+    return float(s[:i]), s[i:]
 
 
 def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
@@ -50,54 +45,81 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         the images. This is often produced by :func:`figure_rst`.
     """
 
-    # parse block-level config
-    scraper_config = default_config.copy()
-    config_prefix = "# sphinx_gallery_pygfx_"
-    for line in block[1].split("\n"):
-        if not line.startswith(config_prefix):
-            continue
+    # Get canvas to sample the screenshot from
+    canvas = None
+    for target_name in ["display", "disp", "renderer", "canvas"]:
+        target = block_vars["example_globals"].get(target_name, None)
+        if isinstance(target, Display):
+            canvas = target.canvas
+            break
+        elif isinstance(target, Renderer):
+            canvas = target.target
+            break
+        elif isinstance(target, WgpuCanvasBase):
+            canvas = target
+            break
+        elif target is not None:
+            raise ValueError(f"WTF {target}")
+    if canvas is None:
+        raise ValueError(
+            "Need a target to sample the screenshot from: either 'display', 'renderer' or 'canvas'."
+        )
 
-        name, value = line[len(config_prefix) :].split(" = ")
-        scraper_config[name] = eval(value)
+    image_paths = []
+    config_parts = gallery_pattern.search(block[1]).group(1).lower().split()
 
-    if not scraper_config["render"] and not scraper_config["animate"]:
-        return ""  # nothing to do
+    if config_parts[0] == "screenshot":
 
-    target = block_vars["example_globals"][scraper_config["target_name"]]
-    if isinstance(target, Display):
-        canvas = target.canvas
-    elif isinstance(target, Renderer):
-        canvas = target.target
-    elif isinstance(target, WgpuCanvasBase):
-        canvas = target
-    else:
-        raise ValueError("`target` must be a Display, Renderer, or Canvas.")
+        # Configure
+        lossless = True
 
-    images = []
+        # Render frame
+        frame = canvas.draw()
 
-    if scraper_config["render"]:
+        # Write image
         path_generator = block_vars["image_path_iterator"]
-        img_path = next(path_generator)
-        iio.imwrite(img_path, canvas.draw())
-        images.append(img_path)
+        img_path = Path(next(path_generator)).with_suffix(".webp")
+        iio.imwrite(
+            img_path,
+            frame,
+            lossless=True,
+        )
+        image_paths.append(img_path)
 
-    if scraper_config["animate"]:
+    elif config_parts[0] == "animate":
+
+        # Configure
+        duration = 3.0  # total duration of the animation, in seconds
+        fps = 20  # frames per second
+        loop = 0  # how many loops to show: 0 means loop forever
+        lossless = False
+        for part in config_parts[1:]:
+            val, unit = split_val_unit(part)
+            if unit == "s":
+                duration = val
+            elif unit == "fps":
+                fps = val
+            else:
+                raise RuntimeError(f"Unexpected animation option: '{part}'")
+
+        # Render frames
         frames = []
-
-        # by default videos are rendered at ~ 30 FPS
-        n_frames = scraper_config["duration"] * 30
-        for _ in range(n_frames):
+        n_frames = int(duration * fps)
+        t0 = time.perf_counter()
+        for i in range(n_frames):
+            block_vars["example_globals"]["perf_counter"] = lambda: t0 + i / fps
             frames.append(canvas.draw())
 
+        # Write the video
         path_generator = block_vars["image_path_iterator"]
         img_path = Path(next(path_generator)).with_suffix(".webp")
         iio.imwrite(
             img_path,
             frames,
-            duration=33,
-            loop=scraper_config["loop"],
-            lossless=scraper_config["lossless"],
+            duration=1 / fps,
+            loop=loop,
+            lossless=lossless,
         )
-        images.append(img_path)
+        image_paths.append(img_path)
 
-    return figure_rst(images, gallery_conf["src_dir"])
+    return figure_rst(image_paths, gallery_conf["src_dir"])
