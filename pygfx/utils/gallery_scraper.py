@@ -65,8 +65,19 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
             "Need a target to sample the screenshot from: either 'display', 'renderer' or 'canvas'."
         )
 
+    # Get gallery config for this block. In config we already select files for
+    # inclusion, so if this runs we know that we need a screenshot at least.
+    # However, in scripts with multiple blocks, it can still happen that we
+    # don't find a match for a specific block. In that case we default to
+    # screenshot mode.
+    match = gallery_pattern.search(block[1])
+    if match:
+        config_parts = match.group(1).lower().split()
+    else:
+        config_parts = ["screenshot"]
+
+    # List of images for this block/file. We always return just one image/animation
     image_paths = []
-    config_parts = gallery_pattern.search(block[1]).group(1).lower().split()
 
     if config_parts[0] == "screenshot":
 
