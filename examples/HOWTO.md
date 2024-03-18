@@ -41,5 +41,5 @@ example.
 
 Examples that are animated should ``from time import perf_counter``, and use it
 to determine the speed of the animation. The ``perf_counter`` variable is
-replaced during rendering to simulate time. This way the animation is also
+patched during rendering to simulate time. This way the animation is also
 independent on e.g. movie fps.
