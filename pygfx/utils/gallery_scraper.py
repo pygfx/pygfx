@@ -5,7 +5,6 @@ Utilities for scraping examples to create a gallery.
 import os
 import re
 import time
-import warnings
 from pathlib import Path
 
 import imageio.v3 as iio
@@ -76,15 +75,8 @@ def find_examples_for_gallery(examples_dir):
     }
 
 
-def split_val_unit(s):
-    for i in range(len(s)):
-        if s[i] not in "-+0.123456789":
-            break
-    return float(s[:i]), s[i:]
-
-
 def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
-    """Scrape pygfx images and animations
+    """Scrape pygfx images and animations.
 
     Parameters
     ----------
@@ -108,25 +100,11 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         the images. This is often produced by :func:`figure_rst`.
     """
 
+    namespace = block_vars["example_globals"]
+    path_generator = block_vars["image_path_iterator"]
+
     # Get canvas to sample the screenshot from
-    canvas = None
-    for target_name in ["display", "disp", "renderer", "canvas"]:
-        target = block_vars["example_globals"].get(target_name, None)
-        if isinstance(target, Display):
-            canvas = target.canvas
-            break
-        elif isinstance(target, Renderer):
-            canvas = target.target
-            break
-        elif isinstance(target, WgpuCanvasBase):
-            canvas = target
-            break
-        elif target is not None:
-            raise ValueError(f"WTF {target}")
-    if canvas is None:
-        raise ValueError(
-            "Need a target to sample the screenshot from: either 'display', 'renderer' or 'canvas'."
-        )
+    canvas = select_canvas(namespace)
 
     # Get gallery config for this block. In config we already select files for
     # inclusion, so if this runs we know that we need a screenshot at least.
@@ -139,61 +117,100 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     else:
         config_parts = ["screenshot"]
 
-    # List of images for this block/file. We always return just one image/animation
-    image_paths = []
-
     if config_parts[0] == "screenshot":
 
         # Configure
-        lossless = True
+        config = {
+            "lossless": True,
+        }
 
-        # Render frame
-        frame = canvas.draw()
-
-        # Write image
-        path_generator = block_vars["image_path_iterator"]
-        img_path = Path(next(path_generator)).with_suffix(".webp")
-        iio.imwrite(
-            img_path,
-            frame,
-            lossless=True,
-        )
-        image_paths.append(img_path)
+        # Store as webp, even when lossless its ~50% of png
+        img_filename = Path(next(path_generator)).with_suffix(".webp")
+        render_screenshot(canvas, namespace, img_filename, **config)
 
     elif config_parts[0] == "animate":
 
         # Configure
-        duration = 3.0  # total duration of the animation, in seconds
-        fps = 20  # frames per second
-        loop = 0  # how many loops to show: 0 means loop forever
-        lossless = False
+        config = {
+            "duration": 3.0,  # total duration of the animation, in seconds
+            "fps": 20,  # frames per second
+            "loop": 0,  # how many loops to show: 0 means loop forever
+            "lossless": False,
+        }
         for part in config_parts[1:]:
             val, unit = split_val_unit(part)
             if unit == "s":
-                duration = val
+                config["duration"] = val
             elif unit == "fps":
-                fps = val
+                config["fps"] = val
             else:
                 raise RuntimeError(f"Unexpected animation option: '{part}'")
 
-        # Render frames
-        frames = []
-        n_frames = int(duration * fps)
-        t0 = time.perf_counter()
-        for i in range(n_frames):
-            block_vars["example_globals"]["perf_counter"] = lambda: t0 + i / fps
-            frames.append(canvas.draw())
+        # Store as webp, which is *much* smaller and better looking than gif
+        img_filename = Path(next(path_generator)).with_suffix(".webp")
+        render_movie(canvas, namespace, img_filename, **config)
 
-        # Write the video
-        path_generator = block_vars["image_path_iterator"]
-        img_path = Path(next(path_generator)).with_suffix(".webp")
-        iio.imwrite(
-            img_path,
-            frames,
-            duration=1 / fps,
-            loop=loop,
-            lossless=lossless,
+    else:
+        return
+
+    return figure_rst([img_filename], gallery_conf["src_dir"])
+
+
+def select_canvas(namespace):
+    """Select canvas from the given namespace."""
+    # TODO: what can we do here to help find the canvas in e.g. a fastplotlib script?
+    canvas = None
+    for target_name in ["display", "disp", "renderer", "canvas"]:
+        target = namespace.get(target_name, None)
+        if target is None:
+            pass
+        elif isinstance(target, Display):
+            canvas = target.canvas
+            break
+        elif isinstance(target, Renderer):
+            canvas = target.target
+            break
+        elif isinstance(target, WgpuCanvasBase):
+            canvas = target
+            break
+    if canvas is None:
+        raise ValueError(
+            "Could not find object to sample the screenshot from: need either 'disp', 'renderer' or 'canvas'."
         )
-        image_paths.append(img_path)
+    return canvas
 
-    return figure_rst(image_paths, gallery_conf["src_dir"])
+
+def render_screenshot(canvas, namespace, filename, *, lossless):
+    # Render frame
+    frame = canvas.draw()
+    # Write image
+    iio.imwrite(
+        filename,
+        frame,
+        lossless=lossless,
+    )
+
+
+def render_movie(canvas, namespace, filename, *, duration, fps, loop, lossless):
+    # Render frames
+    frames = []
+    n_frames = int(duration * fps)
+    t0 = time.perf_counter()
+    for i in range(n_frames):
+        namespace["perf_counter"] = lambda: t0 + i / fps
+        frames.append(canvas.draw())
+    # Write the video
+    iio.imwrite(
+        filename,
+        frames,
+        duration=1 / fps,
+        loop=loop,
+        lossless=lossless,
+    )
+
+
+def split_val_unit(s):
+    for i in range(len(s)):
+        if s[i] not in "-+0.123456789":
+            break
+    return float(s[:i]), s[i:]
