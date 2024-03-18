@@ -66,6 +66,8 @@ fn is_finite_vec(v:vec3<f32>) -> bool {
 // which case nan is assumed not to happen, and isNan would always be false. If
 // we assume that some nan mechanics still work, we can still detect it.
 // See https://github.com/pygfx/wgpu-py/blob/main/tests/test_not_finite.py
+// NOTE: Other option is loading as i32, checking bitmask, and then bitcasting to float.
+//       -> This might be faster, but we need a benchmark to make sure.
 fn is_nan(v:f32) -> bool {
     return min(v, 1.0) == 1.0 && max(v, -1.0) == -1.0;
 }
