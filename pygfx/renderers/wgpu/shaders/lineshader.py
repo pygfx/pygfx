@@ -145,8 +145,7 @@ class LineShader(WorldObjectShader):
                 vertex_array_sub = xyz[:, :2] * (0.5 * np.array(logical_size))
             # Fix up
             if has_non_finites:
-                vertex_array = np.empty((positions_array.shape[0], 2), np.float32)
-                vertex_array.fill(np.nan)
+                vertex_array = np.full((len(positions_array), 2), np.nan, np.float32)
                 vertex_array[finites] = vertex_array_sub
             else:
                 vertex_array = vertex_array_sub
