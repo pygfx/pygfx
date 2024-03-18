@@ -8,8 +8,8 @@ with flat shading to avoid artifacts due to the normals flipping where
 the ends meet.
 """
 
-# sphinx_gallery_pygfx_render = True
-# sphinx_gallery_pygfx_target_name = "disp"
+# example_testing: run
+# example_gallery: screenshot
 
 import pygfx as gfx
 
