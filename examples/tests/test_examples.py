@@ -1,5 +1,9 @@
 """
-Test that the examples run without error.
+Unit tests for our examples.
+
+* Some meta tests.
+* On a subset: test that examples run without error.
+* On a smaller subset: test that examples produce the correct screenshot (compared to a reference).
 """
 
 import os
@@ -24,11 +28,9 @@ from examples.tests.testutils import (
 )
 
 
-# run all tests unless they opt-out
-examples_to_run = find_examples(negative_query="# run_example = false")
-
-# only test output of examples that opt-in
-examples_to_test = find_examples(query="# test_example = true")
+examples_info = find_examples()  # (filename, fname, test_config, doc_config)
+examples_to_run = [ex[0] for ex in examples_info if ex[2] == "run"]
+examples_to_compare = [ex[0] for ex in examples_info if ex[2] == "compare"]
 
 
 class LogHandler(logging.Handler):
@@ -50,9 +52,41 @@ logging.getLogger().addHandler(log_handler)
 gfx.renderers.wgpu.get_shared()
 
 
+def test_that_we_are_on_lavapipe():
+    print(wgpu_backend)
+    if os.getenv("PYGFX_EXPECT_LAVAPIPE"):
+        assert is_lavapipe
+
+
+def test_examples_meta():
+    """Make sure every example has a proper test-config comment."""
+
+    errors = []
+    ok_configs = "off", "run", "compare"
+
+    # Check configs
+    per_stem = {}
+    for filename, fname, test_config, docs_config in examples_info:
+        per_stem.setdefault(filename.stem, []).append(fname)
+        if test_config is None:
+            errors.append(f"Example '{fname}' has missing test config.")
+        elif test_config not in ok_configs:
+            errors.append(f"Example '{fname}' has unexpected test config.")
+        if docs_config is None:
+            errors.append(f"Example '{fname}' has missing gallery config.")
+
+    # Check that filenames are unique
+    for stem, fnames in per_stem.items():
+        if len(fnames) != 1:
+            errors.append(f"Name clash: {fnames}")
+
+    assert not errors, "Meta-errors in examples:\n" + "\n".join(errors)
+
+
 @pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
 def test_examples_run(module, force_offscreen):
     """Run every example marked to see if they can run without error."""
+
     # use runpy so the module is not actually imported (and can be gc'd)
     # but also to be able to run the code in the __main__ block
 
@@ -69,36 +103,9 @@ def test_examples_run(module, force_offscreen):
         raise RuntimeError("Example generated errors during draw")
 
 
-@pytest.fixture
-def force_offscreen():
-    """Force the offscreen canvas to be selected by the auto gui module."""
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-    try:
-        yield
-    finally:
-        del os.environ["WGPU_FORCE_OFFSCREEN"]
-
-
-@pytest.fixture
-def mock_time():
-    """Some examples use time to animate. Fix the return value
-    for repeatable output."""
-    with patch("time.time") as time_mock:
-        time_mock.return_value = 1.23456
-        yield
-
-
-def test_that_we_are_on_lavapipe():
-    print(wgpu_backend)
-    if os.getenv("PYGFX_EXPECT_LAVAPIPE"):
-        assert is_lavapipe
-
-
-@pytest.mark.parametrize("module", examples_to_test, ids=lambda x: x.stem)
-def test_examples_screenshots(
-    module, pytestconfig, force_offscreen, mock_time, request
-):
-    """Run every example marked for testing."""
+@pytest.mark.parametrize("module", examples_to_compare, ids=lambda x: x.stem)
+def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, request):
+    """Run every example marked to compare its result against a reference screenshot."""
 
     # (relative) module name from project root
     module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
@@ -180,9 +187,28 @@ def update_diffs(module, is_similar, img, stored_img):
             path.unlink()
 
 
+@pytest.fixture
+def force_offscreen():
+    """Force the offscreen canvas to be selected by the auto gui module."""
+    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    try:
+        yield
+    finally:
+        del os.environ["WGPU_FORCE_OFFSCREEN"]
+
+
+@pytest.fixture
+def mock_time():
+    """Some examples use time to animate. Fix the return value
+    for repeatable output."""
+    with patch("time.time") as time_mock:
+        time_mock.return_value = 1.23456
+        yield
+
+
 if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
     pytest.getoption = lambda x: False
     is_lavapipe = True  # noqa: F811
-    test_examples_screenshots("validate_volume", pytest, None, None)
+    test_examples_compare("validate_volume", pytest, None, None)

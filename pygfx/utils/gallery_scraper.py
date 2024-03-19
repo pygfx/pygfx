@@ -15,7 +15,7 @@ from ..renderers import Renderer
 from .show import Display
 
 
-gallery_pattern = re.compile(r"^# *sphinx_gallery_pygfx_docs *\=(.+)$", re.MULTILINE)
+gallery_comment_pattern = re.compile(r"^# *sphinx_gallery_pygfx_docs *\=(.+)$", re.M)
 
 
 def find_examples_for_gallery(examples_dir):
@@ -166,7 +166,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
 
 
 def get_example_config(fname, example_code):
-    match = gallery_pattern.search(example_code)
+    match = gallery_comment_pattern.search(example_code)
     config = None
     if match:
         config_s = match.group(1).strip()
