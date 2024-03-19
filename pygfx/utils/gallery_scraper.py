@@ -9,6 +9,7 @@ from pathlib import Path
 
 import imageio.v3 as iio
 from sphinx_gallery.scrapers import figure_rst
+from sphinx_gallery.py_source_parser import extract_file_config
 from wgpu.gui import WgpuCanvasBase
 
 from ..renderers import Renderer
@@ -47,7 +48,7 @@ def find_examples_for_gallery(examples_dir):
     for filename in examples_dir.glob("**/*.py"):
         fname = str(filename.relative_to(examples_dir))
         example_code = filename.read_text(encoding="UTF-8")
-        config = get_example_config(fname, example_code)
+        config = get_example_config(example_code)
         if config is None:
             examples_to_hide.append(fname)  # ignore files not having the comment
         elif not isinstance(config, str):
@@ -115,7 +116,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     # However, in scripts with multiple blocks, it can still happen that we
     # don't find a match for a specific block. In that case we default to
     # screenshot mode.
-    config = config = get_example_config(src_file, block[1])
+    config = get_example_config(block[1])
     if not config:
         return ""
 
@@ -165,18 +166,9 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     return figure_rst([img_filename], gallery_conf["src_dir"])
 
 
-def get_example_config(fname, example_code):
-    match = gallery_comment_pattern.search(example_code)
-    config = None
-    if match:
-        config_s = match.group(1).strip()
-        try:
-            config = eval(config_s)
-        except Exception:
-            raise RuntimeError(
-                f"In '{fname}' the sphinx_gallery_pygfx_docs value is not valid Python: {config_s}"
-            ) from None
-    return config
+def get_example_config(example_code):
+    file_conf = extract_file_config(example_code)
+    return file_conf.get("pygfx_docs", None)
 
 
 def select_canvas(fname, namespace):

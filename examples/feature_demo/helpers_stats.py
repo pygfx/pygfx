@@ -7,7 +7,7 @@ and draw time on screen, by manually integrating it into
 the render loop.
 """
 
-# sphinx_gallery_pygfx_docs = 'screen'
+# sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
 

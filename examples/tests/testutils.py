@@ -3,9 +3,10 @@ Test suite utilities.
 """
 
 import re
+import ast
+import sys
 from pathlib import Path
 import subprocess
-import sys
 from itertools import chain
 
 
@@ -64,7 +65,7 @@ def get_example_docs_config(fname, example_code):
     if match:
         config_s = match.group(1).strip()
         try:
-            config = eval(config_s)
+            config = ast.literal_eval(config_s)
         except Exception:
             raise RuntimeError(
                 f"In '{fname}' the sphinx_gallery_pygfx_docs value is not valid Python: {config_s}"
@@ -78,7 +79,7 @@ def get_example_test_config(fname, example_code):
     if match:
         config_s = match.group(1).strip()
         try:
-            config = eval(config_s)
+            config = ast.literal_eval(config_s)
         except Exception:
             raise RuntimeError(
                 f"In '{fname}' the sphinx_gallery_pygfx_test value is not valid Python: {config_s}"
