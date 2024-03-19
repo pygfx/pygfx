@@ -30,7 +30,7 @@ jobs:
         pip install -e .[examples]
     - name: Regenerate screenshots
       run: |
-        pytest -v --regenerate-screenshots -k test_examples_screenshots examples
+        pytest -v --regenerate-screenshots -k test_examples_compare examples
     - uses: actions/upload-artifact@v3
       if: always()
       with:

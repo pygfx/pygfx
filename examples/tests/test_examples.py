@@ -140,9 +140,7 @@ def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, requ
         iio.imwrite(screenshot_path, img)
 
     # if a reference screenshot exists, assert it is equal
-    assert (
-        screenshot_path.exists()
-    ), "found # test_example = true but no reference screenshot available"
+    assert screenshot_path.exists(), "found no reference screenshot"
     stored_img = iio.imread(screenshot_path)
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)
