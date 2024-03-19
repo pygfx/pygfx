@@ -7,7 +7,6 @@ import ast
 import sys
 from pathlib import Path
 import subprocess
-from itertools import chain
 
 
 ROOT = Path(__file__).parents[2]  # repo root

@@ -13,7 +13,6 @@ from sphinx_gallery.py_source_parser import extract_file_config
 from wgpu.gui import WgpuCanvasBase
 
 from ..renderers import Renderer
-from .show import Display
 
 
 gallery_comment_pattern = re.compile(r"^# *sphinx_gallery_pygfx_docs *\=(.+)$", re.M)
