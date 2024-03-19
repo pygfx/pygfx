@@ -6,7 +6,7 @@ Display a lot of line objects. Because of the architecture of wgpu,
 this is still performant.
 """
 
-# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np

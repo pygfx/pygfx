@@ -12,7 +12,7 @@ in this directory, or *any* of its parent directories.
 
 """
 
-# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
 
 from pathlib import Path

@@ -5,7 +5,7 @@ Simple Cube with WX
 Example showing a single geometric cube.
 """
 
-# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
 
 import pygfx as gfx

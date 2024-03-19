@@ -5,7 +5,7 @@ Two Canvases
 Example demonstrating rendering the same scene into two different canvases.
 """
 
-# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_docs = 'code'
 # sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np
