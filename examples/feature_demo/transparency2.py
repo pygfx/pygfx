@@ -7,7 +7,8 @@ Press space to toggle the order of the planes.
 Press 1-6 to select the blend mode.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

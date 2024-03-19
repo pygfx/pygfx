@@ -7,6 +7,9 @@ option to render a wireframe. Notice that in the former the wires are
 not of equal thickness.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import numpy as np
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
@@ -148,9 +151,7 @@ class WireframeShader(WorldObjectShader):
         """
 
 
-# %% Setup scene
-
-# sphinx_gallery_pygfx_render = True
+# Setup scene
 
 renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
 

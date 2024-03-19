@@ -9,7 +9,8 @@ produces an implicit geometry defined by the volume data.
 See multi_slice1.py for a more generic approach.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from time import time
 

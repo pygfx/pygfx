@@ -5,7 +5,8 @@ Geometry Plane
 Use a plane geometry to show a texture, which is continuously updated to show video.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

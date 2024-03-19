@@ -8,8 +8,8 @@ Thin lines
 * Note that due to the set pixel_ratio, a thickness of 2 is 1 physical pixel.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

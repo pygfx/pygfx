@@ -7,7 +7,8 @@ Simple light example.
 This example shows a cube with MeshPhongMaterial illuminated by a point light and a directional light.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import time
 import numpy as np

@@ -6,7 +6,8 @@ Example showing picking points. When clicking on a point, it's location
 is changed. With a small change, a line is shown instead.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

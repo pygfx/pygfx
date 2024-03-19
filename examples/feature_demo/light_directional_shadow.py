@@ -9,7 +9,8 @@ the edge of the view frustum of the camera have partial shadows, while the cubes
 outside the view frustum of the camera will not cast shadows.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import math
 import pylinalg as la

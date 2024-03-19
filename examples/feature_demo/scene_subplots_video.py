@@ -6,7 +6,8 @@ An example combining `synced_video.py` with subplots.
 Double click to re-center the images.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

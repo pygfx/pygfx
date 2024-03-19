@@ -5,6 +5,9 @@ Image with Points Overlaid
 Show an image with points overlaid.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -13,7 +16,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-# %% add image
+# add image
 
 im = iio.imread("imageio:astronaut.png")
 
@@ -23,9 +26,7 @@ image = gfx.Image(
 )
 scene.add(image)
 
-# %% add points
-
-# sphinx_gallery_pygfx_render = True
+# add points
 
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]

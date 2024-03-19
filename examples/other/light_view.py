@@ -5,7 +5,8 @@ Light Effects
 Lighting effect demonstration examples with adjustable parameters
 """
 
-# run_example = false
+# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_test = 'off'
 
 import math
 

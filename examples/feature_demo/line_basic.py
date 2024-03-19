@@ -8,8 +8,8 @@ position of the last point. Use '1' and '2' to toggle between normal and dashed
 mode.
 """
 
-# sphinx_gallery_pygfx_render = True
-# sphinx_gallery_pygfx_target_name = "canvas"
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

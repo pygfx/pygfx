@@ -6,7 +6,8 @@ Render slices through a volume, by creating a 3D texture, and sampling onto
 a plane geometry. Simple, fast and subpixel!
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 import numpy as np

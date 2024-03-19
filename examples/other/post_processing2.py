@@ -11,8 +11,10 @@ Note: this example makes heavy use of private variables and makes
 assumptions about how the RenderFlusher works that may not hold in the
 future.
 
-# run_example = false
 """
+
+# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np
 import imageio.v3 as iio

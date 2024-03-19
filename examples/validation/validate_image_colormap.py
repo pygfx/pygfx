@@ -9,8 +9,8 @@ Show an image with a simple colormap.
 * The bottom shows three equally thick bands (red, green blue).
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

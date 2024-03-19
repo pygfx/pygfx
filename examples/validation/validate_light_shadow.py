@@ -7,8 +7,8 @@ PointLight, AmbientLight, SpotLight and DirectionalLight to check
 that all combinations are working properly.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

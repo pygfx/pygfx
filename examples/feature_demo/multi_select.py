@@ -11,7 +11,8 @@ all the items from that group (because the group has a double-click
 event handler). Holding shift will add to the selection.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from functools import partial
 from random import randint, random
