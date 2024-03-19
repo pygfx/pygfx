@@ -15,19 +15,20 @@ from ..renderers import Renderer
 from .show import Display
 
 
-gallery_pattern = re.compile(r"^# sphinx_gallery_pygfx \=(.+)$", re.MULTILINE)
+gallery_pattern = re.compile(r"^# *sphinx_gallery_pygfx_docs *\=(.+)$", re.MULTILINE)
 
 
 def find_examples_for_gallery(examples_dir):
     """Find examples to include in the gallery.
 
-    Examples are collected based on the value of the ``sphinx_gallery_pygfx``
+    Examples are collected based on the value of the ``sphinx_gallery_pygfx_docs``
     comment in the example files:
 
-    * ``sphinx_gallery_pygfx = 'hidden'`` - not present in the gallery.
-    * ``sphinx_gallery_pygfx = 'code'`` - present only as code (don't run the code when building docs).
-    * ``sphinx_gallery_pygfx = 'screenshot'`` - present in the gallery with a screenshot.
-    * ``sphinx_gallery_pygfx = 'animate 3s 15fps'`` - present in the gallery with an animation (duration and fps are optional).
+    * If the comment is not found, the example is excluded.
+    * ``sphinx_gallery_pygfx_docs = 'hidden'`` - not present in the gallery.
+    * ``sphinx_gallery_pygfx_docs = 'code'`` - present only as code (don't run the code when building docs).
+    * ``sphinx_gallery_pygfx_docs = 'screenshot'`` - present in the gallery with a screenshot.
+    * ``sphinx_gallery_pygfx_docs = 'animate 3s 15fps'`` - present in the gallery with an animation (duration and fps are optional).
 
     Returns a dict that can be merged with the sphinx_gallery_conf.
 
@@ -46,11 +47,13 @@ def find_examples_for_gallery(examples_dir):
     for filename in examples_dir.glob("**/*.py"):
         fname = str(filename.relative_to(examples_dir))
         example_code = filename.read_text(encoding="UTF-8")
-        config = get_example_config(example_code)
+        config = get_example_config(fname, example_code)
         if config is None:
             examples_to_hide.append(fname)  # ignore files not having the comment
         elif not isinstance(config, str):
-            raise RuntimeError("Expected sphinx_gallery_pygfx to be a string.")
+            raise RuntimeError(
+                f"In '{fname}' expected sphinx_gallery_pygfx_docs to be a string."
+            )
         elif config == "hidden":
             examples_to_hide.append(fname)
         elif config == "code":
@@ -59,12 +62,14 @@ def find_examples_for_gallery(examples_dir):
             examples_to_run.append(fname)
         else:
             raise RuntimeError(
-                f"Unexpected value for '# sphinx_gallery_pygfx' in {fname}: '{config}'."
+                f"In '{fname}' got unexpected value for sphinx_gallery_pygfx_docs: '{config}'."
                 + " Expecting 'hidden', 'code', 'screenshot' or 'animate'."
             )
 
+    def patternize(path):
+        return (os.sep + path).replace("\\", "\\\\").replace(".", "\\.")
+
     # Convert to regexp, because that's what Sphinx needs
-    patternize = lambda path: (os.sep + path).replace("\\", "\\\\").replace(".", "\\.")
     hide_pattern = "(" + "|".join(patternize(x) for x in examples_to_hide) + ")"
     run_pattern = "(" + "|".join(patternize(x) for x in examples_to_run) + ")"
 
@@ -101,18 +106,19 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
         the images. This is often produced by :func:`figure_rst`.
     """
 
+    src_file = block_vars["src_file"]
     namespace = block_vars["example_globals"]
     path_generator = block_vars["image_path_iterator"]
 
     # Get canvas to sample the screenshot from
-    canvas = select_canvas(namespace)
+    canvas = select_canvas(src_file, namespace)
 
     # Get gallery config for this block. In config we already select files for
     # inclusion, so if this runs we know that we need a screenshot at least.
     # However, in scripts with multiple blocks, it can still happen that we
     # don't find a match for a specific block. In that case we default to
     # screenshot mode.
-    config = config = get_example_config(block[1])
+    config = config = get_example_config(src_file, block[1])
     if config:
         config_parts = config.split()
     else:
@@ -145,7 +151,9 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
             elif unit == "fps":
                 config["fps"] = val
             else:
-                raise RuntimeError(f"Unexpected animation option: '{part}'")
+                raise RuntimeError(
+                    f"In '{src_file}' got unexpected animation option: '{part}'"
+                )
 
         # Store as webp, which is *much* smaller and better looking than gif
         img_filename = Path(next(path_generator)).with_suffix(".webp")
@@ -157,7 +165,7 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     return figure_rst([img_filename], gallery_conf["src_dir"])
 
 
-def get_example_config(example_code):
+def get_example_config(fname, example_code):
     match = gallery_pattern.search(example_code)
     config = None
     if match:
@@ -166,12 +174,12 @@ def get_example_config(example_code):
             config = eval(config_s)
         except Exception:
             raise RuntimeError(
-                f"sphinx_gallery_pygfx's value is not valid Python: {config_s}"
-            )
+                f"In '{fname}' the sphinx_gallery_pygfx_docs value is not valid Python: {config_s}"
+            ) from None
     return config
 
 
-def select_canvas(namespace):
+def select_canvas(fname, namespace):
     """Select canvas from the given namespace."""
     # TODO: what can we do here to help find the canvas in e.g. a fastplotlib script?
     canvas = None
@@ -190,7 +198,7 @@ def select_canvas(namespace):
             break
     if canvas is None:
         raise ValueError(
-            "Could not find object to sample the screenshot from: need either 'disp', 'renderer' or 'canvas'."
+            f"In '{fname}' could not find object to sample the screenshot from: need either 'disp', 'renderer' or 'canvas'."
         )
     return canvas
 

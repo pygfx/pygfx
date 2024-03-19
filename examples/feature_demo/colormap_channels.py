@@ -5,8 +5,7 @@ Colormap Channels
 Example demonstrating colormaps in 4 modes: grayscale, gray+alpha, RGB, RGBA.
 """
 
-# example_testing: run
-# sphinx_gallery_pygfx = 'screenshot'
+# sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'off'
 
 import numpy as np

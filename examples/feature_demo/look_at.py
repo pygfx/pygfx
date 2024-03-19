@@ -5,8 +5,8 @@ Look At
 This example shows how the look_at function can be used.
 """
 
-# example_testing: run
-# sphinx_gallery_pygfx = 'animate 3s'
+# sphinx_gallery_pygfx_docs = 'animate 3s'
+# sphinx_gallery_pygfx_test = 'run'
 
 from time import perf_counter
 import numpy as np

@@ -1,16 +1,12 @@
 """Configuration script for Sphinx."""
 
 import os
-import re
 import sys
 import shutil
-import warnings
-from itertools import chain
 from pathlib import Path
 
-
 from sphinx_gallery.sorting import ExplicitOrder
-import wgpu.gui.offscreen
+from pygfx.utils.gallery_scraper import find_examples_for_gallery
 
 
 ROOT_DIR = Path(__file__).parents[1]  # repo root
@@ -55,8 +51,6 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Sphix Gallery -----------------------------------------------------
-
-from pygfx.utils.gallery_scraper import find_examples_for_gallery
 
 # Force offscreen rendering
 os.environ["WGPU_FORCE_OFFSCREEN"] = "true"

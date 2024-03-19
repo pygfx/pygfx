@@ -12,8 +12,8 @@ The sub-scene is rendered to a texture, and that texture is used for the
 surface of the cube in the outer scene.
 """
 
-# example_testing: run
-# sphinx_gallery_pygfx = 'screenshot'
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 import imageio.v3 as iio

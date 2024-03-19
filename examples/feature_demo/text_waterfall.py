@@ -7,8 +7,8 @@ contents of the glyph atlas. One goal of this example is to strain the
 text rendering to its limits.
 """
 
-# example_testing: run
-# sphinx_gallery_pygfx = 'animate 4s'
+# sphinx_gallery_pygfx_docs = 'animate 4s'
+# sphinx_gallery_pygfx_docs = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
