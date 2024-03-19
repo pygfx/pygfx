@@ -173,21 +173,26 @@ def get_example_config(example_code):
 
 def select_canvas(fname, namespace):
     """Select canvas from the given namespace."""
-    # TODO: what can we do here to help find the canvas in e.g. a fastplotlib script?
     canvas = None
-    for target_name in ["display", "disp", "renderer", "canvas"]:
+    # Try get directly from canvas or renderer
+    for target_name in ["renderer", "canvas"]:
         target = namespace.get(target_name, None)
         if target is None:
             pass
-        elif isinstance(target, Display):
-            canvas = target.canvas
-            break
         elif isinstance(target, Renderer):
             canvas = target.target
             break
         elif isinstance(target, WgpuCanvasBase):
             canvas = target
             break
+    # Try getting from proxy objects
+    if canvas is None:
+        for target_name in ["display", "disp", "plot", "figure"]:
+            target = namespace.get(target_name, None)
+            if hasattr(target, "canvas") and isinstance(target.canvas, WgpuCanvasBase):
+                canvas = target.canvas
+                break
+    # Found?
     if canvas is None:
         ns_keys = set(n for n in namespace.keys() if not n.startswith("_"))
         raise ValueError(
