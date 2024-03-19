@@ -1,4 +1,4 @@
-from ._base import Material, ColorMode
+from ._base import Material, ColorMode, SizeMode
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
 
@@ -6,24 +6,26 @@ from ..utils import unpack_bitfield, Color
 class PointsMaterial(Material):
     """Point default material.
 
-    Renders (antialiased) disks of the given size and color.
+    Renders disks of the given size and color.
 
     Parameters
     ----------
+    size : int
+        The size (diameter) of the points in logical pixels. Default 4.
+    size_space : str
+        The coordinate space in which the size is expressed ('screen', 'world', 'model'). Default 'screen'.
+    size_mode : enum or str
+        The mode by which the points are sized. Default 'uniform'.
     color : Color
         The uniform color of the points (used depending on the ``color_mode``).
-    size : int
-        The size (diameter) of the points in screen space (px). Ignored if
-        vertex_size is True.
     color_mode : enum or str
-        The mode by which the line is coloured. Default 'auto'.
-    vertex_sizes : bool
-        If True, use the vertex sizes provided in the geometry to set point
-        sizes.
+        The mode by which the points are coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate.
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
+    aa : bool
+        Whether or not the points are anti-aliased in the shader. Default True.
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -38,22 +40,27 @@ class PointsMaterial(Material):
 
     def __init__(
         self,
+        size=4,
+        size_space="screen",
+        size_mode="uniform",
+        *,
         color=(1, 1, 1, 1),
-        size=1,
         color_mode="auto",
-        vertex_sizes=False,
         map=None,
         map_interpolation="linear",
+        aa=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
+        self.size = size
+        self.size_space = size_space
+        self.size_mode = size_mode
         self.color = color
         self.color_mode = color_mode
         self.map = map
         self.map_interpolation = map_interpolation
-        self.size = size
-        self._vertex_sizes = bool(vertex_sizes)
+        self.aa = aa
 
     def _wgpu_get_pick_info(self, pick_value):
         # This should match with the shader
@@ -79,6 +86,29 @@ class PointsMaterial(Material):
     def color_is_transparent(self):
         """Whether the color is (semi) transparent (i.e. not fully opaque)."""
         return self._store.color_is_transparent
+
+    @property
+    def aa(self):
+        """Whether the point's visual edge is anti-aliased.
+
+        Aliasing gives prettier results by producing semi-transparent fragments
+        at the edges. Points smaller than one physical pixel are also diminished
+        by making them more transparent.
+
+        Note that by default, pygfx uses SSAA to anti-alias the total renderered
+        result. Point-based aa results in additional improvement.
+
+        Because semi-transparent fragments are introduced, it may affect how the
+        points blends with other (semi-transparent) objects. It can also affect
+        performance for very large datasets. In particular, when the points itself
+        are opaque, the point is (in most blend modes) drawn twice to account for
+        both the opaque and semi-transparent fragments.
+        """
+        return self._store.aa
+
+    @aa.setter
+    def aa(self, aa):
+        self._store.aa = bool(aa)
 
     @property
     def color_mode(self):
@@ -129,15 +159,50 @@ class PointsMaterial(Material):
         self.uniform_buffer.update_range(0, 1)
 
     @property
-    def vertex_sizes(self):
-        """Whether to use the vertex sizes provided in the geometry."""
-        return self._vertex_sizes
+    def size_space(self):
+        """The coordinate space in which the size is expressed.
 
-    @vertex_sizes.setter
-    def vertex_sizes(self, value):
-        value = bool(value)
-        if value != self._vertex_sizes:
-            self._vertex_sizes = value
+        Possible values are:
+        * "screen": logical screen pixels. The Default.
+        * "world": the world / scene coordinate frame.
+        * "model": the line's local coordinate frame (same as the line's positions).
+        """
+        return self._store.size_space
+
+    @size_space.setter
+    def size_space(self, value):
+        if value is None:
+            value = "screen"
+        if not isinstance(value, str):
+            raise TypeError("PointMaterial.size_space must be str")
+        value = value.lower()
+        if value not in ["screen", "world", "model"]:
+            raise ValueError(f"Invalid value for PointMaterial.size_space: {value}")
+        self._store.size_space = value
+
+    @property
+    def size_mode(self):
+        """The way that size is applied to the mesh.
+
+        * uniform: use the material's size property for all points.
+        * vertex: use the geometry `sizes` buffer, one size per vertex.
+        """
+        return self._store.size_mode
+
+    @size_mode.setter
+    def size_mode(self, value):
+        if isinstance(value, SizeMode):
+            pass
+        elif isinstance(value, str):
+            if value.startswith("SizeMode."):
+                value = value.split(".")[-1]
+            try:
+                value = getattr(SizeMode, value.lower())
+            except AttributeError:
+                raise ValueError(f"Invalid size_mode: '{value}'")
+        else:
+            raise TypeError(f"Invalid size_mode class: {value.__class__.__name__}")
+        self._store.size_mode = value
 
     @property
     def map(self):

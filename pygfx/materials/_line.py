@@ -41,6 +41,7 @@ class LineMaterial(Material):
         self,
         thickness=2.0,
         thickness_space="screen",
+        *,
         color=(1, 1, 1, 1),
         color_mode="auto",
         map=None,
@@ -112,10 +113,10 @@ class LineMaterial(Material):
 
     @property
     def color_mode(self):
-        """The way that color is applied to the mesh.
+        """The way that color is applied to the line.
 
         * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole mesh.
+        * uniform: use the material's color property for the whole line.
         * vertex: use the geometry `colors` buffer, one color per vertex.
         * face: use the geometry `colors` buffer, one color per line-piece.
         * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
