@@ -11,22 +11,99 @@
 // That gives 2 faces which form a quad.
 //
 
+
+// -------------------- functions --------------------
+
+
+// See line.wgsl for details
+fn is_finite_vec(v:vec3<f32>) -> bool {
+    return is_finite(v.x) && is_finite(v.y) && is_finite(v.z);
+}
+fn is_nan(v:f32) -> bool {
+    return min(v, 1.0) == 1.0 && max(v, -1.0) == -1.0;
+}
+fn is_inf(v:f32) -> bool {
+    return v != 0.0 && v * 2.0 == v;
+}
+fn is_finite(v:f32) -> bool {
+    return !is_nan(v) && !is_inf(v);
+}
+
+
+// -------------------- vertex shader --------------------
+
+
 struct VertexInput {
-        @builtin(vertex_index) vertex_index : u32,
+        @builtin(vertex_index) index : u32,
     };
 
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
 
-    let index = i32(in.vertex_index);
-    let i0 = index / 6;
-    let sub_index = index % 6;
+    let screen_factor:vec2<f32> = u_stdinfo.logical_size.xy / 2.0;
+    let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-    let raw_pos = load_s_positions(i0);
-    let world_pos = u_wobject.world_transform * vec4<f32>(raw_pos, 1.0);
-    let ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
+    // Indexing
+    let index = i32(in.index);
+    let node_index = index / 6;
+    let vertex_index = index % 6;
 
+    // Sample the current node/point.
+    let pos_m = load_s_positions(node_index);
+    // Convert to world
+    let pos_w = u_wobject.world_transform * vec4<f32>(pos_m.xyz, 1.0);
+    // Convert to camera view
+    let pos_c = u_stdinfo.cam_transform * pos_w;
+    // convert to NDC
+    let pos_n = u_stdinfo.projection_transform * pos_c;
+    // Convert to logical screen coordinates
+    let pos_s = (pos_n.xy / pos_n.w + 1.0) * screen_factor;
+
+    // Get reference size
+    $$ if size_mode == 'vertex'
+        let size_ref = load_s_sizes(node_index);
+    $$ else
+        let size_ref = u_material.size;
+    $$ endif
+
+    // The size of the point in terms of geometry is a wee bit larger. Just
+    // enough so that fragments that are partially on the (visible) point, are
+    // also included in the fragment shader. That way we can do aa without
+    // making the points smaller. All logic in this function works with the
+    // larger size. But we pass the real size as a varying.
+    $$ if size_space == 'screen'
+        let size_ratio = 1.0;
+    $$ else
+        // The size is expressed in world space. So we first check where a point, moved 1 logic pixel away
+        // from the node, ends up in world space. We actually do that for both x and y, in case there's anisotropy.
+        let pos_s_shiftedx = pos_s + vec2<f32>(1.0, 0.0);
+        let pos_s_shiftedy = pos_s + vec2<f32>(0.0, 1.0);
+        let pos_n_shiftedx = vec4<f32>((pos_s_shiftedx / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
+        let pos_n_shiftedy = vec4<f32>((pos_s_shiftedy / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
+        let pos_w_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_shiftedx;
+        let pos_w_shiftedy = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_shiftedy;
+        $$ if size_space == 'model'
+            // Transform back to model space
+            let pos_m_shiftedx = u_wobject.world_transform_inv * pos_w_shiftedx;
+            let pos_m_shiftedy = u_wobject.world_transform_inv * pos_w_shiftedy;
+            // Distance in model space
+            let size_ratio = 0.5 * (distance(pos_m.xyz, pos_m_shiftedx.xyz) + distance(pos_m.xyz, pos_m_shiftedy.xyz));
+        $$ else
+            // Distance in world space
+            let size_ratio = 0.5 * (distance(pos_w.xyz, pos_w_shiftedx.xyz) + distance(pos_w.xyz, pos_w_shiftedy.xyz));
+        $$ endif
+    $$ endif
+    $$ if aa
+    let size:f32 = size_ref / size_ratio;  // Logical pixels
+    let half_size = 0.5 * size + 0.5 / l2p;  // 0.5 physical pixel on each side.
+    $$ else
+    let size:f32 = max(1.0/l2p, size_ref / size_ratio);  // non-aa lines get no thinner than 1 px
+    let half_size = 0.5 * size;
+    $$ endif
+
+    // Relative coords to create the quad
+    // TODO: check whether it's front-facing
     var deltas = array<vec2<f32>, 6>(
         vec2<f32>(-1.0, -1.0),
         vec2<f32>(-1.0,  1.0),
@@ -36,29 +113,28 @@ fn vs_main(in: VertexInput) -> Varyings {
         vec2<f32>( 1.0,  1.0),
     );
 
-    // Need size here in vertex shader too
-    $$ if size_mode == 'vertex'
-        let size = load_s_sizes(i0);
-    $$ else
-        let size = u_material.size;
-    $$ endif
+    // Calculate the current virtual vertex position
+    let the_delta_s = deltas[vertex_index] * half_size;
+    let the_pos_s = pos_s + the_delta_s;
+    let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
 
-    let aa_margin = 1.0;
-    let delta_logical = deltas[sub_index] * (size + aa_margin);
-    let delta_ndc = delta_logical * (1.0 / u_stdinfo.logical_size);
-
+    // Build varyings output
     var varyings: Varyings;
-    varyings.position = vec4<f32>(ndc_pos.xy + delta_ndc * ndc_pos.w, ndc_pos.zw);
-    varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
-    varyings.pointcoord = vec2<f32>(delta_logical);
-    varyings.size = f32(size);
+
+    // Position
+    varyings.position = vec4<f32>(the_pos_n);
+    varyings.world_pos = vec3<f32>(ndc_to_world_pos(the_pos_n));
+
+    // Coordinates
+    varyings.pointcoord_p = vec2<f32>(the_delta_s * l2p);
+    varyings.size_p = f32(size * l2p);
 
     // Picking
-    varyings.pick_idx = u32(i0);
+    varyings.pick_idx = u32(node_index);
 
     // per-vertex or per-face coloring
-    $$ if color_mode == 'face' or color_mode == 'vertex'
-        let color_index = i0;
+    $$ if color_mode == 'vertex'
+        let color_index = node_index;
         $$ if color_buffer_channels == 1
             let cvalue = load_s_colors(color_index);
             varyings.color = vec4<f32>(cvalue, cvalue, cvalue, 1.0);
@@ -73,7 +149,7 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ endif
 
     // How to index into tex-coords
-    let tex_coord_index = i0;
+    let tex_coord_index = node_index;
 
     // Set texture coords
     $$ if colormap_dim == '1d'
@@ -88,48 +164,56 @@ fn vs_main(in: VertexInput) -> Varyings {
 }
 
 
+// -------------------- fragment shader --------------------
+
+
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
-    var final_color : vec4<f32>;
 
-    let d = length(varyings.pointcoord);
-    let aa_width = 1.0;
+    let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
 
-    let size = varyings.size;
+    let half_size_p: f32 = 0.5 * varyings.size_p;
+    let pointcoord_p: vec2<f32> = varyings.pointcoord_p;
+    let pointcoord = pointcoord_p / l2p;
 
+    // Get SDF
+    let dist_to_edge_p = length(pointcoord_p) - half_size_p;
+
+    // TODO: revive this
+    // $$ elif shape == "gaussian"
+    //     if (d <= size) {
+    //         let sigma = size / 3.0;
+    //         let t = d / sigma;
+    //         let a = exp(-0.5 * t * t);
+    //         final_color = vec4<f32>(color.rgb, color.a * a);
+    //     } else {
+    //         discard;
+    //     }
+    // $$ else
+
+    // Determine alpha
+    var alpha: f32 = 1.0;
+    $$ if aa
+        alpha = clamp(0.5 - dist_to_edge_p, 0.0, 1.0);
+        alpha = alpha * select(1.0, half_size_p * 2.0, half_size_p < 0.5);  // diminish alpha for lines thinner than physical pixels
+        alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
+        if (alpha <= 0.0) { discard; }
+    $$ else
+        if (dist_to_edge_p > 0.0) { discard; }
+    $$ endif
+
+    // Determine color
     $$ if color_mode == 'vertex'
         let color = varyings.color;
-    $$ elif color_mode == 'map'
+    $$ elif color_mode == 'map' or color_mode == 'vertex_map'
         let color = sample_colormap(varyings.texcoord);
     $$ else
         let color = u_material.color;
     $$ endif
+    var physical_color = srgb2physical(color.rgb);
 
-    $$ if shape == 'circle'
-        if (d <= size - 0.5 * aa_width) {
-            final_color = color;
-        } else if (d <= size + 0.5 * aa_width) {
-            let alpha1 = 0.5 + (size - d) / aa_width;
-            let alpha2 = pow(alpha1, 2.0);  // this works better
-            final_color = vec4<f32>(color.rgb, color.a * alpha2);
-        } else {
-            discard;
-        }
-    $$ elif shape == "gaussian"
-        if (d <= size) {
-            let sigma = size / 3.0;
-            let t = d / sigma;
-            let a = exp(-0.5 * t * t);
-            final_color = vec4<f32>(color.rgb, color.a * a);
-        } else {
-            discard;
-        }
-    $$ else
-        invalid_point_type;
-    $$ endif
-
-    let physical_color = srgb2physical(final_color.rgb);
-    let opacity = final_color.a * u_material.opacity;
+    // Determine final rgba value
+    let opacity = min(1.0, color.a) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
     // Wrap up
@@ -141,8 +225,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     out.pick = (
         pick_pack(u32(u_wobject.id), 20) +
         pick_pack(varyings.pick_idx, 26) +
-        pick_pack(u32(varyings.pointcoord.x + 256.0), 9) +
-        pick_pack(u32(varyings.pointcoord.y + 256.0), 9)
+        pick_pack(u32(pointcoord.x + 256.0), 9) +
+        pick_pack(u32(pointcoord.y + 256.0), 9)
     );
     $$ endif
 

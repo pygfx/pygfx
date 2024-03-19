@@ -10,7 +10,7 @@ class PointsMaterial(Material):
 
     Parameters
     ----------
-    size : int
+    size : float
         The size (diameter) of the points in logical pixels. Default 4.
     size_space : str
         The coordinate space in which the size is expressed ('screen', 'world', 'model'). Default 'screen'.

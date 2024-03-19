@@ -47,6 +47,8 @@ class PointsShader(WorldObjectShader):
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
         self["size_mode"] = str(material.size_mode).split(".")[-1]
+        self["size_space"] = material.size_space
+        self["aa"] = material.aa
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
