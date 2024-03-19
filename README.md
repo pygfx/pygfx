@@ -117,11 +117,8 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 - :x: You _can not_ hold us accountable for the results of using pygfx.
 
 ## Contributing
-We use a pull request (PR) based workflow similar to many other open-source
-libraries in the python ecosystem. You can read more about this workflow
-[here](https://docs.github.com/en/get-started/quickstart/github-flow);
-if you have previously contributed to open-source, a lot of this will look
-familiar already.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Development Install
 To get a working dev install of pygfx you can use the following steps:
@@ -132,7 +129,7 @@ git clone <address_of_your_fork>
 cd pygfx
 # if you use a venv, create and activate it
 pip install -e .[dev,docs,examples]
-pytest
+pytest tests
 ```
 
 ### Testing
@@ -142,6 +139,7 @@ tests for the examples.
 
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
+
 
 ### Code of Conduct
 

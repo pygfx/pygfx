@@ -1,4 +1,5 @@
-.. rubric:: Other Examples
+Other Examples
+--------------
 
 .. note::
     The examples in this section are not rendered. Typically because they use a

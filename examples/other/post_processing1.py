@@ -13,8 +13,10 @@ except we use a custom object here for the noise.
 
 Note that we may get a more streamlined way to implement post-processing effects.
 
-# run_example = false
 """
+
+# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_test = 'off'
 
 import time
 
@@ -28,7 +30,7 @@ from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 raise RuntimeError("Post-processing needs to be redesigned")
 
 
-# %% Create a custom object + material
+# Create a custom object + material
 
 
 class Fullquad(gfx.WorldObject):
@@ -132,7 +134,7 @@ def triangle_render_function(wobject, render_info):
     ]
 
 
-# %% The application
+#  The application
 
 # The canvas for eventual display
 canvas = WgpuCanvas(size=(640, 480))

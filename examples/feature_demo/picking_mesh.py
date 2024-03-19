@@ -10,7 +10,8 @@ work on such objects, the ``renderer.blend_mode`` must be set to
 "weighted_plus".
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 # todo: if we have per-vertex coloring, we can paint on the mesh instead :D
 

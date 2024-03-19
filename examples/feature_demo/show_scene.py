@@ -5,8 +5,8 @@ Use gfx.show to show a Scene
 Demonstrates show utility for a scene
 """
 
-# sphinx_gallery_pygfx_render = True
-# sphinx_gallery_pygfx_target_name = "disp"
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 import pygfx as gfx

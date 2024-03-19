@@ -53,6 +53,7 @@ _check_lib_version("pylinalg", "pylinalg", __pylinalg_version_range__)
 
 
 def _get_sg_image_scraper():
+    """Hook for sphinx so we can tell it how to generate the gallery."""
     import sphinx_gallery.scrapers
     from .utils.gallery_scraper import pygfx_scraper
 

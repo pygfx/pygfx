@@ -9,7 +9,8 @@ Note that one can also render to a ``pygfx.Texture`` and use that texture to
 decorate an object in another scene.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 import numpy as np

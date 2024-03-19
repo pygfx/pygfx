@@ -10,7 +10,8 @@ This example also demonstrates per-vertex and per-face coloring.
 Contributed by S. Shaji
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

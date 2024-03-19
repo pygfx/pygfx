@@ -8,6 +8,9 @@ and only renders a new frame when there are changes in that state.
 The goal of this rendering strategy is to minimize energy and resource consumption.
 """
 
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
+
 import atexit
 import pickle
 from pathlib import Path

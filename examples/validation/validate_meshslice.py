@@ -10,8 +10,8 @@ points) with the initial mesh-slice implementation. By making this a
 validation example we avoid regressions w.r.t. these artifacts.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = False
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import base64
 
@@ -24,9 +24,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
 
-# %% Data
-
-# Base64 is a little more compact than array literals.
+# Data - base64 is a little more compact than array literals.
 
 positions_encoded = """
 AAAAAGKxtj7rJW8/AAAAAGKxtj7rJW+/AAAAAGKxtr7rJW8/AAAAAGKxtr7rJW+/6yVvPwAAAABi
@@ -118,7 +116,7 @@ positions = np.frombuffer(positions_bytes, np.float32).reshape(-1, 3)
 faces = np.frombuffer(faces_bytes, np.int32).reshape(-1, 3)
 
 
-# %% Vis
+# Vis
 
 scene = gfx.Scene()
 

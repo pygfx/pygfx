@@ -7,7 +7,8 @@ This example uses a mesh object with custom texture coordinates. This
 is a generic approach. See multi_slice2.py for a simpler way.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from time import time
 

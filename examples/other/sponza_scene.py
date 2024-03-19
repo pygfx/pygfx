@@ -12,7 +12,8 @@ in this directory, or *any* of its parent directories.
 
 """
 
-# run_example = false - because it depends on external files
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
 from pathlib import Path
 

@@ -2,19 +2,17 @@
 PBR Rendering 1
 ===============
 
-
 This example shows a complete PBR rendering effect.
 The cubemap of skybox is also the environment cubemap of the helmet.
 """
 
 ################################################################################
-# .. warning::
-#     An external model is needed to run this example.
+# .. note::
 #
-# To run this example, you need a model from the source repo's example
-# folder. If you are running this example from a local copy of the code (dev
-# install) no further actions are needed. Otherwise, you may have to replace
-# the path below to point to the location of the model.
+#   To run this example, you need a model from the source repo's example
+#   folder. If you are running this example from a local copy of the code (dev
+#   install) no further actions are needed. Otherwise, you may have to replace
+#   the path below to point to the location of the model.
 
 import os
 from pathlib import Path
@@ -30,7 +28,8 @@ except NameError:
 ################################################################################
 # Once the path is set correctly, you can use the model as follows:
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

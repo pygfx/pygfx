@@ -1,1 +1,2 @@
-.. rubric:: Introductory Examples
+Introductory Examples
+---------------------

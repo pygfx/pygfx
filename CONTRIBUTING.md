@@ -1,11 +1,13 @@
 # Contributor's Guide
 
+
 ## Who can contribute?
 
 We accept contributions from anyone as long as these contributions meet our standards.
 While we will accept contributions from anyone, we especially value ideas and
 contributions from folks with diverse backgrounds and identities. There are
 many ways to contribute (see below) and no contribution is too small.
+
 
 ## What can be contributed?
 
@@ -31,12 +33,12 @@ the main GitHub repository: https://github.com/pygfx/pygfx
   the repository.
   [This GitHub page](https://docs.github.com/en/free-pro-team@latest/github/managing-your-work-on-github/creating-an-issue)
   can help you create an issue if you're unfamiliar with the process.
-* Any changes to actual code, including documentation, should be submitted
-  as a pull request on GitHub. GitHub's documentation includes instructions
-  on [making a pull request](https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request)
-  if you're new to GitHub or to git in general. Please make sure to submit
-  pull requests using a **new** branch (not your fork's main branch).
-  Don't be afraid to submit a pull request with only partial fixes/features.
+* Any changes to actual code, including documentation, should be submitted as a
+  pull request on GitHub. We use a pull request (PR) based workflow similar to
+  many other open-source libraries in the python ecosystem. You can read more
+  about this workflow [here](https://docs.github.com/en/get-started/quickstart/github-flow); if you
+  have previously contributed to open-source, a lot of this will look familiar
+  already. Don't be afraid to submit a pull request with only partial fixes/features.
   Pull requests can always be updated after they are created. Creating them
   early gives maintainers a chance to provide an early review of your code if
   that's something you're looking for.
@@ -45,6 +47,7 @@ No matter how you contribute, the maintainers will try their best to read,
 research, and respond to your query as soon as possible. For code changes,
 automated checks and tests will run on GitHub to provide an initial "review"
 of your changes.
+
 
 ## What if I need help?
 

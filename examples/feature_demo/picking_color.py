@@ -6,7 +6,8 @@ Example showing picking the color from the scene. Depending on the
 object being clicked, more detailed picking info is available.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 import imageio.v3 as iio

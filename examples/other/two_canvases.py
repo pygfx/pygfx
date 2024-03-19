@@ -5,6 +5,9 @@ Two Canvases
 Example demonstrating rendering the same scene into two different canvases.
 """
 
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
+
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

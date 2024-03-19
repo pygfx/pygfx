@@ -9,12 +9,16 @@ transform and camera are taken into account. It also uses the material
 to set the color. But no geometry is used.
 
 It demonstrates:
+
 * How you can define a new WorldObject and Material.
 * How to define a shader for it.
 * The use of uniforms for material properties.
 * The implementation of the camera transforms in the shader.
 
 """
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
@@ -26,8 +30,7 @@ from pygfx.renderers.wgpu import (
     register_wgpu_render_function,
 )
 
-
-# %% Custom object, material, and matching render function
+# Custom object, material, and matching render function
 
 
 class Triangle(gfx.WorldObject):
@@ -130,9 +133,7 @@ class TriangleShader(WorldObjectShader):
         """
 
 
-# %% Setup scene
-
-# sphinx_gallery_pygfx_render = True
+# Setup scene
 
 renderer = gfx.WgpuRenderer(WgpuCanvas())
 camera = gfx.OrthographicCamera(10, 10)

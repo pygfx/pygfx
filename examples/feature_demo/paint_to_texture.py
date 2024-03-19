@@ -9,6 +9,9 @@ This also demonstrates a custom controller config, that only allows
 horizontal panning over the texture, using shift+mouse or scrolling.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 import numpy as np

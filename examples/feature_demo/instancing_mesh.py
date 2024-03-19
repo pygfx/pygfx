@@ -5,7 +5,8 @@ Instancing
 Example rendering the same mesh object multiple times, using instancing.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 import imageio.v3 as iio

@@ -7,7 +7,8 @@ implemented using ``Material.depth_test``. The overlaid object should
 always be on top.
 """
 
-# test_example = true
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

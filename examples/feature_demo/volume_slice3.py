@@ -6,7 +6,8 @@ Render slices through a volume, by creating a 3D texture, and viewing
 it with a VolumeSliceMaterial. Easy because we can just define the view plane.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

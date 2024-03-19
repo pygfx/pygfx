@@ -3,25 +3,17 @@
 import os
 import sys
 import shutil
+from pathlib import Path
 
 from sphinx_gallery.sorting import ExplicitOrder
-import wgpu.gui.offscreen
+from pygfx.utils.gallery_scraper import find_examples_for_gallery
 
 
-ROOT_DIR = os.path.abspath(os.path.join(__file__, "..", ".."))
-sys.path.insert(0, ROOT_DIR)
+ROOT_DIR = Path(__file__).parents[1]  # repo root
+EXAMPLES_DIR = ROOT_DIR / "examples"
 
-# -- Sphix Gallery Hackz -----------------------------------------------------
-# When building the gallery, render offscreen and don't process
-# the event loop while parsing the example
+sys.path.insert(0, str(ROOT_DIR))
 
-
-def _ignore_offscreen_run():
-    wgpu.gui.offscreen.run = lambda: None
-
-
-os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-_ignore_offscreen_run()
 
 # -- Project information -----------------------------------------------------
 
@@ -31,6 +23,7 @@ author = "Almar Klein, Korijn van Golen"
 
 # The full version, including alpha/beta/rc tags
 # release = '0.1.0'
+
 
 # -- General configuration ---------------------------------------------------
 
@@ -56,10 +49,20 @@ shutil.rmtree(os.path.join(os.path.dirname(__file__), "_autosummary"), True)
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+
+# -- Sphix Gallery -----------------------------------------------------
+
+# Force offscreen rendering
+os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+
+# The gallery conf. See https://sphinx-gallery.github.io/stable/configuration.html
 sphinx_gallery_conf = {
-    "examples_dirs": "../examples",
     "gallery_dirs": "_gallery",
     "backreferences_dir": "_gallery/backreferences",
+    "doc_module": ("pygfx",),
+    # Tell sphinx to use the scraper in the pygfx lib. This detects pygfx.utils.gallery_scraper.pygfx_scraper()
+    "image_scrapers": ("pygfx",),
+    # Don't show mini-galleries for these objects, because they include nearly all examples.
     "exclude_implicit_doc": {
         "WgpuRenderer",
         "Resource",
@@ -74,8 +77,9 @@ sphinx_gallery_conf = {
         "Scene",
         "Light",
     },
-    "doc_module": ("pygfx",),
-    "image_scrapers": ("pygfx",),
+    # Remove any comment that starts with "sphinx_gallery_"
+    "remove_config_comments": True,
+    # Define order of appearance of the examples
     "subsection_order": ExplicitOrder(
         [
             "../examples/introductory",
@@ -84,10 +88,9 @@ sphinx_gallery_conf = {
             "../examples/other",
         ]
     ),
-    "remove_config_comments": True,
-    # Exclude files in 'other' dir from being executed
-    "filename_pattern": r"^((?![\\/]other[\\/]).)*$",
 }
+
+sphinx_gallery_conf.update(find_examples_for_gallery(ROOT_DIR / "examples"))
 
 
 # -- Options for HTML output -------------------------------------------------
