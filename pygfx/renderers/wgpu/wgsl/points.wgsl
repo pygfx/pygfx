@@ -102,19 +102,23 @@ fn vs_main(in: VertexInput) -> Varyings {
     let half_size = 0.5 * size;
     $$ endif
 
-    // Relative coords to create the quad
-    // TODO: check whether it's front-facing
+    // Relative coords to create the (frontfacing) quad
     var deltas = array<vec2<f32>, 6>(
         vec2<f32>(-1.0, -1.0),
-        vec2<f32>(-1.0,  1.0),
         vec2<f32>( 1.0, -1.0),
+        vec2<f32>(-1.0,  1.0),
         vec2<f32>(-1.0,  1.0),
         vec2<f32>( 1.0, -1.0),
         vec2<f32>( 1.0,  1.0),
     );
+    var the_delta_s = deltas[vertex_index] * half_size;
+
+    // Make a degenerate quad for non-finite positions
+    if (!is_finite_vec(pos_m)) {
+        the_delta_s = vec2<f32>(0.0, 0.0);
+    }
 
     // Calculate the current virtual vertex position
-    let the_delta_s = deltas[vertex_index] * half_size;
     let the_pos_s = pos_s + the_delta_s;
     let the_pos_n = vec4<f32>((the_pos_s / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
 
