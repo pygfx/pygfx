@@ -10,8 +10,8 @@ points) with the initial mesh-slice implementation. By making this a
 validation example we avoid regressions w.r.t. these artifacts.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = False
+# sphinx_gallery_pygfx_docs = 'hidden'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import base64
 

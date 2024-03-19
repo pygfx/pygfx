@@ -8,8 +8,8 @@ Cube on screen.
 Note: FPS is low since the gallery is rendered on a low-spec CI machine.
 """
 
-# sphinx_gallery_pygfx_animate = True
-# sphinx_gallery_pygfx_target_name = "disp"
+# sphinx_gallery_pygfx_docs = 'animate 4s 25fps'
+# sphinx_gallery_pygfx_test = 'run'
 
 import pygfx as gfx
 import pylinalg as la

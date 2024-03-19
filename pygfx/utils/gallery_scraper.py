@@ -110,19 +110,19 @@ def pygfx_scraper(block, block_vars, gallery_conf, **kwargs):
     namespace = block_vars["example_globals"]
     path_generator = block_vars["image_path_iterator"]
 
-    # Get canvas to sample the screenshot from
-    canvas = select_canvas(src_file, namespace)
-
     # Get gallery config for this block. In config we already select files for
     # inclusion, so if this runs we know that we need a screenshot at least.
     # However, in scripts with multiple blocks, it can still happen that we
     # don't find a match for a specific block. In that case we default to
     # screenshot mode.
     config = config = get_example_config(src_file, block[1])
-    if config:
-        config_parts = config.split()
-    else:
-        config_parts = ["screenshots"]
+    if not config:
+        return ""
+
+    # Get canvas to sample the screenshot from
+    canvas = select_canvas(src_file, namespace)
+
+    config_parts = config.split()
 
     if config_parts[0] == "screenshot":
 
@@ -197,8 +197,10 @@ def select_canvas(fname, namespace):
             canvas = target
             break
     if canvas is None:
+        ns_keys = set(n for n in namespace.keys() if not n.startswith("_"))
         raise ValueError(
-            f"In '{fname}' could not find object to sample the screenshot from: need either 'disp', 'renderer' or 'canvas'."
+            f"In '{fname}' could not find object to sample the screenshot from."
+            + f" Need either 'disp', 'renderer' or 'canvas'. Got namespace {ns_keys}"
         )
     return canvas
 
