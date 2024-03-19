@@ -183,21 +183,15 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Get SDF
     let dist_to_edge_p = length(pointcoord_p) - half_size_p;
 
-    // TODO: revive this
-    // $$ elif shape == "gaussian"
-    //     if (d <= size) {
-    //         let sigma = size / 3.0;
-    //         let t = d / sigma;
-    //         let a = exp(-0.5 * t * t);
-    //         final_color = vec4<f32>(color.rgb, color.a * a);
-    //     } else {
-    //         discard;
-    //     }
-    // $$ else
-
     // Determine alpha
     var alpha: f32 = 1.0;
-    $$ if aa
+    $$ if shape == "gaussian"
+        let d = length(pointcoord_p);
+        let sigma_p = half_size_p / 3.0;
+        let t = d / sigma_p;
+        alpha = exp(-0.5 * t * t);
+        if (dist_to_edge_p > 0.0) { discard; }
+    $$ elif aa
         alpha = clamp(0.5 - dist_to_edge_p, 0.0, 1.0);
         alpha = alpha * select(1.0, half_size_p * 2.0, half_size_p < 0.5);  // diminish alpha for lines thinner than physical pixels
         alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
