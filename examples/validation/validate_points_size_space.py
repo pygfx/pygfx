@@ -1,10 +1,14 @@
 """
-Cubes drawn with dashed lines
-=============================
+Points drawn with different size_space
+======================================
 
-* The red cubes have thickness in screen space, and should all look the same.
-* The blue cubes have thickness in world space, and should look the same.
-* The green cubes have thickness in model space, and should have increasing thickness.
+This example draws 3 rows of cubes, each with size 10, but each row in a
+different size_space (and color). The left column is positioned directly in the
+scene. The next two columns are smaller cubes, but placed in scaled containers.
+
+* The red cubes have size in screen space, and all look the same.
+* The green cubes have size in world space, and look the same, but thicker than the red.
+* The blue cubes have size in model space, and become larger in each column.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -45,27 +49,29 @@ position_pairs = [
     [1, -1, 1],
     [-1, -1, 1],
 ]
+position_pairs = 50 * np.array(position_pairs, np.float32)
 
-if True:  # use segment
-    Material = gfx.LineSegmentMaterial  # noqa
-    positions = np.array(position_pairs, np.float32)
-else:  # use nans
-    Material = gfx.LineMaterial  # noqa
-    positions = np.zeros((3 * len(position_pairs) // 2, 3), np.float32)
-    positions[0::3] = position_pairs[0::2]
-    positions[1::3] = position_pairs[1::2]
-    positions[2::3] = np.nan
+# Subdivide each edge into multiple points
+ndiv = 7
+positions1 = position_pairs[0::2]
+positions2 = position_pairs[1::2]
+positions = np.zeros((ndiv * len(position_pairs) // 2, 3), np.float32)
+for i in range(ndiv):
+    f = i / (ndiv - 1)
+    positions[i::ndiv] = (1.0 - f) * positions1 + f * positions2
+
+Material = gfx.PointsMaterial  # noqa
 
 
 def add_three_cubes(parent, material):
-    line1 = gfx.Line(
+    line1 = gfx.Points(
         gfx.Geometry(positions=positions),
         material,
     )
     container1 = gfx.Scene()
     parent.add(container1.add(line1))
 
-    line2 = gfx.Line(
+    line2 = gfx.Points(
         gfx.Geometry(positions=positions / 2),
         material,
     )
@@ -73,7 +79,7 @@ def add_three_cubes(parent, material):
     parent.add(container2.add(line2))
     line2.local.scale = 2
 
-    line3 = gfx.Line(
+    line3 = gfx.Points(
         gfx.Geometry(positions=positions / 3.3333),
         material,
     )
@@ -81,16 +87,16 @@ def add_three_cubes(parent, material):
     parent.add(container3.add(line3))
     container3.local.scale = 3.3333
     # Positioning
-    container1.local.position = -3, 0, 0
-    container3.local.position = 3, 0, 0
+    container1.local.position = -150, 0, 0
+    container3.local.position = 150, 0, 0
 
 
 top = gfx.Scene()  # screen
 middle = gfx.Scene()  # world
 bottom = gfx.Scene()  # model
 
-top.local.position = 0, 3, 0
-bottom.local.position = 0, -3, 0
+top.local.position = 0, 150, 0
+bottom.local.position = 0, -150, 0
 
 scene = gfx.Scene()
 scene.add(top, middle, bottom)
@@ -98,9 +104,8 @@ scene.add(top, middle, bottom)
 add_three_cubes(
     top,
     Material(
-        thickness=10,
-        thickness_space="screen",
-        dash_pattern=[0, 2],
+        size=10,
+        size_space="screen",
         color=(1.0, 0.0, 0.0),
         opacity=0.5,
     ),
@@ -109,9 +114,8 @@ add_three_cubes(
 add_three_cubes(
     middle,
     Material(
-        thickness=0.1,
-        thickness_space="world",
-        dash_pattern=[0, 2],
+        size=10,
+        size_space="world",
         color=(0.0, 1.0, 0.0),
         opacity=0.5,
     ),
@@ -120,9 +124,8 @@ add_three_cubes(
 add_three_cubes(
     bottom,
     Material(
-        thickness=0.1,
-        thickness_space="model",
-        dash_pattern=[0, 2],
+        size=10,
+        size_space="model",
         color=(0.0, 0.0, 1.0),
         opacity=0.5,
     ),
