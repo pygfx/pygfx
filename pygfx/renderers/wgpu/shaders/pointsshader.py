@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 from ....objects import Points
-from ....materials import PointsMaterial, GaussianPointsMaterial
+from ....materials import PointsMaterial, PointsGaussianBlobMaterial
 
 from .. import (
     register_wgpu_render_function,
@@ -76,7 +76,7 @@ class PointsShader(WorldObjectShader):
             )
 
         self["shape"] = "circle"
-        if isinstance(material, GaussianPointsMaterial):
+        if isinstance(material, PointsGaussianBlobMaterial):
             self["shape"] = "gaussian"
 
         bindings = {i: b for i, b in enumerate(bindings)}

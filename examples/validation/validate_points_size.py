@@ -1,6 +1,6 @@
 """
-Point with different sizes
-==========================
+Points with different sizes
+===========================
 
 * On the left are points with increasing size, without aa, they don't get smaller than one physical pixel.
 * On the right are poonts with increasing size, with aa, really small points diminish with alpha.

@@ -230,9 +230,11 @@ class PointsMaterial(Material):
     # todo: sizeAttenuation
 
 
-class GaussianPointsMaterial(PointsMaterial):
-    """A material for points, renders Gaussian blobs with a standard
-    deviation of 1/6 of the size.
+class PointsGaussianBlobMaterial(PointsMaterial):
+    """A material to render points as Gaussian blobs.
+
+    Renders Gaussian blobs with a standard deviation that is 1/6th of the
+    point-size.
     """
 
 
