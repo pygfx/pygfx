@@ -161,11 +161,12 @@ fn vs_main(in: VertexInput) -> Varyings {
             let thickness_ratio = 0.5 * (distance(pos_w_node.xyz, pos_w_node_shiftedx.xyz) + distance(pos_w_node.xyz, pos_w_node_shiftedy.xyz));
         $$ endif
     $$ endif
+    let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
     $$ if aa
     let thickness:f32 = u_material.thickness / thickness_ratio;  // Logical pixels
-    let half_thickness = 0.5 * thickness + 0.5 / l2p;  // 0.5 physical pixel on each side.
+    let half_thickness = 0.5 * max(min_size_for_pixel, thickness + 1.0 / l2p);  // add 0.5 physical pixel on each side.
     $$ else
-    let thickness:f32 = max(1.0/l2p, u_material.thickness / thickness_ratio);  // non-aa lines get no thinner than 1 px
+    let thickness:f32 = max(min_size_for_pixel, u_material.thickness / thickness_ratio);  // non-aa lines get no thinner than 1 px
     let half_thickness = 0.5 * thickness;
     $$ endif
 
@@ -632,6 +633,7 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     }
 
     // Calculate the distance to the stroke's edge. Negative means inside, positive means outside. Just like SDF.
+    let dist_to_center_p = length(segment_coord_p);
     var dist_to_stroke_p = length(segment_coord_p) - half_thickness_p;
 
     $$ if dashing
@@ -775,8 +777,12 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
     // it relies on a good blend method, and the object gets drawn twice.
     var alpha: f32 = 1.0;
     $$ if aa
-        alpha = clamp(0.5 - dist_to_stroke_p, 0.0, 1.0);
-        alpha = alpha * select(1.0, half_thickness_p * 2.0, half_thickness_p < 0.5);  // diminish alpha for lines thinner than physical pixels
+        if (half_thickness_p > 0.5) {
+            alpha = clamp(0.5 - dist_to_stroke_p, 0.0, 1.0);
+        } else {
+            // Thin lines, factor based on dist_to_center_p, scaled by the size (with a max)
+            alpha = (1.0 - dist_to_center_p) * max(0.01, half_thickness_p * 2.0);
+        }
         alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
         if (alpha <= 0.0) { discard; }
     $$ else

@@ -94,11 +94,12 @@ fn vs_main(in: VertexInput) -> Varyings {
             let size_ratio = 0.5 * (distance(pos_w.xyz, pos_w_shiftedx.xyz) + distance(pos_w.xyz, pos_w_shiftedy.xyz));
         $$ endif
     $$ endif
+    let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
     $$ if aa
     let size:f32 = size_ref / size_ratio;  // Logical pixels
-    let half_size = 0.5 * size + 0.5 / l2p;  // 0.5 physical pixel on each side.
+    let half_size = 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
     $$ else
-    let size:f32 = max(1.0/l2p, size_ref / size_ratio);  // non-aa lines get no thinner than 1 px
+    let size:f32 = max(min_size_for_pixel, size_ref / size_ratio);  // non-aa don't get smaller.
     let half_size = 0.5 * size;
     $$ endif
 
@@ -181,7 +182,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let pointcoord = pointcoord_p / l2p;
 
     // Get SDF
-    let dist_to_edge_p = length(pointcoord_p) - half_size_p;
+    let dist_to_center_p = length(pointcoord_p);
+    let dist_to_edge_p = dist_to_center_p - half_size_p;
 
     // Determine alpha
     var alpha: f32 = 1.0;
@@ -192,8 +194,12 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         alpha = exp(-0.5 * t * t);
         if (dist_to_edge_p > 0.0) { discard; }
     $$ elif aa
-        alpha = clamp(0.5 - dist_to_edge_p, 0.0, 1.0);
-        alpha = alpha * select(1.0, half_size_p * 2.0, half_size_p < 0.5);  // diminish alpha for lines thinner than physical pixels
+        if (half_size_p > 0.5) {
+            alpha = clamp(0.5 - dist_to_edge_p, 0.0, 1.0);
+        } else {
+            // Tiny points, factor based on dist_to_center_p, scaled by the size (with a max)
+            alpha = (1.0 - dist_to_center_p) * max(0.01, half_size_p * 2.0);
+        }
         alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
         if (alpha <= 0.0) { discard; }
     $$ else

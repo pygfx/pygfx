@@ -1,8 +1,8 @@
 """
-Thin lines
-==========
+Lines with different thicknesses
+================================
 
-* The top line is drawn with the thin line material, a classing gl one-pixel line.
+* The top line is drawn with the thin line material, a classic gl one-pixel line.
 * On the left are lines with increasing thickness, without aa, they don't get thinner than one physical pixel.
 * On the right are lines with increasing thickness, with aa, really thin lines diminish with alpha.
 * Note that due to the set pixel_ratio, a thickness of 2 is 1 physical pixel.
@@ -46,7 +46,7 @@ for aa in [False, True]:
         scene.add(line)
 
 camera = gfx.OrthographicCamera()
-camera.show_object(scene)
+camera.show_object(scene, scale=0.7)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
