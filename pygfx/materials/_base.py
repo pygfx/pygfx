@@ -192,3 +192,8 @@ class ColorMode(enum.Enum):
     face = 3
     vertex_map = 4
     face_map = 5
+
+
+class SizeMode(enum.Enum):
+    uniform = 1
+    vertex = 2

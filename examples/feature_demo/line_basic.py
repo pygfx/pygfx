@@ -68,7 +68,7 @@ def change_material(event):
         )
     elif event.key == "2":
         line.material = gfx.LineMaterial(
-            thickness=20.0,
+            thickness=22.0,
             color=(0.8, 0.7, 0.0),
             dash_pattern=(4, 2, 3, 2, 2, 2, 1, 2, 0, 2),
             thickness_space="screen",

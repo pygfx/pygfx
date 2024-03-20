@@ -2,7 +2,9 @@
 Fly controller
 ==============
 
-Show the fly controller in action.
+Fly through a cloud of cololoured points. This example demonstrates the fly
+controller, as well as the GaussianBlob point material, with size_space set to
+'world'.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -19,12 +21,14 @@ scene = gfx.Scene()
 
 # Create a bunch of points
 n = 1000
-positions = np.random.normal(0, 0.5, (n, 3)).astype(np.float32)
+positions = np.random.normal(0, 50, (n, 3)).astype(np.float32)
 sizes = np.random.rand(n).astype(np.float32) * 50
 colors = np.random.rand(n, 4).astype(np.float32)
 geometry = gfx.Geometry(positions=positions, sizes=sizes, colors=colors)
 
-material = gfx.PointsMaterial(color_mode="vertex", vertex_sizes=True)
+material = gfx.PointsGaussianBlobMaterial(
+    color_mode="vertex", size_mode="vertex", size_space="world"
+)
 points = gfx.Points(geometry, material)
 scene.add(points)
 

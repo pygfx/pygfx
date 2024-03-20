@@ -74,7 +74,7 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.materials.MeshSliceMaterial
     ~pygfx.materials.MeshStandardMaterial
     ~pygfx.materials.PointsMaterial
-    ~pygfx.materials.GaussianPointsMaterial
+    ~pygfx.materials.PointsGaussianBlobMaterial
     ~pygfx.materials.LineMaterial
     ~pygfx.materials.LineThinMaterial
     ~pygfx.materials.LineThinSegmentMaterial
