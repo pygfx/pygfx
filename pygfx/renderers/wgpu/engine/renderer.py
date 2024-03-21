@@ -214,26 +214,21 @@ class WgpuRenderer(RootEventHandler, Renderer):
         with less jagged edges. Alternatively, this value can be set
         to e.g. 0.5 to *lower* the resolution.
         """
-        return self._pixel_ratio
+        if self._pixel_ratio is not None:
+            return self._pixel_ratio
+        elif isinstance(self._target, wgpu.gui.WgpuCanvasBase):
+            target_pixel_ratio = self._target.get_pixel_ratio()
+            if target_pixel_ratio > 1.0:
+                return target_pixel_ratio
+        # Default
+        return 2.0
 
     @pixel_ratio.setter
     def pixel_ratio(self, value):
         if not value:
             value = None
         if value is None:
-            # Get target sizes
-            target = self._target
-            if isinstance(target, wgpu.gui.WgpuCanvasBase):
-                target_psize = target.get_physical_size()
-            elif isinstance(target, Texture):
-                target_psize = target.size[:2]
-            else:
-                raise TypeError(f"Unexpected render target {target.__class__.__name__}")
-            target_lsize = self.logical_size
-            # Determine target ratio
-            target_ratio = target_psize[0] / target_lsize[0]
-            # Use 2 on non-hidpi displays. On hidpi displays follow target.
-            self._pixel_ratio = float(target_ratio) if target_ratio > 1 else 2.0
+            self._pixel_ratio = None
         elif isinstance(value, (int, float)):
             self._pixel_ratio = abs(float(value))
         else:
@@ -282,7 +277,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     @property
     def physical_size(self):
         """The physical size of the internal render texture."""
-        pixel_ratio = self._pixel_ratio
+        pixel_ratio = self.pixel_ratio
         target_lsize = self.logical_size
         return tuple(max(1, int(pixel_ratio * x)) for x in target_lsize)
 
