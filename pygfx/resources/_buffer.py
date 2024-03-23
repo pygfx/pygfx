@@ -116,7 +116,7 @@ class Buffer(Resource):
     @property
     def itemsize(self):
         """The number of bytes for a single item."""
-        if self._data is None:
+        if self._data is None or self.nitems > 0:
             # This generic solution fails when nitems is zero
             return self._store.nbytes // self._store.nitems
         else:

@@ -621,7 +621,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         compute_pass = command_encoder.begin_compute_pass()
 
         for compute_pipeline_container in compute_pipeline_containers:
-            compute_pipeline_container.dispatch(compute_pass)
+            compute_pipeline_container.dispatch(compute_pass, environment)
 
         compute_pass.end()
 

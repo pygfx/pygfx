@@ -84,14 +84,13 @@ class LineShader(WorldObjectShader):
         # because a lot of logic related joins becomes simpler. However, the miters
         # result in extra fragments that need to be processed, so we'd need to do
         # some benchmarks to be sure.
-        if (
-            self["color_mode"] == "uniform"
-            and not material.is_transparent
-            and not material.color_is_transparent
-            and not self["dashing"]
-        ):
-            pass  # TODO: do benchmarks and enable if it makes things faster
-            # self["line_type"] = "quickline"
+        # if (
+        #     self["color_mode"] == "uniform"
+        #     and not self["dashing"]
+        #     and not material.is_transparent
+        #     and not material.color_is_transparent
+        # ):
+        #     # self["line_type"] = "quickline"
 
         # Handle dashing
         if material.dash_pattern:
@@ -262,6 +261,7 @@ class LineShader(WorldObjectShader):
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
+        print("line render_mask", render_mask)
         return {
             "indices": (size, 1, offset, 0),
             "render_mask": render_mask,

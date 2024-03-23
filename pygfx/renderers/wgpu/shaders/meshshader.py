@@ -62,11 +62,13 @@ class MeshShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["color_buffer_channels"] = 0
         elif color_mode == "vertex":
+            geometry.colors.itemsize  # access so we trigger a recompile when it changes
             self["color_mode"] = "vertex"
             self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "face":
+            geometry.colors.itemsize  # access so we trigger a recompile when it changes
             self["color_mode"] = "face"
             self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
             if nchannels not in (1, 2, 3, 4):
