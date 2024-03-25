@@ -264,7 +264,6 @@ class LineShader(WorldObjectShader):
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
 
-        print("line render_mask", render_mask)
         return {
             "indices": (size, 1, offset, 0),
             "render_mask": render_mask,
