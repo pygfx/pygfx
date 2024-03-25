@@ -62,9 +62,10 @@ class IdProvider:
 
     def release_id(self, wobject, id):
         """Release an id associated with a wobject."""
-        with self._lock:
-            self._ids_in_use.discard(id)
-            self._map.pop(id, None)
+        if id > 0:
+            with self._lock:
+                self._ids_in_use.discard(id)
+                self._map.pop(id, None)
 
     def get_object_from_id(self, id):
         """Return the wobject associated with an id, or None."""
@@ -128,6 +129,8 @@ class WorldObject(EventTarget, RootTrackable):
     """
 
     _FORWARD_IS_MINUS_Z = False  # Default is +Z (lights and cameras use -Z)
+
+    _id = 0
 
     # The uniform type describes the structured info for this object, which represents
     # every "property" that a renderer would need to know in order to visualize it.
