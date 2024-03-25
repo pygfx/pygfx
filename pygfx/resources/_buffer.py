@@ -41,7 +41,7 @@ class Buffer(Resource):
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
-        format = None
+        detected_format = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
@@ -56,7 +56,7 @@ class Buffer(Resource):
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
                 if len(shape) == 2:  # if not, the user does something fancy
-                    format = (f"{shape[-1]}x" + subformat).lstrip("1x")
+                    detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
             if the_nitems:
@@ -73,7 +73,12 @@ class Buffer(Resource):
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
-        self._store.format = str(format)
+        if format is not None:
+            self._store.format = str(format)
+        elif detected_format:
+            self._store.format = detected_format
+        else:
+            self._store.format = None
         self._store.nbytes = the_nbytes
         self._store.nitems = the_nitems
 
