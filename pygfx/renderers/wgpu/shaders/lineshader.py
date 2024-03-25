@@ -23,6 +23,7 @@ from .. import (
     Binding,
     RenderMask,
     load_wgsl,
+    nchannels_from_format,
 )
 
 
@@ -57,13 +58,15 @@ class LineShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["color_buffer_channels"] = 0
         elif color_mode == "vertex":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "vertex"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "face":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "face"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "vertex_map":
