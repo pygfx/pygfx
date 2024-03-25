@@ -162,7 +162,7 @@ def get_pipeline_container_group(wobject, environment):
         # Get whether the object has changes
         changed_labels = wobject.tracker.pop_changed()
 
-    # Update if necessary - this part is defined to be fast if there are no changes
+    # Update if necessary - this path is defined to be fast if there are no changes
     # Don't put this under an ``if changed``, because work may be needed for a new environment.
     pipeline_container_group.update(wobject, environment, changed_labels)
 
@@ -368,6 +368,8 @@ class PipelineContainerGroup:
     """
 
     def __init__(self):
+        self.environments_known = set()
+        self.environments_uptodate = set()
         self.compute_containers = None
         self.render_containers = None
         self.bake_functions = None
@@ -417,10 +419,36 @@ class PipelineContainerGroup:
             self.render_containers = tuple(render_containers)
             self.bake_functions = tuple(bake_functions)
 
-        for container in self.compute_containers:
-            container.update(wobject, environment, changed)
+        # Manage known environments
+        env_hash = environment.hash
+        if env_hash not in self.environments_known:
+            self.environments_known.add(env_hash)
+            environment.register_pipeline_container(self)  # allows us to clean up
+
+        # Update compute containers if something changed. Note that env_hash is "" for this path.
+        if changed:
+            for container in self.compute_containers:
+                container.update(wobject, environment, "", changed)
+
+        # If something has changed, and it was not updated for the current environment yet, update render pipelines now
+        if changed:
+            self.environments_uptodate.clear()
+        if env_hash not in self.environments_uptodate:
+            for container in self.render_containers:
+                container.update(wobject, environment, env_hash, changed)
+
+        # Mark this environment as up-to-date
+        self.environments_uptodate.add(env_hash)
+
+    def remove_env_hash(self, env_hash):
+        """Called from the environment when it becomes inactive.
+        This allows this object to remove all references to wgpu objects
+        that won't be used, reclaiming memory on both CPU and GPU.
+        """
+        self.environments_known.discard(env_hash)
+        self.environments_uptodate.discard(env_hash)
         for container in self.render_containers:
-            container.update(wobject, environment, changed)
+            container.remove_env_hash(env_hash)
 
 
 class PipelineContainer:
@@ -465,20 +493,12 @@ class PipelineContainer:
                 assert isinstance(b, Binding), f"binding must be Binding, not {b}"
 
     def remove_env_hash(self, env_hash):
-        """Called from the environment when it becomes inactive.
-        This allows this object to remove all references to wgpu objects
-        that won't be used, reclaiming memory on both CPU and GPU.
-        """
+        """Called from the PipelineContainerGroup when an environment becomes inactive."""
         self.wgpu_shaders.pop(env_hash, None)
         self.wgpu_pipelines.pop(env_hash, None)
 
-    def update(self, wobject, environment, changed):
+    def update(self, wobject, environment, env_hash, changed):
         """Make sure that the pipeline is up-to-date."""
-
-        if isinstance(self, RenderPipelineContainer):
-            env_hash = environment.hash
-        else:
-            env_hash = ""
 
         # Ensure that the information provided by the shader is up-to-date
         if changed:
@@ -546,10 +566,6 @@ class PipelineContainer:
                 pass_indices.append(pass_index)
         else:
             pass_indices = [0]
-
-        # If this is a new environment, register for cleanup
-        if env_hash not in self.wgpu_shaders:
-            environment.register_pipeline_container(self)  # allows us to clean up
 
         # Get shader objects for this environment
         env_shaders = self.wgpu_shaders.setdefault(env_hash, {})
@@ -684,10 +700,9 @@ class ComputePipelineContainer(PipelineContainer):
         """Dispatch the pipeline, doing the actual compute job."""
         if self.broken:
             return
-        env_hash = ""
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[env_hash][0]
+        pipeline = self.wgpu_pipelines[""][0]
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 
@@ -802,10 +817,9 @@ class RenderPipelineContainer(PipelineContainer):
 
         if not (render_mask & self.render_info["render_mask"]):
             return
-        env_hash = environment.hash
 
         # Collect what's needed
-        pipeline = self.wgpu_pipelines[env_hash][pass_index]
+        pipeline = self.wgpu_pipelines[environment.hash][pass_index]
         indices = self.render_info["indices"]
         bind_groups = self.wgpu_bind_groups
 
