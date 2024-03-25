@@ -163,8 +163,7 @@ def get_pipeline_container_group(wobject, environment):
         changed_labels = wobject.tracker.pop_changed()
 
     # Update if necessary - this part is defined to be fast if there are no changes
-    if changed_labels:
-        print(changed_labels)
+    # Don't put this under an ``if changed``, because work may be needed for a new environment.
     pipeline_container_group.update(wobject, environment, changed_labels)
 
     # Return the pipeline container group
@@ -534,44 +533,42 @@ class PipelineContainer:
     def update_wgpu_data(self, wobject, environment, env_hash, changed):
         """Update the actual wgpu objects."""
 
-        if isinstance(self, ComputePipelineContainer):
-            pass_indices = [0]
+        # Determine what render-passes apply, for this combination of shader and blender
+        if isinstance(self, RenderPipelineContainer):
+            render_mask = self.render_info["render_mask"]
+            blender = environment.blender
+            pass_indices = []
+            for pass_index in range(blender.get_pass_count()):
+                if not render_mask & blender.passes[pass_index].render_mask:
+                    continue
+                if not blender.get_color_descriptors(pass_index):
+                    continue
+                pass_indices.append(pass_index)
         else:
-            pass_indices = range(environment.blender.get_pass_count())
+            pass_indices = [0]
 
-        wgpu_shaders_for_env = self.wgpu_shaders.setdefault(env_hash, {})
-        wgpu_pipelines_for_env = self.wgpu_pipelines.setdefault(env_hash, {})
-
-        if not wgpu_shaders_for_env:
+        # If this is a new environment, register for cleanup
+        if env_hash not in self.wgpu_shaders:
             environment.register_pipeline_container(self)  # allows us to clean up
-            wgpu_pipelines_for_env.clear()  # Invalidate pipelines
+
+        # Get shader objects for this environment
+        env_shaders = self.wgpu_shaders.setdefault(env_hash, {})
+        env_pipelines = self.wgpu_pipelines.setdefault(env_hash, {})
+
+        # Update shaders
         for pass_index in pass_indices:
-            if wgpu_shaders_for_env.get(pass_index, None) is None:
+            if pass_index not in env_shaders:
                 changed.add("compile_shader")
-                wgpu_shaders_for_env[pass_index] = self._compile_shaders(
-                    pass_index, environment
-                )
-                wgpu_pipelines_for_env.pop(pass_index, None)
+                env_shaders[pass_index] = self._compile_shader(pass_index, environment)
+                env_pipelines.pop(pass_index, None)
 
+        # Update pipelines
         for pass_index in pass_indices:
-            if wgpu_pipelines_for_env.get(pass_index, None) is None:
+            if pass_index not in env_pipelines:
                 changed.add("compose_pipeline")
-                wgpu_pipelines_for_env[pass_index] = self._compose_pipelines(
-                    pass_index, wobject, environment, wgpu_shaders_for_env
+                env_pipelines[pass_index] = self._compose_pipeline(
+                    pass_index, wobject, environment, env_shaders
                 )
-
-        # if self.wgpu_shaders.get(env_hash, None) is None:
-        #     environment.register_pipeline_container(self)  # allows us to clean up
-        #     changed.add("compile_shader")
-        #     self.wgpu_shaders[env_hash] = self._compile_shaders(environment)
-        #     self.wgpu_pipelines.pop(env_hash, None)  # Invalidate pipelines so new shaders get used
-
-        # if self.wgpu_pipelines.get(env_hash, None) is None:
-        #     changed.add("compose_pipeline")
-        #     shader_modules = self.wgpu_shaders[env_hash]
-        #     self.wgpu_pipelines[env_hash] = self._compose_pipelines(
-        #         wobject, environment, shader_modules
-        #     )
 
     def update_shader_hash(self):
         """Update the shader hash, invalidating the wgpu shaders if it changed."""
@@ -666,11 +663,11 @@ class ComputePipelineContainer(PipelineContainer):
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
 
-    def _compile_shaders(self, pass_index, env):
+    def _compile_shader(self, pass_index, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
         return get_cached_shader_module(self.device, self.shader, {})
 
-    def _compose_pipelines(self, pass_index, wobject, env, shader_modules):
+    def _compose_pipeline(self, pass_index, wobject, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -687,7 +684,7 @@ class ComputePipelineContainer(PipelineContainer):
         """Dispatch the pipeline, doing the actual compute job."""
         if self.broken:
             return
-        env_hash = environment.hash
+        env_hash = ""
 
         # Collect what's needed
         pipeline = self.wgpu_pipelines[env_hash][0]
@@ -748,21 +745,11 @@ class RenderPipelineContainer(PipelineContainer):
             self.strip_index_format = strip_index_format
             self.wgpu_pipelines = {}
 
-    def _compile_shaders(self, pass_index, env):
+    def _compile_shader(self, pass_index, env):
         """Compile the templated shader to a list of wgpu shader modules
         (one for each pass of the blender).
         """
         blender = env.blender
-        render_mask = self.render_info["render_mask"]
-
-        # No need to compile pass for transparent fragments if the object has none
-        if not render_mask & blender.passes[pass_index].render_mask:
-            return None
-
-        color_descriptors = blender.get_color_descriptors(pass_index)
-        if not color_descriptors:
-            None
-
         env_bind_group_index = len(self.wgpu_bind_groups)
 
         blender_kwargs = blender.get_shader_kwargs(pass_index)
@@ -772,7 +759,7 @@ class RenderPipelineContainer(PipelineContainer):
 
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipelines(self, pass_index, wobject, env, shader_modules):
+    def _compose_pipeline(self, pass_index, wobject, env, shader_modules):
         """Create a list of wgpu pipeline objects from the shader, bind group
         layouts and other pipeline info (one for each pass of the blender).
         """
@@ -780,7 +767,6 @@ class RenderPipelineContainer(PipelineContainer):
         strip_index_format = self.strip_index_format
         primitive_topology = self.pipeline_info["primitive_topology"]
         cull_mode = self.pipeline_info["cull_mode"]
-        render_mask = self.render_info["render_mask"]
 
         # Create pipeline layout object from list of layouts
         env_bind_group_layout, _ = env.wgpu_bind_group
@@ -793,17 +779,9 @@ class RenderPipelineContainer(PipelineContainer):
         # include the texture format and a few other static things.
         # This step should *not* rerun when e.g. the canvas resizes.
         blender = env.blender
-
-        # No need to compose pass for transparent fragments if the object has none
-        if not render_mask & blender.passes[pass_index].render_mask:
-            return None
-
         depth_test = wobject.material.depth_test
         color_descriptors = blender.get_color_descriptors(pass_index)
         depth_descriptor = blender.get_depth_descriptor(pass_index, depth_test)
-        if not color_descriptors:
-            return None
-
         shader_module = shader_modules[pass_index]
 
         return get_cached_render_pipeline(
