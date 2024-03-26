@@ -6,6 +6,8 @@ import functools
 
 from typing import Tuple, Union
 
+PRECISION_EPSILON = 1e-7
+
 
 class cached:  # noqa: N801
     """Cache for computed properties.
@@ -470,8 +472,11 @@ class AffineBase:
         if np.allclose(value, (0, 0, 0)):
             raise ValueError("A coordinate axis can't point at its origin.")
 
-        if np.linalg.norm(np.cross(value, self.reference_up)) == 0:
+        if np.linalg.norm(np.cross(value, self.reference_up)) < PRECISION_EPSILON:
             # target and reference_up are parallel
+            if np.linalg.norm(np.cross(self.forward, value)) < PRECISION_EPSILON:
+                # target and forward are parallel, no rotation needed
+                return
             rotation = la.quat_from_vecs(self.forward, value)
         elif self.is_camera_space:
             matrix = la.mat_look_at((0, 0, 0), -value, self.reference_up)
