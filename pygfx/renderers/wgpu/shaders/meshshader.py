@@ -19,6 +19,7 @@ from .. import (
     Binding,
     RenderMask,
     shaderlib,
+    nchannels_from_format,
     to_texture_format,
     GfxSampler,
     GfxTextureView,
@@ -62,13 +63,15 @@ class MeshShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["color_buffer_channels"] = 0
         elif color_mode == "vertex":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "vertex"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "face":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "face"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "vertex_map":
@@ -699,10 +702,8 @@ class MeshStandardShader(MeshShader):
         # We need uv to use the maps, so if uv not exist, ignore all maps
         if hasattr(geometry, "texcoords") and geometry.texcoords is not None:
             # Texcoords must always be nx2 since it used for all texture maps.
-            if not (
-                geometry.texcoords.data.ndim == 2
-                and geometry.texcoords.data.shape[1] == 2
-            ):
+            nchannels = nchannels_from_format(geometry.texcoords.format)
+            if not (geometry.texcoords.data.ndim == 2 and nchannels == 2):
                 raise ValueError("For standard material, the texcoords must be Nx2")
 
             if material.normal_map is not None:
@@ -842,13 +843,15 @@ class MeshSliceShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["color_buffer_channels"] = 0
         elif color_mode == "vertex":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "vertex"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "face":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "face"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "vertex_map":

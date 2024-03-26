@@ -37,6 +37,7 @@ Lower level functions that may or may not be needed in custom shaders:
     :toctree: _autosummary/renderers/wgpu
     :template: ../_templates/custom_layout.rst
 
+    nchannels_from_format
     to_vertex_format
     to_texture_format
 
@@ -50,6 +51,7 @@ Lower level functions that may or may not be needed in custom shaders:
 from ...objects._base import RenderMask
 from .engine.utils import (
     register_wgpu_render_function,
+    nchannels_from_format,
     to_vertex_format,
     to_texture_format,
     GfxSampler,

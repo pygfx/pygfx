@@ -23,6 +23,7 @@ from .. import (
     Binding,
     RenderMask,
     load_wgsl,
+    nchannels_from_format,
 )
 
 
@@ -57,13 +58,15 @@ class LineShader(WorldObjectShader):
             self["color_mode"] = "uniform"
             self["color_buffer_channels"] = 0
         elif color_mode == "vertex":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "vertex"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "face":
+            nchannels = nchannels_from_format(geometry.colors.format)
             self["color_mode"] = "face"
-            self["color_buffer_channels"] = nchannels = geometry.colors.data.shape[1]
+            self["color_buffer_channels"] = nchannels
             if nchannels not in (1, 2, 3, 4):
                 raise ValueError(f"Geometry.colors needs 1-4 columns, not {nchannels}")
         elif color_mode == "vertex_map":
@@ -84,14 +87,13 @@ class LineShader(WorldObjectShader):
         # because a lot of logic related joins becomes simpler. However, the miters
         # result in extra fragments that need to be processed, so we'd need to do
         # some benchmarks to be sure.
-        if (
-            self["color_mode"] == "uniform"
-            and not material.is_transparent
-            and not material.color_is_transparent
-            and not self["dashing"]
-        ):
-            pass  # TODO: do benchmarks and enable if it makes things faster
-            # self["line_type"] = "quickline"
+        # if (
+        #     self["color_mode"] == "uniform"
+        #     and not self["dashing"]
+        #     and not material.is_transparent
+        #     and not material.color_is_transparent
+        # ):
+        #     # self["line_type"] = "quickline"
 
         # Handle dashing
         if material.dash_pattern:

@@ -32,6 +32,15 @@ def register_wgpu_render_function(wobject_cls, material_cls):
     return _register_wgpu_renderer
 
 
+def nchannels_from_format(format):
+    """Return the number of channels from a buffer format.
+
+    Channels as in elements per item. I.e. will be 1 and 4 for a grayscale and
+    rgba color buffer, respectively.
+    """
+    return int(to_vertex_format(format).partition("x")[2] or "1")
+
+
 def to_vertex_format(format):
     """Convert pygfx' own format to the wgpu format."""
     if format in wgpu.VertexFormat:
