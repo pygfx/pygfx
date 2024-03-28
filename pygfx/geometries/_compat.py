@@ -49,3 +49,18 @@ def geometry_from_trimesh(mesh):
     # todo: support vertex attribute 'tangent'
 
     return Geometry(**kwargs)
+
+
+def geometry_from_open3d(mesh):
+    from open3d import geometry as o3d_geometry  # noqa
+
+    if not isinstance(mesh, o3d_geometry.TriangleMesh):
+        raise NotImplementedError()
+
+    kwargs = dict(
+        positions=np.ascontiguousarray(mesh.triangles, dtype="f4"),
+        indices=np.ascontiguousarray(mesh.vertices, dtype="i4"),
+        normals=np.ascontiguousarray(mesh.vertex_normals, dtype="f4"),
+    )
+
+    return Geometry(**kwargs)
