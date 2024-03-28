@@ -1,7 +1,11 @@
 import wgpu  # only for flags/enums
 
 from ....objects import Points
-from ....materials import PointsMaterial, PointsGaussianBlobMaterial
+from ....materials import (
+    PointsMaterial,
+    PointsGaussianBlobMaterial,
+    PointsSpriteMaterial,
+)
 
 from .. import (
     register_wgpu_render_function,
@@ -24,7 +28,9 @@ class PointsShader(WorldObjectShader):
         geometry = wobject.geometry
 
         color_mode = str(material.color_mode).split(".")[-1]
-        if color_mode == "auto":
+        if isinstance(material, PointsSpriteMaterial):
+            self["color_mode"] = "sprite"
+        elif color_mode == "auto":
             if material.map is not None:
                 self["color_mode"] = "vertex_map"
                 self["color_buffer_channels"] = 0
@@ -68,7 +74,12 @@ class PointsShader(WorldObjectShader):
             bindings.append(Binding("s_sizes", rbuffer, geometry.sizes, "VERTEX"))
 
         # Per-vertex color, colormap, or a uniform color?
-        if self["color_mode"] == "vertex":
+        if self["color_mode"] == "sprite":
+            self["img_nchannels"] = 2
+            bindings.extend(
+                self.define_img_colormap(material.map, material.map_interpolation)
+            )
+        elif self["color_mode"] == "vertex":
             bindings.append(Binding("s_colors", rbuffer, geometry.colors, "VERTEX"))
         elif self["color_mode"] == "vertex_map":
             bindings.extend(

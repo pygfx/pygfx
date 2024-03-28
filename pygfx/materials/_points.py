@@ -238,5 +238,15 @@ class PointsGaussianBlobMaterial(PointsMaterial):
     """
 
 
+class PointsSpriteMaterial(PointsMaterial):
+    """A material to render points as sprite images.
+
+    Renders the provided texture at each point position. The images are square
+    and sized just like with a PointMaterial.
+
+    The sprite texture is provided via ``.map``.
+    """
+
+
 # idea: a MarkerMaterial with more options for the shape, and an edge around the shape.
 # Though perhaps such a material should be part of a higher level plotting lib.
