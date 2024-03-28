@@ -174,10 +174,10 @@ class PointsMaterial(Material):
         if value is None:
             value = "screen"
         if not isinstance(value, str):
-            raise TypeError("PointMaterial.size_space must be str")
+            raise TypeError("PointsMaterial.size_space must be str")
         value = value.lower()
         if value not in ["screen", "world", "model"]:
-            raise ValueError(f"Invalid value for PointMaterial.size_space: {value}")
+            raise ValueError(f"Invalid value for PointsMaterial.size_space: {value}")
         self._store.size_space = value
 
     @property
