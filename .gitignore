@@ -120,3 +120,6 @@ venv.bak/
 
 glTF-Sample-Models
 reactive_rendering_state.pkl
+
+# jetbrains idea
+.idea/
