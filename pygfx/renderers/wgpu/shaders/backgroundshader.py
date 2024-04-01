@@ -170,6 +170,14 @@ class BackgroundShader(WorldObjectShader):
             // written in the opaque pass in order for it to really be background.
             // So we fool the blender into thinking this fragment is opaque, even if its not.
             var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
+            $$ if write_pick
+            out.pick = (
+                // For a background, it doesn't make sense to report back
+                // anything other than the background id.
+                pick_pack(u32(u_wobject.id), 20)
+                // Maybe this can be different for for textured backgrounds?
+            );
+            $$ endif
             out.color = vec4<f32>(out_color);
             return out;
         }
