@@ -41,7 +41,7 @@ essence, you need modern (enough) graphics drivers, and `pip>=20.3`.
 
 We're currently working towards version `1.0`, which means that the API
 can change with each version. We expect to reach `1.0` near the end of
-2023, at which point we start caring about backwards compatibility.
+2024, at which point we start caring about backwards compatibility.
 
 This means that until then, you should probably pin the pygfx version
 that you're using, and check the [release notes](https://github.com/pygfx/pygfx/releases)
