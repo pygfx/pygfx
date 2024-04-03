@@ -242,10 +242,29 @@ class PointsSpriteMaterial(PointsMaterial):
     """A material to render points as sprite images.
 
     Renders the provided texture at each point position. The images are square
-    and sized just like with a PointMaterial.
+    and sized just like with a PointMaterial. The texture color is multiplierd
+    with the point's "normal" color (as calculated depending on ``color_mode``).
 
     The sprite texture is provided via ``.map``.
     """
+
+    def __init__(self, *, sprite=None, **kwargs):
+        super().__init__(**kwargs)
+        self.sprite = sprite
+
+    @property
+    def sprite(self):
+        """The texture map specifying the sprite image.
+
+        The dimensionality of the map must be 2D. If None, it just shows a
+        uniform color.
+        """
+        return self._sprite
+
+    @sprite.setter
+    def sprite(self, sprite):
+        assert sprite is None or isinstance(sprite, Texture)
+        self._sprite = sprite
 
 
 # idea: a MarkerMaterial with more options for the shape, and an edge around the shape.

@@ -187,7 +187,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Determine alpha
     var alpha: f32 = 1.0;
-    $$ if color_mode == 'sprite'
+    $$ if is_sprite
         // sprites have their alpha defined by the map and opacity only
     $$ elif shape == 'gaussian'
         let d = length(pointcoord_p);
@@ -209,12 +209,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ endif
 
     // Determine color
-    $$ if color_mode == 'sprite'
-        let texcoord = (pointcoord_p + half_size_p) / (2.0 * half_size_p);
-        if (min(texcoord.x, texcoord.y) < 0.0) { discard; }
-        if (max(texcoord.x, texcoord.y) > 1.0) { discard; }
-        let color = sample_colormap(texcoord);
-    $$ elif color_mode == 'vertex'
+    $$ if color_mode == 'vertex'
         let color = varyings.color;
     $$ elif color_mode == 'map' or color_mode == 'vertex_map'
         let color = sample_colormap(varyings.texcoord);
@@ -222,9 +217,29 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let color = u_material.color;
     $$ endif
     var physical_color = srgb2physical(color.rgb);
+    var user_alpha = color.a;
+
+    // Multiply with sprite color?
+    $$ if is_sprite == 2
+        let sprite_coord = (pointcoord_p + half_size_p) / (2.0 * half_size_p);
+        if (min(sprite_coord.x, sprite_coord.y) < 0.0) { discard; }
+        if (max(sprite_coord.x, sprite_coord.y) > 1.0) { discard; }
+        let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
+        $$ if sprite_nchannels == 1
+            physical_color = physical_color * sprite_value.r;
+        $$ elif sprite_nchannels == 2
+            physical_color = physical_color * sprite_value.r;
+            user_alpha = user_alpha * sprite_value.g;
+        $$ elif sprite_nchannels == 3
+            physical_color = physical_color * sprite_value.rgb;
+        $$ else
+            physical_color = physical_color * sprite_value.rgb;
+            user_alpha = user_alpha * sprite_value.a;
+        $$ endif
+    $$ endif
 
     // Determine final rgba value
-    let opacity = min(1.0, color.a) * alpha * u_material.opacity;
+    let opacity = min(1.0, user_alpha) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
     // Wrap up
