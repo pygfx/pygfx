@@ -242,7 +242,7 @@ class PointsSpriteMaterial(PointsMaterial):
     """A material to render points as sprite images.
 
     Renders the provided texture at each point position. The images are square
-    and sized just like with a PointMaterial. The texture color is multiplierd
+    and sized just like with a PointMaterial. The texture color is multiplied
     with the point's "normal" color (as calculated depending on ``color_mode``).
 
     The sprite texture is provided via ``.sprite``.
