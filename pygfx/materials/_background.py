@@ -107,6 +107,24 @@ class BackgroundMaterial(Material):
         self.uniform_buffer.data["color_top_right"] = Color(color)
         self.uniform_buffer.update_range(0, 1)
 
+    def _wgpu_get_pick_info(self, pick_value):
+        # This should match with the shader
+        values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
+        # TODO: choose a convention to return to the user
+        # Presently:
+        # Bottom left: (0, 0)
+        # Bottom right: (1, 0)
+        # Top left: (0, 1)
+        # Top right: (1, 1)
+        # More visually:
+        #     (0, 1)    (1, 1)
+        #     (0, 0),   (1, 0)
+        x = values["x"] / 4194303
+        y = values["y"] / 4194303
+        return {
+            "pixel_coord": (x, y),
+        }
+
 
 class BackgroundImageMaterial(BackgroundMaterial):
     """Image/Skybox background.
@@ -152,10 +170,11 @@ class BackgroundImageMaterial(BackgroundMaterial):
             ix, iy = int(x + 0.5), int(y + 0.5)
             return {
                 "index": (ix, iy),
-                "pixel_coord": (x - ix, y - iy),
+                "coord": (x, y),
             }
         else:  # tex.size[2] == 6
             # Cube / Skybox
+            print(f"pick=0x{pick_value:016X}")
             values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
             texcoords_encoded = values["x"], values["y"], values["z"]
             size = tex.size
@@ -164,7 +183,7 @@ class BackgroundImageMaterial(BackgroundMaterial):
             ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
             return {
                 "index": (ix, iy, iz),
-                "voxel_coord": (x - ix, y - iy, z - iz),
+                "coord": (x, y, z),
             }
 
 
