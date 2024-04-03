@@ -1,6 +1,6 @@
 from ..resources import Texture
 from ._base import Material
-from ..utils import Color
+from ..utils import Color, unpack_bitfield
 
 
 class BackgroundMaterial(Material):
@@ -140,6 +140,33 @@ class BackgroundImageMaterial(BackgroundMaterial):
         assert map is None or isinstance(map, Texture)
         self._map = map
 
+    def _wgpu_get_pick_info(self, pick_value):
+        tex = self.map
+
+        # This should match with the shader
+        if tex.size[2] == 1:
+            # 2D
+            values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
+            x = values["x"] / 4194303 * tex.size[0] - 0.5
+            y = values["y"] / 4194303 * tex.size[1] - 0.5
+            ix, iy = int(x + 0.5), int(y + 0.5)
+            return {
+                "index": (ix, iy),
+                "pixel_coord": (x - ix, y - iy),
+            }
+        else:  # tex.size[2] == 6
+            # Cube / Skybox
+            values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
+            texcoords_encoded = values["x"], values["y"], values["z"]
+            size = tex.size
+            x, y, z = [(v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
+            print(x, y, z)
+            ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
+            return {
+                "index": (ix, iy, iz),
+                "voxel_coord": (x - ix, y - iy, z - iz),
+            }
+
 
 class BackgroundSkyboxMaterial(BackgroundImageMaterial):
     """Skybox background.
@@ -147,6 +174,3 @@ class BackgroundSkyboxMaterial(BackgroundImageMaterial):
     A cube image background, resulting in a skybox.
 
     """
-
-    def __init__(self, map=None, **kwargs):
-        super().__init__(map=map, **kwargs)

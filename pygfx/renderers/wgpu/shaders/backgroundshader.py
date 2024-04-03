@@ -171,12 +171,24 @@ class BackgroundShader(WorldObjectShader):
             // So we fool the blender into thinking this fragment is opaque, even if its not.
             var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
             $$ if write_pick
-            out.pick = (
-                // For a background, it doesn't make sense to report back
-                // anything other than the background id.
-                pick_pack(u32(u_wobject.id), 20)
-                // Maybe this can be different for for textured backgrounds?
-            );
+                $$ if texture_dim == 'cube'
+                    out.pick = (
+                        // For a background, it doesn't make sense to report back
+                        // anything other than the background id.
+                        pick_pack(u32(u_wobject.id), 20) +
+                        pick_pack(u32(varyings.texcoord.x * 16383.0), 14) +
+                        pick_pack(u32(varyings.texcoord.y * 16383.0), 14) +
+                        pick_pack(u32(varyings.texcoord.z * 16383.0), 14)
+                    );
+                $$ else
+                    out.pick = (
+                        // For a background, it doesn't make sense to report back
+                        // anything other than the background id.
+                        pick_pack(u32(u_wobject.id), 20) +
+                        pick_pack(u32(varyings.texcoord.x * 4194303.0), 22) +
+                        pick_pack(u32(varyings.texcoord.y * 4194303.0), 22)
+                    );
+                $$ endif
             $$ endif
             out.color = vec4<f32>(out_color);
             return out;

@@ -31,9 +31,17 @@ scene = gfx.Scene()
 tex_size = width, height, 6
 tex = gfx.Texture(im, dim=2, size=tex_size)
 
+def background_pointer_down(event):
+    print(event.pick_info)
+
 # And the background image with the cube texture
 background = gfx.Background(None, gfx.BackgroundSkyboxMaterial(map=tex))
 scene.add(background)
+background.add_event_handler(
+    background_pointer_down,
+    "pointer_down",
+)
+
 
 # Let's add some cubes to make the scene less boring
 cubes = []
