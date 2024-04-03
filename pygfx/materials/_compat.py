@@ -31,6 +31,10 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
     if not isinstance(image, Image):
         raise NotImplementedError()
 
+    # If this is a palette image, convert it to RGBA
+    if getattr(image, "mode", None) == "P":
+        image = image.convert("RGBA")
+
     m = memoryview(image.tobytes())
 
     im_channels = len(image.getbands())
