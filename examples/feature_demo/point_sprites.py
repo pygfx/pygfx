@@ -39,5 +39,5 @@ camera.show_object(grasses, view_dir=(1, -1, 1), scale=0.25)
 
 
 if __name__ == "__main__":
-    d = gfx.Display(camera=camera)
-    d.show(grasses)
+    disp = gfx.Display(camera=camera)
+    disp.show(grasses)
