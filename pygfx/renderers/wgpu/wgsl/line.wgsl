@@ -144,6 +144,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ else
         // The thickness is expressed in world space. So we first check where a point, moved shift_factor logic pixels away
         // from the node, ends up in world space. We actually do that for both x and y, in case there's anisotropy.
+        // The shift_factor was added to alleviate issues with the point jitter when the user zooms in
+        // See https://github.com/pygfx/pygfx/issues/698
+        // and https://github.com/pygfx/pygfx/pull/706/files
         let shift_factor = 1000.0;
         let pos_s_node_shiftedx = pos_s_node + vec2<f32>(shift_factor, 0.0);
         let pos_s_node_shiftedy = pos_s_node + vec2<f32>(shift_factor, 1.0);
