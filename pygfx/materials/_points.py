@@ -259,12 +259,12 @@ class PointsSpriteMaterial(PointsMaterial):
         The dimensionality of the map must be 2D. If None, it just shows a
         uniform color.
         """
-        return self._sprite
+        return self._store.sprite
 
     @sprite.setter
     def sprite(self, sprite):
         assert sprite is None or isinstance(sprite, Texture)
-        self._sprite = sprite
+        self._store.sprite = sprite
 
 
 # idea: a MarkerMaterial with more options for the shape, and an edge around the shape.
