@@ -30,7 +30,8 @@ def geometry_from_trimesh(mesh):
         indices=np.ascontiguousarray(mesh.faces, dtype="i4"),
         normals=np.ascontiguousarray(mesh.vertex_normals, dtype="f4"),
     )
-    if mesh.visual.kind == "texture":
+    # Note: some trimesh visuals have type texture but no UV coordinates
+    if mesh.visual.kind == "texture" and getattr(mesh.visual, "uv", None) is not None:
         # convert the uv coordinates from opengl to wgpu conventions.
         # wgpu uses the D3D and Metal coordinate systems.
         # the coordinate origin is in the upper left corner, while the opengl coordinate
