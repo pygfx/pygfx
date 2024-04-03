@@ -210,12 +210,12 @@ class PointsMaterial(Material):
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of columns in the geometry's texcoords.
         """
-        return self._map
+        return self._store.map
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, Texture)
-        self._map = map
+        self._store.map = map
 
     @property
     def map_interpolation(self):
@@ -236,6 +236,35 @@ class PointsGaussianBlobMaterial(PointsMaterial):
     Renders Gaussian blobs with a standard deviation that is 1/6th of the
     point-size.
     """
+
+
+class PointsSpriteMaterial(PointsMaterial):
+    """A material to render points as sprite images.
+
+    Renders the provided texture at each point position. The images are square
+    and sized just like with a PointMaterial. The texture color is multiplied
+    with the point's "normal" color (as calculated depending on ``color_mode``).
+
+    The sprite texture is provided via ``.sprite``.
+    """
+
+    def __init__(self, *, sprite=None, **kwargs):
+        super().__init__(**kwargs)
+        self.sprite = sprite
+
+    @property
+    def sprite(self):
+        """The texture map specifying the sprite image.
+
+        The dimensionality of the map must be 2D. If None, it just shows a
+        uniform color.
+        """
+        return self._store.sprite
+
+    @sprite.setter
+    def sprite(self, sprite):
+        assert sprite is None or isinstance(sprite, Texture)
+        self._store.sprite = sprite
 
 
 # idea: a MarkerMaterial with more options for the shape, and an edge around the shape.
