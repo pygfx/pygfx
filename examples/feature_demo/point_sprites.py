@@ -7,8 +7,10 @@ games used a lot. We create an image with green stripes. Than place a
 couple thousand of these in a plane, using a Points object.
 """
 
-import numpy as np
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
+import numpy as np
 import pygfx as gfx
 
 
