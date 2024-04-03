@@ -62,6 +62,10 @@ class InstancedMesh(Mesh):
         matrix = np.array(matrix).reshape(4, 4)
         self._store["instance_buffer"].data["matrix"][index] = matrix.T
 
+    def get_matrix_at(self, index: int):
+        """get the matrix for the instance at the given index."""
+        return self._store["instance_buffer"].data["matrix"][index].T
+
     def _wgpu_get_pick_info(self, pick_value):
         info = self.material._wgpu_get_pick_info(pick_value)
         # The id maps to one of our instances
