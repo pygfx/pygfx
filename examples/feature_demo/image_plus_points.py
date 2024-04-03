@@ -11,6 +11,7 @@ Show an image with points overlaid.
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
+import numpy as np
 
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -30,10 +31,19 @@ scene.add(image)
 
 xx = [182, 180, 161, 153, 191, 237, 293, 300, 272, 267, 254]
 yy = [145, 131, 112, 59, 29, 14, 48, 91, 136, 137, 172]
+sizes = np.arange(1, len(xx) + 1, dtype=np.float32)
 
 points = gfx.Points(
-    gfx.Geometry(positions=[(x, y, 1) for x, y in zip(xx, yy)]),
-    gfx.PointsMaterial(color=(0, 1, 1, 1), size=10),
+    gfx.Geometry(
+        positions=[(x, y, 1) for x, y in zip(xx, yy)],
+        sizes=sizes,
+    ),
+    gfx.PointsMaterial(
+        color=(0, 1, 1, 1),
+        size=10,
+        size_space="world",
+        size_mode="vertex",
+    ),
 )
 scene.add(points)
 
