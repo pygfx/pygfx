@@ -122,7 +122,7 @@ class BackgroundMaterial(Material):
         x = values["x"] / 4194303
         y = values["y"] / 4194303
         return {
-            "pixel_coord": (x, y),
+            "coord": (x, y),
         }
 
 
