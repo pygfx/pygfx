@@ -32,7 +32,7 @@ def load_mesh(path):
     return meshes[0]
 
 
-def load_meshes(path):
+def load_meshes(path, remote_ok=False):
     """Load meshes from a file.
 
     This function requires the trimesh library.
@@ -42,6 +42,8 @@ def load_meshes(path):
     path : str
         The location where the mesh or scene is stored.
         Can be a local file path or a URL.
+    remote_ok : bool
+        Whether to allow loading meshes from URLs, by default False.
 
     Returns
     -------
@@ -54,6 +56,11 @@ def load_meshes(path):
     # Trimesh's load() performs a similar check and refers
     # loading from URLs to load_remote()
     if "https://" in str(path) or "http://" in str(path):
+        if not remote_ok:
+            raise ValueError(
+                "Loading meshes from URLs is disabled. "
+                "Set remote_ok=True to allow loading from URLs."
+            )
         scene = trimesh.load_remote(path)
     else:
         scene = trimesh.load(path)
