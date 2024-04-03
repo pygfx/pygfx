@@ -1,6 +1,6 @@
 """
 Look At (Instanced Mesh)
-=======
+========================
 
 This example shows how the look_at function can be used with instanced mesh.
 """
