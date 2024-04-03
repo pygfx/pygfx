@@ -192,12 +192,12 @@ class LineMaterial(Material):
         Can be None. The dimensionality of the map can be 1D, 2D or 3D, but
         should match the number of columns in the geometry's texcoords.
         """
-        return self._map
+        return self._store.map
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, Texture)
-        self._map = map
+        self._store.map = map
 
     @property
     def map_interpolation(self):

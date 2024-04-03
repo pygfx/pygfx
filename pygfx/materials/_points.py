@@ -210,12 +210,12 @@ class PointsMaterial(Material):
         The dimensionality of the map can be 1D, 2D or 3D, but should match the
         number of columns in the geometry's texcoords.
         """
-        return self._map
+        return self._store.map
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, Texture)
-        self._map = map
+        self._store.map = map
 
     @property
     def map_interpolation(self):
@@ -245,7 +245,7 @@ class PointsSpriteMaterial(PointsMaterial):
     and sized just like with a PointMaterial. The texture color is multiplierd
     with the point's "normal" color (as calculated depending on ``color_mode``).
 
-    The sprite texture is provided via ``.map``.
+    The sprite texture is provided via ``.sprite``.
     """
 
     def __init__(self, *, sprite=None, **kwargs):

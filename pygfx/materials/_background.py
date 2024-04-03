@@ -133,12 +133,12 @@ class BackgroundImageMaterial(BackgroundMaterial):
     @property
     def map(self):
         """The texture map specifying the background image"""
-        return self._map
+        return self._store.map
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, Texture)
-        self._map = map
+        self._store.map = map
 
 
 class BackgroundSkyboxMaterial(BackgroundImageMaterial):
