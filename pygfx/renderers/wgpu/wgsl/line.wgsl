@@ -142,10 +142,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if thickness_space == 'screen'
         let thickness_ratio = 1.0;
     $$ else
-        // The thickness is expressed in world space. So we first check where a point, moved 1 logic pixel away
+        // The thickness is expressed in world space. So we first check where a point, moved shift_factor logic pixels away
         // from the node, ends up in world space. We actually do that for both x and y, in case there's anisotropy.
-        let pos_s_node_shiftedx = pos_s_node + vec2<f32>(1.0, 0.0);
-        let pos_s_node_shiftedy = pos_s_node + vec2<f32>(0.0, 1.0);
+        // The shift_factor was added to alleviate issues with the point jitter when the user zooms in
+        // See https://github.com/pygfx/pygfx/issues/698
+        // and https://github.com/pygfx/pygfx/pull/706/files
+        let shift_factor = 1000.0;
+        let pos_s_node_shiftedx = pos_s_node + vec2<f32>(shift_factor, 0.0);
+        let pos_s_node_shiftedy = pos_s_node + vec2<f32>(shift_factor, 1.0);
         let pos_n_node_shiftedx = vec4<f32>((pos_s_node_shiftedx / screen_factor - 1.0) * pos_n_node.w, pos_n_node.z, pos_n_node.w);
         let pos_n_node_shiftedy = vec4<f32>((pos_s_node_shiftedy / screen_factor - 1.0) * pos_n_node.w, pos_n_node.z, pos_n_node.w);
         let pos_w_node_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_node_shiftedx;
@@ -155,10 +159,10 @@ fn vs_main(in: VertexInput) -> Varyings {
             let pos_m_node_shiftedx = u_wobject.world_transform_inv * pos_w_node_shiftedx;
             let pos_m_node_shiftedy = u_wobject.world_transform_inv * pos_w_node_shiftedy;
             // Distance in model space
-            let thickness_ratio = 0.5 * (distance(pos_m_node.xyz, pos_m_node_shiftedx.xyz) + distance(pos_m_node.xyz, pos_m_node_shiftedy.xyz));
+            let thickness_ratio = (1.0 / shift_factor) * 0.5 * (distance(pos_m_node.xyz, pos_m_node_shiftedx.xyz) + distance(pos_m_node.xyz, pos_m_node_shiftedy.xyz));
         $$ else
             // Distance in world space
-            let thickness_ratio = 0.5 * (distance(pos_w_node.xyz, pos_w_node_shiftedx.xyz) + distance(pos_w_node.xyz, pos_w_node_shiftedy.xyz));
+            let thickness_ratio = (1.0 / shift_factor) * 0.5 * (distance(pos_w_node.xyz, pos_w_node_shiftedx.xyz) + distance(pos_w_node.xyz, pos_w_node_shiftedy.xyz));
         $$ endif
     $$ endif
     let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
