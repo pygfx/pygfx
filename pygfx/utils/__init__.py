@@ -10,6 +10,7 @@ Utility functions for pygfx.
     Color
     load.load_mesh
     load.load_meshes
+    load.load_scene
     show.show
     show.Display
     viewport.Viewport
