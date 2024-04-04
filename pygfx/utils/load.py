@@ -5,8 +5,8 @@ Utilities to load scenes from files, using trimesh.
 import pygfx as gfx
 
 
-def load_mesh(path, remote_ok=False):
-    """Load a mesh from a file.
+def load_meshes(path, remote_ok=False):
+    """Load meshes from a file.
 
     Parameters
     ----------
@@ -17,20 +17,15 @@ def load_mesh(path, remote_ok=False):
 
     Returns
     -------
-    mesh : Mesh
-        A pygfx Mesh object. If the file does not contain exactly one mesh, an error is raised.
+    meshes : list
+        A list of loaded meshes.
 
     """
-    meshes = load_meshes(path, remote_ok=remote_ok)
-    if len(meshes) != 1:
-        raise ValueError(
-            f"Found {len(meshes)} meshes instead of 1 in '{path}'. Use `load_meshes()` instead. "
-        )
-    return meshes[0]
+    raise DeprecationWarning("The load_meshes() function is replaced with load_mesh().")
 
 
-def load_meshes(path, remote_ok=False):
-    """Load meshes from a file.
+def load_mesh(path, remote_ok=False):
+    """Load mesh(es) from a file.
 
     This function requires the trimesh library.
 
@@ -45,7 +40,7 @@ def load_meshes(path, remote_ok=False):
     Returns
     -------
     meshes : list
-        A list of loaded meshes.
+        A list of pygfx.Meshes.
 
     See Also
     --------
