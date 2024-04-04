@@ -96,12 +96,17 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     $$ endif
     let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
-    $$ if aa
-    let size:f32 = size_ref / size_ratio;  // Logical pixels
-    let half_size = 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+    $$ if draw_line_on_edge
+        let edge_width = u_material.edge_width / size_ratio;  // expressed in logical screen pixels
     $$ else
-    let size:f32 = max(min_size_for_pixel, size_ref / size_ratio);  // non-aa don't get smaller.
-    let half_size = 0.5 * size;
+        let edge_width = 0.0;
+    $$ endif
+    $$ if aa
+        let size:f32 = size_ref / size_ratio;  // Logical pixels
+        let half_size = 0.5 * edge_width + 0.5 * max(min_size_for_pixel, size + 1.0 / l2p);  // add 0.5 physical pixel on each side.
+    $$ else
+        let size:f32 = max(min_size_for_pixel, size_ref / size_ratio);  // non-aa don't get smaller.
+        let half_size = 0.5 * edge_width + 0.5 * size;
     $$ endif
 
     // Relative coords to create the (frontfacing) quad
@@ -134,6 +139,9 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Coordinates
     varyings.pointcoord_p = vec2<f32>(the_delta_s * l2p);
     varyings.size_p = f32(size * l2p);
+    $$ if draw_line_on_edge
+        varyings.edge_width_p = f32(edge_width * l2p);
+    $$ endif
 
     // Picking
     varyings.pick_idx = u32(node_index);
@@ -183,65 +191,105 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let pointcoord = pointcoord_p / l2p;
 
     // Get SDF
-    let dist_to_center_p = length(pointcoord_p);
-    let dist_to_edge_p = dist_to_center_p - half_size_p;
+    let dist_to_face_center_p = length(pointcoord_p);
+    let dist_to_face_edge_p = dist_to_face_center_p - half_size_p;
 
-    // Determine alpha
-    var alpha: f32 = 1.0;
+    // Determine face_alpha based on shape and aa
+    var face_alpha: f32 = 1.0;
     $$ if is_sprite
         // sprites have their alpha defined by the map and opacity only
     $$ elif shape == 'gaussian'
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
         let t = d / sigma_p;
-        alpha = exp(-0.5 * t * t);
-        if (dist_to_edge_p > 0.0) { discard; }
+        face_alpha = exp(-0.5 * t * t);
+        if (dist_to_face_edge_p > 0.0) { face_alpha = 0.0; }
     $$ elif aa
         if (half_size_p > 0.5) {
-            alpha = clamp(0.5 - dist_to_edge_p, 0.0, 1.0);
+            face_alpha = clamp(0.5 - dist_to_face_edge_p, 0.0, 1.0);
         } else {
-            // Tiny points, factor based on dist_to_center_p, scaled by the size (with a max)
-            alpha = (1.0 - dist_to_center_p) * max(0.01, half_size_p * 2.0);
+            // Tiny points, factor based on dist_to_face_center_p, scaled by the size (with a max)
+            face_alpha = max(0.0, 1.0 - dist_to_face_center_p) * max(0.01, half_size_p * 2.0);
         }
-        alpha = sqrt(alpha);  // this prevents aa lines from looking thinner
-        if (alpha <= 0.0) { discard; }
+        face_alpha = sqrt(face_alpha);  // Visual trick to help aa markers look equal size as non-aa.
     $$ else
-        if (dist_to_edge_p > 0.0) { discard; }
+        face_alpha = f32(dist_to_face_edge_p <= 0.0);  // boolean alpha
     $$ endif
 
-    // Determine color
+    // Sample face color
     $$ if color_mode == 'vertex'
-        let color = varyings.color;
+        let sampled_face_color = varyings.color;
     $$ elif color_mode == 'map' or color_mode == 'vertex_map'
-        let color = sample_colormap(varyings.texcoord);
+        let sampled_face_color = sample_colormap(varyings.texcoord);
     $$ else
-        let color = u_material.color;
+        let sampled_face_color = u_material.color;
     $$ endif
-    var physical_color = srgb2physical(color.rgb);
-    var user_alpha = color.a;
 
-    // Multiply with sprite color?
+    // Define face color+alpha.
+    let face_color = vec4<f32>(sampled_face_color.rgb, clamp(sampled_face_color.a, 0.0, 1.0) * face_alpha);
+
+    // For sprites, multiply face_color with sprite color
     $$ if is_sprite == 2
         let sprite_coord = (pointcoord_p + half_size_p) / (2.0 * half_size_p);
-        if (min(sprite_coord.x, sprite_coord.y) < 0.0) { discard; }
-        if (max(sprite_coord.x, sprite_coord.y) > 1.0) { discard; }
-        let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
-        $$ if sprite_nchannels == 1
-            physical_color = physical_color * sprite_value.r;
-        $$ elif sprite_nchannels == 2
-            physical_color = physical_color * sprite_value.r;
-            user_alpha = user_alpha * sprite_value.g;
-        $$ elif sprite_nchannels == 3
-            physical_color = physical_color * sprite_value.rgb;
-        $$ else
-            physical_color = physical_color * sprite_value.rgb;
-            user_alpha = user_alpha * sprite_value.a;
-        $$ endif
+        if (min(sprite_coord.x, sprite_coord.y) < 0.0 || max(sprite_coord.x, sprite_coord.y) > 1.0) {
+            face_color = vec4<f32>(face_color.rgb, 0.0);  // out of sprite range
+        } else {
+            let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
+            $$ if sprite_nchannels == 1
+                face_color = vec4<f32>(face_color.rgb * sprite_value.r, face_color.a);
+            $$ elif sprite_nchannels == 2
+                face_color = vec4<f32>(face_color.rgb * sprite_value.r, face_color.a * sprite_value.g);
+            $$ elif sprite_nchannels == 3
+                face_color = vec4<f32>(face_color.rgb * sprite_value.rgb, face_color.a);
+            $$ else
+                face_color = vec4<f32>(face_color.rgb * sprite_value.rgb, face_color.a * sprite_value.a);
+            $$ endif
+        }
     $$ endif
 
-    // Determine final rgba value
-    let opacity = min(1.0, user_alpha) * alpha * u_material.opacity;
-    let out_color = vec4<f32>(physical_color, opacity);
+    // Init the final color
+    var the_color = face_color;
+
+    // If we have an edge, determine edge_color, and mix it with the face_color
+    $$ if draw_line_on_edge
+        // In MPL the edge is centered on what would normally be the edge, i.e.
+        // half the edge is over the face, half extends beyond it. Plotly does
+        // the same. The face and edge are drawn as if they were separate
+        // entities. I.e. a semi-transparent edge blends (its overlapping part)
+        // with the feace.
+
+        // Calculate "SDF"
+        let half_edge_width_p: f32 = 0.5 * varyings.edge_width_p;
+        let dist_to_line_center_p: f32 = abs(dist_to_face_edge_p);
+        let dist_to_line_edge_p: f32 = dist_to_line_center_p - half_edge_width_p;
+        // Calculate edge_alpha based on marker shape end edge thickness
+        var edge_alpha = 0.0;
+        $$ if aa
+            if (half_edge_width_p > 0.5) {
+                edge_alpha = clamp(0.5 - dist_to_line_edge_p, 0.0, 1.0);
+            } else {
+                // Thin line, factor based on dist_to_line_center_p, scaled by the size (with a max)
+                edge_alpha = max(0.0, 1.0 - dist_to_line_center_p) * max(0.01, half_edge_width_p * 2.0);
+            }
+            edge_alpha = sqrt(edge_alpha);  // looks better
+        $$ else
+            edge_alpha = f32(dist_to_line_edge_p <= 0.0);  // boolean alpha
+        $$ endif
+        // Sample the edge color. Always a uniform, currently.
+        let sampled_edge_color = u_material.edge_color;
+        // Combine
+        let edge_color = vec4<f32>(sampled_edge_color.rgb, sampled_edge_color.a * edge_alpha);
+        // Mix edge over face!
+        let face_factor = (1.0 - edge_color.a) * f32(face_color.a > 0.0);
+        the_color = vec4<f32>(
+            face_factor * face_color.rgb + (1.0 - face_factor) * edge_color.rgb,
+            1.0 - (1.0 - edge_color.a) * (1.0 - face_color.a),
+        );
+    $$ endif
+
+    // Determine final color and opacity
+    if (the_color.a <= 0.0) { discard; }
+    let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);

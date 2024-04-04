@@ -244,6 +244,17 @@ class PointsMarkerMaterial(PointsMaterial):
     Markers come in a variety of shapes, and have an edge with a separate color.
     """
 
+    uniform_type = dict(
+        PointsMaterial.uniform_type,
+        edge_color="4xf4",
+        edge_width="f4",
+    )
+
+    def __init__(self, *, edge_width=1, edge_color="black", **kwargs):
+        super().__init__(**kwargs)
+        self.edge_width = edge_width
+        self.edge_color = edge_color
+
     @property
     def edge_color(self):
         """The color of the edge of the markers."""
@@ -262,7 +273,7 @@ class PointsMarkerMaterial(PointsMaterial):
 
     @edge_width.setter
     def edge_width(self, edge_width):
-        self.uniform_buffer.data["edge_width"] = edge_width
+        self.uniform_buffer.data["edge_width"] = float(edge_width)
         self.uniform_buffer.update_range(0, 1)
 
 

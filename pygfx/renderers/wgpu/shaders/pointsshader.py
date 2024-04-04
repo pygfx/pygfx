@@ -67,10 +67,9 @@ class PointsShader(WorldObjectShader):
         self["size_space"] = material.size_space
         self["aa"] = material.aa
 
-        self["edge_width"] = 0
+        self["draw_line_on_edge"] = False
         if isinstance(material, PointsMarkerMaterial):
-            self["edge_width"] = material.edge_width
-            self["edge_color"] = material.edge_color
+            self["draw_line_on_edge"] = True
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
