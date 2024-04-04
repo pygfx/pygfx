@@ -150,7 +150,7 @@ class PointsMaterial(Material):
 
     @property
     def size(self):
-        """The size (diameter) of the points, in logical pixels."""
+        """The size (diameter) of the points, in logical pixels (or world/model space if ``size_space``is set)."""
         return float(self.uniform_buffer.data["size"])
 
     @size.setter
@@ -238,6 +238,34 @@ class PointsGaussianBlobMaterial(PointsMaterial):
     """
 
 
+class PointsMarkerMaterial(PointsMaterial):
+    """A material to render points as markers.
+
+    Markers come in a variety of shapes, and have an edge with a separate color.
+    """
+
+    @property
+    def edge_color(self):
+        """The color of the edge of the markers."""
+        return Color(self.uniform_buffer.data["edge_color"])
+
+    @edge_color.setter
+    def edge_color(self, edge_color):
+        edge_color = Color(edge_color)
+        self.uniform_buffer.data["edge_color"] = edge_color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def edge_width(self):
+        """The width of the edge of the markers, in logical pixels (or world/model space if ``size_space``is set)."""
+        return float(self.uniform_buffer.data["edge_width"])
+
+    @edge_width.setter
+    def edge_width(self, edge_width):
+        self.uniform_buffer.data["edge_width"] = edge_width
+        self.uniform_buffer.update_range(0, 1)
+
+
 class PointsSpriteMaterial(PointsMaterial):
     """A material to render points as sprite images.
 
@@ -267,5 +295,4 @@ class PointsSpriteMaterial(PointsMaterial):
         self._store.sprite = sprite
 
 
-# idea: a MarkerMaterial with more options for the shape, and an edge around the shape.
-# Though perhaps such a material should be part of a higher level plotting lib.
+# Idea: PointsSdfMaterial(PointsMaterial) -> a material where the point shape can be defined via an sdf.

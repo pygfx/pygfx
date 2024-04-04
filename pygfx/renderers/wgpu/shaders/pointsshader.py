@@ -5,6 +5,7 @@ from ....objects import Points
 from ....materials import (
     PointsMaterial,
     PointsGaussianBlobMaterial,
+    PointsMarkerMaterial,
     PointsSpriteMaterial,
 )
 
@@ -65,6 +66,11 @@ class PointsShader(WorldObjectShader):
         self["size_mode"] = str(material.size_mode).split(".")[-1]
         self["size_space"] = material.size_space
         self["aa"] = material.aa
+
+        self["edge_width"] = 0
+        if isinstance(material, PointsMarkerMaterial):
+            self["edge_width"] = material.edge_width
+            self["edge_color"] = material.edge_color
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry

@@ -26,6 +26,7 @@ colormaps, the strength of specular reflections, etc.
 
     PointsMaterial
     PointsGaussianBlobMaterial
+    PointsMarkerMaterial
     PointsSpriteMaterial
 
     LineMaterial
@@ -63,7 +64,12 @@ from ._mesh import (
     MeshSliceMaterial,
     MeshStandardMaterial,
 )
-from ._points import PointsMaterial, PointsGaussianBlobMaterial, PointsSpriteMaterial
+from ._points import (
+    PointsMaterial,
+    PointsGaussianBlobMaterial,
+    PointsMarkerMaterial,
+    PointsSpriteMaterial,
+)
 from ._line import (
     LineMaterial,
     LineSegmentMaterial,
