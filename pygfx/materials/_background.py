@@ -166,6 +166,22 @@ class BackgroundImageMaterial(BackgroundMaterial):
             # 2D
             values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
             # +- 0.5???
+            # While the image typically uses a (-0.5) offset when picking
+            # pixels in the current implementation of the background image,
+            # where the image extends from edge to edge regardless of aspect
+            # ratio, the offset does not seems like it is entirely meaningful.
+            # It may be more appropriate when we decide to maintain the aspect
+            # ratio of the texture
+
+            # Presently these match with the spirit of the BackgroundMaterial
+            # above, but instead of "1" we return "max"
+            # Bottom left: (0, 0)
+            # Bottom right: (1, 0)
+            # Top left: (0, 1)
+            # Top right: (1, 1)
+            # More visually:
+            #     (0, 1)    (1, 1)
+            #     (0, 0),   (1, 0)
             x = values["x"] / 4194303 * tex.size[0]
             y = values["y"] / 4194303 * tex.size[1]
             return {
@@ -174,6 +190,7 @@ class BackgroundImageMaterial(BackgroundMaterial):
         else:  # tex.size[2] == 6
             # Cube / Skybox
             values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
+            # unit vector pointing in the way of the pick event
             direction = (
                 (values["x"] - 8192) / 8191,
                 (values["y"] - 8192) / 8191,
