@@ -44,10 +44,11 @@ geometry = gfx.cylinder_geometry(10, 0, 100, 12)
 material = gfx.MeshPhongMaterial(color="#336699")
 cones = gfx.Group()
 
-mesh = gfx.InstancedMesh(geometry, material, 100)
+instance_count = 100
+mesh = gfx.InstancedMesh(geometry, material, instance_count)
 mesh.cast_shadow = mesh.receive_shadow = True
 
-for i in range(100):
+for i in range(instance_count):
     mesh.set_matrix_at(
         i,
         la.mat_compose(
@@ -68,14 +69,12 @@ def animate():
         np.cos(t * 0.3) * 2000,
     )
 
-    for i in range(100):
+    for i in range(instance_count):
         m = mesh.get_matrix_at(i)
         dummy.world.matrix = m
         dummy.look_at(sphere.world.position)
         m = dummy.world.matrix
         mesh.set_matrix_at(i, m)
-
-    mesh.instance_buffer.update_range(0, 100)  # update instances matrix buffer manually
 
 
 if __name__ == "__main__":
