@@ -172,11 +172,12 @@ class BackgroundShader(WorldObjectShader):
             var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
             $$ if write_pick
                 $$ if texture_dim == 'cube'
+                    let sum = varyings.texcoord.x + varyings.texcoord.y + varyings.texcoord.z;
                     out.pick = (
                         pick_pack(u32(u_wobject.id), 20) +
-                        pick_pack(u32(varyings.texcoord.x * 16383.0), 14) +
-                        pick_pack(u32(varyings.texcoord.y * 16383.0), 14) +
-                        pick_pack(u32(varyings.texcoord.z), 14)
+                        pick_pack(u32(varyings.texcoord.x / sum * 8191 + 8192), 14) +
+                        pick_pack(u32(varyings.texcoord.y / sum * 8191 + 8192), 14) +
+                        pick_pack(u32(varyings.texcoord.z / sum * 8191 + 8192), 14)
                     );
                 $$ else
                     out.pick = (

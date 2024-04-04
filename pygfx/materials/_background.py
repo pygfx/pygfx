@@ -165,27 +165,66 @@ class BackgroundImageMaterial(BackgroundMaterial):
         if tex.size[2] == 1:
             # 2D
             values = unpack_bitfield(pick_value, wobject_id=20, x=22, y=22)
-            x = values["x"] / 4194303 * tex.size[0] - 0.5
-            y = values["y"] / 4194303 * tex.size[1] - 0.5
-            ix, iy = int(x + 0.5), int(y + 0.5)
+            # +- 0.5???
+            x = values["x"] / 4194303 * tex.size[0]
+            y = values["y"] / 4194303 * tex.size[1]
             return {
-                "index": (ix, iy),
                 "coord": (x, y),
             }
         else:  # tex.size[2] == 6
             # Cube / Skybox
-            print(f"pick=0x{pick_value:016X}")
             values = unpack_bitfield(pick_value, wobject_id=20, x=14, y=14, z=14)
-            texcoords_encoded = values["x"], values["y"], values["z"]
-            size = tex.size
-            x, y, z = [(v / 16383) * s - 0.5 for v, s in zip(texcoords_encoded, size)]
-            print(x, y, z)
-            ix, iy, iz = int(x + 0.5), int(y + 0.5), int(z + 0.5)
+            direction = (
+                (values["x"] - 8192) / 8191,
+                (values["y"] - 8192) / 8191,
+                (values["z"] - 8192) / 8191
+            )
+            print(direction)
+            # Do we want the face index?
+            # size = tex.size
+            # face_index, u, v = cube_map_coord(direction)
             return {
-                "index": (ix, iy, iz),
-                "coord": (x, y, z),
+                "coord": direction,
             }
 
+import numpy as np
+
+# From chatgpt... i cheated....
+def cube_map_coord(direction):
+    x, y, z = direction
+    abs_x, abs_y, abs_z = abs(x), abs(y), abs(z)
+
+    is_x_positive = x > 0
+    is_y_positive = y > 0
+    is_z_positive = z > 0
+
+    max_axis, uc, vc = 0, 0, 0
+
+    # Determine which face of the cubemap we're on.
+    if abs_x >= abs_y and abs_x >= abs_z:
+        # Left or right face.
+        max_axis = abs_x
+        uc = -z if is_x_positive else z
+        vc = -y
+        face_index = 0 if is_x_positive else 1
+    elif abs_y >= abs_x and abs_y >= abs_z:
+        # Top or bottom face.
+        max_axis = abs_y
+        uc = x
+        vc = z if is_y_positive else -z
+        face_index = 2 if is_y_positive else 3
+    elif abs_z >= abs_x and abs_z >= abs_y:
+        # Front or back face.
+        max_axis = abs_z
+        uc = x
+        vc = -y
+        face_index = 4 if is_z_positive else 5
+
+    # Convert range from -1 to 1 to 0 to 1
+    u = 0.5 * (uc / max_axis + 1.0)
+    v = 0.5 * (vc / max_axis + 1.0)
+
+    return face_index, u, v
 
 class BackgroundSkyboxMaterial(BackgroundImageMaterial):
     """Skybox background.
