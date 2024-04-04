@@ -65,16 +65,44 @@ def load_mesh(path, remote_ok=False):
     return meshes_from_trimesh(scene, apply_transforms=True)
 
 
-def load_scene(path, remote_ok=False):
+def load_scene(
+    path,
+    flatten=False,
+    meshes=True,
+    materials=True,
+    lights=True,
+    camera=True,
+    remote_ok=False,
+):
     """Load file into a scene.
+
+    When reading file formats that can contain more than just meshes (e.g. `.glb`) this function will
+    attempt to import the entire scene, including lights, cameras, and materials. If the file format
+    is mesh-only (e.g. `.stl`) we will instead construct a minimal scene.
 
     This function requires the trimesh library.
 
     Parameters
     ----------
     path : str
-        The location where the mesh or scene is stored.
-        Can be a local file path or a URL.
+        The filepath. Can be a local file or a URL.
+    flatten : bool
+        If True, will ignore any hierarchical structure in the scene graph and
+        instead import as a flat list of objects.
+    meshes : bool
+        Whether to load meshes.
+    materials : bool
+        Whether to load materials.
+    lights : bool, optional
+        Whether to load lights:
+          - True (default): lights are imported if present but if not, minimal lights are added
+          - False: ignore any lights in the file but add minimal lights to scene
+          - None: no lights are loaded
+    camera : bool, optional
+        Whether to load camera:
+          - True (default): camera is imported if present but if not, a generic camera is added
+          - False: ignore any camera in the file but add a camera to scene
+          - None: no camera is loaded
     remote_ok : bool
         Whether to allow loading files from URLs, by default False.
 
@@ -85,7 +113,7 @@ def load_scene(path, remote_ok=False):
 
     See Also
     --------
-    load_meshes
+    load_mesh
         Returns the flat meshes contained in a file.
 
     """
@@ -103,16 +131,25 @@ def load_scene(path, remote_ok=False):
     else:
         tm_scene = trimesh.load(path)
 
-    return scene_from_trimesh(tm_scene)
+    return scene_from_trimesh(
+        tm_scene,
+        flatten=flatten,
+        meshes=meshes,
+        materials=materials,
+        lights=lights,
+        camera=camera,
+    )
 
 
-def meshes_from_trimesh(scene, apply_transforms=True):
+def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
     """Converts a trimesh scene into a flat list of pygfx Mesh objects.
 
     Parameters
     ----------
     scene : trimesh.Scene
         The scene to convert.
+    materials : bool
+        Whether to import materials. If False, a default material will be created.
     apply_transforms : bool
         Whether to apply the scene graph transforms directly to the meshes, by default True.
 
@@ -141,7 +178,7 @@ def meshes_from_trimesh(scene, apply_transforms=True):
         # but in the future it might be better to use pygfx.InstancedMesh.
 
         # Extract the geometries and materials
-        gfx_geometries, gfx_materials = objects_from_trimesh(scene)
+        gfx_geometries, gfx_materials = objects_from_trimesh(scene, materials=materials)
 
         # Generate a visual for each node
         meshes = []
@@ -159,13 +196,15 @@ def meshes_from_trimesh(scene, apply_transforms=True):
         raise ValueError(f"Unexpected trimesh data: {scene.__class__.__name__}")
 
 
-def objects_from_trimesh(scene):
+def objects_from_trimesh(scene, materials=True):
     """Extract geometries and materials from a trimesh scene.
 
     Parameters
     ----------
     scene : trimesh.Scene
         The scene to convert.
+    materials : bool
+        Whether to import materials. If False, a default material will be created.
 
     Returns
     -------
@@ -180,22 +219,50 @@ def objects_from_trimesh(scene):
     for name, mesh in scene.geometry.items():
         gfx_geometries[name] = gfx.geometry_from_trimesh(mesh)
         # If mesh has a material, convert it
-        if hasattr(mesh.visual, "material"):
+        if hasattr(mesh.visual, "material") and materials:
             gfx_materials[name] = gfx.material_from_trimesh(mesh.visual.material)
-        # If not, create a default material
+        # If not, use a default material
         else:
             gfx_materials[name] = gfx.MeshStandardMaterial()
 
     return gfx_geometries, gfx_materials
 
 
-def scene_from_trimesh(tm_scene):
+def scene_from_trimesh(
+    tm_scene,
+    flatten=False,
+    meshes=True,
+    materials=True,
+    lights=True,
+    camera=True,
+    background=True,
+):
     """Convert a trimesh scene into a pygfx scene.
 
     Parameters
     ----------
     tm_scene : trimesh.Scene
         A trimesh Scene.
+    flatten : bool
+        If True, will ignore any hierarchical structure in the scene graph and
+        instead import as a flat list of objects.
+    meshes : bool
+        Whether to import meshes.
+    materials : bool
+        Whether to import materials.
+    lights : bool, optional
+        Whether to import lights:
+          - True (default): lights are imported if present but if not, minimal lights are added
+          - False: ignore any lights in the file but add minimal lights to scene
+          - None: no lights are imported
+    camera : bool, optional
+        Whether to import camera:
+          - True (default): camera is imported if present but if not, a generic camera is added
+          - False: ignore any camera in the file but add a camera to scene
+          - None: no camera is imported
+    background : bool
+        Trimesh scenes typically have a white background. If True, we will add a white background
+        to the pygfx scene. If False, no background will be added.
 
     Returns
     -------
@@ -205,77 +272,117 @@ def scene_from_trimesh(tm_scene):
     """
     import trimesh  # noqa
 
+    # Convet single meshes into a scene (this makes the code below much simpler)
+    if isinstance(tm_scene, trimesh.Trimesh):
+        tm_scene = trimesh.Scene(geometry=tm_scene)
+    elif not isinstance(tm_scene, trimesh.Scene):
+        raise ValueError(f"Unexpected trimesh data: {type(tm_scene)}")
+
     # Basic scene setup
     gfx_scene = gfx.Scene()
-    camera = gfx.PerspectiveCamera()
-    gfx_scene.add(camera)
 
-    # This will be populated later
-    gfx_lights = []
+    # Take care of meshes
+    # Note: we're traversing the scene graph only for meshes (i.e. not lights, cameras, etc.)
+    # That's because as far as I can tell, trimesh's scene graph only applies to geometries
+    # while lights and cameras are stored separate from 'world'.
+    if meshes:
+        if not flatten:
+            # By convention, we expect the "world" objects to be the root of the scene graph
+            G = tm_scene.graph.to_networkx()
+            if "world" not in G.nodes:
+                raise ValueError("No 'world' node found in scene graph")
 
-    if isinstance(tm_scene, trimesh.Trimesh):
-        gfx_scene.add(*meshes_from_trimesh(tm_scene))
-        camera.show_object(gfx_scene)
-    elif isinstance(tm_scene, trimesh.Scene):
-        # By convention, we expect the "world" objects to be the root of the scene graph
-        G = tm_scene.graph.to_networkx()
-        if "world" not in G.nodes:
-            raise ValueError("No 'world' node found in scene graph")
+            # Load the geometries and materials
+            gfx_geometries, gfx_materials = objects_from_trimesh(
+                tm_scene, materials=materials
+            )
 
-        # Load the geometries and materials
-        gfx_geometries, gfx_materials = objects_from_trimesh(tm_scene)
+            def _build_graph_bfs(node, node_group):
+                """Recursively parse scene graph into pygfx.Groups."""
+                # Note: not sure if that will ever happen in practice but
+                # in theory, this implementation could run into the recursion
+                # depth limit (3000 on my machine). If that turns out to be
+                # a problem we need to switch the implementation
 
-        def _build_graph_bfs(node, node_group):
-            """Recursively parse scene graph into pygfx.Groups."""
-            # Note: not sure if that will ever happen in practice but
-            # in theory, this implementation could run into the recursion
-            # depth limit (3000 on my machine). If that turns out to be
-            # a problem we need to switch the implementation
+                # Go over this node's children
+                for child in tm_scene.graph.transforms.children.get(node, []):
+                    # Is this a leaf node?
+                    is_leaf = G.out_degree[child] == 0
 
-            # Go over this node's children
-            for child in tm_scene.graph.transforms.children.get(node, []):
-                # Generate a new graph for this child
-                child_group = gfx.Group()
-
-                # Set the child's transform
-                child_group.local.matrix = G.edges[(node, child)]["matrix"]
-
-                # See if this child has a geometry
-                geometry_name = G.edges[(node, child)].get("geometry", None)
-                if geometry_name is not None:
-                    # Add the geometry to the child
-                    child_group.add(
-                        gfx.Mesh(
-                            gfx_geometries[geometry_name], gfx_materials[geometry_name]
+                    # Does it have a geometry?
+                    geometry_name = G.edges[(node, child)].get("geometry", None)
+                    # See if this child has a geometry
+                    if geometry_name is not None:
+                        # Create the geometry
+                        mesh = gfx.Mesh(
+                            gfx_geometries[geometry_name],
+                            gfx_materials[geometry_name],
                         )
-                    )
+                    else:
+                        mesh = None
 
-                # Connect the child to the parent
-                node_group.add(child_group)
+                    # If this is not a leaf node, we need to use a Group
+                    if not is_leaf:
+                        # Generate a new graph for this child
+                        child_group = gfx.Group()
 
-                # Recurse ot this child's children
-                _build_graph_bfs(child, child_group)
+                        # Set the child's transform
+                        child_group.local.matrix = G.edges[(node, child)]["matrix"]
 
-        # Recursively build the scene graph
-        gfx_scene.local.matrix = tm_scene.graph["world"][0]
-        _build_graph_bfs("world", gfx_scene)  # start at the root node
+                        # Connect the child to the parent
+                        node_group.add(child_group)
+
+                        # Add the geometry to the child
+                        if mesh:
+                            child_group.add(mesh)
+
+                        # Recurse ot this child's children
+                        _build_graph_bfs(child, child_group)
+                    # If this is a leaf node, we can just add the geometry
+                    else:
+                        # Apply transform directly to the mesh and add it to parent
+                        if mesh:
+                            mesh.local.matrix = G.edges[(node, child)]["matrix"]
+                            node_group.add(mesh)
+
+            # Recursively build the scene graph
+            gfx_scene.local.matrix = tm_scene.graph["world"][0]
+            _build_graph_bfs("world", gfx_scene)  # start at the root node
+        # Just add the flat meshes
+        else:
+            # If we're flattening the scene graph, we'll just
+            # convert all geometries in the scene to meshes
+            gfx_scene.add(
+                *meshes_from_trimesh(
+                    tm_scene, apply_transforms=True, materials=materials
+                )
+            )
+
+    # Take care of camera
+    if camera is not None:
+        gfx_camera = gfx.PerspectiveCamera()
+        gfx_scene.add(gfx_camera)
 
         # Accessing the .camera attribute directly will create
         # a camera if it doesn't exist, hence we check the
         # `.has_camera` attribute.
         # Also note that we're currently only using the
-        # camera's transform but not e.g. FOV or resolution
-        if tm_scene.has_camera:
-            camera.local.matrix = tm_scene.camera_transform
+        # camera's transform but not e.g. FOV or resolution:
+        if tm_scene.has_camera and camera is True:
+            gfx_camera.local.matrix = tm_scene.camera_transform
         else:
-            # If not camera, make sure the camera actually looks
+            # If no camera, make sure the camera actually looks
             # at the objects in the scene
-            camera.show_object(gfx_scene)
+            if gfx_scene.get_bounding_box() is not None:
+                gfx_camera.show_object(gfx_scene)
 
+    # Take care of lights
+    if lights is not None:
         # Parse lights. Similar to the camera, trimesh will create
         # lights automatically if we access the `.lights` attribute
         # directly.
-        if hasattr(tm_scene, "_lights"):
+        if hasattr(tm_scene, "_lights") and lights is True:
+            gfx_lights = []
             for light in tm_scene.lights:
                 if isinstance(light, trimesh.scene.lighting.PointLight):
                     gfx_lights.append(gfx.PointLight())
@@ -296,36 +403,34 @@ def scene_from_trimesh(tm_scene):
                 gfx_lights[-1].local.matrix = tm_scene.graph[light.name][0]
 
             gfx_scene.add(*gfx_lights)
-    else:
-        raise ValueError(f"Unexpected trimesh data: {type(tm_scene)}")
+        # If no lights (either because the scene did not contain lights or because
+        # `lights=False`), make sure things are actually visible
+        else:
+            # Add an ambient light
+            gfx_scene.add(gfx.AmbientLight())
 
-    # If no lights (either because we loaded only a single Trimesh or because
-    # the scene didn't contain lights), make sure things are actually visible
-    if not gfx_lights:
-        # Add an ambient light
-        gfx_scene.add(gfx.AmbientLight())
+            # Get the scene bounding box
+            bbox = gfx_scene.get_bounding_box()
 
-        # Get the scene bounding box
-        bbox = gfx_scene.get_bounding_box()
+            # Calculate extent (if no geometries, bbox will be None)
+            if bbox is not None:
+                extent = bbox[1] - bbox[0]
 
-        # Calculate extend (if no geometries, bbox will be None)
-        if bbox is not None:
-            extend = bbox[1] - bbox[0]
+                # Padd the bounding box
+                bbox[0, :] -= extent
+                bbox[1, :] += extent
 
-            # Padd the bounding box
-            bbox[0, :] -= extend
-            bbox[1, :] += extend
-
-            # Add point lights at the corners of the (padded) bounding box
-            # This is ~ what trimesh does
-            # If we don't pad, things look odd if the mesh(es) are boxy or flat
-            for x, y, z in bbox:
-                light = gfx.PointLight()
-                (light.local.x, light.local.y, light.local.z) = (x, y, z)
-                gfx_scene.add(light)
+                # Add point lights at the corners of the (padded) bounding box
+                # This is ~ what trimesh does
+                # If we don't pad, things look odd if the mesh(es) are boxy or flat
+                for x, y, z in bbox:
+                    light = gfx.PointLight()
+                    (light.local.x, light.local.y, light.local.z) = (x, y, z)
+                    gfx_scene.add(light)
 
     # By default trimesh scenes have a white background
     # while gfx.show() uses a black background
-    gfx_scene.add(gfx.Background(None, gfx.BackgroundMaterial((1, 1, 1))))
+    if background:
+        gfx_scene.add(gfx.Background(None, gfx.BackgroundMaterial((1, 1, 1))))
 
     return gfx_scene
