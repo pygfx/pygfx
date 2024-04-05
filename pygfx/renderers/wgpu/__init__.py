@@ -8,10 +8,12 @@ General functions and classes to operate more closely with the wgpu backend.
     :toctree: _autosummary/renderers/wgpu
     :template: ../_templates/custom_layout.rst
 
+    print_wgpu_report
+    select_power_preference
+    select_adapter
+    enable_wgpu_features
     WgpuRenderer
     register_wgpu_render_function
-    print_wgpu_report
-    enable_wgpu_features
     get_shared
     Shared
 
@@ -61,6 +63,8 @@ from .engine.shared import (
     Shared,
     get_shared,
     print_wgpu_report,
+    select_power_preference,
+    select_adapter,
     enable_wgpu_features,
 )
 from .engine.renderer import WgpuRenderer
