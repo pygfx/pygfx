@@ -171,21 +171,11 @@ class BackgroundShader(WorldObjectShader):
             // So we fool the blender into thinking this fragment is opaque, even if its not.
             var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
             $$ if write_pick
-                $$ if texture_dim == 'cube'
-                    let sum = varyings.texcoord.x + varyings.texcoord.y + varyings.texcoord.z;
-                    out.pick = (
-                        pick_pack(u32(u_wobject.id), 20) +
-                        pick_pack(u32(varyings.texcoord.x / sum * 8191 + 8192), 14) +
-                        pick_pack(u32(varyings.texcoord.y / sum * 8191 + 8192), 14) +
-                        pick_pack(u32(varyings.texcoord.z / sum * 8191 + 8192), 14)
-                    );
-                $$ else
-                    out.pick = (
-                        pick_pack(u32(u_wobject.id), 20) +
-                        pick_pack(u32(varyings.texcoord.x * 4194303.0), 22) +
-                        pick_pack(u32(varyings.texcoord.y * 4194303.0), 22)
-                    );
-                $$ endif
+                // We omit any extra information in the pick info
+                // While we figure out exactly how best to return it.
+                // Much of this information may soon be redundant.
+                // https://github.com/pygfx/pygfx/pull/700
+                out.pick = pick_pack(u32(u_wobject.id), 20);
             $$ endif
             out.color = vec4<f32>(out_color);
             return out;
