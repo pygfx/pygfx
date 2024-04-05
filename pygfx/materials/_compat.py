@@ -44,13 +44,14 @@ def texture_from_pillow_image(image, dim=2, **kwargs):
     return Texture(m, dim=dim, **kwargs)
 
 
-def material_from_trimesh(material):
-    """Convert a Trimesh material object into a pygfx material.
+def material_from_trimesh(x):
+    """Convert a Trimesh object into a pygfx material.
 
     Parameters
     ----------
-    material : trimesh.Material
-        The material to convert.
+    x : trimesh.Material | trimesh.Visuals | trimesh.Trimesh
+        Either the actual material to convert or an object containing
+        the material.
 
     Returns
     -------
@@ -58,9 +59,24 @@ def material_from_trimesh(material):
         The converted material.
 
     """
+    import trimesh  # noqa
     from trimesh.visual.material import PBRMaterial, SimpleMaterial  # noqa
+    from trimesh.visual import ColorVisuals  # noqa
 
-    if isinstance(material, PBRMaterial):
+    # If this is a trimesh object, extract the visual
+    if isinstance(x, trimesh.Trimesh):
+        x = x.visual
+
+    # If this is a visual, check if it has a material; this is the case
+    # for e.g. TextureVisuals which should contain a SimpleMaterial.
+    # ColorVisuals, on the other hand, do not have a material and are
+    # typically used to store vertex or face colors - we will deal with
+    # them below
+    if isinstance(x, trimesh.visual.base.Visuals) and hasattr(x, "material"):
+        x = x.material
+
+    if isinstance(x, PBRMaterial):
+        material = x
         gfx_material = MeshStandardMaterial()
 
         if material.baseColorTexture is not None:
@@ -98,7 +114,8 @@ def material_from_trimesh(material):
             gfx_material.ao_map = texture_from_pillow_image(material.occlusionTexture)
 
         gfx_material.side = "FRONT"
-    elif isinstance(material, SimpleMaterial):
+    elif isinstance(x, SimpleMaterial):
+        material = x
         gfx_material = MeshPhongMaterial(color=material.ambient / 255)
 
         gfx_material.shininess = material.glossiness
@@ -108,6 +125,21 @@ def material_from_trimesh(material):
             gfx_material.map = texture_from_pillow_image(material.image)
 
         gfx_material.side = "FRONT"
+    elif isinstance(x, ColorVisuals):
+        # ColorVisuals are typically used for vertex or face colors but they can be
+        # also be undefined in which case it's just a default material
+        gfx_material = MeshPhongMaterial(color=x.main_color / 255)
+
+        gfx_material.shininess = x.defaults['material_shine']
+        gfx_material.specular = Color(*(x.defaults['material_specular'] / 255))
+
+        gfx_material.side = "FRONT"
+
+        if x.kind == 'vertex':
+            gfx_material.color_mode = 'vertex'
+        elif x.kind == 'face':
+            gfx_material.color_mode = 'face'
     else:
-        raise NotImplementedError(f"Conversion of {type(material)} is not supported.")
+        raise NotImplementedError(f"Conversion of {type(x)} is not supported.")
+
     return gfx_material
