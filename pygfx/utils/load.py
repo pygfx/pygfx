@@ -165,7 +165,7 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
     if isinstance(scene, trimesh.Trimesh):
         m = gfx.Mesh(
             gfx.geometry_from_trimesh(scene),
-            gfx.material_from_trimesh(scene.visual.material),
+            gfx.material_from_trimesh(scene),
         )
         return [m]
     # If this is a scene, we need to properly parse it
