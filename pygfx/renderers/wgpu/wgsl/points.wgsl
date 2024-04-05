@@ -75,10 +75,11 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ if size_space == 'screen'
         let size_ratio = 1.0;
     $$ else
-        // The size is expressed in world space. So we first check where a point, moved 1 logic pixel away
+        // The size is expressed in world space. So we first check where a point, moved shift_factor logical pixels away
         // from the node, ends up in world space. We actually do that for both x and y, in case there's anisotropy.
-        let pos_s_shiftedx = pos_s + vec2<f32>(1.0, 0.0);
-        let pos_s_shiftedy = pos_s + vec2<f32>(0.0, 1.0);
+        let shift_factor = 1000.0;
+        let pos_s_shiftedx = pos_s + vec2<f32>(shift_factor, 0.0);
+        let pos_s_shiftedy = pos_s + vec2<f32>(0.0, shift_factor);
         let pos_n_shiftedx = vec4<f32>((pos_s_shiftedx / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
         let pos_n_shiftedy = vec4<f32>((pos_s_shiftedy / screen_factor - 1.0) * pos_n.w, pos_n.z, pos_n.w);
         let pos_w_shiftedx = u_stdinfo.cam_transform_inv * u_stdinfo.projection_transform_inv * pos_n_shiftedx;
@@ -88,10 +89,10 @@ fn vs_main(in: VertexInput) -> Varyings {
             let pos_m_shiftedx = u_wobject.world_transform_inv * pos_w_shiftedx;
             let pos_m_shiftedy = u_wobject.world_transform_inv * pos_w_shiftedy;
             // Distance in model space
-            let size_ratio = 0.5 * (distance(pos_m.xyz, pos_m_shiftedx.xyz) + distance(pos_m.xyz, pos_m_shiftedy.xyz));
+            let size_ratio = (1.0 / shift_factor) * 0.5 * (distance(pos_m.xyz, pos_m_shiftedx.xyz) + distance(pos_m.xyz, pos_m_shiftedy.xyz));
         $$ else
             // Distance in world space
-            let size_ratio = 0.5 * (distance(pos_w.xyz, pos_w_shiftedx.xyz) + distance(pos_w.xyz, pos_w_shiftedy.xyz));
+            let size_ratio = (1.0 / shift_factor) * 0.5 * (distance(pos_w.xyz, pos_w_shiftedx.xyz) + distance(pos_w.xyz, pos_w_shiftedy.xyz));
         $$ endif
     $$ endif
     let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
@@ -187,7 +188,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Determine alpha
     var alpha: f32 = 1.0;
-    $$ if shape == "gaussian"
+    $$ if is_sprite
+        // sprites have their alpha defined by the map and opacity only
+    $$ elif shape == 'gaussian'
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
         let t = d / sigma_p;
@@ -215,9 +218,29 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let color = u_material.color;
     $$ endif
     var physical_color = srgb2physical(color.rgb);
+    var user_alpha = color.a;
+
+    // Multiply with sprite color?
+    $$ if is_sprite == 2
+        let sprite_coord = (pointcoord_p + half_size_p) / (2.0 * half_size_p);
+        if (min(sprite_coord.x, sprite_coord.y) < 0.0) { discard; }
+        if (max(sprite_coord.x, sprite_coord.y) > 1.0) { discard; }
+        let sprite_value = textureSample(t_sprite, s_sprite, sprite_coord);
+        $$ if sprite_nchannels == 1
+            physical_color = physical_color * sprite_value.r;
+        $$ elif sprite_nchannels == 2
+            physical_color = physical_color * sprite_value.r;
+            user_alpha = user_alpha * sprite_value.g;
+        $$ elif sprite_nchannels == 3
+            physical_color = physical_color * sprite_value.rgb;
+        $$ else
+            physical_color = physical_color * sprite_value.rgb;
+            user_alpha = user_alpha * sprite_value.a;
+        $$ endif
+    $$ endif
 
     // Determine final rgba value
-    let opacity = min(1.0, color.a) * alpha * u_material.opacity;
+    let opacity = min(1.0, user_alpha) * alpha * u_material.opacity;
     let out_color = vec4<f32>(physical_color, opacity);
 
     // Wrap up

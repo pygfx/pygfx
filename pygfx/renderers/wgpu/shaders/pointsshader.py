@@ -1,7 +1,12 @@
 import wgpu  # only for flags/enums
 
+from ....resources import Texture
 from ....objects import Points
-from ....materials import PointsMaterial, PointsGaussianBlobMaterial
+from ....materials import (
+    PointsMaterial,
+    PointsGaussianBlobMaterial,
+    PointsSpriteMaterial,
+)
 
 from .. import (
     register_wgpu_render_function,
@@ -10,6 +15,9 @@ from .. import (
     RenderMask,
     load_wgsl,
     nchannels_from_format,
+    to_texture_format,
+    GfxSampler,
+    GfxTextureView,
 )
 
 
@@ -48,6 +56,12 @@ class PointsShader(WorldObjectShader):
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
+        self["is_sprite"] = 0  # 0, 1, 2
+        if isinstance(material, PointsSpriteMaterial):
+            self["is_sprite"] = 1
+            if material.sprite is not None:
+                self["is_sprite"] = 2  # i.e. is sprite and has a texture
+
         self["size_mode"] = str(material.size_mode).split(".")[-1]
         self["size_space"] = material.size_space
         self["aa"] = material.aa
@@ -76,6 +90,23 @@ class PointsShader(WorldObjectShader):
                     material.map, geometry.texcoords, material.map_interpolation
                 )
             )
+
+        # Process sprite texture. Note that we can *also* have a colormap for the base color.
+        if self["is_sprite"] == 2:
+            sprite_sampler = GfxSampler("linear", "clamp")
+            if not isinstance(material.sprite, Texture):
+                raise TypeError("material sprite must be a Texture")
+            sprite_view = GfxTextureView(material.sprite)
+            if sprite_view.view_dim != "2d":
+                raise ValueError("Sprite textures must be 2D")
+            fmt = to_texture_format(sprite_view.format)
+            if not ("norm" in fmt or "float" in fmt):
+                raise ValueError("Sprite textures must be u8norm or float")
+            self["sprite_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+            bindings += [
+                Binding("s_sprite", "sampler/filtering", sprite_sampler, "FRAGMENT"),
+                Binding("t_sprite", "texture/auto", sprite_view, "FRAGMENT"),
+            ]
 
         self["shape"] = "circle"
         if isinstance(material, PointsGaussianBlobMaterial):

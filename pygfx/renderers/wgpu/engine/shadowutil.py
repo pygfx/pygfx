@@ -24,6 +24,32 @@ shadow_vertex_shader = """
     }
 """
 
+instanced_shadow_vertex_shader = """
+    struct Matrix4x4 {
+        m : mat4x4<f32>
+    };
+
+    struct InstanceInput {
+        @location(1) model_matrix_0: vec4<f32>,
+        @location(2) model_matrix_1: vec4<f32>,
+        @location(3) model_matrix_2: vec4<f32>,
+        @location(4) model_matrix_3: vec4<f32>,
+    };
+
+    @group(0) @binding(0) var<uniform> light_view_projection : Matrix4x4;
+    @group(1) @binding(0) var<uniform> model_transform : Matrix4x4;
+    @vertex
+    fn vs_main(@location(0) position: vec3<f32>, instance: InstanceInput) -> @builtin(position) vec4<f32> {
+        let instance_matrix = mat4x4<f32>(
+            instance.model_matrix_0,
+            instance.model_matrix_1,
+            instance.model_matrix_2,
+            instance.model_matrix_3
+        );
+        return light_view_projection.m * (model_transform.m * instance_matrix) * vec4<f32>(position, 1.0);
+    }
+"""
+
 bind_group_layout_entry = {
     "binding": 0,
     "visibility": wgpu.ShaderStage.VERTEX,
@@ -122,11 +148,17 @@ def render_wobject_shadow(device, light, wobject, shadow_pass):
         position_buffer.draw_range[1] * position_buffer.itemsize,
     )
 
+    n_instance = 1
+
+    if isinstance(wobject, objects.InstancedMesh):
+        instance_buffer = wobject.instance_buffer
+        shadow_pass.set_vertex_buffer(1, ensure_wgpu_object(instance_buffer))
+        n_instance = instance_buffer.nitems
+
     wobject_bind_group = get_shadow_bind_group(device, wobject.uniform_buffer)
     shadow_pass.set_bind_group(1, wobject_bind_group, [], 0, 99)
 
     ibuffer = getattr(wobject.geometry, "indices", None)
-    n_instance = 1  # not support instanced meshes yet
 
     if ibuffer is not None:
         n = wobject.geometry.indices.data.size
@@ -183,7 +215,7 @@ def get_shadow_pipeline(device, wobject, cull_mode):
     # between objects. We use a proper cache to implement this.
     #
     # NOTE:
-    # - for instanced meshes, it also needs instance buffer (not implemented).
+    # - for instanced meshes, it also needs instance buffer.
     # - maybe for future skinned meshes, the morph buffer is also needed.
 
     position_buffer = wobject.geometry.positions
@@ -192,12 +224,16 @@ def get_shadow_pipeline(device, wobject, cull_mode):
     format = position_buffer.format
     topology = get_shadow_topology(wobject)
 
-    key = (stride, format, topology, cull_mode)
+    is_instanced = isinstance(wobject, objects.InstancedMesh)
+
+    key = (stride, format, topology, cull_mode, is_instanced)
 
     pipeline = SHADOW_CACHE.get(key)
     if pipeline is None:
         # Create pipeline and store in the cache (with a weakref).
-        pipeline = create_shadow_pipeline(device, stride, format, topology, cull_mode)
+        pipeline = create_shadow_pipeline(
+            device, stride, format, topology, cull_mode, is_instanced
+        )
         SHADOW_CACHE.set(key, pipeline)
 
     # Store on the wobject to bind it to its lifetime, but per shadow-cull-mode
@@ -217,7 +253,9 @@ def get_shadow_topology(wobject):
         raise RuntimeError(f"Shadows not supported for {wobject.__class__.__name__}")
 
 
-def create_shadow_pipeline(device, stride, format, topology, cull_mode):
+def create_shadow_pipeline(
+    device, stride, format, topology, cull_mode, instanced=False
+):
     """Actually create a shadow pipeline object."""
 
     vertex_buffer_descriptor = [
@@ -234,7 +272,39 @@ def create_shadow_pipeline(device, stride, format, topology, cull_mode):
         }
     ]
 
-    shader_module = device.create_shader_module(code=shadow_vertex_shader)
+    if instanced:
+        vertex_buffer_descriptor.append(
+            {
+                "array_stride": 80,  # matrix4x4(64) + id(4) + padding(12) = 80
+                "step_mode": wgpu.VertexStepMode.instance,  # instance
+                "attributes": [
+                    {
+                        "format": "float32x4",
+                        "offset": 0,
+                        "shader_location": 1,
+                    },
+                    {
+                        "format": "float32x4",
+                        "offset": 16,
+                        "shader_location": 2,
+                    },
+                    {
+                        "format": "float32x4",
+                        "offset": 32,
+                        "shader_location": 3,
+                    },
+                    {
+                        "format": "float32x4",
+                        "offset": 48,
+                        "shader_location": 4,
+                    },
+                ],
+            }
+        )
+        shader_module = device.create_shader_module(code=instanced_shadow_vertex_shader)
+    else:
+        shader_module = device.create_shader_module(code=shadow_vertex_shader)
+
     pipeline = device.create_render_pipeline(
         layout=device.create_pipeline_layout(
             bind_group_layouts=[global_bind_group_layout, global_bind_group_layout]
