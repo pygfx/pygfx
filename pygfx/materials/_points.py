@@ -284,7 +284,21 @@ class PointsMarkerMaterial(PointsMaterial):
         Possible values are:
 
         * 'circle' or 'o"
+        * 'ring'
         * 'square' or 's'
+        * 'diamond' or 'D'
+        * 'plus' or '+'
+        * 'cross' or 'x'
+        * 'asterix'
+        * 'triangle_up' or '^'
+        * 'triangle_down' or ''
+        * 'triangle_left' or '<'
+        * 'triangle_right' or '>'
+        * 'heart' or '♥'
+        * 'spade'
+        * 'club'
+        * 'pin'
+
         """
         # TODO: is marker a good name?
         # Note: MPL calls this 'marker', Plotly calls this 'symbol'
@@ -322,6 +336,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "<": "triangle_left",
             ">": "triangle_right",
             "v": "triangle_down",
+            "♥": "heart",
         }
 
         # Checks
