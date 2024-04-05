@@ -151,7 +151,7 @@ def select_power_preference(power_preference):
     """
     if power_preference not in wgpu.PowerPreference:
         raise ValueError(
-            "select_power_preference() received invalid value for {repr(wgpu.PowerPreference)}."
+            f"select_power_preference() received invalid value for {repr(wgpu.PowerPreference)}."
         )
     if Shared._instance is not None:
         raise RuntimeError(
@@ -171,7 +171,7 @@ def select_adapter(adapter):
         adapters = wgpu.gpu.enumerate_adapters()
         adapters_tesla = [a for a in adapters if "Tesla" in a.summary]
         adapters_discrete = [a for a in adapters if "DiscreteGPU" in a.summary]
-        pygfx.renderes.wgpu.select_adapter(adapters_discrete[0])
+        pygfx.renderers.wgpu.select_adapter(adapters_discrete[0])
 
     Note that using this function reduces the portability of your code, because
     it's highly specific for your current machine/environment.
