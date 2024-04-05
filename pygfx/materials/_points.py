@@ -295,11 +295,37 @@ class PointsMarkerMaterial(PointsMaterial):
         # Define possible values, see:
         # https://matplotlib.org/stable/api/markers_api.html
         # https://plotly.com/python/marker-style/#custom-marker-symbols
-        possible_names = ["circle", "square"]
-        alt_names = {"o": "circle", "s": "square"}
+        possible_names = [
+            "circle",
+            "ring",
+            "square",
+            "diamond",
+            "plus",
+            "cross",
+            "asterix",
+            "triangle_up",
+            "triangle_down",
+            "triangle_left",
+            "triangle_right",
+            "heart",
+            "spade",
+            "club",
+            "pin",
+        ]
+        alt_names = {
+            "o": "circle",
+            "s": "square",
+            "D": "diamond",
+            "+": "plus",
+            "x": "cross",
+            "^": "triangle_up",
+            "<": "triangle_left",
+            ">": "triangle_right",
+            "v": "triangle_down",
+        }
 
         # Checks
-        resolved_name = alt_names.get(name.lower(), name.lower())
+        resolved_name = alt_names.get(name, name).lower()
         if not isinstance(name, str):
             raise TypeError("Marker name must be specified as a string.")
         if resolved_name not in possible_names:
