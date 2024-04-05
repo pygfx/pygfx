@@ -170,6 +170,13 @@ class BackgroundShader(WorldObjectShader):
             // written in the opaque pass in order for it to really be background.
             // So we fool the blender into thinking this fragment is opaque, even if its not.
             var out = get_fragment_output(varyings.position.z, vec4<f32>(out_color.rgb, 1.0));
+            $$ if write_pick
+                // We omit any extra information in the pick info
+                // While we figure out exactly how best to return it.
+                // Much of this information may soon be redundant.
+                // https://github.com/pygfx/pygfx/pull/700
+                out.pick = pick_pack(u32(u_wobject.id), 20);
+            $$ endif
             out.color = vec4<f32>(out_color);
             return out;
         }
