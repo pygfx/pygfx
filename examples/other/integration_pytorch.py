@@ -81,6 +81,19 @@ from torch_geometric import transforms
 
 @dataclass
 class MeshData:
+    """
+    A dataclass representing mesh data.
+
+    This dataclass is used to store and transfer mesh data between the training process and the rendering process.
+    It contains the vertices, faces, ground truth Gaussian curvature values, and predicted Gaussian curvature values
+    for a given mesh.
+
+    Attributes:
+        vertices (np.ndarray): The vertices of the mesh, stored as a NumPy array of shape (num_vertices, 3).
+        faces (np.ndarray): The faces of the mesh, stored as a NumPy array of shape (num_faces, 3).
+        k (np.ndarray): The ground truth Gaussian curvature values at each vertex, stored as a NumPy array of shape (num_vertices,).
+        pred_k (np.ndarray): The predicted Gaussian curvature values at each vertex, stored as a NumPy array of shape (num_vertices,).
+    """
     vertices: np.ndarray
     faces: np.ndarray
     k: np.ndarray
@@ -89,6 +102,20 @@ class MeshData:
 
 @dataclass
 class SceneState:
+    """
+    A dataclass representing the state of the pygfx scene.
+
+    This dataclass is used to store and manage the state of the pygfx scene, including the ground truth mesh,
+    predicted mesh, and their corresponding group objects. It also keeps track of whether it's the first data
+    received by the scene.
+
+    Attributes:
+        gt_group (gfx.Group): A group object for the ground truth mesh, used to organize and manipulate the mesh in the scene.
+        pred_group (gfx.Group): A group object for the predicted mesh, used to organize and manipulate the mesh in the scene.
+        gt_mesh (gfx.WorldObject): The ground truth mesh object, representing the actual mesh in the scene.
+        pred_mesh (gfx.WorldObject): The predicted mesh object, representing the predicted mesh in the scene.
+        first_data (bool): A flag indicating if it's the first data received by the scene. Used to determine if the meshes need to be created or updated.
+    """
     gt_group: gfx.Group = gfx.Group()
     pred_group: gfx.Group = gfx.Group()
     gt_mesh: gfx.WorldObject = None
@@ -186,6 +213,22 @@ def append_moments(x: torch.Tensor) -> torch.Tensor:
 
 
 class ExampleDataset(Dataset):
+    """
+    A PyTorch Geometric dataset class for loading and preprocessing a 3D mesh.
+
+    This dataset class is responsible for loading a 3D mesh file, calculating the Gaussian curvature at each vertex
+    using the principal curvatures, and preparing the data for the graph neural network. It applies transforms to
+    infer edges based on face data.
+
+    The dataset is initialized with a specific mesh file path and a set of transforms. The `get` method is used to
+    retrieve a single data sample, which includes the vertices, faces, and Gaussian curvature values. The mesh is
+    placed in a canonical form, aligned with its PCA principal directions, before being returned.
+
+    Methods:
+        __init__(): Initializes the dataset with a specific mesh file path and a set of transforms.
+        len(): Returns the length of the dataset (always 1 in this case).
+        get(idx): Retrieves a single data sample from the dataset, including the vertices, faces, and Gaussian curvature values.
+    """
     def __init__(self):
         super().__init__()
         file_path = Path(__file__).parents[1] / 'data/retinal.obj'
@@ -218,6 +261,20 @@ class ExampleDataset(Dataset):
 
 
 class ExampleDataModule(LightningDataModule):
+    """
+    A PyTorch Lightning data module for the example dataset.
+
+    This data module is responsible for defining the train and validation datasets using the ExampleDataset class.
+    It provides the data loaders for training and validation, allowing seamless integration with the PyTorch Lightning
+    training pipeline.
+
+    The data module is initialized with train and validation datasets, which are instances of the ExampleDataset class.
+    The `train_dataloader` method returns the data loader for the training dataset, specifying the batch size.
+
+    Methods:
+        __init__(): Initializes the data module with train and validation datasets.
+        train_dataloader(): Returns the data loader for the training dataset.
+    """
     def __init__(self):
         super().__init__()
         self._train_dataset = ExampleDataset()
@@ -228,6 +285,22 @@ class ExampleDataModule(LightningDataModule):
 
 
 class ExampleModule(LightningModule):
+    """
+    A PyTorch Lightning module defining the graph neural network architecture.
+
+    This module defines the architecture of the graph neural network used for predicting the Gaussian curvature
+    of a 3D mesh. It uses a combination of graph convolutional layers (ResGatedGraphConv) for message passing
+    and a multilayer perceptron (MLP) for the final prediction.
+
+    The module is initialized with a specific configuration of graph convolutional layers and MLP layers. The
+    `configure_optimizers` method defines the optimizer used for training the model. The `training_step` method
+    defines the forward pass and loss calculation for a single training step.
+
+    Methods:
+        __init__(): Initializes the module with a specific configuration of graph convolutional layers and MLP layers.
+        configure_optimizers(): Defines the optimizer used for training the model.
+        training_step(batch, index): Defines the forward pass and loss calculation for a single training step.
+    """
     def __init__(self):
         super().__init__()
         convolutions = [
@@ -257,6 +330,22 @@ class ExampleModule(LightningModule):
 
 
 class SceneHandler:
+    """
+    A class for handling the creation and rendering of the pygfx scene.
+
+    This class is responsible for creating and managing the pygfx scene, which includes two viewports: one for
+    displaying the ground truth mesh and another for the predicted mesh. It receives mesh data messages from the
+    training process via a multiprocessing queue and updates the meshes in the scene accordingly.
+
+    The class provides a `start` method that initializes the scene, viewports, cameras, and lighting. It sets up
+    the rendering loop and handles the updating of the meshes based on the received mesh data messages. The meshes
+    are colored based on the Gaussian curvature values.
+
+    Methods:
+        start(in_queue, light_color, background_color, scene_background_top_color, scene_background_bottom_color):
+            Initializes the scene, viewports, cameras, and lighting, and starts the rendering loop.
+            Receives mesh data messages from the training process via a multiprocessing queue and updates the meshes in the scene.
+    """
     @staticmethod
     def _rescale_k(k: np.ndarray) -> np.ndarray:
         # rescale gaussian curvature so it will range between 0 and 1
@@ -451,6 +540,25 @@ class SceneHandler:
 
 
 class PyGfxCallback(Callback):
+    """
+    A PyTorch Lightning callback for handling the communication between the training process and the rendering process.
+
+    This callback is responsible for creating a separate process for the pygfx rendering and sending mesh data messages
+    to the rendering process via a multiprocessing queue. It updates the meshes in the pygfx scene based on the training
+    progress and results.
+
+    The callback is initialized with a multiprocessing queue and a process for the rendering. The `on_fit_start` method
+    is called at the start of the training loop and starts the rendering process. The `on_fit_end` method is called at
+    the end of the training loop and terminates the rendering process. The `_on_batch_end` method is called after each
+    training or validation batch and sends the mesh data message to the rendering process.
+
+    Methods:
+        __init__(): Initializes the callback with a multiprocessing queue and a process for the rendering.
+        on_fit_start(trainer, pl_module): Called at the start of the training loop. Starts the rendering process.
+        on_fit_end(trainer, pl_module): Called at the end of the training loop. Terminates the rendering process.
+        _on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+            Called after each training or validation batch. Sends the mesh data message to the rendering process.
+    """
     def __init__(self):
         super().__init__()
         self._queue = mp.Queue()
