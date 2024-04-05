@@ -43,6 +43,8 @@ def geometry_from_trimesh(mesh):
         kwargs["texcoords"] = np.ascontiguousarray(wgpu_uv, dtype="f4")
     elif mesh.visual.kind == "vertex":
         kwargs["colors"] = np.ascontiguousarray(mesh.visual.vertex_colors, dtype="f4")
+    elif mesh.visual.kind == "face":
+        kwargs["colors"] = np.ascontiguousarray(mesh.visual.face_colors, dtype="f4")
 
     # todo: support vertex attribute 'tangent'
 
