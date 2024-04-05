@@ -250,8 +250,9 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_width="f4",
     )
 
-    def __init__(self, *, edge_width=1, edge_color="black", **kwargs):
+    def __init__(self, *, marker="circle", edge_width=1, edge_color="black", **kwargs):
         super().__init__(**kwargs)
+        self.marker = marker
         self.edge_width = edge_width
         self.edge_color = edge_color
 
@@ -275,6 +276,37 @@ class PointsMarkerMaterial(PointsMaterial):
     def edge_width(self, edge_width):
         self.uniform_buffer.data["edge_width"] = float(edge_width)
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def marker(self):
+        """The type/shape of the markers.
+
+        Possible values are:
+
+        * 'circle' or 'o"
+        * 'square' or 's'
+        """
+        # TODO: is marker a good name?
+        # Note: MPL calls this 'marker', Plotly calls this 'symbol'
+        return self._store.marker
+
+    @marker.setter
+    def marker(self, name):
+        # Define possible values, see:
+        # https://matplotlib.org/stable/api/markers_api.html
+        # https://plotly.com/python/marker-style/#custom-marker-symbols
+        possible_names = ["circle", "square"]
+        alt_names = {"o": "circle", "s": "square"}
+
+        # Checks
+        resolved_name = alt_names.get(name.lower(), name.lower())
+        if not isinstance(name, str):
+            raise TypeError("Marker name must be specified as a string.")
+        if resolved_name not in possible_names:
+            raise ValueError(
+                f"Invalid marker shape '{name}'. Expecting one of {possible_names}, or a shorthand from {list(alt_names)}."
+            )
+        self._store.marker = resolved_name
 
 
 class PointsSpriteMaterial(PointsMaterial):

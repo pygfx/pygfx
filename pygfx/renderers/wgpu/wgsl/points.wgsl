@@ -190,9 +190,16 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let pointcoord_p: vec2<f32> = varyings.pointcoord_p;
     let pointcoord = pointcoord_p / l2p;
 
-    // Get SDF
     let dist_to_face_center_p = length(pointcoord_p);
-    let dist_to_face_edge_p = dist_to_face_center_p - half_size_p;
+
+    // Get SDF
+    $$ if shape == 'circle' or shape == 'gaussian'
+        let dist_to_face_edge_p = dist_to_face_center_p - half_size_p;
+    $$ elif shape == 'square'
+        let dist_to_face_edge_p = max( abs(pointcoord_p.x) - half_size_p, abs(pointcoord_p.y) - half_size_p );
+    $$ else
+        unknown marker shape! // deliberate wgsl syntax error
+    $$ endif
 
     // Determine face_alpha based on shape and aa
     var face_alpha: f32 = 1.0;

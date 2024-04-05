@@ -116,6 +116,8 @@ class PointsShader(WorldObjectShader):
         self["shape"] = "circle"
         if isinstance(material, PointsGaussianBlobMaterial):
             self["shape"] = "gaussian"
+        elif isinstance(material, PointsMarkerMaterial):
+            self["shape"] = material.marker
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
