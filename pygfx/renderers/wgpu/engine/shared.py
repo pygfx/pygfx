@@ -188,6 +188,26 @@ def select_adapter(adapter):
     always the case. If you want to make sure, do some testing by allocating big
     buffers and checking memory usage using ``nvidia-smi``.
 
+    Example to allocate and check GPU mem usage::
+
+        import subprocess
+
+        import wgpu
+        import torch
+
+        def allocate_gpu_mem_with_wgpu(idx):
+            a = wgpu.gpu.enumerate_adapters()[idx]
+            d = a.request_device()
+            b = d.create_buffer(size=10*2**20, usage=wgpu.BufferUsage.COPY_DST)
+            return b
+
+        def allocate_gpu_mem_with_torch(idx):
+            d = torch.device(f"cuda:{idx}")
+            return torch.ones([2000, 10], dtype=torch.float32, device=d)
+
+        def show_mem_usage():
+            print(subprocess.run(["nvidia-smi"]))
+
     See https://github.com/pygfx/wgpu-py/issues/482 for more details.
 
     """
