@@ -49,19 +49,31 @@ class Shared(Trackable):
     # target platforms.
 
     _features = set(["float32-filterable"])
-
+    _selected_adapter = None
+    _power_preference = None
     _instance = None
 
     def __init__(self, *, canvas=None):
         super().__init__()
 
+        # Set this instance as the global one
         assert Shared._instance is None
         Shared._instance = self
 
-        # Create adapter and device objects - there should be just one per
+        # Select adapter to use.
+        if Shared._selected_adapter:
+            self._adapter = Shared._selected_adapter
+        else:
+            self._adapter = wgpu.gpu.request_adapter(
+                power_preference=Shared._power_preference or "high-performance"
+            )
+
+        # Create logical device from adapter. There should be just one per
         # process. Having a global device provides the benefit that we can draw
-        # any object anywhere.
-        self._adapter = wgpu.gpu.request_adapter(power_preference="high-performance")
+        # any object anywhere. Supporting different devices per renderer/canvas
+        # is technically possible, but would require an extra layer of
+        # indirection in the pipeline objects (device -> environment -> passes).
+        # So out of scope for the time being.
         self._device = self.adapter.request_device(
             required_features=list(Shared._features), required_limits={}
         )
@@ -130,6 +142,66 @@ class Shared(Trackable):
         PygfxResourceDiagnostics("pygfx_resources")
 
 
+def select_power_preference(power_preference):
+    """Select whether a powerful or battery-friendly GPU is selected.
+
+    Accepts a value from ``wgpu.PowerPreference``: "high-performance" or "low-power".
+
+    This function must be called before before the first ``Renderer`` is created.
+    """
+    if power_preference not in wgpu.PowerPreference:
+        raise ValueError(
+            "select_power_preference() received invalid value for {repr(wgpu.PowerPreference)}."
+        )
+    if Shared._instance is not None:
+        raise RuntimeError(
+            "The select_power_preference() function must be called before creating the first renderer."
+        )
+    Shared._power_preference = power_preference
+
+
+def select_adapter(adapter):
+    """Select a specific adapter / GPU.
+
+    Select an adapter as obtained via ``wgpu.gpu.enumerate_adapters()``, which
+    can be useful in multi-gpu environments.
+
+    For example::
+
+        adapters = wgpu.gpu.enumerate_adapters()
+        adapters_tesla = [a for a in adapters if "Tesla" in a.summary]
+        adapters_discrete = [a for a in adapters if "DiscreteGPU" in a.summary]
+        pygfx.renderes.wgpu.select_adapter(adapters_discrete[0])
+
+    Note that using this function reduces the portability of your code, because
+    it's highly specific for your current machine/environment.
+
+    The order of the adapters returned by ``wgpu.gpu.enumerate_adapters()`` is
+    such that Vulkan adapters go first, then Metal, then D3D12, then OpenGL.
+    Within each category, the order as provided by the particular backend is
+    maintained. Note that the same device may be present via multiple backends
+    (e.g. vulkan/opengl).
+
+    We cannot make guarantees about whether the order of the adapters matches
+    the order as reported by e.g. ``nvidia-smi``. We have found that on a Linux
+    multi-gpu cluster, the order does match, but we cannot promise that this is
+    always the case. If you want to make sure, do some testing by allocating big
+    buffers and checking memory usage using ``nvidia-smi``.
+
+    See https://github.com/pygfx/wgpu-py/issues/482 for more details.
+
+    """
+    if not isinstance(adapter, wgpu.GPUAdapter):
+        raise TypeError(
+            f"select_adapter() only accepts a wgpu.GPUAdapter object, but got {adapter.__class__.__name__}."
+        )
+    if Shared._instance is not None:
+        raise RuntimeError(
+            "The select_adapter() function must be called before creating the first renderer."
+        )
+    Shared._selected_adapter = adapter
+
+
 def enable_wgpu_features(*features):
     """Enable specific features (as strings) on the wgpu device.
 
@@ -139,8 +211,7 @@ def enable_wgpu_features(*features):
     breaks that promise, and may cause your code to not work on e.g.
     mobile devices or certain operating systems.
 
-    This function must be called before the first wgpu device is created.
-    In practice this means before the first ``Renderer`` is created.
+    This function must be called before before the first ``Renderer`` is created.
     It can be called multiple times to enable more features.
 
     For more information on features:
