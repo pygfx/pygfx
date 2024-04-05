@@ -17,27 +17,13 @@ background.
 # sphinx_gallery_pygfx_test = 'run'
 
 
-import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 scene = gfx.Scene()
 
 
-def background_pointer_down(event):
-    print(event.pick_info)
-
-im = iio.imread("imageio:astronaut.png")
-print(im.shape)
-background = gfx.Background(None, gfx.BackgroundImageMaterial(
-    gfx.Texture(im, dim=2)
-))
-
-background.add_event_handler(
-    background_pointer_down,
-    "pointer_down",
-)
-scene.add(background)
+scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
 
 geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40, screen_space=True)
 

@@ -25,19 +25,7 @@ image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
     gfx.ImageBasicMaterial(clim=(0, 255)),
 )
-# background = gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000"))
-background = gfx.Background(None, gfx.BackgroundImageMaterial(
-    gfx.Texture(im, dim=2)
-))
-scene.add(background, image)
-
-def pointer_down(event):
-    print(event.pick_info)
-
-scene.add_event_handler(
-    pointer_down,
-    "pointer_down",
-)
+scene.add(image)
 
 # add points
 
