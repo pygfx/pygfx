@@ -55,10 +55,10 @@ class Background(WorldObject):
 
     """
 
-    def __init__(self, geometry=None, material=None, **kwargs):
+    def __init__(self, geometry=None, material=None, render_mask="opaque", **kwargs):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
-        super().__init__(None, material, **kwargs)
+        super().__init__(None, material, render_mask=render_mask, **kwargs)
 
 
 class Line(WorldObject):
