@@ -35,9 +35,9 @@ scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
 
 geometry = gfx.box_geometry(40, 40, 40)
-default_material = gfx.MeshPhongMaterial()
-selected_material = gfx.MeshPhongMaterial(color="#FF0000")
-hover_material = gfx.MeshPhongMaterial(color="#FFAA00")
+default_material = gfx.MeshPhongMaterial(pick_write=True)
+selected_material = gfx.MeshPhongMaterial(color="#FF0000", pick_write=True)
+hover_material = gfx.MeshPhongMaterial(color="#FFAA00", pick_write=True)
 
 outline = gfx.BoxHelper(thickness=3, color="#fa0")
 scene.add(outline)
