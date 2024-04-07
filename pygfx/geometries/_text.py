@@ -8,18 +8,28 @@ For details about the text rendering process, see pygfx/utils/text/README.md
 
 import numpy as np
 
-from ._base import Geometry
 from ..resources import Buffer
 from ..utils import text as textmodule
+from ._base import Geometry
 
-
-TEXT_ALIGN_ALTS = {
-    "left": "start",
-    "top": "start",
-    "middle": "center",
-    "right": "end",
-    "bottom": "end",
-}
+_TEXT_ALIGNMENTS = [
+    "start",
+    "end",
+    "left",
+    "right",
+    "center",
+    "justify",
+    "justify-all",
+]
+_TEXT_ALIGNMENTS_LAST = [
+    "start",
+    "end",
+    "left",
+    "right",
+    "center",
+    "justify",
+    "auto",
+]
 ANCHOR_X_ALTS = {
     "left": "left",
     "center": "center",
@@ -56,6 +66,10 @@ class TextItem:
         Whitespace before the text.
     ws_after : str
         Whitespace after the text.
+    nl_before: str
+        Newline before the text.
+    nl_after: str
+        Newline after the text.
     allow_break : bool
         If True, allow a linebreak to be placed after this piece of text.
 
@@ -68,6 +82,8 @@ class TextItem:
         *,
         ws_before="",
         ws_after="",
+        nl_before="",
+        nl_after="",
         allow_break=True,
     ):
         if not isinstance(text, str):
@@ -81,6 +97,8 @@ class TextItem:
         self._font_props = font_props
         self._ws_before = ws_before
         self._ws_after = ws_after
+        self._nl_before = nl_before
+        self._nl_after = nl_after
         self._allow_break = bool(allow_break)
 
     @property
@@ -102,6 +120,16 @@ class TextItem:
     def ws_after(self):
         """The whitespace text after this item."""
         return self._ws_after
+
+    @property
+    def nl_before(self):
+        """The newline text in front of this item."""
+        return self._nl_before
+
+    @property
+    def nl_after(self):
+        """The newline text after this item."""
+        return self._nl_after
 
     @property
     def allow_break(self):
@@ -129,6 +157,8 @@ class GlyphItem:
         self.allow_break = False
         self.margin_before = 0
         self.margin_after = 0
+        self.newline_before = 0
+        self.newline_after = 0
         # Int offset. Note that this means that a glyph item is bound to a TextGeometry
         self.offset = 0
 
@@ -161,7 +191,15 @@ class TextGeometry(Geometry):
         A factor to scale the distance between lines. A value of 1 means the
         "native" font's line distance. Default 1.2.
     text_align : str
-        How to align the text. Not implemented.
+        The horizontal alignment of the inline-level content. Can be "start",
+        "end", "left", "right", "center", "justify" or "justify-all". Default
+        "left". Text alignment and newlines have only been validated for
+        left to right text.
+    text_align_last: str
+        The horizontal alignment of the last line of the content
+        element. Can be "start", "end", "left", "right", "center", "justify" or
+        "auto". Default "auto". Text alignment and newlines have only been validated for
+        left to right text.
     family : str, tuple
         The name(s) of the font to prefer. If multiple names are given, they are
         preferred in the given order. Characters that are not supported by any
@@ -185,6 +223,7 @@ class TextGeometry(Geometry):
         max_width=0,
         line_height=1.2,
         text_align="left",
+        text_align_last="auto",
         family=None,
         direction=None,
     ):
@@ -222,6 +261,7 @@ class TextGeometry(Geometry):
         self.max_width = max_width
         self.line_height = line_height
         self.text_align = text_align
+        self.text_align_last = text_align_last
 
         # Finish layout
         self._do_layout = True
@@ -293,7 +333,6 @@ class TextGeometry(Geometry):
                 glyph_items.append(GlyphItem(positions, atlas_indices, meta))
 
             # Get whitespace after and before the text
-            margin_before = margin_after = 0
             margin_before = self._get_ws_extent(item.ws_before, text_pieces[0][1])
             margin_after = self._get_ws_extent(item.ws_after, text_pieces[-1][1])
 
@@ -301,7 +340,9 @@ class TextGeometry(Geometry):
             first_item, last_item = glyph_items[first_index], glyph_items[-1]
             first_item.allow_break = item.allow_break
             first_item.margin_before = margin_before
+            first_item.newline_before = item.nl_before
             last_item.margin_after = margin_after
+            last_item.newline_after = item.nl_after
 
         # Layout pre-processing: re-order the items if needed, based on text direction
         i = 0
@@ -383,22 +424,35 @@ class TextGeometry(Geometry):
 
         if not isinstance(text, str):
             raise TypeError("Text must be a Unicode string.")
+
         font_props = textmodule.FontProps(family=family, style=style, weight=weight)
 
         # Split the text in pieces using a tokenizer. We put the
         # whitespace as margin on the text items (whitespace is not rendered)
         items = []
-        pending_whitespace = None
+        pending_whitespace = ""
+        pending_newline = ""
+        previous_was_newline = True
         for kind, piece in textmodule.tokenize_text(text):
             if kind == "ws":
-                if not items:
-                    pending_whitespace = piece
+                if previous_was_newline:
+                    pending_whitespace += piece
                 else:
                     items[-1]._ws_after += piece
+            elif kind == "nl":
+                if not items:
+                    pending_newline += piece
+                else:
+                    items[-1]._nl_after += piece
+                previous_was_newline = True
             else:
                 items.append(TextItem(piece, font_props))
-        if items and pending_whitespace:
-            items[0]._ws_before += pending_whitespace
+                items[-1]._ws_before += pending_whitespace
+                pending_whitespace = ""
+
+                items[-1]._nl_before += pending_newline
+                pending_newline = ""
+                previous_was_newline = False
 
         self.set_text_items(items)
         return self
@@ -576,7 +630,45 @@ class TextGeometry(Geometry):
         # Prepare
 
         font_size = self._font_size
+        # We try to follow CSS  which multiplies the line_height by the font_size as well
+        line_height = self.line_height * font_size
+
         anchor = self._anchor
+        text_align = self._text_align
+        text_align_last = self._text_align_last
+        if text_align_last == "auto":
+            if text_align == "justify":
+                text_align_last = "start"
+            elif text_align == "justify-all":
+                text_align_last = "justify"
+            else:
+                text_align_last = text_align
+
+        if text_align == "justify-all":
+            text_align = "justify"
+
+        # TODO: handle Right to Left (RTL) text
+        if self._direction == "ltr":
+            if text_align == "left":
+                text_align = "start"
+            elif text_align == "right":
+                text_align = "end"
+
+            if text_align_last == "left":
+                text_align_last = "start"
+            elif text_align_last == "right":
+                text_align_last = "end"
+        elif self._direction == "rtl":
+            if text_align == "left":
+                text_align = "end"
+            elif text_align == "right":
+                text_align = "start"
+
+            if text_align_last == "left":
+                text_align_last = "end"
+            elif text_align_last == "right":
+                text_align_last = "start"
+
         positions_array = self.positions.data
         sizes_array = self.sizes.data
         is_horizontal = self._direction is None or self._direction in ("ltr", "rtl")
@@ -584,30 +676,99 @@ class TextGeometry(Geometry):
         left = right = 0
         top = bottom = 0
 
+        line_left = line_right = 0
+        line_top = line_bottom = 0
+
+        vertical_offset = 0
+
         # Resolve position and sizes
 
         extent_offset = 0
+        lines = []
+        current_line = []
+        lines_aabb = []
         for item in self._glyph_items:
+            if item.newline_before:
+                lines.append(current_line)
+                lines_aabb.append(
+                    np.array(
+                        [(line_left, line_bottom, 0), (line_right, line_top, 0)],
+                        np.float32,
+                    )
+                )
+                current_line = []
+                line_left = line_right = 0
+                line_top = line_bottom = 0
+                vertical_offset -= len(item.newline_before) * line_height
+                extent_offset = 0
+
             extent_offset += item.margin_before * font_size
             if is_horizontal:
-                positions = item.positions * font_size + np.array([extent_offset, 0])
+                positions = item.positions * font_size + (
+                    extent_offset,
+                    vertical_offset,
+                )
             else:
-                positions = item.positions * font_size + np.array([0, extent_offset])
+                positions = item.positions * font_size + (
+                    vertical_offset,
+                    extent_offset,
+                )
             i1, i2 = item.offset, item.offset + positions.shape[0]
             positions_array[i1:i2] = positions
+            # Keep a pointer to the array so we can align the text
+            current_line.append(positions_array[i1:i2])
+
             sizes_array[i1:i2] = font_size
+
             # Prepare for next
+            extent_offset += item.extent * font_size
             ws_margin = item.margin_after * font_size
-            extent_offset += item.extent * font_size + ws_margin
-            # Update total extent
+            extent_offset += ws_margin
+
+            # Update line extent
             if is_horizontal:
-                right = extent_offset
-                top = max(top, item.ascender * font_size)
-                bottom = min(bottom, item.descender * font_size)
+                line_right = extent_offset
+                line_top = max(line_top, item.ascender * font_size)
+                line_bottom = min(
+                    line_bottom, item.descender * font_size + vertical_offset
+                )
             else:
-                bottom = extent_offset
-                right = max(right, item.ascender * font_size)
-                left = min(left, item.descender * font_size)
+                line_bottom = extent_offset
+                line_right = max(line_right, item.ascender * font_size)
+                line_left = min(line_left, item.descender * font_size + vertical_offset)
+
+            # Update total extent
+            top = max(top, line_top)
+            bottom = min(bottom, line_bottom)
+            right = max(right, line_right)
+            left = min(left, line_left)
+
+            if item.newline_after:
+                lines.append(current_line)
+                lines_aabb.append(
+                    np.array(
+                        [(line_left, line_bottom, 0), (line_right, line_top, 0)],
+                        np.float32,
+                    )
+                )
+                current_line = []
+                line_left = line_right = 0
+                line_top = line_bottom = 0
+                vertical_offset -= len(item.newline_after) * line_height
+                extent_offset = 0
+
+        lines.append(current_line)
+        lines_aabb.append(
+            np.array(
+                [(line_left, line_bottom, 0), (line_right, line_top, 0)], np.float32
+            )
+        )
+        current_line = []
+        line_left = line_right = 0
+        line_top = line_bottom = 0
+
+        # take care of new lines at the end of the text
+        bottom = min(bottom, vertical_offset)
 
         self._aabb = np.array([(left, bottom, 0), (right, top, 0)], np.float32)
 
@@ -633,8 +794,43 @@ class TextGeometry(Geometry):
             positions_array += pos_offset_x, pos_offset_y
             self._aabb += pos_offset_x, pos_offset_y, 0
 
-        # Trigger uploads to GPU
+        # Align the text accordingly
+        total_length = right - left
+        num_lines = len(lines)
 
+        align = text_align
+        for i, (line, line_aabb) in enumerate(zip(lines, lines_aabb)):
+            if i == num_lines - 1:
+                align = text_align_last
+
+            line_right = line_aabb[1, 0]
+            line_left = line_aabb[0, 0]
+            line_length = line_right - line_left
+
+            extra_space_per_word = 0
+            length_to_add = 0
+            if align == "justify":
+                length_to_add = total_length - line_length
+                words = len(line)
+                if words > 1:
+                    extra_space_per_word = length_to_add / (words - 1)
+                else:
+                    length_to_add = 0
+
+            if align == "center":
+                line_pos_offset_x = 0.5 * (right - left) - 0.5 * (
+                    line_right - line_left + length_to_add
+                )
+            elif align == "right":
+                line_pos_offset_x = (right - left) - (
+                    line_right - line_left + length_to_add
+                )
+            else:  # elif align == "left":
+                line_pos_offset_x = 0
+            for j, positions in enumerate(line):
+                positions += (line_pos_offset_x + j * extra_space_per_word), 0
+
+        # Trigger uploads to GPU
         self.sizes.update_range(0, i2)
         self.positions.update_range(0, i2)
 
@@ -692,7 +888,7 @@ class TextGeometry(Geometry):
     @property
     def line_height(self):
         """The relative height of a line of text, used to set the
-        distance between lines. Default 1.2. TEXT WRAPPING IS NOT YET IMPLEMENTED
+        distance between lines. Default 1.2.
         """
         return self._line_height
 
@@ -703,23 +899,42 @@ class TextGeometry(Geometry):
 
     @property
     def text_align(self):
-        """Set the alignment of wrapped text. Can be start, end, center, or justify.
-        Default "start". TEXT WRAPPING IS NOT YET IMPLEMENTED
+        """Set the alignment of wrapped text. Can be start, end, or center.
+        Default "start".
         """
         return self._text_align
 
     @text_align.setter
     def text_align(self, align):
-        alignments = "start", "end", "center", "justify"
         if align is None:
             align = "start"
         if not isinstance(align, str):
             raise TypeError("text-align must be a None or str.")
         align = align.lower()
-        align = TEXT_ALIGN_ALTS.get(align, align)
-        if align not in alignments:
-            raise ValueError(f"Align must be one of {alignments}")
+        if align not in _TEXT_ALIGNMENTS:
+            raise ValueError(f"Align must be one of {_TEXT_ALIGNMENTS}. Got {align}.")
         self._text_align = align
+        self.apply_layout()
+
+    @property
+    def text_align_last(self):
+        """Set the alignment of the last line of text.
+        Default "auto".
+        """
+        return self._text_align_last
+
+    @text_align_last.setter
+    def text_align_last(self, align):
+        if align is None:
+            align = "start"
+        if not isinstance(align, str):
+            raise TypeError("text-align must be a None or str.")
+        align = align.lower()
+        if align not in _TEXT_ALIGNMENTS_LAST:
+            raise ValueError(
+                f"Align must be one of {_TEXT_ALIGNMENTS_LAST}. Got {align}"
+            )
+        self._text_align_last = align
         self.apply_layout()
 
     @property

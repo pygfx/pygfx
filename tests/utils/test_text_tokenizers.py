@@ -1,4 +1,4 @@
-from pygfx.utils.text import tokenize_text, tokenize_markdown
+from pygfx.utils.text import tokenize_markdown, tokenize_text
 
 
 def test_tokenize_text():
@@ -13,6 +13,47 @@ def test_tokenize_text():
         "other",
         "ws",
         "other",
+    ]
+
+
+def test_tokenize_text_with_newline():
+    text = (
+        " \n  \n\n"  # Some newlines and spaces before the text starts.
+        "  Lorem ipsum\n"  # Some space at the very beginning of the line
+        "Bonjour World Olá\n"  # some text that isn't equal in line
+        "py gfx\n"  # a line with exactly 1 word (with a non breaking space inside)
+        "last line  \n"  # a line with some space at the end
+        "\n  \n\n"  # Some newlines and space at the end
+    )
+    parts = list(tokenize_text(text))
+    assert text == "".join(p[1] for p in parts), "total is not original"
+    assert [p[0] for p in parts] == [
+        "ws",
+        "nl",
+        "ws",
+        "nl",
+        "ws",
+        "other",
+        "ws",
+        "other",
+        "nl",
+        "other",
+        "ws",
+        "other",
+        "ws",
+        "other",
+        "nl",
+        "other",
+        "ws",
+        "other",
+        "nl",
+        "other",
+        "ws",
+        "other",
+        "ws",
+        "nl",
+        "ws",
+        "nl",
     ]
 
 

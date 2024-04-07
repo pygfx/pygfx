@@ -51,7 +51,7 @@ class Stats(Group):
         )
         # refactor once text bounding boxes are available
         self.bg.local.scale = (90, self._line_height * 2.1, 1)
-        self.ms = Text(
+        self.stats_text = Text(
             TextGeometry(
                 text="",
                 screen_space=True,
@@ -60,16 +60,7 @@ class Stats(Group):
             ),
             text_material,
         )
-        self.fps = Text(
-            TextGeometry(
-                text="",
-                screen_space=True,
-                font_size=font_size,
-                anchor="topleft",
-            ),
-            text_material,
-        )
-        self.add(self.bg, self.ms, self.fps)
+        self.add(self.bg, self.stats_text)
 
         self.camera = ScreenCoordsCamera()
 
@@ -94,11 +85,12 @@ class Stats(Group):
         self._frames = 0
         self._fmin = 1e10
         self._fmax = 0
+        # Sentinel value of None indicates that the fps has never been computed
+        self._fps = None
 
     def _update_positions(self, event=None):
         _, height = self._viewport.logical_size
-        self.ms.local.position = (0, height, 0)
-        self.fps.local.position = (0, height - self._line_height, 0)
+        self.stats_text.local.position = (0, height, 0)
         self.bg.local.position = (0, height, 0.1)
 
     def start(self):
@@ -120,7 +112,6 @@ class Stats(Group):
         delta = round((t - self._tbegin) / 1_000_000)
         self._tmin = min(self._tmin, delta)
         self._tmax = max(self._tmax, delta)
-        self.ms.geometry.set_text(f"{delta} ms ({self._tmin}-{self._tmax})")
 
         if t >= self._tprev + 1_000_000_000:
             # update FPS counter whenever a second has passed
@@ -129,7 +120,12 @@ class Stats(Group):
             self._frames = 0
             self._fmin = min(self._fmin, fps)
             self._fmax = max(self._fmax, fps)
-            self.fps.geometry.set_text(f"{fps} fps ({self._fmin}-{self._fmax})")
+            self._fps = fps
+
+        text = f"{delta} ms ({self._tmin}-{self._tmax})"
+        if self._fps is not None:
+            text += f"\n{self._fps} fps ({self._fmin}-{self._fmax})"
+        self.stats_text.geometry.set_text(text)
 
     def render(self, flush=True):
         self._viewport.render(self, self.camera, flush=flush)
