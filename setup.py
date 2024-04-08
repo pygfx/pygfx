@@ -35,7 +35,8 @@ extras_require = {
         "psutil",
         "pyinstaller>=4",
         "trimesh",
-        "httpx"
+        "httpx",
+        "networkx"
     ],
     "examples": [
         "pytest",
