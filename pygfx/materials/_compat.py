@@ -121,7 +121,8 @@ def material_from_trimesh(x):
         gfx_material.shininess = material.glossiness
         gfx_material.specular = Color(*(material.specular / 255))
 
-        if hasattr(material, "image"):
+        # Note: `material.image` can exist but be None
+        if getattr(material, "image", None):
             gfx_material.map = texture_from_pillow_image(material.image)
 
         gfx_material.side = "FRONT"
