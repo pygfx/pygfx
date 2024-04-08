@@ -325,14 +325,21 @@ def scene_from_trimesh(
     elif not isinstance(tm_scene, trimesh.Scene):
         raise ValueError(f"Unexpected trimesh data: {type(tm_scene)}")
 
-    # Use the graph representation of the scene - easier to handle
-    G = tm_scene.graph.to_networkx()
+    # Extract a few things from the scene graph
+    # `edges` is a dict {(parent, child): {'geometry': 'name', 'matrix': np.array}}
+    edges = tm_scene.graph.transforms.edge_data
+    # `leafs` is the list of leaf node names
+    leafs = [
+        n
+        for n in tm_scene.graph.transforms.nodes
+        if not tm_scene.graph.transforms.children.get(n, [])
+    ]
 
     # Take care of meshes
     # Note: we're traversing the scene graph only for meshes (i.e. not lights, cameras, etc.)
     # That's because as far as I can tell, trimesh's scene graph only applies to geometries
     # while lights and cameras are stored separate from 'world'.
-    if meshes and len(G):
+    if meshes and len(tm_scene.graph.nodes):
         if not flatten:
             # Load the geometries and materials
             gfx_geometries, gfx_materials = objects_from_trimesh(
@@ -349,12 +356,10 @@ def scene_from_trimesh(
                 # Go over this node's children
                 for child_name in tm_scene.graph.transforms.children.get(node_name, []):
                     # Is this a leaf node?
-                    is_leaf = G.out_degree[child_name] == 0
+                    is_leaf = child_name in leafs
 
                     # Does it have a geometry?
-                    geometry_name = G.edges[(node_name, child_name)].get(
-                        "geometry", None
-                    )
+                    geometry_name = edges[(node_name, child_name)].get("geometry", None)
                     # See if this child has a geometry
                     if geometry_name is not None:
                         # Create the geometry
@@ -366,9 +371,7 @@ def scene_from_trimesh(
                         child_object = gfx.Group()
 
                     # Apply matrix
-                    child_object.local.matrix = G.edges[(node_name, child_name)][
-                        "matrix"
-                    ]
+                    child_object.local.matrix = edges[(node_name, child_name)]["matrix"]
 
                     # Connect child to parent unless this is a terminal group
                     if not is_leaf or not isinstance(child_object, gfx.Group):
