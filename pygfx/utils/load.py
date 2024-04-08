@@ -295,7 +295,7 @@ def scene_from_trimesh(
                 tm_scene, materials=materials
             )
 
-            def _build_graph_bfs(node, node_group):
+            def _build_graph_bfs(node_name, node_object):
                 """Recursively parse scene graph into pygfx.Groups."""
                 # Note: not sure if that will ever happen in practice but
                 # in theory, this implementation could run into the recursion
@@ -303,45 +303,32 @@ def scene_from_trimesh(
                 # a problem we need to switch the implementation
 
                 # Go over this node's children
-                for child in tm_scene.graph.transforms.children.get(node, []):
+                for child_name in tm_scene.graph.transforms.children.get(node_name, []):
                     # Is this a leaf node?
-                    is_leaf = G.out_degree[child] == 0
+                    is_leaf = G.out_degree[child_name] == 0
 
                     # Does it have a geometry?
-                    geometry_name = G.edges[(node, child)].get("geometry", None)
+                    geometry_name = G.edges[(node_name, child_name)].get("geometry", None)
                     # See if this child has a geometry
                     if geometry_name is not None:
                         # Create the geometry
-                        mesh = gfx.Mesh(
+                        child_object = gfx.Mesh(
                             gfx_geometries[geometry_name],
                             gfx_materials[geometry_name],
                         )
                     else:
-                        mesh = None
+                        child_object = gfx.Group()
 
-                    # If this is not a leaf node, we need to use a Group
+                    # Apply matrix
+                    child_object.local.matrix = G.edges[(node_name, child_name)]["matrix"]
+
+                    # Connect child to parent unless this is a terminal group
+                    if not is_leaf or not isinstance(child_object, gfx.Group):
+                        node_object.add(child_object)
+
+                    # If this is not a leaf node, we need to recurse
                     if not is_leaf:
-                        # Generate a new graph for this child
-                        child_group = gfx.Group()
-
-                        # Set the child's transform
-                        child_group.local.matrix = G.edges[(node, child)]["matrix"]
-
-                        # Connect the child to the parent
-                        node_group.add(child_group)
-
-                        # Add the geometry to the child
-                        if mesh:
-                            child_group.add(mesh)
-
-                        # Recurse ot this child's children
-                        _build_graph_bfs(child, child_group)
-                    # If this is a leaf node, we can just add the geometry
-                    else:
-                        # Apply transform directly to the mesh and add it to parent
-                        if mesh:
-                            mesh.local.matrix = G.edges[(node, child)]["matrix"]
-                            node_group.add(mesh)
+                        _build_graph_bfs(child_name, child_object)
 
             # Recursively build the scene graph
             world = tm_scene.graph.base_frame
