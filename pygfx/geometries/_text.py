@@ -167,11 +167,6 @@ class TextGeometry(Geometry):
         preferred in the given order. Characters that are not supported by any
         of the given fonts are rendered with the default font (from the Noto
         Sans collection).
-    style: str
-        The style of the font (normal, italic, oblique). Default "normal".
-    weight: str, int
-        The weight of the font. E.g. "normal" or "bold" or a number between
-        100 and 900. Default "normal".
     direction : str
         The text direction. By default the text direction is determined
         automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
@@ -191,8 +186,6 @@ class TextGeometry(Geometry):
         line_height=1.2,
         text_align="left",
         family=None,
-        style=None,
-        weight=None,
         direction=None,
     ):
         super().__init__()
@@ -204,8 +197,6 @@ class TextGeometry(Geometry):
 
         # Previous font property picker. Is used to recall the user's settings
         self._family = family
-        self._style = style
-        self._weight = weight
 
         # Init props unrelated to layout
         self.screen_space = screen_space
@@ -398,14 +389,8 @@ class TextGeometry(Geometry):
 
         if family is None:
             family = self._family
-        if style is None:
-            style = self._style
-        if weight is None:
-            weight = self._weight
         font_props = textmodule.FontProps(family=family, style=style, weight=weight)
         self._family = font_props.family
-        self._style = font_props.style
-        self._weight = font_props.weight
 
         # Split the text in pieces using a tokenizer. We put the
         # whitespace as margin on the text items (whitespace is not rendered)
