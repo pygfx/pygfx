@@ -5,6 +5,8 @@ Utilities to load scenes from files, using trimesh.
 import pygfx as gfx
 import numpy as np
 
+from importlib.util import find_spec
+
 
 def load_meshes(path, remote_ok=False):
     """Load meshes from a file.
@@ -49,6 +51,11 @@ def load_mesh(path, remote_ok=False):
         Loads the entire scene (lights, graph, etc.) from a file.
 
     """
+    if not find_spec("trimesh"):
+        raise ImportError(
+            "The `trimesh` library is required to load meshes: pip install trimesh"
+        )
+
     import trimesh  # noqa
 
     # Trimesh's load() performs a similar check and refers
@@ -58,6 +65,10 @@ def load_mesh(path, remote_ok=False):
             raise ValueError(
                 "Loading meshes from URLs is disabled. "
                 "Set remote_ok=True to allow loading from URLs."
+            )
+        if not find_spec("httpx"):
+            raise ImportError(
+                "The `httpx` library is required to load meshes from URLs: pip install httpx"
             )
         scene = trimesh.load_remote(path)
     else:
@@ -120,6 +131,11 @@ def load_scene(
         Returns the flat meshes contained in a file.
 
     """
+    if not find_spec("trimesh"):
+        raise ImportError(
+            "The `trimesh` library is required to load scenes: pip install trimesh"
+        )
+
     if lights not in ("auto", "file", "none"):
         raise ValueError(f"Invalid value for `lights`: {lights}")
 
@@ -135,6 +151,11 @@ def load_scene(
             raise ValueError(
                 "Loading scenes from URLs is disabled. "
                 "Set remote_ok=True to allow loading from URLs."
+            )
+
+        if not find_spec("httpx"):
+            raise ImportError(
+                "The `httpx` library is required to load meshes from URLs: pip install httpx"
             )
         tm_scene = trimesh.load_remote(path)
     else:
@@ -298,6 +319,11 @@ def scene_from_trimesh(
         The scene converted to pygfx.
 
     """
+    if not find_spec("trimesh"):
+        raise ImportError(
+            "The `trimesh` library is required to load scenes: pip install trimesh"
+        )
+
     if lights not in ("auto", "file", "none"):
         raise ValueError(f"Invalid value for `lights`: {lights}")
 
