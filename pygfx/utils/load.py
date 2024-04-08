@@ -3,6 +3,7 @@ Utilities to load scenes from files, using trimesh.
 """
 
 import pygfx as gfx
+import numpy as np
 
 
 def load_meshes(path, remote_ok=False):
@@ -70,6 +71,7 @@ def load_scene(
     flatten=False,
     meshes=True,
     materials=True,
+    volumes=True,
     lights="auto",
     camera="auto",
     remote_ok=False,
@@ -77,8 +79,9 @@ def load_scene(
     """Load file into a scene.
 
     When reading file formats that can contain more than just meshes (e.g. `.glb`) this function will
-    attempt to import the entire scene, including lights, cameras, and materials. If the file format
-    is mesh-only (e.g. `.stl`) we will instead construct a minimal scene.
+    attempt to import the entire scene, including lights, cameras, volumes and materials. If the file
+    format is mesh-only (e.g. `.stl`) or volume-only (e.g. `.binvox`) we will instead construct a
+    minimal scene.
 
     This function requires the trimesh library.
 
@@ -93,6 +96,8 @@ def load_scene(
         Whether to load meshes.
     materials : bool
         Whether to load materials.
+    volumes : bool
+        Whether to load 3D image volumes.
     lights :  "auto" | "file" | "none"
         Whether to import lights. "auto" (default) will always add lights to the scene
         even if the file does not contain any; "file" will import only lights defined in
@@ -139,6 +144,7 @@ def load_scene(
         tm_scene,
         flatten=flatten,
         meshes=meshes,
+        volumes=volumes,
         materials=materials,
         lights=lights,
         camera=camera,
@@ -254,6 +260,7 @@ def scene_from_trimesh(
     flatten=False,
     meshes=True,
     materials=True,
+    volumes=True,
     lights="auto",
     camera="auto",
     background=True,
@@ -271,6 +278,8 @@ def scene_from_trimesh(
         Whether to import meshes.
     materials : bool
         Whether to import materials.
+    volumes : bool
+        Whether to load 3D image volumes.
     lights :  "auto" | "file" | "none"
         Whether to import lights. "auto" (default) will always add lights to the scene
         even if the file does not contain any; "file" will import only lights defined in
@@ -297,24 +306,34 @@ def scene_from_trimesh(
 
     import trimesh  # noqa
 
+    # Basic scene setup
+    gfx_scene = gfx.Scene()
+
     # Convet single meshes into a scene (this makes the code below much simpler)
     if isinstance(tm_scene, trimesh.Trimesh):
         tm_scene = trimesh.Scene(geometry=tm_scene)
+    elif isinstance(tm_scene, trimesh.voxel.VoxelGrid):
+        # VoxelGrids can not be in a trimesh.Scene directly (trimesh renders them
+        # as collection of cube meshes), so we need to handle them separately
+        if volumes:
+            vol = _volume_from_voxelgrid(tm_scene)
+            gfx_scene.add(vol)
+
+        # Generate an empty scene so we can continue with the rest of the function
+        # (i.e. potentially add lights and camera)
+        tm_scene = trimesh.Scene()
     elif not isinstance(tm_scene, trimesh.Scene):
         raise ValueError(f"Unexpected trimesh data: {type(tm_scene)}")
 
-    # Basic scene setup
-    gfx_scene = gfx.Scene()
+    # Use the graph representation of the scene - easier to handle
+    G = tm_scene.graph.to_networkx()
 
     # Take care of meshes
     # Note: we're traversing the scene graph only for meshes (i.e. not lights, cameras, etc.)
     # That's because as far as I can tell, trimesh's scene graph only applies to geometries
     # while lights and cameras are stored separate from 'world'.
-    if meshes:
+    if meshes and len(G):
         if not flatten:
-            # Use the graph representation of the scene - easier to handle
-            G = tm_scene.graph.to_networkx()
-
             # Load the geometries and materials
             gfx_geometries, gfx_materials = objects_from_trimesh(
                 tm_scene, materials=materials
@@ -450,3 +469,69 @@ def scene_from_trimesh(
         gfx_scene.add(gfx.Background(None, gfx.BackgroundMaterial((1, 1, 1))))
 
     return gfx_scene
+
+
+def _volume_from_voxelgrid(vxl, cmap=None, clim="data"):
+    """Helper function to convert a trimesh VoxelGrid into a pygfx Volume.
+
+    Parameters
+    ----------
+    vxl : trimesh.voxels.VoxelGrid
+        The voxel grid to convert.
+    camera : bool
+        Whether to add camera to the scene.
+    lights : "bool
+        Whether to add lights to the scene.
+    cmap : pygfx.Texture, optional
+        The colormap to use. If None, this will default to `pygfx.cm.viridis`.
+    clim : "data" | "dtype" | tuple | None
+        The contrast limits to scale the data values with. By default ("data"), will
+        use the min and max values of the data. If "dtype", will use the theoretical
+        limits of the data type. If None, will use [0-1].
+
+    Returns
+    -------
+    vol : pygfx.Volume
+        The volume object.
+
+    """
+    import trimesh  # noqa
+
+    if not isinstance(vxl, trimesh.voxel.VoxelGrid):
+        raise ValueError(f"Unexpected trimesh data: {type(vxl)}")
+
+    # Extract the matrix. Note that trimesh uses xyz coordinates while
+    # pygfx expects zyx - hence we transpose the matrix
+    grid = vxl.matrix.T
+
+    # Convert non-native byte order to native; e.g. >u4 -> u4 = uint64
+    if grid.dtype.byteorder in (">", "<"):
+        grid = grid.astype(grid.dtype.str.replace(grid.dtype.byteorder, ""))
+    # Convert boolean matrices to uint16; I tried uint4 but that renders as
+    # uniform volume and uint8 looks fuzzy
+    elif grid.dtype == bool:
+        grid = grid.astype(np.uint16)
+
+    # Initialize texture
+    tex = gfx.Texture(grid, dim=3)
+
+    if cmap is None:
+        cmap = gfx.cm.cividis
+
+    # Find the potential min/max value of the volume
+    if isinstance(clim, str):
+        if clim == "data":
+            clim = (grid.min(), grid.max())
+        elif clim == "dtype":
+            clim = (np.iinfo(grid.dtype).max, np.iinfo(grid.dtype).max)
+
+    # Initialize the volume
+    vol = gfx.Volume(
+        gfx.Geometry(grid=tex),
+        gfx.VolumeRayMaterial(clim=clim, map=cmap),
+    )
+
+    # Apply transform
+    vol.local.matrix = vxl.transform
+
+    return vol

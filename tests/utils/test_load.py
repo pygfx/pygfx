@@ -9,12 +9,20 @@ FILES_TO_TEST = [
     "CesiumMilkTruck.glb",
     "nested.glb",
     "cube_blender_uv.ply",
+    "chair_model.binvox"
 ]
 URLS = [f"{BASE_URL}/{file}" for file in FILES_TO_TEST]
 
 
 @pytest.mark.parametrize("url", URLS)
 def test_load_meshes(url):
+    # The .binvox format is expected to fail because trimesh
+    # loads it as VoxelGrid, not as a mesh
+    if url.endswith(".binvox"):
+        with pytest.raises(ValueError):
+            mesh = gfx.load_mesh(url, remote_ok=True)
+        return
+
     # Test loading meshes via trimesh
     mesh = gfx.load_mesh(url, remote_ok=True)
 
