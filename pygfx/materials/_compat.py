@@ -131,15 +131,15 @@ def material_from_trimesh(x):
         # also be undefined in which case it's just a default material
         gfx_material = MeshPhongMaterial(color=x.main_color / 255)
 
-        gfx_material.shininess = x.defaults['material_shine']
-        gfx_material.specular = Color(*(x.defaults['material_specular'] / 255))
+        gfx_material.shininess = x.defaults["material_shine"]
+        gfx_material.specular = Color(*(x.defaults["material_specular"] / 255))
 
         gfx_material.side = "FRONT"
 
-        if x.kind == 'vertex':
-            gfx_material.color_mode = 'vertex'
-        elif x.kind == 'face':
-            gfx_material.color_mode = 'face'
+        if x.kind == "vertex":
+            gfx_material.color_mode = "vertex"
+        elif x.kind == "face":
+            gfx_material.color_mode = "face"
     else:
         raise NotImplementedError(f"Conversion of {type(x)} is not supported.")
 
