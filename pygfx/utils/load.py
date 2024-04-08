@@ -196,7 +196,7 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
         raise ValueError(f"Unexpected trimesh data: {scene.__class__.__name__}")
 
 
-def objects_from_trimesh(scene, materials=True):
+def objects_from_trimesh(scene, materials=True, de_duplicate=True):
     """Extract geometries and materials from a trimesh scene.
 
     Parameters
@@ -205,6 +205,9 @@ def objects_from_trimesh(scene, materials=True):
         The scene to convert.
     materials : bool
         Whether to import materials. If False, a default material will be created.
+    de_duplicate : bool
+        Whether to deduplicate geometries and materials. This may mean that
+        multiple objects in the scene will share the same geometry and/or material.
 
     Returns
     -------
@@ -214,13 +217,27 @@ def objects_from_trimesh(scene, materials=True):
         A dictionary of material objects. Keys are the names of the geometries.
 
     """
+    trimesh_to_gfx_geometries = {}  # cache for geometries
+    trimesh_to_gfx_materials = {}  # cache for materials
     gfx_geometries = {}
     gfx_materials = {}
     for name, mesh in scene.geometry.items():
-        gfx_geometries[name] = gfx.geometry_from_trimesh(mesh)
+        # Convert mesh
+        if de_duplicate and mesh in trimesh_to_gfx_materials:
+            gfx_geometries[name] = trimesh_to_gfx_geometries[mesh]
+        else:
+            gfx_geometries[name] = trimesh_to_gfx_geometries[mesh] = (
+                gfx.geometry_from_trimesh(mesh)
+            )
+
         # If mesh has a material, convert it
         if hasattr(mesh.visual, "material") and materials:
-            gfx_materials[name] = gfx.material_from_trimesh(mesh.visual.material)
+            if de_duplicate and mesh.visual.material in trimesh_to_gfx_materials:
+                gfx_materials[name] = trimesh_to_gfx_materials[mesh.visual.material]
+            else:
+                gfx_materials[name] = trimesh_to_gfx_materials[mesh.visual.material] = (
+                    gfx.material_from_trimesh(mesh.visual.material)
+                )
         # If not, use a default material
         else:
             gfx_materials[name] = gfx.MeshStandardMaterial()
@@ -308,7 +325,9 @@ def scene_from_trimesh(
                     is_leaf = G.out_degree[child_name] == 0
 
                     # Does it have a geometry?
-                    geometry_name = G.edges[(node_name, child_name)].get("geometry", None)
+                    geometry_name = G.edges[(node_name, child_name)].get(
+                        "geometry", None
+                    )
                     # See if this child has a geometry
                     if geometry_name is not None:
                         # Create the geometry
@@ -320,7 +339,9 @@ def scene_from_trimesh(
                         child_object = gfx.Group()
 
                     # Apply matrix
-                    child_object.local.matrix = G.edges[(node_name, child_name)]["matrix"]
+                    child_object.local.matrix = G.edges[(node_name, child_name)][
+                        "matrix"
+                    ]
 
                     # Connect child to parent unless this is a terminal group
                     if not is_leaf or not isinstance(child_object, gfx.Group):
