@@ -287,10 +287,8 @@ def scene_from_trimesh(
     # while lights and cameras are stored separate from 'world'.
     if meshes:
         if not flatten:
-            # By convention, we expect the "world" objects to be the root of the scene graph
+            # Use the graph representation of the scene - easier to handle
             G = tm_scene.graph.to_networkx()
-            if "world" not in G.nodes:
-                raise ValueError("No 'world' node found in scene graph")
 
             # Load the geometries and materials
             gfx_geometries, gfx_materials = objects_from_trimesh(
@@ -346,8 +344,9 @@ def scene_from_trimesh(
                             node_group.add(mesh)
 
             # Recursively build the scene graph
-            gfx_scene.local.matrix = tm_scene.graph["world"][0]
-            _build_graph_bfs("world", gfx_scene)  # start at the root node
+            world = tm_scene.graph.base_frame
+            gfx_scene.local.matrix = tm_scene.graph[world][0]
+            _build_graph_bfs(world, gfx_scene)  # start at the root node
         # Just add the flat meshes
         else:
             # If we're flattening the scene graph, we'll just
