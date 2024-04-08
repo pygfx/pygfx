@@ -70,8 +70,8 @@ def load_scene(
     flatten=False,
     meshes=True,
     materials=True,
-    lights=True,
-    camera=True,
+    lights="auto",
+    camera="auto",
     remote_ok=False,
 ):
     """Load file into a scene.
@@ -93,16 +93,14 @@ def load_scene(
         Whether to load meshes.
     materials : bool
         Whether to load materials.
-    lights : bool, optional
-        Whether to load lights:
-          - True (default): lights are imported if present but if not, minimal lights are added
-          - False: ignore any lights in the file but add minimal lights to scene
-          - None: no lights are loaded
-    camera : bool, optional
-        Whether to load camera:
-          - True (default): camera is imported if present but if not, a generic camera is added
-          - False: ignore any camera in the file but add a camera to scene
-          - None: no camera is loaded
+    lights :  "auto" | "file" | "none"
+        Whether to import lights. "auto" (default) will always add lights to the scene
+        even if the file does not contain any; "file" will import only lights defined in
+        the file; "none" will not add any lights to the scene.
+    camera :  "auto" | "file" | "none"
+        Whether to import camera. "auto" (default) will always add a camera to the scene
+        even if the file does not contain any; "file" will import only cameras defined in
+        the file; "none" will not add any cameras to the scene.
     remote_ok : bool
         Whether to allow loading files from URLs, by default False.
 
@@ -117,6 +115,12 @@ def load_scene(
         Returns the flat meshes contained in a file.
 
     """
+    if lights not in ("auto", "file", "none"):
+        raise ValueError(f"Invalid value for `lights`: {lights}")
+
+    if camera not in ("auto", "file", "none"):
+        raise ValueError(f"Invalid value for `camera`: {camera}")
+
     import trimesh  # noqa
 
     # Trimesh's load() performs a similar check and refers
@@ -250,8 +254,8 @@ def scene_from_trimesh(
     flatten=False,
     meshes=True,
     materials=True,
-    lights=True,
-    camera=True,
+    lights="auto",
+    camera="auto",
     background=True,
 ):
     """Convert a trimesh scene into a pygfx scene.
@@ -267,16 +271,14 @@ def scene_from_trimesh(
         Whether to import meshes.
     materials : bool
         Whether to import materials.
-    lights : bool, optional
-        Whether to import lights:
-          - True (default): lights are imported if present but if not, minimal lights are added
-          - False: ignore any lights in the file but add minimal lights to scene
-          - None: no lights are imported
-    camera : bool, optional
-        Whether to import camera:
-          - True (default): camera is imported if present but if not, a generic camera is added
-          - False: ignore any camera in the file but add a camera to scene
-          - None: no camera is imported
+    lights :  "auto" | "file" | "none"
+        Whether to import lights. "auto" (default) will always add lights to the scene
+        even if the file does not contain any; "file" will import only lights defined in
+        the file; "none" will not add any lights to the scene.
+    camera :  "auto" | "file" | "none"
+        Whether to import camera. "auto" (default) will always add a camera to the scene
+        even if the file does not contain any; "file" will import only cameras defined in
+        the file; "none" will not add any cameras to the scene.
     background : bool
         Trimesh scenes typically have a white background. If True, we will add a white background
         to the pygfx scene. If False, no background will be added.
@@ -287,6 +289,12 @@ def scene_from_trimesh(
         The scene converted to pygfx.
 
     """
+    if lights not in ("auto", "file", "none"):
+        raise ValueError(f"Invalid value for `lights`: {lights}")
+
+    if camera not in ("auto", "file", "none"):
+        raise ValueError(f"Invalid value for `camera`: {camera}")
+
     import trimesh  # noqa
 
     # Convet single meshes into a scene (this makes the code below much simpler)
@@ -366,29 +374,30 @@ def scene_from_trimesh(
             )
 
     # Take care of camera
-    if camera is not None:
-        gfx_camera = gfx.PerspectiveCamera()
-        gfx_scene.add(gfx_camera)
-
+    if camera != "none":
         # Accessing the .camera attribute directly will create
         # a camera if it doesn't exist, hence we check the
         # `.has_camera` attribute.
         # Also note that we're currently only using the
         # camera's transform but not e.g. FOV or resolution:
-        if tm_scene.has_camera and camera is True:
-            gfx_camera.local.matrix = tm_scene.camera_transform
-        else:
+        if tm_scene.has_camera or camera == "auto":
+            gfx_camera = gfx.PerspectiveCamera()
+            gfx_scene.add(gfx_camera)
+
+            # If a camera exists in the scene, use its transform
+            if tm_scene.has_camera:
+                gfx_camera.local.matrix = tm_scene.camera_transform
             # If no camera, make sure the camera actually looks
-            # at the objects in the scene
-            if gfx_scene.get_bounding_box() is not None:
+            # at the objects in the scene (if any)
+            elif gfx_scene.get_bounding_box() is not None:
                 gfx_camera.show_object(gfx_scene)
 
     # Take care of lights
-    if lights is not None:
+    if lights != "none":
         # Parse lights. Similar to the camera, trimesh will create
         # lights automatically if we access the `.lights` attribute
         # directly.
-        if hasattr(tm_scene, "_lights") and lights is True:
+        if hasattr(tm_scene, "_lights"):
             gfx_lights = []
             for light in tm_scene.lights:
                 if isinstance(light, trimesh.scene.lighting.PointLight):
@@ -412,7 +421,7 @@ def scene_from_trimesh(
             gfx_scene.add(*gfx_lights)
         # If no lights (either because the scene did not contain lights or because
         # `lights=False`), make sure things are actually visible
-        else:
+        elif lights == "auto":
             # Add an ambient light
             gfx_scene.add(gfx.AmbientLight())
 
