@@ -8,6 +8,7 @@ import wgpu
 
 from ....resources import Buffer
 from ....utils import logger
+from ....utils.enums import RenderMask
 
 from ..shader.base1 import ShaderInterface
 from .utils import to_texture_format, GfxSampler, GfxTextureView

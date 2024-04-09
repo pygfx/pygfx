@@ -1,8 +1,9 @@
 import math
-from ._base import Material, ColorMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import logger
 from ..utils.color import Color
+from ..utils.enums import ColorMode
 
 
 class MeshAbstractMaterial(Material):
@@ -101,17 +102,10 @@ class MeshAbstractMaterial(Material):
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        if value not in ColorMode:
+            raise ValueError(
+                "MeshMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property

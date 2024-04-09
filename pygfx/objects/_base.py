@@ -17,6 +17,7 @@ from ..utils.transform import (
     RecursiveTransform,
     callback,
 )
+from ..utils.enums import RenderMask
 
 
 class IdProvider:
@@ -73,20 +74,6 @@ class IdProvider:
 
 
 id_provider = IdProvider()
-
-
-class RenderMask(enum.IntFlag):
-    """A flag indicating how the object participates in the different render passes.
-
-    It defines whether an object should be rendered in the opaque pass, the
-    transparent pass, or all. By default (auto), this is determined from the
-    materials properties (e.g. opacity, color, color_mode).
-    """
-
-    auto = 0
-    opaque = 1
-    transparent = 2
-    all = 3
 
 
 class WorldObject(EventTarget, RootTrackable):
@@ -257,10 +244,10 @@ class WorldObject(EventTarget, RootTrackable):
     def render_mask(self):
         """Indicates in what render passes to render this object:
 
-        * "auto": try to determine the best approach (default).
-        * "opaque": only in the opaque render pass.
-        * "transparent": only in the transparent render pass(es).
-        * "all": render in both opaque and transparent render passses.
+        * "auto" (or 0): try to determine the best approach (default).
+        * "opaque" (or 1): only in the opaque render pass.
+        * "transparent" (or 2): only in the transparent render pass(es).
+        * "all" (or 3): render in both opaque and transparent render passses.
 
         If "auto" (the default), the renderer attempts to determine
         whether all fragments will be either opaque or all transparent,
@@ -283,20 +270,21 @@ class WorldObject(EventTarget, RootTrackable):
     @render_mask.setter
     def render_mask(self, value):
         if value is None:
-            self._store.render_mask = RenderMask(0)
-        elif isinstance(value, int):
-            self._store.render_mask = RenderMask(value)
+            value = 0
+        if isinstance(value, int):
+            pass
         elif isinstance(value, str):
-            try:
-                self._store.render_mask = RenderMask._member_map_[value.lower()]
-            except KeyError:
-                opts = set(RenderMask._member_names_)
-                msg = f"WorldObject.render_mask must be one of {opts} not {value!r}"
+            if value not in dir(RenderMask):
+                msg = f"WorldObject.render_mask must be one of {dir(RenderMask)} not {value!r}"
                 raise ValueError(msg) from None
+            value = RenderMask[value]
         else:
             raise TypeError(
                 f"WorldObject.render_mask must be int or str, not {type(value)}"
             )
+        # Store the value as an int, because this is a flag, but also for backwards compat.
+        assert isinstance(value, int)
+        self._store.render_mask = value
 
     @property
     def geometry(self):

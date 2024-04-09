@@ -17,7 +17,7 @@ from .utils.load import load_mesh, load_meshes, load_scene
 from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils.text import font_manager
-from .utils import cm, logger
+from .utils import cm, enums, logger
 
 # Temp fix for pyinstaller to pick up pylinalg
 import pylinalg

@@ -1,6 +1,7 @@
-from ._base import Material, ColorMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
+from ..utils.enums import ColorMode
 
 
 class LineMaterial(Material):
@@ -126,17 +127,10 @@ class LineMaterial(Material):
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        if value not in ColorMode:
+            raise ValueError(
+                "LineMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property

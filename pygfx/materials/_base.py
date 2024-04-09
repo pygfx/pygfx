@@ -183,17 +183,3 @@ class Material(Trackable):
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.depth_test must be bool.")
         self._store.depth_test = bool(value)
-
-
-class ColorMode(enum.Enum):
-    auto = 0
-    uniform = 1
-    vertex = 2
-    face = 3
-    vertex_map = 4
-    face_map = 5
-
-
-class SizeMode(enum.Enum):
-    uniform = 1
-    vertex = 2

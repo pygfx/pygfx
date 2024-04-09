@@ -1,6 +1,7 @@
-from ._base import Material, ColorMode, SizeMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
+from ..utils.enums import ColorMode, SizeMode
 
 
 class PointsMaterial(Material):
@@ -123,19 +124,10 @@ class PointsMaterial(Material):
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
-        if value == ColorMode.face or value == ColorMode.face_map:
-            raise ValueError(f"Points cannot have color_mode {value}")
+        if value not in ColorMode:
+            raise ValueError(
+                "PointsMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property
@@ -191,17 +183,10 @@ class PointsMaterial(Material):
 
     @size_mode.setter
     def size_mode(self, value):
-        if isinstance(value, SizeMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("SizeMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(SizeMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid size_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid size_mode class: {value.__class__.__name__}")
+        if value not in SizeMode:
+            raise ValueError(
+                "PointsMaterial.SizeMode must be a string in {SizeMode}, not {repr(value)}"
+            )
         self._store.size_mode = value
 
     @property
