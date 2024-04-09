@@ -19,10 +19,21 @@ obj = gfx.Mesh(gfx.torus_knot_geometry(1, 0.3, 128, 16), gfx.MeshPhongMaterial(m
 obj.geometry.texcoords.data[:, 0] *= 10  # stretch the texture
 
 
+forward = True
+
+
 def animate():
+    global forward
     indices = obj.geometry.indices
-    offset = indices.draw_range[0] + 32
+    if forward:
+        offset = indices.draw_range[0] + 32
+    else:
+        offset = indices.draw_range[0] - 32
     if offset + 640 >= indices.nitems:
+        forward = False
+        offset = indices.nitems - 640
+    if offset < 0:
+        forward = True
         offset = 0
     indices.draw_range = offset, 640
 
