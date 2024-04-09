@@ -11,12 +11,14 @@ from importlib.util import find_spec
 def load_meshes(path, remote_ok=False):
     """Load meshes from a file.
 
+    Deprecated: use load_mesh() instead.
+
     Parameters
     ----------
     path : str
         The location where the mesh is stored.
     remote_ok : bool
-        Whether to allow loading meshes from URLs, by default False.
+        Whether to allow loading meshes from URLs. Default is False.
 
     Returns
     -------
@@ -38,7 +40,7 @@ def load_mesh(path, remote_ok=False):
         The location where the mesh or scene is stored.
         Can be a local file path or a URL.
     remote_ok : bool
-        Whether to allow loading meshes from URLs, by default False.
+        Whether to allow loading meshes from URLs. Default is False.
 
     Returns
     -------
@@ -102,13 +104,13 @@ def load_scene(
         The filepath. Can be a local file or a URL.
     flatten : bool
         If True, will ignore any hierarchical structure in the scene graph and
-        instead import as a flat list of objects.
+        instead import as a flat list of objects. Default is False.
     meshes : bool
-        Whether to load meshes.
+        Whether to load meshes. Default is True.
     materials : bool
-        Whether to load materials.
+        Whether to load materials. Default is True.
     volumes : bool
-        Whether to load 3D image volumes.
+        Whether to load 3D image volumes. Default is True.
     lights :  "auto" | "file" | "none"
         Whether to import lights. "auto" (default) will always add lights to the scene
         even if the file does not contain any; "file" will import only lights defined in
@@ -118,7 +120,7 @@ def load_scene(
         even if the file does not contain any; "file" will import only cameras defined in
         the file; "none" will not add any cameras to the scene.
     remote_ok : bool
-        Whether to allow loading files from URLs, by default False.
+        Whether to allow loading files from URLs. Default is False.
 
     Returns
     -------
@@ -180,9 +182,9 @@ def meshes_from_trimesh(scene, materials=True, apply_transforms=True):
     scene : trimesh.Scene
         The scene to convert.
     materials : bool
-        Whether to import materials. If False, a default material will be created.
+        Whether to import materials. If False, a standard material will be created. Default is True.
     apply_transforms : bool
-        Whether to apply the scene graph transforms directly to the meshes, by default True.
+        Whether to apply the scene graph transforms directly to the meshes. Default is True.
 
     Returns
     -------
@@ -294,13 +296,13 @@ def scene_from_trimesh(
         A trimesh Scene.
     flatten : bool
         If True, will ignore any hierarchical structure in the scene graph and
-        instead import as a flat list of objects.
+        instead import as a flat list of objects. Default is False.
     meshes : bool
-        Whether to import meshes.
+        Whether to import meshes. Default is True.
     materials : bool
-        Whether to import materials.
+        Whether to import materials. Default is True.
     volumes : bool
-        Whether to load 3D image volumes.
+        Whether to load 3D image volumes. Default is True.
     lights :  "auto" | "file" | "none"
         Whether to import lights. "auto" (default) will always add lights to the scene
         even if the file does not contain any; "file" will import only lights defined in
@@ -311,7 +313,7 @@ def scene_from_trimesh(
         the file; "none" will not add any cameras to the scene.
     background : bool
         Trimesh scenes typically have a white background. If True, we will add a white background
-        to the pygfx scene. If False, no background will be added.
+        to the pygfx scene. If False, no background will be added. Default is True.
 
     Returns
     -------
@@ -507,10 +509,6 @@ def _volume_from_voxelgrid(vxl, cmap=None, clim="data"):
     ----------
     vxl : trimesh.voxels.VoxelGrid
         The voxel grid to convert.
-    camera : bool
-        Whether to add camera to the scene.
-    lights : "bool
-        Whether to add lights to the scene.
     cmap : pygfx.Texture, optional
         The colormap to use. If None, this will default to `pygfx.cm.viridis`.
     clim : "data" | "dtype" | tuple | None
