@@ -55,7 +55,7 @@ def configure(obj):
 
 
 # Load scene
-scene.add(*gfx.load_meshes(gltf_path.as_posix()))
+scene.add(*gfx.load_mesh(gltf_path.as_posix()))
 scene.traverse(configure)
 
 # Add ambient light

@@ -34,6 +34,8 @@ extras_require = {
         "imageio",
         "psutil",
         "pyinstaller>=4",
+        "trimesh",
+        "httpx",
     ],
     "examples": [
         "pytest",

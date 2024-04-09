@@ -40,7 +40,7 @@ import pygfx as gfx
 canvas = WgpuCanvas(size=(1200, 400), title="lightmap")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-meshes = gfx.load_meshes(model_dir / "lightmap" / "scene.gltf")
+meshes = gfx.load_mesh(model_dir / "lightmap" / "scene.gltf")
 
 light_map = iio.imread(model_dir / "lightmap" / "lightmap-ao-shadow.png")
 light_map_tex = gfx.Texture(light_map, dim=2)
