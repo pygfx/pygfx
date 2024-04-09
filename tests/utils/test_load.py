@@ -9,7 +9,7 @@ FILES_TO_TEST = [
     "CesiumMilkTruck.glb",
     "nested.glb",
     "cube_blender_uv.ply",
-    "chair_model.binvox"
+    "chair_model.binvox",
 ]
 URLS = [f"{BASE_URL}/{file}" for file in FILES_TO_TEST]
 
@@ -32,7 +32,10 @@ def test_load_meshes(url):
 
 @pytest.mark.parametrize("url", URLS)
 @pytest.mark.parametrize("flatten", (True, False))
-def test_load_scenes(url, flatten, ):
+def test_load_scenes(
+    url,
+    flatten,
+):
     # Test loading scenes via trimesh
     mesh = gfx.load_scene(url, flatten=flatten, remote_ok=True)
 
