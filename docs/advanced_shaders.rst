@@ -220,7 +220,18 @@ Picking
 -------
 
 The `output` struct of the fragment shader also has a ``pick`` field that can
-be set with picking info. It is an ``u64`` into which we can pack as many fields
+be set with pointer picking info. To enable picking for a material, use the
+``write_pick`` parameter at creation time.
+
+.. code-block:: python
+
+    cube = gfx.Mesh(
+        gfx.box_geometry(200, 200, 200),
+        gfx.MeshBasicMaterial(map=tex, opacity=0.8, pick_write=True),
+    )
+
+The picking info returnd can vary based on the shader. For all shaders,
+it is an ``u64`` into which we can pack as many fields
 as needed, using the ``pick_pack()`` function. The material needs to
 implement a corresponding ``_wgpu_get_pick_info()`` method
 to unpack the picking info. See e.g. the picking of a mesh:
