@@ -35,7 +35,13 @@ class Material(Trackable):
     )
 
     def __init__(
-        self, *, opacity=1, clipping_planes=None, clipping_mode="any", depth_test=True
+        self,
+        *,
+        opacity=1,
+        clipping_planes=None,
+        clipping_mode="any",
+        depth_test=True,
+        pick_write=False,
     ):
         super().__init__()
 
@@ -45,6 +51,7 @@ class Material(Trackable):
         self.clipping_planes = clipping_planes or []
         self.clipping_mode = clipping_mode
         self.depth_test = depth_test
+        self.pick_write = pick_write
 
     def _set_size_of_uniform_array(self, key, new_length):
         """Resize the given array field in the uniform struct if the
@@ -183,6 +190,17 @@ class Material(Trackable):
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.depth_test must be bool.")
         self._store.depth_test = bool(value)
+
+    @property
+    def pick_write(self):
+        """Whether this material is picked by the pointer."""
+        return self._store.pick_write
+
+    @pick_write.setter
+    def pick_write(self, value):
+        if not isinstance(value, (bool, int)):
+            raise TypeError("Material.pick_write must be bool.")
+        self._store.pick_write = bool(value)
 
 
 class ColorMode(enum.Enum):

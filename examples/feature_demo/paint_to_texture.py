@@ -26,7 +26,7 @@ tex = gfx.Texture(data, dim=2)
 
 image = gfx.Image(
     gfx.Geometry(grid=tex),
-    gfx.ImageBasicMaterial(clim=(0, 200)),
+    gfx.ImageBasicMaterial(clim=(0, 200), pick_write=True),
 )
 scene.add(image)
 

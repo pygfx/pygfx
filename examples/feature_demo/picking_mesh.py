@@ -34,12 +34,14 @@ tex = gfx.Texture(im, dim=2)
 
 cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
-    gfx.MeshBasicMaterial(map=tex, opacity=0.8),
+    gfx.MeshBasicMaterial(map=tex, opacity=0.8, pick_write=True),
 )
 cube.local.x += 150
 scene.add(cube)
 
-torus = gfx.Mesh(gfx.torus_knot_geometry(100, 20, 128, 32), gfx.MeshPhongMaterial())
+torus = gfx.Mesh(
+    gfx.torus_knot_geometry(100, 20, 128, 32), gfx.MeshPhongMaterial(pick_write=True)
+)
 torus.local.x -= 150
 scene.add(torus)
 

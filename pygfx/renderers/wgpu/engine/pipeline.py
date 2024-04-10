@@ -70,7 +70,7 @@ def get_cached_bind_group(device, *args):
 
 def get_cached_shader_module(device, shader, shader_kwargs):
     # Using a key that *defines* the wgsl - rather than the wgsl itself
-    # - avoids the templating to be applied on a cache hit, which safes
+    # - avoids the templating to be applied on a cache hit, which saves
     # considerable time!
     key = "shader", shader.hash, hash_from_value(shader_kwargs)
 
@@ -561,7 +561,9 @@ class PipelineContainer:
             for pass_index in range(blender.get_pass_count()):
                 if not render_mask & blender.passes[pass_index].render_mask:
                     continue
-                if not blender.get_color_descriptors(pass_index):
+                if not blender.get_color_descriptors(
+                    pass_index, wobject.material.pick_write
+                ):
                     continue
                 pass_indices.append(pass_index)
         else:
@@ -575,7 +577,9 @@ class PipelineContainer:
         for pass_index in pass_indices:
             if pass_index not in env_shaders:
                 changed.add("compile_shader")
-                env_shaders[pass_index] = self._compile_shader(pass_index, environment)
+                env_shaders[pass_index] = self._compile_shader(
+                    pass_index, environment, wobject.material
+                )
                 env_pipelines.pop(pass_index, None)
 
         # Update pipelines
@@ -679,9 +683,10 @@ class ComputePipelineContainer(PipelineContainer):
         assert all(isinstance(i, int) for i in indices)
         assert len(indices) == 3
 
-    def _compile_shader(self, pass_index, env):
+    def _compile_shader(self, pass_index, env, material=None):
         """Compile the templateds wgsl shader to a wgpu shader module."""
-        return get_cached_shader_module(self.device, self.shader, {})
+        shader_kwargs = {}
+        return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
     def _compose_pipeline(self, pass_index, wobject, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
@@ -760,7 +765,7 @@ class RenderPipelineContainer(PipelineContainer):
             self.strip_index_format = strip_index_format
             self.wgpu_pipelines = {}
 
-    def _compile_shader(self, pass_index, env):
+    def _compile_shader(self, pass_index, env, material=None):
         """Compile the templated shader to a list of wgpu shader modules
         (one for each pass of the blender).
         """
@@ -771,6 +776,8 @@ class RenderPipelineContainer(PipelineContainer):
         env_kwargs = env.get_shader_kwargs(env_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
         shader_kwargs.update(env_kwargs)
+        if material is not None:
+            shader_kwargs["write_pick"] &= material.pick_write
 
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
@@ -795,7 +802,9 @@ class RenderPipelineContainer(PipelineContainer):
         # This step should *not* rerun when e.g. the canvas resizes.
         blender = env.blender
         depth_test = wobject.material.depth_test
-        color_descriptors = blender.get_color_descriptors(pass_index)
+        color_descriptors = blender.get_color_descriptors(
+            pass_index, wobject.material.pick_write
+        )
         depth_descriptor = blender.get_depth_descriptor(pass_index, depth_test)
         shader_module = shader_modules[pass_index]
 
