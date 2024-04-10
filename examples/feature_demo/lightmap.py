@@ -67,6 +67,7 @@ def create_scene(material, x_pos):
     m.geometry.texcoords1 = texcoords1
     material.light_map = light_map_tex
     mesh = gfx.Mesh(m.geometry, material)
+    mesh.local.matrix = m.local.matrix
     scene.add(mesh)
 
     t = gfx.Text(
