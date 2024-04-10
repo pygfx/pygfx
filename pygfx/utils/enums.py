@@ -1,11 +1,19 @@
 """
 The enums used in pygfx. The enums are all available from the root ``pygfx`` namespace.
 
+.. currentmodule:: pygfx.utils.enums
 
-.. currentmodule:: pygfx
+.. autosummary::
+    :toctree: utils/enums
+    :template: ../_templates/custom_layout.rst
+
+    RenderMask
+    ColorMode
+    SizeMode
+
 """
 
-__all__ = ["RenderMask", "ColorMode", "SizeMode", "Enum"]
+__all__ = ["RenderMask", "ColorMode", "SizeMode"]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
 # and simply maps to strings. This is (nearly) the same implementation of the
@@ -88,7 +96,7 @@ class EnumType(type):
 
 
 class Enum(metaclass=EnumType):
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         raise RuntimeError("Connot instantiate an enum.")
 
 

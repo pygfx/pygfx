@@ -157,6 +157,7 @@ class LineMaterial(Material):
         """The coordinate space in which the thickness (and dash_pattern) are expressed.
 
         Possible values are:
+
         * "screen": logical screen pixels. The Default.
         * "world": the world / scene coordinate frame.
         * "model": the line's local coordinate frame (same as the line's positions).

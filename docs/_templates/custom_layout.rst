@@ -3,7 +3,8 @@
 .. currentmodule:: {{ module }}
 
 
-{% if objtype == "module" and name == 'enums' %}
+{% if objtype == "module" and name in [] %}
+{# Some modules look nicer as a single-page doc. #}
 
 .. automodule:: {{ fullname }}
   :members:
