@@ -68,6 +68,7 @@ def create_scene(material, x_pos):
     m.geometry.texcoords1 = texcoords1
     material.ao_map = ao_map_tex
     mesh = gfx.Mesh(m.geometry, material)
+    mesh.local.matrix = m.local.matrix
     scene.add(mesh)
 
     # illumination the scene for MeshPhongMaterial and MeshStandardMaterial
