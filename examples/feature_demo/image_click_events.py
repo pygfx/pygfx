@@ -24,7 +24,7 @@ im = iio.imread("imageio:astronaut.png")
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
-    gfx.ImageBasicMaterial(clim=(0, 255)),
+    gfx.ImageBasicMaterial(clim=(0, 255), pick_write=True),
 )
 scene.add(image)
 

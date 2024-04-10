@@ -56,7 +56,11 @@ patches = gfx.Mesh(
         texcoords=np.linspace(0, 1, len(indices), dtype=np.float32),
     ),
     gfx.MeshBasicMaterial(
-        color_mode="uniform", wireframe=True, wireframe_thickness=3, map=gfx.cm.magma
+        color_mode="uniform",
+        wireframe=True,
+        wireframe_thickness=3,
+        map=gfx.cm.magma,
+        pick_write=True,
     ),
 )
 

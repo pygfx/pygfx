@@ -125,7 +125,7 @@ class TransformGizmo(WorldObject):
         sphere_geo = sphere_geometry(0.07)
         scale_uniform = Mesh(
             sphere_geo,
-            MeshBasicMaterial(color=WHITE),
+            MeshBasicMaterial(color=WHITE, pick_write=True),
         )
         scale_uniform.local.scale = (1.5, 1.5, 1.5)
 
@@ -151,15 +151,15 @@ class TransformGizmo(WorldObject):
         cone_geo.positions.data[:] = cone_geo.positions.data[:, ::-1]  # xyz->zyx
         translate_x = Mesh(
             cone_geo,
-            MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED, pick_write=True),
         )
         translate_y = Mesh(
             cone_geo,
-            MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN, pick_write=True),
         )
         translate_z = Mesh(
             cone_geo,
-            MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE, pick_write=True),
         )
         translate_x.local.position = (1, 0, 0)
         translate_y.local.position = (0, 1, 0)
@@ -169,15 +169,15 @@ class TransformGizmo(WorldObject):
         cube_geo = box_geometry(0.1, 0.1, 0.1)
         scale_x = Mesh(
             cube_geo,
-            MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED, pick_write=True),
         )
         scale_y = Mesh(
             cube_geo,
-            MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN, pick_write=True),
         )
         scale_z = Mesh(
             cube_geo,
-            MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE, pick_write=True),
         )
         scale_x.local.position = (halfway, 0, 0)
         scale_y.local.position = (0, halfway, 0)
@@ -206,15 +206,15 @@ class TransformGizmo(WorldObject):
         plane_geo = box_geometry(0.01, 0.15, 0.15)
         translate_yz = Mesh(
             plane_geo,
-            MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED, pick_write=True),
         )
         translate_zx = Mesh(
             plane_geo,
-            MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN, pick_write=True),
         )
         translate_xy = Mesh(
             plane_geo,
-            MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE, pick_write=True),
         )
         inside_arc = 0.4 * halfway
         translate_yz.local.position = (0, inside_arc, inside_arc)
@@ -225,15 +225,15 @@ class TransformGizmo(WorldObject):
         # These are positioned on each mode switch
         rotate_yz = Mesh(
             sphere_geo,
-            MeshBasicMaterial(color=RED),
+            MeshBasicMaterial(color=RED, pick_write=True),
         )
         rotate_zx = Mesh(
             sphere_geo,
-            MeshBasicMaterial(color=GREEN),
+            MeshBasicMaterial(color=GREEN, pick_write=True),
         )
         rotate_xy = Mesh(
             sphere_geo,
-            MeshBasicMaterial(color=BLUE),
+            MeshBasicMaterial(color=BLUE, pick_write=True),
         )
 
         # --- post-process

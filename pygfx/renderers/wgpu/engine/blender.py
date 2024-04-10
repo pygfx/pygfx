@@ -32,7 +32,7 @@ class BasePass:
     render_mask = 3  # opaque end transparent
     write_pick = True
 
-    def get_color_descriptors(self, blender):
+    def get_color_descriptors(self, blender, material_write_pick):
         """Get the list of fragment targets for device.create_render_pipeline()."""
         # The result affects the wobject's pipeline.
         # Returning [] prevents this pipeline from being created.
@@ -77,7 +77,7 @@ class OpaquePass(BasePass):
     render_mask = 1  # opaque only
     write_pick = True
 
-    def get_color_descriptors(self, blender):
+    def get_color_descriptors(self, blender, material_write_pick):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
@@ -91,7 +91,7 @@ class OpaquePass(BasePass):
             {
                 "format": blender.pick_format,
                 "blend": None,
-                "write_mask": wgpu.ColorWrite.ALL,
+                "write_mask": wgpu.ColorWrite.ALL if material_write_pick else 0,
             },
         ]
 
@@ -181,7 +181,7 @@ class SimpleSinglePass(OpaquePass):
     render_mask = 3  # opaque end transparent
     write_pick = True
 
-    def get_color_descriptors(self, blender):
+    def get_color_descriptors(self, blender, material_write_pick):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
@@ -195,7 +195,7 @@ class SimpleSinglePass(OpaquePass):
             {
                 "format": blender.pick_format,
                 "blend": None,
-                "write_mask": wgpu.ColorWrite.ALL,
+                "write_mask": wgpu.ColorWrite.ALL if material_write_pick else 0,
             },
         ]
 
@@ -223,7 +223,7 @@ class SimpleTransparencyPass(BasePass):
     render_mask = 2  # transparent only
     write_pick = False
 
-    def get_color_descriptors(self, blender):
+    def get_color_descriptors(self, blender, material_write_pick):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
@@ -312,7 +312,7 @@ class WeightedTransparencyPass(BasePass):
 
         self._weight_code = weight_code.strip()
 
-    def get_color_descriptors(self, blender):
+    def get_color_descriptors(self, blender, material_write_pick):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
@@ -405,7 +405,7 @@ class FrontmostTransparencyPass(BasePass):
 
     write_pick = True
 
-    def get_color_descriptors(self, blender):
+    def get_color_descriptors(self, blender, material_write_pick):
         bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
         return [
             {
@@ -419,7 +419,7 @@ class FrontmostTransparencyPass(BasePass):
             {
                 "format": blender.pick_format,
                 "blend": None,
-                "write_mask": wgpu.ColorWrite.ALL,
+                "write_mask": wgpu.ColorWrite.ALL if material_write_pick else 0,
             },
         ]
 
@@ -569,8 +569,8 @@ class BaseFragmentBlender:
 
     # The five methods below represent the API that the render system uses.
 
-    def get_color_descriptors(self, pass_index):
-        return self.passes[pass_index].get_color_descriptors(self)
+    def get_color_descriptors(self, pass_index, material_write_pick):
+        return self.passes[pass_index].get_color_descriptors(self, material_write_pick)
 
     def get_color_attachments(self, pass_index):
         return self.passes[pass_index].get_color_attachments(self)
