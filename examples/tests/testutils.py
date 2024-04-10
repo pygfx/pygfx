@@ -36,10 +36,6 @@ def get_wgpu_backend():
     return err if "traceback" in err.lower() else out
 
 
-wgpu_backend = get_wgpu_backend()
-is_lavapipe = wgpu_backend.lower() == "cpu vulkan"
-
-
 def find_examples():
     """Return a list of (filename, fname, config)."""
     examples = []

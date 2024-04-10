@@ -30,3 +30,15 @@ def numerical_exceptions():
     Preferably using local `with np.errstate(...)` constructs
     """
     np.seterr(all="raise")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def force_llvm_adapter():
+    import wgpu
+    import pygfx as gfx
+    adapters = wgpu.gpu.enumerate_adapters()
+    adapters_llvm = [a for a in adapters if "llvmpipe" in a.summary.lower()]
+    if adapters_llvm:
+        gfx.renderers.wgpu.select_adapter(adapters_llvm[0])
+    else:
+        pytest.skip(reason="No LLVMpipe adapter found")

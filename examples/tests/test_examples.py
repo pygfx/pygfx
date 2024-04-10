@@ -19,8 +19,6 @@ import numpy as np
 import pytest
 
 from examples.tests.testutils import (
-    wgpu_backend,
-    is_lavapipe,
     find_examples,
     ROOT,
     screenshots_dir,
@@ -49,13 +47,7 @@ logging.getLogger().addHandler(log_handler)
 
 
 # Initialize the device, to avoid Rust warnings from showing in the first example
-gfx.renderers.wgpu.get_shared()
-
-
-def test_that_we_are_on_lavapipe():
-    print(wgpu_backend)
-    if os.getenv("PYGFX_EXPECT_LAVAPIPE"):
-        assert is_lavapipe
+# gfx.renderers.wgpu.get_shared()
 
 
 def test_examples_meta():
@@ -104,7 +96,7 @@ def test_examples_run(module, force_offscreen):
 
 
 @pytest.mark.parametrize("module", examples_to_compare, ids=lambda x: x.stem)
-def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, request):
+def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, request, force_llvm_adapter):
     """Run every example marked to compare its result against a reference screenshot."""
 
     # (relative) module name from project root
@@ -124,15 +116,6 @@ def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, requ
 
     # check if _something_ was rendered
     assert img is not None and img.size > 0
-
-    # we skip the rest of the test if you are not using lavapipe
-    # images come out subtly differently when using different wgpu adapters
-    # so for now we only compare screenshots generated with the same adapter (lavapipe)
-    # a benefit of using pytest.skip is that you are still running
-    # the first part of the test everywhere else; ensuring that examples
-    # can at least import, run and render something
-    if not is_lavapipe:
-        pytest.skip("screenshot comparisons are only done when using lavapipe")
 
     # regenerate screenshot if requested
     screenshot_path = screenshots_dir / f"{module.stem}.png"
@@ -208,5 +191,4 @@ if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
     os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
     pytest.getoption = lambda x: False
-    is_lavapipe = True  # noqa: F811
     test_examples_compare("validate_volume", pytest, None, None)
