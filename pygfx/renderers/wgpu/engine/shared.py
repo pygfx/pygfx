@@ -2,6 +2,7 @@
 A global object shared by all renderers.
 """
 
+import os
 import wgpu
 
 from ....resources import Resource, Buffer
@@ -63,6 +64,13 @@ class Shared(Trackable):
         # Select adapter to use.
         if Shared._selected_adapter:
             self._adapter = Shared._selected_adapter
+        elif adapter_name := os.environ.get("PYGFX_WGPU_ADAPTER_NAME"):
+            # Similar to https://github.com/gfx-rs/wgpu?tab=readme-ov-file#environment-variables
+            adapters = wgpu.gpu.enumerate_adapters()
+            adapters_llvm = [a for a in adapters if adapter_name in a.summary]
+            if not adapters_llvm:
+                raise ValueError(f"Adapter with name '{adapter_name}' not found.")
+            self._adapter = adapters_llvm[0]
         else:
             self._adapter = wgpu.gpu.request_adapter(
                 power_preference=Shared._power_preference or "high-performance"
