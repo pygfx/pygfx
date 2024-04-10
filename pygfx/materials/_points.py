@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
-from ..utils.enums import ColorMode, SizeMode, Enum
+from ..utils.enums import ColorMode, SizeMode
 
 
 class PointsMaterial(Material):

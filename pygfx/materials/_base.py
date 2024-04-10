@@ -1,5 +1,3 @@
-import enum
-
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer

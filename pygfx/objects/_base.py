@@ -1,7 +1,6 @@
 import random
 import weakref
 import threading
-import enum
 from typing import List
 import pylinalg as la
 

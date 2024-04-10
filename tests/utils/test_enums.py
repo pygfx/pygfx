@@ -4,9 +4,8 @@ from pygfx.utils.enums import Enum
 def test_enums():
     class MyOption(Enum):
         auto = "auto"  # fields map to str or int
-        some_attr="some-attr"  # wgpu-style values
-        foo=None  # value is the same as the key, most-used in pygfx
-
+        some_attr = "some-attr"  # wgpu-style values
+        foo = None  # value is the same as the key, most-used in pygfx
 
     # Use dir() to get an (alphabetic) list of keys / options.
     assert dir(MyOption) == ["auto", "foo", "some_attr"]
@@ -30,9 +29,9 @@ def test_flags():
     # Our Enum class does flags too.
 
     class MyFlag(Enum):
-        auto=0
-        foo=1
-        bar=2
+        auto = 0
+        foo = 1
+        bar = 2
 
     # Use dir() to get an (alphabetic) list of keys / options.
     assert dir(MyFlag) == ["auto", "bar", "foo"]
@@ -49,4 +48,3 @@ def test_flags():
     # Attribute and map-like lookups are supported
     assert MyFlag.bar == 2
     assert MyFlag["bar"] == 2
-

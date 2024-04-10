@@ -26,7 +26,7 @@ import types
 class EnumType(type):
     """Enum metaclas."""
 
-    def __new__(metacls, name, bases, dct):
+    def __new__(cls, name, bases, dct):
 
         # Collect and check fields
         member_map = {}
@@ -43,20 +43,20 @@ class EnumType(type):
         dct.update(member_map)
 
         # Create class
-        cls = super().__new__(metacls, name, bases, dct)
+        klass = super().__new__(cls, name, bases, dct)
 
         # Attach some fields
-        cls.__fields__ = tuple(member_map)
-        cls.__members__ = types.MappingProxyType(member_map)  # enums.Enum compat
+        klass.__fields__ = tuple(member_map)
+        klass.__members__ = types.MappingProxyType(member_map)  # enums.Enum compat
 
         # Create bound methods
-        cls.__dir__ = types.MethodType(metacls.__dir__, cls)
-        cls.__iter__ = types.MethodType(metacls.__iter__, cls)
-        cls.__getitem__ = types.MethodType(metacls.__getitem__, cls)
-        cls.__repr__ = types.MethodType(metacls.__repr__, cls)
-        cls.__setattr__ = types.MethodType(metacls.__setattr__, cls)
+        klass.__dir__ = types.MethodType(cls.__dir__, klass)
+        klass.__iter__ = types.MethodType(cls.__iter__, klass)
+        klass.__getitem__ = types.MethodType(cls.__getitem__, klass)
+        klass.__repr__ = types.MethodType(cls.__repr__, klass)
+        klass.__setattr__ = types.MethodType(cls.__setattr__, klass)
 
-        return cls
+        return klass
 
     def __dir__(cls):
         # Support dir(enum).
