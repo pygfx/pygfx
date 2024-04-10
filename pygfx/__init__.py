@@ -18,6 +18,7 @@ from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils.text import font_manager
 from .utils import cm, enums, logger
+from .utils.enums import *
 
 # Temp fix for pyinstaller to pick up pylinalg
 import pylinalg

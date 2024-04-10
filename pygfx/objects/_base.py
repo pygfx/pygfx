@@ -95,7 +95,7 @@ class WorldObject(EventTarget, RootTrackable):
         Whether the object is visible.
     render_order : float
         Value that helps controls the order in which objects are rendered.
-    render_mask : str
+    render_mask : str | RenderMask
         Determines the render passes that the object is rendered in. It's
         recommended to let the renderer decide, using "auto".
 
@@ -244,10 +244,7 @@ class WorldObject(EventTarget, RootTrackable):
     def render_mask(self):
         """Indicates in what render passes to render this object:
 
-        * "auto" (or 0): try to determine the best approach (default).
-        * "opaque" (or 1): only in the opaque render pass.
-        * "transparent" (or 2): only in the transparent render pass(es).
-        * "all" (or 3): render in both opaque and transparent render passses.
+        See :obj:`pygfx.utils.enums.RenderMask`:
 
         If "auto" (the default), the renderer attempts to determine
         whether all fragments will be either opaque or all transparent,

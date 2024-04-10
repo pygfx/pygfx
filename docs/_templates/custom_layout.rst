@@ -2,7 +2,13 @@
 
 .. currentmodule:: {{ module }}
 
-{% if objtype == "module" %}
+
+{% if objtype == "module" and name == 'enums' %}
+
+.. automodule:: {{ fullname }}
+  :members:
+
+{% elif objtype == "module" %}
 
 .. automodule:: {{ fullname }}
 
@@ -14,7 +20,7 @@
     :add-heading: Examples
     :heading-level: ^
 
-{% else %}
+{% elif objtype == "class" %}
 
 .. autoclass:: {{ objname }}
     :members:
@@ -23,5 +29,9 @@
 
 .. minigallery:: pygfx.{{ objname }}
     :add-heading: Examples
+
+{% else %}
+
+.. autodata:: {{ objname }}
 
 {% endif %}

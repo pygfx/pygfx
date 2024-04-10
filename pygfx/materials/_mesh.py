@@ -15,7 +15,7 @@ class MeshAbstractMaterial(Material):
     ----------
     color : Color
         The uniform color of the mesh (used depending on the ``color_mode``).
-    color_mode : enum or str
+    color_mode : str | ColorMode
         The mode by which the mesh is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color at each texture coordinate. Optional.
@@ -90,12 +90,7 @@ class MeshAbstractMaterial(Material):
     def color_mode(self):
         """The way that color is applied to the mesh.
 
-        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geometry `colors` buffer, one color per vertex.
-        * face: use the geometry `colors` buffer, one color per face.
-        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
-        * faces_map: use the geometry texcoords buffer to sample (per face) in the material's ``map`` texture.
+        See :obj:`pygfx.utils.enums.ColorMode`:
         """
         # todo: does 'auto' take the presence of texcoords into account?
         return self._store.color_mode
@@ -104,7 +99,7 @@ class MeshAbstractMaterial(Material):
     def color_mode(self, value):
         if value not in ColorMode:
             raise ValueError(
-                "MeshMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+                f"MeshMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
             )
         self._store.color_mode = value
 

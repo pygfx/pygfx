@@ -15,7 +15,7 @@ class LineMaterial(Material):
         The coordinate space in which the thickness is expressed ('screen', 'world', 'model'). Default 'screen'.
     color : Color
         The uniform color of the line (used depending on the ``color_mode``).
-    color_mode : enum or str
+    color_mode : str | ColorMode
         The mode by which the line is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate. Optional.
@@ -116,12 +116,7 @@ class LineMaterial(Material):
     def color_mode(self):
         """The way that color is applied to the line.
 
-        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole line.
-        * vertex: use the geometry `colors` buffer, one color per vertex.
-        * face: use the geometry `colors` buffer, one color per line-piece.
-        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
-        * faces_map: use the geometry texcoords buffer to sample (per line-piece) in the material's ``map`` texture.
+        See :obj:`pygfx.utils.enums.ColorMode`:
         """
         return self._store.color_mode
 
@@ -129,7 +124,7 @@ class LineMaterial(Material):
     def color_mode(self, value):
         if value not in ColorMode:
             raise ValueError(
-                "LineMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+                f"LineMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
             )
         self._store.color_mode = value
 
