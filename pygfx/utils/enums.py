@@ -16,23 +16,11 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
 __all__ = ["RenderMask", "ColorMode", "SizeMode"]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
-# and simply maps to strings. This is (nearly) the same implementation of the
-# enums in wgpu-py.
-#
-# Making it render correctly in the Sphinx docs is a bit of a pain though.
+# and simply maps to strings or ints. The enums are classes, so IDE's provide
+# autocompletion, and documenting with Sphinx is easy. That does mean we need a
+# metaclass though.
 
 import types
-
-
-def _get_values_for_docs(cls):
-    reprs = []
-    for key in cls.__dir__():
-        val = cls[key]
-        if isinstance(val, int):
-            reprs.append(f"'{key}' ({val})")
-        else:
-            reprs.append(f"'{val}'")
-    return reprs
 
 
 class EnumType(type):
@@ -85,8 +73,14 @@ class EnumType(type):
 
     def __repr__(cls):
         name = cls.__name__
-        options = ", ".join(_get_values_for_docs(cls))
-        return f"<pygfx.{name} enum with options: {options}>"
+        options = []
+        for key in cls.__fields__:
+            val = cls[key]
+            if isinstance(val, int):
+                options.append(f"'{key}' ({val})")
+            else:
+                options.append(f"'{val}'")
+        return f"<pygfx.{name} enum with options: {', '.join(options)}>"
 
     def __setattr__(cls, name, value):
         if name.startswith("_"):
@@ -96,8 +90,13 @@ class EnumType(type):
 
 
 class Enum(metaclass=EnumType):
+    """Enum base class."""
+
     def __init__(self):
         raise RuntimeError("Connot instantiate an enum.")
+
+
+# --- The enums
 
 
 class RenderMask(Enum):
@@ -127,4 +126,4 @@ class SizeMode(Enum):
     vertex = None  #: Use a per-vertex size specified on the geometry.
 
 
-# NOTE: Don't forget to add new enums to __all__
+# NOTE: Don't forget to add new enums to the toctree and __all__
