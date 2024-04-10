@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 
-from ....objects import Mesh, InstancedMesh
+from ....objects import Mesh, InstancedMesh, SkinnedMesh
 from ....resources import Buffer, Texture
 from ....utils import normals_from_vertices
 from ....materials import (
@@ -38,6 +38,8 @@ class MeshShader(WorldObjectShader):
 
         # Is this an instanced mesh?
         self["instanced"] = isinstance(wobject, InstancedMesh)
+
+        self["use_skinning"] = isinstance(wobject, SkinnedMesh)
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -133,12 +135,7 @@ class MeshShader(WorldObjectShader):
 
         if hasattr(geometry, "texcoords1") and geometry.texcoords1 is not None:
             bindings.append(
-                Binding(
-                    "s_texcoords1",
-                    "buffer/read_only_storage",
-                    geometry.texcoords1,
-                    "VERTEX",
-                )
+                Binding("s_texcoords1", rbuffer, geometry.texcoords1, "VERTEX")
             )
             self["use_texcoords1"] = True
 
@@ -148,6 +145,32 @@ class MeshShader(WorldObjectShader):
             bindings.extend(
                 self.define_texcoords_and_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
+                )
+            )
+
+        if self["use_skinning"]:
+            # Skinning requires skin_index and skin_weight buffers
+            assert hasattr(geometry, "skin_indices") and hasattr(
+                geometry, "skin_weights"
+            )
+
+            bindings.append(
+                Binding("s_skin_indices", rbuffer, geometry.skin_indices, "VERTEX")
+            )
+            bindings.append(
+                Binding("s_skin_weights", rbuffer, geometry.skin_weights, "VERTEX")
+            )
+
+            # Skinning requires a bone_matrices buffer
+
+            skeleton = wobject.skeleton
+
+            bindings.append(
+                Binding(
+                    "u_bone_matrices",
+                    "buffer/uniform",
+                    skeleton.bone_matrices_buffer,
+                    "VERTEX",
                 )
             )
 
@@ -364,7 +387,51 @@ class MeshShader(WorldObjectShader):
             let i0 = i32(vii[sub_index]);
 
             // Get vertex position
-            let raw_pos = load_s_positions(i0);
+            var raw_pos = load_s_positions(i0);
+            var raw_normal = load_s_normals(i0);
+
+            // skinning
+            $$ if use_skinning
+                let skin_index = load_s_skin_indices(i0);
+                let skin_weight = load_s_skin_weights(i0);
+                let bind_matrix = u_wobject.bind_matrix;
+                let bind_matrix_inv = u_wobject.bind_matrix_inv;
+
+                let bone_mat_x = u_bone_matrices[skin_index.x].bone_matrices;
+                let bone_mat_y = u_bone_matrices[skin_index.y].bone_matrices;
+                let bone_mat_z = u_bone_matrices[skin_index.z].bone_matrices;
+                let bone_mat_w = u_bone_matrices[skin_index.w].bone_matrices;
+
+                // Calculate the skinned position
+                // let skinned_pos = bind_matrix * vec4<f32>(raw_pos, 1.0);
+
+                var skin_matrix = mat4x4<f32>();
+                skin_matrix += skin_weight.x * bone_mat_x;
+                skin_matrix += skin_weight.y * bone_mat_y;
+                skin_matrix += skin_weight.z * bone_mat_z;
+                skin_matrix += skin_weight.w * bone_mat_w;
+                skin_matrix = bind_matrix_inv * skin_matrix * bind_matrix;
+
+                // var skinned = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+                // skinned += bone_mat_x * skinned_pos * skin_weight.x;
+                // skinned += bone_mat_y * skinned_pos * skin_weight.y;
+                // skinned += bone_mat_z * skinned_pos * skin_weight.z;
+                // skinned += bone_mat_w * skinned_pos * skin_weight.w;
+
+                raw_pos = (skin_matrix * vec4<f32>(raw_pos, 1.0)).xyz;
+
+                // Calculate the skinned normal
+                // var skin_matrix = skin_weight.x * bone_mat_x + skin_weight.y * bone_mat_y + skin_weight.z * bone_mat_z + skin_weight.w * bone_mat_w;
+                // skin_matrix = bind_matrix_inv * skin_matrix * bind_matrix;
+
+                raw_normal = (skin_matrix * vec4<f32>(raw_normal, 0.0)).xyz;
+
+
+            $$ endif
+
+
+            // Get vertex position
+            
             let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
             var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
@@ -427,7 +494,6 @@ class MeshShader(WorldObjectShader):
             $$ endif
 
             // Set the normal
-            let raw_normal = load_s_normals(i0);
             // Transform the normal to world space
             // Note that the world transform matrix cannot be directly applied to the normal
             let normal_matrix = transpose(u_wobject.world_transform_inv);
