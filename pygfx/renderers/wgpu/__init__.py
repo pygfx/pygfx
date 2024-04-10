@@ -25,7 +25,6 @@ Classes and functions required to implement custom shaders:
     :template: ../_templates/custom_layout.rst
 
     WorldObjectShader
-    RenderMask
     Binding
     GfxSampler
     GfxTextureView
