@@ -111,4 +111,12 @@ class SizeMode(Enum):
     vertex = None  #: Use a per-vertex size specified on the geometry.
 
 
+class CoordSpace(Enum):
+    """The CoordSpace enum specifies a coordinate space."""
+
+    model = None  #: the WorldObject's own coordinate space.
+    world = None  #: the coordinate space of the scene.
+    screen = None  #: the coordiate space in logical pixels.
+
+
 # NOTE: Don't forget to add new enums to the toctree and __all__

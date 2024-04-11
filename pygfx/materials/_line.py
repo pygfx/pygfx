@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
-from ..utils.enums import ColorMode
+from ..utils.enums import ColorMode, CoordSpace
 
 
 class LineMaterial(Material):
@@ -11,7 +11,7 @@ class LineMaterial(Material):
     ----------
     thickness : float
         The line thickness expressed in logical pixels. Default 2.0.
-    thickness_space : str
+    thickness_space : str | CoordSpace
         The coordinate space in which the thickness is expressed ('screen', 'world', 'model'). Default 'screen'.
     color : Color
         The uniform color of the line (used depending on the ``color_mode``).
@@ -122,6 +122,7 @@ class LineMaterial(Material):
 
     @color_mode.setter
     def color_mode(self, value):
+        value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
                 f"LineMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
@@ -156,23 +157,17 @@ class LineMaterial(Material):
     def thickness_space(self):
         """The coordinate space in which the thickness (and dash_pattern) are expressed.
 
-        Possible values are:
-
-        * "screen": logical screen pixels. The Default.
-        * "world": the world / scene coordinate frame.
-        * "model": the line's local coordinate frame (same as the line's positions).
+        See :obj:`pygfx.utils.enums.CoordSpace`:
         """
         return self._store.thickness_space
 
     @thickness_space.setter
     def thickness_space(self, value):
-        if value is None:
-            value = "screen"
-        if not isinstance(value, str):
-            raise TypeError("LineMaterial.thickness_space must be str")
-        value = value.lower()
-        if value not in ["screen", "world", "model"]:
-            raise ValueError(f"Invalid value for LineMaterial.thickness_space: {value}")
+        value = value or "screen"
+        if value not in CoordSpace:
+            raise ValueError(
+                f"LineMaterial.thickness_space must be a string in {CoordSpace}, not {repr(value)}"
+            )
         self._store.thickness_space = value
 
     @property
