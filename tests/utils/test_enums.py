@@ -1,4 +1,5 @@
 from pygfx.utils.enums import Enum
+from pytest import raises
 
 
 def test_enums():
@@ -22,6 +23,10 @@ def test_enums():
     # Attribute and map-like lookups are supported
     assert MyOption.some_attr == "some-attr"
     assert MyOption["some_attr"] == "some-attr"
+
+    # Enums are 'immutable'
+    with raises(RuntimeError):
+        MyOption.auto = "foo"
 
 
 def test_flags():
@@ -48,3 +53,7 @@ def test_flags():
     # Attribute and map-like lookups are supported
     assert MyFlag.bar == 2
     assert MyFlag["bar"] == 2
+
+    # Enums are 'immutable'
+    with raises(RuntimeError):
+        MyFlag.auto = 99

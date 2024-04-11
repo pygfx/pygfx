@@ -27,44 +27,32 @@ class EnumType(type):
     """Enum metaclas."""
 
     def __new__(cls, name, bases, dct):
-
         # Collect and check fields
         member_map = {}
         for key, val in dct.items():
-            if key.startswith("_"):
-                continue
-            if val is None:
-                val = key
-            elif not isinstance(val, (int, str)):
-                raise TypeError("Enum fields must be str or int.")
-            member_map[key] = val
-
+            if not key.startswith("_"):
+                val = key if val is None else val
+                if not isinstance(val, (int, str)):
+                    raise TypeError("Enum fields must be str or int.")
+                member_map[key] = val
         # Some field values may have been updated
         dct.update(member_map)
-
         # Create class
         klass = super().__new__(cls, name, bases, dct)
-
         # Attach some fields
         klass.__fields__ = tuple(member_map)
         klass.__members__ = types.MappingProxyType(member_map)  # enums.Enum compat
-
         # Create bound methods
-        klass.__dir__ = types.MethodType(cls.__dir__, klass)
-        klass.__iter__ = types.MethodType(cls.__iter__, klass)
-        klass.__getitem__ = types.MethodType(cls.__getitem__, klass)
-        klass.__repr__ = types.MethodType(cls.__repr__, klass)
-        klass.__setattr__ = types.MethodType(cls.__setattr__, klass)
-
+        for name in ["__dir__", "__iter__", "__getitem__", "__setattr__", "__repr__"]:
+            setattr(klass, name, types.MethodType(getattr(cls, name), klass))
         return klass
 
     def __dir__(cls):
-        # Support dir(enum).
-        # Note that the returned order matches the definition, but dir() returns in alphabetic order.
+        # Support dir(enum). Note that this order matches the definition, but dir() makes it alphabetic.
         return cls.__fields__
 
     def __iter__(cls):
-        # Support list(enum) and iterating over the enum.
+        # Support list(enum), iterating over the enum, and doing ``x in enum``.
         return iter([getattr(cls, key) for key in cls.__fields__])
 
     def __getitem__(cls, key):
@@ -76,10 +64,7 @@ class EnumType(type):
         options = []
         for key in cls.__fields__:
             val = cls[key]
-            if isinstance(val, int):
-                options.append(f"'{key}' ({val})")
-            else:
-                options.append(f"'{val}'")
+            options.append(f"'{key}' ({val})" if isinstance(val, int) else f"'{val}'")
         return f"<pygfx.{name} enum with options: {', '.join(options)}>"
 
     def __setattr__(cls, name, value):
