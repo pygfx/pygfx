@@ -1,5 +1,3 @@
-import enum
-
 from ..utils.trackable import Trackable
 from ..utils import array_from_shadertype
 from ..resources import Buffer
@@ -201,17 +199,3 @@ class Material(Trackable):
         if not isinstance(value, (bool, int)):
             raise TypeError("Material.pick_write must be bool.")
         self._store.pick_write = bool(value)
-
-
-class ColorMode(enum.Enum):
-    auto = 0
-    uniform = 1
-    vertex = 2
-    face = 3
-    vertex_map = 4
-    face_map = 5
-
-
-class SizeMode(enum.Enum):
-    uniform = 1
-    vertex = 2

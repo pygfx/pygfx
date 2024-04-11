@@ -1,6 +1,7 @@
-from ._base import Material, ColorMode, SizeMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
+from ..utils.enums import ColorMode, SizeMode
 
 
 class PointsMaterial(Material):
@@ -14,11 +15,11 @@ class PointsMaterial(Material):
         The size (diameter) of the points in logical pixels. Default 4.
     size_space : str
         The coordinate space in which the size is expressed ('screen', 'world', 'model'). Default 'screen'.
-    size_mode : enum or str
+    size_mode : str | SizeMode
         The mode by which the points are sized. Default 'uniform'.
-    color : Color
+    color : str | tuple | Color
         The uniform color of the points (used depending on the ``color_mode``).
-    color_mode : enum or str
+    color_mode : str | ColorMode
         The mode by which the points are coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate.
@@ -114,28 +115,16 @@ class PointsMaterial(Material):
     def color_mode(self):
         """The way that color is applied to the mesh.
 
-        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geometry `colors` buffer, one color per vertex.
-        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
+        See :obj:`pygfx.utils.enums.ColorMode`:
         """
         return self._store.color_mode
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
-        if value == ColorMode.face or value == ColorMode.face_map:
-            raise ValueError(f"Points cannot have color_mode {value}")
+        if value not in ColorMode:
+            raise ValueError(
+                f"PointsMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property
@@ -163,6 +152,7 @@ class PointsMaterial(Material):
         """The coordinate space in which the size is expressed.
 
         Possible values are:
+
         * "screen": logical screen pixels. The Default.
         * "world": the world / scene coordinate frame.
         * "model": the line's local coordinate frame (same as the line's positions).
@@ -184,24 +174,16 @@ class PointsMaterial(Material):
     def size_mode(self):
         """The way that size is applied to the mesh.
 
-        * uniform: use the material's size property for all points.
-        * vertex: use the geometry `sizes` buffer, one size per vertex.
+        See :obj:`pygfx.utils.enums.SizeMode`:
         """
         return self._store.size_mode
 
     @size_mode.setter
     def size_mode(self, value):
-        if isinstance(value, SizeMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("SizeMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(SizeMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid size_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid size_mode class: {value.__class__.__name__}")
+        if value not in SizeMode:
+            raise ValueError(
+                f"PointsMaterial.size_mode must be a string in {SizeMode}, not {repr(value)}"
+            )
         self._store.size_mode = value
 
     @property

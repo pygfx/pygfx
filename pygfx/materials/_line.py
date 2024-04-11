@@ -1,6 +1,7 @@
-from ._base import Material, ColorMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
+from ..utils.enums import ColorMode
 
 
 class LineMaterial(Material):
@@ -14,7 +15,7 @@ class LineMaterial(Material):
         The coordinate space in which the thickness is expressed ('screen', 'world', 'model'). Default 'screen'.
     color : Color
         The uniform color of the line (used depending on the ``color_mode``).
-    color_mode : enum or str
+    color_mode : str | ColorMode
         The mode by which the line is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate. Optional.
@@ -115,28 +116,16 @@ class LineMaterial(Material):
     def color_mode(self):
         """The way that color is applied to the line.
 
-        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole line.
-        * vertex: use the geometry `colors` buffer, one color per vertex.
-        * face: use the geometry `colors` buffer, one color per line-piece.
-        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
-        * faces_map: use the geometry texcoords buffer to sample (per line-piece) in the material's ``map`` texture.
+        See :obj:`pygfx.utils.enums.ColorMode`:
         """
         return self._store.color_mode
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        if value not in ColorMode:
+            raise ValueError(
+                f"LineMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property
@@ -168,6 +157,7 @@ class LineMaterial(Material):
         """The coordinate space in which the thickness (and dash_pattern) are expressed.
 
         Possible values are:
+
         * "screen": logical screen pixels. The Default.
         * "world": the world / scene coordinate frame.
         * "model": the line's local coordinate frame (same as the line's positions).
