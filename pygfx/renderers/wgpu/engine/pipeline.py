@@ -530,8 +530,8 @@ class PipelineContainer:
     def update_shader_data(self, wobject, changed):
         """Update the info that applies to all passes and environments."""
 
-        if "create" in changed:
-            with wobject.tracker.track_usage("create"):
+        if "create" in changed or "reset" in changed:
+            with wobject.tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
             changed.update(("bindings", "pipeline_info", "render_info"))
 
