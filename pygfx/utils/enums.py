@@ -7,13 +7,14 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     :toctree: utils/enums
     :template: ../_templates/custom_layout.rst
 
-    RenderMask
     ColorMode
+    CoordSpace
+    RenderMask
     SizeMode
 
 """
 
-__all__ = ["RenderMask", "ColorMode", "SizeMode"]
+__all__ = ["RenderMask", "ColorMode", "SizeMode", "CoordSpace"]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
 # and simply maps to strings or ints. The enums are classes, so IDE's provide
