@@ -97,6 +97,7 @@ class MeshAbstractMaterial(Material):
 
     @color_mode.setter
     def color_mode(self, value):
+        value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
                 f"MeshMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
