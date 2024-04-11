@@ -30,7 +30,8 @@ def geometry_from_trimesh(mesh):
         indices=np.ascontiguousarray(mesh.faces, dtype="i4"),
         normals=np.ascontiguousarray(mesh.vertex_normals, dtype="f4"),
     )
-    if mesh.visual.kind == "texture":
+    # Note: some trimesh visuals have type texture but no UV coordinates
+    if mesh.visual.kind == "texture" and getattr(mesh.visual, "uv", None) is not None:
         # convert the uv coordinates from opengl to wgpu conventions.
         # wgpu uses the D3D and Metal coordinate systems.
         # the coordinate origin is in the upper left corner, while the opengl coordinate
@@ -42,6 +43,8 @@ def geometry_from_trimesh(mesh):
         kwargs["texcoords"] = np.ascontiguousarray(wgpu_uv, dtype="f4")
     elif mesh.visual.kind == "vertex":
         kwargs["colors"] = np.ascontiguousarray(mesh.visual.vertex_colors, dtype="f4")
+    elif mesh.visual.kind == "face":
+        kwargs["colors"] = np.ascontiguousarray(mesh.visual.face_colors, dtype="f4")
 
     # todo: support vertex attribute 'tangent'
 

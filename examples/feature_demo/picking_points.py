@@ -21,7 +21,9 @@ scene = gfx.Scene()
 xx = np.linspace(-50, 50, 10)
 yy = np.random.uniform(20, 50, 10)
 geometry = gfx.Geometry(positions=[(x, y, 0) for x, y in zip(xx, yy)])
-ob = gfx.Points(geometry, gfx.PointsMaterial(color=(0, 1, 1, 1), size=20))
+ob = gfx.Points(
+    geometry, gfx.PointsMaterial(color=(0, 1, 1, 1), size=20, pick_write=True)
+)
 scene.add(ob)
 
 camera = gfx.OrthographicCamera(120, 120)
