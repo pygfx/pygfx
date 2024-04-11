@@ -3,13 +3,8 @@
 .. currentmodule:: {{ module }}
 
 
-{% if objtype == "module" and name in [] %}
-{# Some modules look nicer as a single-page doc. #}
-
-.. automodule:: {{ fullname }}
-  :members:
-
-{% elif objtype == "module" %}
+{% if objtype == "module" %}
+{# Assume that the module docstring has an autosummary section to produce a list of members. #}
 
 .. automodule:: {{ fullname }}
 

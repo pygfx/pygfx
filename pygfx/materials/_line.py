@@ -124,7 +124,7 @@ class LineMaterial(Material):
     def color_mode(self, value):
         if value not in ColorMode:
             raise ValueError(
-                f"LineMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+                f"LineMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
             )
         self._store.color_mode = value
 

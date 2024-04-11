@@ -99,7 +99,7 @@ class MeshAbstractMaterial(Material):
     def color_mode(self, value):
         if value not in ColorMode:
             raise ValueError(
-                f"MeshMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+                f"MeshMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
             )
         self._store.color_mode = value
 

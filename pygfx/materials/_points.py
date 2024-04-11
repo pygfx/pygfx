@@ -123,7 +123,7 @@ class PointsMaterial(Material):
     def color_mode(self, value):
         if value not in ColorMode:
             raise ValueError(
-                f"PointsMaterial.Colormode must be a string in {ColorMode}, not {repr(value)}"
+                f"PointsMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
             )
         self._store.color_mode = value
 
@@ -182,7 +182,7 @@ class PointsMaterial(Material):
     def size_mode(self, value):
         if value not in SizeMode:
             raise ValueError(
-                f"PointsMaterial.SizeMode must be a string in {SizeMode}, not {repr(value)}"
+                f"PointsMaterial.size_mode must be a string in {SizeMode}, not {repr(value)}"
             )
         self._store.size_mode = value
 

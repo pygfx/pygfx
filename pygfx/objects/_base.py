@@ -279,7 +279,6 @@ class WorldObject(EventTarget, RootTrackable):
                 f"WorldObject.render_mask must be int or str, not {type(value)}"
             )
         # Store the value as an int, because this is a flag, but also for backwards compat.
-        assert isinstance(value, int)
         self._store.render_mask = value
 
     @property

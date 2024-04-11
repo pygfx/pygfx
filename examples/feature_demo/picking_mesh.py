@@ -34,7 +34,7 @@ tex = gfx.Texture(im, dim=2)
 
 cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
-    gfx.MeshBasicMaterial(map=tex, opacity=0.8, pick_write=True),
+    gfx.MeshBasicMaterial(map=tex, opacity=0.8, pick_write=False),
 )
 cube.local.x += 150
 scene.add(cube)
