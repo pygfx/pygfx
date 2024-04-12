@@ -138,7 +138,7 @@ class MarkerShape(Enum):
     heart = None  #: ♥
     spade = None  #: ♠
     club = None  #: ♣
-    pin = None  #: A 'location' symbol.
+    pin = None  #: 📍
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__
