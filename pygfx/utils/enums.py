@@ -9,12 +9,13 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
 
     ColorMode
     CoordSpace
+    MarkerShape
     RenderMask
     SizeMode
 
 """
 
-__all__ = ["RenderMask", "ColorMode", "SizeMode", "CoordSpace"]
+__all__ = ["RenderMask", "ColorMode", "SizeMode", "CoordSpace", "MarkerShape"]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
 # and simply maps to strings or ints. The enums are classes, so IDE's provide
@@ -118,6 +119,26 @@ class CoordSpace(Enum):
     model = None  #: the WorldObject's own coordinate space.
     world = None  #: the coordinate space of the scene.
     screen = None  #: the coordiate space in logical pixels.
+
+
+class MarkerShape(Enum):
+    """The MarkerShape enum specifies the shape of a markers in the PointsMarkerMaterial."""
+
+    circle = None  #: ● A circular shape (i.e. a disk).
+    ring = None  #: ○ A circular shape with a hole in the middle.
+    square = None  #: ■ A big square shape (sized to encompass the circle shape).
+    diamond = None  #: ♦ A rotated square (sized to fit inside the circle).
+    plus = None  #: + A plus symbol.
+    cross = None  #: x A rotated plus symbol.
+    asterix = None  #: ✳️ A plus and a cross combined.
+    triangle_up = None  #: ▲
+    triangle_down = None  #: ▼
+    triangle_left = None  #: ◀
+    triangle_right = None  #: ▶
+    heart = None  #: ♥
+    spade = None  #: ♠
+    club = None  #: ♣
+    pin = None  #: A 'location' symbol.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

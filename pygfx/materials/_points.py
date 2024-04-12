@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
-from ..utils.enums import ColorMode, SizeMode, CoordSpace
+from ..utils.enums import ColorMode, SizeMode, CoordSpace, MarkerShape
 
 
 class PointsMaterial(Material):
@@ -220,6 +220,18 @@ class PointsMarkerMaterial(PointsMaterial):
     """A material to render points as markers.
 
     Markers come in a variety of shapes, and have an edge with a separate color.
+
+    Parameters
+    ----------
+    marker : str | MarkerShape
+        The shape of the marker. Default 'circle'.
+    edge_color : str | tuple | Color
+        The color of line marking the edge of the markers. Default 'black'.
+    edge_width : float
+        The width of the edge of the markers. Default 1.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`PointsMaterial<pygfx.PointsMaterial>`.
+
     """
 
     uniform_type = dict(
@@ -259,23 +271,13 @@ class PointsMarkerMaterial(PointsMaterial):
     def marker(self):
         """The type/shape of the markers.
 
-        Possible values are:
+        Supported values:
 
-        * 'circle' or 'o"
-        * 'ring'
-        * 'square' or 's'
-        * 'diamond' or 'D'
-        * 'plus' or '+'
-        * 'cross' or 'x'
-        * 'asterix'
-        * 'triangle_up' or '^'
-        * 'triangle_down' or ''
-        * 'triangle_left' or '<'
-        * 'triangle_right' or '>'
-        * 'heart' or '♥'
-        * 'spade'
-        * 'club'
-        * 'pin'
+        * A string from :obj:`pygfx.utils.enums.MarkerShape`.
+        * Matplotlib compatible characters: "osD+x^v<>".
+        * Unicode symbols:
+        * Emoticons:
+
 
         """
         # TODO: is marker a good name?
@@ -287,24 +289,9 @@ class PointsMarkerMaterial(PointsMaterial):
         # Define possible values, see:
         # https://matplotlib.org/stable/api/markers_api.html
         # https://plotly.com/python/marker-style/#custom-marker-symbols
-        possible_names = [
-            "circle",
-            "ring",
-            "square",
-            "diamond",
-            "plus",
-            "cross",
-            "asterix",
-            "triangle_up",
-            "triangle_down",
-            "triangle_left",
-            "triangle_right",
-            "heart",
-            "spade",
-            "club",
-            "pin",
-        ]
+
         alt_names = {
+            # MPL
             "o": "circle",
             "s": "square",
             "D": "diamond",
@@ -314,16 +301,34 @@ class PointsMarkerMaterial(PointsMaterial):
             "<": "triangle_left",
             ">": "triangle_right",
             "v": "triangle_down",
+            # Unicode
+            "●": "circle",
+            "○": "ring",
+            "■": "square",
+            "♦": "diamond",
             "♥": "heart",
+            "♠": "spade",
+            "♣": "club",
+            "✳": "asterix",
+            "▲": "triangle_up",
+            "▼": "triangle_down",
+            "◀": "triangle_left",
+            "▶": "triangle_right",
+            # Emoticons (these may look like their plaintext variants in your editor)
+            "❤️": "heart",
+            "♠️": "spade",
+            "♣️": "club",
+            "♦️": "diamond",
+            "💎": "diamond",
+            "💍": "ring",
+            "✳️": "asterix",
         }
 
-        # Checks
+        name = name or "circle"
         resolved_name = alt_names.get(name, name).lower()
-        if not isinstance(name, str):
-            raise TypeError("Marker name must be specified as a string.")
-        if resolved_name not in possible_names:
+        if resolved_name not in MarkerShape:
             raise ValueError(
-                f"Invalid marker shape '{name}'. Expecting one of {possible_names}, or a shorthand from {list(alt_names)}."
+                f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {repr(name)}"
             )
         self._store.marker = resolved_name
 
