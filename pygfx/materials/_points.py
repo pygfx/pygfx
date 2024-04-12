@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
-from ..utils.enums import ColorMode, SizeMode
+from ..utils.enums import ColorMode, SizeMode, CoordSpace
 
 
 class PointsMaterial(Material):
@@ -13,7 +13,7 @@ class PointsMaterial(Material):
     ----------
     size : float
         The size (diameter) of the points in logical pixels. Default 4.
-    size_space : str
+    size_space : str | CoordSpace
         The coordinate space in which the size is expressed ('screen', 'world', 'model'). Default 'screen'.
     size_mode : str | SizeMode
         The mode by which the points are sized. Default 'uniform'.
@@ -121,6 +121,7 @@ class PointsMaterial(Material):
 
     @color_mode.setter
     def color_mode(self, value):
+        value = value or "auto"
         if value not in ColorMode:
             raise ValueError(
                 f"PointsMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
@@ -151,23 +152,17 @@ class PointsMaterial(Material):
     def size_space(self):
         """The coordinate space in which the size is expressed.
 
-        Possible values are:
-
-        * "screen": logical screen pixels. The Default.
-        * "world": the world / scene coordinate frame.
-        * "model": the line's local coordinate frame (same as the line's positions).
+        See :obj:`pygfx.utils.enums.CoordSpace`:
         """
         return self._store.size_space
 
     @size_space.setter
     def size_space(self, value):
-        if value is None:
-            value = "screen"
-        if not isinstance(value, str):
-            raise TypeError("PointsMaterial.size_space must be str")
-        value = value.lower()
-        if value not in ["screen", "world", "model"]:
-            raise ValueError(f"Invalid value for PointsMaterial.size_space: {value}")
+        value = value or "screen"
+        if value not in CoordSpace:
+            raise ValueError(
+                f"PointsMaterial.size_space must be a string in {CoordSpace}, not {repr(value)}"
+            )
         self._store.size_space = value
 
     @property
@@ -180,6 +175,7 @@ class PointsMaterial(Material):
 
     @size_mode.setter
     def size_mode(self, value):
+        value = value or "uniform"
         if value not in SizeMode:
             raise ValueError(
                 f"PointsMaterial.size_mode must be a string in {SizeMode}, not {repr(value)}"
