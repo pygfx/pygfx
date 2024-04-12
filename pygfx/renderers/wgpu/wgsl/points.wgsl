@@ -389,6 +389,7 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
         $$ elif shape.endswith('right')
             coord = vec2<f32>(coord.y, -coord.x);
         $$ endif
+        coord = vec2<f32>(coord.x, coord.y - 0.25*size);  // y-offset to center the shape
         let x = 0.5 * m_sqrt_2 * (coord.x - coord.y);
         let y = 0.5 * m_sqrt_2 * (coord.x + coord.y);
         let r1 = max(abs(x), abs(y)) - size/(2*m_sqrt_2);
