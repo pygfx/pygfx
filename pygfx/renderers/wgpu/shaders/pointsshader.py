@@ -5,6 +5,7 @@ from ....objects import Points
 from ....materials import (
     PointsMaterial,
     PointsGaussianBlobMaterial,
+    PointsMarkerMaterial,
     PointsSpriteMaterial,
 )
 
@@ -66,6 +67,10 @@ class PointsShader(WorldObjectShader):
         self["size_space"] = material.size_space
         self["aa"] = material.aa
 
+        self["draw_line_on_edge"] = False
+        if isinstance(material, PointsMarkerMaterial):
+            self["draw_line_on_edge"] = True
+
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry
         material = wobject.material
@@ -111,6 +116,8 @@ class PointsShader(WorldObjectShader):
         self["shape"] = "circle"
         if isinstance(material, PointsGaussianBlobMaterial):
             self["shape"] = "gaussian"
+        elif isinstance(material, PointsMarkerMaterial):
+            self["shape"] = material.marker
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
