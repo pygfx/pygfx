@@ -140,7 +140,7 @@ class PointsMaterial(Material):
 
     @property
     def size(self):
-        """The size (diameter) of the points, in logical pixels (or world/model space if ``size_space``is set)."""
+        """The size (diameter) of the points, in logical pixels (or world/model space if ``size_space`` is set)."""
         return float(self.uniform_buffer.data["size"])
 
     @size.setter
@@ -259,7 +259,7 @@ class PointsMarkerMaterial(PointsMaterial):
 
     @property
     def edge_width(self):
-        """The width of the edge of the markers, in logical pixels (or world/model space if ``size_space``is set)."""
+        """The width of the edge of the markers, in logical pixels (or world/model space if ``size_space`` is set)."""
         return float(self.uniform_buffer.data["edge_width"])
 
     @edge_width.setter
