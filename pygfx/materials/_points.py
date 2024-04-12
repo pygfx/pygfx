@@ -276,7 +276,7 @@ class PointsMarkerMaterial(PointsMaterial):
         * A string from :obj:`pygfx.utils.enums.MarkerShape`.
         * Matplotlib compatible characters: "osD+x^v<>".
         * Unicode symbols:
-        * Emoticons:
+        * Emojis:
 
 
         """
