@@ -314,7 +314,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "▼": "triangle_down",
             "◀": "triangle_left",
             "▶": "triangle_right",
-            # Emoticons (these may look like their plaintext variants in your editor)
+            # Emojis (these may look like their plaintext variants in your editor)
             "❤️": "heart",
             "♠️": "spade",
             "♣️": "club",
@@ -322,6 +322,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "💎": "diamond",
             "💍": "ring",
             "✳️": "asterix",
+            "📍": "pin",
         }
 
         name = name or "circle"
