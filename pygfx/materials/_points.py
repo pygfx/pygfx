@@ -275,9 +275,8 @@ class PointsMarkerMaterial(PointsMaterial):
 
         * A string from :obj:`pygfx.utils.enums.MarkerShape`.
         * Matplotlib compatible characters: "osD+x^v<>".
-        * Unicode symbols:
-        * Emojis:
-
+        * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
+        * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
 
         """
         # TODO: is marker a good name?
