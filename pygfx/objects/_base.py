@@ -152,6 +152,7 @@ class WorldObject(EventTarget, RootTrackable):
         visible=True,
         render_order=0,
         render_mask="auto",
+        name=None,
     ):
         super().__init__()
         self._parent: weakref.ReferenceType[WorldObject] = None
@@ -188,6 +189,8 @@ class WorldObject(EventTarget, RootTrackable):
         self.render_mask = render_mask
         self.cast_shadow = False
         self.receive_shadow = False
+
+        self.name = name
 
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):

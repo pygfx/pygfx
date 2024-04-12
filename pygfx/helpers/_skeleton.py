@@ -32,7 +32,7 @@ class SkeletonHelper(Line):
         self.local.matrix = wobject.world.matrix
 
         # the helper matrix always follows the root object
-        def _update_matrix():
+        def _update_matrix(*args):
             self.local.matrix = self.root.world.matrix
 
         self.root.world.on_update(_update_matrix)

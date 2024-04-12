@@ -38,7 +38,9 @@ class Skeleton:
         if bones is None:
             bones = []
         self.bones = bones[:]
-        self.bone_inverses = bone_inverses or []
+        if bone_inverses is None:
+            bone_inverses = []
+        self.bone_inverses = bone_inverses
 
         self.init()
 
