@@ -225,7 +225,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ endif
 
     // Define face color+alpha.
-    let face_color = vec4<f32>(sampled_face_color.rgb, clamp(sampled_face_color.a, 0.0, 1.0) * face_alpha);
+    var face_color = vec4<f32>(sampled_face_color.rgb, clamp(sampled_face_color.a, 0.0, 1.0) * face_alpha);
 
     // For sprites, multiply face_color with sprite color
     $$ if is_sprite == 2
