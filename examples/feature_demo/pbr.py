@@ -35,6 +35,8 @@ import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
+from  pygfx.utils.gltf_loader import GLTF
+
 
 # Init
 canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
@@ -58,9 +60,19 @@ scene.add(background)
 # Load meshes, and apply env map
 # Note that this lights the helmet already
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
-meshes = gfx.load_mesh(gltf_path)
-scene.add(*meshes)
-m = meshes[0]  # this example has just one mesh
+# meshes = gfx.load_mesh(gltf_path)
+# scene.add(*meshes)
+
+
+
+gltf = GLTF.load(gltf_path)
+scene.add(gltf.scene)
+m = gltf.scene.children[0]
+
+# meshes = GLTF.load_mesh(gltf_path)
+# scene.add(*meshes)
+# m = meshes[0]  # this example has just one mesh
+
 m.geometry.texcoords1 = m.geometry.texcoords  # use second set of texcoords for ao map
 m.material.env_map = env_tex
 
