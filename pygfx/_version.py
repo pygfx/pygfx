@@ -15,37 +15,12 @@ STATIC_VERSION_FILE = "_static_version.py"
 
 
 def get_version():
-    try:
-        from ._static_version import version, refnames, git_hash
-        version_info = dict(
-            version=version,
-            refnames=refnames,
-            git_hash=git_hash,
-        )
-    except ImportError:
-        version_info = get_static_version_info()
-
-    version = version_info["version"]
-    if version == "__use_git__":
-        version = get_version_from_git()
-        if not version:
-            version = get_version_from_git_archive(version_info)
-        if not version:
-            version = Version("noget", None, None)
-        return pep440_format(version)
-    else:
-        return version
-
-
-def get_static_version_info(version_file=STATIC_VERSION_FILE):
-    version_info = {}
-    with open(os.path.join(package_root, version_file), "rb") as f:
-        exec(f.read(), {}, version_info)
-    return version_info
-
-
-def version_is_from_git():
-    return get_static_version_info()["version"] == "__use_git__"
+    version = get_version_from_git()
+    if not version:
+        version = get_version_from_git_archive(version_info)
+    if not version:
+        version = Version("noget", None, None)
+    return pep440_format(version)
 
 
 def pep440_format(version_info):
