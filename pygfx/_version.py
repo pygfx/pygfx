@@ -66,7 +66,7 @@ def get_version_from_git():
     for opts in [["--first-parent"], []]:
         try:
             p = subprocess.Popen(
-                ["git", "describe", "--long", "--always", "--tags"] + opts,
+                ["git", "describe", "--long", "--always", "--tags", "--dirty"] + opts,
                 cwd=package_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -81,13 +81,13 @@ def get_version_from_git():
     description = (
         p.communicate()[0]
         .decode()
-        .strip("v")  # Tags can have a leading 'v', but the version should not
+        .lstrip("v")  # Tags can have a leading 'v', but the version should not
         .rstrip("\n")
-        .rsplit("-", 2)  # Split the latest tag, commits since tag, and hash
+        .rsplit("-")  # Split the latest tag, commits since tag, and hash, and dirty
     )
 
     try:
-        release, post, git = description
+        release, post, git = description[:3]
     except ValueError:  # No tags, only the git hash
         # prepend 'g' to match with format returned by 'git describe'
         git = "g{}".format(*description)
@@ -100,19 +100,8 @@ def get_version_from_git():
     else:
         labels.append(git)
 
-    try:
-        p = subprocess.Popen(
-            ["git", "describe", "--dirty"],
-            cwd=package_root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-    except OSError:
-        labels.append("confused")  # This should never happen.
-    else:
-        dirty_output = p.communicate()[0].decode().strip("\n")
-        if dirty_output.endswith("dirty"):
-            labels.append("dirty")
+    if description[-1] == "dirty":
+        labels.append("dirty")
 
     return Version(release, post, labels)
 
