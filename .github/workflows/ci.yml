@@ -125,7 +125,11 @@ jobs:
         pip install .[dev]
     - name: Unit tests
       run: |
-        pytest -v pygfx/__pyinstaller
+        # Run from a directory that is not the package directory
+        # To simulate how real users would run it
+        RUN_FROM_DIR=$(mktemp -d)
+        cd ${RUN_FROM_DIR}
+        pytest -vxs --pyargs pygfx.__pyinstaller
 
   test-examples-build:
     name: Test examples

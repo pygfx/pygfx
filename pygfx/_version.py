@@ -11,10 +11,20 @@ __all__ = []
 
 package_root = os.path.dirname(os.path.realpath(__file__))
 package_name = os.path.basename(package_root)
+STATIC_VERSION_FILE = "_static_version.py"
 
 
 def get_version():
-    version_info = get_static_version_info()
+    try:
+        from ._static_version import version, refnames, git_hash
+        version_info = dict(
+            version=version,
+            refnames=refnames,
+            git_hash=git_hash,
+        )
+    except ImportError:
+        version_info = get_static_version_info()
+
     version = version_info["version"]
     if version == "__use_git__":
         version = get_version_from_git()
@@ -27,13 +37,11 @@ def get_version():
         return version
 
 
-def get_static_version_info():
-    from ._static_version import version, refnames, git_hash
-    return dict(
-        version=version,
-        refnames=refnames,
-        git_hash=git_hash,
-    )
+def get_static_version_info(version_file=STATIC_VERSION_FILE):
+    version_info = {}
+    with open(os.path.join(package_root, version_file), "rb") as f:
+        exec(f.read(), {}, version_info)
+    return version_info
 
 
 def version_is_from_git():
