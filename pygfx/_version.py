@@ -17,9 +17,7 @@ STATIC_VERSION_FILE = "_static_version.py"
 def get_version():
     version = get_version_from_git()
     if not version:
-        version = get_version_from_git_archive(version_info)
-    if not version:
-        version = Version("noget", None, None)
+        version = Version("unknown", None, None)
     return pep440_format(version)
 
 
@@ -87,34 +85,6 @@ def get_version_from_git():
         labels.append("dirty")
 
     return Version(release, post, labels)
-
-
-# TODO: change this logic when there is a git pretty-format
-#       that gives the same output as 'git describe'.
-#       Currently we can only tell the tag the current commit is
-#       pointing to, or its hash (with no version info)
-#       if it is not tagged.
-def get_version_from_git_archive(version_info):
-    try:
-        refnames = version_info["refnames"]
-        git_hash = version_info["git_hash"]
-    except KeyError:
-        # These fields are not present if we are running from an sdist.
-        # Execution should never reach here, though
-        return None
-
-    if git_hash.startswith("$Format") or refnames.startswith("$Format"):
-        # variables not expanded during 'git archive'
-        return None
-
-    vtag = "tag: v"
-    refs = set(r.strip() for r in refnames.split(","))
-    version_tags = set(r[len(vtag) :] for r in refs if r.startswith(vtag))
-    if version_tags:
-        release, *_ = sorted(version_tags)  # prefer e.g. "2.0" over "2.0rc1"
-        return Version(release, post=None, labels=None)
-    else:
-        return Version("notag", post=None, labels=["g{}".format(git_hash)])
 
 
 __version__ = get_version()

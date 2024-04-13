@@ -14,7 +14,7 @@ def get_version_and_cmdclass():
     spec = spec_from_file_location("version", os.path.join("pygfx", "_version.py"))
     module = module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.__version__, getattr(module, "get_cmdclass", lambda x: None)("pygfx")
+    return module.__version__, getattr(module, "get_cmdclass", lambda x: {})("pygfx")
 
 
 version, cmdclass = get_version_and_cmdclass()
