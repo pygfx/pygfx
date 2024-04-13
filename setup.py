@@ -3,9 +3,24 @@ import re
 from setuptools import find_packages, setup
 
 
+def get_version_and_cmdclass(pkg_path):
+    """Load version.py module without importing the whole package.
+
+    Template code from miniver
+    """
+    import os
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    spec = spec_from_file_location("version", os.path.join(pkg_path, "_version.py"))
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.__version__, module.get_cmdclass(pkg_path)
+
+
+version, cmdclass = get_version_and_cmdclass(r"pygfx")
+
 with open("pygfx/__init__.py", "rb") as fh:
     init_text = fh.read().decode()
-    VERSION = re.search(r"__version__ = \"(.*?)\"", init_text).group(1)
     match = re.search(r"__wgpu_version_range__ = \"(.*?)\", \"(.*?)\"", init_text)
     wgpu_min_ver, wgpu_max_ver = match.group(1), match.group(2)
     match = re.search(r"__pylinalg_version_range__ = \"(.*?)\", \"(.*?)\"", init_text)
@@ -65,7 +80,8 @@ extras_require = {
 
 setup(
     name="pygfx",
-    version=VERSION,
+    version=version,
+    cmdclass=cmdclass,
     packages=find_packages(
         exclude=["tests", "tests.*", "examples", "examples.*", "exp", "exp.*"]
     ),
