@@ -12,11 +12,9 @@ __all__ = []
 package_root = os.path.dirname(os.path.realpath(__file__))
 package_name = os.path.basename(package_root)
 
-STATIC_VERSION_FILE = "_static_version.py"
 
-
-def get_version(version_file=STATIC_VERSION_FILE):
-    version_info = get_static_version_info(version_file)
+def get_version():
+    version_info = get_static_version_info()
     version = version_info["version"]
     if version == "__use_git__":
         version = get_version_from_git()
@@ -29,15 +27,17 @@ def get_version(version_file=STATIC_VERSION_FILE):
         return version
 
 
-def get_static_version_info(version_file=STATIC_VERSION_FILE):
-    version_info = {}
-    with open(os.path.join(package_root, version_file), "rb") as f:
-        exec(f.read(), {}, version_info)
-    return version_info
+def get_static_version_info():
+    from ._static_version import version, refnames, git_hash
+    return dict(
+        version=version,
+        refnames=refnames,
+        git_hash=git_hash,
+    )
 
 
-def version_is_from_git(version_file=STATIC_VERSION_FILE):
-    return get_static_version_info(version_file)["version"] == "__use_git__"
+def version_is_from_git():
+    return get_static_version_info()["version"] == "__use_git__"
 
 
 def pep440_format(version_info):
@@ -170,11 +170,11 @@ def get_cmdclass(pkg_source_path):
                 path = pkg_source_path[len(src_marker) :]
             else:
                 path = pkg_source_path
-            _write_version(os.path.join(self.build_lib, path, STATIC_VERSION_FILE))
+            _write_version(os.path.join(self.build_lib, path, '_static_version.py'))
 
     class _sdist(sdist_orig):  # noqa
         def make_release_tree(self, base_dir, files):
             super().make_release_tree(base_dir, files)
-            _write_version(os.path.join(base_dir, pkg_source_path, STATIC_VERSION_FILE))
+            _write_version(os.path.join(base_dir, pkg_source_path, '_static_version.py'))
 
     return dict(sdist=_sdist, build_py=_build_py)
