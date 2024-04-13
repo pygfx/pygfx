@@ -158,10 +158,7 @@ def _write_version(fname):
     except OSError:
         pass
     with open(fname, "w") as f:
-        f.write(
-            "# This file has been created by setup.py.\n"
-            "version = '{}'\n".format(__version__)
-        )
+        f.write(f"__version__ = '{__version__}'")
 
 
 def get_cmdclass(pkg_source_path):
@@ -178,11 +175,11 @@ def get_cmdclass(pkg_source_path):
                 path = pkg_source_path[len(src_marker) :]
             else:
                 path = pkg_source_path
-            _write_version(os.path.join(self.build_lib, path, '_static_version.py'))
+            _write_version(os.path.join(self.build_lib, path, '_version.py'))
 
     class _sdist(sdist_orig):  # noqa
         def make_release_tree(self, base_dir, files):
             super().make_release_tree(base_dir, files)
-            _write_version(os.path.join(base_dir, pkg_source_path, '_static_version.py'))
+            _write_version(os.path.join(base_dir, pkg_source_path, '_version.py'))
 
     return dict(sdist=_sdist, build_py=_build_py)
