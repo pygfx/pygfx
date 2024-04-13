@@ -67,6 +67,12 @@ class GLTF:
 
         gltf = GLTF(path)
 
+        gltf.scenes = gltf._load_scenes()
+        if gltf._gltf.model.scene is not None:
+            gltf.scene = gltf.scenes[gltf._gltf.model.scene]
+
+        gltf.animations = gltf._load_animations()
+
         # TODO: 
         # gltf.cameras
         # gltf.animations
@@ -105,10 +111,6 @@ class GLTF:
 
         # mark the node types
         self._node_marks = self._mark_nodes()
-        self.scenes = self._load_scenes()
-        if self._gltf.model.scene is not None:
-            self.scene = self.scenes[self._gltf.model.scene]
-        return self
     
     @cache
     def _get_resource_by_uri(self, uri):
@@ -418,8 +420,48 @@ class GLTF:
             # self._accessors_cache[accessor_index] = ar
             return ar
 
+    def _load_animation(self, animation_info):
+        channels = animation_info.channels
+        samplers = animation_info.samplers
+
+        duration = 0
+
+        key_frame_tracks = []
+
+        for channel in channels:
+            target = channel.target
+            sampler = samplers[channel.sampler]
+
+            target_node = self._load_node(target.node)
+            name = target_node.name
+            target_property = target.path
+            interpolation = sampler.interpolation
+            times = self._load_accessor(sampler.input)
+            if times[-1] > duration:
+                duration = times[-1]
+            values = self._load_accessor(sampler.output)
+
+            key_frame_tracks.append({
+                "name": name,
+                "target": target_node,
+                "property": target_property,
+                "interpolation": interpolation,
+                "times": times,
+                "values": values
+            })
+        
+        action_clip = {"name": animation_info.name, "duration": duration, "tracks": key_frame_tracks}
+        
+        return action_clip
 
 
+    def _load_animations(self):
+        gltf = self._gltf
+        animations = []
+        for animation in gltf.model.animations:
+            action_clip = self._load_animation(animation)
+            animations.append(action_clip)
+        return animations
 
 
 
