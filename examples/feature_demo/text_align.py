@@ -33,11 +33,12 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
     parser.add_argument(
         "text",
         type=str,
+        nargs="?",
         default=(
             "Lorem ipsum\n"
             "Bonjour World Olá\n"  # some text that isn't equal in line
             "pygfx\n"  # a line with exactly 1 word
-            "last line"
+            "last lyne"
         ),
         help="Text to display",
     )
@@ -106,6 +107,12 @@ def change_justify(event):
         text.geometry.anchor = "bottom-middle"
     elif event.key == "c":
         text.geometry.anchor = "bottom-right"
+    elif event.key == "v":
+        text.geometry.anchor = "baseline-left"
+    elif event.key == "b":
+        text.geometry.anchor = "baseline-middle"
+    elif event.key == "n":
+        text.geometry.anchor = "baseline-right"
     elif event.key == "u":
         text.geometry.text_align = "left"
     elif event.key == "i":
@@ -120,11 +127,11 @@ def change_justify(event):
         text.geometry.text_align_last = "auto"
     elif event.key == "l":
         text.geometry.text_align_last = "justify"
-    elif event.key == "n":
-        text.geometry.text_align_last = "left"
     elif event.key == "m":
-        text.geometry.text_align_last = "center"
+        text.geometry.text_align_last = "left"
     elif event.key == ",":
+        text.geometry.text_align_last = "center"
+    elif event.key == ".":
         text.geometry.text_align_last = "right"
     elif event.key == "f":
         text.geometry.font_size *= 1.1
@@ -149,6 +156,7 @@ print(
  z  x  c
 
 To change the anchor of the text.
+For baseline anchoring, use v b n
 
 Use the keys
 
@@ -161,7 +169,7 @@ Use h to set the alignment to justify-all.
 
 Use the keys
 
- n  m  ,
+  m  , .
 
 to set the alignment of the last line to left, middle, right respectively.
 
