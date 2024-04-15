@@ -18,20 +18,29 @@ import sys
 from wgpu.gui.auto import WgpuCanvas, run
 
 import pygfx as gfx
+import argparse
 
 scene = gfx.Scene()
 
 
 scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
-if len(sys.argv) > 1:
-    text = sys.argv[1]
-else:
-    text = (
+
+parser = argparse.ArgumentParser(description="Process direction parameter")
+parser.add_argument("--direction", type=str, default="ltr", help="Direction parameter")
+parser.add_argument(
+    "text",
+    type=str,
+    default=(
         "Lorem ipsum\n"
         "Bonjour World Olá\n"  # some text that isn't equal in line
         "pygfx\n"  # a line with exactly 1 word
         "last line"
-    )
+    ),
+    help="Text to display",
+)
+args = parser.parse_args()
+direction = args.direction
+text = args.text
 
 print(f"========= Text =========\n{text}\n========================")
 
@@ -42,6 +51,7 @@ text = gfx.Text(
         screen_space=True,
         text_align="center",
         anchor="middle-center",
+        direction=direction,
     ),
     gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
 )
