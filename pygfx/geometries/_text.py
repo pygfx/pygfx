@@ -193,13 +193,13 @@ class TextGeometry(Geometry):
     text_align : str
         The horizontal alignment of the inline-level content. Can be "start",
         "end", "left", "right", "center", "justify" or "justify-all". Default
-        "left". Text alignment and newlines have only been validated for
-        left to right text.
+        "left". Text alignment is ignored for top to bottom ('ttb') and
+        bottom to top ('btt') directions.
     text_align_last: str
         The horizontal alignment of the last line of the content
         element. Can be "start", "end", "left", "right", "center", "justify" or
-        "auto". Default "auto". Text alignment and newlines have only been validated for
-        left to right text.
+        "auto". Default "auto". Text alignment is ignored for top to
+        bottom ('ttb') and bottom to top ('btt') directions.
     family : str, tuple
         The name(s) of the font to prefer. If multiple names are given, they are
         preferred in the given order. Characters that are not supported by any
@@ -928,6 +928,9 @@ class TextGeometry(Geometry):
     def text_align(self):
         """Set the alignment of wrapped text. Can be start, end, or center.
         Default "start".
+
+        Text alignment is ignored for top to bottom ('ttb') and
+        bottom to top ('btt') directions.
         """
         return self._text_align
 
@@ -947,6 +950,9 @@ class TextGeometry(Geometry):
     def text_align_last(self):
         """Set the alignment of the last line of text.
         Default "auto".
+
+        Text alignment is ignored for top to bottom ('ttb') and
+        bottom to top ('btt') directions.
         """
         return self._text_align_last
 
