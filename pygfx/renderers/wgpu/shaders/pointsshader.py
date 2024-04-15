@@ -138,17 +138,44 @@ class PointsShader(WorldObjectShader):
         offset, size = wobject.geometry.positions.draw_range
         offset, size = offset * 6, size * 6
 
-        render_mask = wobject.render_mask
-        if not render_mask:
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif self["color_mode"] == "uniform":
+        render_mask = 0
+        if wobject.render_mask:
+            render_mask = wobject.render_mask
+        elif material.is_transparent:
+            render_mask = RenderMask.transparent
+        else:
+            # Get what passes are needed for the color
+            if self["color_mode"] == "uniform":
                 if material.color_is_transparent:
-                    render_mask = RenderMask.transparent
+                    render_mask |= RenderMask.transparent
                 else:
-                    render_mask = RenderMask.all
+                    render_mask |= RenderMask.opaque
+            elif self["color_mode"] == "vertex":
+                if self["color_buffer_channels"] in (2, 4):
+                    render_mask |= RenderMask.all
+                else:
+                    render_mask |= RenderMask.opaque
+            elif self["color_mode"] == "vertex_map":
+                if self["colormap_nchannels"] in (2, 4):
+                    render_mask |= RenderMask.all
+                else:
+                    render_mask |= RenderMask.opaque
             else:
-                render_mask = RenderMask.all
+                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
+            # Need transparency for aa
+            if material.aa:
+                render_mask |= RenderMask.transparent
+            # More cases
+            elif isinstance(material, PointsSpriteMaterial):
+                if self["sprite_nchannels"] in [2, 4]:
+                    render_mask |= RenderMask.transparent
+                else:
+                    pass  # mixed with color, so no need to OR with opaque
+            elif isinstance(material, PointsMarkerMaterial):
+                if material.edge_color_is_transparent:
+                    render_mask |= RenderMask.transparent
+                else:
+                    render_mask |= RenderMask.opaque
 
         return {
             "indices": (size, 1, offset, 0),

@@ -126,6 +126,10 @@ class PointsMaterial(Material):
             raise ValueError(
                 f"PointsMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
             )
+        if value in ["face", "face_map"]:
+            raise ValueError(
+                f"PointsMaterial.color_mode does not support {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property
@@ -256,6 +260,12 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_color = Color(edge_color)
         self.uniform_buffer.data["edge_color"] = edge_color
         self.uniform_buffer.update_range(0, 1)
+        self._store.edge_color_is_transparent = edge_color.a < 1
+
+    @property
+    def edge_color_is_transparent(self):
+        """Whether the edge_color is (semi) transparent (i.e. not fully opaque)."""
+        return self._store.edge_color_is_transparent
 
     @property
     def edge_width(self):
