@@ -25,6 +25,7 @@ scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse
+
     parser = argparse.ArgumentParser(description="Text Alignment Demo")
     parser.add_argument(
         "--direction", type=str, default="ltr", help="Direction parameter"
