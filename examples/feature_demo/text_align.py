@@ -12,7 +12,6 @@ justification of text anchored to the center of the screen.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-import argparse
 import os
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -24,7 +23,8 @@ scene = gfx.Scene()
 
 scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
 
-if "PYTEST_RUNNING_TEST" not in os.environ:
+if "PYTEST_CURRENT_TEST" not in os.environ:
+    import argparse
     parser = argparse.ArgumentParser(description="Text Alignment Demo")
     parser.add_argument(
         "--direction", type=str, default="ltr", help="Direction parameter"
