@@ -72,10 +72,17 @@ class TextShader(WorldObjectShader):
         if not render_mask:
             if material.is_transparent:
                 render_mask = RenderMask.transparent
-            elif material.color_is_transparent:
-                render_mask = RenderMask.transparent
             else:
-                render_mask = RenderMask.all
+                if material.color_is_transparent:
+                    render_mask |= RenderMask.transparent
+                else:
+                    render_mask |= RenderMask.opaque
+                if material.outline_color_is_transparent:
+                    render_mask |= RenderMask.transparent
+                else:
+                    render_mask |= RenderMask.opaque
+                if material.aa:
+                    render_mask |= RenderMask.transparent
         return {
             "indices": (n, 1),
             "render_mask": render_mask,
