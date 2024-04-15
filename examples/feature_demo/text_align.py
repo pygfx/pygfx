@@ -107,11 +107,11 @@ def change_justify(event):
         text.geometry.anchor = "bottom-middle"
     elif event.key == "c":
         text.geometry.anchor = "bottom-right"
-    elif event.key == "v":
+    elif event.key == "Z":
         text.geometry.anchor = "baseline-left"
-    elif event.key == "b":
+    elif event.key == "X":
         text.geometry.anchor = "baseline-middle"
-    elif event.key == "n":
+    elif event.key == "C":
         text.geometry.anchor = "baseline-right"
     elif event.key == "u":
         text.geometry.text_align = "left"
@@ -127,11 +127,11 @@ def change_justify(event):
         text.geometry.text_align_last = "auto"
     elif event.key == "l":
         text.geometry.text_align_last = "justify"
-    elif event.key == "m":
+    elif event.key == "n":
         text.geometry.text_align_last = "left"
-    elif event.key == ",":
+    elif event.key == "m":
         text.geometry.text_align_last = "center"
-    elif event.key == ".":
+    elif event.key == ",":
         text.geometry.text_align_last = "right"
     elif event.key == "f":
         text.geometry.font_size *= 1.1
@@ -156,7 +156,7 @@ print(
  z  x  c
 
 To change the anchor of the text.
-For baseline anchoring, use v b n
+For baseline anchoring, use Z X C (with Shift)
 
 Use the keys
 
@@ -169,7 +169,7 @@ Use h to set the alignment to justify-all.
 
 Use the keys
 
-  m  , .
+  n  m  ,
 
 to set the alignment of the last line to left, middle, right respectively.
 

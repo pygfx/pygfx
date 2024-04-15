@@ -649,25 +649,25 @@ class TextGeometry(Geometry):
 
         # TODO: handle Right to Left (RTL) text
         if self._direction == "ltr":
-            if text_align == "left":
-                text_align = "start"
-            elif text_align == "right":
-                text_align = "end"
+            if text_align == "start":
+                text_align = "left"
+            elif text_align == "end":
+                text_align = "right"
 
-            if text_align_last == "left":
-                text_align_last = "start"
-            elif text_align_last == "right":
-                text_align_last = "end"
+            if text_align_last == "start":
+                text_align_last = "left"
+            elif text_align_last == "end":
+                text_align_last = "right"
         elif self._direction == "rtl":
-            if text_align == "left":
-                text_align = "end"
-            elif text_align == "right":
-                text_align = "start"
+            if text_align == "end":
+                text_align = "left"
+            elif text_align == "start":
+                text_align = "right"
 
-            if text_align_last == "left":
-                text_align_last = "end"
-            elif text_align_last == "right":
-                text_align_last = "start"
+            if text_align_last == "end":
+                text_align_last = "left"
+            elif text_align_last == "start":
+                text_align_last = "right"
 
         positions_array = self.positions.data
         sizes_array = self.sizes.data
