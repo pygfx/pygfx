@@ -673,11 +673,20 @@ class TextGeometry(Geometry):
         sizes_array = self.sizes.data
         is_horizontal = self._direction is None or self._direction in ("ltr", "rtl")
 
-        left = right = 0
-        top = bottom = 0
+        # The algorightm doesn't support text alignment for ttb and btt yet
+        if not is_horizontal:
+            text_align = "left"
+            text_align_last = "left"
 
-        line_left = line_right = 0
-        line_top = line_bottom = 0
+        left = float('inf')
+        right = -float('inf')
+        top = -float('inf')
+        bottom = float('inf')
+
+        line_left = float('inf')
+        line_right = -float('inf')
+        line_top = -float('inf')
+        line_bottom = float('inf')
 
         vertical_offset = 0
 
@@ -689,16 +698,19 @@ class TextGeometry(Geometry):
         lines_aabb = []
         for item in self._glyph_items:
             if item.newline_before:
-                lines.append(current_line)
-                lines_aabb.append(
-                    np.array(
-                        [(line_left, line_bottom, 0), (line_right, line_top, 0)],
-                        np.float32,
+                if current_line:
+                    lines.append(current_line)
+                    lines_aabb.append(
+                        np.array(
+                            [(line_left, line_bottom, 0), (line_right, line_top, 0)],
+                            np.float32,
+                        )
                     )
-                )
                 current_line = []
-                line_left = line_right = 0
-                line_top = line_bottom = 0
+                line_left = float('inf')
+                line_right = -float('inf')
+                line_top = -float('inf')
+                line_bottom = float('inf')
                 vertical_offset -= len(item.newline_before) * line_height
                 extent_offset = 0
 
@@ -727,14 +739,22 @@ class TextGeometry(Geometry):
 
             # Update line extent
             if is_horizontal:
+                line_left = 0
                 line_right = extent_offset
-                line_top = max(line_top, item.ascender * font_size)
+                line_top = max(
+                    line_top,
+                    item.ascender * font_size + vertical_offset
+                )
                 line_bottom = min(
                     line_bottom, item.descender * font_size + vertical_offset
                 )
             else:
+                line_top = 0
                 line_bottom = extent_offset
-                line_right = max(line_right, item.ascender * font_size)
+                line_right = max(
+                    line_right,
+                    item.ascender * font_size + vertical_offset
+                )
                 line_left = min(line_left, item.descender * font_size + vertical_offset)
 
             # Update total extent
@@ -744,28 +764,34 @@ class TextGeometry(Geometry):
             left = min(left, line_left)
 
             if item.newline_after:
-                lines.append(current_line)
-                lines_aabb.append(
-                    np.array(
-                        [(line_left, line_bottom, 0), (line_right, line_top, 0)],
-                        np.float32,
+                if current_line:
+                    lines.append(current_line)
+                    lines_aabb.append(
+                        np.array(
+                            [(line_left, line_bottom, 0), (line_right, line_top, 0)],
+                            np.float32,
+                        )
                     )
-                )
                 current_line = []
-                line_left = line_right = 0
-                line_top = line_bottom = 0
+                line_left = float('inf')
+                line_right = -float('inf')
+                line_top = -float('inf')
+                line_bottom = float('inf')
                 vertical_offset -= len(item.newline_after) * line_height
                 extent_offset = 0
 
-        lines.append(current_line)
-        lines_aabb.append(
-            np.array(
-                [(line_left, line_bottom, 0), (line_right, line_top, 0)], np.float32
+        if current_line:
+            lines.append(current_line)
+            lines_aabb.append(
+                np.array(
+                    [(line_left, line_bottom, 0), (line_right, line_top, 0)], np.float32
+                )
             )
-        )
         current_line = []
-        line_left = line_right = 0
-        line_top = line_bottom = 0
+        line_left = float('inf')
+        line_right = -float('inf')
+        line_top = -float('inf')
+        line_bottom = float('inf')
 
         # take care of new lines at the end of the text
         bottom = min(bottom, vertical_offset)
