@@ -681,10 +681,10 @@ class TextGeometry(Geometry):
         left = right = 0
         top = bottom = 0
 
-        line_left = float('inf')
-        line_right = -float('inf')
-        line_top = -float('inf')
-        line_bottom = float('inf')
+        line_left = float("inf")
+        line_right = -float("inf")
+        line_top = -float("inf")
+        line_bottom = float("inf")
 
         vertical_offset = 0
 
@@ -705,10 +705,10 @@ class TextGeometry(Geometry):
                         )
                     )
                 current_line = []
-                line_left = float('inf')
-                line_right = -float('inf')
-                line_top = -float('inf')
-                line_bottom = float('inf')
+                line_left = float("inf")
+                line_right = -float("inf")
+                line_top = -float("inf")
+                line_bottom = float("inf")
                 vertical_offset -= len(item.newline_before) * line_height
                 extent_offset = 0
 
@@ -739,10 +739,7 @@ class TextGeometry(Geometry):
             if is_horizontal:
                 line_left = 0
                 line_right = extent_offset
-                line_top = max(
-                    line_top,
-                    item.ascender * font_size + vertical_offset
-                )
+                line_top = max(line_top, item.ascender * font_size + vertical_offset)
                 line_bottom = min(
                     line_bottom, item.descender * font_size + vertical_offset
                 )
@@ -750,8 +747,7 @@ class TextGeometry(Geometry):
                 line_top = 0
                 line_bottom = extent_offset
                 line_right = max(
-                    line_right,
-                    item.ascender * font_size + vertical_offset
+                    line_right, item.ascender * font_size + vertical_offset
                 )
                 line_left = min(line_left, item.descender * font_size + vertical_offset)
 
@@ -771,10 +767,10 @@ class TextGeometry(Geometry):
                         )
                     )
                 current_line = []
-                line_left = float('inf')
-                line_right = -float('inf')
-                line_top = -float('inf')
-                line_bottom = float('inf')
+                line_left = float("inf")
+                line_right = -float("inf")
+                line_top = -float("inf")
+                line_bottom = float("inf")
                 vertical_offset -= len(item.newline_after) * line_height
                 extent_offset = 0
 
@@ -786,10 +782,10 @@ class TextGeometry(Geometry):
                 )
             )
         current_line = []
-        line_left = float('inf')
-        line_right = -float('inf')
-        line_top = -float('inf')
-        line_bottom = float('inf')
+        line_left = float("inf")
+        line_right = -float("inf")
+        line_top = -float("inf")
+        line_bottom = float("inf")
 
         # take care of new lines at the end of the text
         bottom = min(bottom, vertical_offset)
