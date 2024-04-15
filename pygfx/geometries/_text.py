@@ -775,24 +775,25 @@ class TextGeometry(Geometry):
         # Anchoring
 
         if anchor.endswith("left"):
-            pos_offset_x = 0
+            pos_offset_x = -left
         elif anchor.endswith("center"):
-            pos_offset_x = -0.5 * (right - left)
+            pos_offset_x = -0.5 * (left + right)
         elif anchor.endswith("right"):
             pos_offset_x = -right
 
         if anchor.startswith("top"):
             pos_offset_y = -top
         elif anchor.startswith("middle"):
-            pos_offset_y = -top + 0.5 * (top - bottom)
+            pos_offset_y = -0.5 * (top + bottom)
         elif anchor.startswith("baseline"):
-            pos_offset_y = 0
+            pos_offset_y = -vertical_offset
         elif anchor.startswith("bottom"):
             pos_offset_y = -bottom
+        else:
+            pos_offset_y = 0
 
-        if pos_offset_x or pos_offset_y:
-            positions_array += pos_offset_x, pos_offset_y
-            self._aabb += pos_offset_x, pos_offset_y, 0
+        positions_array += pos_offset_x, pos_offset_y
+        self._aabb += pos_offset_x, pos_offset_y, 0
 
         # Align the text accordingly
         total_length = right - left
