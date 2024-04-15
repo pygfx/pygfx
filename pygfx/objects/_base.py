@@ -1,7 +1,7 @@
 import random
 import weakref
 import threading
-from typing import List
+from typing import List, Tuple
 import pylinalg as la
 
 import numpy as np
@@ -329,7 +329,7 @@ class WorldObject(EventTarget, RootTrackable):
             return self._parent()
 
     @property
-    def children(self) -> tuple["WorldObject"]:
+    def children(self) -> Tuple["WorldObject"]:
         """tuple of children of this object. (read-only)"""
         return tuple(self._children)
 
