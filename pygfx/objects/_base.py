@@ -329,8 +329,8 @@ class WorldObject(EventTarget, RootTrackable):
             return self._parent()
 
     @property
-    def children(self) -> List["WorldObject"]:
-        """List of children of this object. (read-only)"""
+    def children(self) -> tuple["WorldObject"]:
+        """tuple of children of this object. (read-only)"""
         return tuple(self._children)
 
     def add(self, *objects, before=None, keep_world_matrix=False) -> "WorldObject":
