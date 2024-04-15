@@ -54,6 +54,9 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # Force offscreen rendering
 os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+# Let the example code that we are running a testing configuration
+# So that the use of argparse can be avoided
+os.environ["PYTEST_CURRENT_TEST"] = "sphinx_generation"
 
 # The gallery conf. See https://sphinx-gallery.github.io/stable/configuration.html
 sphinx_gallery_conf = {
