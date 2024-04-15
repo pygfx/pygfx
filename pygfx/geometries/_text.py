@@ -678,10 +678,8 @@ class TextGeometry(Geometry):
             text_align = "left"
             text_align_last = "left"
 
-        left = float('inf')
-        right = -float('inf')
-        top = -float('inf')
-        bottom = float('inf')
+        left = right = 0
+        top = bottom = 0
 
         line_left = float('inf')
         line_right = -float('inf')
