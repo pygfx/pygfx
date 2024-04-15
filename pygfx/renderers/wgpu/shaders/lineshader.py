@@ -234,35 +234,34 @@ class LineShader(WorldObjectShader):
         material = wobject.material
         # Determine how many vertices are needed
         offset, size = self._get_n(wobject.geometry.positions)
-        # Determine in what render passes this objects must be rendered
-        render_mask = wobject.render_mask
-        if not render_mask:
-            render_mask = RenderMask.all
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif self["color_mode"] == "uniform":
+
+        render_mask = 0
+        if wobject.render_mask:
+            render_mask = wobject.render_mask
+        elif material.is_transparent:
+            render_mask = RenderMask.transparent
+        else:
+            # Get what passes are needed for the color
+            if self["color_mode"] == "uniform":
                 if material.color_is_transparent:
-                    render_mask = RenderMask.transparent
-                elif material.aa:
-                    render_mask = RenderMask.all
+                    render_mask |= RenderMask.transparent
                 else:
-                    render_mask = RenderMask.opaque
+                    render_mask |= RenderMask.opaque
             elif self["color_mode"] in ("vertex", "face"):
                 if self["color_buffer_channels"] in (2, 4):
-                    render_mask = RenderMask.all
-                elif material.aa:
-                    render_mask = RenderMask.all
+                    render_mask |= RenderMask.all
                 else:
-                    render_mask = RenderMask.opaque
+                    render_mask |= RenderMask.opaque
             elif self["color_mode"] in ("vertex_map", "face_map"):
                 if self["colormap_nchannels"] in (2, 4):
-                    render_mask = RenderMask.all
-                elif material.aa:
-                    render_mask = RenderMask.all
+                    render_mask |= RenderMask.all
                 else:
-                    render_mask = RenderMask.opaque
+                    render_mask |= RenderMask.opaque
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
+            # Need transparency for aa
+            if material.aa:
+                render_mask |= RenderMask.transparent
 
         return {
             "indices": (size, 1, offset, 0),
