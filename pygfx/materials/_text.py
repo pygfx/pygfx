@@ -92,7 +92,7 @@ class TextMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
-        self._store.color_is_transparent = color < 1
+        self._store.color_is_transparent = color.a < 1
 
     @property
     def color_is_transparent(self):
@@ -121,7 +121,7 @@ class TextMaterial(Material):
         outline_color = Color(outline_color)
         self.uniform_buffer.data["outline_color"] = outline_color
         self.uniform_buffer.update_range(0, 1)
-        self._store.outline_color_is_transparent = outline_color < 1
+        self._store.outline_color_is_transparent = outline_color.a < 1
 
     @property
     def outline_color_is_transparent(self):
