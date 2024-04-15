@@ -81,7 +81,7 @@ class PointsMaterial(Material):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
         self.uniform_buffer.update_range(0, 1)
-        self._store.color_is_transparent = 0 < color.a < 1
+        self._store.color_is_transparent = color.a < 1
 
     @property
     def color_is_transparent(self):
@@ -260,7 +260,7 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_color = Color(edge_color)
         self.uniform_buffer.data["edge_color"] = edge_color
         self.uniform_buffer.update_range(0, 1)
-        self._store.edge_color_is_transparent = 0 < edge_color.a < 1
+        self._store.edge_color_is_transparent = edge_color.a < 1
 
     @property
     def edge_color_is_transparent(self):
