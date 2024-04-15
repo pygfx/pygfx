@@ -1,6 +1,6 @@
 """
-Text justification
-==================
+Text align
+==========
 
 Example demonstrating the capabilities of text to be aligned and justified
 according to the user's decision.
@@ -12,35 +12,46 @@ justification of text anchored to the center of the screen.
 # sphinx_gallery_pygfx_docs = 'screenshot'
 # sphinx_gallery_pygfx_test = 'run'
 
-
-import sys
+import argparse
+import os
 
 from wgpu.gui.auto import WgpuCanvas, run
 
 import pygfx as gfx
-import argparse
 
 scene = gfx.Scene()
 
 
 scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
 
-parser = argparse.ArgumentParser(description="Process direction parameter")
-parser.add_argument("--direction", type=str, default="ltr", help="Direction parameter")
-parser.add_argument(
-    "text",
-    type=str,
-    default=(
+if "PYTEST_RUNNING_TEST" not in os.environ:
+    parser = argparse.ArgumentParser(description="Text Alignment Demo")
+    parser.add_argument(
+        "--direction", type=str, default="ltr", help="Direction parameter"
+    )
+    parser.add_argument(
+        "text",
+        type=str,
+        default=(
+            "Lorem ipsum\n"
+            "Bonjour World Olá\n"  # some text that isn't equal in line
+            "pygfx\n"  # a line with exactly 1 word
+            "last line"
+        ),
+        help="Text to display",
+    )
+    args = parser.parse_args()
+    direction = args.direction
+    text = args.text
+else:
+    direction = "ltr"
+    text = (
         "Lorem ipsum\n"
         "Bonjour World Olá\n"  # some text that isn't equal in line
         "pygfx\n"  # a line with exactly 1 word
         "last line"
-    ),
-    help="Text to display",
-)
-args = parser.parse_args()
-direction = args.direction
-text = args.text
+    )
+
 
 print(f"========= Text =========\n{text}\n========================")
 
