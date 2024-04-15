@@ -143,7 +143,7 @@ class WorldObject(EventTarget, RootTrackable):
         self._parent: weakref.ReferenceType[WorldObject] = None
 
         #: Subtrees of the scene graph that depend on this object.
-        self.children: List[WorldObject] = []
+        self._children: List[WorldObject] = []
 
         self.geometry = geometry
         self.material = material
@@ -328,6 +328,11 @@ class WorldObject(EventTarget, RootTrackable):
         else:
             return self._parent()
 
+    @property
+    def children(self) -> List["WorldObject"]:
+        """List of children of this object. (read-only)"""
+        return tuple(self._children)
+
     def add(self, *objects, before=None, keep_world_matrix=False) -> "WorldObject":
         """Add child objects.
 
@@ -355,16 +360,16 @@ class WorldObject(EventTarget, RootTrackable):
                 obj.parent.remove(obj, keep_world_matrix=keep_world_matrix)
 
             if before is not None:
-                idx = self.children.index(before)
+                idx = self._children.index(before)
             else:
-                idx = len(self.children)
+                idx = len(self._children)
 
             if keep_world_matrix:
                 transform_matrix = obj.world.matrix
 
             obj._parent = weakref.ref(self)
             obj.world.parent = self.world
-            self.children.insert(idx, obj)
+            self._children.insert(idx, obj)
 
             if keep_world_matrix:
                 obj.world.matrix = transform_matrix
@@ -377,7 +382,7 @@ class WorldObject(EventTarget, RootTrackable):
         obj: WorldObject
         for obj in objects:
             try:
-                self.children.remove(obj)
+                self._children.remove(obj)
             except ValueError:
                 logger.warning("Attempting to remove object that was not a child.")
                 continue
@@ -387,10 +392,10 @@ class WorldObject(EventTarget, RootTrackable):
     def clear(self, *, keep_world_matrix=False):
         """Removes all children."""
 
-        for child in self.children:
+        for child in self._children:
             child._reset_parent(keep_world_matrix=keep_world_matrix)
 
-        self.children.clear()
+        self._children.clear()
 
     def _reset_parent(self, *, keep_world_matrix=False):
         """Sets the parent to None.
@@ -432,7 +437,7 @@ class WorldObject(EventTarget, RootTrackable):
         elif filter_fn(self):
             yield self
 
-        for child in self.children:
+        for child in self._children:
             yield from child.iter(filter_fn, skip_invisible)
 
     def get_bounding_box(self):
@@ -447,7 +452,7 @@ class WorldObject(EventTarget, RootTrackable):
 
         # Collect bounding boxes
         aabbs = []
-        for child in self.children:
+        for child in self._children:
             aabb = child.get_bounding_box()
             if aabb is not None:
                 trafo = child.local.matrix
