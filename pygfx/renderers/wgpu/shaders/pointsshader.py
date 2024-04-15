@@ -140,15 +140,39 @@ class PointsShader(WorldObjectShader):
 
         render_mask = wobject.render_mask
         if not render_mask:
-            if material.is_transparent:
-                render_mask = RenderMask.transparent
-            elif self["color_mode"] == "uniform":
+            # Establish render_mask from color
+            if self["color_mode"] == "uniform":
                 if material.color_is_transparent:
                     render_mask = RenderMask.transparent
-                else:
+                elif material.aa:
                     render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "vertex":
+                if self["color_buffer_channels"] in (2, 4):
+                    render_mask = RenderMask.all
+                elif material.aa:
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
+            elif self["color_mode"] == "vertex_map":
+                if self["colormap_nchannels"] in (2, 4):
+                    render_mask = RenderMask.all
+                elif material.aa:
+                    render_mask = RenderMask.all
+                else:
+                    render_mask = RenderMask.opaque
             else:
-                render_mask = RenderMask.all
+                raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
+            # Then overload / combine
+            if material.is_transparent:
+                render_mask = RenderMask.transparent
+            elif self["is_sprite"]:
+                if self["sprite_nchannels"] in [2, 4]:
+                    render_mask |= RenderMask.transparent
+            elif isinstance(material, PointsMarkerMaterial):
+                if material.edge_color_is_transparent:
+                    render_mask |= RenderMask.transparent
 
         return {
             "indices": (size, 1, offset, 0),
