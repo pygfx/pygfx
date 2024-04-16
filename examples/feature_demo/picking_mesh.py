@@ -27,7 +27,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 renderer.blend_mode = "weighted_plus"
 scene = gfx.Scene()
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#446")))
+scene.add(gfx.Background.from_color("#446"))
 
 im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2)

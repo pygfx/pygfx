@@ -18,7 +18,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-background = gfx.Background(None, gfx.BackgroundMaterial("#000"))
+background = gfx.Background.from_color("#000")
 
 geometry = gfx.plane_geometry(50, 50)
 plane1 = gfx.Mesh(geometry, gfx.MeshBasicMaterial(color=(1, 0, 0, 0.4)))

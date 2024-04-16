@@ -18,7 +18,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-background = gfx.Background(None, gfx.BackgroundMaterial("#000"))
+background = gfx.Background.from_color("#000")
 
 sphere = gfx.Mesh(gfx.sphere_geometry(10), gfx.MeshPhongMaterial())
 
