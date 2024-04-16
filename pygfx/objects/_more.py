@@ -3,6 +3,11 @@ import pylinalg as la
 from ._base import WorldObject
 from ..utils import unpack_bitfield
 from ..utils.transform import AffineBase, callback
+from ..materials import (
+    BackgroundMaterial,
+    # BackgroundImageMaterial,
+    # BackgroundSkyboxMaterial,
+)
 
 
 class Group(WorldObject):
@@ -59,6 +64,13 @@ class Background(WorldObject):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Background(None, material)")
         super().__init__(None, material, render_mask=render_mask, **kwargs)
+
+    @classmethod
+    def from_color(cls, *colors):
+        """Create a background with a :class:`.BackgroundMaterial`,
+        using 1 uniform color, 2 colors for a vertical gradient, or 4 colors (one for each corner).
+        """
+        return cls(None, BackgroundMaterial(*colors))
 
 
 class Line(WorldObject):
