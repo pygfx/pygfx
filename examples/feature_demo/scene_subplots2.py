@@ -18,7 +18,7 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 
 # Create a scene to display multiple times. It contains three points clouds.
 scene = gfx.Scene()
-scene.add(gfx.Background.from_color(("#ddd"))
+scene.add(gfx.Background.from_color("#ddd"))
 
 for clr, offset in [
     ("red", (-3, -1, 0)),
