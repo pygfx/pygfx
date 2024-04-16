@@ -3,7 +3,7 @@ import numpy as np
 import pylinalg as la
 
 from importlib.util import find_spec
-from functools import cache
+from functools import lru_cache
 
 
 ACCESSOR_TYPE_SIZE = {
@@ -115,7 +115,7 @@ class GLTF:
         # mark the node types
         self._node_marks = self._mark_nodes()
 
-    @cache
+    @lru_cache(maxsize=None)
     def _get_resource_by_uri(self, uri):
         for resource in self._gltf.resources:
             if resource.uri == uri:
@@ -156,7 +156,7 @@ class GLTF:
 
         return scenes
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_node(self, node_index):
         gltf = self._gltf
         node_marks = self._node_marks
@@ -238,12 +238,12 @@ class GLTF:
 
         return meshes
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_gltf_mesh(self, mesh_index, skin_index=None, load_material=True):
         mesh = self._gltf.model.meshes[mesh_index]
         return self._load_gltf_mesh_by_info(mesh, skin_index, load_material)
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_gltf_material(self, material_index):
         material = self._gltf.model.materials[material_index]
         pbr_metallic_roughness = material.pbrMetallicRoughness
@@ -305,7 +305,7 @@ class GLTF:
         # TODO: use uv_channel when pygfx supports it
         return texture
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_gltf_texture_resource(self, texture_index):
         texture_desc = self._gltf.model.textures[texture_index]
         source = texture_desc.source
@@ -318,13 +318,13 @@ class GLTF:
         # TODO: implement this after pygfx support texture custom sampler
         return texture
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_gltf_sampler(self, sampler_index):
         sampler = self._gltf.model.samplers[sampler_index]
         # Sampler( magFilter=9729, minFilter=9987, wrapS=None, wrapT=None)
         return sampler
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_image(self, image_index):
         image_info = self._gltf.model.images[image_index]
         import imageio.v3 as iio
@@ -365,7 +365,7 @@ class GLTF:
 
         return gfx.Geometry(**geometry_args)
 
-    @cache
+    @lru_cache(maxsize=None)
     def _get_buffer_memory_view(self, buffer_view_index):
         gltf = self._gltf
         buffer_view = gltf.model.bufferViews[buffer_view_index]
@@ -376,7 +376,7 @@ class GLTF:
         ]
         return view
 
-    @cache
+    @lru_cache(maxsize=None)
     def _load_accessor(self, accessor_index):
         gltf = self._gltf
         accessor = gltf.model.accessors[accessor_index]
