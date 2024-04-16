@@ -40,7 +40,7 @@ import pygfx as gfx
 canvas = WgpuCanvas(size=(1200, 400), title="lightmap")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-meshes = gfx.load_mesh(model_dir / "lightmap" / "scene.gltf")
+meshes = gfx.GLTF.load_mesh(model_dir / "lightmap" / "scene.gltf")
 
 light_map = iio.imread(model_dir / "lightmap" / "lightmap-ao-shadow.png")
 light_map_tex = gfx.Texture(light_map, dim=2)
@@ -64,10 +64,9 @@ text_camera = gfx.OrthographicCamera(12, 4)
 def create_scene(material, x_pos):
     scene = gfx.Scene()
     m = meshes[0]
-    m.geometry.texcoords1 = texcoords1
     material.light_map = light_map_tex
     mesh = gfx.Mesh(m.geometry, material)
-    mesh.local.matrix = m.local.matrix
+    mesh.local.scale = 100
     scene.add(mesh)
 
     t = gfx.Text(
