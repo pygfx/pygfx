@@ -38,7 +38,7 @@ for i in range(4):
     scene = gfx.Scene()
     scenes.append(scene)
 
-    bg = gfx.Background(None, gfx.BackgroundMaterial(bg_colors[i]))
+    bg = gfx.Background.from_color(bg_colors[i])
     scene.add(bg)
 
     # create camera, set default position, add to list
