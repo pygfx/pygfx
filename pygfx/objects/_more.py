@@ -3,11 +3,7 @@ import pylinalg as la
 from ._base import WorldObject
 from ..utils import unpack_bitfield
 from ..utils.transform import AffineBase, callback
-from ..materials import (
-    BackgroundMaterial,
-    # BackgroundImageMaterial,
-    # BackgroundSkyboxMaterial,
-)
+from ..materials import BackgroundMaterial
 
 
 class Group(WorldObject):
