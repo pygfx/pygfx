@@ -1,3 +1,13 @@
+"""
+Utilities to load gltf/glb files, completely compatible with the glTF 2.0 specification.
+
+References:
+https://raw.githubusercontent.com/KhronosGroup/glTF/main/specification/2.0/figures/gltfOverview-2.0.0d.png
+https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+
+Experimental, not yet fully implemented.
+"""
+
 import pygfx as gfx
 import numpy as np
 import pylinalg as la
@@ -6,80 +16,108 @@ from importlib.util import find_spec
 from functools import lru_cache
 
 
-ACCESSOR_TYPE_SIZE = {
-    "SCALAR": 1,
-    "VEC2": 2,
-    "VEC3": 3,
-    "VEC4": 4,
-    "MAT2": 4,
-    "MAT3": 9,
-    "MAT4": 16,
-}
-
-COMPONENT_TYPE = {
-    5120: np.int8,
-    5121: np.uint8,
-    5122: np.int16,
-    5123: np.uint16,
-    5125: np.uint32,
-    5126: np.float32,
-}
-
-ATTRIBUTE_NAME = {
-    "POSITION": "positions",
-    "NORMAL": "normals",
-    "TANGENT": "tangents",
-    "TEXCOORD_0": "texcoords",
-    "TEXCOORD_1": "texcoords1",
-    "COLOR_0": "colors",
-    "JOINTS_0": "skin_indices",
-    "WEIGHTS_0": "skin_weights",
-}
-
-
-class GLTF:
+def load_gltf(path):
     """
-    Utilities to load gltf/glb files, completely compatible with the glTF 2.0 specification.
+    Load a gltf file and return the content.
 
-    References:
-    https://raw.githubusercontent.com/KhronosGroup/glTF/main/specification/2.0/figures/gltfOverview-2.0.0d.png
-    https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+    This function requires the gltflib library.
 
-    Experimental, not yet fully implemented.
+    Parameters:
+    ----------
+    path : str
+        The path to the gltf file.
+
+    Returns:
+    ----------
+    gltf : object
+        The gltf object which contains the following attributes:
+        * `scenes`: [gfx.Group]
+        * `scene`: gfx.Group or None
+        * `cameras`: [gfx.Camera] or None
+        * `animations`: [gfx.Animation] or None
     """
+    return _GLTF(path).load()
+
+
+def load_gltf_mesh(path, materials=True):
+    """
+    Load meshes from a gltf file, without skeletons, and no transformations applied.
+
+    This function requires the gltflib library.
+
+    Parameters:
+    ----------
+    path : str
+        The path to the gltf file.
+    materials : bool
+        Whether to load materials.
+
+    Returns:
+    ----------
+    meshes : list
+        A list of pygfx.Meshes.
+    """
+    return _GLTF(path).load_mesh(materials=materials)
+
+
+class _GLTF:
+    ACCESSOR_TYPE_SIZE = {
+        "SCALAR": 1,
+        "VEC2": 2,
+        "VEC3": 3,
+        "VEC4": 4,
+        "MAT2": 4,
+        "MAT3": 9,
+        "MAT4": 16,
+    }
+
+    COMPONENT_TYPE = {
+        5120: np.int8,
+        5121: np.uint8,
+        5122: np.int16,
+        5123: np.uint16,
+        5125: np.uint32,
+        5126: np.float32,
+    }
+
+    ATTRIBUTE_NAME = {
+        "POSITION": "positions",
+        "NORMAL": "normals",
+        "TANGENT": "tangents",
+        "TEXCOORD_0": "texcoords",
+        "TEXCOORD_1": "texcoords1",
+        "COLOR_0": "colors",
+        "JOINTS_0": "skin_indices",
+        "WEIGHTS_0": "skin_weights",
+    }
 
     def __init__(self, path):
         self._path = path
         self.scene = None
         self.scenes = []
-        self.cameras = []
-        self.animations = []
+        self.cameras = None
+        self.animations = None
 
         self.__inner_load()
 
-    @classmethod
-    def load(cls, path):
+    def load(self):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
 
-        gltf = GLTF(path)
-
-        gltf.scenes = gltf._load_scenes()
-        if gltf._gltf.model.scene is not None:
-            gltf.scene = gltf.scenes[gltf._gltf.model.scene]
+        self.scenes = self._load_scenes()
+        if self._gltf.model.scene is not None:
+            self.scene = self.scenes[self._gltf.model.scene]
 
         # TODO:
-        # gltf.cameras
-        # gltf.animations
-        return gltf
+        # self.cameras
+        # self.animations
+        return self
 
-    @classmethod
-    def load_mesh(cls, path, materials=True):
+    def load_mesh(self, materials=True):
         """Only load meshes from a gltf file, without skeletons, and no transformations applied."""
 
-        gltf = GLTF(path)
         meshes = []
-        for gltf_mesh in gltf._gltf.model.meshes:
-            mesh = gltf._load_gltf_mesh_by_info(gltf_mesh, load_material=materials)
+        for gltf_mesh in self._gltf.model.meshes:
+            mesh = self._load_gltf_mesh_by_info(gltf_mesh, load_material=materials)
             meshes.extend(mesh)
         return meshes
 
@@ -206,23 +244,25 @@ class GLTF:
         meshes = []
         for primitive in mesh.primitives:
             geometry = self._load_gltf_geometry(primitive)
-            if load_material and primitive.material is not None:
-                material = self._load_gltf_material(primitive.material)
-            else:
-                material = None
+            primitive_mode = primitive.mode
 
-            primitive_mode = primitive.mode or 4
+            if primitive_mode is None:
+                primitive_mode = 4  # default to triangles
 
             if primitive_mode == 0:
-                material = material or gfx.PointsMaterial()
+                material = gfx.PointsMaterial()
                 gfx_mesh = gfx.Points(geometry, material)
 
             elif primitive_mode in (1, 2, 3):
-                material = material or gfx.LineSegmentMaterial()
+                material = gfx.LineSegmentMaterial()
                 gfx_mesh = gfx.Line(geometry, material)
 
             elif primitive_mode in (4, 5):
-                material = material or gfx.MeshBasicMaterial()
+                if load_material and primitive.material is not None:
+                    material = self._load_gltf_material(primitive.material)
+                else:
+                    material = gfx.MeshBasicMaterial()
+
                 if skin_index is not None:
                     # TODO: It's a SkinnedMesh, support it later, just use Mesh for now.
                     # gfx_mesh = gfx.SkinnedMesh(geometry, material)
@@ -272,7 +312,7 @@ class GLTF:
                 gfx_material.metalness = pbr_metallic_roughness.metallicFactor
 
         else:
-            gfx_material = gfx.MeshBasicMaterial()
+            gfx_material = gfx.MeshPhongMaterial()
 
         if material.normalTexture is not None:
             gfx_material.normal_map = self._load_gltf_texture(material.normalTexture)
@@ -349,7 +389,7 @@ class GLTF:
 
         for attr, accessor_index in primitive.attributes.__dict__.items():
             if accessor_index is not None:
-                geometry_attr = ATTRIBUTE_NAME[attr]
+                geometry_attr = self.ATTRIBUTE_NAME[attr]
                 geometry_args[geometry_attr] = self._load_accessor(accessor_index)
 
         if indices_accessor is not None:
@@ -387,9 +427,9 @@ class GLTF:
         accessor_type = accessor.type
         accessor_component_type = accessor.componentType
         accessor_count = accessor.count
-        accessor_dtype = np.dtype(COMPONENT_TYPE[accessor_component_type])
+        accessor_dtype = np.dtype(self.COMPONENT_TYPE[accessor_component_type])
         accessor_offset = accessor.byteOffset or 0
-        accessor_type_size = ACCESSOR_TYPE_SIZE[accessor_type]
+        accessor_type_size = self.ACCESSOR_TYPE_SIZE[accessor_type]
 
         if buffer_view.byteStride is not None:
             # It's a interleaved buffer
@@ -421,18 +461,25 @@ class GLTF:
 
         return ar
 
-    @classmethod
-    def print_tree(
-        cls,
-        obj: gfx.WorldObject,
-        show_pos=False,
-        show_rot=False,
-        show_scale=False,
-        level=0,
-    ):
-        """
-        helper function to print the tree structure of the scene, including the optional position, rotation, and scale of each object.
-        """
+
+def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
+    """
+    Print the tree structure of the scene, including the optional position, rotation, and scale of each object.
+
+    Parameters:
+    ----------
+    obj : gfx.WorldObject
+        The root object.
+    show_pos : bool
+        Whether to show the position of each object.
+    show_rot : bool
+        Whether to show the rotation of each object.
+    show_scale : bool
+        Whether to show the scale of each object.
+    """
+
+    def _print_tree(obj: gfx.WorldObject, level=0):
+
         name = "- " * level + f"{obj.__class__.__name__}[{obj.name}]"
         if show_pos:
             name += f"\n{'  ' * level}|- pos: {obj.local.position}"
@@ -444,10 +491,6 @@ class GLTF:
         print(name)
 
         for child in obj.children:
-            cls.print_tree(
-                child,
-                show_pos=show_pos,
-                show_rot=show_rot,
-                show_scale=show_scale,
-                level=level + 1,
-            )
+            _print_tree(child, level=level + 1)
+
+    _print_tree(obj)

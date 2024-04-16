@@ -59,7 +59,7 @@ scene.add(background)
 # Note that this lights the helmet already
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 
-gltf = gfx.GLTF.load(gltf_path)
+gltf = gfx.load_gltf(gltf_path)
 # gfx.GLTF.print_tree(gltf.scene) # Uncomment to see the tree structure
 
 m = gltf.scene.children[0]
