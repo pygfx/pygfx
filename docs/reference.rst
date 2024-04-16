@@ -120,7 +120,8 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.resources.Texture
 
     ~pygfx.utils.color.Color
-    ~pygfx.utils.gltf_loader.GLTF
+    ~pygfx.utils.load_gltf.load_gltf
+    ~pygfx.utils.load_gltf.load_gltf_mesh
     ~pygfx.utils.load.load_mesh
     ~pygfx.utils.load.load_meshes
     ~pygfx.utils.load.load_scene
