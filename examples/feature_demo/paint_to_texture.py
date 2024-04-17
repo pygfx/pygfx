@@ -19,7 +19,7 @@ import numpy as np
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 scene = gfx.Scene()
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#cde")))
+scene.add(gfx.Background.from_color("#cde"))
 
 data = np.zeros((100, 500), np.uint8)
 tex = gfx.Texture(data, dim=2)
