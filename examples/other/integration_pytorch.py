@@ -9,8 +9,7 @@ Pygfx Integration with PyTorch Lightning and PyTorch Geometric: A Practical Exam
 This code example demonstrates the integration of pygfx with PyTorch Lightning and PyTorch Geometric for training a
 graph neural network on a 3D mesh and simultaneously rendering the results in real-time using pygfx.
 
-Architecture:
-------------
+ARCHITECTURE:
 The code example follows a modular architecture, separating the concerns of data loading, model definition, training,
 and rendering. The main components of the architecture are:
 
@@ -44,8 +43,7 @@ and rendering. The main components of the architecture are:
    - Sends mesh data messages to the rendering process via a multiprocessing queue.
    - Updates the meshes in the pygfx scene based on the training progress and results.
 
-Interaction:
------------
+INTERACTION:
 The interaction between the different components of the code example is as follows:
 
 1. The ExampleDataset loads and preprocesses the 3D mesh data, calculating the Gaussian curvature at each vertex.
@@ -265,19 +263,6 @@ def create_gnn(convolutions: List[MessagePassing], activation: str = 'relu', bat
     return model
 
 
-def append_moments(x: torch.Tensor) -> torch.Tensor:
-    second_order_moments = torch.einsum('bi,bj->bij', x, x)
-
-    # Get the upper triangular indices
-    rows, cols = torch.triu_indices(second_order_moments.shape[1], second_order_moments.shape[2])
-
-    # Extract the upper triangular part for each MxM matrix
-    upper_triangular_values = second_order_moments[:, rows, cols]
-
-    appended_x = torch.cat((x, upper_triangular_values.view(x.shape[0], -1)), dim=1)
-    return appended_x
-
-
 class ExampleDataset(Dataset):
     """
     A PyTorch Geometric dataset class for loading and preprocessing a 3D mesh.
@@ -370,11 +355,13 @@ class ExampleModule(LightningModule):
     def __init__(self):
         super().__init__()
         convolutions = [
-            torch_geometric.nn.conv.ResGatedGraphConv(9, 16),
+            torch_geometric.nn.conv.ResGatedGraphConv(3, 16),
             torch_geometric.nn.conv.ResGatedGraphConv(16, 32),
+            torch_geometric.nn.conv.ResGatedGraphConv(32, 64),
+            torch_geometric.nn.conv.ResGatedGraphConv(64, 128),
         ]
-        self._gnn = create_gnn(convolutions=convolutions, activation='sine', batch_norm=False)
-        self._mlp = create_mlp(features=[32, 16, 8, 4, 1], activation='sine', batch_norm=False)
+        self._gnn = create_gnn(convolutions=convolutions, activation='gelu', batch_norm=False)
+        self._mlp = create_mlp(features=[128, 64, 32, 16, 8, 4, 1], activation='gelu', batch_norm=False)
         self._loss_fn = nn.SmoothL1Loss()
 
     def configure_optimizers(self):
@@ -383,8 +370,7 @@ class ExampleModule(LightningModule):
 
     def training_step(self, batch: Batch, index: int):
         data = batch[0]
-        x = append_moments(x=data.x)
-        embeddings = self._gnn(x=x, edge_index=data.edge_index)
+        embeddings = self._gnn(x=data.x, edge_index=data.edge_index)
         pred_k = self._mlp(embeddings).squeeze(dim=1)
         loss = self._loss_fn(pred_k, data.k)
 
@@ -485,11 +471,11 @@ class SceneHandler:
         viewport = gfx.Viewport(renderer)
         camera = gfx.PerspectiveCamera()
         camera.show_rect(left=-rect_length, right=rect_length, top=-rect_length, bottom=rect_length, view_dir=(-1, -1, -1), up=(0, 0, 1))
-        controller = gfx.OrbitController(camera=camera, register_events=viewport)
+        _ = gfx.OrbitController(camera=camera, register_events=viewport)
         light = gfx.PointLight(color=light_color, intensity=5, decay=0)
         background = SceneHandler._create_background(top_color=background_top_color, bottom_color=background_bottom_color)
         scene = gfx.Scene()
-        scene.add(light)
+        scene.add(camera.add(light))
         scene.add(background)
         return viewport, camera, scene
 
@@ -524,13 +510,10 @@ class SceneHandler:
             # otherwise, update mesh colors
             else:
                 c_pred = SceneHandler._get_vertex_colors_from_k(k=mesh_data.pred_k)
-                SceneHandler._scene_state.pred_mesh.geometry.colors = gfx.Buffer(data=c_pred)
+                SceneHandler._scene_state.pred_mesh.geometry.colors.data[:] = c_pred
+                SceneHandler._scene_state.pred_mesh.geometry.colors.update_range()
         except queue.Empty:
             pass
-
-        # place point-light at the camera's position
-        SceneHandler._gt_mesh_scene.children[0].local.position = SceneHandler._gt_mesh_camera.local.position
-        SceneHandler._pred_mesh_scene.children[0].local.position = SceneHandler._pred_mesh_camera.local.position
 
         # render white background
         SceneHandler._background_viewport.render(SceneHandler._background_scene, SceneHandler._background_camera)
