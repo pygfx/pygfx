@@ -27,7 +27,7 @@ scene = gfx.Scene()
 
 dark_gray = np.array((169, 167, 168, 255)) / 255
 light_gray = np.array((100, 100, 100, 255)) / 255
-background = gfx.Background(None, gfx.BackgroundMaterial(light_gray, dark_gray))
+background = gfx.Background.from_color(light_gray, dark_gray)
 scene.add(background)
 
 scene.add(gfx.AxesHelper(size=50))

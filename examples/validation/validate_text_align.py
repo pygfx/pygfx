@@ -19,7 +19,7 @@ import pygfx as gfx
 scene = gfx.Scene()
 
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
+scene.add(gfx.Background.from_color("#fff", "#000"))
 text = (
     " \n  \n\n"  # Some newlines and spaces before the text starts.
     "  Lorem ipsum\n"  # Some space at the very beginning of the line
