@@ -9,8 +9,8 @@ Lines in 2D
 * It includes a point that only has its z-value different, which should behave like a duplicate point.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
@@ -23,14 +23,22 @@ renderer.blend_mode = "weighted"
 
 positions = [
     # Cap
-    [0, 0, 0],
+    [-1, 0, 0],
     # Some joins / corners
-    [1, 1, 0],
-    [2, -0.5, 0],
-    [3, 0, 0],
-    # A nan point, creating a gap
-    [4, 0, 1],
+    [0, 1, 0],
+    [1, -0.5, 0],
+    [2, 0, 0],
+    # nan and inf create gaps, should trigger when *any* field is nonfinite.
+    # 4 gaps in total.
+    [2.5, 0, 1],
     [np.nan, np.nan, np.nan],
+    [3, 0, 1],
+    [np.nan, 0, 1],
+    [3.5, 0, 1],
+    [3.75, np.inf, 1],
+    [4.0, 0, 1],
+    [4.25, 0, -np.inf],
+    [4.5, 0, 1],
     [5, 0, 1],
     # A duplicate point
     [6, 1, 1],

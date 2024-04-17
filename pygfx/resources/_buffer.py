@@ -41,7 +41,7 @@ class Buffer(Resource):
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
-        self._format = None
+        detected_format = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Backends-specific attributes for internal use
@@ -56,7 +56,7 @@ class Buffer(Resource):
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
                 if len(shape) == 2:  # if not, the user does something fancy
-                    self._format = (f"{shape[-1]}x" + subformat).lstrip("1x")
+                    detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
             if the_nitems:
@@ -74,8 +74,11 @@ class Buffer(Resource):
             )
 
         if format is not None:
-            self._format = str(format)
-
+            self._store.format = str(format)
+        elif detected_format:
+            self._store.format = detected_format
+        else:
+            self._store.format = None
         self._store.nbytes = the_nbytes
         self._store.nitems = the_nitems
 
@@ -106,6 +109,11 @@ class Buffer(Resource):
     @property
     def nbytes(self):
         """The number of bytes in the buffer."""
+        # Note: many properties are stored on ._store, even if they cannot
+        # change. This is done so that whan a buffer is swapped from another, we
+        # can track what properties effectively changed. E.g. to determine
+        # whether the render_mask changes or a shader recompilation is
+        # necessary.
         return self._store.nbytes
 
     @property
@@ -116,15 +124,21 @@ class Buffer(Resource):
     @property
     def itemsize(self):
         """The number of bytes for a single item."""
-        if self._data is None:
-            # This generic solution fails when nitems is zero
-            return self._store.nbytes // self._store.nitems
-        else:
+        # Note: For regular NxM buffers this can also be calculated from the
+        # format, but not when the format is more complex / None, as with
+        # uniform buffers (structured arrays).
+        nbytes = self._store.nbytes  # deliberately touch
+        nitems = self._store.nitems  # deliberately touch
+        if nitems > 0:
+            return nbytes // nitems
+        elif self._data is not None:
             shape = self._mem.shape
             if shape:
                 shape = shape[1:]
-            factor = int(np.prod(shape)) or 1
-            return factor * self._mem.itemsize
+            nelements_per_item = int(np.prod(shape)) or 1
+            return nelements_per_item * self._mem.itemsize
+        else:
+            raise RuntimeError("Cannot determine Buffer.itemsize")
 
     @property
     def format(self):
@@ -134,7 +148,7 @@ class Buffer(Resource):
         or 3xf4 for 3xfloat32), but can also be a overridden to a
         backend-specific format. Can also be None e.g. for uniform buffers.
         """
-        return self._format
+        return self._store.format
 
     @property
     def vertex_byte_range(self):
@@ -201,8 +215,8 @@ class Buffer(Resource):
 
     def _get_subdata(self, offset, size):
         """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy
-        if offset == 0 and size == self.nitems and self.mem.contiguous:
+        # If this is a full range, this is easy (and fast)
+        if offset == 0 and size == self.nitems and self.mem.c_contiguous:
             return self.mem
         # Get a numpy array, because memoryviews do not support nd slicing
         if isinstance(self.data, np.ndarray):

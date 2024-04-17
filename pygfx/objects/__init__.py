@@ -1,5 +1,7 @@
 """ World Objects and Events.
 
+.. currentmodule:: pygfx.objects
+
 .. rubric:: Objects
 .. autosummary::
     :toctree: objects/
@@ -25,8 +27,6 @@
     DirectionalLightShadow
     SpotLightShadow
     PointLightShadow
-
-.. currentmodule:: pygfx.objects
 
 .. rubric:: Events
 .. autosummary::

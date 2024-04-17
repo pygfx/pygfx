@@ -9,7 +9,7 @@ from .testutils import can_use_wgpu_lib
 
 
 def test_shared_object_not_created_at_import():
-    code = "import pygfx; print(pygfx.renderers.wgpu._shared.Shared._instance)"
+    code = "import pygfx; print(pygfx.renderers.wgpu.engine.shared.Shared._instance)"
     p = subprocess.run(
         [
             sys.executable,
@@ -32,7 +32,7 @@ def test_shared_object():
     if not can_use_wgpu_lib:
         pytest.skip("Skipping tests that need the wgpu lib", allow_module_level=True)
 
-    get_shared = gfx.renderers.wgpu._shared.get_shared
+    get_shared = gfx.renderers.wgpu.get_shared
 
     assert get_shared() is not None
     assert isinstance(get_shared().adapter, wgpu.GPUAdapter)

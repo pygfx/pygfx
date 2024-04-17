@@ -4,10 +4,11 @@ Text snake
 Example showing a text with picking and custom layout.
 """
 
-# sphinx_gallery_pygfx_animate = True
-# sphinx_gallery_pygfx_target_name = "renderer"
+# sphinx_gallery_pygfx_docs = 'animate 3s'
+# sphinx_gallery_pygfx_test = 'run'
 
-import time
+
+from time import perf_counter
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -24,12 +25,12 @@ class SnakeTextGeometry(gfx.TextGeometry):
 
         for i in range(self.positions.nitems):
             x, y = self.positions.data[i]
-            y += 5 * np.sin(x * 0.1 + time.time() * 2)
+            y += 8 * np.sin(x * 0.1 + perf_counter() * 3)
             self.positions.data[i] = x, y
 
 
 # Create the text
-s = "**Lorem ipsum** dolor sit amet, *consectetur adipiscing elit*, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+s = "**Lorem ipsum** dolor sit amet, *consectetur adipiscing elit*, sed do eiusmod tempor ..."
 text1 = gfx.Text(
     SnakeTextGeometry(markdown=s, font_size=10),
     gfx.TextMaterial(color="#fff"),
@@ -44,7 +45,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 # Put the scene in as box, with lights, for visual appeal.
 box = gfx.Mesh(
     gfx.box_geometry(1000, 1000, 1000),
-    gfx.MeshPhongMaterial(),
+    gfx.MeshPhongMaterial(pick_write=True),
 )
 scene.add(box)
 scene.add(gfx.AmbientLight())

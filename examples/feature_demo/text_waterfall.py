@@ -7,7 +7,8 @@ contents of the glyph atlas. One goal of this example is to strain the
 text rendering to its limits.
 """
 
-# sphinx_gallery_pygfx_animate = False
+# sphinx_gallery_pygfx_docs = 'animate 5s'
+# sphinx_gallery_pygfx_test = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -20,7 +21,7 @@ glyph_atlas = gfx.utils.text.glyph_atlas
 glyph_atlas.clear_free_regions = True  # So we can see regions being freed
 
 # Add background
-background = gfx.Background(None, gfx.BackgroundMaterial("#dde", "#fff"))
+background = gfx.Background.from_color("#dde", "#fff")
 scene.add(background)
 
 # Add an image that shows the glyph atlas

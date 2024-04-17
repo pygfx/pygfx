@@ -47,12 +47,12 @@ class ImageBasicMaterial(Material):
         dimensionality of the texture map can be 1D, 2D or 3D, but
         should match the number of channels in the image.
         """
-        return self._map
+        return self._store.map
 
     @map.setter
     def map(self, map):
         assert map is None or isinstance(map, Texture)
-        self._map = map
+        self._store.map = map
 
     @property
     def clim(self):

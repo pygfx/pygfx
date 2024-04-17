@@ -74,7 +74,7 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.materials.MeshSliceMaterial
     ~pygfx.materials.MeshStandardMaterial
     ~pygfx.materials.PointsMaterial
-    ~pygfx.materials.GaussianPointsMaterial
+    ~pygfx.materials.PointsGaussianBlobMaterial
     ~pygfx.materials.LineMaterial
     ~pygfx.materials.LineThinMaterial
     ~pygfx.materials.LineThinSegmentMaterial
@@ -122,6 +122,7 @@ Currently this includes the following classes, which comprise the public API:
     ~pygfx.utils.color.Color
     ~pygfx.utils.load.load_mesh
     ~pygfx.utils.load.load_meshes
+    ~pygfx.utils.load.load_scene
     ~pygfx.utils.show.show
     ~pygfx.utils.show.Display
     ~pygfx.utils.viewport.Viewport

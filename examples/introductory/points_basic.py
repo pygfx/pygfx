@@ -6,7 +6,8 @@ Rendering Points
 Render Points
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 
 import numpy as np
@@ -24,13 +25,11 @@ sizes = np.random.rand(100).astype(np.float32) * 50
 colors = np.random.rand(100, 4).astype(np.float32)
 geometry = gfx.Geometry(positions=positions, sizes=sizes, colors=colors)
 
-material = gfx.PointsMaterial(color_mode="vertex", vertex_sizes=True)
+material = gfx.PointsMaterial(color_mode="vertex", size_mode="vertex")
 points = gfx.Points(geometry, material)
 scene.add(points)
 
-scene.add(
-    gfx.Background(None, gfx.BackgroundMaterial((0.2, 0.0, 0, 1), (0, 0.0, 0.2, 1)))
-)
+scene.add(gfx.Background.from_color((0.2, 0.0, 0, 1), (0, 0.0, 0.2, 1)))
 
 camera = gfx.NDCCamera()
 

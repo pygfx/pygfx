@@ -1,1 +1,2 @@
-.. rubric:: Feature Demos
+Feature Demos
+-------------

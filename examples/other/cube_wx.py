@@ -5,13 +5,14 @@ Simple Cube with WX
 Example showing a single geometric cube.
 """
 
-# run_example = false
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
-import pygfx as gfx
-
+import pylinalg as la
 import wx
 from wgpu.gui.wx import WgpuCanvas
 
+import pygfx as gfx
 
 app = wx.App()
 
@@ -26,15 +27,18 @@ cube = gfx.Mesh(
 scene.add(cube)
 
 scene.add(gfx.AmbientLight())
-scene.add(gfx.DirectionalLight(position=(0, 0, 1)))
+
+directional_light = gfx.DirectionalLight()
+directional_light.world.position = (0, 0, 1)
+scene.add(directional_light)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)
-camera.position.z = 400
+camera.world.position = (0, 0, 400)
 
 
 def animate():
-    rot = gfx.linalg.Quaternion().set_from_euler(gfx.linalg.Euler(0.005, 0.01))
-    cube.rotation.multiply(rot)
+    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
     renderer.render(scene, camera)
     canvas.request_draw()

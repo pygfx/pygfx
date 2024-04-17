@@ -9,10 +9,14 @@ It ignores the object's transform and camera, and it does not make use
 of geometry or material properties.
 
 It demonstrates:
+
 * How you can define a new WorldObject and Material.
 * How to define a shader for it.
 
 """
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
@@ -25,7 +29,7 @@ from pygfx.renderers.wgpu import (
 )
 
 
-# %% Custom object, material, and matching render function
+# Custom object, material, and matching render function
 
 
 class Triangle(gfx.WorldObject):
@@ -98,9 +102,8 @@ class TriangleShader(WorldObjectShader):
         """
 
 
-# %% Setup scene
+# Setup scene
 
-# sphinx_gallery_pygfx_render = True
 renderer = gfx.WgpuRenderer(WgpuCanvas())
 camera = gfx.NDCCamera()  # This material does not actually use the camera
 

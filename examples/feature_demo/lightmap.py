@@ -2,18 +2,16 @@
 Lightmap
 ========
 
-
 This example demonstrates the lightmap effects for MeshBasicMaterial, MeshPhongMaterial, and MeshStandardMaterial.
 """
 
 ################################################################################
-# .. warning::
-#     An external model is needed to run this example.
+# .. note::
 #
-# To run this example, you need a model from the source repo's example
-# folder. If you are running this example from a local copy of the code (dev
-# install) no further actions are needed. Otherwise, you may have to replace
-# the path below to point to the location of the model.
+#   To run this example, you need a model from the source repo's example
+#   folder. If you are running this example from a local copy of the code (dev
+#   install) no further actions are needed. Otherwise, you may have to replace
+#   the path below to point to the location of the model.
 
 import os
 from pathlib import Path
@@ -29,7 +27,8 @@ except NameError:
 ################################################################################
 # Once the path is set correctly, you can use the model as follows:
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 import numpy as np
@@ -41,7 +40,7 @@ import pygfx as gfx
 canvas = WgpuCanvas(size=(1200, 400), title="lightmap")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-meshes = gfx.load_meshes(model_dir / "lightmap" / "scene.gltf")
+meshes = gfx.load_mesh(model_dir / "lightmap" / "scene.gltf")
 
 light_map = iio.imread(model_dir / "lightmap" / "lightmap-ao-shadow.png")
 light_map_tex = gfx.Texture(light_map, dim=2)
@@ -68,6 +67,7 @@ def create_scene(material, x_pos):
     m.geometry.texcoords1 = texcoords1
     material.light_map = light_map_tex
     mesh = gfx.Mesh(m.geometry, material)
+    mesh.local.matrix = m.local.matrix
     scene.add(mesh)
 
     t = gfx.Text(

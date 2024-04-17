@@ -7,7 +7,8 @@ Example showing a 3D scene, with an object overload via
 overlay render pass.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

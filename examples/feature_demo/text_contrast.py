@@ -13,8 +13,8 @@ On the right the text uses an outline to give a good appearance on any
 background.
 """
 
-# sphinx_gallery_pygfx_animate = True
-# sphinx_gallery_pygfx_target_name = "renderer"
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 
 from wgpu.gui.auto import WgpuCanvas, run
@@ -23,7 +23,7 @@ import pygfx as gfx
 scene = gfx.Scene()
 
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
+scene.add(gfx.Background.from_color("#fff", "#000"))
 
 geo = gfx.TextGeometry(text="Lorem ipsum", font_size=40, screen_space=True)
 

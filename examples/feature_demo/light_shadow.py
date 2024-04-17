@@ -7,7 +7,8 @@ This example demonstrates the effects of directional light shadows (from
 DirectionalLight) and omnidirectional shadows (from PointLight).
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import time
 import math

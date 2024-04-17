@@ -1,6 +1,10 @@
 import re
 
-text_prog = re.compile(r"\s+")
+text_prog = re.compile(
+    r"(\n)+"  # newline (nl) -- match first so that it doesn't get included in \s
+    r"|([ \r\f\t])+"  # whitespace (ws) (except for newline as it is matched above)
+    r"|(\S)+"  # not whitespace
+)
 
 
 def tokenize_text(text):
@@ -20,7 +24,13 @@ def tokenize_text(text):
             yield "other", other
 
         s = match.group()
-        yield "ws", s
+        if match.group(1):
+            yield "nl", s
+        elif match.group(2):
+            yield "ws", s
+        else:
+            yield "other", s
+
         pos = match.end()
 
 

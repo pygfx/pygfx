@@ -9,7 +9,8 @@ rectangles near the near and far clipping planes.
 * The greener square should be in the upper-left.
 """
 
-# test_example = true
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -20,7 +21,7 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
 
-# %% Select near, far, and camera
+# Select near, far, and camera
 
 # With the ortho camera, you can pick any values you like, also negative
 # near values. With the perspective camera you'll want to pick a small
@@ -36,9 +37,7 @@ else:
     camera = gfx.PerspectiveCamera(50, 1, depth_range=(near, far))
 
 
-# %% Create four planes near the z-clipping planes
-
-# sphinx_gallery_pygfx_render = True
+# Create four planes near the z-clipping planes
 
 geometry = gfx.plane_geometry(1, 1)
 green_material = gfx.MeshBasicMaterial(color=(0, 0.8, 0.2, 1))

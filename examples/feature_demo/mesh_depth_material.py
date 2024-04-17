@@ -5,11 +5,14 @@ Depth Material
 A custom material for drawing geometry by depth
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
-from pygfx.renderers.wgpu.meshshader import MeshShader
+from pygfx.renderers.wgpu.shaders.meshshader import MeshShader
 
 
 class DepthMaterial(gfx.MeshBasicMaterial):
@@ -101,9 +104,7 @@ class DepthShader(MeshShader):
         """
 
 
-# %% Setup scene
-
-# sphinx_gallery_pygfx_render = True
+# Setup scene
 
 renderer = gfx.WgpuRenderer(WgpuCanvas(size=(640, 480)))
 

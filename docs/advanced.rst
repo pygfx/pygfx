@@ -6,4 +6,5 @@ Advanced wgpu
 
     advanced_api.rst
     advanced_shaders.rst
+    using_pygfx_gallery_scraper.rst
 

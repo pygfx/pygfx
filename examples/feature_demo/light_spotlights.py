@@ -7,7 +7,8 @@ Spotlights
 Spotlights example.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import time
 import math

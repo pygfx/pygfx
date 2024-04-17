@@ -12,7 +12,8 @@ in this directory, or *any* of its parent directories.
 
 """
 
-# run_example = false - because it depends on external files
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
 from pathlib import Path
 
@@ -54,7 +55,7 @@ def configure(obj):
 
 
 # Load scene
-scene.add(*gfx.load_meshes(gltf_path.as_posix()))
+scene.add(*gfx.load_mesh(gltf_path.as_posix()))
 scene.traverse(configure)
 
 # Add ambient light

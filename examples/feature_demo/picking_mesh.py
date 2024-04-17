@@ -10,7 +10,8 @@ work on such objects, the ``renderer.blend_mode`` must be set to
 "weighted_plus".
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 # todo: if we have per-vertex coloring, we can paint on the mesh instead :D
 
@@ -26,19 +27,21 @@ renderer = gfx.renderers.WgpuRenderer(canvas)
 renderer.blend_mode = "weighted_plus"
 scene = gfx.Scene()
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#446")))
+scene.add(gfx.Background.from_color("#446"))
 
 im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2)
 
 cube = gfx.Mesh(
     gfx.box_geometry(200, 200, 200),
-    gfx.MeshBasicMaterial(map=tex, opacity=0.8),
+    gfx.MeshBasicMaterial(map=tex, opacity=0.8, pick_write=True),
 )
 cube.local.x += 150
 scene.add(cube)
 
-torus = gfx.Mesh(gfx.torus_knot_geometry(100, 20, 128, 32), gfx.MeshPhongMaterial())
+torus = gfx.Mesh(
+    gfx.torus_knot_geometry(100, 20, 128, 32), gfx.MeshPhongMaterial(pick_write=True)
+)
 torus.local.x -= 150
 scene.add(torus)
 

@@ -1,10 +1,9 @@
 """Helpers for visual debugging of scenes.
 
+.. currentmodule:: pygfx.helpers
+
 This module contains a collection of WorldObjects that can be useful
 when debugging a scene or to create reference points within a scene.
-
-
-.. currentmodule:: pygfx.helpers
 
 .. autosummary::
     :toctree: helpers/

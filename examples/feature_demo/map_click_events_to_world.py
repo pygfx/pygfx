@@ -6,7 +6,8 @@ This shows how to map from the screen to the world
 by adding scatter points at click event locations
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 
@@ -37,7 +38,7 @@ for i in range(4):
     scene = gfx.Scene()
     scenes.append(scene)
 
-    bg = gfx.Background(None, gfx.BackgroundMaterial(bg_colors[i]))
+    bg = gfx.Background.from_color(bg_colors[i])
     scene.add(bg)
 
     # create camera, set default position, add to list

@@ -5,7 +5,8 @@ Volume Rendering 1
 Render a volume. Shift-click to draw white blobs inside the volume.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 import numpy as np

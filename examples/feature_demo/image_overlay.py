@@ -5,6 +5,9 @@ Image with another image overlaid
 Show an image with another image overlaid with alpha blending.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import numpy as np
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
@@ -14,7 +17,7 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-# %% add image
+# add image
 
 im = iio.imread("imageio:coffee.png")
 
@@ -24,9 +27,7 @@ image = gfx.Image(
 )
 scene.add(image)
 
-# %% make overlay using red values
-
-# sphinx_gallery_pygfx_render = True
+# make overlay using red values
 
 # empty array for overlay, shape is [nrows, ncols, RGBA]
 overlay = np.zeros(shape=(*im.shape[:2], 4), dtype=np.float32)

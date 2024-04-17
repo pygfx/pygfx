@@ -7,6 +7,7 @@ Example that implements a custom object and renders it.
 This example draws multiple triangles. This is more or a full-fledged object.
 
 It demonstrates:
+
 * How you can define a new WorldObject and Material.
 * How to define a shader for it.
 * The use of uniforms for material properties.
@@ -15,6 +16,9 @@ It demonstrates:
 * Shader templating.
 
 """
+
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 import wgpu
@@ -28,7 +32,7 @@ from pygfx.renderers.wgpu import (
 )
 
 
-# %% Custom object, material, and matching render function
+# Custom object, material, and matching render function
 
 
 class Triangle(gfx.WorldObject):
@@ -170,9 +174,7 @@ class TriangleShader(WorldObjectShader):
         """
 
 
-# %% Setup scene
-
-# sphinx_gallery_pygfx_render = True
+# Setup scene
 
 renderer = gfx.WgpuRenderer(WgpuCanvas())
 camera = gfx.OrthographicCamera(10, 10)

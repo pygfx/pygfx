@@ -1,13 +1,13 @@
 """
 Containers for Material data.
 
+.. currentmodule:: pygfx.materials
+
 Materials define how a WorldObject is rendered. Many objects support multiple
 different materials, e.g. the materials that can be applied to a Mesh object
 mostly determine how the object is affected by lighs. Further, the materials
 have properties to influence the rendering, like colors, line thickness,
 colormaps, the strength of specular reflections, etc.
-
-.. currentmodule:: pygfx.materials
 
 .. autosummary::
     :toctree: materials/
@@ -25,7 +25,9 @@ colormaps, the strength of specular reflections, etc.
     MeshStandardMaterial
 
     PointsMaterial
-    GaussianPointsMaterial
+    PointsGaussianBlobMaterial
+    PointsMarkerMaterial
+    PointsSpriteMaterial
 
     LineMaterial
     LineSegmentMaterial
@@ -62,7 +64,12 @@ from ._mesh import (
     MeshSliceMaterial,
     MeshStandardMaterial,
 )
-from ._points import PointsMaterial, GaussianPointsMaterial
+from ._points import (
+    PointsMaterial,
+    PointsGaussianBlobMaterial,
+    PointsMarkerMaterial,
+    PointsSpriteMaterial,
+)
 from ._line import (
     LineMaterial,
     LineSegmentMaterial,

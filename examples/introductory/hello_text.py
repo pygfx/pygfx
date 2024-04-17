@@ -5,9 +5,10 @@ Hello text
 Example showing text in world and screen space.
 """
 
-# sphinx_gallery_pygfx_animate = True
-# sphinx_gallery_pygfx_target_name = "disp"
+# sphinx_gallery_pygfx_docs = 'animate 4s'
+# sphinx_gallery_pygfx_test = 'run'
 
+from time import perf_counter
 
 import pygfx as gfx
 import pylinalg as la
@@ -58,8 +59,15 @@ light.local.position = (0, 0, 1)
 scene.add(light)
 
 
+t_last = perf_counter()
+
+
 def before_render():
-    rot = la.quat_from_euler((0.005, 0.01), order="XY")
+    global t_last
+    t_new = perf_counter()
+    dt = t_new - t_last
+    t_last = t_new
+    rot = la.quat_from_euler((0.25 * dt, 0.5 * dt), order="XY")
     plane.local.rotation = la.quat_mul(rot, plane.local.rotation)
 
 

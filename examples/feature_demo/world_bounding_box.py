@@ -7,7 +7,8 @@ Prints the world bounding box of the scene which used
 to trigger an Exception.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 import numpy as np

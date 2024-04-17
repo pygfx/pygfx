@@ -1,4 +1,5 @@
-from pygfx.renderers.wgpu import _shaderbase as shadercomposer
+from pygfx.renderers.wgpu.shader import BaseShader
+from pygfx.renderers.wgpu.shader.base1 import resolve_depth_output
 from pygfx.renderers.wgpu import Binding
 from pygfx.utils import array_from_shadertype
 from pygfx import Buffer
@@ -7,7 +8,7 @@ import numpy as np
 
 
 def test_templating():
-    class MyShader(shadercomposer.BaseShader):
+    class MyShader(BaseShader):
         def get_code(self):
             return """
             $$ if foo
@@ -34,7 +35,7 @@ def test_templating():
     assert shader.generate_wgsl().strip() == "x = 42"
 
     # Inline block notation
-    class MyShader(shadercomposer.BaseShader):
+    class MyShader(BaseShader):
         def get_code(self):
             return """
             {$ if foo $} 1 {$ else $} 2 {$ endif $}
@@ -46,7 +47,7 @@ def test_templating():
 
 
 def test_logic_beyond_templating():
-    class MyShader(shadercomposer.BaseShader):
+    class MyShader(BaseShader):
         def get_code(self):
             if self["foo"]:
                 return "x = {{bar + 1}}"
@@ -67,7 +68,7 @@ def test_logic_beyond_templating():
 
 
 def test_uniform_definitions():
-    class MyShader(shadercomposer.BaseShader):
+    class MyShader(BaseShader):
         def get_code(self):
             return ""
 
@@ -175,7 +176,6 @@ def test_uniform_definitions():
 
 
 def test_resolve_depth_output():
-    resolve_depth_output = shadercomposer.resolve_depth_output
 
     code1 = """
     struct FragmentOutput {

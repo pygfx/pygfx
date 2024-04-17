@@ -6,7 +6,8 @@ Example to demonstrate the Gizmo that can be used to transform world objects.
 Click the center sphere to toggle between object-space, world-space, and screen-space.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

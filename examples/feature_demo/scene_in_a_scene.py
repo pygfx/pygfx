@@ -12,8 +12,8 @@ The sub-scene is rendered to a texture, and that texture is used for the
 surface of the cube in the outer scene.
 """
 
-# sphinx_gallery_pygfx_render = True
-# sphinx_gallery_pygfx_target_name = "renderer2"
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 import imageio.v3 as iio
@@ -29,7 +29,7 @@ texture1 = gfx.Texture(dim=2, size=(200, 200, 1), format="rgba8unorm")
 renderer1 = gfx.renderers.WgpuRenderer(texture1)
 scene1 = gfx.Scene()
 
-background1 = gfx.Background(None, gfx.BackgroundMaterial((0, 0.5, 0, 1)))
+background1 = gfx.Background.from_color((0, 0.5, 0, 1))
 scene1.add(background1)
 
 im = iio.imread("imageio:bricks.jpg").astype(np.float32) / 255
@@ -47,7 +47,8 @@ scene1.add(gfx.AmbientLight(), camera1.add(gfx.DirectionalLight()))
 
 # Then create the actual scene, in the visible canvas
 
-renderer2 = gfx.renderers.WgpuRenderer(WgpuCanvas())
+canvas = WgpuCanvas()  # for gallery scraper, bc we have 2 renderers
+renderer2 = gfx.renderers.WgpuRenderer(canvas)
 scene2 = gfx.Scene()
 
 geometry2 = gfx.box_geometry(200, 200, 200)

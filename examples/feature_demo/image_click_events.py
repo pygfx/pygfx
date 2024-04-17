@@ -5,6 +5,9 @@ Image Click Events
 Show an image and print the x, y image data coordinates for click events.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
+
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -14,15 +17,14 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-# %% add image
+# add image
 
-# sphinx_gallery_pygfx_render = True
 
 im = iio.imread("imageio:astronaut.png")
 
 image = gfx.Image(
     gfx.Geometry(grid=gfx.Texture(im, dim=2)),
-    gfx.ImageBasicMaterial(clim=(0, 255)),
+    gfx.ImageBasicMaterial(clim=(0, 255), pick_write=True),
 )
 scene.add(image)
 

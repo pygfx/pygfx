@@ -1,5 +1,4 @@
 """
-
 PBR Rendering 2
 ===============
 
@@ -7,14 +6,12 @@ This example shows the lighting rendering affect of materials with different
 metalness and roughness. Every second sphere has an IBL environment map on it.
 """
 
-# run_example = false
-# sphinx_gallery_pygfx_animate = True
-# sphinx_gallery_pygfx_duration = 3
-# sphinx_gallery_pygfx_lossless = False
+# sphinx_gallery_pygfx_docs = 'animate 4s'
+# sphinx_gallery_pygfx_test = 'run'
 
 import math
+from time import perf_counter
 from colorsys import hls_to_rgb
-from itertools import count
 
 import imageio.v3 as iio
 import numpy as np
@@ -24,7 +21,6 @@ import pygfx as gfx
 import pylinalg as la
 
 # Init
-frame_idx = count()  # counter for animation
 canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
@@ -97,14 +93,16 @@ camera.show_object(scene, view_dir=(-2, -1.5, -3), scale=1.2)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
+t0 = perf_counter()
+
 
 def animate():
-    timer = next(frame_idx) / 30
+    t = perf_counter() - t0
 
     point_light.local.position = (
-        math.sin(timer / 30 * (2 * np.pi)) * 300,
-        math.cos(timer * 2 / 30 * (2 * np.pi)) * 400,
-        math.cos(timer / 30 * (2 * np.pi)) * 300,
+        math.sin(t / 30 * (2 * np.pi)) * 300,
+        math.cos(t * 2 / 30 * (2 * np.pi)) * 400,
+        math.cos(t / 30 * (2 * np.pi)) * 300,
     )
 
     renderer.render(scene, camera)

@@ -5,7 +5,8 @@ Subplots 2
 Like scene_side_by_side, but now with a more plot-like idea, and mouse interaction.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
@@ -17,7 +18,7 @@ renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
 
 # Create a scene to display multiple times. It contains three points clouds.
 scene = gfx.Scene()
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#ddd")))
+scene.add(gfx.Background.from_color("#ddd"))
 
 for clr, offset in [
     ("red", (-3, -1, 0)),
@@ -38,7 +39,7 @@ for clr, offset in [
 # Background
 viewport0 = gfx.Viewport(renderer)
 camera0 = gfx.NDCCamera()
-scene0 = gfx.Background(None, gfx.BackgroundMaterial("#fff"))
+scene0 = gfx.Background.from_color("#fff")
 
 # Create view 1 - xy
 viewport1 = gfx.Viewport(renderer)

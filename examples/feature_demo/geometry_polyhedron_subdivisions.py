@@ -5,8 +5,8 @@ Subdivision
 Example showing subdivided polyhedrons.
 """
 
-# sphinx_gallery_pygfx_render = True
-# sphinx_gallery_pygfx_target_name = "disp"
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import pygfx as gfx
 

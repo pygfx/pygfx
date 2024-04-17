@@ -8,7 +8,8 @@ Press 's' to save the state, and
 press 'l' to load the last saved state.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
@@ -35,7 +36,7 @@ for i, cube in enumerate(cubes):
 
 dark_gray = np.array((169, 167, 168, 255)) / 255
 light_gray = np.array((100, 100, 100, 255)) / 255
-background = gfx.Background(None, gfx.BackgroundMaterial(light_gray, dark_gray))
+background = gfx.Background.from_color(light_gray, dark_gray)
 scene.add(background)
 
 camera = gfx.PerspectiveCamera(70, 16 / 9)

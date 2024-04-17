@@ -9,7 +9,8 @@ uses a low-level approach without using the Viewport object. See
 scene_subplot2.py for a slightly higher-level approach.
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run

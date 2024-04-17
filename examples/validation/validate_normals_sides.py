@@ -10,8 +10,8 @@ This shows a flattened cylinder, with normal lines sticking out both
 at the front and back faces.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx

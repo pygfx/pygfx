@@ -1,9 +1,10 @@
-# run_example = false
-
 """
 Integrate pygfx in Qt
 =====================
 """
+
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
 import random
 

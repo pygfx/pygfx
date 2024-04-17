@@ -1,6 +1,8 @@
 """
 Utility functions for pygfx.
 
+.. currentmodule:: pygfx.utils
+
 .. autosummary::
     :toctree: utils/
     :template: ../_templates/custom_layout.rst
@@ -8,10 +10,12 @@ Utility functions for pygfx.
     Color
     load.load_mesh
     load.load_meshes
+    load.load_scene
     show.show
     show.Display
     viewport.Viewport
-    text.font_manager
+    text.FontManager
+    enums
     cm
 
 Transform classes
@@ -37,6 +41,7 @@ import logging
 import numpy as np
 
 from .color import Color  # noqa: F401
+from . import enums  # noqa: F401
 from . import cm  # noqa: F401
 from ._dirs import get_resources_dir, get_cache_dir  # noqa: F401
 

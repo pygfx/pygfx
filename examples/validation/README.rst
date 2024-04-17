@@ -1,1 +1,2 @@
-.. rubric:: Validation Examples
+Validation Examples
+-------------------

@@ -6,7 +6,8 @@ Example with a skybox background in a rotating scene.
 
 """
 
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run

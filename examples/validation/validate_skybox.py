@@ -10,13 +10,13 @@ Note that the blue -Z side is marked "back", but since camera's look down the
 -Z direction, it'd be what the camera would see if it was not rotated.
 """
 
-# test_example = true
-# sphinx_gallery_pygfx_render = True
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
 
 import os
 
 import numpy as np
-import imageio
+import imageio.v3 as iio
 import pygfx as gfx
 from pathlib import Path
 from wgpu.gui.auto import WgpuCanvas, run
@@ -26,7 +26,7 @@ try:
 except NameError:
     data_dir = Path(os.getcwd()).parent / "data"  # compat with sphinx-gallery
 
-data = imageio.imread(data_dir / "cubemap.jpg")
+data = iio.imread(data_dir / "cubemap.jpg")
 
 h = data.shape[0] // 3
 w = data.shape[1] // 4
