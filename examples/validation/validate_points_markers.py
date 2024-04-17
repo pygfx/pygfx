@@ -36,7 +36,7 @@ geometry = gfx.Geometry(positions=positions, colors=colors)
 
 
 scene = gfx.Scene()
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#bbb", "#777")))
+scene.add(gfx.Background.from_color("#bbb", "#777"))
 
 y = 0
 for marker in gfx.MarkerShape:

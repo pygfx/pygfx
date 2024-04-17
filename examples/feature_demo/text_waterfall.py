@@ -21,7 +21,7 @@ glyph_atlas = gfx.utils.text.glyph_atlas
 glyph_atlas.clear_free_regions = True  # So we can see regions being freed
 
 # Add background
-background = gfx.Background(None, gfx.BackgroundMaterial("#dde", "#fff"))
+background = gfx.Background.from_color("#dde", "#fff")
 scene.add(background)
 
 # Add an image that shows the glyph atlas
