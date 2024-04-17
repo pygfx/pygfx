@@ -1,4 +1,5 @@
-# run_example = false
+# sphinx_gallery_pygfx_docs = 'code'
+# sphinx_gallery_pygfx_test = 'off'
 
 """
 Pytorch Integration
