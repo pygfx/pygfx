@@ -55,6 +55,10 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # Force offscreen rendering
 os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
 
+# Suppress "cannot cache unpickable configuration value" for sphinx_gallery_conf
+# See https://github.com/sphinx-doc/sphinx/issues/12300
+suppress_warnings = ["config.cache"]
+
 # The gallery conf. See https://sphinx-gallery.github.io/stable/configuration.html
 sphinx_gallery_conf = {
     "gallery_dirs": "_gallery",
