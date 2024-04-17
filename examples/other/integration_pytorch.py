@@ -83,12 +83,7 @@ In order to run this example, you should install the following dependencies:
 
 # standard library
 from pathlib import Path
-from typing import (
-    Optional,
-    Tuple,
-    List,
-    Any,
-    cast)
+from typing import Optional, Tuple, List, Any, cast
 from dataclasses import dataclass
 import queue
 
@@ -113,33 +108,21 @@ from wgpu.gui.auto import WgpuCanvas, run
 
 # pytorch
 import torch
-from torch import (
-    optim,
-    nn)
-from torch.nn import (
-    ReLU,
-    GELU,
-    Tanh,
-    Sigmoid)
+from torch import optim, nn
+from torch.nn import ReLU, GELU, Tanh, Sigmoid
 import torch.multiprocessing as mp
 from torch.multiprocessing import Queue
 
 # pytorch lightning
-from lightning.pytorch import (
-    Trainer,
-    LightningModule)
+from lightning.pytorch import Trainer, LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.core.datamodule import LightningDataModule
 
 # torch geometric
 import torch_geometric
-from torch_geometric.nn import (
-    MessagePassing)
-from torch_geometric.data import (
-    Dataset,
-    Batch,
-    Data)
+from torch_geometric.nn import MessagePassing
+from torch_geometric.data import Dataset, Batch, Data
 from torch_geometric.loader import DataLoader
 from torch_geometric import transforms
 
@@ -159,6 +142,7 @@ class MeshData:
         k (np.ndarray): The ground truth Gaussian curvature values at each vertex, stored as a NumPy array of shape (num_vertices,).
         pred_k (np.ndarray): The predicted Gaussian curvature values at each vertex, stored as a NumPy array of shape (num_vertices,).
     """
+
     vertices: np.ndarray
     faces: np.ndarray
     k: np.ndarray
@@ -181,6 +165,7 @@ class SceneState:
         pred_mesh (gfx.WorldObject): The predicted mesh object, representing the predicted mesh in the scene.
         first_data (bool): A flag indicating if it's the first data received by the scene. Used to determine if the meshes need to be created or updated.
     """
+
     gt_group: gfx.Group = gfx.Group()
     pred_group: gfx.Group = gfx.Group()
     gt_mesh: gfx.WorldObject = None
@@ -198,11 +183,11 @@ class Sine(torch.nn.Module):
 
 # a few pytorch activations to experiment with
 activations = {
-    'relu': ReLU,
-    'gelu': GELU,
-    'tanh': Tanh,
-    'sigmoid': Sigmoid,
-    'sine': Sine
+    "relu": ReLU,
+    "gelu": GELU,
+    "tanh": Tanh,
+    "sigmoid": Sigmoid,
+    "sine": Sine,
 }
 
 
@@ -221,8 +206,12 @@ def canonical_form(vertices: np.ndarray) -> np.ndarray:
     # We need to reorder the components so that the first and third components are the ones
     # with the largest and second largest variance, and the second component is the one
     # with the smallest variance.
-    indices = np.argsort(pca.explained_variance_)[::-1]  # Indices of components in descending order of variance
-    indices = np.roll(indices, shift=-1)  # Shift indices to align with XZ directions first
+    indices = np.argsort(pca.explained_variance_)[
+        ::-1
+    ]  # Indices of components in descending order of variance
+    indices = np.roll(
+        indices, shift=-1
+    )  # Shift indices to align with XZ directions first
     rotation_matrix = pca.components_[indices]
 
     # Apply the rotation to the vertices
@@ -237,7 +226,12 @@ def canonical_form(vertices: np.ndarray) -> np.ndarray:
     return vertices
 
 
-def create_mlp(features: List[int], activation: str = 'relu', batch_norm: bool = False, softmax: bool = False) -> nn.Sequential:
+def create_mlp(
+    features: List[int],
+    activation: str = "relu",
+    batch_norm: bool = False,
+    softmax: bool = False,
+) -> nn.Sequential:
     activation = activations[activation]
     layers_list = []
     for i in range(len(features) - 1):
@@ -252,15 +246,19 @@ def create_mlp(features: List[int], activation: str = 'relu', batch_norm: bool =
     return model
 
 
-def create_gnn(convolutions: List[MessagePassing], activation: str = 'relu', batch_norm: bool = False) -> torch_geometric.nn.Sequential:
+def create_gnn(
+    convolutions: List[MessagePassing],
+    activation: str = "relu",
+    batch_norm: bool = False,
+) -> torch_geometric.nn.Sequential:
     activation = activations[activation]
     layers_list = []
     for i, convolution in enumerate(convolutions):
-        layers_list.append((convolution, 'x, edge_index -> x'))
+        layers_list.append((convolution, "x, edge_index -> x"))
         if batch_norm:
             layers_list.append(torch.nn.BatchNorm1d(convolution.out_channels))
         layers_list.append(activation())
-    model = torch_geometric.nn.Sequential('x, edge_index', layers_list)
+    model = torch_geometric.nn.Sequential("x, edge_index", layers_list)
     return model
 
 
@@ -281,11 +279,14 @@ class ExampleDataset(Dataset):
         len(): Returns the length of the dataset (always 1 in this case).
         get(idx): Retrieves a single data sample from the dataset, including the vertices, faces, and Gaussian curvature values.
     """
+
     def __init__(self):
         super().__init__()
-        file_path = Path(__file__).parents[1] / 'data/retinal.obj'
+        file_path = Path(__file__).parents[1] / "data/retinal.obj"
         self._mesh = trimesh.load(file_obj=file_path)
-        self._transforms = transforms.Compose([transforms.FaceToEdge(remove_faces=False)])
+        self._transforms = transforms.Compose(
+            [transforms.FaceToEdge(remove_faces=False)]
+        )
 
     def len(self):
         return 1
@@ -304,7 +305,8 @@ class ExampleDataset(Dataset):
         data = Data(
             x=torch.from_numpy(vertices),
             k=torch.from_numpy(k),
-            face=torch.from_numpy(faces).T)
+            face=torch.from_numpy(faces).T,
+        )
 
         # infer edges based on face data
         data = self._transforms(data)
@@ -327,6 +329,7 @@ class ExampleDataModule(LightningDataModule):
         __init__(): Initializes the data module with train and validation datasets.
         train_dataloader(): Returns the data loader for the training dataset.
     """
+
     def __init__(self):
         super().__init__()
         self._train_dataset = ExampleDataset()
@@ -353,6 +356,7 @@ class ExampleModule(LightningModule):
         configure_optimizers(): Defines the optimizer used for training the model.
         training_step(batch, index): Defines the forward pass and loss calculation for a single training step.
     """
+
     def __init__(self):
         super().__init__()
         convolutions = [
@@ -361,8 +365,12 @@ class ExampleModule(LightningModule):
             torch_geometric.nn.conv.ResGatedGraphConv(32, 64),
             torch_geometric.nn.conv.ResGatedGraphConv(64, 128),
         ]
-        self._gnn = create_gnn(convolutions=convolutions, activation='gelu', batch_norm=False)
-        self._mlp = create_mlp(features=[128, 64, 32, 16, 8, 4, 1], activation='gelu', batch_norm=False)
+        self._gnn = create_gnn(
+            convolutions=convolutions, activation="gelu", batch_norm=False
+        )
+        self._mlp = create_mlp(
+            features=[128, 64, 32, 16, 8, 4, 1], activation="gelu", batch_norm=False
+        )
         self._loss_fn = nn.SmoothL1Loss()
 
     def configure_optimizers(self):
@@ -375,11 +383,7 @@ class ExampleModule(LightningModule):
         pred_k = self._mlp(embeddings).squeeze(dim=1)
         loss = self._loss_fn(pred_k, data.k)
 
-        return {
-            'loss': loss,
-            'pred_k': pred_k,
-            'gt_k': data.k
-        }
+        return {"loss": loss, "pred_k": pred_k, "gt_k": data.k}
 
 
 class SceneHandler:
@@ -399,6 +403,7 @@ class SceneHandler:
             Initializes the scene, viewports, cameras, and lighting, and starts the rendering loop.
             Receives mesh data messages from the training process via a multiprocessing queue and updates the meshes in the scene.
     """
+
     @staticmethod
     def _rescale_k(k: np.ndarray) -> np.ndarray:
         # rescale gaussian curvature so it will range between 0 and 1
@@ -413,82 +418,108 @@ class SceneHandler:
         k_one_minus = 1 - k
 
         # convex combinations between red and blue colors, based on the predicted gaussian curvature
-        c1 = np.column_stack((k_one_minus, np.zeros_like(k), np.zeros_like(k), np.ones_like(k)))
+        c1 = np.column_stack(
+            (k_one_minus, np.zeros_like(k), np.zeros_like(k), np.ones_like(k))
+        )
         c2 = np.column_stack((np.zeros_like(k), np.zeros_like(k), k, np.ones_like(k)))
         c = c1 + c2
 
         return c
 
     @staticmethod
-    def _create_world_object_for_mesh(mesh_data: MeshData, k: np.ndarray, color: gfx.Color = '#ffffff') -> gfx.WorldObject:
+    def _create_world_object_for_mesh(
+        mesh_data: MeshData, k: np.ndarray, color: gfx.Color = "#ffffff"
+    ) -> gfx.WorldObject:
         c = SceneHandler._get_vertex_colors_from_k(k=k)
         geometry = gfx.Geometry(
             indices=np.ascontiguousarray(mesh_data.faces),
             positions=np.ascontiguousarray(mesh_data.vertices),
-            colors=np.ascontiguousarray(c))
+            colors=np.ascontiguousarray(c),
+        )
 
-        material = gfx.MeshPhongMaterial(
-            color=color,
-            color_mode='vertex')
+        material = gfx.MeshPhongMaterial(color=color, color_mode="vertex")
 
-        mesh = gfx.Mesh(
-            geometry=geometry,
-            material=material)
+        mesh = gfx.Mesh(geometry=geometry, material=material)
         return mesh
 
     @staticmethod
-    def _create_world_object_for_text(text_string: str, anchor: str, position: np.ndarray, font_size: int) -> gfx.WorldObject:
+    def _create_world_object_for_text(
+        text_string: str, anchor: str, position: np.ndarray, font_size: int
+    ) -> gfx.WorldObject:
         geometry = gfx.TextGeometry(
-            text=text_string,
-            anchor=anchor,
-            font_size=font_size,
-            screen_space=True)
+            text=text_string, anchor=anchor, font_size=font_size, screen_space=True
+        )
 
         material = gfx.TextMaterial(
             color=gfx.Color("#ffffff"),
-            outline_color=gfx.Color('#000000'),
-            outline_thickness=0.5)
+            outline_color=gfx.Color("#000000"),
+            outline_thickness=0.5,
+        )
 
-        text = gfx.Text(
-            geometry=geometry,
-            material=material)
+        text = gfx.Text(geometry=geometry, material=material)
 
         text.local.position = position
         return text
 
     @staticmethod
-    def _create_background(top_color: gfx.Color, bottom_color: gfx.Color) -> gfx.Background:
-        return gfx.Background(geometry=None, material=gfx.BackgroundMaterial(top_color, bottom_color))
+    def _create_background(
+        top_color: gfx.Color, bottom_color: gfx.Color
+    ) -> gfx.Background:
+        return gfx.Background(
+            geometry=None, material=gfx.BackgroundMaterial(top_color, bottom_color)
+        )
 
     @staticmethod
-    def _create_background_scene(renderer: gfx.Renderer, color: gfx.Color) -> Tuple[gfx.Viewport, gfx.Camera, gfx.Background]:
+    def _create_background_scene(
+        renderer: gfx.Renderer, color: gfx.Color
+    ) -> Tuple[gfx.Viewport, gfx.Camera, gfx.Background]:
         viewport = gfx.Viewport(renderer)
         camera = gfx.NDCCamera()
-        background = SceneHandler._create_background(top_color=color, bottom_color=color)
+        background = SceneHandler._create_background(
+            top_color=color, bottom_color=color
+        )
         return viewport, camera, background
 
     @staticmethod
-    def _create_scene(renderer: gfx.Renderer, light_color: gfx.Color, background_top_color: gfx.Color, background_bottom_color: gfx.Color, rect_length: int = 1) -> Tuple[gfx.Viewport, gfx.Camera, gfx.Scene]:
+    def _create_scene(
+        renderer: gfx.Renderer,
+        light_color: gfx.Color,
+        background_top_color: gfx.Color,
+        background_bottom_color: gfx.Color,
+        rect_length: int = 1,
+    ) -> Tuple[gfx.Viewport, gfx.Camera, gfx.Scene]:
         viewport = gfx.Viewport(renderer)
         camera = gfx.PerspectiveCamera()
-        camera.show_rect(left=-rect_length, right=rect_length, top=-rect_length, bottom=rect_length, view_dir=(-1, -1, -1), up=(0, 0, 1))
+        camera.show_rect(
+            left=-rect_length,
+            right=rect_length,
+            top=-rect_length,
+            bottom=rect_length,
+            view_dir=(-1, -1, -1),
+            up=(0, 0, 1),
+        )
         _ = gfx.OrbitController(camera=camera, register_events=viewport)
         light = gfx.PointLight(color=light_color, intensity=5, decay=0)
-        background = SceneHandler._create_background(top_color=background_top_color, bottom_color=background_bottom_color)
+        background = SceneHandler._create_background(
+            top_color=background_top_color, bottom_color=background_bottom_color
+        )
         scene = gfx.Scene()
         scene.add(camera.add(light))
         scene.add(background)
         return viewport, camera, scene
 
     @staticmethod
-    def _create_text_scene(text_string: str, position: np.ndarray, anchor: str, font_size: int) -> Tuple[gfx.Scene, gfx.Camera]:
+    def _create_text_scene(
+        text_string: str, position: np.ndarray, anchor: str, font_size: int
+    ) -> Tuple[gfx.Scene, gfx.Camera]:
         scene = gfx.Scene()
         camera = gfx.ScreenCoordsCamera()
         text = SceneHandler._create_world_object_for_text(
             text_string=text_string,
             anchor=anchor,
             position=position,
-            font_size=font_size)
+            font_size=font_size,
+        )
         scene.add(text)
         return scene, camera
 
@@ -499,14 +530,22 @@ class SceneHandler:
 
             # if that's the first mesh-data message, create meshes
             if SceneHandler._scene_state.first_data:
-                SceneHandler._scene_state.gt_mesh = SceneHandler._create_world_object_for_mesh(
-                    mesh_data=mesh_data,
-                    k=mesh_data.k)
-                SceneHandler._scene_state.pred_mesh = SceneHandler._create_world_object_for_mesh(
-                    mesh_data=mesh_data,
-                    k=mesh_data.pred_k)
-                SceneHandler._scene_state.gt_group.add(SceneHandler._scene_state.gt_mesh)
-                SceneHandler._scene_state.pred_group.add(SceneHandler._scene_state.pred_mesh)
+                SceneHandler._scene_state.gt_mesh = (
+                    SceneHandler._create_world_object_for_mesh(
+                        mesh_data=mesh_data, k=mesh_data.k
+                    )
+                )
+                SceneHandler._scene_state.pred_mesh = (
+                    SceneHandler._create_world_object_for_mesh(
+                        mesh_data=mesh_data, k=mesh_data.pred_k
+                    )
+                )
+                SceneHandler._scene_state.gt_group.add(
+                    SceneHandler._scene_state.gt_mesh
+                )
+                SceneHandler._scene_state.pred_group.add(
+                    SceneHandler._scene_state.pred_mesh
+                )
                 SceneHandler._scene_state.first_data = False
             # otherwise, update mesh colors
             else:
@@ -517,72 +556,108 @@ class SceneHandler:
             pass
 
         # render white background
-        SceneHandler._background_viewport.render(SceneHandler._background_scene, SceneHandler._background_camera)
+        SceneHandler._background_viewport.render(
+            SceneHandler._background_scene, SceneHandler._background_camera
+        )
 
         # render ground-truth mesh
-        SceneHandler._gt_mesh_viewport.render(SceneHandler._gt_mesh_scene, SceneHandler._gt_mesh_camera)
-        SceneHandler._gt_mesh_viewport.render(SceneHandler._gt_mesh_text_scene, SceneHandler._gt_mesh_text_camera)
+        SceneHandler._gt_mesh_viewport.render(
+            SceneHandler._gt_mesh_scene, SceneHandler._gt_mesh_camera
+        )
+        SceneHandler._gt_mesh_viewport.render(
+            SceneHandler._gt_mesh_text_scene, SceneHandler._gt_mesh_text_camera
+        )
 
         # render prediction mesh
-        SceneHandler._pred_mesh_viewport.render(SceneHandler._pred_mesh_scene, SceneHandler._pred_mesh_camera)
-        SceneHandler._pred_mesh_viewport.render(SceneHandler._pred_mesh_text_scene, SceneHandler._pred_mesh_text_camera)
+        SceneHandler._pred_mesh_viewport.render(
+            SceneHandler._pred_mesh_scene, SceneHandler._pred_mesh_camera
+        )
+        SceneHandler._pred_mesh_viewport.render(
+            SceneHandler._pred_mesh_text_scene, SceneHandler._pred_mesh_text_camera
+        )
 
         SceneHandler._renderer.flush()
         SceneHandler._renderer.request_draw()
 
     @staticmethod
     def start(
-            in_queue: Queue,
-            light_color: gfx.Color = gfx.Color("#ffffff"),
-            background_color: gfx.Color = gfx.Color('#ffffff'),
-            scene_background_top_color: gfx.Color = gfx.Color("#bbbbbb"),
-            scene_background_bottom_color: gfx.Color = gfx.Color("#666666")):
+        in_queue: Queue,
+        light_color: gfx.Color = gfx.Color("#ffffff"),
+        background_color: gfx.Color = gfx.Color("#ffffff"),
+        scene_background_top_color: gfx.Color = gfx.Color("#bbbbbb"),
+        scene_background_bottom_color: gfx.Color = gfx.Color("#666666"),
+    ):
         border_size = 5.0
         text_position = np.array([10, 10, 0])
         text_font_size = 30
-        text_anchor = 'bottom-left'
+        text_anchor = "bottom-left"
 
         SceneHandler._scene_state = SceneState()
         SceneHandler._in_queue = in_queue
         SceneHandler._renderer = WgpuRenderer(WgpuCanvas())
 
-        SceneHandler._background_viewport, SceneHandler._background_camera, SceneHandler._background_scene = SceneHandler._create_background_scene(
-            renderer=SceneHandler._renderer,
-            color=background_color)
+        (
+            SceneHandler._background_viewport,
+            SceneHandler._background_camera,
+            SceneHandler._background_scene,
+        ) = SceneHandler._create_background_scene(
+            renderer=SceneHandler._renderer, color=background_color
+        )
 
-        SceneHandler._gt_mesh_viewport, SceneHandler._gt_mesh_camera, SceneHandler._gt_mesh_scene = SceneHandler._create_scene(
+        (
+            SceneHandler._gt_mesh_viewport,
+            SceneHandler._gt_mesh_camera,
+            SceneHandler._gt_mesh_scene,
+        ) = SceneHandler._create_scene(
             renderer=SceneHandler._renderer,
             light_color=light_color,
             background_top_color=scene_background_top_color,
-            background_bottom_color=scene_background_bottom_color)
+            background_bottom_color=scene_background_bottom_color,
+        )
 
-        SceneHandler._pred_mesh_viewport, SceneHandler._pred_mesh_camera, SceneHandler._pred_mesh_scene = SceneHandler._create_scene(
+        (
+            SceneHandler._pred_mesh_viewport,
+            SceneHandler._pred_mesh_camera,
+            SceneHandler._pred_mesh_scene,
+        ) = SceneHandler._create_scene(
             renderer=SceneHandler._renderer,
             light_color=light_color,
             background_top_color=scene_background_top_color,
-            background_bottom_color=scene_background_bottom_color)
+            background_bottom_color=scene_background_bottom_color,
+        )
 
         SceneHandler._gt_mesh_scene.add(SceneHandler._scene_state.gt_group)
         SceneHandler._pred_mesh_scene.add(SceneHandler._scene_state.pred_group)
 
-        SceneHandler._gt_mesh_text_scene, SceneHandler._gt_mesh_text_camera = SceneHandler._create_text_scene(
-            text_string='Ground Truth',
-            position=text_position,
-            anchor=text_anchor,
-            font_size=text_font_size)
+        SceneHandler._gt_mesh_text_scene, SceneHandler._gt_mesh_text_camera = (
+            SceneHandler._create_text_scene(
+                text_string="Ground Truth",
+                position=text_position,
+                anchor=text_anchor,
+                font_size=text_font_size,
+            )
+        )
 
-        SceneHandler._pred_mesh_text_scene, SceneHandler._pred_mesh_text_camera = SceneHandler._create_text_scene(
-            text_string='Prediction',
-            position=text_position,
-            anchor=text_anchor,
-            font_size=text_font_size)
+        SceneHandler._pred_mesh_text_scene, SceneHandler._pred_mesh_text_camera = (
+            SceneHandler._create_text_scene(
+                text_string="Prediction",
+                position=text_position,
+                anchor=text_anchor,
+                font_size=text_font_size,
+            )
+        )
 
         @SceneHandler._renderer.add_event_handler("resize")
         def on_resize(event: Optional[gfx.WindowEvent] = None):
             w, h = SceneHandler._renderer.logical_size
-            w2, h2 = w / 2, h / 2
+            w2 = w / 2
             SceneHandler._gt_mesh_viewport.rect = 0, 0, w2 - border_size, h
-            SceneHandler._pred_mesh_viewport.rect = w2 + border_size, 0, w2 - border_size, h
+            SceneHandler._pred_mesh_viewport.rect = (
+                w2 + border_size,
+                0,
+                w2 - border_size,
+                h,
+            )
 
         on_resize()
         SceneHandler._renderer.request_draw(SceneHandler._animate)
@@ -609,47 +684,37 @@ class PyGfxCallback(Callback):
         _on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
             Called after each training or validation batch. Sends the mesh data message to the rendering process.
     """
+
     def __init__(self):
         super().__init__()
         self._queue = mp.Queue()
         self._process = None
 
-    def on_fit_start(
-            self,
-            trainer: Trainer,
-            pl_module: LightningModule) -> None:
-        self._process = mp.Process(
-            target=SceneHandler.start,
-            args=(self._queue,))
+    def on_fit_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        self._process = mp.Process(target=SceneHandler.start, args=(self._queue,))
         self._process.start()
 
-    def on_fit_end(
-            self,
-            trainer: Trainer,
-            pl_module: LightningModule) -> None:
+    def on_fit_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         self._process.terminate()
         self._process.join()
 
     def _on_batch_end(
-            self,
-            trainer: Trainer,
-            pl_module: LightningModule,
-            outputs: Optional[STEP_OUTPUT],
-            batch: Any,
-            batch_idx: int,
-            dataloader_idx: int = 0) -> None:
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        outputs: Optional[STEP_OUTPUT],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
         data = batch[0]
 
         # create mesh-data message
         vertices = data.x.detach().cpu().numpy()
         faces = data.face.detach().cpu().numpy().T.astype(np.int32)
         k = data.k.detach().cpu().numpy()
-        pred_k = outputs['pred_k'].detach().cpu().numpy()
-        mesh_data = MeshData(
-            vertices=vertices,
-            faces=faces,
-            k=k,
-            pred_k=pred_k)
+        pred_k = outputs["pred_k"].detach().cpu().numpy()
+        mesh_data = MeshData(vertices=vertices, faces=faces, k=k, pred_k=pred_k)
 
         # send mesh-data message to the rendering process
         self._queue.put(obj=mesh_data)
@@ -674,5 +739,6 @@ if __name__ == "__main__":
         limit_val_batches=0,
         log_every_n_steps=0,
         num_sanity_val_steps=0,
-        enable_progress_bar=False)
+        enable_progress_bar=False,
+    )
     trainer.fit(model=model, datamodule=datamodule)
