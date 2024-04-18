@@ -36,6 +36,7 @@ extras_require = {
         "pyinstaller>=4",
         "trimesh",
         "httpx",
+        "gltflib",
     ],
     "examples": [
         "pytest",
@@ -44,6 +45,7 @@ extras_require = {
         "imageio-ffmpeg>=0.4.7",
         "scikit-image",
         "trimesh",
+        "gltflib",
     ],
     "docs": [
         "sphinx>7.2",
@@ -59,6 +61,7 @@ extras_require = {
         "imageio-ffmpeg>=0.4.7",
         "scikit-image",
         "trimesh",
+        "gltflib",
     ],
 }
 

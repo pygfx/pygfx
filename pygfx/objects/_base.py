@@ -97,6 +97,8 @@ class WorldObject(EventTarget, RootTrackable):
     render_mask : str | RenderMask
         Determines the render passes that the object is rendered in. It's
         recommended to let the renderer decide, using "auto".
+    name : str
+        The name of the object.
 
     Notes
     -----
@@ -138,6 +140,7 @@ class WorldObject(EventTarget, RootTrackable):
         visible=True,
         render_order=0,
         render_mask="auto",
+        name="",
     ):
         super().__init__()
         self._parent: weakref.ReferenceType[WorldObject] = None
@@ -147,6 +150,8 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.geometry = geometry
         self.material = material
+
+        self.name = name
 
         # Compose complete uniform type
         buffer = Buffer(array_from_shadertype(self.uniform_type))
@@ -182,7 +187,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.uniform_buffer.update_range()
 
     def __repr__(self):
-        return f"<pygfx.{self.__class__.__name__} at {hex(id(self))}>"
+        return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"
 
     def __del__(self):
         id_provider.release_id(self, self.id)
