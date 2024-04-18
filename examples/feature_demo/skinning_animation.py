@@ -2,6 +2,8 @@
 Skinning Animation
 ==================
 
+This example demonstrates how to animate a skinned mesh using a glTF animation clip.
+
 """
 ################################################################################
 # .. note::
@@ -28,17 +30,17 @@ except NameError:
 # sphinx_gallery_pygfx_docs = 'animate 4s'
 # sphinx_gallery_pygfx_test = 'run'
 
-import math, time
+import time
+import numpy as np
 import pygfx as gfx
-import pylinalg as la
+from scipy import interpolate
 from wgpu.gui.auto import WgpuCanvas, run
-from  pygfx.utils.gltf_loader import GLTF, print_tree
 
 gltf_path = model_dir / "Michelle.glb"
 
 scene = gfx.Scene()
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=60, title="Skinnedmesh")
+canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync = False)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
@@ -49,31 +51,24 @@ scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 
-gltf = GLTF.load(gltf_path)
-# print_tree(gltf.scene)
-mesh_obj = gltf.scene.children[0]
-
-mesh_obj.local.scale = ( 1, 1, 1 )
+gltf = gfx.load_gltf(gltf_path)
+# gfx.utils.print_tree(gltf.scene)
+model_obj = gltf.scene.children[0]
+model_obj.local.scale = ( 1, 1, 1 )
 
 action_clip = gltf.animations[0]
 
-print("action_clip", action_clip["name"], action_clip["duration"], len(action_clip["tracks"]))
+print(f"action_clip name:{action_clip["name"]}, duration:{action_clip["duration"]}, tracks:{len(action_clip["tracks"])}")
 
-skeleton_helper = gfx.SkeletonHelper(gltf.scene)
+skeleton_helper = gfx.SkeletonHelper(model_obj)
 scene.add(skeleton_helper)
 
-scene.add(gltf.scene)
-
-# xyz = gfx.AxesHelper( 20 )
-# scene.add( xyz )
+scene.add(model_obj)
 
 gfx.OrbitController(camera, register_events=renderer)
 
 
 def update_track(track, time):
-    from scipy import interpolate
-    import numpy as np
-
     target = track["target"]
     property = track["property"]
     values = track["values"]
@@ -83,62 +78,46 @@ def update_track(track, time):
     if time < times[0]:
         time = times[0]
 
+    # TODO: Use scipy to interpolate now, will use our own implementation later
     if interpolation == "LINEAR":
         cs = interpolate.interp1d(times, values, kind='linear', axis=0)
-        value = cs(time)
+        if property == "rotation":
+            #TODO: should use spherical linear interpolation instead
+            cs = interpolate.interp1d(times, values, kind='linear', axis=0)
+            value = cs(time)
+            value = value / np.linalg.norm(value)  # normalize quaternion
+        else:
+            cs = interpolate.interp1d(times, values, kind='linear', axis=0)
+            value = cs(time)
+
     elif interpolation == "CUBICSPLINE":
-        cs = interpolate.CubicSpline(times, values, bc_type='natural')
+        cs = interpolate.interp1d(times, values, kind='cubic', axis=0)
         value = cs(time)
     elif interpolation == "STEP":
-        for i in range(len(times)):
-            if time < times[i]:
-                break
-        if i == 0:
-            i = 1
-        v0 = values[i - 1]
-        value = v0
+        cs = interpolate.interp1d(times, values, kind='previous', axis=0)
+        value = cs(time)
     else:
         print("unknown interpolation", interpolation)
 
-    # if property == "scale":
-    #     target.local.scale = value
-    # elif property == "translation":
-    #     target.local.position = value
-    # elif property == "rotation":
-    #     # TODO: should use spherical linear interpolation instead
-    #     target.local.rotation = value
-    # elif property == "quaternion":
-    #     target.local.quaternion = value / np.linalg.norm(value)  # normalize quaternion
-    # else:
-    #     print("unknown property", property)
-
-    target_temp = getattr(target, "_temp", None)
-
-    if target_temp is None:
-        target._temp = {}
-        target_temp = target._temp
-
-    if property == "rotation":
-        value = value / np.linalg.norm(value)  # normalize quaternion
-
-    target_temp[property] = value
-
-    
-    if "scale" in target_temp and "translation" in target_temp and "rotation" in target_temp:
-        matrix = la.mat_compose(target_temp["translation"], target_temp["rotation"], target_temp["scale"])
-        target.local.matrix = matrix
-        del target._temp
+    if property == "scale":
+        target.local.scale = value
+    elif property == "translation":
+        target.local.position = value
+    elif property == "rotation":
+        target.local.rotation = value
+    else:
+        print("unknown property", property)
 
 
 tracks = action_clip["tracks"]
 gloabl_time = 0
-last_time = time.time()
+last_time = time.perf_counter()
 
 stats = gfx.Stats(viewport=renderer)
 
 def animate():
     global gloabl_time, last_time
-    now = time.time()
+    now = time.perf_counter()
     dt = now - last_time
     last_time = now
     gloabl_time += dt
@@ -148,7 +127,7 @@ def animate():
     for track in tracks:
         update_track(track, gloabl_time)
 
-    mesh_obj.children[0].skeleton.update()
+    model_obj.children[0].skeleton.update()
     skeleton_helper.update()
 
     with stats:

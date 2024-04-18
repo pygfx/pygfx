@@ -69,4 +69,4 @@ from ._lights import (
     SpotLightShadow,
     PointLightShadow,
 )
-from ._skeleton import Bone, Skeleton, SkinnedMesh
+from ._skins import Bone, Skeleton, SkinnedMesh

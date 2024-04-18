@@ -38,6 +38,9 @@ class SkeletonHelper(Line):
         self.root.world.on_update(_update_matrix)
 
     def update(self):
+        # TODO: we should update it automatically by some mechanism.
+        # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2046493145
+        """Update the helper object to match the Skeleton's bones."""
         bones = self.bones
         geometry = self.geometry
         root_matrix_world_inv = self.root.world.inverse_matrix

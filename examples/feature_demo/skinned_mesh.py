@@ -46,6 +46,7 @@ def create_bones(sizing):
     bones.append(prev_bone)
 
     prev_bone.local.position = (0, 0, -sizing["half_height"])
+    prev_bone.update_matrix() #update matrix manually
 
     for _ in range(sizing["segment_count"]):
         bone = gfx.Bone()
@@ -66,8 +67,8 @@ def create_mesh(geometry, bones):
     mesh = gfx.SkinnedMesh(geometry, material)
     skeleton = gfx.Skeleton(bones)
 
-    mesh.bind(skeleton)
     mesh.add(bones[0])
+    mesh.bind(skeleton)
 
     mesh.local.rotation = la.quat_from_euler((-math.pi / 2, 0, 0))
     return mesh
@@ -91,9 +92,7 @@ def init():
     renderer = gfx.WgpuRenderer(canvas)
 
     camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 200))
-
     camera.local.position = (0, 30, 30)
-
     camera.look_at((0, 0, 0))
 
     scene = gfx.Scene()
@@ -105,9 +104,6 @@ def init():
     # mesh.local.scale = ( 1, 1, 1 )
 
     scene.add(mesh)
-
-    # xyz = gfx.AxesHelper( 20 )
-    # scene.add( xyz )
 
     skeleton_helper = gfx.SkeletonHelper(mesh)
     scene.add(skeleton_helper)
@@ -126,7 +122,7 @@ def init():
         renderer.render(scene, camera)
         canvas.request_draw()
 
-    canvas.request_draw(animate)
+    canvas.request_draw(animate)    
     run()
 
 

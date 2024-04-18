@@ -106,10 +106,11 @@ class _GLTF:
         self.scenes = self._load_scenes()
         if self._gltf.model.scene is not None:
             self.scene = self.scenes[self._gltf.model.scene]
+        if self._gltf.model.animations is not None:
+            self.animations = self._load_animations()
 
         # TODO:
         # self.cameras
-        # self.animations
         return self
 
     def load_mesh(self, materials=True):
@@ -212,9 +213,7 @@ class _GLTF:
         node_mark = node_marks[node_index]
 
         if node_mark == "Bone":
-            # TODO: Use Bone when pygfx support it
-            # node_obj = gfx.Bone()
-            node_obj = gfx.WorldObject()
+            node_obj = gfx.Bone()
         elif node_mark == "Camera":
             # TODO: implement camera loading
             # node_obj = gfx.Camera()
@@ -264,11 +263,9 @@ class _GLTF:
                     material = gfx.MeshBasicMaterial()
 
                 if skin_index is not None:
-                    # TODO: It's a SkinnedMesh, support it later, just use Mesh for now.
-                    # gfx_mesh = gfx.SkinnedMesh(geometry, material)
-                    # skeleton = self._load_skins(skin_index)
-                    # gfx_mesh.bind(skeleton, np.identity(4))
-                    gfx_mesh = gfx.Mesh(geometry, material)
+                    gfx_mesh = gfx.SkinnedMesh(geometry, material)
+                    skeleton = self._load_skins(skin_index)
+                    gfx_mesh.bind(skeleton, np.identity(4))
                 else:
                     gfx_mesh = gfx.Mesh(geometry, material)
             else:
@@ -460,6 +457,63 @@ class _GLTF:
             ar = ar.astype(np.int32)
 
         return ar
+    
+    @lru_cache(maxsize=None)
+    def _load_skins(self, skin_index):
+        skin = self._gltf.model.skins[skin_index]
+        bones = [self._load_node(index) for index in skin.joints]
+        inverse_bind_matrices = self._load_accessor(skin.inverseBindMatrices)
+
+        bone_inverses = []
+        for matrices in inverse_bind_matrices:
+            bone_inverse = np.array(matrices).reshape(4,4).T
+            bone_inverses.append(bone_inverse)
+
+        skeleton = gfx.Skeleton(bones, bone_inverses)
+        return skeleton
+    
+    def _load_animation(self, animation_info):
+        channels = animation_info.channels
+        samplers = animation_info.samplers
+
+        duration = 0
+
+        key_frame_tracks = []
+
+        for channel in channels:
+            target = channel.target
+            sampler = samplers[channel.sampler]
+
+            target_node = self._load_node(target.node)
+            name = target_node.name
+            target_property = target.path
+            interpolation = sampler.interpolation
+            times = self._load_accessor(sampler.input)
+            if times[-1] > duration:
+                duration = times[-1]
+            values = self._load_accessor(sampler.output)
+
+            key_frame_tracks.append({
+                "name": name,
+                "target": target_node,
+                "property": target_property,
+                "interpolation": interpolation,
+                "times": times,
+                "values": values
+            })
+        
+        action_clip = {"name": animation_info.name, "duration": duration, "tracks": key_frame_tracks}
+        
+        return action_clip
+
+
+    def _load_animations(self):
+        gltf = self._gltf
+        animations = []
+        for animation in gltf.model.animations:
+            action_clip = self._load_animation(animation)
+            animations.append(action_clip)
+        return animations
 
 
 def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):
