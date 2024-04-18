@@ -25,7 +25,7 @@ class Bone(WorldObject):
     def __init__(self, name=""):
         super().__init__(name=name)
 
-        self._children: "list[Bone]" = []
+        self._children: "List[Bone]" = []
         self._parent: "Bone" = None
 
         self.visible = False
