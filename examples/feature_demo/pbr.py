@@ -60,21 +60,17 @@ scene.add(background)
 # Load meshes, and apply env map
 # Note that this lights the helmet already
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
-# meshes = gfx.load_mesh(gltf_path)
-# scene.add(*meshes)
 
+gltf = gfx.load_gltf(gltf_path)
+# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
 
-
-gltf = GLTF.load(gltf_path)
-scene.add(gltf.scene)
 m = gltf.scene.children[0]
 
-# meshes = GLTF.load_mesh(gltf_path)
-# scene.add(*meshes)
-# m = meshes[0]  # this example has just one mesh
-
-m.geometry.texcoords1 = m.geometry.texcoords  # use second set of texcoords for ao map
+# use second set of texcoords for ao map, remove this line when gfx support uv channel selection.
+m.geometry.texcoords1 = m.geometry.texcoords
 m.material.env_map = env_tex
+
+scene.add(gltf.scene)
 
 # Add extra light more or less where the sun seems to be in the skybox
 light = gfx.SpotLight(color="#444")
