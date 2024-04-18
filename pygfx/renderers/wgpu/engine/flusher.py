@@ -268,6 +268,11 @@ class RenderFlusher:
             }
             let gamma3 = vec3<f32>(u_render.gamma);
             out.color = vec4<f32>(pow(val.rgb / weight, gamma3), val.a / weight);
+
+            // Note that the final opacity is not necessarily one. This means that
+            // the framebuffer can be blended with the background, or one can render
+            // images that can be better combined with other content in a document.
+            // It also means that most examples benefit from a gfx.Background.
         """
 
         binding_layout = [

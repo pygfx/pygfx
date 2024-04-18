@@ -56,7 +56,11 @@ patches = gfx.Mesh(
         texcoords=np.linspace(0, 1, len(indices), dtype=np.float32),
     ),
     gfx.MeshBasicMaterial(
-        color_mode="uniform", wireframe=True, wireframe_thickness=3, map=gfx.cm.magma
+        color_mode="uniform",
+        wireframe=True,
+        wireframe_thickness=3,
+        map=gfx.cm.magma,
+        pick_write=True,
     ),
 )
 
@@ -71,7 +75,7 @@ light.local.position = (0, 0, 1)
 
 # Create a contrasting background
 clr = [i / 255 for i in [87, 188, 200, 255]]
-background = gfx.Background(None, gfx.BackgroundMaterial(clr))
+background = gfx.Background.from_color(clr)
 scene.add(background)
 
 

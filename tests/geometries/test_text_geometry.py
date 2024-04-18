@@ -1,7 +1,9 @@
 import time
-from pygfx import TextGeometry, TextItem
-from pytest import raises
+
 import numpy as np
+from pytest import raises
+
+from pygfx import TextGeometry, TextItem
 
 
 def test_text_geometry_text():
@@ -181,20 +183,165 @@ def test_text_geometry_direction_rtl():
     assert items[1].extent > items[2].extent
 
 
-def check_speed():
-    t = TextGeometry(text="HelloWorld")
+def test_geometry_text_align():
+    text = (
+        "Lorem ipsum\n"
+        "Bonjour World Olá\n"  # some text that isn't equal in line
+        "pygfx\n"  # a line with exactly 1 word, definitely must not crash
+        "last line"
+    )
+    geometry_left = TextGeometry(
+        text=text,
+        text_align="left",
+        anchor="top-left",
+    )
+    geometry_center = TextGeometry(
+        text=text,
+        text_align="center",
+        anchor="top-left",
+    )
+    geometry_right = TextGeometry(
+        text=text,
+        text_align="right",
+        anchor="top-left",
+    )
+    geometry_justify = TextGeometry(
+        text=text,
+        text_align="justify",
+        anchor="top-left",
+    )
+    geometry_justify_all = TextGeometry(
+        text=text,
+        text_align="justify-all",
+        anchor="top-left",
+    )
+
+    assert geometry_left.positions.data[0, 0] < geometry_center.positions.data[0, 0]
+    assert geometry_center.positions.data[0, 0] < geometry_right.positions.data[0, 0]
+    assert geometry_left.positions.data[0, 0] == geometry_justify.positions.data[0, 0]
+
+    # Index 9 is the right most character on the first line
+    assert geometry_right.positions.data[9, 0] == geometry_justify.positions.data[9, 0]
+    assert geometry_left.positions.data[9, 0] < geometry_center.positions.data[9, 0]
+    assert geometry_center.positions.data[9, 0] < geometry_right.positions.data[9, 0]
+
+    # new line should be lower than the previous line
+    assert geometry_left.positions.data[10, 1] < geometry_center.positions.data[0, 1]
+
+    assert geometry_left.positions.data[-1, 0] < geometry_center.positions.data[-1, 0]
+    assert geometry_center.positions.data[-1, 0] < geometry_right.positions.data[-1, 0]
+    # justify will not justify the last line
+    assert geometry_left.positions.data[-1, 0] == geometry_justify.positions.data[-1, 0]
+    # unless you specify justify-all
+    assert (
+        geometry_right.positions.data[-1, 0]
+        == geometry_justify_all.positions.data[-1, 0]
+    )
+
+
+def test_geometry_text_with_new_lines():
+    geometry_left = TextGeometry(
+        text="hello",
+        text_align="left",
+        anchor="top-left",
+    )
+    geometry_with_newline = TextGeometry(
+        text="\nhello\n",
+        text_align="left",
+        anchor="top-left",
+    )
+    assert (
+        geometry_with_newline.positions.data[0, 1] < geometry_left.positions.data[0, 1]
+    )
+
+    geometry_with_newline.anchor = "bottom-left"
+    geometry_left.anchor = "bottom-left"
+    assert (
+        geometry_with_newline.positions.data[0, 1] > geometry_left.positions.data[0, 1]
+    )
+
+
+def test_alignment_with_spaces():
+    text = TextGeometry("hello world")
+    text_leading_spaces = TextGeometry(" hello world")
+    text_trailing_spaces = TextGeometry("hello world ")
+
+    text.anchor = "bottom-left"
+    text_leading_spaces.anchor = "bottom-left"
+    text_trailing_spaces.anchor = "bottom-left"
+    assert text.positions.data[0, 0] < text_leading_spaces.positions.data[0, 0]
+    assert text.positions.data[0, 0] == text_trailing_spaces.positions.data[0, 0]
+
+    text.anchor = "bottom-right"
+    text_leading_spaces.anchor = "bottom-right"
+    text_trailing_spaces.anchor = "bottom-right"
+    assert text.positions.data[-1, 0] > text_trailing_spaces.positions.data[-1, 0]
+    assert text.positions.data[-1, 0] == text_leading_spaces.positions.data[-1, 0]
+
+
+def test_geometry_text_align_last():
+    text = (
+        "Lorem ipsum\n"
+        "Bonjour World Olá\n"  # some text that isn't equal in line
+        "pygfx\n"  # a line with exactly 1 word, definitely must not crash
+        "last line"
+    )
+    geometry_default = TextGeometry(
+        text=text,
+        text_align="left",
+        anchor="top-left",
+    )
+    geometry_left = TextGeometry(
+        text=text, text_align="left", anchor="top-left", text_align_last="left"
+    )
+    geometry_center = TextGeometry(
+        text=text, text_align="left", anchor="top-left", text_align_last="center"
+    )
+    geometry_right = TextGeometry(
+        text=text, text_align="left", anchor="top-left", text_align_last="right"
+    )
+    geometry_justify = TextGeometry(
+        text=text, text_align="left", anchor="top-left", text_align_last="justify"
+    )
+    assert geometry_default.positions.data[-1, 0] == geometry_left.positions.data[-1, 0]
+    assert geometry_left.positions.data[-1, 0] < geometry_center.positions.data[-1, 0]
+    assert geometry_center.positions.data[-1, 0] < geometry_right.positions.data[-1, 0]
+    # unless you specify justify-all
+    assert (
+        geometry_right.positions.data[-1, 0] == geometry_justify.positions.data[-1, 0]
+    )
+
+
+def test_text_geometry_leading_spaces():
+    basic_text = TextGeometry("hello", anchor="top-left")
+    with_1whitespace = TextGeometry("\n hello", anchor="top-left")
+    with_3whitespace = TextGeometry(" \n   hello", anchor="top-left")
+    # The spaces should not be stripped at the front
+    assert basic_text.positions.data[0, 0] < with_1whitespace.positions.data[0, 0]
+    assert with_1whitespace.positions.data[0, 0] < with_3whitespace.positions.data[0, 0]
+
+
+def test_check_speed():
+    # On 29-11-2022 (with only very basic layout mechanics),
+    # this takes about 8ms, which translates to 0.001 ms per glyph.
+    #
+    # To view the results with pytest run with
+    #    pytest -s
+    # or
+    #    pytest --capture=no
+    text = "HelloWorld"
+    n_glyphs = len(text)
+    t = TextGeometry(text=text)
 
     t0 = time.perf_counter()
-    for i in range(1000):
+    n_iter = 1000
+    for i in range(n_iter):
         t.apply_layout()
     dt = time.perf_counter() - t0
     print(
-        f"generate_glyph: {1000*dt:0.1f} ms total",
-        f"{1000*dt/(10000):0.3f} ms per glyph",
+        f"\ngenerate_glyph: {n_iter * dt:0.1f} ms total",
+        f"{1E6 * dt / (n_iter * n_glyphs):0.2f} us per glyph",
     )
-
-    # On 29-11-2022 (with only very basic layout mechanics),
-    # this takes about 8ms, which translates to 0.001 ms per glyph.
 
 
 if __name__ == "__main__":
@@ -203,5 +350,3 @@ if __name__ == "__main__":
             print(f"{ob.__name__} ...")
             ob()
     print("done")
-
-    check_speed()

@@ -70,7 +70,7 @@ def get_cached_bind_group(device, *args):
 
 def get_cached_shader_module(device, shader, shader_kwargs):
     # Using a key that *defines* the wgsl - rather than the wgsl itself
-    # - avoids the templating to be applied on a cache hit, which safes
+    # - avoids the templating to be applied on a cache hit, which saves
     # considerable time!
     key = "shader", shader.hash, hash_from_value(shader_kwargs)
 
@@ -462,11 +462,15 @@ class PipelineContainer:
         self.shared = get_shared()  # the globally Shared object
         self.device = self.shared.device
 
+        # Dict to store info on the wobject that affects shaders or pipeline.
+        # Fields are set in a tracking-context to make sure things update accordingly.
+        self.wobject_info = {}
+
         # The info that the shader generates
         self.shader_hash = b""
         self.bindings_dicts = None  # dict of dict of bindings
-        self.pipeline_info = None
-        self.render_info = None
+        self.pipeline_info = None  # dict
+        self.render_info = None  # dict
 
         # The wgpu objects that we generate
         # These map env_hash to a list of objects (one for each pass).
@@ -513,7 +517,7 @@ class PipelineContainer:
         # Ensure that the (environment specific) wgpu objects are up-to-date
         if not self.broken:
             try:
-                self.update_wgpu_data(wobject, environment, env_hash, changed)
+                self.update_wgpu_data(environment, env_hash, changed)
             except Exception as err:
                 self.broken = 2
                 raise err
@@ -526,7 +530,9 @@ class PipelineContainer:
     def update_shader_data(self, wobject, changed):
         """Update the info that applies to all passes and environments."""
 
-        if "create" in changed:
+        if "create" in changed or "reset" in changed:
+            with wobject.tracker.track_usage("reset"):
+                self.wobject_info["pick_write"] = wobject.material.pick_write
             changed.update(("bindings", "pipeline_info", "render_info"))
 
         if "bindings" in changed:
@@ -541,6 +547,7 @@ class PipelineContainer:
         if "pipeline_info" in changed:
             with wobject.tracker.track_usage("pipeline_info"):
                 self.pipeline_info = self.shader.get_pipeline_info(wobject, self.shared)
+                self.wobject_info["depth_test"] = wobject.material.depth_test
             self._check_pipeline_info()
             changed.add("render_info")
             self.wgpu_pipelines = {}
@@ -550,8 +557,12 @@ class PipelineContainer:
                 self.render_info = self.shader.get_render_info(wobject, self.shared)
             self._check_render_info()
 
-    def update_wgpu_data(self, wobject, environment, env_hash, changed):
+    def update_wgpu_data(self, environment, env_hash, changed):
         """Update the actual wgpu objects."""
+
+        # Note: from here-on, we cannot access the wobject anymore, because any tracking should
+        # be done in update_shader_data(). If you find that info on the wobject is needed,
+        # add that info to self.wobject_info under the appropriate tracking context.
 
         # Determine what render-passes apply, for this combination of shader and blender
         if isinstance(self, RenderPipelineContainer):
@@ -561,7 +572,9 @@ class PipelineContainer:
             for pass_index in range(blender.get_pass_count()):
                 if not render_mask & blender.passes[pass_index].render_mask:
                     continue
-                if not blender.get_color_descriptors(pass_index):
+                if not blender.get_color_descriptors(
+                    pass_index, self.wobject_info["pick_write"]
+                ):
                     continue
                 pass_indices.append(pass_index)
         else:
@@ -583,7 +596,7 @@ class PipelineContainer:
             if pass_index not in env_pipelines:
                 changed.add("compose_pipeline")
                 env_pipelines[pass_index] = self._compose_pipeline(
-                    pass_index, wobject, environment, env_shaders
+                    pass_index, environment, env_shaders
                 )
 
     def update_shader_hash(self):
@@ -681,9 +694,10 @@ class ComputePipelineContainer(PipelineContainer):
 
     def _compile_shader(self, pass_index, env):
         """Compile the templateds wgsl shader to a wgpu shader module."""
-        return get_cached_shader_module(self.device, self.shader, {})
+        shader_kwargs = {}
+        return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipeline(self, pass_index, wobject, env, shader_modules):
+    def _compose_pipeline(self, pass_index, env, shader_modules):
         """Create the wgpu pipeline object from the shader and bind group layouts."""
 
         # Create pipeline layout object from list of layouts
@@ -771,10 +785,11 @@ class RenderPipelineContainer(PipelineContainer):
         env_kwargs = env.get_shader_kwargs(env_bind_group_index)
         shader_kwargs = blender_kwargs.copy()
         shader_kwargs.update(env_kwargs)
+        shader_kwargs["write_pick"] &= self.wobject_info["pick_write"]
 
         return get_cached_shader_module(self.device, self.shader, shader_kwargs)
 
-    def _compose_pipeline(self, pass_index, wobject, env, shader_modules):
+    def _compose_pipeline(self, pass_index, env, shader_modules):
         """Create a list of wgpu pipeline objects from the shader, bind group
         layouts and other pipeline info (one for each pass of the blender).
         """
@@ -794,8 +809,10 @@ class RenderPipelineContainer(PipelineContainer):
         # include the texture format and a few other static things.
         # This step should *not* rerun when e.g. the canvas resizes.
         blender = env.blender
-        depth_test = wobject.material.depth_test
-        color_descriptors = blender.get_color_descriptors(pass_index)
+        depth_test = self.wobject_info["depth_test"]
+        color_descriptors = blender.get_color_descriptors(
+            pass_index, self.wobject_info["pick_write"]
+        )
         depth_descriptor = blender.get_depth_descriptor(pass_index, depth_test)
         shader_module = shader_modules[pass_index]
 

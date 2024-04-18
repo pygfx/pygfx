@@ -17,17 +17,18 @@ from .utils.load import load_mesh, load_meshes, load_scene
 from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils.text import font_manager
-from .utils import cm, logger
+from .utils import cm, enums, logger
+from .utils.enums import *
 
 # Temp fix for pyinstaller to pick up pylinalg
 import pylinalg
 
 del pylinalg
 
-__version__ = "0.1.18"
+__version__ = "0.2.0"
 version_info = tuple(map(int, __version__.split(".")))
 
-__wgpu_version_range__ = "0.14.1", "0.16.0"
+__wgpu_version_range__ = "0.15.1", "0.16.0"
 __pylinalg_version_range__ = "0.4.1", "0.5.0"
 
 

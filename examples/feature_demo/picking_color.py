@@ -22,14 +22,14 @@ scene = gfx.Scene()
 
 dark_gray = np.array((169, 167, 168, 255)) / 255
 light_gray = np.array((100, 100, 100, 255)) / 255
-background = gfx.Background(None, gfx.BackgroundMaterial(light_gray, dark_gray))
+background = gfx.Background.from_color(light_gray, dark_gray)
 scene.add(background)
 
 im = iio.imread("imageio:astronaut.png").astype(np.float32) / 255
 tex = gfx.Texture(im, dim=2)
 
 geometry = gfx.box_geometry(200, 200, 200)
-material = gfx.MeshBasicMaterial(map=tex)
+material = gfx.MeshBasicMaterial(map=tex, pick_write=True)
 cube = gfx.Mesh(geometry, material)
 scene.add(cube)
 

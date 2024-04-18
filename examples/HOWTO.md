@@ -30,6 +30,16 @@ these comments from being shown in the gallery.
 * `# sphinx_gallery_pygfx_test = 'compare'` - tested by running the code, rendering a frame, and comparing it to the reference (i.e. image comparisons).
 
 
+While the images can be generated locally, they often result in slight
+differences from the ones generated on the CI. For now, we recommend:
+
+1. Ensure the example works well locally.
+2. Get the example to run on the GitHub Actions CI job nammed `Screenshots / Regenerate`.
+3. Download the artifacts.
+4. Ensure they are of adequate quality.
+5. Add or update the relevant screenshots.
+6. Push the changes.
+
 ## Gallery
 
 There are a few modes by which an example can appear in the gallery.

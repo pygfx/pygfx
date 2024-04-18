@@ -1,8 +1,9 @@
 import math
-from ._base import Material, ColorMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import logger
 from ..utils.color import Color
+from ..utils.enums import ColorMode
 
 
 class MeshAbstractMaterial(Material):
@@ -14,7 +15,7 @@ class MeshAbstractMaterial(Material):
     ----------
     color : Color
         The uniform color of the mesh (used depending on the ``color_mode``).
-    color_mode : enum or str
+    color_mode : str | ColorMode
         The mode by which the mesh is coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color at each texture coordinate. Optional.
@@ -89,29 +90,18 @@ class MeshAbstractMaterial(Material):
     def color_mode(self):
         """The way that color is applied to the mesh.
 
-        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geometry `colors` buffer, one color per vertex.
-        * face: use the geometry `colors` buffer, one color per face.
-        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
-        * faces_map: use the geometry texcoords buffer to sample (per face) in the material's ``map`` texture.
+        See :obj:`pygfx.utils.enums.ColorMode`:
         """
         # todo: does 'auto' take the presence of texcoords into account?
         return self._store.color_mode
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
+        value = value or "auto"
+        if value not in ColorMode:
+            raise ValueError(
+                f"MeshMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property

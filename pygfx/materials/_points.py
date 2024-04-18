@@ -1,6 +1,7 @@
-from ._base import Material, ColorMode, SizeMode
+from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
+from ..utils.enums import ColorMode, SizeMode, CoordSpace, MarkerShape
 
 
 class PointsMaterial(Material):
@@ -12,13 +13,13 @@ class PointsMaterial(Material):
     ----------
     size : float
         The size (diameter) of the points in logical pixels. Default 4.
-    size_space : str
+    size_space : str | CoordSpace
         The coordinate space in which the size is expressed ('screen', 'world', 'model'). Default 'screen'.
-    size_mode : enum or str
+    size_mode : str | SizeMode
         The mode by which the points are sized. Default 'uniform'.
-    color : Color
+    color : str | tuple | Color
         The uniform color of the points (used depending on the ``color_mode``).
-    color_mode : enum or str
+    color_mode : str | ColorMode
         The mode by which the points are coloured. Default 'auto'.
     map : Texture
         The texture map specifying the color for each texture coordinate.
@@ -114,28 +115,21 @@ class PointsMaterial(Material):
     def color_mode(self):
         """The way that color is applied to the mesh.
 
-        * auto: switch between `uniform` and `vertex_map`, depending on whether `map` is set.
-        * uniform: use the material's color property for the whole mesh.
-        * vertex: use the geometry `colors` buffer, one color per vertex.
-        * vertex_map: use the geometry texcoords buffer to sample (per vertex) in the material's ``map`` texture.
+        See :obj:`pygfx.utils.enums.ColorMode`:
         """
         return self._store.color_mode
 
     @color_mode.setter
     def color_mode(self, value):
-        if isinstance(value, ColorMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("ColorMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(ColorMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid color_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid color_mode class: {value.__class__.__name__}")
-        if value == ColorMode.face or value == ColorMode.face_map:
-            raise ValueError(f"Points cannot have color_mode {value}")
+        value = value or "auto"
+        if value not in ColorMode:
+            raise ValueError(
+                f"PointsMaterial.color_mode must be a string in {ColorMode}, not {repr(value)}"
+            )
+        if value in ["face", "face_map"]:
+            raise ValueError(
+                f"PointsMaterial.color_mode does not support {repr(value)}"
+            )
         self._store.color_mode = value
 
     @property
@@ -150,7 +144,7 @@ class PointsMaterial(Material):
 
     @property
     def size(self):
-        """The size (diameter) of the points, in logical pixels."""
+        """The size (diameter) of the points, in logical pixels (or world/model space if ``size_space`` is set)."""
         return float(self.uniform_buffer.data["size"])
 
     @size.setter
@@ -162,46 +156,34 @@ class PointsMaterial(Material):
     def size_space(self):
         """The coordinate space in which the size is expressed.
 
-        Possible values are:
-        * "screen": logical screen pixels. The Default.
-        * "world": the world / scene coordinate frame.
-        * "model": the line's local coordinate frame (same as the line's positions).
+        See :obj:`pygfx.utils.enums.CoordSpace`:
         """
         return self._store.size_space
 
     @size_space.setter
     def size_space(self, value):
-        if value is None:
-            value = "screen"
-        if not isinstance(value, str):
-            raise TypeError("PointsMaterial.size_space must be str")
-        value = value.lower()
-        if value not in ["screen", "world", "model"]:
-            raise ValueError(f"Invalid value for PointsMaterial.size_space: {value}")
+        value = value or "screen"
+        if value not in CoordSpace:
+            raise ValueError(
+                f"PointsMaterial.size_space must be a string in {CoordSpace}, not {repr(value)}"
+            )
         self._store.size_space = value
 
     @property
     def size_mode(self):
         """The way that size is applied to the mesh.
 
-        * uniform: use the material's size property for all points.
-        * vertex: use the geometry `sizes` buffer, one size per vertex.
+        See :obj:`pygfx.utils.enums.SizeMode`:
         """
         return self._store.size_mode
 
     @size_mode.setter
     def size_mode(self, value):
-        if isinstance(value, SizeMode):
-            pass
-        elif isinstance(value, str):
-            if value.startswith("SizeMode."):
-                value = value.split(".")[-1]
-            try:
-                value = getattr(SizeMode, value.lower())
-            except AttributeError:
-                raise ValueError(f"Invalid size_mode: '{value}'")
-        else:
-            raise TypeError(f"Invalid size_mode class: {value.__class__.__name__}")
+        value = value or "uniform"
+        if value not in SizeMode:
+            raise ValueError(
+                f"PointsMaterial.size_mode must be a string in {SizeMode}, not {repr(value)}"
+            )
         self._store.size_mode = value
 
     @property
@@ -238,6 +220,129 @@ class PointsGaussianBlobMaterial(PointsMaterial):
     """
 
 
+class PointsMarkerMaterial(PointsMaterial):
+    """A material to render points as markers.
+
+    Markers come in a variety of shapes, and have an edge with a separate color.
+
+    Parameters
+    ----------
+    marker : str | MarkerShape
+        The shape of the marker. Default 'circle'.
+    edge_color : str | tuple | Color
+        The color of line marking the edge of the markers. Default 'black'.
+    edge_width : float
+        The width of the edge of the markers. Default 1.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`PointsMaterial<pygfx.PointsMaterial>`.
+
+    """
+
+    uniform_type = dict(
+        PointsMaterial.uniform_type,
+        edge_color="4xf4",
+        edge_width="f4",
+    )
+
+    def __init__(self, *, marker="circle", edge_width=1, edge_color="black", **kwargs):
+        super().__init__(**kwargs)
+        self.marker = marker
+        self.edge_width = edge_width
+        self.edge_color = edge_color
+
+    @property
+    def edge_color(self):
+        """The color of the edge of the markers."""
+        return Color(self.uniform_buffer.data["edge_color"])
+
+    @edge_color.setter
+    def edge_color(self, edge_color):
+        edge_color = Color(edge_color)
+        self.uniform_buffer.data["edge_color"] = edge_color
+        self.uniform_buffer.update_range(0, 1)
+        self._store.edge_color_is_transparent = edge_color.a < 1
+
+    @property
+    def edge_color_is_transparent(self):
+        """Whether the edge_color is (semi) transparent (i.e. not fully opaque)."""
+        return self._store.edge_color_is_transparent
+
+    @property
+    def edge_width(self):
+        """The width of the edge of the markers, in logical pixels (or world/model space if ``size_space`` is set)."""
+        return float(self.uniform_buffer.data["edge_width"])
+
+    @edge_width.setter
+    def edge_width(self, edge_width):
+        self.uniform_buffer.data["edge_width"] = float(edge_width)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def marker(self):
+        """The type/shape of the markers.
+
+        Supported values:
+
+        * A string from :obj:`pygfx.utils.enums.MarkerShape`.
+        * Matplotlib compatible characters: "osD+x^v<>".
+        * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
+        * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
+
+        """
+        # TODO: is marker a good name?
+        # Note: MPL calls this 'marker', Plotly calls this 'symbol'
+        return self._store.marker
+
+    @marker.setter
+    def marker(self, name):
+        # Define possible values, see:
+        # https://matplotlib.org/stable/api/markers_api.html
+        # https://plotly.com/python/marker-style/#custom-marker-symbols
+
+        alt_names = {
+            # MPL
+            "o": "circle",
+            "s": "square",
+            "D": "diamond",
+            "+": "plus",
+            "x": "cross",
+            "^": "triangle_up",
+            "<": "triangle_left",
+            ">": "triangle_right",
+            "v": "triangle_down",
+            # Unicode
+            "●": "circle",
+            "○": "ring",
+            "■": "square",
+            "♦": "diamond",
+            "♥": "heart",
+            "♠": "spade",
+            "♣": "club",
+            "✳": "asterix",
+            "▲": "triangle_up",
+            "▼": "triangle_down",
+            "◀": "triangle_left",
+            "▶": "triangle_right",
+            # Emojis (these may look like their plaintext variants in your editor)
+            "❤️": "heart",
+            "♠️": "spade",
+            "♣️": "club",
+            "♦️": "diamond",
+            "💎": "diamond",
+            "💍": "ring",
+            "✳️": "asterix",
+            "📍": "pin",
+        }
+
+        name = name or "circle"
+        resolved_name = alt_names.get(name, name).lower()
+        if resolved_name not in MarkerShape:
+            raise ValueError(
+                f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {repr(name)}"
+            )
+        self._store.marker = resolved_name
+
+
 class PointsSpriteMaterial(PointsMaterial):
     """A material to render points as sprite images.
 
@@ -267,5 +372,4 @@ class PointsSpriteMaterial(PointsMaterial):
         self._store.sprite = sprite
 
 
-# idea: a MarkerMaterial with more options for the shape, and an edge around the shape.
-# Though perhaps such a material should be part of a higher level plotting lib.
+# Idea: PointsSdfMaterial(PointsMaterial) -> a material where the point shape can be defined via an sdf.

@@ -45,7 +45,7 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 # Put the scene in as box, with lights, for visual appeal.
 box = gfx.Mesh(
     gfx.box_geometry(1000, 1000, 1000),
-    gfx.MeshPhongMaterial(),
+    gfx.MeshPhongMaterial(pick_write=True),
 )
 scene.add(box)
 scene.add(gfx.AmbientLight())
