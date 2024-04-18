@@ -2,7 +2,7 @@
 Validate transparency for the ordered2 blend mode
 =================================================
 
-Display 4 semi-transparent planes:
+Display 4 semi-transparent planes::
 
             //             |         |         |         |
     camera ((              |         |         |         |
