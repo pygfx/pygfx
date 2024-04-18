@@ -143,7 +143,7 @@ class _GLTF:
 
         extensions_used = self._gltf.model.extensionsUsed
         if extensions_used is not None:
-            gfx.utils.logger.warning(
+            gfx.utils.logger.info(
                 f"This GLTF used extensions: {extensions_used}, which are not supported yet, so the display may not be so correct."
             )
 

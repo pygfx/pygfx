@@ -53,7 +53,15 @@ scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 
 gltf = gfx.load_gltf(gltf_path)
-# gfx.utils.print_tree(gltf.scene)
+
+# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
+
+# Group[Scene]
+# - WorldObject[Character]
+# - - SkinnedMesh[Ch03]
+# - - Bone[mixamorig:Hips]
+# - - - ...
+
 model_obj = gltf.scene.children[0]
 model_obj.local.scale = (1, 1, 1)
 
@@ -79,7 +87,6 @@ def update_track(track, time):
 
     # TODO: Use scipy to interpolate now, will use our own implementation later
     if interpolation == "LINEAR":
-        cs = interpolate.interp1d(times, values, kind="linear", axis=0)
         if property == "rotation":
             # TODO: should use spherical linear interpolation instead
             cs = interpolate.interp1d(times, values, kind="linear", axis=0)

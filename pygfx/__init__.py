@@ -14,7 +14,7 @@ from .renderers import *
 
 from .utils.color import Color
 from .utils.load import load_mesh, load_meshes, load_scene
-from .utils.load_gltf import load_gltf, load_gltf_mesh
+from .utils.load_gltf import load_gltf, load_gltf_mesh, print_tree
 from .utils.show import show, Display
 from .utils.viewport import Viewport
 from .utils.text import font_manager

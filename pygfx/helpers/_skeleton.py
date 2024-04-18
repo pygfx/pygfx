@@ -1,4 +1,5 @@
 import pylinalg as la
+from typing import List
 from .. import Geometry, Line, LineSegmentMaterial, Bone, WorldObject
 
 
@@ -60,7 +61,7 @@ class SkeletonHelper(Line):
 
         positions.update_range()
 
-    def _get_bones(self, obj) -> list[Bone]:
+    def _get_bones(self, obj) -> List[Bone]:
         # Recursively get all bones from the object and its children.
         bones = []
         if isinstance(obj, Bone):

@@ -75,57 +75,53 @@ def create_mesh(geometry, bones):
     return mesh
 
 
-def init():
-    segment_height = 8
-    segment_count = 4
-    height = segment_height * segment_count
-    half_height = height * 0.5
+segment_height = 8
+segment_count = 4
+height = segment_height * segment_count
+half_height = height * 0.5
 
-    sizing = {
-        "segment_height": segment_height,
-        "segment_count": segment_count,
-        "height": height,
-        "half_height": half_height,
-    }
+sizing = {
+    "segment_height": segment_height,
+    "segment_count": segment_count,
+    "height": height,
+    "half_height": half_height,
+}
 
-    canvas = WgpuCanvas(size=(640, 480), max_fps=60, title="Skinnedmesh")
+canvas = WgpuCanvas(size=(640, 480), max_fps=60, title="Skinnedmesh")
 
-    renderer = gfx.WgpuRenderer(canvas)
+renderer = gfx.WgpuRenderer(canvas)
 
-    camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 200))
-    camera.local.position = (0, 30, 30)
-    camera.look_at((0, 0, 0))
+camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 200))
+camera.local.position = (0, 30, 30)
+camera.look_at((0, 0, 0))
 
-    scene = gfx.Scene()
+scene = gfx.Scene()
 
-    geometry = create_geometry(sizing)
-    bones = create_bones(sizing)
-    mesh = create_mesh(geometry, bones)
+geometry = create_geometry(sizing)
+bones = create_bones(sizing)
+mesh = create_mesh(geometry, bones)
 
-    # mesh.local.scale = ( 1, 1, 1 )
+scene.add(mesh)
 
-    scene.add(mesh)
+skeleton_helper = gfx.SkeletonHelper(mesh)
+scene.add(skeleton_helper)
 
-    skeleton_helper = gfx.SkeletonHelper(mesh)
-    scene.add(skeleton_helper)
+gfx.OrbitController(camera, register_events=renderer)
 
-    gfx.OrbitController(camera, register_events=renderer)
 
-    def animate():
-        t = time.time()
-        for bone in mesh.skeleton.bones:
-            rotation_y = math.sin(t) * 2 / len(mesh.skeleton.bones)
-            bone.local.rotation = la.quat_from_euler((0, rotation_y, 0))
+def animate():
+    t = time.time()
+    for bone in mesh.skeleton.bones:
+        rotation_y = math.sin(t) * 2 / len(mesh.skeleton.bones)
+        bone.local.rotation = la.quat_from_euler((0, rotation_y, 0))
 
-        mesh.skeleton.update()
-        skeleton_helper.update()
+    mesh.skeleton.update()
+    skeleton_helper.update()
 
-        renderer.render(scene, camera)
-        canvas.request_draw()
-
-    canvas.request_draw(animate)
-    run()
+    renderer.render(scene, camera)
+    canvas.request_draw()
 
 
 if __name__ == "__main__":
-    init()
+    canvas.request_draw(animate)
+    run()
