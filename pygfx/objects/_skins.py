@@ -16,7 +16,7 @@ class Bone(WorldObject):
 
     """
 
-    class __transform:
+    class __Transform:
         position: np.ndarray
         rotation: np.ndarray
         scale: np.ndarray
@@ -24,9 +24,9 @@ class Bone(WorldObject):
 
     def __init__(self, name=""):
         super().__init__(name=name)
-        
-        self._children:'list[Bone]' = []
-        self._parent:'Bone' = None
+
+        self._children: "list[Bone]" = []
+        self._parent: "Bone" = None
 
         self.visible = False
 
@@ -35,14 +35,14 @@ class Bone(WorldObject):
         # compatible with cuurrent WorldObject RecursiveTransform system, but does nothing.
         # temporary solution before we refactor the WorldObject transform system.
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2053385803
-        self.world = Bone.__transform()
+        self.world = Bone.__Transform()
         self.world.matrix = np.eye(4)
-        self.local = Bone.__transform()
+        self.local = Bone.__Transform()
         self.local.position = np.zeros(3)
         self.local.rotation = np.zeros(4)
         self.local.scale = np.ones(3)
         self.local.matrix = np.eye(4)
-    
+
     @property
     def parent(self):
         if self._parent is None:
@@ -51,10 +51,11 @@ class Bone(WorldObject):
             return self._parent
         else:
             return self._parent()
-    
 
     def update_matrix(self):
-        self.local.matrix = la.mat_compose(self.local.position, self.local.rotation, self.local.scale)
+        self.local.matrix = la.mat_compose(
+            self.local.position, self.local.rotation, self.local.scale
+        )
         self.__matrix_world_needs_update = True
 
     def update_matrix_world(self):
@@ -69,13 +70,13 @@ class Bone(WorldObject):
 
         for child in self._children:
             child.update_matrix_world()
-    
-    def add(self, *bones:'Bone') -> 'Bone':
+
+    def add(self, *bones: "Bone") -> "Bone":
         for obj in bones:
             if obj == self:
                 # can't add self as a child
                 continue
-            
+
             if obj and isinstance(obj, Bone):
                 if obj._parent is not None:
                     obj._parent.remove(obj)
@@ -88,7 +89,6 @@ class Bone(WorldObject):
 
         return self
 
-
     def __repr__(self) -> str:
         return f"Bone {self.name} {self.local.position} {self.local.rotation}\n"
 
@@ -100,7 +100,7 @@ class Skeleton:
 
     """
 
-    def __init__(self, bones:List[Bone], bone_inverses=None):
+    def __init__(self, bones: List[Bone], bone_inverses=None):
         super().__init__()
         if bones is None:
             bones = []
@@ -111,34 +111,40 @@ class Skeleton:
 
         count = len(self.bones)
         self.bone_matrices_buffer = Buffer(
-            array_from_shadertype({"bone_matrices": "4x4xf4",}, count)
+            array_from_shadertype(
+                {
+                    "bone_matrices": "4x4xf4",
+                },
+                count,
+            )
         )
 
         if len(self.bone_inverses) == 0:
             self.calculate_inverses()
 
     def calculate_inverses(self):
-        """Generate the bone_inverses array if not provided in the constructor.
-        """
+        """Generate the bone_inverses array if not provided in the constructor."""
         self.bone_inverses.clear()
         for bone in self.bones:
             bone.update_matrix_world()
             self.bone_inverses.append(np.linalg.inv(bone.world.matrix))
 
     def pose(self):
-        """Reset the skeleton to the binding-time pose.
-        """
+        """Reset the skeleton to the binding-time pose."""
         for i, bone in enumerate(self.bones):
             bone.world.matrix = np.linalg.inv(self.bone_inverses[i])
 
         for bone in self.bones:
             if bone.parent and isinstance(bone.parent, Bone):
-                bone.local.matrix = np.linalg.inv(bone.parent.world.matrix) @ bone.world.matrix
+                bone.local.matrix = (
+                    np.linalg.inv(bone.parent.world.matrix) @ bone.world.matrix
+                )
             else:
                 bone.local.matrix = bone.world.matrix
 
-            bone.local.position, bone.local.rotation, bone.local.scale = la.mat_decompose(bone.local.matrix)
-
+            bone.local.position, bone.local.rotation, bone.local.scale = (
+                la.mat_decompose(bone.local.matrix)
+            )
 
     def update(self):
         # TODO: we should update the bone matrices buffer automatically by some mechanism.
@@ -213,8 +219,8 @@ class SkinnedMesh(Mesh):
     def bind_mode(self):
         """
         Either "attached" or "detached".
-        "attached" means the skinned mesh shares the same world space as the skeleton. 
-        In contrast, "detached" is useful when sharing a skeleton across multiple skinned meshes. 
+        "attached" means the skinned mesh shares the same world space as the skeleton.
+        In contrast, "detached" is useful when sharing a skeleton across multiple skinned meshes.
         Default is "attached".
         """
         return self._bind_mode
@@ -234,7 +240,7 @@ class SkinnedMesh(Mesh):
             self.bind_matrix_inv = np.linalg.inv(self.bind_matrix)
 
     def bind(self, skeleton: Skeleton, bind_matrix=None):
-        """Bind a skeleton to the skinned mesh. 
+        """Bind a skeleton to the skinned mesh.
         The bind_matrix gets saved to .bind_matrix property and the .bind_matrix_inv gets calculated.
 
         Args:
@@ -251,6 +257,5 @@ class SkinnedMesh(Mesh):
         self.bind_matrix_inv = np.linalg.inv(bind_matrix)
 
     def pose(self):
-        """Reset the skinned mesh to the binding-time pose.
-        """
+        """Reset the skinned mesh to the binding-time pose."""
         self.skeleton.pose()

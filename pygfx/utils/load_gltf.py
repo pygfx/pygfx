@@ -457,7 +457,7 @@ class _GLTF:
             ar = ar.astype(np.int32)
 
         return ar
-    
+
     @lru_cache(maxsize=None)
     def _load_skins(self, skin_index):
         skin = self._gltf.model.skins[skin_index]
@@ -466,12 +466,12 @@ class _GLTF:
 
         bone_inverses = []
         for matrices in inverse_bind_matrices:
-            bone_inverse = np.array(matrices).reshape(4,4).T
+            bone_inverse = np.array(matrices).reshape(4, 4).T
             bone_inverses.append(bone_inverse)
 
         skeleton = gfx.Skeleton(bones, bone_inverses)
         return skeleton
-    
+
     def _load_animation(self, animation_info):
         channels = animation_info.channels
         samplers = animation_info.samplers
@@ -493,19 +493,24 @@ class _GLTF:
                 duration = times[-1]
             values = self._load_accessor(sampler.output)
 
-            key_frame_tracks.append({
-                "name": name,
-                "target": target_node,
-                "property": target_property,
-                "interpolation": interpolation,
-                "times": times,
-                "values": values
-            })
-        
-        action_clip = {"name": animation_info.name, "duration": duration, "tracks": key_frame_tracks}
-        
-        return action_clip
+            key_frame_tracks.append(
+                {
+                    "name": name,
+                    "target": target_node,
+                    "property": target_property,
+                    "interpolation": interpolation,
+                    "times": times,
+                    "values": values,
+                }
+            )
 
+        action_clip = {
+            "name": animation_info.name,
+            "duration": duration,
+            "tracks": key_frame_tracks,
+        }
+
+        return action_clip
 
     def _load_animations(self):
         gltf = self._gltf

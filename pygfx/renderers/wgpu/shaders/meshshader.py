@@ -431,7 +431,7 @@ class MeshShader(WorldObjectShader):
 
 
             // Get vertex position
-            
+
             let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
             var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 

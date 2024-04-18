@@ -5,6 +5,7 @@ Skinning Animation
 This example demonstrates how to animate a skinned mesh using a glTF animation clip.
 
 """
+
 ################################################################################
 # .. note::
 #
@@ -40,7 +41,7 @@ gltf_path = model_dir / "Michelle.glb"
 
 scene = gfx.Scene()
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync = False)
+canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
@@ -54,11 +55,9 @@ scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 gltf = gfx.load_gltf(gltf_path)
 # gfx.utils.print_tree(gltf.scene)
 model_obj = gltf.scene.children[0]
-model_obj.local.scale = ( 1, 1, 1 )
+model_obj.local.scale = (1, 1, 1)
 
 action_clip = gltf.animations[0]
-
-print(f"action_clip name:{action_clip["name"]}, duration:{action_clip["duration"]}, tracks:{len(action_clip["tracks"])}")
 
 skeleton_helper = gfx.SkeletonHelper(model_obj)
 scene.add(skeleton_helper)
@@ -80,21 +79,21 @@ def update_track(track, time):
 
     # TODO: Use scipy to interpolate now, will use our own implementation later
     if interpolation == "LINEAR":
-        cs = interpolate.interp1d(times, values, kind='linear', axis=0)
+        cs = interpolate.interp1d(times, values, kind="linear", axis=0)
         if property == "rotation":
-            #TODO: should use spherical linear interpolation instead
-            cs = interpolate.interp1d(times, values, kind='linear', axis=0)
+            # TODO: should use spherical linear interpolation instead
+            cs = interpolate.interp1d(times, values, kind="linear", axis=0)
             value = cs(time)
             value = value / np.linalg.norm(value)  # normalize quaternion
         else:
-            cs = interpolate.interp1d(times, values, kind='linear', axis=0)
+            cs = interpolate.interp1d(times, values, kind="linear", axis=0)
             value = cs(time)
 
     elif interpolation == "CUBICSPLINE":
-        cs = interpolate.interp1d(times, values, kind='cubic', axis=0)
+        cs = interpolate.interp1d(times, values, kind="cubic", axis=0)
         value = cs(time)
     elif interpolation == "STEP":
-        cs = interpolate.interp1d(times, values, kind='previous', axis=0)
+        cs = interpolate.interp1d(times, values, kind="previous", axis=0)
         value = cs(time)
     else:
         print("unknown interpolation", interpolation)
@@ -115,6 +114,7 @@ last_time = time.perf_counter()
 
 stats = gfx.Stats(viewport=renderer)
 
+
 def animate():
     global gloabl_time, last_time
     now = time.perf_counter()
@@ -134,6 +134,7 @@ def animate():
         renderer.render(scene, camera, flush=False)
     stats.render()
     canvas.request_draw()
+
 
 if __name__ == "__main__":
     renderer.request_draw(animate)

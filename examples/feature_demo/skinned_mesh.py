@@ -8,7 +8,8 @@ This example shows the rendering of a skinned mesh with a skeleton and bones.
 # sphinx_gallery_pygfx_docs = 'animate 4s'
 # sphinx_gallery_pygfx_test = 'run'
 
-import math, time
+import math
+import time
 import numpy as np
 import pygfx as gfx
 import pylinalg as la
@@ -46,7 +47,7 @@ def create_bones(sizing):
     bones.append(prev_bone)
 
     prev_bone.local.position = (0, 0, -sizing["half_height"])
-    prev_bone.update_matrix() #update matrix manually
+    prev_bone.update_matrix()  # update matrix manually
 
     for _ in range(sizing["segment_count"]):
         bone = gfx.Bone()
@@ -122,7 +123,7 @@ def init():
         renderer.render(scene, camera)
         canvas.request_draw()
 
-    canvas.request_draw(animate)    
+    canvas.request_draw(animate)
     run()
 
 
