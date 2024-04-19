@@ -1,3 +1,7 @@
+"""
+This directory contains wgsl files for the shaders. They can be loaded with ``load_wgsl()``.
+"""
+
 import sys
 import functools
 import importlib.resources

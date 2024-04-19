@@ -1,4 +1,7 @@
-""" All pygfx builtin shaders.
+"""
+All pygfx builtin shaders.
+
+The idea is that these only import from the (public) namespace pygfx.renderers.wgpu.
 """
 
 # flake8: noqa

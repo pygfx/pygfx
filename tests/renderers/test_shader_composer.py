@@ -72,6 +72,10 @@ def test_uniform_definitions():
         def get_code(self):
             return ""
 
+        def clear_bindings(self):
+            self._definitions._uniform_struct_names.clear()
+            self._definitions._typedefs.clear()
+
     shader = MyShader()
 
     # Fails
@@ -100,8 +104,7 @@ def test_uniform_definitions():
 
     # Test vec
     struct = dict(foo="4xf4", bar="2xi4")
-    shader._uniform_struct_names.clear()
-    shader._typedefs.clear()
+    shader.clear_bindings()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.code_definitions().strip()
@@ -118,8 +121,7 @@ def test_uniform_definitions():
 
     # Test mat
     struct = dict(foo="4x4xf4", bar="3x2xi4")
-    shader._uniform_struct_names.clear()
-    shader._typedefs.clear()
+    shader.clear_bindings()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
         shader.code_definitions().strip()
@@ -136,8 +138,7 @@ def test_uniform_definitions():
 
     # Test array
     struct = dict(foo="4x4xf4", bar="3x2xi4")
-    shader._uniform_struct_names.clear()
-    shader._typedefs.clear()
+    shader.clear_bindings()
 
     shader.define_binding(
         0,
