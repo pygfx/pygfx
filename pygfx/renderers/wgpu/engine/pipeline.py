@@ -9,7 +9,7 @@ import wgpu
 from ....resources import Buffer
 from ....utils import logger
 
-from ..shader.base1 import ShaderInterface
+from ..shader.base import ShaderInterface
 from .utils import to_texture_format, GfxSampler, GfxTextureView
 from .utils import registry, GpuCache, hash_from_value
 from .update import ensure_wgpu_object, ALTTEXFORMAT

@@ -24,6 +24,7 @@ Classes and functions required to implement custom shaders:
     :toctree: _autosummary/renderers/wgpu
     :template: ../_templates/custom_layout.rst
 
+    BaseShader
     WorldObjectShader
     Binding
     GfxSampler
@@ -71,7 +72,7 @@ from .engine.pipeline import Binding
 
 # Shader classes
 from .wgsl import load_wgsl
-from .shader.base2 import WorldObjectShader
+from .shader import BaseShader, WorldObjectShader
 from .shader._shaderlib import shaderlib
 
 # Load shaders submodules, so that all our builtin shaders become a vailable
