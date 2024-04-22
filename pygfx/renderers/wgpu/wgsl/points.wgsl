@@ -11,6 +11,8 @@
 // That gives 2 faces which form a quad.
 //
 
+#include shader.bindings.wgsl
+#include pygfx.common.wgsl
 
 // -------------------- functions --------------------
 

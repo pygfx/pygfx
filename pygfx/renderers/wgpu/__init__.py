@@ -29,6 +29,7 @@ Classes and functions required to implement custom shaders:
     Binding
     GfxSampler
     GfxTextureView
+    register_wgsl_loader
     load_wgsl
     shaderlib
 
@@ -72,7 +73,7 @@ from .engine.pipeline import Binding
 
 # Shader classes
 from .wgsl import load_wgsl
-from .shader import BaseShader, WorldObjectShader
+from .shader import BaseShader, WorldObjectShader, register_wgsl_loader
 from .shader._shaderlib import shaderlib
 
 # Load shaders submodules, so that all our builtin shaders become a vailable

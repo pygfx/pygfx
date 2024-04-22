@@ -269,7 +269,7 @@ class LineShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return self.code_definitions() + self.code_common() + load_wgsl("line.wgsl")
+        return load_wgsl("line.wgsl")
 
 
 @register_wgpu_render_function(Line, LineDebugMaterial)

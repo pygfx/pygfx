@@ -74,34 +74,26 @@ The shader must implement a few methods. A typical shader is shown below:
 
         def get_code(self):
             # Return combination of code pieces.
-            return (
-                self.code_definitions()
-                + self.code_common()
-                + self.code_vertex()
-                + self.code_fragment()
-            )
-
-        def code_vertex(self):
             return """
+            #include shader.bindings.wgsl
+            #include pygfx.common.wgsl
+
             @stage(vertex)
             fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
                 ...
             }
-            """
 
-        def code_fragment(self):
-            return """
             @stage(fragment)
             fn fs_main() -> FragmentOutput {
                ...
             }
-            """
 
+            """
 
 Remarks:
 
 * In ``get_bindings()``, the ``Binding`` object is used to collect all the required information on a binding.
-* The wgsl code to define a group of bindings can be easily generated using ``define_bindings()``.
+* The wgsl code to define a group of bindings can be included with ``#include shader.bindings.wgsl``.
 * You can also manually define the wgsl code for a binding in cases where this is easier.
   We recommend using a separate bindgroup for that.
 * By convention, methods that return wgsl code are prefixed with "code".

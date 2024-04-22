@@ -17,7 +17,7 @@ from ..engine.utils import (
     hash_from_value,
 )
 from ..engine.binding import Binding
-from .resolve import resolve_varyings, resolve_depth_output
+from .resolve import resolve_includes, resolve_varyings, resolve_depth_output
 from .definitions import BindingDefinitions
 
 
@@ -29,6 +29,36 @@ jinja_env = jinja2.Environment(
     line_statement_prefix="$$",
     undefined=jinja2.StrictUndefined,
 )
+
+
+wgsl_loaders = {"shader": None, "pygfx": load_wgsl}
+
+
+def register_wgsl_loader(context, func):
+    """Register a source for shader snippets.
+
+    When code is encountered that looks like::
+
+        #include some_context.name.wgsl
+
+    The loader for "some_context" is looked up and used to load the wgsl to include.
+    This function allows registering a loader for your downstream package.
+
+    Parameters
+    ----------
+    context : str
+        The context of the loader.
+    func: callable
+        The function that will be called when a shader is loaded for the given context.
+        The function must accept one positional argument (the uri).
+    """
+    if not (isinstance(context, str) and "." not in context):
+        raise TypeError("Wgsl load context must be a string witout dots.")
+    if not callable(func):
+        raise TypeError("The given wgsl load func must be callable.")
+    if context in wgsl_loaders:
+        raise RuntimeError(f"A loader is already registered for '{context}'.")
+    wgsl_loaders[context] = func
 
 
 class ShaderInterface:
@@ -91,7 +121,7 @@ class BaseShader(ShaderInterface):
         # shader kwargs *after* the pipeline has obtained the hash.
         self._hash = None
 
-        self._definitions = BindingDefinitions()
+        self._binding_definitions = BindingDefinitions()
 
     def __setitem__(self, key, value):
         if hasattr(self.__class__, key):
@@ -127,20 +157,42 @@ class BaseShader(ShaderInterface):
             # Faster, but assumes that the produced code only depends on kwargs.
             return hash_from_value([fullname, self.code_definitions(), self.kwargs])
         else:
-            # More reliable (e.g. in an interactove session).
-            return hash_from_value([self.get_code(), self.kwargs])
+            # More reliable (e.g. in an interactive session).
+            return hash_from_value(
+                [self.code_definitions(), self.get_code(), self.kwargs]
+            )
 
     def code_definitions(self):
         """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
-        return self._definitions.get_code()
+        return self._binding_definitions.get_code()
 
     def get_code(self):
         """Implement this to compose the total (but still templated)
         shader. This method is called by ``generate_wgsl()``.
         """
         return self.code_definitions()
+
+    def _load_wgsl_from_uri(self, uri):
+        """To help resolve #include directives in wgsl."""
+        if not isinstance(uri, str):
+            raise TypeError("wgsl uri must be str.")
+        if not (uri.count(".") == 2 and uri.endswith(".wgsl")):
+            raise ValueError("wgsl uri's must have the form 'context.name.wgsl'.")
+
+        context, name, ext = uri.split(".")
+
+        if context == "shader":
+            if name == "bindings":
+                return self._binding_definitions.get_code()
+            else:
+                raise ValueError(f"Invalid wgsl uri: {uri}")
+        else:
+            loader = wgsl_loaders.get(context, None)
+            if loader is None:
+                raise ValueError(f"No wgsl loader found for {uri}")
+            return loader(name + "." + ext)
 
     def generate_wgsl(self, **kwargs):
         """Generate the final WGSL. Calls get_code() and then resolves
@@ -157,6 +209,8 @@ class BaseShader(ShaderInterface):
 
         try:
             code1 = self.get_code()
+            code1 = resolve_includes(code1, self._load_wgsl_from_uri)
+
             t = jinja_env.from_string(code1)
 
             # Also add some additional kwargs, some of these may be set during get_code()
@@ -181,14 +235,15 @@ class BaseShader(ShaderInterface):
     def define_bindings(self, bindgroup, bindings_dict):
         """Define a collection of bindings organized in a dict."""
         for index, binding in bindings_dict.items():
-            self._definitions.define_binding(bindgroup, index, binding)
+            self._binding_definitions.define_binding(bindgroup, index, binding)
 
     def define_binding(self, bindgroup, index, binding):
-        """Define a uniform, buffer, sampler, or texture. The produced wgsl
-        will be part of the code returned by ``get_definitions()``. The binding
-        must be a Binding object.
+        """Define a uniform, buffer, sampler, or texture.
+
+        The binding must be a Binding object. The code that defines the binding
+        will be available via ``code_bindings()`` and ``#include bindings``.
         """
-        self._definitions.define_binding(bindgroup, index, binding)
+        self._binding_definitions.define_binding(bindgroup, index, binding)
 
 
 class WorldObjectShader(BaseShader):
@@ -220,12 +275,6 @@ class WorldObjectShader(BaseShader):
         self["clipping_mode"] = wobject.material.clipping_mode
 
     def code_common(self):
-        if self["colormap_dim"]:
-            self.derived_kwargs["colormap_coord_type"] = {
-                "1d": "f32",
-                "2d": "vec2<f32>",
-                "3d": "vec3<f32>",
-            }.get(self["colormap_dim"], "f32")
         return load_wgsl("common.wgsl")
 
     # ----- What subclasses must implement

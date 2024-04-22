@@ -183,4 +183,4 @@ class PointsShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return self.code_definitions() + self.code_common() + load_wgsl("points.wgsl")
+        return load_wgsl("points.wgsl")

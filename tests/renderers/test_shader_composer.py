@@ -73,8 +73,8 @@ def test_uniform_definitions():
             return ""
 
         def clear_bindings(self):
-            self._definitions._uniform_struct_names.clear()
-            self._definitions._typedefs.clear()
+            self._binding_definitions._uniform_struct_names.clear()
+            self._binding_definitions._typedefs.clear()
 
     shader = MyShader()
 

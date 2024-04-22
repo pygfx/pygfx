@@ -55,6 +55,9 @@
 //  node 1
 //
 
+#include shader.bindings.wgsl
+#include pygfx.common.wgsl
+
 // -------------------- functions --------------------
 
 
