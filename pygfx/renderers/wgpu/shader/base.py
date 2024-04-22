@@ -220,10 +220,11 @@ class WorldObjectShader(BaseShader):
 
     def code_common(self):
         if self["colormap_dim"]:
-            typemap = {"1d": "f32", "2d": "vec2<f32>", "3d": "vec3<f32>"}
-            self.derived_kwargs["colormap_coord_type"] = typemap.get(
-                self["colormap_dim"], "f32"
-            )
+            self.derived_kwargs["colormap_coord_type"] = {
+                "1d": "f32",
+                "2d": "vec2<f32>",
+                "3d": "vec3<f32>",
+            }.get(self["colormap_dim"], "f32")
         return load_wgsl("common.wgsl")
 
     # ----- What subclasses must implement
@@ -279,36 +280,21 @@ class WorldObjectShader(BaseShader):
         # TODO: this is an indication that Binding needs its own module. See similar case further down
         from ..engine.pipeline import Binding  # avoid recursive import
 
-        sampler = GfxSampler(interpolation, "repeat")
         self["colormap_interpolation"] = interpolation
+        sampler = GfxSampler(interpolation, "repeat")
+        texture_view = self._define_colormap_texture(texture)
 
-        if not isinstance(texture, Texture):
-            raise TypeError("texture must be a Texture")
-        elif not isinstance(texcoords, Buffer):
+        # Check that texture dim matches texcoords
+        if not isinstance(texcoords, Buffer):
             raise ValueError("texture is present, but texcoords must be a buffer")
-        texture_view = GfxTextureView(texture)
-        # Dimensionality
-        self["colormap_dim"] = view_dim = texture_view.view_dim
-        if view_dim not in ("1d", "2d", "3d"):
-            raise ValueError(f"Unexpected texture dimension: '{view_dim}'")
-        # Texture dim matches texcoords
         vert_fmt = to_vertex_format(texcoords.format)
-        if view_dim == "1d" and "x" not in vert_fmt:
+        if texture_view.view_dim == "1d" and "x" not in vert_fmt:
             pass
-        elif not vert_fmt.endswith("x" + view_dim[0]):
+        elif not vert_fmt.endswith("x" + texture_view.view_dim[0]):
             raise ValueError(
-                f"texcoords {texcoords.format} does not match texture_view {view_dim}"
+                f"texcoords {texcoords.format} does not match texture_view {texture_view.view_dim}"
             )
-        # Sampling type
-        fmt = to_texture_format(texture_view.format)
-        if "norm" in fmt or "float" in fmt:
-            self["colormap_format"] = "f32"
-        elif "uint" in fmt:
-            self["colormap_format"] = "u32"
-        else:
-            self["colormap_format"] = "i32"
-        # Channels
-        self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
+
         # Return bindings
         return [
             Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
@@ -324,21 +310,37 @@ class WorldObjectShader(BaseShader):
         """
         from ..engine.pipeline import Binding  # avoid recursive import
 
-        sampler = GfxSampler(interpolation, "clamp")
         self["colormap_interpolation"] = interpolation
+        sampler = GfxSampler(interpolation, "clamp")
+        texture_view = self._define_colormap_texture(texture)
 
+        # Check that texture dim matches image channels
+        if int(texture_view.view_dim[0]) != self["img_nchannels"]:
+            raise ValueError(
+                f"Image channels {self['img_nchannels']} does not match texture_view {texture_view.view_dim}"
+            )
+
+        # Return bindings
+        return [
+            Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
+            Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
+        ]
+
+    def _define_colormap_texture(self, texture):
+        # Get texture view
         if not isinstance(texture, Texture):
             raise TypeError("texture must be a Texture")
         texture_view = GfxTextureView(texture)
         # Dimensionality
-        self["colormap_dim"] = view_dim = texture_view.view_dim
-        if texture_view.view_dim not in ("1d", "2d", "3d"):
-            raise ValueError("Unexpected colormap texture dimension")
-        # Texture dim matches image channels
-        if int(view_dim[0]) != self["img_nchannels"]:
-            raise ValueError(
-                f"Image channels {self['img_nchannels']} does not match texture_view {view_dim}"
-            )
+        view_dim = texture_view.view_dim
+        if view_dim not in ("1d", "2d", "3d"):
+            raise ValueError(f"Unexpected texture dimension: '{view_dim}'")
+        self["colormap_dim"] = view_dim
+        self.derived_kwargs["colormap_coord_type"] = {
+            "1d": "f32",
+            "2d": "vec2<f32>",
+            "3d": "vec3<f32>",
+        }[view_dim]
         # Sampling type
         fmt = to_texture_format(texture_view.format)
         if "norm" in fmt or "float" in fmt:
@@ -349,8 +351,4 @@ class WorldObjectShader(BaseShader):
             self["colormap_format"] = "i32"
         # Channels
         self["colormap_nchannels"] = len(fmt) - len(fmt.lstrip("rgba"))
-        # Return bindings
-        return [
-            Binding("s_colormap", "sampler/filtering", sampler, "FRAGMENT"),
-            Binding("t_colormap", "texture/auto", texture_view, "FRAGMENT"),
-        ]
+        return texture_view
