@@ -1,5 +1,5 @@
 from pygfx.renderers.wgpu.shader import BaseShader
-from pygfx.renderers.wgpu.shader.base1 import resolve_depth_output
+from pygfx.renderers.wgpu.shader.base import resolve_depth_output
 from pygfx.renderers.wgpu import Binding
 from pygfx.utils import array_from_shadertype
 from pygfx import Buffer
