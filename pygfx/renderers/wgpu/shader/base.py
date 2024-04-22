@@ -16,6 +16,7 @@ from ..engine.utils import (
     to_texture_format,
     hash_from_value,
 )
+from ..engine.binding import Binding
 from .resolve import resolve_varyings, resolve_depth_output
 from .definitions import BindingDefinitions
 
@@ -277,8 +278,6 @@ class WorldObjectShader(BaseShader):
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
-        # TODO: this is an indication that Binding needs its own module. See similar case further down
-        from ..engine.pipeline import Binding  # avoid recursive import
 
         self["colormap_interpolation"] = interpolation
         sampler = GfxSampler(interpolation, "repeat")
@@ -308,7 +307,6 @@ class WorldObjectShader(BaseShader):
         In the WGSL the colormap can be sampled using ``sample_colormap()``.
         Returns a list of bindings.
         """
-        from ..engine.pipeline import Binding  # avoid recursive import
 
         self["colormap_interpolation"] = interpolation
         sampler = GfxSampler(interpolation, "clamp")
