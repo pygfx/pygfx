@@ -22,4 +22,5 @@ some are larger shaders loaded from wgsl files. Templating using jinja2 is used
 to realize "compile time" choices in the code.
 """
 
-from .base import BaseShader, WorldObjectShader, register_wgsl_loader  # noqa
+from .base import BaseShader, WorldObjectShader  # noqa
+from .templating import register_wgsl_loader

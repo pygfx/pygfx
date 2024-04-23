@@ -125,9 +125,3 @@ fn pick_pack(value: u32, bits: i32) -> vec4<u32> {
     return select( vec4<u32>(0u) , pick_new & mask , selector2 );
 }
 
-
-// ----- Environment
-
-$$ if lighting
-{{ light_definitions }}
-$$ endif

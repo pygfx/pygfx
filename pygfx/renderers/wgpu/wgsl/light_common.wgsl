@@ -1,3 +1,8 @@
+
+// Get info on the number of lights, their types, positions, and colors
+{{ light_definitions }}
+
+
 fn getDistanceAttenuation(light_distance: f32, cutoff_distance: f32, decay_exponent: f32) -> f32 {
     var distance_falloff: f32 = 1.0 / max( pow( light_distance, decay_exponent ), 0.01 );
     if ( cutoff_distance > 0.0 ) {

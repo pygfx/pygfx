@@ -5,9 +5,6 @@ it to the resources (buffers and textures) and some details on the
 pipeline and rendering.
 """
 
-from typing import Callable, Tuple
-import jinja2
-
 from ....resources import Buffer, Texture
 from ..engine.utils import (
     GfxSampler,
@@ -19,47 +16,7 @@ from ..engine.utils import (
 from ..engine.binding import Binding
 from .resolve import resolve_varyings, resolve_depth_output
 from .definitions import BindingDefinitions
-
-
-loader = jinja2.PrefixLoader({}, delimiter=".")
-loader.mapping["pygfx"] = jinja2.PackageLoader("pygfx.renderers.wgpu.wgsl", ".")
-
-jinja_env = jinja2.Environment(
-    block_start_string="{$",
-    block_end_string="$}",
-    variable_start_string="{{",
-    variable_end_string="}}",
-    line_statement_prefix="$$",
-    undefined=jinja2.StrictUndefined,
-    loader=loader,
-)
-
-
-def register_wgsl_loader(context, func):
-    """Register a source for shader snippets.
-
-    When code is encountered that looks like::
-
-       {$ include 'some_context.name.wgsl' $}
-
-    The loader for "some_context" is looked up and used to load the wgsl to include.
-    This function allows registering a loader for your downstream package.
-
-    Parameters
-    ----------
-    context : str
-        The context of the loader.
-    func: callable
-        The function that will be called when a shader is loaded for the given context.
-        The function must accept one positional argument (the name to include).
-    """
-    if not (isinstance(context, str) and "." not in context):
-        raise TypeError("Wgsl load context must be a string witout dots.")
-    if not callable(func):
-        raise TypeError("The given wgsl load func must be callable.")
-    if context in loader.mapping:
-        raise RuntimeError(f"A loader is already registered for '{context}'.")
-    loader.mapping[context] = func
+from .templating import apply_templating
 
 
 class ShaderInterface:
@@ -114,14 +71,11 @@ class BaseShader(ShaderInterface):
     def __init__(self, **kwargs):
         # The shader kwargs
         self.kwargs = kwargs
-        # Additional shader kwargs for private stuff. Only use for derived values:
-        # values that are already defined by an item in kwargs!!
-        self.derived_kwargs = {}
         # The stored hash. If set, the hash is locked, and kwargs cannot
         # be set. This is to prevent the shader implementations setting
         # shader kwargs *after* the pipeline has obtained the hash.
         self._hash = None
-
+        # Handling binding definitions is handled by a wrapped object.
         self._binding_definitions = BindingDefinitions()
 
     def __setitem__(self, key, value):
@@ -176,41 +130,24 @@ class BaseShader(ShaderInterface):
         the templating variables, varyings, and depth output.
         """
 
-        # Compose shader kwargs
-        shader_kwargs = self.kwargs.copy()
+        # Compose shader variables
+        shader_kwargs = {}
+        shader_kwargs.update(self.kwargs)
         shader_kwargs.update(kwargs)
+        shader_kwargs["bindings_code"] = self._binding_definitions.get_code()
 
-        # Set self.kwargs, because self.get_code() might use it.
-        ori_kwargs = self.kwargs
-        self.kwargs = shader_kwargs
+        # If shader kwargs are used in ``get_code()``, make sure its correct.
+        ori_kwargs, self.kwargs = self.kwargs, shader_kwargs
 
         try:
+            # Obtain base code
             code1 = self.get_code()
-
-            # Also add some additional kwargs, some of these may have been set during get_code()
-            shader_kwargs.update(self.derived_kwargs)
-            shader_kwargs["bindings_code"] = self._binding_definitions.get_code()
-            # todo: do this via a dict loader or something?
-
-            err_msg = None
-            try:
-                t = jinja_env.from_string(code1)
-                code2 = t.render(**shader_kwargs)
-            except jinja2.UndefinedError as err:
-                err_msg = f"Cannot compose shader: {err.args[0]}"
-
-            if err_msg:
-                # Don't raise within handler to avoid recursive tb
-                raise ValueError(err_msg)
-
-            # Auto-insert varyings struct
-            code2 = resolve_varyings(code2)
-
-            # Tweak FragmentOutput if depth is set in frag shader.
-            code2 = resolve_depth_output(code2)
-
-            return code2
-
+            # Templating and resolving includes
+            code2 = apply_templating(code1, **shader_kwargs)
+            # Auto-insert varyings struct, and Tweak FragmentOutput if depth is set in frag shader.
+            code3 = resolve_varyings(code2)
+            code3 = resolve_depth_output(code3)
+            return code3
         finally:
             self.kwargs = ori_kwargs
 
@@ -240,21 +177,12 @@ class WorldObjectShader(BaseShader):
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)
 
-        # Init values related to blender. The blending_code will include FragmentOutput and get_fragment_output()
-        self.kwargs.setdefault("write_pick", True)
-        self.kwargs.setdefault("blending_code", "")
-
-        # Init other variables for the environment.
-        self.kwargs.setdefault("lighting", "")
-
-        # Init colormap values
-        self.kwargs.setdefault("colormap_dim", "")
-        self.kwargs.setdefault("colormap_nchannels", 1)
-        self.kwargs.setdefault("colormap_format", "f32")
-
         # Init clip plane values
         self["n_clipping_planes"] = wobject.material.clipping_plane_count
         self["clipping_mode"] = wobject.material.clipping_mode
+
+        # Init other common variables so we don't need jinja2's defined()
+        self["colormap_dim"] = None
 
     # ----- What subclasses must implement
 
@@ -362,7 +290,7 @@ class WorldObjectShader(BaseShader):
         if view_dim not in ("1d", "2d", "3d"):
             raise ValueError(f"Unexpected texture dimension: '{view_dim}'")
         self["colormap_dim"] = view_dim
-        self.derived_kwargs["colormap_coord_type"] = {
+        self["colormap_coord_type"] = {
             "1d": "f32",
             "2d": "vec2<f32>",
             "3d": "vec3<f32>",
