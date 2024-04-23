@@ -18,7 +18,6 @@ from .. import (
     WorldObjectShader,
     Binding,
     RenderMask,
-    shaderlib,
     nchannels_from_format,
     to_texture_format,
     GfxSampler,
