@@ -5,10 +5,10 @@ it to the resources (buffers and textures) and some details on the
 pipeline and rendering.
 """
 
+from typing import Callable, Tuple
 import jinja2
 
 from ....resources import Buffer, Texture
-from ..wgsl import load_wgsl
 from ..engine.utils import (
     GfxSampler,
     GfxTextureView,
@@ -17,9 +17,12 @@ from ..engine.utils import (
     hash_from_value,
 )
 from ..engine.binding import Binding
-from .resolve import resolve_includes, resolve_varyings, resolve_depth_output
+from .resolve import resolve_varyings, resolve_depth_output
 from .definitions import BindingDefinitions
 
+
+loader = jinja2.PrefixLoader({}, delimiter=".")
+loader.mapping["pygfx"] = jinja2.PackageLoader("pygfx.renderers.wgpu.wgsl", ".")
 
 jinja_env = jinja2.Environment(
     block_start_string="{$",
@@ -28,10 +31,8 @@ jinja_env = jinja2.Environment(
     variable_end_string="}}",
     line_statement_prefix="$$",
     undefined=jinja2.StrictUndefined,
+    loader=loader,
 )
-
-
-wgsl_loaders = {"shader": None, "pygfx": load_wgsl}
 
 
 def register_wgsl_loader(context, func):
@@ -39,7 +40,7 @@ def register_wgsl_loader(context, func):
 
     When code is encountered that looks like::
 
-        #include some_context.name.wgsl
+       {$ include 'some_context.name.wgsl' $}
 
     The loader for "some_context" is looked up and used to load the wgsl to include.
     This function allows registering a loader for your downstream package.
@@ -50,15 +51,15 @@ def register_wgsl_loader(context, func):
         The context of the loader.
     func: callable
         The function that will be called when a shader is loaded for the given context.
-        The function must accept one positional argument (the uri).
+        The function must accept one positional argument (the name to include).
     """
     if not (isinstance(context, str) and "." not in context):
         raise TypeError("Wgsl load context must be a string witout dots.")
     if not callable(func):
         raise TypeError("The given wgsl load func must be callable.")
-    if context in wgsl_loaders:
+    if context in loader.mapping:
         raise RuntimeError(f"A loader is already registered for '{context}'.")
-    wgsl_loaders[context] = func
+    loader.mapping[context] = func
 
 
 class ShaderInterface:
@@ -155,44 +156,26 @@ class BaseShader(ShaderInterface):
 
         if name_probably_defines_code:
             # Faster, but assumes that the produced code only depends on kwargs.
-            return hash_from_value([fullname, self.code_definitions(), self.kwargs])
+            return hash_from_value(
+                [fullname, self._binding_definitions.get_code(), self.kwargs]
+            )
         else:
             # More reliable (e.g. in an interactive session).
             return hash_from_value(
-                [self.code_definitions(), self.get_code(), self.kwargs]
+                [self._binding_definitions.get_code(), self.get_code(), self.kwargs]
             )
 
     def code_definitions(self):
         """Get the WGSL definitions of types and bindings (uniforms, storage
         buffers, samplers, and textures).
         """
-        return self._binding_definitions.get_code()
+        return
 
     def get_code(self):
         """Implement this to compose the total (but still templated)
         shader. This method is called by ``generate_wgsl()``.
         """
         return self.code_definitions()
-
-    def _load_wgsl_from_uri(self, uri):
-        """To help resolve #include directives in wgsl."""
-        if not isinstance(uri, str):
-            raise TypeError("wgsl uri must be str.")
-        if not (uri.count(".") == 2 and uri.endswith(".wgsl")):
-            raise ValueError("wgsl uri's must have the form 'context.name.wgsl'.")
-
-        context, name, ext = uri.split(".")
-
-        if context == "shader":
-            if name == "bindings":
-                return self._binding_definitions.get_code()
-            else:
-                raise ValueError(f"Invalid wgsl uri: {uri}")
-        else:
-            loader = wgsl_loaders.get(context, None)
-            if loader is None:
-                raise ValueError(f"No wgsl loader found for {uri}")
-            return loader(name + "." + ext)
 
     def generate_wgsl(self, **kwargs):
         """Generate the final WGSL. Calls get_code() and then resolves
@@ -209,15 +192,15 @@ class BaseShader(ShaderInterface):
 
         try:
             code1 = self.get_code()
-            code1 = resolve_includes(code1, self._load_wgsl_from_uri)
 
-            t = jinja_env.from_string(code1)
-
-            # Also add some additional kwargs, some of these may be set during get_code()
+            # Also add some additional kwargs, some of these may have been set during get_code()
             shader_kwargs.update(self.derived_kwargs)
+            shader_kwargs["bindings_code"] = self._binding_definitions.get_code()
+            # todo: do this via a dict loader or something?
 
             err_msg = None
             try:
+                t = jinja_env.from_string(code1)
                 code2 = t.render(**shader_kwargs)
             except jinja2.UndefinedError as err:
                 err_msg = f"Cannot compose shader: {err.args[0]}"
@@ -225,10 +208,15 @@ class BaseShader(ShaderInterface):
             if err_msg:
                 # Don't raise within handler to avoid recursive tb
                 raise ValueError(err_msg)
-            else:
-                code2 = resolve_varyings(code2)
-                code2 = resolve_depth_output(code2)
-                return code2
+
+            # Auto-insert varyings struct
+            code2 = resolve_varyings(code2)
+
+            # Tweak FragmentOutput if depth is set in frag shader.
+            code2 = resolve_depth_output(code2)
+
+            return code2
+
         finally:
             self.kwargs = ori_kwargs
 
@@ -241,7 +229,7 @@ class BaseShader(ShaderInterface):
         """Define a uniform, buffer, sampler, or texture.
 
         The binding must be a Binding object. The code that defines the binding
-        will be available via ``code_bindings()`` and ``#include bindings``.
+        will be inserted in ``pygfx.std.wgsl``.
         """
         self._binding_definitions.define_binding(bindgroup, index, binding)
 
@@ -258,24 +246,21 @@ class WorldObjectShader(BaseShader):
     def __init__(self, wobject, **kwargs):
         super().__init__(**kwargs)
 
-        # Init values that get set when generate_wgsl() is called, using blender.get_shader_kwargs()
+        # Init values related to blender. The blending_code will include FragmentOutput and get_fragment_output()
         self.kwargs.setdefault("write_pick", True)
         self.kwargs.setdefault("blending_code", "")
+
+        # Init other variables for the environment.
+        self.kwargs.setdefault("lighting", "")
 
         # Init colormap values
         self.kwargs.setdefault("colormap_dim", "")
         self.kwargs.setdefault("colormap_nchannels", 1)
         self.kwargs.setdefault("colormap_format", "f32")
 
-        # Init lighting
-        self.kwargs.setdefault("lighting", "")
-
-        # Apply_clip_planes
+        # Init clip plane values
         self["n_clipping_planes"] = wobject.material.clipping_plane_count
         self["clipping_mode"] = wobject.material.clipping_mode
-
-    def code_common(self):
-        return load_wgsl("common.wgsl")
 
     # ----- What subclasses must implement
 

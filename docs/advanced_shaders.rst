@@ -75,8 +75,7 @@ The shader must implement a few methods. A typical shader is shown below:
         def get_code(self):
             # Return combination of code pieces.
             return """
-            #include shader.bindings.wgsl
-            #include pygfx.common.wgsl
+            {$ include 'pygfx.std.wgsl' $}
 
             @stage(vertex)
             fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
@@ -93,7 +92,7 @@ The shader must implement a few methods. A typical shader is shown below:
 Remarks:
 
 * In ``get_bindings()``, the ``Binding`` object is used to collect all the required information on a binding.
-* The wgsl code to define a group of bindings can be included with ``#include shader.bindings.wgsl``.
+* The wgsl code that define a group of bindings is available via ``pygfx.std.wgsl``.
 * You can also manually define the wgsl code for a binding in cases where this is easier.
   We recommend using a separate bindgroup for that.
 * By convention, methods that return wgsl code are prefixed with "code".
@@ -136,8 +135,11 @@ to allow flexible code generation. Here's an example:
             self["scale"] = 1.2
             ...
 
-        def code_vertex(self):
+        def get_code(self):
+            # Return combination of code pieces.
             return """
+            ...
+
             @stage(vertex)
             fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
                 let something = x * {{ scale }};
@@ -162,8 +164,10 @@ is that the attributes must be set with an explicit type cast:
 
 .. code-block:: python
 
-        def code_vertex(self):
+        def get_code(self):
             return """
+            ...
+
             @stage(vertex)
             fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
                 ...
@@ -172,10 +176,7 @@ is that the attributes must be set with an explicit type cast:
                 varyings.world_pos = vec3<f32>(world_pos.xyz / world_pos.w);
                 return varyings;
             }
-            """
 
-        def code_fragment(self):
-            return """
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
@@ -198,8 +199,10 @@ All fragment functions in pygfx are somewhat like this:
 
 .. code-block:: python
 
-        def code_fragment(self):
+        def get_code(self):
             return """
+            ...
+
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
@@ -230,8 +233,10 @@ to unpack the picking info. See e.g. the picking of a mesh:
 
 .. code-block:: python
 
-        def code_fragment(self):
+        def get_code(self):
             return """
+            ...
+
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
@@ -265,8 +270,10 @@ discard the fragment if it's outside of the clipping planes. Or use
 
 .. code-block:: python
 
-        def code_fragment(self):
+        def get_code(self):
             return """
+            ...
+
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
@@ -299,8 +306,12 @@ For images / volumes:
             bindings.extend(extra_bindings)
             ...
 
-        def code_fragment(self):
+        def get_code(self):
             return """
+            {$ include 'pygfx.std.wgsl' $}
+            {$ include 'pygfx.colormap.wgsl '$}
+            ...
+
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...
@@ -320,8 +331,12 @@ For points / lines, meshes, etc.:
             bindings.extend(extra_bindings)
             ...
 
-        def code_fragment(self):
+        def get_code(self):
             return """
+            {$ include 'pygfx.std.wgsl' $}
+            {$ include 'pygfx.colormap.wgsl '$}
+
+            ...
             @stage(fragment)
             fn fs_main(varyings: Varyings) -> FragmentOutput {
                 ...

@@ -11,8 +11,11 @@
 // That gives 2 faces which form a quad.
 //
 
-#include shader.bindings.wgsl
-#include pygfx.common.wgsl
+{# Includes #}
+{$ include 'pygfx.std.wgsl' $}
+$$ if colormap_dim
+    {$ include 'pygfx.colormap.wgsl' $}
+$$ endif
 
 // -------------------- functions --------------------
 

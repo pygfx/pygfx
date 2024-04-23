@@ -1,46 +1,6 @@
 import re
 
 
-def resolve_includes(text, load_func):
-    """Resolve includes in wgsl code."""
-    included = {}
-    final_parts = _resolve_includes(text, load_func, included)
-
-    all_parts = []
-    for uri, parts in included.items():
-        # all_parts.append(f"// included {uri}\n\n")
-        all_parts.extend(parts)
-
-    all_parts.extend(final_parts)
-    return "".join(all_parts)
-
-
-def _resolve_includes(text, load_func, included):
-    """Recursive helper function for resolve_includes"""
-    include_prefix = "#include "
-    parts = []
-    i1 = i2 = i2_last = 0
-    while True:
-        i1 = text.find(include_prefix, i2)
-        if i1 < 0:
-            break
-        i2 = text.find("\n", i1)
-        if i2 < 0:
-            i2 = len(text) + 1
-        uri = text[i1 + len(include_prefix) : i2].strip()
-        if uri not in included:
-            included[uri] = _resolve_includes(load_func(uri), load_func, included)
-        parts += [text[i2_last:i1], "// ", text[i1:i2]]
-        i2_last = i2
-
-    # Return as string. Note that that the `included` dict is updated in-place
-    if i2 == 0:
-        return [text]
-    else:
-        parts.append(text[i2:])
-        return parts
-
-
 varying_types = ["f32", "vec2<f32>", "vec3<f32>", "vec4<f32>"]
 varying_types = (
     varying_types

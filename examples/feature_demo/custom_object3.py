@@ -126,15 +126,9 @@ class TriangleShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """
+        {$ include 'pygfx.std.wgsl' $}
+
         @vertex
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
 
@@ -160,10 +154,7 @@ class TriangleShader(WorldObjectShader):
             varyings.position = vec4<f32>(screen_pos_ndc, ndc_pos.zw);
             return varyings;
         }
-        """
 
-    def code_fragment(self):
-        return """
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;

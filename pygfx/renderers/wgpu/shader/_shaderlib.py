@@ -205,8 +205,7 @@ class Shaderlib:
             let a2 = pow(alpha, 2.0);
             let gv = dot_nl * sqrt(a2 + (1.0-a2) * pow(dot_nv, 2.0));
             let gl = dot_nv * sqrt(a2 + (1.0-a2) * pow(dot_nl, 2.0 ));
-            let epsilon = 1.0e-6;
-            return 0.5/ max( gv+gl, epsilon);
+            return 0.5/ max( gv+gl, EPSILON);
         }
         fn D_GGX(alpha: f32, dot_nh: f32) -> f32 {
             let a2 = pow( alpha, 2.0 );
@@ -291,25 +290,24 @@ class Shaderlib:
             var direction = -light_direction;
             let scale = 1.0 / max(max(abs(direction.x), abs(direction.y)), abs(direction.z));
             direction = direction * scale;
-            let epsilon = 1.0e-6;
             var faceIndex = 0;
             var view_proj: mat4x4<f32>;
-            if (abs(direction.x - 1.0) < epsilon) {
+            if (abs(direction.x - 1.0) < EPSILON) {
                 faceIndex = 0;
                 view_proj = light_view_proj[0];
-            } else if (abs(direction.x + 1.0) < epsilon) {
+            } else if (abs(direction.x + 1.0) < EPSILON) {
                 faceIndex = 1;
                 view_proj = light_view_proj[1];
-            }  else if (abs(direction.y - 1.0) < epsilon) {
+            }  else if (abs(direction.y - 1.0) < EPSILON) {
                 faceIndex = 2;
                 view_proj = light_view_proj[2];
-            } else if (abs(direction.y + 1.0) < epsilon) {
+            } else if (abs(direction.y + 1.0) < EPSILON) {
                 faceIndex = 3;
                 view_proj = light_view_proj[3];
-            } else if (abs(direction.z - 1.0) < epsilon) {
+            } else if (abs(direction.z - 1.0) < EPSILON) {
                 faceIndex = 4;
                 view_proj = light_view_proj[4];
-            } else if (abs(direction.z + 1.0) < epsilon) {
+            } else if (abs(direction.z + 1.0) < EPSILON) {
                 faceIndex = 5;
                 view_proj = light_view_proj[5];
             }

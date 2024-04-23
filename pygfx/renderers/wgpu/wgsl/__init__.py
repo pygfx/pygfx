@@ -7,7 +7,6 @@ import functools
 import importlib.resources
 
 
-
 @functools.lru_cache(maxsize=None)
 def load_wgsl(shader_name):
     """Load wgsl code from pygfx builtin shader snippets."""

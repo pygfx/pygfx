@@ -1,22 +1,37 @@
-// ----- Math
+// # The pygfx standard library
+//
+// Provides support for:
+//
+// * Clip planes
+// * Picking
+// * Constants
+// * Common functions for math, transforms, colors.
+//
+// Also adds auto-generated code for:
+//
+// * FragmentOutput and get_fragment_output (implementation depends on blend mode and picking)
+// * Bindings (as specified via shader.define_binding())
+//
+// In addition to this, the shader will also:
+//
+// * Add automatically generated Varyings struct (from the source).
+// * Tweak the FragmentOutput if depth is set.
+
+
+// ----- Constants
 
 const PI = 3.141592653589793;
 const RECIPROCAL_PI = 0.3183098861837907;
+
+const ALPHA_COMPARE_EPSILON : f32 = 1e-6;
+const EPSILON = 1e-6;
+
+
+// ----- Math
+
 fn pow2(x:f32) -> f32 { return x*x; }
 fn pow4(x:f32) -> f32 { let x2 = x * x; return x2*x2; }
 
-fn is_orthographic() -> bool {
-    return u_stdinfo.projection_transform[2][3] == 0.0;
-}
-
-// ----- Blending and lighting placeholders
-
-const alpha_compare_epsilon : f32 = 1e-6;
-{{ blending_code }}
-
-$$ if lighting
-{{ light_definitions }}
-$$ endif
 
 fn refract( light : vec3<f32>, normal : vec3<f32>, eta : f32 ) -> vec3<f32> {
     let cosTheta = dot( -light, normal );
@@ -24,6 +39,7 @@ fn refract( light : vec3<f32>, normal : vec3<f32>, eta : f32 ) -> vec3<f32> {
     let rOutParallel = -sqrt( abs( 1.0 - dot( rOutPerp, rOutPerp ) ) ) * normal;
     return rOutPerp + rOutParallel;
 }
+
 
 // ----- Transformations
 
@@ -33,7 +49,21 @@ fn ndc_to_world_pos(ndc_pos: vec4<f32>) -> vec3<f32> {
     return world_pos.xyz / world_pos.w;
 }
 
-// ----- Colors
+fn is_orthographic() -> bool {
+    return u_stdinfo.projection_transform[2][3] == 0.0;
+}
+
+// ----- Bindings
+
+// Defines all bindings and functions to load from (storage) buffers
+{{ bindings_code }}
+
+
+// ----- Things related to output
+
+// Implements get_fragment_output
+{{ blending_code }}
+
 
 fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
     // In Python, the below reads as
@@ -44,55 +74,6 @@ fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
     // Simplified version with about 0.5% avg error
     // return pow(color, vec3<f32>(2.2));
 }
-
-$$ if colormap_dim
-    fn sample_colormap(texcoord: {{ colormap_coord_type }}) -> vec4<f32> {
-
-        // Determine colormap texture dimensions
-        $$ if colormap_dim == '1d'
-            let texcoords_dim = f32(textureDimensions(t_colormap));
-        $$ elif colormap_dim == '2d'
-            let texcoords_dim = vec2<f32>(textureDimensions(t_colormap));
-        $$ elif colormap_dim == '3d'
-            let texcoords_dim = vec3<f32>(textureDimensions(t_colormap));
-        $$ endif
-
-        // Get final texture coord. With linear interpolation, the colormap's endpoints represent the min and max.
-        $$ if colormap_interpolation == 'nearest'
-            let tf = texcoord;
-        $$ else
-            let tf = texcoord * (texcoords_dim - 1.0) / texcoords_dim + 0.5 / texcoords_dim;
-        $$ endif
-
-        // Sample in the colormap. We get a vec4 color, but not all channels may be used.
-        $$ if not colormap_dim
-            let color_value = vec4<f32>(0.0);
-        $$ elif colormap_format == 'f32'
-            let color_value = textureSample(t_colormap, s_colormap, tf);
-        $$ else
-            $$ if colormap_dim == '1d'
-            let ti = i32(tf * texcoords_dim % texcoords_dim);
-            $$ elif colormap_dim == '2d'
-            let ti = vec2<i32>(tf * texcoords_dim % texcoords_dim);
-            $$ elif colormap_dim == '3d'
-            let ti = vec3<i32>(tf * texcoords_dim % texcoords_dim);
-            $$ endif
-            let color_value = vec4<f32>(textureLoad(t_colormap, ti, 0));
-        $$ endif
-
-        // Depending on the number of channels we makeGfxTextureView grayscale, rgb, etc.
-        $$ if colormap_nchannels == 1
-            let color = vec4<f32>(color_value.rrr, 1.0);
-        $$ elif colormap_nchannels == 2
-            let color = vec4<f32>(color_value.rrr, color_value.g);
-        $$ elif colormap_nchannels == 3
-            let color = vec4<f32>(color_value.rgb, 1.0);
-        $$ else
-            let color = vec4<f32>(color_value.rgb, color_value.a);
-        $$ endif
-        return color;
-    }
-$$ endif
 
 
 // ----- Clipping planes
@@ -143,3 +124,10 @@ fn pick_pack(value: u32, bits: i32) -> vec4<u32> {
     let selector2 = vec4<bool>( abs(shift[0]) < 32, abs(shift[1]) < 32, abs(shift[2]) < 32, abs(shift[3]) < 32 );
     return select( vec4<u32>(0u) , pick_new & mask , selector2 );
 }
+
+
+// ----- Environment
+
+$$ if lighting
+{{ light_definitions }}
+$$ endif

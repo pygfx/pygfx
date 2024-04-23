@@ -52,15 +52,9 @@ class SquareShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """
+        {$ include 'pygfx.std.wgsl' $}
+
         @vertex
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
             var positions = array<vec3<f32>, 4>(
@@ -75,10 +69,7 @@ class SquareShader(WorldObjectShader):
             varyings.color = vec4<f32>(colors[index], 1.0);
             return varyings;
         }
-        """
 
-    def code_fragment(self):
-        return """
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
