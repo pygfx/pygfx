@@ -379,15 +379,10 @@ class ThinLineShader(LineShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """//wgsl
+
+        {$ include 'pygfx.std.wgsl' $}
+
         struct VertexInput {
             @builtin(vertex_index) index : u32,
         };
@@ -433,10 +428,7 @@ class ThinLineShader(LineShader):
 
             return varyings;
         }
-        """
 
-    def code_fragment(self):
-        return """//wgsl
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 

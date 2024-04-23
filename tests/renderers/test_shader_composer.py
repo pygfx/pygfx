@@ -7,6 +7,10 @@ from pytest import raises
 import numpy as np
 
 
+def get_bindings_code(shader):
+    return shader._binding_definitions.get_code()
+
+
 def test_templating():
     class MyShader(BaseShader):
         def get_code(self):
@@ -90,7 +94,7 @@ def test_uniform_definitions():
     struct = dict(foo="f4", bar="i4")
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_u_1 {
             foo: f32,
@@ -107,7 +111,7 @@ def test_uniform_definitions():
     shader.clear_bindings()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_u_1 {
             foo: vec4<f32>,
@@ -124,7 +128,7 @@ def test_uniform_definitions():
     shader.clear_bindings()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_u_1 {
             foo: mat4x4<f32>,
@@ -151,7 +155,7 @@ def test_uniform_definitions():
         ),
     )
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_Foo {
             foo: mat4x4<f32>,

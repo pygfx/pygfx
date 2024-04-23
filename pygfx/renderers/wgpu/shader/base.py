@@ -165,17 +165,11 @@ class BaseShader(ShaderInterface):
                 [self._binding_definitions.get_code(), self.get_code(), self.kwargs]
             )
 
-    def code_definitions(self):
-        """Get the WGSL definitions of types and bindings (uniforms, storage
-        buffers, samplers, and textures).
-        """
-        return
-
     def get_code(self):
         """Implement this to compose the total (but still templated)
         shader. This method is called by ``generate_wgsl()``.
         """
-        return self.code_definitions()
+        raise NotImplementedError()
 
     def generate_wgsl(self, **kwargs):
         """Generate the final WGSL. Calls get_code() and then resolves
