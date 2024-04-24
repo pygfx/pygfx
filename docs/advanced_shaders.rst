@@ -10,7 +10,7 @@ own project.
 The shader class
 ----------------
 
-A shader object derives from ``WorldObjectShader``. Its purpose is to
+A shader object derives from ``BaseShader``. Its purpose is to
 provide (templated) shader-code (WGSL), set the corresponding template variables, define
 what bindings (buffers and textures) are used, and provide details
 of the pipeline and the rendering.

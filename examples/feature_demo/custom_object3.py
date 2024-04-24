@@ -26,7 +26,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
-    WorldObjectShader,
+    BaseShader,
     RenderMask,
     register_wgpu_render_function,
 )
@@ -70,7 +70,7 @@ class TriangleMaterial(gfx.Material):
 
 
 @register_wgpu_render_function(Triangle, TriangleMaterial)
-class TriangleShader(WorldObjectShader):
+class TriangleShader(BaseShader):
     type = "render"
 
     def get_bindings(self, wobject, shared):

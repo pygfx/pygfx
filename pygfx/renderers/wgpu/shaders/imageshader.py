@@ -6,7 +6,7 @@ from ....resources import Texture
 
 from .. import (
     register_wgpu_render_function,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     to_texture_format,
@@ -20,7 +20,7 @@ vertex_and_fragment = wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT
 
 
 @register_wgpu_render_function(Image, ImageBasicMaterial)
-class ImageShader(WorldObjectShader):
+class ImageShader(BaseShader):
     type = "render"
 
     def get_bindings(self, wobject, shared):

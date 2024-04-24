@@ -29,7 +29,7 @@ shadows. Renderer specific state is also part of the environment.
                             Textures         and pipeline
 
 From all this stuff, we create an intermediate representation. Let's
-call this level 2. This information is created by the WorldObjectShader
+call this level 2. This information is created by the BaseShader
 corresponding to a certain material. Note that this object is agnostic
 about the environment.
 

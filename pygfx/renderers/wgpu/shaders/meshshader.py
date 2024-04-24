@@ -15,7 +15,7 @@ from ....materials import (
 
 from .. import (
     register_wgpu_render_function,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     nchannels_from_format,
@@ -27,7 +27,7 @@ from .. import (
 
 
 @register_wgpu_render_function(Mesh, MeshBasicMaterial)
-class MeshShader(WorldObjectShader):
+class MeshShader(BaseShader):
     type = "render"
 
     def __init__(self, wobject):
@@ -389,7 +389,7 @@ class MeshNormalLinesShader(MeshShader):
 
 
 @register_wgpu_render_function(Mesh, MeshSliceMaterial)
-class MeshSliceShader(WorldObjectShader):
+class MeshSliceShader(BaseShader):
     """Shader for rendering mesh slices."""
 
     type = "render"

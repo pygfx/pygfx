@@ -1,8 +1,7 @@
 """
-Implements the base shader class. The shader is responsible for
-providing the WGSL code, as well as providing the information to connect
-it to the resources (buffers and textures) and some details on the
-pipeline and rendering.
+Implements the base shader class. The shader is responsible for providing the
+WGSL code, as well as providing the information to connect it to the resources
+(buffers and textures) and some details on the pipeline and rendering.
 """
 
 from ....resources import Buffer, Texture
@@ -46,13 +45,44 @@ class ShaderInterface:
         raise NotImplementedError()
 
     def get_bindings(self, wobject, shared):
-        raise NotImplementedError()
+        """Subclasses must return a dict describing the buffers and
+        textures used by this shader.
+
+        The result must be a dict of dicts with binding objects
+        (group_slot -> binding_slot -> binding)
+        """
+        return {
+            0: {},
+        }
 
     def get_pipeline_info(self, wobject, shared):
-        raise NotImplementedError()
+        """Subclasses must return a dict describing pipeline details.
+
+        Fields for a compute shader: empty
+
+        Fields for a render shader:
+          * "cull_mode"
+          * "primitive_topology"
+        """
+        return {
+            "primitive_topology": 0,
+            "cull_mode": 0,
+        }
 
     def get_render_info(self, wobject, shared):
-        raise NotImplementedError()
+        """Subclasses must return a dict describing render details.
+
+        Fields for a compute shader:
+          * "indices" (3 ints)
+
+        Fields for a render shader:
+          * "render_mask"
+          * "indices" (list of 2 or 4 ints).
+        """
+        return {
+            "indices": (1, 1),
+            "render_mask": 0,
+        }
 
 
 class BaseShader(ShaderInterface):
@@ -60,23 +90,32 @@ class BaseShader(ShaderInterface):
 
     Templating variables can be provided as kwargs, set (and get) as attributes,
     or passed as kwargs to ``generate_wgsl()``.
-
-    The idea is that this class is subclassed, and that methods are
-    implemented that return (templated) shader code. The purpose of
-    using methods for this is to easier navigate/structure parts of the
-    shader. Subclasses should also implement ``get_code()`` that simply
-    composes the different parts of the total shader.
     """
 
-    def __init__(self, **kwargs):
+    type = "render"  # must be "compute" or "render"
+    needs_bake_function = False
+
+    def __init__(self, wobject, **kwargs):
+        super().__init__()
+
         # The shader kwargs
         self.kwargs = kwargs
+
         # The stored hash. If set, the hash is locked, and kwargs cannot
         # be set. This is to prevent the shader implementations setting
         # shader kwargs *after* the pipeline has obtained the hash.
         self._hash = None
+
         # Handling binding definitions is handled by a wrapped object.
         self._binding_definitions = BindingDefinitions()
+
+        # Init variables that apply to all world objects. The wobject can be None, mostly for testing.
+        if wobject is not None:
+            self["n_clipping_planes"] = wobject.material.clipping_plane_count
+            self["clipping_mode"] = wobject.material.clipping_mode
+
+        # Init other common variables so we don't need jinja2's defined()
+        self["colormap_dim"] = None
 
     def __setitem__(self, key, value):
         if hasattr(self.__class__, key):
@@ -163,68 +202,6 @@ class BaseShader(ShaderInterface):
         will be inserted in ``pygfx.std.wgsl``.
         """
         self._binding_definitions.define_binding(bindgroup, index, binding)
-
-
-class WorldObjectShader(BaseShader):
-    """A base shader for world objects. Must be subclassed to implement
-    a shader for a specific material. This class also implements common
-    functions that can be used in all material-specific renderers.
-    """
-
-    type = "render"  # must be "compute" or "render"
-    needs_bake_function = False
-
-    def __init__(self, wobject, **kwargs):
-        super().__init__(**kwargs)
-
-        # Init clip plane values
-        self["n_clipping_planes"] = wobject.material.clipping_plane_count
-        self["clipping_mode"] = wobject.material.clipping_mode
-
-        # Init other common variables so we don't need jinja2's defined()
-        self["colormap_dim"] = None
-
-    # ----- What subclasses must implement
-
-    def get_bindings(self, wobject, shared):
-        """Subclasses must return a dict describing the buffers and
-        textures used by this shader.
-
-        The result must be a dict of dicts with binding objects
-        (group_slot -> binding_slot -> binding)
-        """
-        return {
-            0: {},
-        }
-
-    def get_pipeline_info(self, wobject, shared):
-        """Subclasses must return a dict describing pipeline details.
-
-        Fields for a compute shader: empty
-
-        Fields for a render shader:
-          * "cull_mode"
-          * "primitive_topology"
-        """
-        return {
-            "primitive_topology": 0,
-            "cull_mode": 0,
-        }
-
-    def get_render_info(self, wobject, shared):
-        """Subclasses must return a dict describing render details.
-
-        Fields for a compute shader:
-          * "indices" (3 ints)
-
-        Fields for a render shader:
-          * "render_mask"
-          * "indices" (list of 2 or 4 ints).
-        """
-        return {
-            "indices": (1, 1),
-            "render_mask": 0,
-        }
 
     # ----- Colormap stuff
 

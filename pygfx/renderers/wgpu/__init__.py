@@ -1,5 +1,5 @@
 """
-.. currentmodule:: pygfx.renderers.wgpu
+.. currentmodule:: pygfx.renderers.wgpur
 
 
 General functions and classes to operate more closely with the wgpu backend.
@@ -25,7 +25,6 @@ Classes and functions required to implement custom shaders:
     :template: ../_templates/custom_layout.rst
 
     BaseShader
-    WorldObjectShader
     Binding
     GfxSampler
     GfxTextureView
@@ -72,7 +71,7 @@ from .engine.pipeline import Binding
 
 # Shader classes
 from .wgsl import load_wgsl
-from .shader import BaseShader, WorldObjectShader, register_wgsl_loader
+from .shader import BaseShader, register_wgsl_loader
 
 # Load shaders submodules, so that all our builtin shaders become a vailable
 from . import shaders

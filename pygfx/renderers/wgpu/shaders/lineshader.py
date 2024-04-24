@@ -19,7 +19,7 @@ from ....materials._line import (
 
 from .. import (
     register_wgpu_render_function,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     load_wgsl,
@@ -31,7 +31,7 @@ renderer_uniform_type = dict(last_i="i4")
 
 
 @register_wgpu_render_function(Line, LineMaterial)
-class LineShader(WorldObjectShader):
+class LineShader(BaseShader):
     type = "render"
 
     def __init__(self, wobject):

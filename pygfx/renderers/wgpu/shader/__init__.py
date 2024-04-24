@@ -1,6 +1,6 @@
 """
-This subpackage defines the base shader class.
-Basically this is where the standard-wgsl-juggling takes place.
+This subpackage defines the base shader class. Basically this is where the wgsl
+code is generated, composed, mixed and juggled.
 
 
 ## A note about pygfx shaders
@@ -15,12 +15,15 @@ The way we've solved this in pygfx is by no means a holy grail, but it does feel
 (to us) like a local optimum that's pretty flexible while keeping things simple.
 
 Basically, based on the class of the world object and material, the
-corresponding shader class is selected. Shader classes compose shaders from
-pieces of wgsl, possibly based on properties of the world object / geometry /
-material. Some pieces are standard/common code, some are inlined in Python, and
-some are larger shaders loaded from wgsl files. Templating using jinja2 is used
-to realize "compile time" choices in the code.
+corresponding shader class is selected. Shader classes produce templated wgsl
+(jinja2), which is then transformed into the final shader code using templating
+variables, based on properties of the material and geometry, as well as external
+features such as the render pass and environment (e.g. lights).
+
+Wgsl templates can be provided in-line or loaded from wgsl files. Jinja2's
+include mechanics is used to write snippets that can be used in multiple
+places.
 """
 
-from .base import BaseShader, WorldObjectShader  # noqa
-from .templating import register_wgsl_loader
+from .base import BaseShader  # noqa
+from .templating import register_wgsl_loader  # noqa

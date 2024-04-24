@@ -16,7 +16,7 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu import (
     Binding,
-    WorldObjectShader,
+    BaseShader,
     register_wgpu_render_function,
 )
 import pygfx as gfx
@@ -31,7 +31,7 @@ class SquareMaterial(gfx.Material):
 
 
 @register_wgpu_render_function(Square, SquareMaterial)
-class SquareShader(WorldObjectShader):
+class SquareShader(BaseShader):
     def get_bindings(self, wobject, shared):
         binding = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
         self.define_binding(0, 0, binding)

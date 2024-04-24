@@ -6,7 +6,7 @@ from ....resources import Texture
 
 from .. import (
     register_wgpu_render_function,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     to_texture_format,
@@ -17,7 +17,7 @@ from .. import (
 
 
 @register_wgpu_render_function(Background, BackgroundMaterial)
-class BackgroundShader(WorldObjectShader):
+class BackgroundShader(BaseShader):
     type = "render"
 
     def get_bindings(self, wobject, shared):

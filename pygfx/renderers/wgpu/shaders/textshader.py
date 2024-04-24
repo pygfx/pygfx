@@ -7,7 +7,7 @@ from ....utils.text._shaper import REF_GLYPH_SIZE
 from .. import (
     register_wgpu_render_function,
     load_wgsl,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     GfxSampler,
@@ -16,7 +16,7 @@ from .. import (
 
 
 @register_wgpu_render_function(Text, TextMaterial)
-class TextShader(WorldObjectShader):
+class TextShader(BaseShader):
     type = "render"
 
     def __init__(self, wobject):

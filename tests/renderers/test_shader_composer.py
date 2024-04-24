@@ -11,8 +11,13 @@ def get_bindings_code(shader):
     return shader._binding_definitions.get_code()
 
 
+class LocalBaseShader(BaseShader):
+    def __init__(self, **kwargs):
+        super().__init__(None, **kwargs)  # No world object
+
+
 def test_templating():
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             return """
             $$ if foo
@@ -39,7 +44,7 @@ def test_templating():
     assert shader.generate_wgsl().strip() == "x = 42"
 
     # Inline block notation
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             return """
             {$ if foo $} 1 {$ else $} 2 {$ endif $}
@@ -51,7 +56,7 @@ def test_templating():
 
 
 def test_logic_beyond_templating():
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             if self["foo"]:
                 return "x = {{bar + 1}}"
@@ -72,7 +77,7 @@ def test_logic_beyond_templating():
 
 
 def test_uniform_definitions():
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             return ""
 
