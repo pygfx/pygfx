@@ -63,7 +63,9 @@ while alpha <= 1.0:
         gamma = 0.0
         while gamma <= 1.0:
             material = gfx.MeshStandardMaterial(
-                color=gfx.Color.from_hsl(alpha, 0.5, gamma * 0.5 + 0.1),
+                color=gfx.Color.from_physical(
+                    *gfx.Color.from_hsl(alpha, 0.5, gamma * 0.5 + 0.1)
+                ),
                 metalness=beta,
                 roughness=1.0 - alpha,
             )
