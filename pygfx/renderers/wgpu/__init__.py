@@ -1,5 +1,5 @@
 """
-.. currentmodule:: pygfx.renderers.wgpur
+.. currentmodule:: pygfx.renderers.wgpu
 
 
 General functions and classes to operate more closely with the wgpu backend.
@@ -24,6 +24,7 @@ Classes and functions required to implement custom shaders:
     :toctree: _autosummary/renderers/wgpu
     :template: ../_templates/custom_layout.rst
 
+    ShaderInterface
     BaseShader
     Binding
     GfxSampler
@@ -45,8 +46,6 @@ Lower level functions that may or may not be needed in custom shaders:
 """
 
 # flake8: noqa
-
-# TODO: \ register_wgpu_render_function to register_wgpu_shader
 
 # Import stuff that people need who create custom shaders, so they can import from pygfx.renderers.wgpu
 from ...utils.enums import RenderMask
@@ -71,7 +70,7 @@ from .engine.pipeline import Binding
 
 # Shader classes
 from .wgsl import load_wgsl
-from .shader import BaseShader, register_wgsl_loader
+from .shader import ShaderInterface, BaseShader, register_wgsl_loader
 
 # Load shaders submodules, so that all our builtin shaders become a vailable
 from . import shaders

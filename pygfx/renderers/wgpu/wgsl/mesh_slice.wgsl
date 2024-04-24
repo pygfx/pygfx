@@ -107,7 +107,6 @@ fn vs_main(in: VertexInput) -> Varyings {
         var npos_a: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos_a, 1.0);
         var npos_b: vec4<f32> = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos_b, 1.0);
         // Don't forget to "normalize"!
-        // todo: omitting this step diminish the thickness with distance, but it that the way?
         npos_a = npos_a / npos_a.w;
         npos_b = npos_b / npos_b.w;
         // And to logical pixel coordinates (don't worry about offset)

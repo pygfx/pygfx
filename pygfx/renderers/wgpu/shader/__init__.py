@@ -25,5 +25,5 @@ include mechanics is used to write snippets that can be used in multiple
 places.
 """
 
-from .base import BaseShader  # noqa
+from .base import ShaderInterface, BaseShader  # noqa
 from .templating import register_wgsl_loader  # noqa

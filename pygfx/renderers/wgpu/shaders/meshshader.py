@@ -158,9 +158,8 @@ class MeshShader(BaseShader):
 
         # set envmap configs
         if getattr(material, "env_map", None):
-            self._check_texture(
-                material.env_map, 6
-            )  # TODO: envmap not only cube, but also equirect (hdr format)
+            self._check_texture(material.env_map, 6)
+            # TODO: Support envmap not only cube, but also equirect (hdr format)
             view = GfxTextureView(material.env_map, view_dim="cube")
             bindings.append(Binding("s_env_map", sampling, sampler, F))
             bindings.append(Binding("t_env_map", texturing, view, F))
