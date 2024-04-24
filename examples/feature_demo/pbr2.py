@@ -11,10 +11,8 @@ metalness and roughness. Every second sphere has an IBL environment map on it.
 
 import math
 from time import perf_counter
-from colorsys import hls_to_rgb
 
 import imageio.v3 as iio
-import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 
 import pygfx as gfx
@@ -65,7 +63,7 @@ while alpha <= 1.0:
         gamma = 0.0
         while gamma <= 1.0:
             material = gfx.MeshStandardMaterial(
-                color=hls_to_rgb(alpha, 0.5, gamma * 0.5 + 0.1),
+                color=gfx.Color.from_hsl(alpha, 0.5, gamma * 0.5 + 0.1),
                 metalness=beta,
                 roughness=1.0 - alpha,
             )
@@ -99,10 +97,12 @@ t0 = perf_counter()
 def animate():
     t = perf_counter() - t0
 
+    t = t * 0.25
+
     point_light.local.position = (
-        math.sin(t / 30 * (2 * np.pi)) * 300,
-        math.cos(t * 2 / 30 * (2 * np.pi)) * 400,
-        math.cos(t / 30 * (2 * np.pi)) * 300,
+        math.sin(t * 7) * 300,
+        math.cos(t * 5) * 400,
+        math.cos(t * 3) * 300,
     )
 
     renderer.render(scene, camera)

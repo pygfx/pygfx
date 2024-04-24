@@ -319,11 +319,11 @@ class Color:
         meaning the primary color. The value/brightness indicates goes
         from 0 (black) to 1 (white).
         """
-        return Color(colorsys.hsv_to_rgb(hue, saturation, value))
+        return Color.from_physical(*colorsys.hsv_to_rgb(hue, saturation, value))
 
     def to_hsv(self):
         """Get the color represented in the HSV colorspace, as 3 floats."""
-        return colorsys.rgb_to_hsv(*self.rgb)
+        return colorsys.rgb_to_hsv(*self.to_physical())
 
     @classmethod
     def from_hsl(cls, hue, saturation, lightness):
@@ -334,11 +334,11 @@ class Color:
         color differently, e.g. a lightness of 1 always represents full
         white.
         """
-        return Color(colorsys.hls_to_rgb(hue, lightness, saturation))
+        return Color.from_physical(*colorsys.hls_to_rgb(hue, lightness, saturation))
 
     def to_hsl(self):
         """Get the color represented in the HSL colorspace, as 3 floats."""
-        hue, lightness, saturation = colorsys.rgb_to_hls(*self.rgb)
+        hue, lightness, saturation = colorsys.rgb_to_hls(*self.to_physical())
         return hue, saturation, lightness
 
 
