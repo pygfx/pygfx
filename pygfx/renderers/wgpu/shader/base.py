@@ -14,7 +14,7 @@ from ..engine.utils import (
 )
 from ..engine.binding import Binding
 from .resolve import resolve_varyings, resolve_depth_output
-from .definitions import BindingDefinitions
+from .bindings import BindingDefinitions
 from .templating import apply_templating
 
 
