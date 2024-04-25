@@ -810,8 +810,6 @@ class WgpuRenderer(RootEventHandler, Renderer):
             target = info["world_object"]
             event["pick_info"] = info
 
-        event["time_stamp"] = None
-
         ev = EVENT_TYPE_MAP[event_type](
             type=event_type, **event, target=target, root=self
         )
