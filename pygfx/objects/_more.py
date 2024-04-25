@@ -69,6 +69,27 @@ class Background(WorldObject):
         return cls(None, BackgroundMaterial(*colors))
 
 
+class Grid(WorldObject):
+    """A grid to help interpret spatial distances.
+
+    Parameters
+    ----------
+    geometry : Geometry
+        Must be ``None``. Exists for compliance with the generic WorldObject API.
+    material : Material
+        The material to use when rendering the background.
+    kwargs : Any
+        Additional kwargs are forwarded to the object's :class:`base class
+        <pygfx.objects.WorldObject>`.
+
+    """
+
+    def __init__(self, geometry=None, material=None, **kwargs):
+        if geometry is not None and material is None:
+            raise TypeError("You need to instantiate using Grid(None, material)")
+        super().__init__(None, material, **kwargs)
+
+
 class Line(WorldObject):
     """An object representing a line using a list of vertices (3D positions).
 
