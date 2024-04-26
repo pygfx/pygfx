@@ -8,9 +8,6 @@ from .. import (
     BaseShader,
     Binding,
     RenderMask,
-    to_texture_format,
-    GfxSampler,
-    GfxTextureView,
     load_wgsl,
 )
 
@@ -18,6 +15,12 @@ from .. import (
 @register_wgpu_render_function(Grid, GridMaterial)
 class GridShader(BaseShader):
     type = "render"
+
+    def __init__(self, wobject):
+        super().__init__(wobject)
+        material = wobject.material
+
+        self["thickness_space"] = material.thickness_space
 
     def get_bindings(self, wobject, shared):
         material = wobject.material

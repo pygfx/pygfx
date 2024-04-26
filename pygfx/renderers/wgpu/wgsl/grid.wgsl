@@ -59,7 +59,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
-    let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
+
 
     // For now, use variables from the paper
 
@@ -75,9 +75,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     let u_major_grid_width = f32(0.01);
     let u_minor_grid_width = f32(0.005);
     // Major grid line color
-    let u_major_grid_color = u_material.color;
+    let u_major_grid_color = u_material.major_color;
     // Minor grid line color
-    let u_minor_grid_color = vec4<f32>(1.0, 0.0, 0.0, 1.0);//u_material.color;
+    let u_minor_grid_color = u_material.minor_color;
     // Texture coordinates (from (-0.5,-0.5) to (+0.5,+0.5)
     let v_texcoord = vec2<f32>(varyings.texcoord);
     // Viewport resolution (in physical pixels)
@@ -166,9 +166,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // // Without extra cost, we can also project a texture
     // // vec4 texcolor = texture2D(u_texture, vec2<f32>(NP2.x, 1.0-NP2.y));
 
+
     let uv = vec2<f32>(varyings.gridcoord.xy);
-    let alpha = pristineGrid(uv, vec2<f32>(0.1, 0.1));
-    let color = u_material.color;
+    let thickness = vec2<f32>(u_material.major_thickness, u_material.major_thickness);
+    let alpha = pristineGrid(uv, thickness);
+    let color = u_material.major_color;
 
 
     // ---------------------
@@ -192,11 +194,19 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
 
 fn pristineGrid(uv: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
+    // The Best Darn Grid Shader (okt 2023)
+    // For details see https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8#5ef5
+    // I removed the black-white-swap logic, because our output is alpha, not luminance. I limited the linewidth instead.
+    let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
     let ddx: vec2<f32> = dpdx(uv);
     let ddy: vec2<f32> = dpdy(uv);
     let uvDeriv = vec2<f32>(length(vec2<f32>(ddx.x, ddy.x)), length(vec2<f32>(ddx.y, ddy.y)));
-    let targetWidth = vec2<f32>(min(lineWidth.x, 0.5), min(lineWidth.y, 0.5));
-    let drawWidth = clamp(targetWidth, uvDeriv, vec2<f32>(0.5));
+    $$ if thickness_space == 'screen'
+    let targetWidth = min(l2p * lineWidth * uvDeriv, vec2<f32>(0.5));  // lineWidth in screen space
+    $$ else
+    let targetWidth = min(lineWidth, vec2<f32>(0.5));  // lineWidth in world space
+    $$ endif
+    let drawWidth = clamp(targetWidth, uvDeriv, vec2<f32>(0.5));  // line width in world space
     let lineAA = uvDeriv * 1.5;
     var gridUV = abs(fract(uv) * 2.0 - 1.0);
     gridUV.x = 1.0 - gridUV.x;

@@ -32,6 +32,7 @@ camera.show_object(box)
 scene.add(camera.add(gfx.DirectionalLight()))
 
 controller = gfx.OrbitController(camera, register_events=renderer)
+# controller = gfx.FlyController(camera, register_events=renderer)
 
 canvas.request_draw(lambda: renderer.render(scene, camera))
 
