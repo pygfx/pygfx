@@ -168,10 +168,20 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
 
     let uv = vec2<f32>(varyings.gridcoord.xy);
-    let thickness = vec2<f32>(u_material.major_thickness, u_material.major_thickness);
-    let alpha = pristineGrid(uv, thickness);
-    let color = u_material.major_color;
+    let major_thickness = vec2<f32>(u_material.major_thickness);
+    let minor_thickness = vec2<f32>(u_material.minor_thickness);
+    let major_step = vec2<f32>(1.0);
+    let minor_step = vec2<f32>(0.1);
 
+    let major_alpha = pristineGrid(uv, major_step, major_thickness);
+    let minor_alpha = pristineGrid(uv, minor_step, minor_thickness);
+
+    var alpha = major_alpha;
+    var color = u_material.major_color;
+    if( minor_alpha > major_alpha * 1.5 ) {
+        alpha = minor_alpha;
+        color = u_material.minor_color;
+    }
 
     // ---------------------
 
@@ -193,10 +203,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
-fn pristineGrid(uv: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
+fn pristineGrid(uv_raw: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
     // The Best Darn Grid Shader (okt 2023)
     // For details see https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8#5ef5
     // I removed the black-white-swap logic, because our output is alpha, not luminance. I limited the linewidth instead.
+    let uv = uv_raw / step;
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
     let ddx: vec2<f32> = dpdx(uv);
     let ddy: vec2<f32> = dpdy(uv);
@@ -204,9 +215,9 @@ fn pristineGrid(uv: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
     $$ if thickness_space == 'screen'
     let targetWidth = min(l2p * lineWidth * uvDeriv, vec2<f32>(0.5));  // lineWidth in screen space
     $$ else
-    let targetWidth = min(lineWidth, vec2<f32>(0.5));  // lineWidth in world space
+    let targetWidth = min(lineWidth / step, 0.5 / step);  // lineWidth in world space
     $$ endif
-    let drawWidth = clamp(targetWidth, uvDeriv, vec2<f32>(0.5));  // line width in world space
+    let drawWidth = clamp(targetWidth, uvDeriv, 0.5 / step);
     let lineAA = uvDeriv * 1.5;
     var gridUV = abs(fract(uv) * 2.0 - 1.0);
     gridUV.x = 1.0 - gridUV.x;
