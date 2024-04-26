@@ -59,16 +59,9 @@ class DepthShader(MeshShader):
         }
 
     def get_code(self):
-        # Here we put together the full (templated) shader code
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """
+        {$ include 'pygfx.std.wgsl' $}
+
         struct VertexInput {
             @builtin(vertex_index) vertex_index : u32,
         };
@@ -90,10 +83,7 @@ class DepthShader(MeshShader):
             varyings.position = vec4<f32>(pos);
             return varyings;
         }
-        """
 
-    def code_fragment(self):
-        return """
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;
