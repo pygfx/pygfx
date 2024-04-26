@@ -168,20 +168,29 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
 
     let uv = vec2<f32>(varyings.gridcoord.xy);
+
+    let axis_thickness = vec2<f32>(u_material.major_thickness * 3.0);
     let major_thickness = vec2<f32>(u_material.major_thickness);
     let minor_thickness = vec2<f32>(u_material.minor_thickness);
     let major_step = vec2<f32>(1.0);
     let minor_step = vec2<f32>(0.1);
 
+    // todo: expose axis thickness and color via api, or remove it?
+    let axis_alpha = pristineGrid(clamp(uv, vec2<f32>(-0.5), vec2<f32>(0.5)), vec2<f32>(1.0), axis_thickness);
     let major_alpha = pristineGrid(uv, major_step, major_thickness);
     let minor_alpha = pristineGrid(uv, minor_step, minor_thickness);
 
-    var alpha = major_alpha;
+    var alpha = axis_alpha;
     var color = u_material.major_color;
-    if( minor_alpha > major_alpha * 1.5 ) {
+    if ( major_alpha > alpha * 1.5 ) {
+        alpha = major_alpha;
+        color = u_material.major_color;
+    }
+    if ( minor_alpha > alpha * 1.5 ) {
         alpha = minor_alpha;
         color = u_material.minor_color;
     }
+
 
     // ---------------------
 
