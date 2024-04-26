@@ -1,4 +1,11 @@
 """
+The engine of the wgpu renderer.
+
+This is the only place in pygfx where we make wgpu function calls.
+(Although we may use enums or flags elsewhere.)
+
+----
+
 Below is the high level model in which the visualization is described.
 Let's call this level 1. There is the obvious world object, material,
 and geometry. There also is global data where the renderer stores camera
@@ -22,7 +29,7 @@ shadows. Renderer specific state is also part of the environment.
                             Textures         and pipeline
 
 From all this stuff, we create an intermediate representation. Let's
-call this level 2. This information is created by the WorldObjectShader
+call this level 2. This information is created by the BaseShader
 corresponding to a certain material. Note that this object is agnostic
 about the environment.
 
@@ -72,12 +79,8 @@ is done via the Trackable classes, and affects the second level. Next,
 some of these changes invalidate the objects in level 3, so we need to
 detect that as well.
 
-We could keep a global list of world objects that need an update, but
-the fact that a world object can be used in multiple environments makes
-this complex. So instead a renderer iterates over all world objects,
-triggering updates as needed.
-
-TODO: how we keep buffers and textures up-to-date
+Before each draw, all buffers and textures that have pending changes are
+flushed.
 
 ## Caching
 
@@ -86,9 +89,8 @@ environment's hash. The environment includes a system to detect that
 it is no longer used to that all objects related to that environment
 can be cleaned up.
 
-TODO: We also want to re-use wgpu objects like pipelines and shadermodules.
-If there are a lot of objects in a scene, its likely that many of these
-have the same material.
+We also re-use wgpu objects like shadermodules. If there are a lot of
+objects in a scene, its likely that many of these have the same material.
 
 (Figures created with https://asciiflow.com/)
 """

@@ -11,6 +11,11 @@
 // That gives 2 faces which form a quad.
 //
 
+{# Includes #}
+{$ include 'pygfx.std.wgsl' $}
+$$ if colormap_dim
+    {$ include 'pygfx.colormap.wgsl' $}
+$$ endif
 
 // -------------------- functions --------------------
 

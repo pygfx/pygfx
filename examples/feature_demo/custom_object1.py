@@ -23,7 +23,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from pygfx.renderers.wgpu import (
     Binding,
-    WorldObjectShader,
+    BaseShader,
     RenderMask,
     register_wgpu_render_function,
 )
@@ -41,7 +41,7 @@ class TriangleMaterial(gfx.Material):
 
 
 @register_wgpu_render_function(Triangle, TriangleMaterial)
-class TriangleShader(WorldObjectShader):
+class TriangleShader(BaseShader):
     # Mark as render-shader (as opposed to compute-shader)
     type = "render"
 
@@ -72,15 +72,9 @@ class TriangleShader(WorldObjectShader):
 
     def get_code(self):
         # Here we put together the full (templated) shader code
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """
+        {$ include 'pygfx.std.wgsl' $}
+
         @vertex
         fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
             var positions = array<vec2<f32>, 3>(
@@ -89,10 +83,7 @@ class TriangleShader(WorldObjectShader):
             let p = 2.0 * positions[index] / u_stdinfo.logical_size - 1.0;
             return vec4<f32>(p, 0.0, 1.0);
         }
-        """
 
-    def code_fragment(self):
-        return """
         @fragment
         fn fs_main() -> FragmentOutput {
             var out: FragmentOutput;

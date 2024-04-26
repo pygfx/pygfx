@@ -16,7 +16,7 @@ Example (and test) for the NDC coordinates. Draws a square that falls partly out
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu import (
     Binding,
-    WorldObjectShader,
+    BaseShader,
     register_wgpu_render_function,
 )
 import pygfx as gfx
@@ -31,7 +31,7 @@ class SquareMaterial(gfx.Material):
 
 
 @register_wgpu_render_function(Square, SquareMaterial)
-class SquareShader(WorldObjectShader):
+class SquareShader(BaseShader):
     def get_bindings(self, wobject, shared):
         binding = Binding("u_stdinfo", "buffer/uniform", shared.uniform_buffer)
         self.define_binding(0, 0, binding)
@@ -52,15 +52,9 @@ class SquareShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """
+        {$ include 'pygfx.std.wgsl' $}
+
         @vertex
         fn vs_main(@builtin(vertex_index) index: u32) -> Varyings {
             var positions = array<vec3<f32>, 4>(
@@ -75,10 +69,7 @@ class SquareShader(WorldObjectShader):
             varyings.color = vec4<f32>(colors[index], 1.0);
             return varyings;
         }
-        """
 
-    def code_fragment(self):
-        return """
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
             var out: FragmentOutput;

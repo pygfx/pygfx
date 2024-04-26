@@ -147,7 +147,7 @@ class OpaquePass(BasePass):
             @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a < 1.0 - alpha_compare_epsilon ) { discard; }
+            if (color.a < 1.0 - ALPHA_COMPARE_EPSILON ) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb, 1.0);
             return out;
@@ -275,7 +275,7 @@ class SimpleTransparencyPass(BasePass):
             @location(0) color: vec4<f32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= alpha_compare_epsilon) { discard; }
+            if (color.a <= ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
@@ -379,7 +379,7 @@ class WeightedTransparencyPass(BasePass):
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
             let alpha = color.a;
-            if (alpha <= alpha_compare_epsilon) { discard; }
+            if (alpha <= ALPHA_COMPARE_EPSILON) { discard; }
             let premultiplied = color.rgb * alpha;
             WEIGHT_CODE
             var out : FragmentOutput;
@@ -474,7 +474,7 @@ class FrontmostTransparencyPass(BasePass):
             @location(1) pick: vec4<u32>,
         };
         fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
-            if (color.a <= alpha_compare_epsilon || color.a >= 1.0 - alpha_compare_epsilon) { discard; }
+            if (color.a <= ALPHA_COMPARE_EPSILON || color.a >= 1.0 - ALPHA_COMPARE_EPSILON) { discard; }
             var out : FragmentOutput;
             out.color = vec4<f32>(color.rgb * color.a, color.a);
             return out;
@@ -745,8 +745,7 @@ class WeightedFragmentBlender(BaseFragmentBlender):
         """
 
         fragment_code = """
-            let epsilon = 0.00001;
-
+            let epsilon = 1e-6;
             // Sample
             let accum = textureLoad(r_accum, texindex, 0).rgba;
             let reveal = textureLoad(r_reveal, texindex, 0).r;
@@ -872,7 +871,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         """
 
         fragment_code = """
-            let epsilon = 0.00001;
+            let epsilon = 1e-6;
 
             // Sample
             var accum = textureLoad(r_accum, texindex, 0).rgba;

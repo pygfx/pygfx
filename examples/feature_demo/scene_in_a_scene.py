@@ -29,7 +29,7 @@ texture1 = gfx.Texture(dim=2, size=(200, 200, 1), format="rgba8unorm")
 renderer1 = gfx.renderers.WgpuRenderer(texture1)
 scene1 = gfx.Scene()
 
-background1 = gfx.Background(None, gfx.BackgroundMaterial((0, 0.5, 0, 1)))
+background1 = gfx.Background.from_color((0, 0.5, 0, 1))
 scene1.add(background1)
 
 im = iio.imread("imageio:bricks.jpg").astype(np.float32) / 255

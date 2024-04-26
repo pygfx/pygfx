@@ -1,3 +1,7 @@
+"""
+This directory contains wgsl files for the shaders. They can be loaded with ``load_wgsl()``.
+"""
+
 import sys
 import functools
 import importlib.resources
@@ -5,7 +9,8 @@ import importlib.resources
 
 @functools.lru_cache(maxsize=None)
 def load_wgsl(shader_name):
-    """Load wgsl code from the file system."""
+    """Load wgsl code from pygfx builtin shader snippets."""
+
     package_name = "pygfx.renderers.wgpu.wgsl"
     if sys.version_info < (3, 9):
         context = importlib.resources.path(package_name, shader_name)

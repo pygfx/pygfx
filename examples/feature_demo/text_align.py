@@ -21,7 +21,7 @@ import pygfx as gfx
 scene = gfx.Scene()
 
 
-scene.add(gfx.Background(None, gfx.BackgroundMaterial("#fff", "#000")))
+scene.add(gfx.Background.from_color("#fff", "#000"))
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
     import argparse

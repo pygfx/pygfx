@@ -7,7 +7,7 @@ poetry.lock
 examples/screenshots/diffs
 examples/offscreen.png
 offscreen.png
-# Special for this repo
+docs/sg_execution_times.rst
 nogit/
 
 # Byte-compiled / optimized / DLL files
@@ -76,6 +76,9 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+# pycharm stuff
+.idea/
+
 # Sphinx documentation
 docs/_build/
 docs/_gallery/
@@ -83,6 +86,9 @@ docs/_autosummary/
 
 # PyBuilder
 target/
+
+# Pytorch Lightning
+lightning_logs/
 
 # Jupyter Notebook
 .ipynb_checkpoints

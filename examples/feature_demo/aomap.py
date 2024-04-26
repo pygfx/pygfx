@@ -32,7 +32,6 @@ except NameError:
 # sphinx_gallery_pygfx_test = 'run'
 
 import imageio.v3 as iio
-import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
@@ -41,15 +40,10 @@ import pygfx as gfx
 canvas = WgpuCanvas(size=(1200, 400), title="aomap")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 
-meshes = gfx.load_mesh(model_dir / "lightmap" / "scene.gltf")
+meshes = gfx.load_gltf_mesh(model_dir / "lightmap" / "scene.gltf", materials=False)
 
 ao_map = iio.imread(model_dir / "lightmap" / "lightmap-ao-shadow.png")
 ao_map_tex = gfx.Texture(ao_map, dim=2)
-
-texcoords1 = np.ascontiguousarray(
-    np.loadtxt(model_dir / "lightmap" / "texcoords1.txt"), dtype="f4"
-)
-texcoords1 = gfx.Buffer(texcoords1)
 
 # Create camera and controller
 camera = gfx.PerspectiveCamera(45, 1)
@@ -65,10 +59,10 @@ text_camera = gfx.OrthographicCamera(12, 4)
 def create_scene(material, x_pos):
     scene = gfx.Scene()
     m = meshes[0]
-    m.geometry.texcoords1 = texcoords1
     material.ao_map = ao_map_tex
     mesh = gfx.Mesh(m.geometry, material)
     mesh.local.matrix = m.local.matrix
+    mesh.local.scale = 100
     scene.add(mesh)
 
     # illumination the scene for MeshPhongMaterial and MeshStandardMaterial

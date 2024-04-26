@@ -29,9 +29,7 @@ material = gfx.PointsMaterial(color_mode="vertex", size_mode="vertex")
 points = gfx.Points(geometry, material)
 scene.add(points)
 
-scene.add(
-    gfx.Background(None, gfx.BackgroundMaterial((0.2, 0.0, 0, 1), (0, 0.0, 0.2, 1)))
-)
+scene.add(gfx.Background.from_color((0.2, 0.0, 0, 1), (0, 0.0, 0.2, 1)))
 
 camera = gfx.NDCCamera()
 

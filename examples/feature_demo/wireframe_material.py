@@ -16,7 +16,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 from pygfx.renderers.wgpu import Binding, register_wgpu_render_function
 from pygfx.resources import Buffer
-from pygfx.renderers.wgpu.shaders.meshshader import WorldObjectShader
+from pygfx.renderers.wgpu.shaders.meshshader import BaseShader
 
 
 class WireframeMaterial(gfx.Material):
@@ -40,7 +40,7 @@ class WireframeMaterial(gfx.Material):
 
 
 @register_wgpu_render_function(gfx.WorldObject, WireframeMaterial)
-class WireframeShader(WorldObjectShader):
+class WireframeShader(BaseShader):
     type = "render"
 
     def get_bindings(self, wobject, shared):
@@ -84,15 +84,9 @@ class WireframeShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """
+        {$ include 'pygfx.std.wgsl' $}
+
         struct VertexInput {
             @builtin(vertex_index) vertex_index : u32,
         };
@@ -120,10 +114,6 @@ class WireframeShader(WorldObjectShader):
             varyings.center = vec3<f32>(center);
             return varyings;
         }
-        """
-
-    def code_fragment(self):
-        return """
 
         @fragment
         fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {

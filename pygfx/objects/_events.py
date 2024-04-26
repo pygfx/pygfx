@@ -1,13 +1,13 @@
 from collections import defaultdict
 from enum import Enum
-from time import perf_counter_ns
+from time import perf_counter
 from typing import Union
 from weakref import ref
 
 from wgpu.gui.base import log_exception
 
 
-CLICK_DEBOUNCE = 500  # in milliseconds
+CLICK_DEBOUNCE = 0.5  # in seconds
 
 
 class EventType(str, Enum):
@@ -50,7 +50,7 @@ class Event:
     root : RootEventHandler
         A reference to the root event handler.
     time_stamp : float
-        The time at which the event was created (in ms). Might not be an actual
+        The time at which the event was created (in seconds). Might not be an actual
         time stamp so please only use this for relative time measurements.
     cancelled : bool
         A boolean value indicating whether the event is cancelled.
@@ -74,7 +74,7 @@ class Event:
         self._type = type
         # Using perf_counter_ns instead of perf_counter
         # should give us a bit more accuracy
-        self._time_stamp = time_stamp or perf_counter_ns() / 1000000
+        self._time_stamp = time_stamp or perf_counter()
         self._bubbles = bubbles
         self._target = target
         self._current_target = target
@@ -93,7 +93,7 @@ class Event:
 
     @property
     def time_stamp(self) -> float:
-        """The time at which the event was created (in milliseconds). Might not be
+        """The time at which the event was created (in seconds). Might not be
         an actual time stamp so please only use this for relative time measurements."""
         return self._time_stamp
 

@@ -24,6 +24,9 @@ def register_wgpu_render_function(wobject_cls, material_cls):
         The world object that this function knows how to render.
 
     """
+    # Note: in practice we use this to decorate shader classes, but the point is
+    # that it registers a callable that - when called - produces one or more
+    # BaseShader instances.
 
     def _register_wgpu_renderer(f):
         registry.register(wobject_cls, material_cls, f)
