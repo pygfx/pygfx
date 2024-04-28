@@ -17,9 +17,80 @@ class Bone(WorldObject):
 
     """
 
+    class __Transform:
+        position: np.ndarray
+        rotation: np.ndarray
+        scale: np.ndarray
+        matrix: np.ndarray
+
     def __init__(self, name=""):
         super().__init__(name=name)
         self.visible = False
+
+        self._children: "List[Bone]" = []
+        self._parent: "Bone" = None
+
+        self.__matrix_world_needs_update = False
+
+        # compatible with cuurrent WorldObject RecursiveTransform system, but does nothing.
+        # temporary solution before we refactor the WorldObject transform system.
+        # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2053385803
+        self.world = Bone.__Transform()
+        self.world.matrix = np.eye(4)
+        self.local = Bone.__Transform()
+        self.local.position = np.zeros(3)
+        self.local.rotation = np.zeros(4)
+        self.local.scale = np.ones(3)
+        self.local.matrix = np.eye(4)
+
+    @property
+    def parent(self):
+        if self._parent is None:
+            return None
+        if isinstance(self._parent, Bone):
+            return self._parent
+        else:
+            return self._parent()
+
+    def update_matrix(self):
+        self.local.matrix = la.mat_compose(
+            self.local.position, self.local.rotation, self.local.scale
+        )
+        self.__matrix_world_needs_update = True
+
+    def update_matrix_world(self):
+        self.update_matrix()
+
+        if self.__matrix_world_needs_update:
+            if self.parent is not None:
+                self.world.matrix = self.parent.world.matrix @ self.local.matrix
+            else:
+                self.world.matrix = self.local.matrix
+            self.__matrix_world_needs_update = False
+
+        for child in self._children:
+            child.update_matrix_world()
+
+    def add(self, *bones: "Bone") -> "Bone":
+        for obj in bones:
+            if obj == self:
+                # can't add self as a child
+                continue
+
+            if obj and isinstance(obj, Bone):
+                if obj._parent is not None:
+                    obj._parent.remove(obj)
+
+                obj._parent = self
+                self._children.append(obj)
+            else:
+                pass
+                # Now the Bone class has specific logic, so we just pass if it's not a Bone
+
+        return self
+
+    def __repr__(self) -> str:
+        return f"Bone {self.name} {self.local.position} {self.local.rotation}\n"
 
 
 class Skeleton:
@@ -100,6 +171,13 @@ class Skeleton:
         # TODO: we should update the bone matrices buffer automatically by some mechanism.
         # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2046493145
         """Update the bone matrices buffer."""
+
+        # TODO: update bone matrices from root to leaf，it's a temporary solution.
+        # See: https://github.com/pygfx/pygfx/pull/715#issuecomment-2053385803
+        for bone in self.bones:
+            if bone.parent and isinstance(bone.parent, Bone):
+                continue
+            bone.update_matrix_world()
 
         for i, bone in enumerate(self.bones):
             self.bone_matrices_buffer.data[i]["bone_matrices"] = (
