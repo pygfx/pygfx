@@ -1,5 +1,5 @@
 from pygfx.renderers.wgpu.shader import BaseShader
-from pygfx.renderers.wgpu.shader.base1 import resolve_depth_output
+from pygfx.renderers.wgpu.shader.base import resolve_depth_output
 from pygfx.renderers.wgpu import Binding
 from pygfx.utils import array_from_shadertype
 from pygfx import Buffer
@@ -7,8 +7,17 @@ from pytest import raises
 import numpy as np
 
 
+def get_bindings_code(shader):
+    return shader._binding_definitions.get_code()
+
+
+class LocalBaseShader(BaseShader):
+    def __init__(self, **kwargs):
+        super().__init__(None, **kwargs)  # No world object
+
+
 def test_templating():
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             return """
             $$ if foo
@@ -35,7 +44,7 @@ def test_templating():
     assert shader.generate_wgsl().strip() == "x = 42"
 
     # Inline block notation
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             return """
             {$ if foo $} 1 {$ else $} 2 {$ endif $}
@@ -47,7 +56,7 @@ def test_templating():
 
 
 def test_logic_beyond_templating():
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             if self["foo"]:
                 return "x = {{bar + 1}}"
@@ -68,9 +77,13 @@ def test_logic_beyond_templating():
 
 
 def test_uniform_definitions():
-    class MyShader(BaseShader):
+    class MyShader(LocalBaseShader):
         def get_code(self):
             return ""
+
+        def clear_bindings(self):
+            self._binding_definitions._uniform_struct_names.clear()
+            self._binding_definitions._typedefs.clear()
 
     shader = MyShader()
 
@@ -86,7 +99,7 @@ def test_uniform_definitions():
     struct = dict(foo="f4", bar="i4")
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_u_1 {
             foo: f32,
@@ -100,11 +113,10 @@ def test_uniform_definitions():
 
     # Test vec
     struct = dict(foo="4xf4", bar="2xi4")
-    shader._uniform_struct_names.clear()
-    shader._typedefs.clear()
+    shader.clear_bindings()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_u_1 {
             foo: vec4<f32>,
@@ -118,11 +130,10 @@ def test_uniform_definitions():
 
     # Test mat
     struct = dict(foo="4x4xf4", bar="3x2xi4")
-    shader._uniform_struct_names.clear()
-    shader._typedefs.clear()
+    shader.clear_bindings()
     shader.define_binding(0, 0, Binding("zz", "buffer/uniform", struct))
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_u_1 {
             foo: mat4x4<f32>,
@@ -136,8 +147,7 @@ def test_uniform_definitions():
 
     # Test array
     struct = dict(foo="4x4xf4", bar="3x2xi4")
-    shader._uniform_struct_names.clear()
-    shader._typedefs.clear()
+    shader.clear_bindings()
 
     shader.define_binding(
         0,
@@ -150,7 +160,7 @@ def test_uniform_definitions():
         ),
     )
     assert (
-        shader.code_definitions().strip()
+        get_bindings_code(shader).strip()
         == """
         struct Struct_Foo {
             foo: mat4x4<f32>,

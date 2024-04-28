@@ -55,6 +55,15 @@
 //  node 1
 //
 
+
+{# Includes #}
+{$ include 'pygfx.std.wgsl' $}
+$$ if colormap_dim
+    {$ include 'pygfx.colormap.wgsl' $}
+$$ endif
+
+
+
 // -------------------- functions --------------------
 
 
@@ -89,7 +98,6 @@ fn rotate_vec2(v:vec2<f32>, angle:f32) -> vec2<f32> {
 struct VertexInput {
     @builtin(vertex_index) index : u32,
 };
-
 
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {

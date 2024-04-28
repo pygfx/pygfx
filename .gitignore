@@ -7,7 +7,7 @@ poetry.lock
 examples/screenshots/diffs
 examples/offscreen.png
 offscreen.png
-# Special for this repo
+docs/sg_execution_times.rst
 nogit/
 
 # Byte-compiled / optimized / DLL files
