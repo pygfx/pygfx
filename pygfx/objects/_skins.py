@@ -27,7 +27,7 @@ class Skeleton:
 
     A skeleton is a collection of bones that are used to animate a SkinnedMesh.
 
-    Parameters:
+    Parameters
     ----------
     bones : List[Bone]
         The array of bones.
