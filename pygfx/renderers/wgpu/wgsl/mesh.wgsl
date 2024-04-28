@@ -90,8 +90,39 @@ fn vs_main(in: VertexInput) -> Varyings {
     let vii = load_s_indices(face_index);
     let i0 = i32(vii[sub_index]);
 
+    // Get raw vertex position and normal
+    var raw_pos = load_s_positions(i0);
+    var raw_normal = load_s_normals(i0);
+
+    // skinning
+    $$ if use_skinning
+        let skin_index = load_s_skin_indices(i0);
+        let skin_weight = load_s_skin_weights(i0);
+        let bind_matrix = u_wobject.bind_matrix;
+        let bind_matrix_inv = u_wobject.bind_matrix_inv;
+
+        let bone_mat_x = u_bone_matrices[skin_index.x].bone_matrices;
+        let bone_mat_y = u_bone_matrices[skin_index.y].bone_matrices;
+        let bone_mat_z = u_bone_matrices[skin_index.z].bone_matrices;
+        let bone_mat_w = u_bone_matrices[skin_index.w].bone_matrices;
+
+        // Calculate the skinned position and normal
+
+        var skin_matrix = mat4x4<f32>();
+        skin_matrix += skin_weight.x * bone_mat_x;
+        skin_matrix += skin_weight.y * bone_mat_y;
+        skin_matrix += skin_weight.z * bone_mat_z;
+        skin_matrix += skin_weight.w * bone_mat_w;
+        skin_matrix = bind_matrix_inv * skin_matrix * bind_matrix;
+
+        raw_pos = (skin_matrix * vec4<f32>(raw_pos, 1.0)).xyz;
+        raw_normal = (skin_matrix * vec4<f32>(raw_normal, 0.0)).xyz;
+
+    $$ endif
+
+
     // Get vertex position
-    let raw_pos = load_s_positions(i0);
+
     let world_pos = world_transform * vec4<f32>(raw_pos, 1.0);
     var ndc_pos = u_stdinfo.projection_transform * u_stdinfo.cam_transform * world_pos;
 
@@ -154,7 +185,6 @@ fn vs_main(in: VertexInput) -> Varyings {
     $$ endif
 
     // Set the normal
-    let raw_normal = load_s_normals(i0);
     // Transform the normal to world space
     // Note that the world transform matrix cannot be directly applied to the normal
     let normal_matrix = transpose(u_wobject.world_transform_inv);

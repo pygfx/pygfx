@@ -12,10 +12,18 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     MarkerShape
     RenderMask
     SizeMode
+    BindMode
 
 """
 
-__all__ = ["RenderMask", "ColorMode", "SizeMode", "CoordSpace", "MarkerShape"]
+__all__ = [
+    "RenderMask",
+    "ColorMode",
+    "SizeMode",
+    "CoordSpace",
+    "MarkerShape",
+    "BindMode",
+]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
 # and simply maps to strings or ints. The enums are classes, so IDE's provide
@@ -139,6 +147,15 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
+
+
+class BindMode(Enum):
+    """The BindMode enum specifies how a skinned mesh is bound to its skeleton."""
+
+    attached = (
+        "attached"  #: The skinned mesh shares the same world space as the skeleton.
+    )
+    detached = "detached"  #: The skinned mesh has its own world space.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__
