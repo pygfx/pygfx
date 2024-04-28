@@ -64,20 +64,19 @@ class Skeleton:
         """
         The array of bones.
         """
-        return self.bones
+        return self._bones
 
     @property
     def bone_inverses(self):
         """
         An array of matrix4x4 that represent the inverse of the world matrix of the individual bones.
         """
-        return self.bone_inverses
+        return self._bone_inverses
 
     def calculate_inverses(self):
         """Generate the bone_inverses array if not provided in the constructor."""
         self.bone_inverses.clear()
         for bone in self.bones:
-            bone.update_matrix_world()
             self.bone_inverses.append(np.linalg.inv(bone.world.matrix))
 
     def pose(self):

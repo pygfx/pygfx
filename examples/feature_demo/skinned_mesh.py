@@ -47,7 +47,6 @@ def create_bones(sizing):
     bones.append(prev_bone)
 
     prev_bone.local.position = (0, 0, -sizing["half_height"])
-    prev_bone.update_matrix()  # update matrix manually
 
     for _ in range(sizing["segment_count"]):
         bone = gfx.Bone()
