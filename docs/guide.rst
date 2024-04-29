@@ -386,16 +386,19 @@ inertial frame.
 .. warning::
 
     While in-place updating of full properties is supported, in-place updating
-    of slices will have no effect. This is due to limitations of the python
+    of slices will return an error. This is due to limitations of the python
     programming language and our desire to have the properties return pure numpy
-    arrays. In code, this means
+    arrays. The numpy arrays are returned with the WRITEABLE flag set to false.
+    In code, this means
 
     .. code-block:: python
 
         cube.local.position += (0, 0, 3)  # ok
         cube.local.z += 3  # ok
-        cube.local.position[2] += 3  # FAIL: this will have no effect.
-        cube.local.position[2] = 3  # FAIL: this will have no effect.
+        # The following two statements will fail with
+        # ValueError: assignment destination is read-only.
+        cube.local.position[2] += 3  # FAIL: ValueError
+        cube.local.position[2] = 3  # FAIL: ValueError
 
 
 Beyond setting components, we can also set the full ``matrix`` directly::
