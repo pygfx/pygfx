@@ -18,6 +18,7 @@ import numpy as np
 canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
+scene.add(gfx.Background.from_color("#000"))
 
 # Create a bunch of points
 n = 1000

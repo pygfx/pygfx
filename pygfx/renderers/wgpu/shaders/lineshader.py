@@ -19,7 +19,7 @@ from ....materials._line import (
 
 from .. import (
     register_wgpu_render_function,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     load_wgsl,
@@ -31,7 +31,7 @@ renderer_uniform_type = dict(last_i="i4")
 
 
 @register_wgpu_render_function(Line, LineMaterial)
-class LineShader(WorldObjectShader):
+class LineShader(BaseShader):
     type = "render"
 
     def __init__(self, wobject):
@@ -269,7 +269,7 @@ class LineShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return self.code_definitions() + self.code_common() + load_wgsl("line.wgsl")
+        return load_wgsl("line.wgsl")
 
 
 @register_wgpu_render_function(Line, LineDebugMaterial)
@@ -379,15 +379,10 @@ class ThinLineShader(LineShader):
         }
 
     def get_code(self):
-        return (
-            self.code_definitions()
-            + self.code_common()
-            + self.code_vertex()
-            + self.code_fragment()
-        )
-
-    def code_vertex(self):
         return """//wgsl
+
+        {$ include 'pygfx.std.wgsl' $}
+
         struct VertexInput {
             @builtin(vertex_index) index : u32,
         };
@@ -433,10 +428,7 @@ class ThinLineShader(LineShader):
 
             return varyings;
         }
-        """
 
-    def code_fragment(self):
-        return """//wgsl
         @fragment
         fn fs_main(varyings: Varyings) -> FragmentOutput {
 

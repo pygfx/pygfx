@@ -11,7 +11,7 @@ from ....materials import (
 
 from .. import (
     register_wgpu_render_function,
-    WorldObjectShader,
+    BaseShader,
     Binding,
     RenderMask,
     load_wgsl,
@@ -23,7 +23,7 @@ from .. import (
 
 
 @register_wgpu_render_function(Points, PointsMaterial)
-class PointsShader(WorldObjectShader):
+class PointsShader(BaseShader):
 
     type = "render"
 
@@ -183,4 +183,4 @@ class PointsShader(WorldObjectShader):
         }
 
     def get_code(self):
-        return self.code_definitions() + self.code_common() + load_wgsl("points.wgsl")
+        return load_wgsl("points.wgsl")
