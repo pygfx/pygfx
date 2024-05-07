@@ -79,25 +79,38 @@ class Texture(Resource):
             self._data = data
             self._mem = mem = memoryview(data)
             self._store.nbytes = mem.nbytes
-            self._store.size = self._size_from_data(mem, dim, size)
+
+            item_count = mem.nbytes / mem.itemsize
+
+            if size:
+                # When size is given, we only need to check if it matches the data, and get the nchannels
+                assert len(size) == 3
+                size_n = size[0] * size[1] * size[2]
+                assert item_count % size_n == 0
+                nchannels = int(item_count // size_n)
+                self._store.size = size
+            else:
+                self._store.size = self._size_from_data(mem, dim)
+                shape = mem.shape
+                collapsed_size = [x for x in self.size if x > 1]
+                if len(shape) == len(collapsed_size) + 1:
+                    nchannels = shape[-1]
+                else:
+                    if not len(shape) == len(collapsed_size):
+                        raise ValueError(
+                            "Incompatible data shape for image data, there must be > 1 pixel to draw per channel"
+                        )
+                    nchannels = 1
+
+            if not (1 <= nchannels <= 4):
+                raise ValueError(
+                    f"Expected 1-4 texture color channels, got {nchannels}."
+                )
+
             subformat = get_item_format_from_memoryview(mem)
             if subformat is None:
                 raise ValueError(
                     f"Unsupported dtype/format for texture data: {mem.format}"
-                )
-            shape = mem.shape
-            collapsed_size = [x for x in self.size if x > 1]
-            if len(shape) == len(collapsed_size) + 1:
-                nchannels = shape[-1]
-            else:
-                if not len(shape) == len(collapsed_size):
-                    raise ValueError(
-                        "Incompatible data shape for image data, there must be > 1 pixel to draw per channel"
-                    )
-                nchannels = 1
-            if not (1 <= nchannels <= 4):
-                raise ValueError(
-                    f"Expected 1-4 texture color channels, got {nchannels}."
                 )
             self._format = (f"{nchannels}x" + subformat).lstrip("1x")
             self.update_range((0, 0, 0), self.size)
@@ -207,32 +220,20 @@ class Texture(Resource):
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
 
-    def _size_from_data(self, data, dim, size):
+    def _size_from_data(self, data, dim):
         # Check if shape matches dimension
         shape = data.shape
-
-        if size:
-            # Get version of size with trailing ones stripped
-            size2 = size
-            size2 = size2[:-1] if size2[-1] == 1 else size2
-            size2 = size2[:-1] if size2[-1] == 1 else size2
-            rsize = tuple(reversed(size2))
-            # Check if size matches shape
-            if rsize != shape[: len(rsize)]:
-                raise ValueError(f"Given size does not match the data shape.")
-            return size
-        else:
-            if len(shape) not in (dim, dim + 1):
-                raise ValueError(
-                    f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
-                )
-            # Determine size based on dim and shape
-            if dim == 1:
-                return shape[0], 1, 1
-            elif dim == 2:
-                return shape[1], shape[0], 1
-            else:  # dim == 3:
-                return shape[2], shape[1], shape[0]
+        if len(shape) not in (dim, dim + 1):
+            raise ValueError(
+                f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
+            )
+        # Determine size based on dim and shape
+        if dim == 1:
+            return shape[0], 1, 1
+        elif dim == 2:
+            return shape[1], shape[0], 1
+        else:  # dim == 3:
+            return shape[2], shape[1], shape[0]
 
     def _get_subdata(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
