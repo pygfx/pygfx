@@ -35,6 +35,9 @@ class Geometry(Trackable):
         self._bsphere = None
         self._bsphere_rev = None
 
+        self._morph_attributes = {}
+        self._morph_targets_relative = False
+
         for name, val in kwargs.items():
             # Get resource object
             if isinstance(val, Resource):
@@ -81,6 +84,14 @@ class Geometry(Trackable):
 
             # Store
             setattr(self, name, resource)
+
+    @property
+    def morph_attributes(self):
+        return self._morph_attributes
+
+    @property
+    def morph_targets_relative(self):
+        return self._morph_targets_relative
 
     def __setattr__(self, key, new_value):
         if not key.startswith("_"):

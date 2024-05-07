@@ -45,6 +45,22 @@ fn dist_pt_line(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32) -> f32 {
     return abs((x2 - x1) * (y1 - y3) - (x1 - x3) * (y2 - y1)) / sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
 }
 
+$$ if use_morph_targets
+fn get_morph( tex: texture_2d_array<f32>, vertex_index: u32, stride: u32, width: u32, morph_index: u32 , offset: u32) -> vec4<f32> {
+    let texel_index = vertex_index * stride + offset;
+    let y = texel_index / width;
+    let x = texel_index - y * width;
+    let morph_uv = vec2<u32>( x, y );
+    return textureLoad( tex, morph_uv, morph_index, 0 );
+}
+struct MorphTargetInfluence {
+    @size(16) influence: f32,
+};
+@group(1) @binding(1)
+var<uniform> u_morph_target_influences: array<MorphTargetInfluence, {{morph_targets_count+1}}>;
+
+$$ endif
+
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
 
@@ -93,6 +109,28 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Get raw vertex position and normal
     var raw_pos = load_s_positions(i0);
     var raw_normal = load_s_normals(i0);
+
+    // morph targets
+    $$ if use_morph_targets
+        let base_influence = u_morph_target_influences[{{morph_targets_count}}];
+        let stride = u32({{morph_targets_stride}});
+        let width = u32({{morph_targets_texture_width}});
+
+        raw_pos = raw_pos * base_influence.influence;
+        if stride == 2 { // has normals
+            raw_normal = raw_normal * base_influence.influence;
+        }
+        for (var i = 0; i < {{morph_targets_count}}; i = i + 1) {
+            let position_morph = get_morph(t_morph_targets, u32(i0), stride, width, u32(i), u32(0));
+            raw_pos += position_morph.xyz * u_morph_target_influences[i].influence;
+            if stride == 2 { // has normals
+                let normal_morph = get_morph(t_morph_targets, u32(i0), stride, width, u32(i), u32(1));
+                raw_normal += normal_morph.xyz * u_morph_target_influences[i].influence;
+            }
+
+        }
+
+    $$ endif
 
     // skinning
     $$ if use_skinning

@@ -182,6 +182,8 @@ class WorldObject(EventTarget, RootTrackable):
 
         self.name = name
 
+        self._morph_target_influences = None
+
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
@@ -193,6 +195,49 @@ class WorldObject(EventTarget, RootTrackable):
 
     def __del__(self):
         id_provider.release_id(self, self.id)
+
+    @property
+    def morph_target_influences(self):
+        """
+        An ndarray of weights typically from 0-1 that specify how much of the morph is applied.
+        """
+        return self._morph_target_influences.data["influence"][:-1]
+
+    @morph_target_influences.setter
+    def morph_target_influences(self, value):
+        morph_target_count = len(self.geometry.morph_attributes.get("positions", []))
+
+        assert len(value) == morph_target_count, (
+            f"Length of morph target influences must match the number of morph targets. "
+            f"Expected {morph_target_count}, got {len(value)}."
+        )
+
+        if (
+            self._morph_target_influences is None
+            or self._morph_target_influences.nitems != morph_target_count + 1
+        ):
+            self._morph_target_influences = Buffer(
+                array_from_shadertype(
+                    {
+                        "influence": "f4",
+                    },
+                    morph_target_count + 1,
+                )
+            )
+
+        if not isinstance(value, np.ndarray):
+            value = np.array(value, dtype=np.float32)
+
+        if self.geometry.morph_targets_relative:
+            base_influence = 1.0
+        else:
+            base_influence = 1 - value.sum()
+
+        # Add the base influence to the end of the array
+        value = np.concatenate([value, [base_influence]], axis=0)
+
+        self._morph_target_influences.data["influence"] = value
+        self._morph_target_influences.update_range()
 
     @property
     def up(self):
