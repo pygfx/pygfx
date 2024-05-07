@@ -913,8 +913,6 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         )
 
 
-
-
 class AdditivePass(BasePass):
     """A pass that renders fragments with additive blending."""
 
@@ -978,6 +976,7 @@ class AdditivePass(BasePass):
             return out;
         }
         """
+
 
 class AdditiveFragmentBlender(BaseFragmentBlender):
     """A fragment blender that uses additive blending for all fragments."""
