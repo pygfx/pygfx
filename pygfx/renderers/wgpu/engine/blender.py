@@ -911,3 +911,75 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
         return self.device.create_bind_group(
             layout=bind_group_layout, entries=bind_group_entries
         )
+
+
+
+
+class AdditivePass(BasePass):
+    """A pass that renders fragments with additive blending."""
+
+    render_mask = 3  # opaque end transparent
+    write_pick = False
+
+    def get_color_descriptors(self, blender, material_write_pick):
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
+        return [
+            {
+                "format": blender.color_format,
+                "blend": {
+                    "alpha": (bf.one, bf.one, bo.add),
+                    "color": (bf.one, bf.one, bo.add),
+                },
+                "write_mask": wgpu.ColorWrite.ALL,
+            },
+        ]
+
+    def get_color_attachments(self, blender):
+        color_load_op = wgpu.LoadOp.load
+        if blender.color_clear:
+            blender.color_clear = False
+            color_load_op = wgpu.LoadOp.clear
+
+        return [
+            {
+                "view": blender.color_view,
+                "resolve_target": None,
+                "load_op": color_load_op,
+                "store_op": wgpu.StoreOp.store,
+            },
+        ]
+
+    def get_depth_descriptor(self, blender):
+        return {
+            "format": blender.depth_format,
+            "depth_write_enabled": False,
+            "depth_compare": wgpu.CompareFunction.always,
+        }
+
+    def get_depth_attachment(self, blender):
+        depth_load_op = wgpu.LoadOp.load
+        if blender.depth_clear:
+            blender.depth_clear = False
+            depth_load_op = wgpu.LoadOp.clear
+        return {
+            "view": blender.depth_view,
+            "depth_load_op": depth_load_op,
+            "depth_store_op": wgpu.StoreOp.store,
+        }
+
+    def get_shader_code(self, blender):
+        return """
+        struct FragmentOutput {
+            @location(0) color: vec4<f32>,
+        };
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+            var out : FragmentOutput;
+            out.color = color;
+            return out;
+        }
+        """
+
+class AdditiveFragmentBlender(BaseFragmentBlender):
+    """A fragment blender that uses additive blending for all fragments."""
+
+    passes = [AdditivePass()]
