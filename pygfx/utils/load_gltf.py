@@ -143,7 +143,7 @@ class _GLTF:
 
         extensions_used = self._gltf.model.extensionsUsed
         if extensions_used is not None:
-            gfx.utils.logger.info(
+            gfx.utils.logger.warning(
                 f"This GLTF used extensions: {extensions_used}, which are not supported yet, so the display may not be so correct."
             )
 
@@ -387,7 +387,9 @@ class _GLTF:
         for attr, accessor_index in primitive.attributes.__dict__.items():
             if accessor_index is not None:
                 geometry_attr = self.ATTRIBUTE_NAME[attr]
-                geometry_args[geometry_attr] = self._load_accessor(accessor_index)
+                geometry_args[geometry_attr] = self._load_accessor(
+                    accessor_index
+                ).astype(np.float32)
 
         if indices_accessor is not None:
             indices = self._load_accessor(indices_accessor).reshape(-1, 3)
@@ -400,7 +402,21 @@ class _GLTF:
 
         geometry_args["indices"] = indices
 
-        return gfx.Geometry(**geometry_args)
+        geometry = gfx.Geometry(**geometry_args)
+
+        if primitive.targets:
+            for target in primitive.targets:
+                for attr, accessor_index in target.__dict__.items():
+                    if accessor_index is not None:
+                        target_attr = self.ATTRIBUTE_NAME[attr]
+                        geometry.morph_attributes.setdefault(target_attr, [])
+                        geometry.morph_attributes[target_attr].append(
+                            self._load_accessor(accessor_index).astype(np.float32)
+                        )
+
+            geometry._morph_targets_relative = True
+
+        return geometry
 
     @lru_cache(maxsize=None)
     def _get_buffer_memory_view(self, buffer_view_index):
@@ -437,7 +453,7 @@ class _GLTF:
                 shape=(accessor_count, accessor_type_size * accessor_dtype.itemsize),
                 strides=(buffer_view.byteStride, 1),
             )
-            ar = np.frombuffer(ar, dtype=accessor_dtype).reshape(
+            ar = np.frombuffer(np.ascontiguousarray(ar), dtype=accessor_dtype).reshape(
                 accessor_count, accessor_type_size
             )
         else:
