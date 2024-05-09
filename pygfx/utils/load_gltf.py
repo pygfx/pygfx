@@ -16,7 +16,7 @@ from importlib.util import find_spec
 from functools import lru_cache
 
 
-def load_gltf(path):
+def load_gltf(path, quiet=False):
     """
     Load a gltf file and return the content.
 
@@ -26,6 +26,8 @@ def load_gltf(path):
     ----------
     path : str
         The path to the gltf file.
+    quiet : bool
+        Whether to suppress the warning messages.
 
     Returns:
     ----------
@@ -36,10 +38,10 @@ def load_gltf(path):
         * `cameras`: [gfx.Camera] or None
         * `animations`: [gfx.Animation] or None
     """
-    return _GLTF(path).load()
+    return _GLTF(path, quiet).load()
 
 
-def load_gltf_mesh(path, materials=True):
+def load_gltf_mesh(path, materials=True, quiet=False):
     """
     Load meshes from a gltf file, without skeletons, and no transformations applied.
 
@@ -51,13 +53,15 @@ def load_gltf_mesh(path, materials=True):
         The path to the gltf file.
     materials : bool
         Whether to load materials.
+    quiet : bool
+        Whether to suppress the warning messages.
 
     Returns:
     ----------
     meshes : list
         A list of pygfx.Meshes.
     """
-    return _GLTF(path).load_mesh(materials=materials)
+    return _GLTF(path, quiet).load_mesh(materials=materials)
 
 
 class _GLTF:
@@ -91,14 +95,16 @@ class _GLTF:
         "WEIGHTS_0": "skin_weights",
     }
 
-    def __init__(self, path):
+    SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization"]
+
+    def __init__(self, path, quiet=False):
         self._path = path
         self.scene = None
         self.scenes = []
         self.cameras = None
         self.animations = None
 
-        self.__inner_load()
+        self.__inner_load(quiet)
 
     def load(self):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -122,7 +128,7 @@ class _GLTF:
             meshes.extend(mesh)
         return meshes
 
-    def __inner_load(self):
+    def __inner_load(self, quiet=False):
         if not find_spec("gltflib"):
             raise ImportError(
                 "The `gltflib` library is required to load gltf scene: pip install gltflib"
@@ -132,20 +138,29 @@ class _GLTF:
         path = self._path
         self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
 
-        extensions_required = self._gltf.model.extensionsRequired
+        if not quiet:
+            extensions_required = self._gltf.model.extensionsRequired or []
 
-        if extensions_required is not None:
-            gfx.utils.logger.warning(
-                f"This GLTF required extensions: {extensions_required}, which are not supported yet."
+            unsupported_extensions_required = set(extensions_required) - set(
+                self.SUPPORTED_EXTENSIONS
             )
-            # rasise or ignore?
-            # raise NotImplementedError(f"This GLTF required extensions: {extensions_required}, which are not supported yet.")
 
-        extensions_used = self._gltf.model.extensionsUsed
-        if extensions_used is not None:
-            gfx.utils.logger.warning(
-                f"This GLTF used extensions: {extensions_used}, which are not supported yet, so the display may not be so correct."
+            if unsupported_extensions_required:
+                gfx.utils.logger.warning(
+                    f"This GLTF required extensions: {unsupported_extensions_required}, which are not supported yet."
+                )
+                # rasise or ignore?
+                # raise NotImplementedError(f"This GLTF required extensions: {extensions_required}, which are not supported yet.")
+
+            extensions_used = self._gltf.model.extensionsUsed or []
+
+            unsupported_extensions_used = set(extensions_used) - set(
+                self.SUPPORTED_EXTENSIONS
             )
+            if unsupported_extensions_used:
+                gfx.utils.logger.warning(
+                    f"This GLTF used extensions: {unsupported_extensions_used}, which are not supported yet, so the display may not be so correct."
+                )
 
         # bind the actual data to the buffers
         for buffer in self._gltf.model.buffers:
@@ -387,9 +402,19 @@ class _GLTF:
         for attr, accessor_index in primitive.attributes.__dict__.items():
             if accessor_index is not None:
                 geometry_attr = self.ATTRIBUTE_NAME[attr]
-                geometry_args[geometry_attr] = self._load_accessor(
-                    accessor_index
-                ).astype(np.float32)
+                data = self._load_accessor(accessor_index)
+
+                # pygfx not support int attributes now, so we need to convert them to float.
+                if geometry_attr in (
+                    "positions",
+                    "normals",
+                    "tangents",
+                    "texcoords",
+                    "texcoords1",
+                ):
+                    data = data.astype(np.float32)
+
+                geometry_args[geometry_attr] = data
 
         if indices_accessor is not None:
             indices = self._load_accessor(indices_accessor).reshape(-1, 3)
@@ -465,6 +490,12 @@ class _GLTF:
             )
             if accessor_type_size > 1:
                 ar = ar.reshape(accessor_count, accessor_type_size)
+
+        if accessor.normalized:
+            # KHR_mesh_quantization
+            # https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_mesh_quantization
+            assert accessor_dtype.kind == "i" or accessor_dtype.kind == "u"
+            ar = ar.astype(np.float32) / np.iinfo(accessor_dtype).max
 
         # pygfx not support int8, int16, uint8, uint16 now
         if ar.dtype == np.uint8 or ar.dtype == np.uint16:

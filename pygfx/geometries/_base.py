@@ -87,11 +87,28 @@ class Geometry(Trackable):
 
     @property
     def morph_attributes(self):
+        """
+        Dict of attributes holding details of the geometry's morph targets.
+        Note: Once the geometry has been rendered, the morph attribute data cannot be changed. You will have to create a new instance of Geometry.
+        """
         return self._morph_attributes
+
+    @morph_attributes.setter
+    def morph_attributes(self, value):
+        self._morph_attributes = value
 
     @property
     def morph_targets_relative(self):
+        """
+        Used to control the morph target behavior.
+        When set to True, the morph target data is treated as relative offsets, rather than as absolute positions/normals.
+        Default is False.
+        """
         return self._morph_targets_relative
+
+    @morph_targets_relative.setter
+    def morph_targets_relative(self, value):
+        self._morph_targets_relative = value
 
     def __setattr__(self, key, new_value):
         if not key.startswith("_"):
