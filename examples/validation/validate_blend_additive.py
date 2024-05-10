@@ -5,6 +5,9 @@ Additive Blending
 This example draws overlapping circles of reference colors with additive blending.
 """
 
+# sphinx_gallery_pygfx_docs = 'screenshot'
+# sphinx_gallery_pygfx_test = 'compare'
+
 import numpy as np
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
