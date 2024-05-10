@@ -36,7 +36,9 @@ import pygfx as gfx
 import pylinalg as la
 
 # load teapot with open3d
-teapot: o3d.geometry.TriangleMesh = io.read_triangle_mesh(str(model_dir / "teapot.stl"), enable_post_processing=True)
+teapot: o3d.geometry.TriangleMesh = io.read_triangle_mesh(
+    str(model_dir / "teapot.stl"), enable_post_processing=True
+)
 
 # open3d does not seem to read stl files with normals -> re-compute them
 teapot.compute_vertex_normals()

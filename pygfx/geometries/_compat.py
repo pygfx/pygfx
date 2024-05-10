@@ -74,10 +74,25 @@ def geometry_from_open3d(mesh):
     if not isinstance(mesh, o3d_geometry.TriangleMesh):
         raise NotImplementedError()
 
-    kwargs = dict(
-        positions=np.ascontiguousarray(mesh.vertices, dtype="f4"),
-        indices=np.ascontiguousarray(mesh.triangles, dtype="i4"),
-        normals=np.ascontiguousarray(mesh.vertex_normals, dtype="f4"),
-    )
+    vertices = np.ascontiguousarray(mesh.vertices, dtype=np.float32)
+    triangles = np.ascontiguousarray(mesh.triangles, dtype="i4")
+
+    kwargs = dict(positions=vertices, indices=triangles)
+
+    # normals
+    if len(mesh.vertex_normals) > 0:
+        kwargs["normals"] = np.ascontiguousarray(mesh.vertex_normals, dtype=np.float32)
+
+    # uvs
+    if len(mesh.triangle_uvs) > 0:
+        triangle_uvs = np.ascontiguousarray(mesh.triangle_uvs, dtype=np.float32)
+
+        vertex_uvs = np.zeros((len(vertices), 2), np.float32)
+        vertex_uvs[triangles.flat] = triangle_uvs
+
+        vertex_uvs_wgpu = (vertex_uvs * np.array([1, -1]) + np.array([0, 1])).astype(
+            np.float32
+        )  # uv.y = 1 - uv.y
+        kwargs["texcoords"] = vertex_uvs_wgpu
 
     return Geometry(**kwargs)
