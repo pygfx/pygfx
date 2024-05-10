@@ -1,6 +1,6 @@
 """
 Additive Blending
-===============
+=================
 
 This example draws overlapping circles of reference colors with additive blending.
 """
