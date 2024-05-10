@@ -52,6 +52,23 @@ def geometry_from_trimesh(mesh):
 
 
 def geometry_from_open3d(mesh):
+    """Convert an Open3D geometry object to pygfx geometry.
+
+    Creates a Geometry object from the given `open3d.geometry.TriangleMesh
+    <https://www.open3d.org/docs/release/python_api/open3d.geometry.TriangleMesh.html>`_ object.
+
+    Parameters
+    ----------
+    mesh : open3d.geometry.TriangleMesh
+        The mesh to be converted into a geometry.
+
+    Returns
+    -------
+    converted_mesh : Geometry
+        A Geometry object representing the given mesh.
+
+    """
+
     from open3d import geometry as o3d_geometry  # noqa
 
     if not isinstance(mesh, o3d_geometry.TriangleMesh):
