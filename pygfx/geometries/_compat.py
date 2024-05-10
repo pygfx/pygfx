@@ -58,8 +58,8 @@ def geometry_from_open3d(mesh):
         raise NotImplementedError()
 
     kwargs = dict(
-        positions=np.ascontiguousarray(mesh.triangles, dtype="f4"),
-        indices=np.ascontiguousarray(mesh.vertices, dtype="i4"),
+        positions=np.ascontiguousarray(mesh.vertices, dtype="f4"),
+        indices=np.ascontiguousarray(mesh.triangles, dtype="i4"),
         normals=np.ascontiguousarray(mesh.vertex_normals, dtype="f4"),
     )
 

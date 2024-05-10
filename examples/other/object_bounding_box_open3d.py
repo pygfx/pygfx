@@ -17,15 +17,12 @@ Demonstrates visualizing object bounding boxes
 import os
 from pathlib import Path
 
-import pygfx
-
 try:
     # modify this line if your model is located elsewhere
     model_dir = Path(__file__).parents[1] / "data"
 except NameError:
     # compatibility with sphinx-gallery
     model_dir = Path(os.getcwd()).parent / "data"
-
 
 ################################################################################
 # Once the path is set correctly, you can use the model as follows:
@@ -38,16 +35,17 @@ import open3d as o3d
 import pygfx as gfx
 import pylinalg as la
 
+# load teapot with open3d
+teapot: o3d.geometry.TriangleMesh = io.read_triangle_mesh(str(model_dir / "teapot.stl"), enable_post_processing=False)
 
-teapot: o3d.geometry.TriangleMesh = io.read_triangle_mesh(str(model_dir / "teapot.stl"), enable_post_processing=True)
-# o3d.visualization.draw_geometries([teapot])
+# open3d does not seem to read stl files with normals -> re-compute them
+teapot.compute_vertex_normals()
 
 scene = gfx.Scene()
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
 mesh = gfx.Mesh(
     gfx.geometries.geometry_from_open3d(teapot),
-    # gfx.geometry_from_trimesh(teapot),
     gfx.MeshPhongMaterial(),
 )
 mesh.local.rotation = la.quat_from_euler((0.71, 0.91), order="XY")
@@ -60,7 +58,6 @@ scene.add(box_world)
 box_local = gfx.BoxHelper(thickness=2, color="green")
 box_local.set_transform_by_object(mesh, space="local")
 mesh.add(box_local)  # note that the parent is `mesh` here, not `scene`
-
 
 if __name__ == "__main__":
     disp = gfx.Display()
