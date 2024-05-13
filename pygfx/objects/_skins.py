@@ -163,10 +163,7 @@ class SkinnedMesh(Mesh):
         """
         How a skinned mesh is bound to its skeleton. Either "attached" or "detached".
 
-        "attached" means the skinned mesh shares the same world space as the skeleton.
-
-        In contrast, "detached" is useful when sharing a skeleton across multiple skinned meshes.
-        Default is "attached".
+        See :obj:`pygfx.utils.enums.BindMode`:. Default "attached".
         """
         return self._bind_mode
 
