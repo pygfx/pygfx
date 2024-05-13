@@ -30,10 +30,10 @@ class Skeleton:
     Parameters
     ----------
     bones : List[Bone]
-        The array of bones.
-        Note this is a copy of the original array, not a reference, so you can modify the original array without effecting this one
+        The list of bones.
+        Note that a copy will be made, so you can modify the original list without effecting this one.
     bone_inverses : List[np.ndarray] | None
-        An array of matrix4x4 that represent the inverse of the world matrix of the individual bones.
+        A list of matrix4x4 that represent the inverse of the world matrix of the individual bones.
         If not provided, they will be auto calculated.
     """
 
