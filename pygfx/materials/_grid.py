@@ -18,6 +18,8 @@ class GridMaterial(Material):
        The color of the major grid lines. Default '#777'.
     minor_color : str | tuple | Color
        The color of the minor grid lines. Default '#777'.
+    inf_grid : bool
+        Whether the grid is infinite. Default True.
     kwargs : Any
         Additional kwargs are passed to the base constructor
         (:class:`pygfx.materials.Material`).
@@ -38,6 +40,7 @@ class GridMaterial(Material):
         thickness_space="screen",
         color="#777",
         minor_color="#777",
+        inf_grid=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -46,6 +49,7 @@ class GridMaterial(Material):
         self.thickness_space = thickness_space
         self.color = color
         self.minor_color = minor_color
+        self.inf_grid = inf_grid
 
     @property
     def thickness(self):
@@ -104,3 +108,12 @@ class GridMaterial(Material):
     def minor_color(self, color):
         self.uniform_buffer.data["minor_color"] = Color(color)
         self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def inf_grid(self):
+        """Whether the grid is infinite, or limited to the world-object's scale."""
+        return self._store.inf_grid
+
+    @inf_grid.setter
+    def inf_grid(self, value):
+        self._store.inf_grid = bool(value)

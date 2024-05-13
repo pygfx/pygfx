@@ -21,6 +21,7 @@ class GridShader(BaseShader):
         material = wobject.material
 
         self["thickness_space"] = material.thickness_space
+        self["inf_grid"] = material.inf_grid
 
     def get_bindings(self, wobject, shared):
         material = wobject.material

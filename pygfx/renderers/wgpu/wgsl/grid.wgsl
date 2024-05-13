@@ -12,160 +12,78 @@ struct VertexInput {
 @vertex
 fn vs_main(in: VertexInput) -> Varyings {
     var varyings: Varyings;
-    // Define positions at the four corners of the viewport, at the largest depth
 
-    // Limits as xmin,xmax,ymin,ymax
-    let u_limits1 = vec4<f32>(-100.0, 100.0, -100.0, 100.0);
-
-
-    let cam_pos = vec3<f32>(
-        u_stdinfo.cam_transform_inv[3][0],
-        u_stdinfo.cam_transform_inv[3][1],
-        u_stdinfo.cam_transform_inv[3][2],
-        // u_stdinfo.cam_transform_inv[0][3],
-        // u_stdinfo.cam_transform_inv[1][3],
-        // u_stdinfo.cam_transform_inv[2][3],
-    );
-    let distance_cam_to_grid = abs(cam_pos.y - 0.0);
-
-    var positions = array<vec3<f32>, 4>(
-        vec3<f32>(u_limits1[0], 0.0, u_limits1[2]),
-        vec3<f32>(u_limits1[1], 0.0, u_limits1[2]),
-        vec3<f32>(u_limits1[0], 0.0, u_limits1[3]),
-        vec3<f32>(u_limits1[1], 0.0, u_limits1[3]),
+    // Grid coordinates to form a quad
+    var grid_coords = array<vec2<f32>, 4>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(1.0, 1.0),
     );
 
-    var coords = array<vec2<f32>, 4>(
-        vec2<f32>(-0.5, -0.5),
-        vec2<f32>( 0.5, -0.5),
-        vec2<f32>(-0.5,  0.5),
-        vec2<f32>( 0.5,  0.5),
-    );
-    // Select the current position
-    let pos = positions[i32(in.index)] * distance_cam_to_grid + vec3<f32>(cam_pos.x, 0.0, cam_pos.z);
-    let coord = coords[i32(in.index)];
+    // Select the grid coord for this vertex. We express it with coord1 and
+    // coord2, to avoid confusion with xyz world coordinates. By default the
+    // plane is in the xz plane (normal to the y-axis) but this is more or less
+    // arbitrary.
+    let vertex_grid_coord: vec2<f32> = grid_coords[i32(in.index)];
+    let coord1 = vertex_grid_coord.x;
+    let coord2 = vertex_grid_coord.y;
 
-    var pos_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos, 1.0);// u_wobject.world_transform * pos;
+    // Calculate reference points
+    let p0 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;  // "origin" of the plane
+    let p1 = (u_wobject.world_transform * vec4<f32>(1.0, 0.0, 0.0, 1.0)).xyz;  // on the plane
+    let p2 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 1.0, 1.0)).xyz;  // on the plane
+    let p3 = (u_wobject.world_transform * vec4<f32>(0.0, 1.0, 0.0, 1.0)).xyz;  // out of plane!
+
+    // Get vectors for the plane's axii, expressed in world coordinates
+    let v1 = p1 - p0; // todo: normalize?
+    let v2 = p2 - p0;
+    let v3 = p3 - p0;
+
+    $$ if inf_grid
+
+        // Get description of the grid plane: ax * by  + cz + d == 0
+        let abc = normalize(v3);  // == the plane's normal
+        let d = - dot(abc, p0);
+
+        // Get point on the plane closest to the origin (handy for debugging)
+        //let pos_origin = (d / length(abc)) * abc;
+
+        // Get distance between camera and the plane
+        let cam_pos = vec3<f32>(u_stdinfo.cam_transform_inv[3].xyz);
+        let cam_k = (dot(abc, cam_pos) + d) / length(abc);
+        let cam_pos_on_grid = cam_pos - cam_k * abc;
+        let distance_cam_to_grid = abs(cam_k); // == distance(cam_pos, cam_pos_on_grid);
+        // let distance_cam_to_grid = abs(p0.y - cam_pos.y);  // debug: only works for xz plane.
+
+        // The closer the camera is to the plane, the less space you need to
+        // make the horizon look really far away. Scaling too hard will
+        // introduce fluctuation artifacts due to inaccurate float arithmatic.
+        // With ortho camera the horizon cannot really be made to look far away.
+        // So inf grid is not well suited with ortho camera?
+        let pos_multiplier = (50.0 * distance_cam_to_grid);
+
+        // Construct position using only the grid's rotation. Scale and offset are overridden.
+        let pos = cam_pos_on_grid + (coord1 - 0.5) * v1 * pos_multiplier + (coord2 - 0.5) * v2 * pos_multiplier;
+    $$ else
+
+        // The grid's transform defines its place in the world
+        let pos = (u_wobject.world_transform * vec4<f32>(coord1, 0.0, coord2, 1.0)).xyz;
+
+    $$ endif
+
+    var pos_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * vec4<f32>(pos, 1.0);
 
     // Store positions and the view direction in the world
     varyings.position = vec4<f32>(pos_ndc);
     varyings.world_pos = vec3<f32>(ndc_to_world_pos(out.position));
-    varyings.gridcoord = vec3<f32>(pos.x, pos.z, 1.0);
-    varyings.texcoord = vec2<f32>(coord);
+    varyings.gridcoord = vec2<f32>(dot(v1, pos), dot(v2, pos));
     return varyings;
 }
 
 
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
-
-
-
-    // For now, use variables from the paper
-
-    // Line antialias area (usually 1 pixel)
-    let u_antialias = 0.707;
-    // Cartesian and projected limits as xmin,xmax,ymin,ymax
-    let u_limits1 = vec4<f32>(-100.0, 100.0, -100.0, 100.0);
-    let u_limits2 =  vec4<f32>(-99.0, 99.0, -99.0, 99.0);
-    // Major and minor grid steps
-    let u_major_grid_step = vec2<f32>(1.0, 1.0);
-    let u_minor_grid_step = vec2<f32>(0.1, 0.1);
-    // Major and minor grid line widths (1.50 pixel, 0.75 pixel)
-    let u_major_grid_width = f32(0.01);
-    let u_minor_grid_width = f32(0.005);
-    // Major grid line color
-    let u_major_grid_color = u_material.major_color;
-    // Minor grid line color
-    let u_minor_grid_color = u_material.minor_color;
-    // Texture coordinates (from (-0.5,-0.5) to (+0.5,+0.5)
-    let v_texcoord = vec2<f32>(varyings.texcoord);
-    // Viewport resolution (in physical pixels)
-
-
-
-    // ---------------------
-
-    let NP1 = v_texcoord;
-    let P1 = scale_forward(NP1, u_limits1);
-    let P2 = transform_inverse(P1);
-    // Test if we are within limits but we do not discard the
-    // fragment yet because we want to draw a border. Discarding
-    // would mean that the exterior would not be drawn.
-    var outside = vec2<bool>(false, false);
-    if( P2.x < u_limits2[0] ) { outside.x = true; }
-    if( P2.x > u_limits2[1] ) { outside.x = true; }
-    if( P2.y < u_limits2[2] ) { outside.y = true; }
-    if( P2.y > u_limits2[3] ) { outside.y = true; }
-    let NP2 = scale_inverse(P2, u_limits2);
-    var P: vec2<f32>;
-    var tick: f32;
-    // Major tick, X axis
-    tick = get_tick(NP2.x + 0.5, u_limits2[0], u_limits2[1], u_major_grid_step[0]);
-    P = transform_forward(vec2<f32>(tick, P2.y));
-    P = scale_inverse(P, u_limits1);
-    // float Mx = length(v_size * (NP1 - P));
-    // Here we assume the quad is contained in the XZ plane
-    let Mx = screen_distance(vec4<f32>(NP1, 0.0, 1.0), vec4<f32>(P, 0.0, 1.0));
-    // Minor tick, X axis
-    tick = get_tick(NP2.x + 0.5, u_limits2[0], u_limits2[1], u_minor_grid_step[0]);
-    P = transform_forward(vec2<f32>(tick, P2.y));
-    P = scale_inverse(P, u_limits1);
-    // float mx = length(v_size * (NP1 - P));
-    // Here we assume the quad is contained in the XZ plane
-    let mx = screen_distance(vec4<f32>(NP1, 0.0, 1.0), vec4<f32>(P, 0.0, 1.0));
-    // Major tick, Y axis
-    tick = get_tick(NP2.y + 0.5, u_limits2[2], u_limits2[3], u_major_grid_step[1]);
-    P = transform_forward(vec2<f32>(P2.x, tick));
-    P = scale_inverse(P, u_limits1);
-    // float My = length(v_size * (NP1 - P));
-    // Here we assume the quad is contained in the XZ plane
-    let My = screen_distance(vec4<f32>(NP1, 0.0, 1.0), vec4<f32>(P, 0.0, 1.0));
-    // Minor tick, Y axis
-    tick = get_tick(NP2.y + 0.5, u_limits2[2], u_limits2[3], u_minor_grid_step[1]);
-    P = transform_forward(vec2<f32>(P2.x, tick));
-    P = scale_inverse(P, u_limits1);
-    // float my = length(v_size * (NP1 - P));
-    // Here we assume the quad is contained in the XZ plane
-    let my = screen_distance(vec4<f32>(NP1, 0.0, 1.0), vec4<f32>(P, 0.0, 1.0));
-    var M = min(Mx, My);
-    var m = min(mx, my);
-    // Here we take care of "finishing" the border lines
-    if ( outside.x && outside.y ) {
-        if (Mx > 0.5 * (u_major_grid_width + u_antialias)) {
-            discard;
-        } else if (My > 0.5 * (u_major_grid_width + u_antialias)) {
-            discard;
-        } else {
-            M = max(Mx, My);
-        }
-    } else if ( outside.x ) {
-        if (Mx > 0.5 * (u_major_grid_width + u_antialias)) {
-            discard;
-        } else {
-            M = Mx;
-            m = Mx;
-        }
-    } else if ( outside.y ) {
-        if (My > 0.5 * (u_major_grid_width + u_antialias)) {
-            discard;
-        } else {
-            M = My;
-            m = My;
-        }
-    }
-    // // Mix major/minor colors to get dominant color
-    // let alpha1 = stroke_alpha(M, u_major_grid_width, u_antialias);
-    // let alpha2 = stroke_alpha(m, u_minor_grid_width, u_antialias);
-    // var alpha = alpha1;
-    // var color: vec4<f32> = u_major_grid_color;
-    // if( alpha2 > alpha1 * 1.5 ) {
-    //     alpha = alpha2;
-    //     color = u_minor_grid_color;
-    // }
-    // // Without extra cost, we can also project a texture
-    // // vec4 texcolor = texture2D(u_texture, vec2<f32>(NP2.x, 1.0-NP2.y));
-
 
     let uv = vec2<f32>(varyings.gridcoord.xy);
 
