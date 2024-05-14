@@ -61,7 +61,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         // introduce fluctuation artifacts due to inaccurate float arithmatic.
         // With ortho camera the horizon cannot really be made to look far away.
         // So inf grid is not well suited with ortho camera?
-        let pos_multiplier = (1.0 * distance_cam_to_grid);
+        let pos_multiplier = (50.0 * distance_cam_to_grid);
 
         // Construct position using only the grid's rotation. Scale and offset are overridden.
         let pos = cam_pos_on_grid + (coord1 - 0.5) * v1 * pos_multiplier + (coord2 - 0.5) * v2 * pos_multiplier;
