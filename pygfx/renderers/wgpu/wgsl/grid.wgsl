@@ -36,14 +36,14 @@ fn vs_main(in: VertexInput) -> Varyings {
     let p3 = (u_wobject.world_transform * vec4<f32>(0.0, 1.0, 0.0, 1.0)).xyz;  // out of plane!
 
     // Get vectors for the plane's axii, expressed in world coordinates
-    let v1 = p1 - p0; // todo: normalize?
-    let v2 = p2 - p0;
-    let v3 = p3 - p0;
+    let v1 = normalize(p1 - p0);
+    let v2 = normalize(p2 - p0);
+    let v3 = normalize(p3 - p0);
 
     $$ if inf_grid
 
         // Get description of the grid plane: ax * by  + cz + d == 0
-        let abc = normalize(v3);  // == the plane's normal
+        let abc = v3;  // == the plane's normal
         let d = - dot(abc, p0);
 
         // Get point on the plane closest to the origin (handy for debugging)
@@ -61,7 +61,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         // introduce fluctuation artifacts due to inaccurate float arithmatic.
         // With ortho camera the horizon cannot really be made to look far away.
         // So inf grid is not well suited with ortho camera?
-        let pos_multiplier = (50.0 * distance_cam_to_grid);
+        let pos_multiplier = (1.0 * distance_cam_to_grid);
 
         // Construct position using only the grid's rotation. Scale and offset are overridden.
         let pos = cam_pos_on_grid + (coord1 - 0.5) * v1 * pos_multiplier + (coord2 - 0.5) * v2 * pos_multiplier;

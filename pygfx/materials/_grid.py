@@ -157,8 +157,11 @@ class GridMaterial(Material):
             raise ValueError(
                 f"GridMaterial.thickness_space must be a string in {CoordSpace}, not {repr(value)}"
             )
+        elif value not in (CoordSpace.world, CoordSpace.screen):
+            raise ValueError(
+                f"GridMaterial.thickness_space must be a either 'screen'  or 'world', not '{value}'."
+            )
         self._store.thickness_space = value
-        # todo: I thick we must forbid 'model' space?
 
     @property
     def axis_color(self):
