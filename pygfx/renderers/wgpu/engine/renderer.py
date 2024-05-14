@@ -53,6 +53,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     transparency is handled during the rendering process. The following modes exist:
 
         * "default" or None: Select the default: currently this is "ordered2".
+        * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that ignores transparency.
         * "ordered1": single-pass approach that blends fragments (using alpha
           blending). Can only produce correct results if fragments are drawn
@@ -286,6 +287,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """The method for handling transparency:
 
         * "default" or None: Select the default: currently this is "ordered2".
+        * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that consider every fragment opaque.
         * "ordered1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
@@ -313,6 +315,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             value = "ordered2"
         # Map string input to a class
         m = {
+            "additive": blender_module.AdditiveFragmentBlender,
             "opaque": blender_module.OpaqueFragmentBlender,
             "ordered1": blender_module.Ordered1FragmentBlender,
             "ordered2": blender_module.Ordered2FragmentBlender,
