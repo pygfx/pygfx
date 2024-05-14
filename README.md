@@ -128,7 +128,7 @@ To get a working dev install of pygfx you can use the following steps:
 git clone <address_of_your_fork>
 cd pygfx
 # if you use a venv, create and activate it
-pip install -e .[dev,docs,examples]
+pip install -e ".[dev,docs,examples]"
 pytest tests
 ```
 
