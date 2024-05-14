@@ -1,4 +1,5 @@
 import pylinalg as la
+import numpy as np
 
 from ._base import WorldObject
 from ..utils import unpack_bitfield
@@ -72,22 +73,39 @@ class Background(WorldObject):
 class Grid(WorldObject):
     """A grid to help interpret spatial distances.
 
+    The grid by default occupies 1x1 square in the xz plane. It can be scaled,
+    rotated, and translated to move it into position. If the grid is infinite
+    (``material.inf_grid``) then scale and in-plane translations are ignored.
+
     Parameters
     ----------
     geometry : Geometry
         Must be ``None``. Exists for compliance with the generic WorldObject API.
     material : Material
         The material to use when rendering the background.
+    orientation : str
+        Either 'xz' (default), 'zy', or 'yz'.
+        Is used to set the initial grid rotation, e.g. with ``self.local.euler_x = -np.pi/2`` for 'xy'.
     kwargs : Any
         Additional kwargs are forwarded to the object's :class:`base class
         <pygfx.objects.WorldObject>`.
-
     """
 
-    def __init__(self, geometry=None, material=None, **kwargs):
+    def __init__(self, geometry=None, material=None, orientation=None, **kwargs):
         if geometry is not None and material is None:
             raise TypeError("You need to instantiate using Grid(None, material)")
         super().__init__(None, material, **kwargs)
+        if orientation is not None:
+            if orientation in ("xz", "zx"):
+                pass
+            elif orientation in ("xy", "yx"):
+                self.local.euler_x = -np.pi / 2
+            elif orientation in ("yz", "zy"):
+                self.local.euler_z = np.pi / 2
+            else:
+                raise ValueError(
+                    f"Invalid grid orientation: '{orientation}', must be 'xz', 'xy', or 'yz'."
+                )
 
 
 class Line(WorldObject):
@@ -332,7 +350,7 @@ class Text(WorldObject):
         *,
         visible=True,
         render_order=0,
-        render_mask="auto"
+        render_mask="auto",
     ):
         super().__init__(
             geometry,
