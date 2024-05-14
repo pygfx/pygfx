@@ -85,28 +85,43 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
-    let uv = vec2<f32>(varyings.gridcoord.xy);
+    // Collect props
 
-    let axis_thickness = vec2<f32>(u_material.major_thickness * 3.0);
+    let major_step= vec2<f32>(u_material.major_step);
+    let minor_step = vec2<f32>(u_material.minor_step);
+
+    let axis_thickness = vec2<f32>(u_material.axis_thickness);
     let major_thickness = vec2<f32>(u_material.major_thickness);
     let minor_thickness = vec2<f32>(u_material.minor_thickness);
-    let major_step = vec2<f32>(1.0);
-    let minor_step = vec2<f32>(0.1);
 
-    // todo: expose axis thickness and color via api, or remove it?
+    let axis_color = u_material.axis_color;
+    let major_color = u_material.major_color;
+    let minor_color = u_material.minor_color;
+
+    // Calculate grid alphas
+    // Note that a step or distance of zero automatically results in the result
+    // of the prestineGrid call to be either zero or nan.
+
+    let uv = vec2<f32>(varyings.gridcoord.xy);
+
     let axis_alpha = pristineGrid(clamp(uv, vec2<f32>(-0.5), vec2<f32>(0.5)), vec2<f32>(1.0), axis_thickness);
     let major_alpha = pristineGrid(uv, major_step, major_thickness);
     let minor_alpha = pristineGrid(uv, minor_step, minor_thickness);
 
-    var alpha = axis_alpha;
-    var color = u_material.major_color;
+    var alpha: f32 = 0.0;
+    var color = vec4<f32>(0.0);
+
+    if ( axis_alpha > alpha) {
+        alpha = axis_alpha;
+        color = axis_color;
+    }
     if ( major_alpha > alpha * 1.5 ) {
         alpha = major_alpha;
-        color = u_material.major_color;
+        color = major_color;
     }
     if ( minor_alpha > alpha * 1.5 ) {
         alpha = minor_alpha;
-        color = u_material.minor_color;
+        color = minor_color;
     }
 
 
