@@ -84,8 +84,8 @@ class Grid(WorldObject):
     material : Material
         The material to use when rendering the background.
     orientation : str
-        Either 'xz' (default), 'zy', or 'yz'.
-        Is used to set the initial grid rotation, e.g. with ``self.local.euler_x = -np.pi/2`` for 'xy'.
+        Convenience argument to set the (initial) grid rotation. Must be 'xz' (default), 'zy', or 'yz'.
+        Simply rotates the object, e.g. for 'xy' will do ``self.local.euler_x = -np.pi/2``.
     kwargs : Any
         Additional kwargs are forwarded to the object's :class:`base class
         <pygfx.objects.WorldObject>`.
@@ -96,11 +96,11 @@ class Grid(WorldObject):
             raise TypeError("You need to instantiate using Grid(None, material)")
         super().__init__(None, material, **kwargs)
         if orientation is not None:
-            if orientation in ("xz", "zx"):
+            if orientation == "xz":
                 pass
-            elif orientation in ("xy", "yx"):
+            elif orientation == "xy":
                 self.local.euler_x = -np.pi / 2
-            elif orientation in ("yz", "zy"):
+            elif orientation == "yz":
                 self.local.euler_z = np.pi / 2
             else:
                 raise ValueError(

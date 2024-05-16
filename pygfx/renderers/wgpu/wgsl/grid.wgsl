@@ -23,8 +23,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
     // Select the grid coord for this vertex. We express it with coord1 and
     // coord2, to avoid confusion with xyz world coordinates. By default the
-    // plane is in the xz plane (normal to the y-axis) but this is more or less
-    // arbitrary.
+    // plane is in the xz plane (normal to the y-axis).
     let vertex_grid_coord: vec2<f32> = grid_coords[i32(in.index)];
     let coord1 = vertex_grid_coord.x;
     let coord2 = vertex_grid_coord.y;
@@ -71,6 +70,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         // Add a 2% margin to have space for line width and aa.
         let pos = (u_wobject.world_transform * vec4<f32>((coord1 * 1.04 - 0.02), 0.0, (coord2 * 1.2 - 0.1), 1.0)).xyz;
 
+        // Calculate range, so that in the frag shader the edges can be handled correctly.
         let p_min = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;
         let p_max = (u_wobject.world_transform * vec4<f32>(1.0, 0.0, 1.0, 1.0)).xyz;
         let range_a = vec2<f32>( dot(v1, p_min), dot(v2, p_min) );
@@ -92,10 +92,6 @@ fn vs_main(in: VertexInput) -> Varyings {
     return varyings;
 }
 
-fn step_fraction_beyond_limit(limit: vec2<f32>, step: vec2<f32>) -> vec2<f32> {
-    let v = limit / step;
-    return abs(v - trunc(v));
-}
 
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
@@ -119,10 +115,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     $$ if not inf_grid
         // Handle edges. If we do nothing about edges, then lines that are on
         // the egde will be half as wide, and have no anti-aliasing. To handle
-        // this, we first check whether there is a line (almost) on the edge. If
-        // so, we include that line by setting the margin to half the step
-        // width. Otherwise, the margin is such that the last line is included,
-        // but not any lines beyond the edge.
+        // this, we make the grid slightly larger in the vertex shader. Here in
+        // the frag shader, we first check whether there is a line (almost) on
+        // the edge. If so, we include that line by setting the margin to half
+        // the step width. Otherwise, the margin is such that the last line is
+        // included, but not any lines beyond the edge.
 
         let range_min = varyings.range_min;
         let range_max = varyings.range_max;
@@ -138,7 +135,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let major_margin_min = select((0.5 - major_fract_min) * major_step, 0.5 * major_step, major_is_on_edge_min);
         let major_margin_max = select((0.5 - major_fract_max) * major_step, 0.5 * major_step, major_is_on_edge_max);
 
-        // Repeat for minor
+        // Repeat for minor.
         let minor_fract_min = ceil(range_min / minor_step) - (range_min / minor_step);
         let minor_fract_max = (range_max / minor_step) - floor(range_max / minor_step);
         let minor_is_on_edge_min = minor_fract_min > vec2<f32>(0.999) || minor_fract_min < vec2<f32>(0.001);
@@ -146,13 +143,13 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let minor_margin_min = select((0.5 - minor_fract_min) * minor_step, 0.5 * minor_step, minor_is_on_edge_min);
         let minor_margin_max = select((0.5 - minor_fract_max) * minor_step, 0.5 * minor_step, major_is_on_edge_max);
 
-        // Get ranges
+        // Get ranges.
         let range_major_min = range_min - major_margin_min;
         let range_major_max = range_max + major_margin_max;
         let range_minor_min = range_min - minor_margin_min;
         let range_minor_max = range_max + minor_margin_max;
 
-        // Hide/show line parallel to the edge
+        // Hide/show line parallel to the edge.
         if ( uv.x < range_major_min.x || uv.x > range_major_max.x ) {
             major_thickness.x = 0.0;
         }
@@ -222,8 +219,10 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
 fn pristineGrid(uv_raw: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
     // The Best Darn Grid Shader (okt 2023)
-    // For details see https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8#5ef5
-    // I removed the black-white-swap logic, because our output is alpha, not luminance. I limited the linewidth instead.
+    // For details see https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
+    // AK: I removed the black-white-swap logic, because our output is alpha, not
+    // luminance. I limited the linewidth instead. Also added support for screen
+    // space line width.
     let uv = uv_raw / step;
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
     let ddx: vec2<f32> = dpdx(uv);
@@ -236,83 +235,9 @@ fn pristineGrid(uv_raw: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32
     $$ endif
     let drawWidth = clamp(targetWidth, uvDeriv, 0.5 / step);
     let lineAA = uvDeriv * 1.5;
-    var gridUV = abs(fract(uv) * 2.0 - 1.0);
-    gridUV.x = 1.0 - gridUV.x;
-    gridUV.y = 1.0 - gridUV.y;
+    let gridUV = 1.0 - abs(fract(uv) * 2.0 - 1.0);
     var grid2: vec2<f32> = smoothstep(drawWidth + lineAA, drawWidth - lineAA, gridUV);
     grid2 = grid2 * clamp(targetWidth / drawWidth, vec2<f32>(0.0), vec2<f32>(1.0));
     grid2 = mix(grid2, targetWidth, clamp(uvDeriv * 2.0 - 1.0, vec2<f32>(0.0), vec2<f32>(1.0)));
     return mix(grid2.x, 1.0, grid2.y);
-}
-
-
-// Antialias stroke alpha coeff
-fn stroke_alpha(distance: f32, linewidth: f32, antialias: f32) -> f32 {
-    let t = linewidth / 2.0 - antialias;
-    let signed_distance = distance;
-    let border_distance = abs(signed_distance) - t;
-    var alpha = border_distance / antialias;
-    //alpha = exp(-alpha * alpha);
-    if ( border_distance > (linewidth / 2.0 + antialias) ) {
-        return 0.0;
-    } else if ( border_distance < 0.0 ) {
-        return 1.0;
-    } else {
-        return alpha;
-    }
-}
-
-// Compute the nearest tick from a (normalized) t value
-fn get_tick(t: f32, vmin: f32, vmax: f32, step: f32) -> f32 {
-    let first_tick = floor((vmin + step / 2.0) / step) * step;
-    let  last_tick = floor((vmax + step / 2.0) / step) * step;
-    var tick = vmin + t * (vmax-vmin);
-    if (tick < (vmin + (first_tick-vmin) / 2.0)) {
-        return vmin;
-    }
-    if (tick > (last_tick + (vmax-last_tick) / 2.0)) {
-        return vmax;
-    }
-    tick = tick + step / 2.0;
-    tick = floor(tick / step) * step;
-    return min(max(vmin, tick), vmax);
-}
-
-// Compute the distance (in physical pixels) between p1 and p2
-fn screen_distance(p1: vec4<f32>, p2: vec4<f32>) -> f32 {
-    let resolution = vec2<f32>(u_stdinfo.physical_size);
-    var p1_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform * p1;
-    p1_ndc = p1_ndc / p1_ndc.w;
-    var p2_ndc = u_stdinfo.projection_transform * u_stdinfo.cam_transform * u_wobject.world_transform * p2;
-    p2_ndc = p2_ndc / p2_ndc.w;
-    let p1_physical = vec2<f32>(0.5 * p1_ndc.xy * resolution);
-    let p2_physical = vec2<f32>(0.5 * p2_ndc.xy * resolution);
-    return length(p1_physical - p2_physical);
-}
-
-
-fn transform_forward(p: vec2<f32>) -> vec2<f32> {
-    return p;
-}
-
-fn transform_inverse(p: vec2<f32>) -> vec2<f32> {
-    return p;
-}
-
-
-// [-0.5,-0.5]x[0.5,0.5] -> [xmin,xmax]x[ymin,ymax]
-fn scale_forward(p: vec2<f32>, limits: vec4<f32>) -> vec2<f32> {
-    // limits = xmin,xmax,ymin,ymax
-    var p2 = p + vec2<f32>(0.5, 0.5);
-    p2 = p2 * vec2<f32>(limits[1] - limits[0], limits[3]-limits[2]);
-    p2 = p2 + vec2<f32>(limits[0], limits[2]);
-    return p2;
-}
-
-// [xmin,xmax]x[ymin,ymax] -> [-0.5,-0.5]x[0.5,0.5]
-fn scale_inverse(p: vec2<f32>, limits: vec4<f32>) -> vec2<f32> {
-    // limits = xmin,xmax,ymin,ymax
-    var p2 = p - vec2<f32>(limits[0], limits[2]);
-    p2 = p2 / vec2<f32>(limits[1]-limits[0], limits[3]-limits[2]);
-    return p2 - vec2<f32>(0.5, 0.5);
 }

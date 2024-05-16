@@ -21,7 +21,7 @@ class GridMaterial(Material):
     minor_thickness : float
         The thickness of the minor grid lines. Default 0.75.
     thickness_space : str | CoordSpace
-        The coordinate space in which the thickness is expressed ('screen', 'world', 'model'). Default 'screen'.
+        The coordinate space in which the thickness is expressed ('screen' or 'world'). Default 'screen'.
     axis_color : str | tuple | Color
        The color of the axis lines. Default '#777'.
     major_color : str | tuple | Color
@@ -195,7 +195,15 @@ class GridMaterial(Material):
 
     @property
     def inf_grid(self):
-        """Whether the grid is infinite, or limited to the world-object's scale."""
+        """Whether the grid is infinite.
+
+        If not infinite, the grid is 1x1 in world space, scaled, rotated, and
+        positioned with the object's transform.
+
+        (Infinite grids are not actually infinite. Rather they move along with
+        the camera, and are sized based on the distance between the camera and
+        the grid.)
+        """
         return self._store.inf_grid
 
     @inf_grid.setter
