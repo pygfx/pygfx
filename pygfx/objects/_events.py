@@ -146,7 +146,7 @@ class KeyboardEvent(Event):
         <pygfx.objects.Event>`.
     key : str
         The key that was pressed.
-    modifiers : list
+    modifiers : tuple
         The modifiers that were pressed while the key was pressed.
     kwargs : Any
         Additional keyword arguments are forward to the :class:`base class
@@ -174,9 +174,9 @@ class PointerEvent(Event):
         Thy y position of the cursor or touch in screen space (px).
     button : int
         The integer value of the button being pushed.
-    buttons : str
-        The string name of the button being pushed.
-    modifiers : list
+    buttons : tuple
+        The list of string name of the buttons being pushed.
+    modifiers : tuple
         The modifiers that were pressed while the key was pressed.
     ntouches : int
         The total number of synchronous touches.
