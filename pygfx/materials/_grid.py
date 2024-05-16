@@ -6,6 +6,8 @@ from ..utils.enums import CoordSpace
 class GridMaterial(Material):
     """A Cartesian grid.
 
+    Implements "the best darn grid shader yet" a.k.a. the Prestine grid by Ben Golus.
+
     Parameters
     ----------
     major_step : 2-tuple | float
