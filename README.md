@@ -1,4 +1,4 @@
-<h1 align="center"><img src="docs/_static/pygfx_with_name.svg" width="600"/></h1>
+<h1 style="text-align: center;"><img src="docs/_static/pygfx.svg" style="height: 80px"><br>pygfx</h1>
 
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
 ](https://github.com/pygfx/pygfx/actions)
@@ -8,7 +8,9 @@
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
-A python render engine targeting Vulkan/Metal/DX12.
+Pygfx' purpose is to bring powerful and reliable visualization to the Python world. 🚀
+
+Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgpu-py/), enabling superior performance and reliability compared to OpenGL-based solutions. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
 
 <p align="center">
 <img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
@@ -20,6 +22,17 @@ A python render engine targeting Vulkan/Metal/DX12.
 [<a href="https://pygfx.readthedocs.io/en/stable/_gallery/index.html">Example Gallery</a>]
 [<a href="https://pygfx.readthedocs.io/en/stable/reference.html">API Reference</a>]
 </p>
+
+## Professional Consulting and Development Services
+
+Need help? We offer the following professional consulting and development services:
+
+* **Priority Support:** Rest assured with our dedicated support, prioritizing your needs for swift issue resolution and feature implementation.
+* **Integration Support:** Get assistance with integrating pygfx into your application, ensuring a smooth transition and optimal performance.
+* **Customized Solutions:** Whether it's crafting specific visualizations or developing shaders, we work closely with you to create tailored solutions that address your unique requirements.
+* **Training and Workshops:** We provide informative training sessions and workshops aimed at boosting skills and knowledge.
+
+For further inquiries or to discuss your project needs, reach out to us at [support@pygfx.com](mailto:support@pygfx.com).
 
 ## Installation
 
@@ -95,17 +108,6 @@ Some of pygfx's key features are:
 
 And many more! Check out our [feature demos](
 https://pygfx.readthedocs.io/en/stable/_gallery/index.html) in the docs.
-
-## About pygfx
-
-Pygfx is a ThreeJS inspired graphics library that uses WGPU (the successor of
-OpenGL) to provide GPU acceleration to rendering workloads. It is mature enough
-to serve as a general-purpose rendering engine (Yes, you _can_ write a game with
-it.) while being geared towards scientific and medical visualization. Thanks to
-its low level of abstraction it is flexible and can be adapted to various
-use-cases. In other words, pygfx emphasizes on hackability and correctness while
-maintaining the level of performance you would expect from a GPU accelerated
-library.
 
 ## License
 
