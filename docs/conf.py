@@ -35,6 +35,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_gallery.gen_gallery",
     "sphinx.ext.autosummary",
+    "sphinx_rtd_theme",
     # "nbsphinx",
 ]
 
@@ -101,8 +102,7 @@ sphinx_gallery_conf.update(find_examples_for_gallery(ROOT_DIR / "examples"))
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
-# html_theme = 'alabaster'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -110,3 +110,9 @@ sphinx_gallery_conf.update(find_examples_for_gallery(ROOT_DIR / "examples"))
 html_static_path = ["_static"]
 html_favicon = "_static/pygfx.svg"
 html_logo = "_static/pygfx.svg"
+
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = [
+    'style.css',
+]
