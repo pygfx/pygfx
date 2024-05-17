@@ -114,5 +114,5 @@ html_logo = "_static/pygfx.svg"
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
 html_css_files = [
-    'style.css',
+    "style.css",
 ]
