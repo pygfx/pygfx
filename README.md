@@ -8,9 +8,9 @@
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
-Pygfx' purpose is to bring powerful and reliable visualization to the Python world. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
+Pygfx' purpose is to bring powerful and reliable visualization to the Python world. 🚀
 
-Pygfx is pronounced "py-graphics".
+Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgpu-py/), enabling superior performance and reliability compared to OpenGL-based solutions. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
 
 <p align="center">
 <img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
