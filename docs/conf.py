@@ -108,5 +108,5 @@ sphinx_gallery_conf.update(find_examples_for_gallery(ROOT_DIR / "examples"))
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_favicon = "_static/pygfx.ico"
+html_favicon = "_static/pygfx.svg"
 html_logo = "_static/pygfx.svg"

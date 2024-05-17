@@ -1,4 +1,4 @@
-<h1 align="center"><img src="docs/_static/pygfx_with_name.svg" width="600"/></h1>
+<h1 style="text-align: center;"><img src="docs/_static/pygfx.svg" style="height: 80px"><br>pygfx</h1>
 
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
 ](https://github.com/pygfx/pygfx/actions)
