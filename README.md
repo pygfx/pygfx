@@ -18,9 +18,9 @@ Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgp
 <img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
 </p>
 <p align="center">
-[<a href="https://pygfx.readthedocs.io/en/stable/guide.html">User Guide</a>]
-[<a href="https://pygfx.readthedocs.io/en/stable/_gallery/index.html">Example Gallery</a>]
-[<a href="https://pygfx.readthedocs.io/en/stable/reference.html">API Reference</a>]
+[<a href="https://pygfx.com/stable/guide.html">User Guide</a>]
+[<a href="https://pygfx.com/stable/_gallery/index.html">Example Gallery</a>]
+[<a href="https://pygfx.com/stable/reference.html">API Reference</a>]
 </p>
 
 ## Professional Consulting and Development Services
@@ -68,7 +68,7 @@ when you update.
 
 > **Note**
 > A walkthrough of this example can be found in [the
-> guide](https://pygfx.readthedocs.io/en/stable/guide.html#how-to-use-pygfx).
+> guide](https://pygfx.com/stable/guide.html#how-to-use-pygfx).
 
 ```python
 import pygfx as gfx
@@ -95,19 +95,19 @@ if __name__ == "__main__":
 Some of pygfx's key features are:
 
 - SDF based text rendering ([example](
-  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/text_contrast.html))
+  https://pygfx.com/stable/_gallery/feature_demo/text_contrast.html))
 - order-independent transparency (OIT) ([example](
-  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/transparency2.html))
+  https://pygfx.com/stable/_gallery/feature_demo/transparency2.html))
 - lights, shadows, and physically based rendering (PBR) ([example](
-  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/pbr.html))
+  https://pygfx.com/stable/_gallery/feature_demo/pbr.html))
 - event system with built-in picking ([example](
-  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/picking_points.html))
+  https://pygfx.com/stable/_gallery/feature_demo/picking_points.html))
 - texture and color mapping supporting 1D, 2D and 3D data ([example](
-  https://pygfx.readthedocs.io/en/stable/_gallery/feature_demo/colormap_channels.html))
+  https://pygfx.com/stable/_gallery/feature_demo/colormap_channels.html))
 
 
 And many more! Check out our [feature demos](
-https://pygfx.readthedocs.io/en/stable/_gallery/index.html) in the docs.
+https://pygfx.com/stable/_gallery/index.html) in the docs.
 
 ## License
 
