@@ -8,7 +8,9 @@
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
-A python render engine targeting Vulkan/Metal/DX12.
+Pygfx' purpose is to bring powerful and reliable visualization to the Python world. It is designed for simplicity and versatility: with its modular architecture, you can effortlessly assemble graphical scenes for diverse applications, from scientific visualization to video game rendering.
+
+Pygfx is pronounced "py-graphics".
 
 <p align="center">
 <img src="./docs/_static/readme_sponza.png" alt="drawing" width="200"/>
@@ -95,17 +97,6 @@ Some of pygfx's key features are:
 
 And many more! Check out our [feature demos](
 https://pygfx.readthedocs.io/en/stable/_gallery/index.html) in the docs.
-
-## About pygfx
-
-Pygfx is a ThreeJS inspired graphics library that uses WGPU (the successor of
-OpenGL) to provide GPU acceleration to rendering workloads. It is mature enough
-to serve as a general-purpose rendering engine (Yes, you _can_ write a game with
-it.) while being geared towards scientific and medical visualization. Thanks to
-its low level of abstraction it is flexible and can be adapted to various
-use-cases. In other words, pygfx emphasizes on hackability and correctness while
-maintaining the level of performance you would expect from a GPU accelerated
-library.
 
 ## License
 
