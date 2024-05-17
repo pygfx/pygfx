@@ -16,7 +16,7 @@ from importlib.util import find_spec
 from functools import lru_cache
 
 
-def load_gltf(path):
+def load_gltf(path, quiet=False):
     """
     Load a gltf file and return the content.
 
@@ -26,6 +26,8 @@ def load_gltf(path):
     ----------
     path : str
         The path to the gltf file.
+    quiet : bool
+        Whether to suppress the warning messages.
 
     Returns:
     ----------
@@ -36,10 +38,10 @@ def load_gltf(path):
         * `cameras`: [gfx.Camera] or None
         * `animations`: [gfx.Animation] or None
     """
-    return _GLTF(path).load()
+    return _GLTF(path, quiet).load()
 
 
-def load_gltf_mesh(path, materials=True):
+def load_gltf_mesh(path, materials=True, quiet=False):
     """
     Load meshes from a gltf file, without skeletons, and no transformations applied.
 
@@ -51,13 +53,15 @@ def load_gltf_mesh(path, materials=True):
         The path to the gltf file.
     materials : bool
         Whether to load materials.
+    quiet : bool
+        Whether to suppress the warning messages.
 
     Returns:
     ----------
     meshes : list
         A list of pygfx.Meshes.
     """
-    return _GLTF(path).load_mesh(materials=materials)
+    return _GLTF(path, quiet).load_mesh(materials=materials)
 
 
 class _GLTF:
@@ -91,14 +95,16 @@ class _GLTF:
         "WEIGHTS_0": "skin_weights",
     }
 
-    def __init__(self, path):
+    SUPPORTED_EXTENSIONS = ["KHR_mesh_quantization"]
+
+    def __init__(self, path, quiet=False):
         self._path = path
         self.scene = None
         self.scenes = []
         self.cameras = None
         self.animations = None
 
-        self.__inner_load()
+        self.__inner_load(quiet)
 
     def load(self):
         """Load the whole gltf file, including meshes, skeletons, cameras, and animations."""
@@ -106,10 +112,11 @@ class _GLTF:
         self.scenes = self._load_scenes()
         if self._gltf.model.scene is not None:
             self.scene = self.scenes[self._gltf.model.scene]
+        if self._gltf.model.animations is not None:
+            self.animations = self._load_animations()
 
         # TODO:
         # self.cameras
-        # self.animations
         return self
 
     def load_mesh(self, materials=True):
@@ -121,7 +128,7 @@ class _GLTF:
             meshes.extend(mesh)
         return meshes
 
-    def __inner_load(self):
+    def __inner_load(self, quiet=False):
         if not find_spec("gltflib"):
             raise ImportError(
                 "The `gltflib` library is required to load gltf scene: pip install gltflib"
@@ -131,20 +138,29 @@ class _GLTF:
         path = self._path
         self._gltf = gltflib.GLTF.load(path, load_file_resources=True)
 
-        extensions_required = self._gltf.model.extensionsRequired
+        if not quiet:
+            extensions_required = self._gltf.model.extensionsRequired or []
 
-        if extensions_required is not None:
-            gfx.utils.logger.warning(
-                f"This GLTF required extensions: {extensions_required}, which are not supported yet."
+            unsupported_extensions_required = set(extensions_required) - set(
+                self.SUPPORTED_EXTENSIONS
             )
-            # rasise or ignore?
-            # raise NotImplementedError(f"This GLTF required extensions: {extensions_required}, which are not supported yet.")
 
-        extensions_used = self._gltf.model.extensionsUsed
-        if extensions_used is not None:
-            gfx.utils.logger.warning(
-                f"This GLTF used extensions: {extensions_used}, which are not supported yet, so the display may not be so correct."
+            if unsupported_extensions_required:
+                gfx.utils.logger.warning(
+                    f"This GLTF required extensions: {unsupported_extensions_required}, which are not supported yet."
+                )
+                # rasise or ignore?
+                # raise NotImplementedError(f"This GLTF required extensions: {extensions_required}, which are not supported yet.")
+
+            extensions_used = self._gltf.model.extensionsUsed or []
+
+            unsupported_extensions_used = set(extensions_used) - set(
+                self.SUPPORTED_EXTENSIONS
             )
+            if unsupported_extensions_used:
+                gfx.utils.logger.warning(
+                    f"This GLTF used extensions: {unsupported_extensions_used}, which are not supported yet, so the display may not be so correct."
+                )
 
         # bind the actual data to the buffers
         for buffer in self._gltf.model.buffers:
@@ -212,9 +228,7 @@ class _GLTF:
         node_mark = node_marks[node_index]
 
         if node_mark == "Bone":
-            # TODO: Use Bone when pygfx support it
-            # node_obj = gfx.Bone()
-            node_obj = gfx.WorldObject()
+            node_obj = gfx.Bone()
         elif node_mark == "Camera":
             # TODO: implement camera loading
             # node_obj = gfx.Camera()
@@ -264,11 +278,9 @@ class _GLTF:
                     material = gfx.MeshBasicMaterial()
 
                 if skin_index is not None:
-                    # TODO: It's a SkinnedMesh, support it later, just use Mesh for now.
-                    # gfx_mesh = gfx.SkinnedMesh(geometry, material)
-                    # skeleton = self._load_skins(skin_index)
-                    # gfx_mesh.bind(skeleton, np.identity(4))
-                    gfx_mesh = gfx.Mesh(geometry, material)
+                    gfx_mesh = gfx.SkinnedMesh(geometry, material)
+                    skeleton = self._load_skins(skin_index)
+                    gfx_mesh.bind(skeleton, np.identity(4))
                 else:
                     gfx_mesh = gfx.Mesh(geometry, material)
             else:
@@ -390,7 +402,19 @@ class _GLTF:
         for attr, accessor_index in primitive.attributes.__dict__.items():
             if accessor_index is not None:
                 geometry_attr = self.ATTRIBUTE_NAME[attr]
-                geometry_args[geometry_attr] = self._load_accessor(accessor_index)
+                data = self._load_accessor(accessor_index)
+
+                # pygfx not support int attributes now, so we need to convert them to float.
+                if geometry_attr in (
+                    "positions",
+                    "normals",
+                    "tangents",
+                    "texcoords",
+                    "texcoords1",
+                ):
+                    data = data.astype(np.float32)
+
+                geometry_args[geometry_attr] = data
 
         if indices_accessor is not None:
             indices = self._load_accessor(indices_accessor).reshape(-1, 3)
@@ -403,7 +427,21 @@ class _GLTF:
 
         geometry_args["indices"] = indices
 
-        return gfx.Geometry(**geometry_args)
+        geometry = gfx.Geometry(**geometry_args)
+
+        if primitive.targets:
+            for target in primitive.targets:
+                for attr, accessor_index in target.__dict__.items():
+                    if accessor_index is not None:
+                        target_attr = self.ATTRIBUTE_NAME[attr]
+                        geometry.morph_attributes.setdefault(target_attr, [])
+                        geometry.morph_attributes[target_attr].append(
+                            self._load_accessor(accessor_index).astype(np.float32)
+                        )
+
+            geometry._morph_targets_relative = True
+
+        return geometry
 
     @lru_cache(maxsize=None)
     def _get_buffer_memory_view(self, buffer_view_index):
@@ -440,7 +478,7 @@ class _GLTF:
                 shape=(accessor_count, accessor_type_size * accessor_dtype.itemsize),
                 strides=(buffer_view.byteStride, 1),
             )
-            ar = np.frombuffer(ar, dtype=accessor_dtype).reshape(
+            ar = np.frombuffer(np.ascontiguousarray(ar), dtype=accessor_dtype).reshape(
                 accessor_count, accessor_type_size
             )
         else:
@@ -453,6 +491,12 @@ class _GLTF:
             if accessor_type_size > 1:
                 ar = ar.reshape(accessor_count, accessor_type_size)
 
+        if accessor.normalized:
+            # KHR_mesh_quantization
+            # https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_mesh_quantization
+            assert accessor_dtype.kind == "i" or accessor_dtype.kind == "u"
+            ar = ar.astype(np.float32) / np.iinfo(accessor_dtype).max
+
         # pygfx not support int8, int16, uint8, uint16 now
         if ar.dtype == np.uint8 or ar.dtype == np.uint16:
             ar = ar.astype(np.uint32)
@@ -460,6 +504,69 @@ class _GLTF:
             ar = ar.astype(np.int32)
 
         return ar
+
+    @lru_cache(maxsize=None)
+    def _load_skins(self, skin_index):
+        skin = self._gltf.model.skins[skin_index]
+        bones = [self._load_node(index) for index in skin.joints]
+        inverse_bind_matrices = self._load_accessor(skin.inverseBindMatrices)
+
+        bone_inverses = []
+        for matrices in inverse_bind_matrices:
+            bone_inverse = np.array(matrices).reshape(4, 4).T
+            bone_inverses.append(bone_inverse)
+
+        skeleton = gfx.Skeleton(bones, bone_inverses)
+        return skeleton
+
+    def _load_animation(self, animation_info):
+        channels = animation_info.channels
+        samplers = animation_info.samplers
+
+        duration = 0
+
+        key_frame_tracks = []
+
+        for channel in channels:
+            target = channel.target
+            sampler = samplers[channel.sampler]
+
+            target_node = self._load_node(target.node)
+            name = target_node.name
+            target_property = target.path
+            interpolation = sampler.interpolation
+            times = self._load_accessor(sampler.input)
+            if times[-1] > duration:
+                duration = times[-1]
+            values = self._load_accessor(sampler.output)
+
+            if interpolation == "LINEAR":
+                if target_property == "rotation":
+                    interpolation_fn = gfx.QuaternionLinearInterpolant
+                else:
+                    interpolation_fn = gfx.LinearInterpolant
+            elif interpolation == "STEP":
+                interpolation_fn = gfx.StepInterpolant
+            elif interpolation == "CUBICSPLINE":
+                interpolation_fn = gfx.CubicSplineInterpolant
+
+            values = values.reshape(len(times), -1)
+            keyframe = gfx.KeyframeTrack(
+                name, target_node, target_property, times, values, interpolation_fn
+            )
+            key_frame_tracks.append(keyframe)
+
+        action_clip = gfx.AnimationClip(animation_info.name, duration, key_frame_tracks)
+
+        return action_clip
+
+    def _load_animations(self):
+        gltf = self._gltf
+        animations = []
+        for animation in gltf.model.animations:
+            action_clip = self._load_animation(animation)
+            animations.append(action_clip)
+        return animations
 
 
 def print_tree(obj, show_pos=False, show_rot=False, show_scale=False):

@@ -1,0 +1,86 @@
+"""
+Facecap animation with morph targets
+====================================
+
+This example demonstrates how to animate a model with morph targets.
+The model is a facecap model with morph targets for facial expressions (52 blend shapes).
+"""
+
+################################################################################
+# .. note::
+#
+#   To run this example, you need a model from the source repo's example
+#   folder. If you are running this example from a local copy of the code (dev
+#   install) no further actions are needed. Otherwise, you may have to replace
+#   the path below to point to the location of the model.
+
+import os
+from pathlib import Path
+
+try:
+    # modify this line if your model is located elsewhere
+    model_dir = Path(__file__).parents[1] / "data"
+except NameError:
+    # compatibility with sphinx-gallery
+    model_dir = Path(os.getcwd()).parent / "data"
+
+
+################################################################################
+# Once the path is set correctly, you can use the model as follows:
+
+# sphinx_gallery_pygfx_docs = 'animate 4s'
+# sphinx_gallery_pygfx_test = 'run'
+
+import time
+import pygfx as gfx
+
+from wgpu.gui.auto import WgpuCanvas, run
+
+gltf_path = model_dir / "facecap.glb"
+
+scene = gfx.Scene()
+
+canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Facecap", vsync=False)
+
+renderer = gfx.WgpuRenderer(canvas)
+camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
+
+scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
+
+gltf = gfx.load_gltf(gltf_path)
+
+model_obj = gltf.scene.children[1]
+action_clip = gltf.animations[0]
+
+scene.add(model_obj)
+
+camera.show_object(model_obj, view_dir=(1.8, -0.8, -3), scale=1.2)
+
+gfx.OrbitController(camera, register_events=renderer)
+
+gloabl_time = 0
+last_time = time.perf_counter()
+
+stats = gfx.Stats(viewport=renderer)
+
+
+def animate():
+    global gloabl_time, last_time
+    now = time.perf_counter()
+    dt = now - last_time
+    last_time = now
+    gloabl_time += dt
+    if gloabl_time > action_clip.duration:
+        gloabl_time = 0
+
+    action_clip.update(gloabl_time)
+
+    with stats:
+        renderer.render(scene, camera, flush=False)
+    stats.render()
+    canvas.request_draw()
+
+
+if __name__ == "__main__":
+    renderer.request_draw(animate)
+    run()

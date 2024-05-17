@@ -35,7 +35,6 @@ import imageio.v3 as iio
 from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
-
 # Init
 canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
 renderer = gfx.renderers.WgpuRenderer(canvas)
@@ -60,7 +59,7 @@ scene.add(background)
 gltf_path = model_dir / "DamagedHelmet" / "glTF" / "DamagedHelmet.gltf"
 
 gltf = gfx.load_gltf(gltf_path)
-# gfx.GLTF.print_tree(gltf.scene) # Uncomment to see the tree structure
+# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
 
 m = gltf.scene.children[0]
 

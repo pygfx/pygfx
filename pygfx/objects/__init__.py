@@ -27,6 +27,9 @@
     DirectionalLightShadow
     SpotLightShadow
     PointLightShadow
+    Bone
+    Skeleton
+    SkinnedMesh
 
 .. rubric:: Events
 .. autosummary::
@@ -66,3 +69,4 @@ from ._lights import (
     SpotLightShadow,
     PointLightShadow,
 )
+from ._skins import Bone, Skeleton, SkinnedMesh
