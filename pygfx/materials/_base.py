@@ -98,6 +98,11 @@ class Material(Trackable):
 
     @property
     def uniform_buffer(self):
+        """The uniform buffer object for this material.
+
+        Properties that map are represented in the buffer can be updated cheaply
+        (i.e. without requiring shader compilation).
+        """
         return self._store.uniform_buffer
 
     @property
