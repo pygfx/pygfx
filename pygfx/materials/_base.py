@@ -27,6 +27,13 @@ class Material(Trackable):
         against the depth buffer and also not writing to it.
     """
 
+    # Note that in the material classes we define what properties are stored as
+    # a uniform, and which are stored on `._store` (and will likely be used as
+    # shader templating variables). This can be seen as an abstraction leak, but
+    # abstracing it away is inpractical and complex. So we embrace wgpu as the
+    # primary rendering backend, and other backends should deal with it.
+    # See https://github.com/pygfx/pygfx/issues/272
+
     uniform_type = dict(
         opacity="f4",
         clipping_planes="0*4xf4",  # array<vec4<f32>,3>
@@ -91,6 +98,11 @@ class Material(Trackable):
 
     @property
     def uniform_buffer(self):
+        """The uniform buffer object for this material.
+
+        Properties that are represented in the buffer can be updated cheaply
+        (i.e. without requiring shader compilation).
+        """
         return self._store.uniform_buffer
 
     @property
