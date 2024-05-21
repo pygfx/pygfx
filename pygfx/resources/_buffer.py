@@ -43,7 +43,7 @@ class Buffer(Resource):
         detected_format = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
-        # Backends-specific attributes for internal use
+        # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None
         self._wgpu_usage = int(usage)
 
