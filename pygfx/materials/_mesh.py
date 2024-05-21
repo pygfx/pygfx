@@ -157,7 +157,7 @@ class MeshAbstractMaterial(Material):
             raise ValueError(
                 f"MeshMaterial.side must be a string in {VisibleSide}, not {repr(value)}"
             )
-        self._store.color_mode = value
+        self._store.side = value
 
 
 class MeshBasicMaterial(MeshAbstractMaterial):

@@ -179,7 +179,7 @@ class VisibleSide(Enum):
 
     front = None  #: The front is visible.
     back = None  #: The back is visible.
-    Both = None  #: Both the front and back are visible.
+    both = None  #: Both the front and back are visible.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

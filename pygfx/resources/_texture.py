@@ -158,7 +158,7 @@ class Texture(Resource):
 
     @property
     def usage(self):
-        """Bitmask indicating how the texture            can be used in a wgpu pipeline."""
+        """Bitmask indicating how the texture can be used in a wgpu pipeline."""
         return self._wgpu_usage
 
     @property
