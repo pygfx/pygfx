@@ -12,10 +12,18 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     MarkerShape
     RenderMask
     SizeMode
+    ElementFormat
 
 """
 
-__all__ = ["RenderMask", "ColorMode", "SizeMode", "CoordSpace", "MarkerShape"]
+__all__ = [
+    "RenderMask",
+    "ColorMode",
+    "SizeMode",
+    "CoordSpace",
+    "MarkerShape",
+    "ElementFormat",
+]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
 # and simply maps to strings or ints. The enums are classes, so IDE's provide
@@ -139,6 +147,25 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
+
+
+class ElementFormat(Enum):
+    """The base elements to specify formats.
+
+    These values can be used to compose formats of various layouts, e.g. 2D
+    positions with "2xf4", rgb colors with "3xu8" or matrices with "4x4xf32".
+    The purpose is to provide a common representation for simple formats, that
+    can be used for buffers, textures and uniform buffers.
+    """
+
+    i1 = None  #: signed 8bit integer
+    u1 = None  #: unsigned 8-bit integer (byte)
+    i2 = None  #: signed 16-bit integer
+    u2 = None  #: unsigned 16-bit integer
+    i4 = None  #: signed 32-bit integer
+    u4 = None  #: unsigned 32-bit integer
+    f2 = None  #: 16-bit float
+    f4 = None  #: 32-bit float
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

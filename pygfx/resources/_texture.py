@@ -1,39 +1,45 @@
 import numpy as np
 
 from ._base import Resource, get_item_format_from_memoryview
+from ..utils.enums import ElementFormat
 
 
 class Texture(Resource):
     """Texture object containing structured 1D, 2D or 3D data.
 
-    Can be used to represent e.g. image data or colormaps. Can also
-    serve as a render target (for the renderer). Supports texture
-    stacks, cube textures, and mipmapping.
+    Can be used to represent e.g. image data or colormaps. Can also serve as a
+    render target (for the renderer). Supports texture stacks, cube textures,
+    and mipmapping.
 
-    Parameters:
-        data : array, optional
-            Array data of any type that supports the buffer-protocol, (e.g. a
-            bytes or numpy array). If None, nbytes and size must be provided.
-            The dtype must be compatible with the rendering backend.
-        dim : int
-            The dimensionality of the array (1, 2 or 3).
-        size : tuple, [3]
-            The extent ``(width, height, depth)`` of the array. If None, it is
-            derived from `dim` and the shape of the data. The texture can also
-            represent a stack of images by setting `dim=2` and `depth > 1`,
-            or a cube image by setting `dim=2` and `depth==6`.
-        format : str
-            A format string describing the texture layout. If None, this is
-            derived from the data. This must be a pygfx format
-            specifier, e.g. "3xf4", but can also be a format specific to the
-            render backend (e.g. from ``wgpu.TextureFormat``).
-        colorspace : str
-            If this data is used as color, it is interpreted to be in this
-            colorspace. Can be "srgb" or "physical". Default "srgb".
-        generate_mipmaps : bool
-            If True, automatically generates mipmaps when transferring data to
-            the GPU.
-
+    Parameters
+    ----------
+    data : array, optional
+        Array data of any type that supports the buffer-protocol, (e.g. a bytes
+        or numpy array). If None, nbytes and size must be provided. The dtype
+        must be compatible with the rendering backend.
+    dim : int
+        The dimensionality of the array (1, 2 or 3).
+    size : tuple, [3]
+        The extent ``(width, height, depth)`` of the array. If None, it is
+        derived from `dim` and the shape of the data. The texture can also
+        represent a stack of images by setting ``dim=2`` and ``depth > 1``, or a
+        cube image by setting ``dim=2`` and ``depth==6``.
+    format : str | ElementFormat | wgpu.TextureFormat
+        A format string describing the pixel/voxel format. This can follow
+        pygfx' ``ElementFormat`` e.g. "1xf4" for intensity, "3xu1" for rgb, etc.
+        Can also be wgpu's ``TextureFormat``. Optional: if None, it is
+        automatically determined from the data.
+    colorspace : str
+        If this data is used as color, it is interpreted to be in this
+        colorspace. Can be "srgb" or "physical". Default "srgb".
+    generate_mipmaps : bool
+        If True, automatically generates mipmaps when transferring data to the
+        GPU.
+    usage : int | wgpu.TextureUsage
+        The wgpu ``usage`` flag for this texture. Optional: typically pygfx can
+        derive how the texture is used and apply the appropriate flag. In cases
+        where it doesn't this param provides an override. This is a bitmask flag
+        (values are OR'd).
     """
 
     def __init__(
@@ -45,6 +51,7 @@ class Texture(Resource):
         format=None,
         colorspace="srgb",
         generate_mipmaps=False,
+        usage=0,
     ):
         super().__init__()
         Resource._rev += 1
@@ -59,7 +66,7 @@ class Texture(Resource):
 
         # Backends-specific attributes for internal use
         self._wgpu_object = None
-        self._wgpu_usage = 0
+        self._wgpu_usage = int(usage)
         self._wgpu_mip_level_count = 1
 
         self._colorspace = (colorspace or "srgb").lower()
@@ -107,11 +114,6 @@ class Texture(Resource):
             self._format = str(format)
 
     @property
-    def rev(self):
-        """An integer that is increased when update_range() is called."""
-        return self._rev
-
-    @property
     def dim(self):
         """The dimensionality of the texture (1, 2, or 3)."""
         return self._store.dim
@@ -147,11 +149,17 @@ class Texture(Resource):
 
     @property
     def format(self):
-        """The texture format as a string. Usually a pygfx format specifier
-        (e.g. u2 for scalar uint16, or 3xf4 for RGB float32),
-        but can also be a overridden to a backend-specific format.
+        """The texture format.
+
+        Usually a pygfx format specifier (e.g. 'u2' for scalar uint16, or '3xf4'
+        for RGB float32), but can also be a value from ``wgpu.TextureFormat``.
         """
         return self._format
+
+    @property
+    def usage(self):
+        """Bitmask indicating how the texture            can be used in a wgpu pipeline."""
+        return self._wgpu_usage
 
     @property
     def colorspace(self):

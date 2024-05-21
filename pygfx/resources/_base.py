@@ -5,6 +5,7 @@ from ..utils.trackable import Trackable
 
 STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}
 
+# Map memoryview format to short-numpy format.
 FORMAT_MAP = {
     "b": "i1",
     "B": "u1",
@@ -56,10 +57,10 @@ def get_item_format_from_memoryview(mem):
 
 
 class Resource(Trackable):
-    """Resource base class."""
+    """Base class for :class:`~pygfx.resources.Buffer` and :class:`~pygfx.resources.Texture`."""
 
-    _resource_counts = {}
-    _rev = 0
+    _resource_counts = {}  # Just to track the number of buffers and textures alive
+    _rev = 0  # integer hash
 
     def __init__(self):
         super().__init__()
@@ -72,6 +73,17 @@ class Resource(Trackable):
 
     def _gfx_mark_for_sync(self):
         resource_update_registry._gfx_mark_for_sync(self)
+
+    @property
+    def rev(self):
+        """The revision number (integer).
+
+        The number changes when ``update_range()`` is called. The number is
+        monotonically increasing and globally unique (no two buffers/textures
+        have the same rev). This makes that it can be used as hash for the data
+        content.
+        """
+        return self._rev
 
 
 class ResourceUpdateRegistry:
