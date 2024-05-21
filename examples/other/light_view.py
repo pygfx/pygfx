@@ -48,7 +48,7 @@ class LightViewer(QtWidgets.QWidget):
             "Back Side",
             None,
             None,
-            lambda c: setattr(self.mesh.material, "side", "BACK" if c else "FRONT"),
+            lambda c: setattr(self.mesh.material, "side", "back" if c else "front"),
         )
 
         self.mesh_rotate_checkbox = self.create_checkbox("Auto Rotate")

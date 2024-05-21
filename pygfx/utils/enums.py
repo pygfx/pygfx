@@ -13,6 +13,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     RenderMask
     SizeMode
     ElementFormat
+    VisibleSide
 
 """
 
@@ -23,6 +24,7 @@ __all__ = [
     "CoordSpace",
     "MarkerShape",
     "ElementFormat",
+    "VisibleSide",
 ]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
@@ -158,14 +160,26 @@ class ElementFormat(Enum):
     can be used for buffers, textures and uniform buffers.
     """
 
-    i1 = None  #: signed 8bit integer
-    u1 = None  #: unsigned 8-bit integer (byte)
-    i2 = None  #: signed 16-bit integer
-    u2 = None  #: unsigned 16-bit integer
-    i4 = None  #: signed 32-bit integer
-    u4 = None  #: unsigned 32-bit integer
-    f2 = None  #: 16-bit float
-    f4 = None  #: 32-bit float
+    i1 = None  #: A signed 8bit integer.
+    u1 = None  #: An unsigned 8-bit integer (byte).
+    i2 = None  #: A signed 16-bit integer.
+    u2 = None  #: An unsigned 16-bit integer.
+    i4 = None  #: A signed 32-bit integer.
+    u4 = None  #: An unsigned 32-bit integer.
+    f2 = None  #: A 16-bit float.
+    f4 = None  #: A 32-bit float.
+
+
+class VisibleSide(Enum):
+    """The VisibleSide enum specifies what side of a mesh is visible.
+
+    Note that this is the inverse of the "CullMode", as it specifies what
+    side is visible rather than what side is culled.
+    """
+
+    front = None  #: The front is visible.
+    back = None  #: The back is visible.
+    Both = None  #: Both the front and back are visible.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__
