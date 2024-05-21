@@ -1,7 +1,6 @@
 import numpy as np
 
 from ._base import Resource, get_item_format_from_memoryview
-from ..utils.enums import ElementFormat
 
 
 class Texture(Resource):
