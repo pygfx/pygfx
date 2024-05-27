@@ -1,6 +1,7 @@
 import numpy as np
 
 from ..objects._base import WorldObject
+from ..utils.transform import mat_inv
 
 
 class Camera(WorldObject):
@@ -90,4 +91,4 @@ class ScreenCoordsCamera(Camera):
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
         proj_view = self.projection_matrix.ravel()
         proj_view[:] = m
-        self.projection_matrix_inverse = np.linalg.pinv(self.projection_matrix)
+        self.projection_matrix_inverse = mat_inv(self.projection_matrix)

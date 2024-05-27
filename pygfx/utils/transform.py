@@ -6,7 +6,15 @@ import functools
 
 from typing import Tuple, Union
 
+
 PRECISION_EPSILON = 1e-7
+
+
+if int(np.__version__.split(".")[0]) >= 2:
+    mat_inv = np.linalg.inv
+else:
+    # Avoid cpu's spinning at 300%, see issue #763
+    mat_inv = np.linalg.pinv
 
 
 class cached:  # noqa: N801
@@ -150,7 +158,7 @@ class AffineBase:
 
     @cached
     def _inverse_matrix(self) -> np.ndarray:
-        return np.linalg.pinv(self.matrix)
+        return mat_inv(self.matrix)
 
     @property
     def scaling_signs(self):
