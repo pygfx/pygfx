@@ -27,7 +27,7 @@ grid0 = gfx.Grid(
         axis_thickness=0.1,
         major_thickness=0.02,
         minor_thickness=0.01,
-        inf_grid=True,
+        infinite=True,
     ),
     orientation="xz",
 )
@@ -43,7 +43,7 @@ grid1 = gfx.Grid(
         minor_thickness=1,
         major_color="#aa0",
         minor_color="#aa0",
-        inf_grid=False,
+        infinite=False,
     ),
     orientation="yz",
 )
@@ -59,7 +59,7 @@ grid2 = gfx.Grid(
         minor_thickness=0.5,
         major_color="#a00",
         minor_color="#a00",
-        inf_grid=False,
+        infinite=False,
     ),
     orientation="xy",
 )
@@ -76,7 +76,7 @@ grid3 = gfx.Grid(
         minor_thickness=0.75,
         major_color="#0a0",
         minor_color="#0a0",
-        inf_grid=False,
+        infinite=False,
     ),
     orientation="xy",
 )
@@ -93,7 +93,7 @@ grid4 = gfx.Grid(
         minor_thickness=0.75,
         major_color="#00a",
         minor_color="#00a",
-        inf_grid=False,
+        infinite=False,
     ),
     orientation="xy",
 )

@@ -30,7 +30,7 @@ class GridMaterial(Material):
        The color of the major grid lines. Default '#777'.
     minor_color : str | tuple | Color
        The color of the minor grid lines. Default '#777'.
-    inf_grid : bool
+    infinite : bool
         Whether the grid is infinite. Default True.
     kwargs : Any
         Additional kwargs are passed to the base constructor
@@ -61,7 +61,7 @@ class GridMaterial(Material):
         axis_color="#777",
         major_color="#777",
         minor_color="#777",
-        inf_grid=True,
+        infinite=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -74,7 +74,7 @@ class GridMaterial(Material):
         self.axis_color = axis_color
         self.major_color = major_color
         self.minor_color = minor_color
-        self.inf_grid = inf_grid
+        self.infinite = infinite
 
     @property
     def major_step(self):
@@ -196,7 +196,7 @@ class GridMaterial(Material):
         self.uniform_buffer.update_range(0, 1)
 
     @property
-    def inf_grid(self):
+    def infinite(self):
         """Whether the grid is infinite.
 
         If not infinite, the grid is 1x1 in world space, scaled, rotated, and
@@ -206,8 +206,8 @@ class GridMaterial(Material):
         the camera, and are sized based on the distance between the camera and
         the grid.)
         """
-        return self._store.inf_grid
+        return self._store.infinite
 
-    @inf_grid.setter
-    def inf_grid(self, value):
-        self._store.inf_grid = bool(value)
+    @infinite.setter
+    def infinite(self, value):
+        self._store.infinite = bool(value)

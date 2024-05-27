@@ -75,7 +75,7 @@ class Grid(WorldObject):
 
     The grid by default occupies 1x1 square in the xz plane. It can be scaled,
     rotated, and translated to move it into position. If the grid is infinite
-    (``material.inf_grid``) then scale and in-plane translations are ignored.
+    (``material.infinite``) then scale and in-plane translations are ignored.
 
     Parameters
     ----------
