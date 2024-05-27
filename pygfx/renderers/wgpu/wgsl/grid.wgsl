@@ -100,6 +100,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     let major_step= vec2<f32>(u_material.major_step);
     let minor_step = vec2<f32>(u_material.minor_step);
+    let axis_step = major_step * 10.0;
 
     var axis_thickness = vec2<f32>(u_material.axis_thickness);
     var major_thickness = vec2<f32>(u_material.major_thickness);
@@ -178,9 +179,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Note that a step or distance of zero automatically results in the result
     // of the prestineGrid call to be either zero or nan.
 
-    let axis_alpha = pristineGrid(clamp(uv, vec2<f32>(-0.5), vec2<f32>(0.5)), vec2<f32>(1.0), axis_thickness);
-    let major_alpha = pristineGrid(uv, major_step, major_thickness);
-    let minor_alpha = pristineGrid(uv, minor_step, minor_thickness);
+    let axis_alpha = pristineGrid(uv, clamp(uv, -0.5 * axis_step, 0.5 * axis_step), axis_step, axis_thickness);
+    let major_alpha = pristineGrid(uv, uv, major_step, major_thickness);
+    let minor_alpha = pristineGrid(uv, uv, minor_step, minor_thickness);
 
     var alpha: f32 = 0.0;
     var color = vec4<f32>(0.0);
@@ -217,16 +218,17 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
-fn pristineGrid(uv_raw: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
+fn pristineGrid(uv: vec2<f32>, uv_clamped: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
     // The Best Darn Grid Shader (okt 2023)
     // For details see https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
     // AK: I removed the black-white-swap logic, because our output is alpha, not
     // luminance. I limited the linewidth instead. Also added support for screen
     // space line width.
-    let uv = uv_raw / step;
+    let uv_scaled = uv / step;
+    let uv_clamped_scaled = uv_clamped / step; // note that clamped uv will have nonzero derivs at clamp-edges
     let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-    let ddx: vec2<f32> = dpdx(uv);
-    let ddy: vec2<f32> = dpdy(uv);
+    let ddx: vec2<f32> = dpdx(uv_scaled);
+    let ddy: vec2<f32> = dpdy(uv_scaled);
     let uvDeriv = vec2<f32>(length(vec2<f32>(ddx.x, ddy.x)), length(vec2<f32>(ddx.y, ddy.y)));
     $$ if thickness_space == 'screen'
     let targetWidth = min(l2p * lineWidth * uvDeriv, vec2<f32>(0.5));  // lineWidth in screen space
@@ -235,7 +237,7 @@ fn pristineGrid(uv_raw: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32
     $$ endif
     let drawWidth = clamp(targetWidth, uvDeriv, 0.5 / step);
     let lineAA = uvDeriv * 1.5;
-    let gridUV = 1.0 - abs(fract(uv) * 2.0 - 1.0);
+    let gridUV = 1.0 - abs(fract(uv_clamped_scaled) * 2.0 - 1.0);
     var grid2: vec2<f32> = smoothstep(drawWidth + lineAA, drawWidth - lineAA, gridUV);
     grid2 = grid2 * clamp(targetWidth / drawWidth, vec2<f32>(0.0), vec2<f32>(1.0));
     grid2 = mix(grid2, targetWidth, clamp(uvDeriv * 2.0 - 1.0, vec2<f32>(0.0), vec2<f32>(1.0)));
