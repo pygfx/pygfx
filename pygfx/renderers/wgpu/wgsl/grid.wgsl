@@ -113,6 +113,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Get the grid coordinate
     let uv = vec2<f32>(varyings.gridcoord.xy);
 
+    // Clamped versions
+    let uv_clamped_axis = clamp(uv, -0.5 * axis_step, 0.5 * axis_step);
+    var uv_clamped_major = vec2<f32>(uv);
+    var uv_clamped_minor = vec2<f32>(uv);
+
     $$ if not inf_grid
         // Handle edges. If we do nothing about edges, then lines that are on
         // the egde will be half as wide, and have no anti-aliasing. To handle
@@ -132,7 +137,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         // On the edge (or close enough)?
         let major_is_on_edge_min = major_fract_min > vec2<f32>(0.999) || major_fract_min < vec2<f32>(0.001);
         let major_is_on_edge_max = major_fract_max > vec2<f32>(0.999) || major_fract_max < vec2<f32>(0.001);
-        // Calcaulat margin.
+        // Calcaulate margin.
         let major_margin_min = select((0.5 - major_fract_min) * major_step, 0.5 * major_step, major_is_on_edge_min);
         let major_margin_max = select((0.5 - major_fract_max) * major_step, 0.5 * major_step, major_is_on_edge_max);
 
@@ -151,18 +156,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let range_minor_max = range_max + minor_margin_max;
 
         // Hide/show line parallel to the edge.
-        if ( uv.x < range_major_min.x || uv.x > range_major_max.x ) {
-            major_thickness.x = 0.0;
-        }
-        if ( uv.y < range_major_min.y || uv.y > range_major_max.y ) {
-            major_thickness.y = 0.0;
-        }
-        if ( uv.x < range_minor_min.x || uv.x > range_minor_max.x ) {
-            minor_thickness.x = 0.0;
-        }
-        if ( uv.y < range_minor_min.y || uv.y > range_minor_max.y ) {
-            minor_thickness.y = 0.0;
-        }
+        uv_clamped_major = clamp(uv, range_major_min, range_major_max);
+        uv_clamped_minor = clamp(uv, range_minor_min, range_minor_max);
 
         // The lines orthogonal to the edge, should simply not be draw beyond the edge.
         if ( uv.x < range_min.x || uv.x > range_max.x ) {
@@ -179,9 +174,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Note that a step or distance of zero automatically results in the result
     // of the prestineGrid call to be either zero or nan.
 
-    let axis_alpha = pristineGrid(uv, clamp(uv, -0.5 * axis_step, 0.5 * axis_step), axis_step, axis_thickness);
-    let major_alpha = pristineGrid(uv, uv, major_step, major_thickness);
-    let minor_alpha = pristineGrid(uv, uv, minor_step, minor_thickness);
+    let axis_alpha = pristineGrid(uv, uv_clamped_axis, axis_step, axis_thickness);
+    let major_alpha = pristineGrid(uv, uv_clamped_major, major_step, major_thickness);
+    let minor_alpha = pristineGrid(uv, uv_clamped_minor, minor_step, minor_thickness);
 
     var alpha: f32 = 0.0;
     var color = vec4<f32>(0.0);
