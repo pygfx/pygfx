@@ -13,21 +13,6 @@ struct VertexInput {
 fn vs_main(in: VertexInput) -> Varyings {
     var varyings: Varyings;
 
-    // Grid coordinates to form a quad
-    var grid_coords = array<vec2<f32>, 4>(
-        vec2<f32>(0.0, 0.0),
-        vec2<f32>(1.0, 0.0),
-        vec2<f32>(0.0, 1.0),
-        vec2<f32>(1.0, 1.0),
-    );
-
-    // Select the grid coord for this vertex. We express it with coord1 and
-    // coord2, to avoid confusion with xyz world coordinates. By default the
-    // plane is in the xz plane (normal to the y-axis).
-    let vertex_grid_coord: vec2<f32> = grid_coords[i32(in.index)];
-    let coord1 = vertex_grid_coord.x;
-    let coord2 = vertex_grid_coord.y;
-
     // Calculate reference points
     let p0 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;  // "origin" of the plane
     let p1 = (u_wobject.world_transform * vec4<f32>(1.0, 0.0, 0.0, 1.0)).xyz;  // on the plane
@@ -58,13 +43,75 @@ fn vs_main(in: VertexInput) -> Varyings {
         // The closer the camera is to the plane, the less space you need to
         // make the horizon look really far away. Scaling too hard will
         // introduce fluctuation artifacts due to inaccurate float arithmatic.
-        // With ortho camera the horizon cannot really be made to look far away.
-        // So inf grid is not well suited with ortho camera?
-        let pos_multiplier = (50.0 * distance_cam_to_grid);
+        // Scaling too softly results in a non-horizontal horizon. To avoid a
+        // compromise and have the best of both, we define a small and a big
+        // quad.
+        //
+        // Note thay with an ortho camera there is no proper horizon, making the
+        // inf grid not well suited for use with an ortho camera.
+        //
+        // The grid coordinates form a big quad, with a small quad inside (without overlap).
+        //
+        //  x-----------------x
+        //  |\\           / / |
+        //  | \ \      /  /   |
+        //  |  \  \ /   /     |
+        //  |   \  x---x      |
+        //  |    \ |   | \    |
+        //  |      x---x  \   |
+        //  |     /   / \  \  |
+        //  |   /  /      \ \ |
+        //  | / /           \\|
+        //  x-----------------x
+
+
+        let near_multiplier = 5.0 * distance_cam_to_grid;
+        let far_multiplier = 1000.0 * distance_cam_to_grid;
+
+        let far_scale = 2.0;
+        var grid_coords = array<vec2<f32>,8>(
+            vec2<f32>(-1.0, -1.0) * near_multiplier,
+            vec2<f32>( 1.0, -1.0) * near_multiplier,
+            vec2<f32>(-1.0,  1.0) * near_multiplier,
+            vec2<f32>( 1.0,  1.0) * near_multiplier,
+            vec2<f32>(-1.0, -1.0) * far_multiplier,
+            vec2<f32>( 1.0, -1.0) * far_multiplier,
+            vec2<f32>(-1.0,  1.0) * far_multiplier,
+            vec2<f32>( 1.0,  1.0) * far_multiplier,
+        );
+        var coord_indices = array<i32, 30>(0, 1, 2, 2, 1, 3,  // close
+                                          4, 5, 0, 0, 5, 1,
+                                          5, 7, 1, 1, 7, 3,
+                                          7, 6, 3, 3, 6, 2,
+                                          6, 4, 2, 2, 4, 0,
+                                          );
+
+        // Select the grid coord for this vertex. We express it with coord1 and
+        // coord2, to avoid confusion with xyz world coordinates. By default the
+        // plane is in the xz plane (normal to the y-axis).
+        let vertex_grid_coord: vec2<f32> = grid_coords[coord_indices[i32(in.index)]];
+        let coord1 = vertex_grid_coord.x;
+        let coord2 = vertex_grid_coord.y;
 
         // Construct position using only the grid's rotation. Scale and offset are overridden.
-        let pos = cam_pos_on_grid + (coord1 - 0.5) * v1 * pos_multiplier + (coord2 - 0.5) * v2 * pos_multiplier;
+        let pos = cam_pos_on_grid + coord1 * v1 + coord2 * v2;
     $$ else
+
+        // Grid coordinates to form a quad
+        var grid_coords = array<vec2<f32>, 4>(
+            vec2<f32>(0.0, 0.0),
+            vec2<f32>(1.0, 0.0),
+            vec2<f32>(0.0, 1.0),
+            vec2<f32>(1.0, 1.0),
+        );
+        var coord_indices = array<i32, 6>(0, 1, 2, 2, 1, 3);
+
+        // Select the grid coord for this vertex. We express it with coord1 and
+        // coord2, to avoid confusion with xyz world coordinates. By default the
+        // plane is in the xz plane (normal to the y-axis).
+        let vertex_grid_coord: vec2<f32> = grid_coords[coord_indices[i32(in.index)]];
+        let coord1 = vertex_grid_coord.x;
+        let coord2 = vertex_grid_coord.y;
 
         // The grid's transform defines its place in the world.
         // Add a 2% margin to have space for line width and aa.

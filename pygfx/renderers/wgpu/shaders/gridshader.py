@@ -38,13 +38,14 @@ class GridShader(BaseShader):
 
     def get_pipeline_info(self, wobject, shared):
         return {
-            "primitive_topology": wgpu.PrimitiveTopology.triangle_strip,
+            "primitive_topology": wgpu.PrimitiveTopology.triangle_list,
             "cull_mode": wgpu.CullMode.none,
         }
 
     def get_render_info(self, wobject, shared):
+        nverts = 30 if self["inf_grid"] else 6
         return {
-            "indices": (4, 1),
+            "indices": (nverts, 1),
             "render_mask": RenderMask.all,
         }
 
