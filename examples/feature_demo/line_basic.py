@@ -90,7 +90,7 @@ def set_last_node(event):
     if 3 in event.buttons or event.button == 3:
         w, h = canvas.get_logical_size()
         ndcx, ndcy = 2 * event.x / w - 1, 1 - 2 * event.y / h
-        pos = la.vec_transform((ndcx, ndcy, 0), np.linalg.inv(camera.camera_matrix))
+        pos = la.vec_transform((ndcx, ndcy, 0), np.linalg.pinv(camera.camera_matrix))
         line.geometry.positions.data[-1, :2] = pos[0], pos[1]
         line.geometry.positions.update_range(len(positions) - 1, 1)
         renderer.request_draw()

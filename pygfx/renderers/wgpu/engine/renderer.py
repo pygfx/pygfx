@@ -668,7 +668,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
-        # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        # stdinfo_data["ndc_to_world"].flat = np.linalg.pinv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU

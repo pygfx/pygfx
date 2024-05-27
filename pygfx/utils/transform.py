@@ -150,7 +150,7 @@ class AffineBase:
 
     @cached
     def _inverse_matrix(self) -> np.ndarray:
-        return np.linalg.inv(self.matrix)
+        return np.linalg.pinv(self.matrix)
 
     @property
     def scaling_signs(self):

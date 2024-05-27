@@ -633,7 +633,7 @@ class TransformGizmo(WorldObject):
         """Translate action, either using a translate1 or translate2 handle."""
 
         world_to_screen = self._ndc_to_screen @ self._camera.camera_matrix
-        screen_to_world = np.linalg.inv(world_to_screen)
+        screen_to_world = np.linalg.pinv(world_to_screen)
 
         if isinstance(self._ref["dim"], int):
             travel_directions = (self._ref["dim"],)
@@ -654,7 +654,7 @@ class TransformGizmo(WorldObject):
             units_traveled = get_scale_factor(screen_directions[..., :2], screen_travel)
         else:
             # translate 2D: change basis from screen to gizmo axes
-            screen_to_axes = np.linalg.inv(screen_directions[..., :2].T)
+            screen_to_axes = np.linalg.pinv(screen_directions[..., :2].T)
             units_traveled = screen_to_axes @ screen_travel
 
         # pixel units to world units

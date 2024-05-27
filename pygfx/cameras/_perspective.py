@@ -271,7 +271,7 @@ class PerspectiveCamera(Camera):
             self.projection_matrix = la.mat_perspective(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
+            self.projection_matrix_inverse = np.linalg.pinv(self.projection_matrix)
 
         else:
             # The reference view plane is scaled with the zoom factor
@@ -294,7 +294,7 @@ class PerspectiveCamera(Camera):
             proj = la.mat_orthographic(
                 left, right, top, bottom, near, far, depth_range=(0, 1)
             )
-            proj_i = np.linalg.inv(proj)
+            proj_i = np.linalg.pinv(proj)
             self.projection_matrix = proj
             self.projection_matrix_inverse = proj_i
 
