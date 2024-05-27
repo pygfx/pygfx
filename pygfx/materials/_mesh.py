@@ -3,7 +3,7 @@ from ._base import Material
 from ..resources import Texture
 from ..utils import logger
 from ..utils.color import Color
-from ..utils.enums import ColorMode
+from ..utils.enums import ColorMode, VisibleSide
 
 
 class MeshAbstractMaterial(Material):
@@ -21,11 +21,8 @@ class MeshAbstractMaterial(Material):
         The texture map specifying the color at each texture coordinate. Optional.
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
-    side : str
-        The culling mode for this material: ``"FRONT"``, ``"BACK"``, or
-        ``"BOTH"``. "FRONT" will only render faces that face the camera. "BACK"
-        will only render faces that face away from the camera. "BOTH" will
-        render faces regardless of their orientation.
+    side : str | VisibleSide
+        What side of the mesh is visible. Default "both".
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -38,7 +35,7 @@ class MeshAbstractMaterial(Material):
 
     The direction of a face is determined using Counter-clockwise (CCW) winding;
     i.e., if the fingers of your curled hand match the direction in which the
-    face's vertices are defined then your thumb points into the "FRONT"
+    face's vertices are defined then your thumb points into the "front"
     direction of the face. If this is not the case for your mesh, adjust its
     geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
 
@@ -56,7 +53,7 @@ class MeshAbstractMaterial(Material):
         color_mode="auto",
         map=None,
         map_interpolation="linear",
-        side="BOTH",
+        side="both",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -143,9 +140,9 @@ class MeshAbstractMaterial(Material):
 
     @property
     def side(self):
-        """Defines which side of faces will be rendered: "FRONT", "BACK", or "BOTH".
-        By default this is "BOTH". Setting to "FRONT" or "BACK" will only render
-        faces from that side, hiding the other. A feature also known as culling.
+        """Defines which side of faces will be rendered.
+
+        See :obj:`pygfx.utils.enums.VisibleSide`:
 
         Which side of the mesh is the front is determined by the winding of the faces.
         Counter-clockwise (CCW) winding is assumed. If this is not the case,
@@ -155,11 +152,12 @@ class MeshAbstractMaterial(Material):
 
     @side.setter
     def side(self, value):
-        side = str(value).upper()
-        if side in ("FRONT", "BACK", "BOTH"):
-            self._store.side = side
-        else:
-            raise ValueError(f"Unexpected side: '{value}'")
+        value = (value or "both").lower()
+        if value not in VisibleSide:
+            raise ValueError(
+                f"MeshMaterial.side must be a string in {VisibleSide}, not {repr(value)}"
+            )
+        self._store.side = value
 
 
 class MeshBasicMaterial(MeshAbstractMaterial):

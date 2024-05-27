@@ -12,10 +12,20 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     MarkerShape
     RenderMask
     SizeMode
+    ElementFormat
+    VisibleSide
 
 """
 
-__all__ = ["RenderMask", "ColorMode", "SizeMode", "CoordSpace", "MarkerShape"]
+__all__ = [
+    "RenderMask",
+    "ColorMode",
+    "SizeMode",
+    "CoordSpace",
+    "MarkerShape",
+    "ElementFormat",
+    "VisibleSide",
+]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
 # and simply maps to strings or ints. The enums are classes, so IDE's provide
@@ -139,6 +149,37 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
+
+
+class ElementFormat(Enum):
+    """The base elements to specify formats.
+
+    These values can be used to compose formats of various layouts, e.g. 2D
+    positions with "2xf4", rgb colors with "3xu8" or matrices with "4x4xf32".
+    The purpose is to provide a common representation for simple formats, that
+    can be used for buffers, textures and uniform buffers.
+    """
+
+    i1 = None  #: A signed 8bit integer.
+    u1 = None  #: An unsigned 8-bit integer (byte).
+    i2 = None  #: A signed 16-bit integer.
+    u2 = None  #: An unsigned 16-bit integer.
+    i4 = None  #: A signed 32-bit integer.
+    u4 = None  #: An unsigned 32-bit integer.
+    f2 = None  #: A 16-bit float.
+    f4 = None  #: A 32-bit float.
+
+
+class VisibleSide(Enum):
+    """The VisibleSide enum specifies what side of a mesh is visible.
+
+    Note that this is the inverse of the "CullMode", as it specifies what
+    side is visible rather than what side is culled.
+    """
+
+    front = None  #: The front is visible.
+    back = None  #: The back is visible.
+    both = None  #: Both the front and back are visible.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

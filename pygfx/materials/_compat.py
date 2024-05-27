@@ -113,7 +113,7 @@ def material_from_trimesh(x):
         if material.occlusionTexture is not None:
             gfx_material.ao_map = texture_from_pillow_image(material.occlusionTexture)
 
-        gfx_material.side = "FRONT"
+        gfx_material.side = "front"
     elif isinstance(x, SimpleMaterial):
         material = x
         gfx_material = MeshPhongMaterial(color=material.ambient / 255)
@@ -125,7 +125,7 @@ def material_from_trimesh(x):
         if getattr(material, "image", None):
             gfx_material.map = texture_from_pillow_image(material.image)
 
-        gfx_material.side = "FRONT"
+        gfx_material.side = "front"
     elif isinstance(x, ColorVisuals):
         # ColorVisuals are typically used for vertex or face colors but they can be
         # also be undefined in which case it's just a default material
@@ -134,7 +134,7 @@ def material_from_trimesh(x):
         gfx_material.shininess = x.defaults["material_shine"]
         gfx_material.specular = Color(*(x.defaults["material_specular"] / 255))
 
-        gfx_material.side = "FRONT"
+        gfx_material.side = "front"
 
         if x.kind == "vertex":
             gfx_material.color_mode = "vertex"
