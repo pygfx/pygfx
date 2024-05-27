@@ -104,6 +104,14 @@ grid4.local.scale = 0.7, 1, 2
 
 scene.add(grid0, grid1, grid2, grid3, grid4)
 
+
+# cube = gfx.Mesh(
+#     gfx.box_geometry(0.9, 0.9, 0.9),
+#     gfx.MeshPhongMaterial(color="#336699"),
+# )
+# cube.local.position = 0.5, 0.5, 0.5
+# scene.add(cube)
+
 # camera = gfx.OrthographicCamera(5, 5)
 camera = gfx.PerspectiveCamera()
 camera.local.position = (3.75, 1.5, 1.5)

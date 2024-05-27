@@ -16,8 +16,8 @@ fn vs_main(in: VertexInput) -> Varyings {
     // Calculate reference points
     let p0 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;  // "origin" of the plane
     let p1 = (u_wobject.world_transform * vec4<f32>(1.0, 0.0, 0.0, 1.0)).xyz;  // on the plane
-    let p2 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 1.0, 1.0)).xyz;  // on the plane
-    let p3 = (u_wobject.world_transform * vec4<f32>(0.0, 1.0, 0.0, 1.0)).xyz;  // out of plane!
+    let p2 = (u_wobject.world_transform * vec4<f32>(0.0, 1.0, 0.0, 1.0)).xyz;  // on the plane
+    let p3 = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 1.0, 1.0)).xyz;  // out of plane!
 
     // Get vectors for the plane's axii, expressed in world coordinates
     let v1 = normalize(p1 - p0);
@@ -79,12 +79,13 @@ fn vs_main(in: VertexInput) -> Varyings {
             vec2<f32>(-1.0,  1.0) * far_multiplier,
             vec2<f32>( 1.0,  1.0) * far_multiplier,
         );
-        var coord_indices = array<i32, 30>(0, 1, 2, 2, 1, 3,  // close
-                                          4, 5, 0, 0, 5, 1,
-                                          5, 7, 1, 1, 7, 3,
-                                          7, 6, 3, 3, 6, 2,
-                                          6, 4, 2, 2, 4, 0,
-                                          );
+        var coord_indices = array<i32, 30>(
+            0, 1, 2, 2, 1, 3,  // close
+            4, 5, 0, 0, 5, 1,
+            5, 7, 1, 1, 7, 3,
+            7, 6, 3, 3, 6, 2,
+            6, 4, 2, 2, 4, 0,
+        );
 
         // Select the grid coord for this vertex. We express it with coord1 and
         // coord2, to avoid confusion with xyz world coordinates. By default the
@@ -95,6 +96,7 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         // Construct position using only the grid's rotation. Scale and offset are overridden.
         let pos = cam_pos_on_grid + coord1 * v1 + coord2 * v2;
+
     $$ else
 
         // Grid coordinates to form a quad
@@ -115,11 +117,11 @@ fn vs_main(in: VertexInput) -> Varyings {
 
         // The grid's transform defines its place in the world.
         // Add a 2% margin to have space for line width and aa.
-        let pos = (u_wobject.world_transform * vec4<f32>((coord1 * 1.04 - 0.02), 0.0, (coord2 * 1.2 - 0.1), 1.0)).xyz;
+        let pos = (u_wobject.world_transform * vec4<f32>((coord1 * 1.04 - 0.02), (coord2 * 1.04 - 0.02), 0.0, 1.0)).xyz;
 
         // Calculate range, so that in the frag shader the edges can be handled correctly.
         let p_min = (u_wobject.world_transform * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;
-        let p_max = (u_wobject.world_transform * vec4<f32>(1.0, 0.0, 1.0, 1.0)).xyz;
+        let p_max = (u_wobject.world_transform * vec4<f32>(1.0, 1.0, 0.0, 1.0)).xyz;
         let range_a = vec2<f32>( dot(v1, p_min), dot(v2, p_min) );
         let range_b = vec2<f32>( dot(v1, p_max), dot(v2, p_max) );
 
