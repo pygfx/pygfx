@@ -11,6 +11,7 @@ Convenient for when investigating performance.
 
 import time
 
+import psutil
 import pygfx as gfx
 import pylinalg as la
 
