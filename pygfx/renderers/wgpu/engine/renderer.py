@@ -23,6 +23,7 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
+from ....utils.transform import mat_inv  # noqa
 
 from ... import Renderer
 from . import blender as blender_module
@@ -668,7 +669,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
-        # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        # stdinfo_data["ndc_to_world"].flat = mat_inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
