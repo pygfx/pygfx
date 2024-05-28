@@ -21,7 +21,7 @@ class GridMaterial(Material):
     major_thickness : float
         The thickness of the major grid lines. Default 2.0.
     minor_thickness : float
-        The thickness of the minor grid lines. Default 0.75.
+        The thickness of the minor grid lines. Default 0.0 (no minor grid lines).
     thickness_space : str | CoordSpace
         The coordinate space in which the thickness is expressed ('screen' or 'world'). Default 'screen'.
     axis_color : str | tuple | Color
@@ -56,7 +56,7 @@ class GridMaterial(Material):
         minor_step=(0.1, 0.1),
         axis_thickness=0.0,
         major_thickness=2.0,
-        minor_thickness=0.75,
+        minor_thickness=0.0,
         thickness_space="screen",
         axis_color="#777",
         major_color="#777",
