@@ -61,8 +61,10 @@ class AudioAnalyzer:
         )  # W3C spec use N not N-1, so we use fft_size not fft_size-1 here, todo: confirm is it correct?
         return w
 
-    def receive_data(self, data, sample_width=2, channels=None):
-        self._unprocessed_data.append((data, sample_width, channels))
+    def receive_data(self, data):
+        self._unprocessed_data.append(data)
+
+        # self._buffers.extend(data)
 
         # clear cached data
         self._byte_frequency_data = None
@@ -71,37 +73,11 @@ class AudioAnalyzer:
 
     def get_time_domain_data(self):
         if self._unprocessed_data:
-            data, width, n_channles = self._unprocessed_data.pop()
-            if width == 1:
-                frames_array = (
-                    np.frombuffer(data, dtype=np.uint8)
-                    / np.float32(np.iinfo(np.uint8).max)
-                    * 2
-                    - 1
-                )
-            if width == 2:
-                frames_array = np.frombuffer(data, dtype=np.int16) / np.float32(
-                    np.iinfo(np.int16).max
-                )
-            if width == 3:
-                # 24-bit audio
-                # data_24bit = np.frombuffer(data, dtype=np.void(3))
-                raise NotImplementedError("24-bit audio is not supported yet")
-            if width == 4:
-                frames_array = np.frombuffer(data, dtype=np.float32)  # already -1 ~ 1?
-
-            # Convert stereo to mono
-            if n_channles is None:
-                # assume read full fft_size frames
-                frames_array = np.mean(
-                    frames_array.reshape(self.fft_size, -1), axis=1, dtype=np.float32
-                )
-            else:
-                frames_array = np.mean(
-                    frames_array.reshape(-1, n_channles), axis=1, dtype=np.float32
-                )
-
-            self._time_domain_data.flat = frames_array
+            data = self._unprocessed_data.pop()
+            data = np.clip(data, -1, 1)
+            if len(data.shape) == 2 and data.shape[1] > 1:
+                data = np.mean(data, axis=1, dtype=np.float32)
+            self._time_domain_data.flat = data
 
         return self._time_domain_data
 
@@ -281,12 +257,15 @@ class AudioShader(BaseShader):
 ########################################################################################
 # Demo starts here
 
-import pyaudio  # noqa
-import threading  # noqa
-import io  # noqa
-import os  # noqa
-from pydub import AudioSegment  # noqa
-from pathlib import Path  # noqa
+import threading  # noqa: E402
+import io  # noqa: E402
+import os  # noqa: E402
+import time  # noqa: E402
+import sounddevice as sd  # noqa: E402
+import soundfile as sf  # noqa: E402
+import requests  # noqa: E402
+from pathlib import Path  # noqa: E402
+from tqdm import tqdm  # noqa: E402
 
 try:
     # modify this line if your model is located elsewhere
@@ -546,18 +525,14 @@ fragment_shader_code4 = """
 
 # Setup scene
 
-FFT_SIZE = 512
+FFT_SIZE = 128
 
 renderer = gfx.WgpuRenderer(
     WgpuCanvas(title="audio visualizer", max_fps=60, size=(1280, 720))
 )
 camera = gfx.NDCCamera()  # Not actually used
 
-
 analyzer = AudioAnalyzer(FFT_SIZE)
-
-song_path = data_dir / "376737_Skullbeatz___Bad_Cat_Maste.mp3"
-
 
 t_audio_freq = gfx.Texture(
     np.zeros((FFT_SIZE // 2, 1), dtype=np.uint8),
@@ -585,7 +560,7 @@ wo3 = gfx.WorldObject(
 )
 scene3.add(wo3)
 
-t_audio_domain = gfx.Texture(
+t_audio_time_domain = gfx.Texture(
     np.zeros((FFT_SIZE, 1), dtype=np.uint8),
     size=(FFT_SIZE, 1, 1),
     format="r8unorm",
@@ -597,7 +572,7 @@ scene4 = gfx.Scene()
 wo4 = gfx.WorldObject(
     None,
     AudioMaterial(
-        t_audio_domain,
+        t_audio_time_domain,
         interpolation="linear",
         fragment_shader_code=fragment_shader_code4,
     ),
@@ -605,30 +580,97 @@ wo4 = gfx.WorldObject(
 scene4.add(wo4)
 
 
-def play(path, analyzer):
-    # decode audio file from various formats use pydub, need pydub and ffmpeg installed
-    # we can use python internal "wave" module if the file is wav format.
-    seg = AudioSegment.from_file(path)
-    audio_stream = io.BytesIO(seg.raw_data)
+def play(path, analyzer, stream=True):
+    if "https://" in str(path) or "http://" in str(path):
+        if stream:
+            _play_stream(path, analyzer)
+        else:
+            local_file = io.BytesIO(requests.get(path).content)
+            _play_local(local_file, analyzer)
+    else:
+        _play_local(path, analyzer)
 
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=p.get_format_from_width(seg.sample_width),
-        channels=seg.channels,
-        rate=seg.frame_rate,
-        output=True,
-        frames_per_buffer=analyzer.fft_size,
+
+def _play_local(local_file, analyzer):
+    data, samplerate = sf.read(local_file, dtype=np.float32)
+    fft_size = analyzer.fft_size
+
+    stream = sd.OutputStream(
+        samplerate=samplerate,
+        channels=data.shape[1],
+        dtype=np.float32,
+        blocksize=fft_size,
     )
 
-    buffer_size = analyzer.fft_size * seg.channels * seg.sample_width
-    while len(data := audio_stream.read(buffer_size)):  # Requires Python 3.8+ for :=
-        stream.write(data)
-        analyzer.receive_data(data, seg.sample_width, seg.channels)
+    with stream:
+        length = len(data)
+        for i in range(0, length, fft_size):
+            frames_data = data[i : min(i + fft_size, length)]
+            stream.write(frames_data)
+            analyzer.receive_data(frames_data)
 
-    audio_stream.close()
-    stream.close()
-    p.terminate()
 
+def _play_stream(path, analyzer):
+    response = requests.get(path, stream=True)
+    total_size = int(response.headers.get("content-length", 0))
+
+    audio_data = io.BytesIO()
+    bytes_lock = threading.Lock()
+
+    def _download_data():
+        chunk_size = 1024
+        with tqdm(
+            total=total_size, unit="B", unit_scale=True, desc="Downloading"
+        ) as dbar:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                with bytes_lock:
+                    last_read_pos = audio_data.tell()
+                    audio_data.seek(0, os.SEEK_END)
+                    audio_data.write(chunk)
+                    dbar.update(len(chunk))
+                    audio_data.seek(0)
+                    audio_data.seek(last_read_pos)
+
+    download_data_t = threading.Thread(target=_download_data, daemon=True)
+    download_data_t.start()
+
+    available_bytes = 0
+    while available_bytes < 50 * 1024:  # wait 50 KB buffer before starting playback
+        with bytes_lock:
+            audio_data.seek(0, os.SEEK_END)
+            available_bytes = audio_data.tell()
+        time.sleep(0.1)
+
+    with bytes_lock:
+        audio_data.seek(0)
+        audio_file = sf.SoundFile(audio_data, mode="r")
+
+    fft_size = analyzer.fft_size
+
+    stream = sd.OutputStream(
+        samplerate=audio_file.samplerate,
+        channels=audio_file.channels,
+        dtype=np.float32,
+        blocksize=fft_size,
+    )
+
+    total_time = audio_file.frames / audio_file.samplerate + 0.001
+    with stream:
+        with tqdm(total=total_time, unit="s", unit_scale=True, desc="Playing") as pbar:
+            while True:
+                with bytes_lock:
+                    data = audio_file.read(fft_size, dtype=np.float32)
+                if len(data) > 0:
+                    stream.write(data)
+                    pbar.update(len(data) / audio_file.samplerate)
+                    analyzer.receive_data(data)
+                else:
+                    break
+
+
+song_path = (
+    "https://audio-download.ngfiles.com/376000/376737_Skullbeatz___Bad_Cat_Maste.mp3"
+)
 
 play_t = threading.Thread(target=play, args=(song_path, analyzer), daemon=True)
 
@@ -637,9 +679,8 @@ def animate():
     t_audio_freq.data.flat = analyzer.get_byte_frequency_data()[: FFT_SIZE // 2]
     t_audio_freq.update_range((0, 0, 0), (FFT_SIZE // 2, 1, 1))
 
-    t_audio_domain.data.flat = analyzer.get_byte_time_domain_data()
-    t_audio_domain.update_range((0, 0, 0), (FFT_SIZE, 1, 1))
-    # renderer.render(scene, camera)
+    t_audio_time_domain.data.flat = analyzer.get_byte_time_domain_data()
+    t_audio_time_domain.update_range((0, 0, 0), (FFT_SIZE, 1, 1))
     vp1.render(scene1, camera)
     vp2.render(scene2, camera)
     vp3.render(scene3, camera)
