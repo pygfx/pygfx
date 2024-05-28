@@ -90,15 +90,15 @@ class GridMaterial(Material):
         self._store.draw_minor = thickness > 0 and (step[0] > 0 or step[1] > 0)
 
     @property
-    def _pygfx_draw_axis(self):
+    def _gfx_draw_axis(self):
         return self._store.draw_axis
 
     @property
-    def _pygfx_draw_major(self):
+    def _gfx_draw_major(self):
         return self._store.draw_major
 
     @property
-    def _pygfx_draw_minor(self):
+    def _gfx_draw_minor(self):
         return self._store.draw_minor
 
     @property
