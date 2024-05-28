@@ -76,6 +76,31 @@ class GridMaterial(Material):
         self.minor_color = minor_color
         self.infinite = infinite
 
+    def _set_draw_axis(self):
+        self._store.draw_axis = self.axis_thickness > 0
+
+    def _set_draw_major(self):
+        thickness = self.major_thickness
+        step = self.major_step
+        self._store.draw_major = thickness > 0 and (step[0] > 0 or step[1] > 0)
+
+    def _set_draw_minor(self):
+        thickness = self.minor_thickness
+        step = self.minor_step
+        self._store.draw_minor = thickness > 0 and (step[0] > 0 or step[1] > 0)
+
+    @property
+    def _pygfx_draw_axis(self):
+        return self._store.draw_axis
+
+    @property
+    def _pygfx_draw_major(self):
+        return self._store.draw_major
+
+    @property
+    def _pygfx_draw_minor(self):
+        return self._store.draw_minor
+
     @property
     def major_step(self):
         """The step distance between the major grid lines."""
@@ -94,6 +119,7 @@ class GridMaterial(Material):
             )
         self.uniform_buffer.data["major_step"] = step
         self.uniform_buffer.update_range(0, 1)
+        self._set_draw_major()
 
     @property
     def minor_step(self):
@@ -113,6 +139,7 @@ class GridMaterial(Material):
             )
         self.uniform_buffer.data["minor_step"] = step
         self.uniform_buffer.update_range(0, 1)
+        self._set_draw_minor()
 
     @property
     def axis_thickness(self):
@@ -123,6 +150,7 @@ class GridMaterial(Material):
     def axis_thickness(self, thickness):
         self.uniform_buffer.data["axis_thickness"] = max(0.0, float(thickness))
         self.uniform_buffer.update_range(0, 1)
+        self._set_draw_axis()
 
     @property
     def major_thickness(self):
@@ -133,6 +161,7 @@ class GridMaterial(Material):
     def major_thickness(self, thickness):
         self.uniform_buffer.data["major_thickness"] = max(0.0, float(thickness))
         self.uniform_buffer.update_range(0, 1)
+        self._set_draw_major()
 
     @property
     def minor_thickness(self):
@@ -143,6 +172,7 @@ class GridMaterial(Material):
     def minor_thickness(self, thickness):
         self.uniform_buffer.data["minor_thickness"] = max(0.0, float(thickness))
         self.uniform_buffer.update_range(0, 1)
+        self._set_draw_minor()
 
     @property
     def thickness_space(self):

@@ -22,6 +22,9 @@ class GridShader(BaseShader):
 
         self["thickness_space"] = material.thickness_space
         self["inf_grid"] = material.infinite
+        self["draw_axis"] = material._pygfx_draw_axis
+        self["draw_major"] = material._pygfx_draw_major
+        self["draw_minor"] = material._pygfx_draw_minor
 
     def get_bindings(self, wobject, shared):
         material = wobject.material

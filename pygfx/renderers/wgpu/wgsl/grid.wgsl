@@ -145,20 +145,22 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
+    // Collect thicknesses. These are also used to hide regions of the grid as needed.
+    var axis_thickness = vec2<f32>(u_material.axis_thickness);
+    var major_thickness = vec2<f32>(u_material.major_thickness);
+    var minor_thickness = vec2<f32>(u_material.minor_thickness);
+
     // Collect step sizes.
     let major_step= vec2<f32>(u_material.major_step);
     let minor_step = vec2<f32>(u_material.minor_step);
-    let axis_step = major_step * 10.0;
+    let axis_step = max(major_step * 10.0, axis_thickness * 10.0);
 
     // Collect colors.
     let axis_color = u_material.axis_color;
     let major_color = u_material.major_color;
     let minor_color = u_material.minor_color;
 
-    // Collect thicknesses. These are also used to hide regions of the grid as needed.
-    var axis_thickness = vec2<f32>(u_material.axis_thickness);
-    var major_thickness = vec2<f32>(u_material.major_thickness);
-    var minor_thickness = vec2<f32>(u_material.minor_thickness);
+
 
     // Get the grid coordinate
     let uv = vec2<f32>(varyings.gridcoord.xy);
@@ -220,25 +222,30 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Note that a step or distance of zero automatically results in the result
     // of the prestine_grid call to be either zero or nan.
 
-    let axis_alpha = pristine_grid(uv, axis_thickness, axis_step);
-    let major_alpha = pristine_grid(uv, major_thickness, major_step);
-    let minor_alpha = pristine_grid(uv, minor_thickness, minor_step);
-
     var alpha: f32 = 0.0;
     var color = vec4<f32>(0.0);
 
-    if ( axis_alpha > alpha) {
-        alpha = axis_alpha;
-        color = axis_color;
-    }
-    if ( major_alpha > alpha * 1.5 ) {
-        alpha = major_alpha;
-        color = major_color;
-    }
-    if ( minor_alpha > alpha * 1.5 ) {
-        alpha = minor_alpha;
-        color = minor_color;
-    }
+    $$ if draw_axis
+        let axis_alpha = pristine_grid(uv, axis_thickness, axis_step);
+        if ( axis_alpha > alpha) {
+            alpha = axis_alpha;
+            color = axis_color;
+        }
+    $$ endif
+    $$ if draw_major
+        let major_alpha = pristine_grid(uv, major_thickness, major_step);
+        if ( major_alpha > alpha * 1.5 ) {
+            alpha = major_alpha;
+            color = major_color;
+        }
+    $$ endif
+    $$ if draw_minor
+        let minor_alpha = pristine_grid(uv, minor_thickness, minor_step);
+        if ( minor_alpha > alpha * 1.5 ) {
+            alpha = minor_alpha;
+            color = minor_color;
+        }
+    $$ endif
 
     // ---------------------
 
