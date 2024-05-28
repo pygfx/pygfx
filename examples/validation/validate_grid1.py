@@ -23,10 +23,12 @@ scene.add(gfx.Background.from_color("#fff"))
 grid0 = gfx.Grid(
     None,
     gfx.GridMaterial(
+        major_step=1,
+        minor_step=0.1,
         thickness_space="world",
         axis_thickness=0.1,
         major_thickness=0.02,
-        minor_thickness=0.01,
+        minor_thickness=0.002,
         infinite=True,
     ),
     orientation="xz",
@@ -104,13 +106,13 @@ grid4.local.scale = 0.7, 1, 2
 
 scene.add(grid0, grid1, grid2, grid3, grid4)
 
-
-# cube = gfx.Mesh(
-#     gfx.box_geometry(0.9, 0.9, 0.9),
-#     gfx.MeshPhongMaterial(color="#336699"),
-# )
-# cube.local.position = 0.5, 0.5, 0.5
-# scene.add(cube)
+# Show box at (0.5, 0.5, 0.5) to show where the positive axii are
+cube = gfx.Mesh(
+    gfx.sphere_geometry(0.1),
+    gfx.MeshBasicMaterial(color="#000"),
+)
+cube.local.position = 0.5, 0.5, 0.5
+scene.add(cube)
 
 # camera = gfx.OrthographicCamera(5, 5)
 camera = gfx.PerspectiveCamera()
