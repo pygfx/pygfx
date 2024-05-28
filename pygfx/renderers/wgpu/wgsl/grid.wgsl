@@ -145,27 +145,27 @@ fn vs_main(in: VertexInput) -> Varyings {
 @fragment
 fn fs_main(varyings: Varyings) -> FragmentOutput {
 
-    // Collect props
-
+    // Collect step sizes.
     let major_step= vec2<f32>(u_material.major_step);
     let minor_step = vec2<f32>(u_material.minor_step);
     let axis_step = major_step * 10.0;
 
-    var axis_thickness = vec2<f32>(u_material.axis_thickness);
-    var major_thickness = vec2<f32>(u_material.major_thickness);
-    var minor_thickness = vec2<f32>(u_material.minor_thickness);
-
+    // Collect colors.
     let axis_color = u_material.axis_color;
     let major_color = u_material.major_color;
     let minor_color = u_material.minor_color;
 
+    // Collect thicknesses. These are also used to hide regions of the grid as needed.
+    var axis_thickness = vec2<f32>(u_material.axis_thickness);
+    var major_thickness = vec2<f32>(u_material.major_thickness);
+    var minor_thickness = vec2<f32>(u_material.minor_thickness);
+
     // Get the grid coordinate
     let uv = vec2<f32>(varyings.gridcoord.xy);
 
-    // Clamped versions
-    let uv_clamped_axis = clamp(uv, -0.5 * axis_step, 0.5 * axis_step);
-    var uv_clamped_major = vec2<f32>(uv);
-    var uv_clamped_minor = vec2<f32>(uv);
+    // Apply axis limits, so they have one line for each dimension.
+    if (abs(uv.x) > 0.5 * axis_step.x) { axis_thickness.x = 0.0; }
+    if (abs(uv.y) > 0.5 * axis_step.y) { axis_thickness.y = 0.0; }
 
     $$ if not inf_grid
         // Handle edges. If we do nothing about edges, then lines that are on
@@ -205,27 +205,24 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let range_minor_max = range_max + minor_margin_max;
 
         // Hide/show line parallel to the edge.
-        uv_clamped_major = clamp(uv, range_major_min, range_major_max);
-        uv_clamped_minor = clamp(uv, range_minor_min, range_minor_max);
+        if ( uv.x < range_major_min.x || uv.x > range_major_max.x ) { major_thickness.x = 0.0; }
+        if ( uv.y < range_major_min.y || uv.y > range_major_max.y ) { major_thickness.y = 0.0; }
+        if ( uv.x < range_minor_min.x || uv.x > range_minor_max.x ) { minor_thickness.x = 0.0; }
+        if ( uv.y < range_minor_min.y || uv.y > range_minor_max.y ) { minor_thickness.y = 0.0; }
 
         // The lines orthogonal to the edge, should simply not be draw beyond the edge.
-        if ( uv.x < range_min.x || uv.x > range_max.x ) {
-            major_thickness.y = 0.0;
-            minor_thickness.y = 0.0;
-        }
-        if ( uv.y < range_min.y || uv.y > range_max.y ) {
-            major_thickness.x = 0.0;
-            minor_thickness.x = 0.0;
-        }
+        if ( uv.x < range_min.x || uv.x > range_max.x ) { major_thickness.y = 0.0; minor_thickness.y = 0.0; }
+        if ( uv.y < range_min.y || uv.y > range_max.y ) { major_thickness.x = 0.0; minor_thickness.x = 0.0; }
+
     $$ endif
 
-    // Calculate grid alphas
+    // Calculate grid alphas.
     // Note that a step or distance of zero automatically results in the result
-    // of the prestineGrid call to be either zero or nan.
+    // of the prestine_grid call to be either zero or nan.
 
-    let axis_alpha = pristineGrid(uv, uv_clamped_axis, axis_step, axis_thickness);
-    let major_alpha = pristineGrid(uv, uv_clamped_major, major_step, major_thickness);
-    let minor_alpha = pristineGrid(uv, uv_clamped_minor, minor_step, minor_thickness);
+    let axis_alpha = pristine_grid(uv, axis_thickness, axis_step);
+    let major_alpha = pristine_grid(uv, major_thickness, major_step);
+    let minor_alpha = pristine_grid(uv, minor_thickness, minor_step);
 
     var alpha: f32 = 0.0;
     var color = vec4<f32>(0.0);
@@ -262,26 +259,36 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
-fn pristineGrid(uv: vec2<f32>, uv_clamped: vec2<f32>, step: vec2<f32>, lineWidth: vec2<f32>) -> f32 {
-    // The Best Darn Grid Shader (okt 2023)
-    // For details see https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
-    // AK: I removed the black-white-swap logic, because our output is alpha, not
-    // luminance. I limited the linewidth instead. Also added support for screen
-    // space line width.
-    let uv_scaled = uv / step;
-    let uv_clamped_scaled = uv_clamped / step; // note that clamped uv will have nonzero derivs at clamp-edges
-    let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
-    let ddx: vec2<f32> = dpdx(uv_scaled);
-    let ddy: vec2<f32> = dpdy(uv_scaled);
+fn pristine_grid(uv: vec2<f32>, lineWidth: vec2<f32>, step: vec2<f32>) -> f32 {
+    // The Best Darn Grid Shader (okt 2023), by Ben Golus.
+    // For details see: https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
+    // We removed the black-white-swap logic, because our output is alpha, not
+    // luminance. The targetWidth is limited instead. Also added support for a
+    // custom step size, and expressing line width in screen space.
+
+    // Scale uv based on step. Only this and lineWidth need to be scaled.
+    let uvScaled = uv / step;
+
+    // Calculate derivatives.
+    let ddx: vec2<f32> = dpdx(uvScaled);
+    let ddy: vec2<f32> = dpdy(uvScaled);
     let uvDeriv = vec2<f32>(length(vec2<f32>(ddx.x, ddy.x)), length(vec2<f32>(ddx.y, ddy.y)));
+
+    // Get scaled line width, expressed in uv_scaled, supporting both screen and world space.
     $$ if thickness_space == 'screen'
-    let targetWidth = min(l2p * lineWidth * uvDeriv, vec2<f32>(0.5));  // lineWidth in screen space
+        let l2p:f32 = u_stdinfo.physical_size.x / u_stdinfo.logical_size.x;
+        let lineWidthScaled = l2p * lineWidth * uvDeriv;  // lineWidth in screen space
     $$ else
-    let targetWidth = min(lineWidth / step, 0.5 / step);  // lineWidth in world space
+        let lineWidthScaled = lineWidth / step;  // lineWidth in world space
     $$ endif
-    let drawWidth = clamp(targetWidth, uvDeriv, 0.5 / step);
-    let lineAA = uvDeriv * 1.5;
-    let gridUV = 1.0 - abs(fract(uv_clamped_scaled) * 2.0 - 1.0);
+
+    // Get target width and draw width.
+    let targetWidth = clamp(lineWidthScaled, vec2<f32>(0.0), vec2<f32>(0.5));
+    let drawWidth = clamp(targetWidth, uvDeriv, vec2<f32>(0.5));
+
+    // anti-aliasing, anti-moiré, and some black magic.
+    let lineAA = uvDeriv * 1.5;  // Also seen in example shader: ``max(uvDeriv, vec2<f32>(1e-6)) * 1.5;``
+    let gridUV = 1.0 - abs(fract(uvScaled) * 2.0 - 1.0);
     var grid2: vec2<f32> = smoothstep(drawWidth + lineAA, drawWidth - lineAA, gridUV);
     grid2 = grid2 * clamp(targetWidth / drawWidth, vec2<f32>(0.0), vec2<f32>(1.0));
     grid2 = mix(grid2, targetWidth, clamp(uvDeriv * 2.0 - 1.0, vec2<f32>(0.0), vec2<f32>(1.0)));
