@@ -11,7 +11,14 @@ This example demonstrates how to create an audio visualizer.
 import numpy as np
 import wgpu
 import pygfx as gfx
-from collections import deque
+import io
+import os
+import threading
+import sounddevice as sd
+import soundfile as sf
+import requests
+from pathlib import Path
+from tqdm import tqdm
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu import (
     Binding,
@@ -21,6 +28,49 @@ from pygfx.renderers.wgpu import (
     register_wgpu_render_function,
 )
 from pygfx.renderers.wgpu.shaders.meshshader import BaseShader
+
+
+class NumpyCircularBuffer:
+    """
+    Circular buffer implemented using numpy arrays.
+    This is used to store the last N samples of audio data.
+    """
+
+    def __init__(self, max_size, data_shape, dtype=np.float32):
+        self.max_size = max_size
+        self.data_shape = data_shape
+        self.buffer = np.zeros((max_size,) + data_shape, dtype=dtype)
+        self.index = 0
+
+    def append(self, data):
+        num_items = data.shape[0]
+        if num_items > self.max_size:
+            raise ValueError("The input data is larger than the buffer size.")
+
+        # Calculate the insertion index range
+        end_index = (self.index + num_items) % self.max_size
+
+        if end_index > self.index:
+            self.buffer[self.index : end_index] = data
+        else:
+            # Wrap-around case
+            part1_size = self.max_size - self.index
+            self.buffer[self.index :] = data[:part1_size]
+            self.buffer[:end_index] = data[part1_size:]
+
+        self.index = end_index
+
+    def get_last_n(self, n):
+        start_index = (self.index - n) % self.max_size
+        if start_index < 0:
+            start_index += self.max_size
+
+        if start_index < self.index:
+            return self.buffer[start_index : self.index]
+        else:
+            return np.concatenate(
+                (self.buffer[start_index:], self.buffer[: self.index]), axis=0
+            )
 
 
 class AudioAnalyzer:
@@ -37,17 +87,27 @@ class AudioAnalyzer:
         self.max_decibels = max_decibels
         self.smoothing_factor = smoothing_factor
 
-        # initialize by zeros
-        self._time_domain_data = np.zeros(fft_size, dtype=np.float32)
+        self._buffer = NumpyCircularBuffer(
+            32768, (2,)
+        )  # last 32768 samples, 2 channels
 
-        self._byte_time_domain_data = np.zeros(fft_size, dtype=np.uint8)
-        self._frequency_data = np.zeros(fft_size // 2 + 1, dtype=np.float32)
-        self._byte_frequency_data = np.zeros(fft_size // 2 + 1, dtype=np.uint8)
+    @property
+    def frequency_bin_count(self):
+        return self.fft_size // 2
 
-        self._unprocessed_data = deque(maxlen=1)  # Store unprocessed data
+    @property
+    def fft_size(self):
+        return self._fft_size
 
+    @fft_size.setter
+    def fft_size(self, value):
+        assert value <= 32768 and value >= 32, "fft_size must be between 32 and 32768"
+        assert value & (value - 1) == 0, "fft_size must be a power of 2"
+        self._fft_size = value
+        self._frequency_data = np.zeros(self.fft_size // 2 + 1, dtype=np.float32)
+        self._byte_frequency_data = np.zeros(self.fft_size // 2 + 1, dtype=np.uint8)
         self.__blackman_window = self._get_blackman_window()
-        self.__previous_smoothed_data = np.zeros(fft_size // 2 + 1, dtype=np.float32)
+        self.__previous_smoothed_data = np.zeros(value // 2 + 1, dtype=np.float32)
 
     def _get_blackman_window(self):
         a0 = 0.42
@@ -62,33 +122,25 @@ class AudioAnalyzer:
         return w
 
     def receive_data(self, data):
-        self._unprocessed_data.append(data)
+        self._buffer.append(data)
 
-        # self._buffers.extend(data)
-
-        # clear cached data
+        # A block of 128 samples-frames is called a render quantum
+        # within the same render quantum as a previous call, the current frequency data is not updated with the same data.
+        # Instead, the previously computed data is returned.
+        # we assume that len(data) always >= 128
         self._byte_frequency_data = None
-        self._byte_time_domain_data = None
         self._frequency_data = None
 
     def get_time_domain_data(self):
-        if self._unprocessed_data:
-            data = self._unprocessed_data.pop()
-            data = np.clip(data, -1, 1)
-            if len(data.shape) == 2 and data.shape[1] > 1:
-                data = np.mean(data, axis=1, dtype=np.float32)
-            self._time_domain_data.flat = data
-
-        return self._time_domain_data
+        time_domain_data = self._buffer.get_last_n(self.fft_size)
+        time_domain_data = np.mean(time_domain_data, axis=1, dtype=np.float32)
+        # the data should be already in range -1 to 1, but we clip it just in case of any overflow
+        time_domain_data = np.clip(time_domain_data, -1, 1)
+        return time_domain_data
 
     def get_byte_time_domain_data(self):
-        if self._byte_time_domain_data is None:
-            time_domain_data = self.get_time_domain_data()
-            self._byte_time_domain_data = np.floor((time_domain_data + 1) * 128).astype(
-                np.uint8
-            )
-
-        return self._byte_time_domain_data
+        time_domain_data = self.get_time_domain_data()
+        return np.floor((time_domain_data + 1) * 128).astype(np.uint8)
 
     def get_frequency_data(self):
         if self._frequency_data is None:
@@ -139,6 +191,142 @@ class AudioAnalyzer:
             ).astype(np.uint8)
 
         return self._byte_frequency_data
+
+
+class AudioPlayer:
+    def __init__(self) -> None:
+        self._analyzer = None
+        self._block_size = 1024
+        self._cache_block_size = 50 * 1024
+        self._mini_playable_size = 10 * 1024
+
+    @property
+    def block_size(self):
+        if self._analyzer:
+            return self._analyzer.fft_size
+        else:
+            return self._block_size
+
+    @property
+    def analyzer(self):
+        return self._analyzer
+
+    @analyzer.setter
+    def analyzer(self, analyzer):
+        self._analyzer = analyzer
+
+    def play(self, path, stream=True):
+        if "https://" in str(path) or "http://" in str(path):
+            if stream:
+                play_func = self._play_stream
+            else:
+                r = requests.get(path)
+                r.raise_for_status()
+                path = io.BytesIO(r.content)
+                play_func = self._play_local
+        else:
+            play_func = self._play_local
+
+        play_t = threading.Thread(target=play_func, args=(path,), daemon=True)
+        play_t.start()
+
+    def _play_local(self, local_file):
+        data, samplerate = sf.read(local_file, dtype=np.float32)
+        block_size = self.block_size
+
+        stream = sd.OutputStream(
+            samplerate=samplerate,
+            channels=data.shape[1],
+            dtype=np.float32,
+            blocksize=block_size,
+        )
+
+        with stream:
+            length = len(data)
+            with tqdm(
+                total=length / samplerate + 0.001,
+                unit="s",
+                unit_scale=True,
+                desc="Playing",
+            ) as pbar:
+                for i in range(0, length, block_size):
+                    frames_data = data[i : min(i + block_size, length)]
+                    stream.write(frames_data)
+                    if self.analyzer:
+                        self.analyzer.receive_data(frames_data)
+                    pbar.update(block_size / samplerate)
+
+    def _play_stream(self, path):
+        response = requests.get(path, stream=True)
+        response.raise_for_status()
+        total_size = int(response.headers.get("content-length", 0))
+
+        audio_data = io.BytesIO()
+        bytes_lock = threading.Lock()
+        block_data_available = threading.Event()
+
+        def _download_data():
+            chunk_size = 1024
+            playback_block_size = self._cache_block_size
+            mini_playable_size = self._mini_playable_size
+            with tqdm(
+                total=total_size, unit="B", unit_scale=True, desc="Downloading"
+            ) as dbar:
+                for chunk in response.iter_content(chunk_size=chunk_size):
+                    # time.sleep(0.05) # simulate slow download
+                    with bytes_lock:
+                        last_read_pos = audio_data.tell()
+                        audio_data.seek(0, os.SEEK_END)
+                        audio_data.write(chunk)
+                        end_pos = audio_data.tell()
+                        audio_data.seek(0)
+                        audio_data.seek(last_read_pos)
+                        if end_pos - last_read_pos > playback_block_size:
+                            block_data_available.set()  # resume playback if buffer is enough
+                        elif end_pos - last_read_pos <= mini_playable_size:
+                            block_data_available.clear()  # pause playback if not enough data
+                        dbar.update(len(chunk))
+                block_data_available.set()
+
+        download_data_t = threading.Thread(target=_download_data, daemon=True)
+        download_data_t.start()
+
+        # wait for the first block of data to be available, then create the soundFile
+        while True:
+            try:
+                block_data_available.wait()
+                with bytes_lock:
+                    audio_data.seek(0)
+                    audio_file = sf.SoundFile(audio_data, mode="r")
+                    break
+            except Exception:
+                block_data_available.clear()
+
+        block_size = self.block_size
+
+        stream = sd.OutputStream(
+            samplerate=audio_file.samplerate,
+            channels=audio_file.channels,
+            dtype=np.float32,
+            blocksize=block_size,
+        )
+
+        total_time = audio_file.frames / audio_file.samplerate + 0.001
+        with stream:
+            with tqdm(
+                total=total_time, unit="s", unit_scale=True, desc="Playing"
+            ) as pbar:
+                while True:
+                    block_data_available.wait()
+                    with bytes_lock:
+                        data = audio_file.read(block_size, dtype=np.float32)
+                    if len(data) > 0:
+                        stream.write(data)
+                        if self.analyzer:
+                            self.analyzer.receive_data(data)
+                        pbar.update(len(data) / audio_file.samplerate)
+                    else:
+                        break
 
 
 class AudioMaterial(gfx.Material):
@@ -256,16 +444,6 @@ class AudioShader(BaseShader):
 ########################################################################################
 ########################################################################################
 # Demo starts here
-
-import threading  # noqa: E402
-import io  # noqa: E402
-import os  # noqa: E402
-import time  # noqa: E402
-import sounddevice as sd  # noqa: E402
-import soundfile as sf  # noqa: E402
-import requests  # noqa: E402
-from pathlib import Path  # noqa: E402
-from tqdm import tqdm  # noqa: E402
 
 try:
     # modify this line if your model is located elsewhere
@@ -532,8 +710,6 @@ renderer = gfx.WgpuRenderer(
 )
 camera = gfx.NDCCamera()  # Not actually used
 
-analyzer = AudioAnalyzer(FFT_SIZE)
-
 t_audio_freq = gfx.Texture(
     np.zeros((FFT_SIZE // 2, 1), dtype=np.uint8),
     size=(FFT_SIZE // 2, 1, 1),
@@ -579,104 +755,13 @@ wo4 = gfx.WorldObject(
 )
 scene4.add(wo4)
 
-
-def play(path, analyzer, stream=True):
-    if "https://" in str(path) or "http://" in str(path):
-        if stream:
-            _play_stream(path, analyzer)
-        else:
-            local_file = io.BytesIO(requests.get(path).content)
-            _play_local(local_file, analyzer)
-    else:
-        _play_local(path, analyzer)
-
-
-def _play_local(local_file, analyzer):
-    data, samplerate = sf.read(local_file, dtype=np.float32)
-    fft_size = analyzer.fft_size
-
-    stream = sd.OutputStream(
-        samplerate=samplerate,
-        channels=data.shape[1],
-        dtype=np.float32,
-        blocksize=fft_size,
-    )
-
-    with stream:
-        length = len(data)
-        for i in range(0, length, fft_size):
-            frames_data = data[i : min(i + fft_size, length)]
-            stream.write(frames_data)
-            analyzer.receive_data(frames_data)
-
-
-def _play_stream(path, analyzer):
-    response = requests.get(path, stream=True)
-    total_size = int(response.headers.get("content-length", 0))
-
-    audio_data = io.BytesIO()
-    bytes_lock = threading.Lock()
-
-    def _download_data():
-        chunk_size = 1024
-        with tqdm(
-            total=total_size, unit="B", unit_scale=True, desc="Downloading"
-        ) as dbar:
-            for chunk in response.iter_content(chunk_size=chunk_size):
-                with bytes_lock:
-                    last_read_pos = audio_data.tell()
-                    audio_data.seek(0, os.SEEK_END)
-                    audio_data.write(chunk)
-                    dbar.update(len(chunk))
-                    audio_data.seek(0)
-                    audio_data.seek(last_read_pos)
-
-    download_data_t = threading.Thread(target=_download_data, daemon=True)
-    download_data_t.start()
-
-    available_bytes = 0
-    while available_bytes < 50 * 1024:  # wait 50 KB buffer before starting playback
-        with bytes_lock:
-            audio_data.seek(0, os.SEEK_END)
-            available_bytes = audio_data.tell()
-        time.sleep(0.1)
-
-    with bytes_lock:
-        audio_data.seek(0)
-        audio_file = sf.SoundFile(audio_data, mode="r")
-
-    fft_size = analyzer.fft_size
-
-    stream = sd.OutputStream(
-        samplerate=audio_file.samplerate,
-        channels=audio_file.channels,
-        dtype=np.float32,
-        blocksize=fft_size,
-    )
-
-    total_time = audio_file.frames / audio_file.samplerate + 0.001
-    with stream:
-        with tqdm(total=total_time, unit="s", unit_scale=True, desc="Playing") as pbar:
-            while True:
-                with bytes_lock:
-                    data = audio_file.read(fft_size, dtype=np.float32)
-                if len(data) > 0:
-                    stream.write(data)
-                    pbar.update(len(data) / audio_file.samplerate)
-                    analyzer.receive_data(data)
-                else:
-                    break
-
-
-song_path = (
-    "https://audio-download.ngfiles.com/376000/376737_Skullbeatz___Bad_Cat_Maste.mp3"
-)
-
-play_t = threading.Thread(target=play, args=(song_path, analyzer), daemon=True)
+analyzer = AudioAnalyzer(FFT_SIZE)
+audio_player = AudioPlayer()
+audio_player.analyzer = analyzer
 
 
 def animate():
-    t_audio_freq.data.flat = analyzer.get_byte_frequency_data()[: FFT_SIZE // 2]
+    t_audio_freq.data.flat = analyzer.get_byte_frequency_data()
     t_audio_freq.update_range((0, 0, 0), (FFT_SIZE // 2, 1, 1))
 
     t_audio_time_domain.data.flat = analyzer.get_byte_time_domain_data()
@@ -690,6 +775,7 @@ def animate():
 
 
 if __name__ == "__main__":
-    play_t.start()
+    song_path = "https://audio-download.ngfiles.com/376000/376737_Skullbeatz___Bad_Cat_Maste.mp3"
+    audio_player.play(song_path)
     renderer.request_draw(animate)
     run()
