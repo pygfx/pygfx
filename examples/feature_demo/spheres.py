@@ -17,6 +17,19 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
+grid = gfx.Grid(
+    None,
+    gfx.GridMaterial(
+        major_step=5,
+        thickness_space="world",
+        major_thickness=0.1,
+        infinite=True,
+    ),
+    orientation="xz",
+)
+grid.local.y = -10
+scene.add(grid)
+
 
 spheres = [
     (

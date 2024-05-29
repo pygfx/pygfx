@@ -7,6 +7,7 @@ The idea is that these only import from the (public) namespace pygfx.renderers.w
 # flake8: noqa
 
 from . import backgroundshader
+from . import gridshader
 from . import meshshader
 from . import pointsshader
 from . import lineshader
