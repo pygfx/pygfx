@@ -1,6 +1,6 @@
 """
-Skinning Animation (Bind Detached)
-==================================
+Detached Bind Mode
+==================
 
 This example demonstrates how to sharing a skeleton across multiple skinned meshes with detached bind mode.
 
