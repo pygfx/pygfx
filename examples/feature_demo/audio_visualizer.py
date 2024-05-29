@@ -17,7 +17,6 @@ import threading
 import sounddevice as sd
 import soundfile as sf
 import requests
-from pathlib import Path
 from tqdm import tqdm
 from wgpu.gui.auto import WgpuCanvas, run
 from pygfx.renderers.wgpu import (
@@ -440,18 +439,9 @@ class AudioShader(BaseShader):
         """  # noqa
 
 
-########################################################################################
-########################################################################################
-########################################################################################
+################################################################################
 # Demo starts here
-
-try:
-    # modify this line if your model is located elsewhere
-    data_dir = Path(__file__).parents[1] / "data"
-except NameError:
-    # compatibility with sphinx-gallery
-    data_dir = Path(os.getcwd()).parent / "data"
-
+################################################################################
 
 fragment_shader_code1 = """
     fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
