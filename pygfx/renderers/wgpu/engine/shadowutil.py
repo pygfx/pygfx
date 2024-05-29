@@ -2,7 +2,7 @@ import wgpu
 
 from .... import objects
 from .update import ensure_wgpu_object, update_resource
-from .utils import to_vertex_format, GpuCache
+from .utils import to_index_format, to_vertex_format, GpuCache
 from .shared import get_shared
 
 
@@ -162,9 +162,9 @@ def render_wobject_shadow(device, light, wobject, shadow_pass):
 
     if ibuffer is not None:
         n = wobject.geometry.indices.data.size
-        index_format = to_vertex_format(ibuffer.format)
-        index_format = index_format.split("x")[0].replace("s", "u")
-        shadow_pass.set_index_buffer(ensure_wgpu_object(ibuffer), index_format)
+        shadow_pass.set_index_buffer(
+            ensure_wgpu_object(ibuffer), to_index_format(ibuffer.format)
+        )
         shadow_pass.draw_indexed(n, n_instance)
     else:
         n = wobject.geometry.positions.nitems

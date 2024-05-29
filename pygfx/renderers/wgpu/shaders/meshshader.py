@@ -246,11 +246,11 @@ class MeshShader(BaseShader):
 
         topology = wgpu.PrimitiveTopology.triangle_list
 
-        if material.side == "FRONT":
+        if material.side == "front":
             cull_mode = wgpu.CullMode.back
-        elif material.side == "BACK":
+        elif material.side == "back":
             cull_mode = wgpu.CullMode.front
-        else:  # material.side == "BOTH"
+        else:  # material.side == "both"
             cull_mode = wgpu.CullMode.none
 
         return {
