@@ -188,7 +188,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # Whether to measure timestamps. Note: requires "timestamp-query" in self._device.features.
         # For now this is an undocument feature that we use in our benchmarks. We could make this
         # more public eventually, but for now consider it experimental.
-        self.measure_gpu_time = False
+        self.measure_gpu_times = False
 
         # Init fps measurements
         self._show_fps = bool(show_fps)
@@ -540,7 +540,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # when the wobject's children, visible, render_order, or render_pass changes.
 
         time_measurer = None
-        if self.measure_gpu_time:
+        if self.measure_gpu_times:
             time_measurer = GpuTimeMeasurer()
 
         # Record the rendering of all world objects, or re-use previous recording
