@@ -86,9 +86,9 @@ class AudioAnalyzer:
         self.max_decibels = max_decibels
         self.smoothing_factor = smoothing_factor
 
-        self._buffer = NumpyCircularBuffer(
-            32768, (2,)
-        )  # last 32768 samples, 2 channels
+        # last 32768 samples, 2 channels
+        # In order to allow for an increase in fftsize, we should effectively keep around the last 32768 samples
+        self._buffer = NumpyCircularBuffer(32768, (2,))
 
     @property
     def frequency_bin_count(self):
@@ -195,16 +195,14 @@ class AudioAnalyzer:
 class AudioPlayer:
     def __init__(self) -> None:
         self._analyzer = None
-        self._block_size = 1024
+        # we use 128 samples as a block size as default, it's called a render quantum in W3C spec
+        self._block_size = 128
         self._cache_block_size = 50 * 1024
         self._mini_playable_size = 10 * 1024
 
     @property
     def block_size(self):
-        if self._analyzer:
-            return self._analyzer.fft_size
-        else:
-            return self._block_size
+        return self._block_size
 
     @property
     def analyzer(self):
@@ -230,7 +228,7 @@ class AudioPlayer:
         play_t.start()
 
     def _play_local(self, local_file):
-        data, samplerate = sf.read(local_file, dtype=np.float32)
+        data, samplerate = sf.read(local_file, dtype=np.float32, always_2d=True)
         block_size = self.block_size
 
         stream = sd.OutputStream(
@@ -280,11 +278,11 @@ class AudioPlayer:
                         end_pos = audio_data.tell()
                         audio_data.seek(0)
                         audio_data.seek(last_read_pos)
-                        if end_pos - last_read_pos > playback_block_size:
-                            block_data_available.set()  # resume playback if buffer is enough
-                        elif end_pos - last_read_pos <= mini_playable_size:
-                            block_data_available.clear()  # pause playback if not enough data
-                        dbar.update(len(chunk))
+                    if end_pos - last_read_pos > playback_block_size:
+                        block_data_available.set()  # resume playback if buffer is enough
+                    elif end_pos - last_read_pos <= mini_playable_size:
+                        block_data_available.clear()  # pause playback if not enough data
+                    dbar.update(len(chunk))
                 block_data_available.set()
 
         download_data_t = threading.Thread(target=_download_data, daemon=True)
@@ -318,7 +316,9 @@ class AudioPlayer:
                 while True:
                     block_data_available.wait()
                     with bytes_lock:
-                        data = audio_file.read(block_size, dtype=np.float32)
+                        data = audio_file.read(
+                            block_size, dtype=np.float32, always_2d=True
+                        )
                     if len(data) > 0:
                         stream.write(data)
                         if self.analyzer:
