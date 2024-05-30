@@ -105,7 +105,8 @@ def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
     """Run every example marked to compare its result against a reference screenshot."""
 
     # import the example module
-    module = import_from_path(filename)
+    module_name = filename.stem
+    module = import_from_path(module_name, filename)
 
     # render a frame
     img = np.asarray(module.renderer.target.draw())
@@ -123,7 +124,7 @@ def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
         pytest.skip("screenshot comparisons are only done when using lavapipe")
 
     # regenerate screenshot if requested
-    screenshot_path = screenshots_dir / f"{module.stem}.png"
+    screenshot_path = screenshots_dir / f"{module_name}.png"
     if pytestconfig.getoption("regenerate_screenshots"):
         iio.imwrite(screenshot_path, img)
 
@@ -133,18 +134,16 @@ def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
 
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)
-    update_diffs(module.stem, is_similar, img, stored_img)
+    update_diffs(module_name, is_similar, img, stored_img)
     assert is_similar, (
-        f"rendered image for example {module.stem} changed, see "
+        f"rendered image for example {module_name} changed, see "
         f"the {diffs_dir.relative_to(ROOT).as_posix()} folder"
         " for visual diffs (you can download this folder from"
         " CI build artifacts as well)"
     )
 
 
-
-def import_from_path(filename):
-    module_name = filename.stem
+def import_from_path(module_name, filename):
     spec = importlib.util.spec_from_file_location(module_name, filename)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
