@@ -34,7 +34,7 @@ from .shared import get_shared
 from .environment import get_environment
 from .shadowutil import render_shadow_maps
 from .mipmapsutil import generate_texture_mipmaps
-from .utils import GfxTextureView
+from .utils import GfxTextureView, GpuTimeMeasurer
 
 
 def _get_sort_function(camera: Camera):
@@ -182,6 +182,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
             usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.MAP_READ,
         )
 
+        # Statistics about frame times etc.
+        self._stats = {"cpu_time": 0}
+
+        # Whether to measure timestamps. Note: requires "timestamp-query" in self._device.features.
+        # For now this is an undocument feature that we use in our benchmarks. We could make this
+        # more public eventually, but for now consider it experimental.
+        self.measure_gpu_time = False
+
         # Init fps measurements
         self._show_fps = bool(show_fps)
         now = time.perf_counter()
@@ -189,6 +197,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
 
         if enable_events:
             self.enable_events()
+
+    @property
+    def stats(self):
+        """Statistics for this renderer. Experimental."""
+        return self._stats
 
     @property
     def device(self):
@@ -526,6 +539,10 @@ class WgpuRenderer(RootEventHandler, Renderer):
         # If we do get this to work, we should trigger a new recording
         # when the wobject's children, visible, render_order, or render_pass changes.
 
+        time_measurer = None
+        if self.measure_gpu_time:
+            time_measurer = GpuTimeMeasurer()
+
         # Record the rendering of all world objects, or re-use previous recording
         command_buffers = []
         command_buffers += self._render_recording(
@@ -535,19 +552,28 @@ class WgpuRenderer(RootEventHandler, Renderer):
             render_pipeline_containers,
             physical_viewport,
             clear_color,
+            time_measurer,
         )
-        command_buffers += self._blender.perform_combine_pass()
+        command_buffers += self._blender.perform_combine_pass(time_measurer)
 
         # Collect commands and submit
         self._device.queue.submit(command_buffers)
 
+        # Flush to screen
         if flush:
-            self.flush()
+            self.flush(None, _time_measurer=time_measurer)
 
-    def flush(self, target=None):
+        # Store elapsed time
+        if time_measurer:
+            self._stats["gpu_times"] = time_measurer.get_times()
+        else:
+            self._stats.pop("gpu_times", None)
+
+    def flush(self, target=None, *, _time_measurer=None):
         """Render the result into the target. This method is called
         automatically unless you use ``.render(..., flush=False)``.
         """
+        time_measurer = _time_measurer
 
         # Print FPS
         now = time.perf_counter()  # noqa
@@ -592,6 +618,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             wgpu_tex_view,
             self._gamma_correction * self._gamma_correction_srgb,
             self._pixel_filter,
+            time_measurer,
         )
         self._device.queue.submit(command_buffers)
 
@@ -606,6 +633,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         render_pipeline_containers,
         physical_viewport,
         clear_color,
+        time_measurer,
     ):
         # You might think that this is slow for large number of world
         # object. But it is actually pretty good. It does iterate over
@@ -637,7 +665,12 @@ class WgpuRenderer(RootEventHandler, Renderer):
             + environment.lights["spot_lights"]
             + environment.lights["directional_lights"]
         )
-        render_shadow_maps(lights, wobject_list, command_encoder)
+        render_shadow_maps(lights, wobject_list, command_encoder, time_measurer)
+
+        if time_measurer:
+            time_group = time_measurer.create_group(
+                self._device, "pass#", self._blender.get_pass_count()
+            )
 
         for pass_index in range(blender.get_pass_count()):
             color_attachments = blender.get_color_attachments(pass_index)
@@ -646,9 +679,14 @@ class WgpuRenderer(RootEventHandler, Renderer):
             if not color_attachments:
                 continue
 
+            timestamp_writes = None
+            if time_measurer:
+                timestamp_writes = time_group.get_timestamp_writes(pass_index)
+
             render_pass = command_encoder.begin_render_pass(
                 color_attachments=color_attachments,
                 depth_stencil_attachment=depth_attachment,
+                timestamp_writes=timestamp_writes,
                 occlusion_query_set=None,
             )
             render_pass.set_viewport(*physical_viewport)
@@ -659,6 +697,9 @@ class WgpuRenderer(RootEventHandler, Renderer):
                 )
 
             render_pass.end()
+
+        if time_measurer:
+            time_group.resolve(command_encoder)
 
         return [command_encoder.finish()]
 

@@ -606,7 +606,7 @@ class BaseFragmentBlender:
         """Get the number of passes for this blender."""
         return len(self.passes)
 
-    def perform_combine_pass(self):
+    def perform_combine_pass(self, time_measurer):
         """Perform a render-pass to combine any multi-pass results, if needed."""
 
         # Get bindgroup and pipeline. The creation should only happens once per blender lifetime.
@@ -623,6 +623,11 @@ class BaseFragmentBlender:
 
         command_encoder = self.device.create_command_encoder()
 
+        timestamp_writes = None
+        if time_measurer:
+            time_group = time_measurer.create_group(self.device, "bcombine", 1)
+            timestamp_writes = time_group.get_timestamp_writes(0)
+
         # Render
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
@@ -635,11 +640,15 @@ class BaseFragmentBlender:
             ],
             depth_stencil_attachment=None,
             occlusion_query_set=None,
+            timestamp_writes=timestamp_writes,
         )
         render_pass.set_pipeline(self._combine_pass_pipeline)
         render_pass.set_bind_group(0, self._combine_pass_bind_group, [], 0, 99)
         render_pass.draw(4, 1)
         render_pass.end()
+
+        if time_measurer:
+            time_group.resolve(command_encoder)
 
         return [command_encoder.finish()]
 
