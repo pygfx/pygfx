@@ -20,10 +20,8 @@ scene = gfx.Scene()
 
 voldata = iio.imread("imageio:stent.npz").astype(np.float32)
 
-print(voldata.max())
-
 geometry = gfx.Geometry(grid=voldata)
-material = gfx.VolumeIsoMaterial(clim=(0, 2000))
+material = gfx.VolumeIsoMaterial(clim=(0, 2000), isosurface_threshold=1000)
 
 vol1 = gfx.Volume(geometry, material)
 scene.add(vol1)
