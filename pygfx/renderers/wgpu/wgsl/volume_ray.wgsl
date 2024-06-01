@@ -219,7 +219,7 @@ fn render_mode_iso(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_c
 
     // Primary loop. The purpose is to find the approximate location where
     // the surface is.
-    var iso_threshold = 1000.0;
+    let iso_threshold = u_material.isosurface_threshold;
     var surface_found = false;
     var the_coord = start_coord;
     var the_value : vec4<f32>;

@@ -134,5 +134,30 @@ class VolumeMipMaterial(VolumeRayMaterial):
 
 
 class VolumeIsoMaterial(VolumeRayMaterial):
-    """A material rendering a volume using isosurface rendering."""
+    """A material rendering a volume using isosurface rendering.
+
+    Parameters
+    ----------
+    isosurface_threshold : float
+        The threshold texture value at which the surface is rendered.
+    """
     render_mode = "iso"
+    uniform_type = dict(
+        VolumeBasicMaterial.uniform_type,
+        isosurface_threshold="f4",
+    )
+
+    def __init__(self, isosurface_threshold: float, **kwargs):
+        super().__init__(**kwargs)
+
+        self.isosurface_threshold = isosurface_threshold
+
+    @property
+    def isosurface_threshold(self) -> float:
+        """The threshold texture value at which the surface is rendered."""
+        return self.uniform_buffer.data["isosurface_threshold"]
+
+    @isosurface_threshold.setter
+    def isosurface_threshold(self, threshold:float) -> None:
+        self.uniform_buffer.data["isosurface_threshold"] = threshold
+        self.uniform_buffer.update_range(0, 1)
