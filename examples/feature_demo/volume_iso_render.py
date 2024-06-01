@@ -1,8 +1,8 @@
 """
-Volume Rendering 2
+Isosurface Volume Rendering
 ==================
 
-Render three volumes using different world transforms.
+Render a 3D volume with isosurface rendering..
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
