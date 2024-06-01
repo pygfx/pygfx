@@ -6,9 +6,10 @@ from ._base import Resource, get_item_format_from_memoryview
 class Buffer(Resource):
     """A contiguous piece of GPU memory.
 
-    Buffers can be used as index buffer, vertex buffer, uniform buffer, or
-    storage buffer. You can provide (and update data for it), or use it as a
-    placeholder for a buffer with no representation on the CPU.
+    Buffers can be used as index buffer or storage buffer. They are also used
+    for uniform buffers (internally in the pygfx materials). You can provide
+    (and update data for it), or use it as a placeholder for a buffer with no
+    representation on the CPU.
 
     Parameters
     ----------
@@ -20,21 +21,18 @@ class Buffer(Resource):
         The size of the buffer in bytes. Ignored if ``data`` is used.
     nitems : int
         The number of elements in the buffer. Ignored if ``data`` is used.
-    format : str
-        A format string describing the buffer layout when used as a vertex
-        buffer. If None, this is automatically set from the data. This must be a
-        pygfx format specifier, e.g. "3xf4", but can also be a format specific
-        to the render backend if necessary (e.g. from ``wgpu.VertexFormat``).
+    format : None | str | ElementFormat | wgpu.VertexFormat | wgpu.IndexFormat
+        A format string describing the buffer layout. This can follow pygfx'
+        ``ElementFormat`` e.g. "3xf4", or wgpu's ``VertexFormat``. Optional: if
+        None, it is automatically determined from the data.
+    usage : int | wgpu.BufferUsage
+        The wgpu ``usage`` flag for this buffer. Optional: typically pygfx can
+        derive how the buffer is used and apply the appropriate flag. In cases
+        where it doesn't this param provides an override. This is a bitmask flag
+        (values are OR'd).
     """
 
-    def __init__(
-        self,
-        data=None,
-        *,
-        nbytes=None,
-        nitems=None,
-        format=None,
-    ):
+    def __init__(self, data=None, *, nbytes=None, nitems=None, format=None, usage=0):
         super().__init__()
         Resource._rev += 1
         self._rev = Resource._rev
@@ -44,9 +42,9 @@ class Buffer(Resource):
         detected_format = None
         self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
-        # Backends-specific attributes for internal use
+        # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None
-        self._wgpu_usage = 0
+        self._wgpu_usage = int(usage)
 
         # Get nbytes
         if data is not None:
@@ -83,11 +81,6 @@ class Buffer(Resource):
         self._store.nitems = the_nitems
 
         self.draw_range = 0, the_nitems
-
-    @property
-    def rev(self):
-        """An integer that is increased when update_range() is called."""
-        return self._rev
 
     @property
     def data(self):
@@ -144,11 +137,16 @@ class Buffer(Resource):
     def format(self):
         """The buffer format.
 
-        Usually a pygfx format specifier (e.g. u2 for scalar uint16,
-        or 3xf4 for 3xfloat32), but can also be a overridden to a
-        backend-specific format. Can also be None e.g. for uniform buffers.
+        Usually a pygfx format specifier (e.g. 'u2' for scalar uint16, or '3xf4'
+        for 3xfloat32), but can also be a value from ``wgpu.VertexFormat``, or
+        None e.g. for uniform buffers.
         """
         return self._store.format
+
+    @property
+    def usage(self):
+        """Bitmask indicating how the buffer can be used in a wgpu pipeline."""
+        return self._wgpu_usage
 
     @property
     def vertex_byte_range(self):

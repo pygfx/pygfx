@@ -13,7 +13,7 @@ import pygfx as gfx
 
 scene = gfx.Group()
 
-material = gfx.MeshBasicMaterial(wireframe=True, side="FRONT")
+material = gfx.MeshBasicMaterial(wireframe=True, side="front")
 geometries = [gfx.tetrahedron_geometry(subdivisions=i) for i in range(4)]
 
 for i, geometry in enumerate(geometries):

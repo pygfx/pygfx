@@ -48,6 +48,8 @@ colormaps, the strength of specular reflections, etc.
     BackgroundImageMaterial
     BackgroundSkyboxMaterial
 
+    GridMaterial
+
     TextMaterial
 
 """
@@ -92,6 +94,7 @@ from ._background import (
     BackgroundImageMaterial,
     BackgroundSkyboxMaterial,
 )
+from ._grid import GridMaterial
 from ._text import TextMaterial
 
 

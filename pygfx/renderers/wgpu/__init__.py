@@ -40,6 +40,7 @@ Lower level functions that may or may not be needed in custom shaders:
     :template: ../_templates/custom_layout.rst
 
     nchannels_from_format
+    to_index_format
     to_vertex_format
     to_texture_format
 
@@ -52,6 +53,7 @@ from ...utils.enums import RenderMask
 from .engine.utils import (
     register_wgpu_render_function,
     nchannels_from_format,
+    to_index_format,
     to_vertex_format,
     to_texture_format,
     GfxSampler,

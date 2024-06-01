@@ -514,7 +514,7 @@ class LightShadow:
 
         # TODO: move bias and cull_mode to Light so they can be reactive?
         self.bias = 0
-        self.cull_mode = "FRONT"
+        self.cull_mode = "front"
         self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
 
     @property
@@ -542,8 +542,8 @@ class LightShadow:
 
     @cull_mode.setter
     def cull_mode(self, value):
-        value = str(value).upper()
-        if value in ("FRONT", "BACK", "NONE"):
+        value = str(value).lower()
+        if value in ("front", "back", "none"):
             self._cull_mode = value
         else:
             raise ValueError(f"invalid cull_mode: '{value}'")

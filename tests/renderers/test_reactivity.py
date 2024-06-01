@@ -73,7 +73,7 @@ def test_reactivity_mesh1():
     assert changed == {"render_info"}
 
     # Changing the side requires a new pipeline
-    cube.material.side = "FRONT"
+    cube.material.side = "front"
     changed = render(cube)
     assert changed == {"pipeline_info", "render_info", "compose_pipeline"}
 

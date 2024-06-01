@@ -11,6 +11,7 @@
     Group
     Scene
     Background
+    Grid
     Points
     Line
     Mesh
@@ -57,7 +58,18 @@ from ._events import (
     WheelEvent,
     WindowEvent,
 )
-from ._more import Group, Scene, Background, Points, Line, Mesh, Image, Volume, Text
+from ._more import (
+    Group,
+    Scene,
+    Background,
+    Grid,
+    Points,
+    Line,
+    Mesh,
+    Image,
+    Volume,
+    Text,
+)
 from ._instanced import InstancedMesh
 from ._lights import Light, PointLight, DirectionalLight, AmbientLight, SpotLight
 from ._lights import (

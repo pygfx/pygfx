@@ -32,13 +32,13 @@ def create_scene(title):
     material1 = gfx.MeshPhongMaterial(color=(0, 1, 0, 1))
     obj1 = gfx.Mesh(geometry, material1)
     obj1.local.position = (0, 2, 0)
-    obj1.material.side = "FRONT"
+    obj1.material.side = gfx.VisibleSide.front
 
     # Create a yellow knot for which we show the back
     material2 = gfx.MeshPhongMaterial(color=(1, 1, 0, 1))
     obj2 = gfx.Mesh(geometry, material2)
     obj2.local.position = (0, -2, 0)
-    obj2.material.side = "BACK"
+    obj2.material.side = gfx.VisibleSide.back
 
     # Rotate both in a position where the back faces are easier spotted
     rot = la.quat_from_euler((0.71, 1), order="XY")
