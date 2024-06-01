@@ -135,3 +135,4 @@ class VolumeMipMaterial(VolumeRayMaterial):
 
 class VolumeIsoMaterial(VolumeRayMaterial):
     """A material rendering a volume using isosurface rendering."""
+    render_mode = "iso"
