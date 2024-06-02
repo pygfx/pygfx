@@ -57,6 +57,7 @@ class Stats(Group):
                 screen_space=True,
                 font_size=font_size,
                 anchor="topleft",
+                ref_size=48,
             ),
             text_material,
         )

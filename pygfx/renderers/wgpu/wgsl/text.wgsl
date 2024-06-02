@@ -150,8 +150,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // Load thickness factors
     let weight_offset = clamp(varyings.weight_offset + u_material.weight_offset, -400.0, 1600.0);
     let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
-    let outline_thickness = u_material.outline_thickness * f32(REF_GLYPH_SIZE) / f32(48.);
-    let innter_outline_thickness = u_material.inner_outline_thickness * f32(REF_GLYPH_SIZE) / f32(48.);
+    let outline_thickness = u_material.outline_thickness * f32(REF_GLYPH_SIZE) / 48.;
+    let innter_outline_thickness = u_material.inner_outline_thickness * f32(REF_GLYPH_SIZE) / 48.;
 
     // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
     // The maximum value at which we can still detect the edge is just below 0.5.

@@ -560,7 +560,7 @@ class TextGeometry(Geometry):
         """The shaping step. Returns (glyph_indices, positions, meta).
         Can be overloaded for custom behavior.
         """
-        return textmodule.shape_text(text, font_filename, self._direction)
+        return textmodule.shape_text(text, font_filename, self._direction, self.ref_size)
 
     def _get_ws_extent(self, s, font):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""

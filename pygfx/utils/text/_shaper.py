@@ -15,7 +15,6 @@ import numpy as np
 
 # Determine reference size. This affects the size of the SDF bitmap.
 REF_GLYPH_SIZE = 48  # 48px == 64pt
-# REF_GLYPH_SIZE = 128
 
 
 def shape_text(text, font_filename, direction=None, ref_size=None):
@@ -37,7 +36,7 @@ def shape_text(text, font_filename, direction=None, ref_size=None):
 
     All returned distances are measured in unit font_size.
     """
-    return shape_text_hb(text, font_filename, direction)
+    return shape_text_hb(text, font_filename, direction, ref_size=ref_size)
     # return shape_text_ft(text, font_filename)
 
 
