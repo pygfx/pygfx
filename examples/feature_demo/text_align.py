@@ -19,7 +19,8 @@ from pathlib import Path
 import pygfx as gfx
 
 font_file = Path(__file__).parent / "SourceSans3-Regular.ttf"
-gfx.font_manager.add_font_file(str(font_file))
+if font_file.exists():
+    gfx.font_manager.add_font_file(str(font_file))
 
 scene = gfx.Scene()
 
