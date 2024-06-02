@@ -210,6 +210,7 @@ class TextGeometry(Geometry):
         automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
         'ttb' or 'btt'.
 
+
     """
 
     def __init__(
@@ -226,6 +227,7 @@ class TextGeometry(Geometry):
         text_align_last="auto",
         family=None,
         direction=None,
+        ref_size=None,
     ):
         super().__init__()
 
@@ -246,6 +248,8 @@ class TextGeometry(Geometry):
         inputs = [i for i in inputs if i is not None]
         if len(inputs) > 1:
             raise TypeError("Either text or markdown must be given, not both.")
+
+        self.ref_size = ref_size
 
         # Process input
         if text is not None:
@@ -581,7 +585,7 @@ class TextGeometry(Geometry):
         """The glyph generation step. Returns an array with atlas indices.
         Can be overloaded for custom behavior.
         """
-        return textmodule.generate_glyph(glyph_indices, font_filename)
+        return textmodule.generate_glyph(glyph_indices, font_filename, ref_size=self.ref_size)
 
     def _encode_font_props_in_atlas_indices(self, atlas_indices, font_props, font):
         # We could put font properties in their own buffer(s), but to
@@ -962,6 +966,15 @@ class TextGeometry(Geometry):
                 f"Align must be one of {_TEXT_ALIGNMENTS_LAST}. Got {align}"
             )
         self._text_align_last = align
+        self.apply_layout()
+
+    @property
+    def ref_size(self):
+        return self._ref_size
+
+    @ref_size.setter
+    def ref_size(self, value):
+        self._ref_size = value
         self.apply_layout()
 
     @property

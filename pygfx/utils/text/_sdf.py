@@ -9,12 +9,13 @@ from ._shaper import CACHE_FT, REF_GLYPH_SIZE
 fontname_cache = {}
 
 
-def generate_glyph(glyph_indices, font_filename):
+def generate_glyph(glyph_indices, font_filename, ref_size=None):
     """Generate a glyph for the given glyph indices.
 
     Parameters:
         glyph_indices (list): the indices in the font to render a glyph for.
         font_filename (str): the font to use.
+        ref_size (int): the reference size for the font.
 
     This generates SDF glyphs and puts them in the atlas. The indices
     of where the glyphs are in the atlas are returned. Glyphs already
@@ -35,13 +36,16 @@ def generate_glyph(glyph_indices, font_filename):
         font_index = len(fontname_cache) + 1
         fontname_cache[font_filename] = font_index
 
+    if ref_size is None:
+        ref_size = REF_GLYPH_SIZE
+
     # Get the face object. We will not need it if all glyphs are already
     # in the atlas, but because of the cache it is fast, and this way
     # we keep the face alive in the cache.
     face = CACHE_FT.get(font_filename)
     if not face:
         face = freetype.Face(font_filename)
-        face.set_pixel_sizes(REF_GLYPH_SIZE, REF_GLYPH_SIZE)
+        face.set_pixel_sizes(ref_size, ref_size)
         CACHE_FT.set(font_filename, face)
 
     atlas_indices = np.zeros((len(glyph_indices),), np.uint32)

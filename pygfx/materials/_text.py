@@ -11,8 +11,11 @@ class TextMaterial(Material):
         The color of the text.
     outline_color : Color
         The color of the outline of the text.
-    outline_thickness : int
+    outline_thickness : float
         A value indicating the relative width of the outline. Valid values are
+        between 0.0 and 0.5.
+    inner_outline_thickness : float
+        A value indicating the relative width of the inner outline. Valid values are
         between 0.0 and 0.5.
     weight_offset : int
         A value representing an offset to the font weight. Font weights are in
@@ -38,6 +41,7 @@ class TextMaterial(Material):
         color="4xf4",
         weight_offset="f4",
         outline_thickness="f4",
+        inner_outline_thickness="f4",
         outline_color="4xf4",
     )
 
@@ -47,6 +51,7 @@ class TextMaterial(Material):
         *,
         outline_color="#000",
         outline_thickness=0,
+        inner_outline_thickness=0,
         weight_offset=0,
         aa=True,
         **kwargs
@@ -56,6 +61,7 @@ class TextMaterial(Material):
         self.color = color
         self.outline_color = outline_color
         self.outline_thickness = outline_thickness
+        self.inner_outline_thickness = inner_outline_thickness
         self.weight_offset = weight_offset
         self.aa = aa
 
@@ -109,6 +115,18 @@ class TextMaterial(Material):
     @outline_thickness.setter
     def outline_thickness(self, value):
         self.uniform_buffer.data["outline_thickness"] = max(0.0, min(0.5, float(value)))
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def inner_outline_thickness(self):
+        """A value indicating the relative width of the inner outline. Valid
+        values are between 0.0 and 0.5. Default 0 (no inner outline).
+        """
+        return float(self.uniform_buffer.data["inner_outline_thickness"])
+
+    @inner_outline_thickness.setter
+    def inner_outline_thickness(self, value):
+        self.uniform_buffer.data["inner_outline_thickness"] = max(0.0, min(0.5, float(value)))
         self.uniform_buffer.update_range(0, 1)
 
     @property

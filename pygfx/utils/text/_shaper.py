@@ -15,9 +15,10 @@ import numpy as np
 
 # Determine reference size. This affects the size of the SDF bitmap.
 REF_GLYPH_SIZE = 48  # 48px == 64pt
+# REF_GLYPH_SIZE = 128
 
 
-def shape_text(text, font_filename, direction=None):
+def shape_text(text, font_filename, direction=None, ref_size=None):
     """Text shaping. Takes a Unicode string, and replace it with a list
     of glyphs, positioned to represent the given text in a good way.
     Depending on the algorithm used, this takes care of kerning,
@@ -26,6 +27,8 @@ def shape_text(text, font_filename, direction=None):
     Parameters:
         text (str): the text to shape.
         font_filename (str): the font to shape for.
+        direction (str): the text direction (ltr, rtl, ttb, btt).
+        ref_size (int): the reference size for the font.
 
     Returns:
         glyph_indices (list): the indices of the glyphs in the font.
@@ -89,10 +92,11 @@ CACHE_HB = TemporalCache(10)
 CACHE_FT = TemporalCache(10)
 
 
-def shape_text_hb(text, font_filename, direction=None):
+def shape_text_hb(text, font_filename, direction=None, ref_size=None):
     """Shape text with Harfbuzz."""
 
-    ref_size = REF_GLYPH_SIZE
+    if ref_size is None:
+        ref_size = REF_GLYPH_SIZE
 
     # Prepare buffer
     buf = uharfbuzz.Buffer()
@@ -151,7 +155,7 @@ def shape_text_hb(text, font_filename, direction=None):
     return glyph_indices, positions, meta
 
 
-def shape_text_ft(text, font_filename, direction=None):
+def shape_text_ft(text, font_filename, direction=None, ref_size=None):
     """Shape text with FreeType.
 
     This function is tested but not actually used. It is provided for
@@ -162,7 +166,8 @@ def shape_text_ft(text, font_filename, direction=None):
 
     # assert direction is None  # just ignore the given direction ...
 
-    ref_size = REF_GLYPH_SIZE
+    if ref_size is None:
+        ref_size = REF_GLYPH_SIZE
 
     # Load font face
     face = CACHE_FT.get(font_filename)

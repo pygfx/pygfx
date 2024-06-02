@@ -147,14 +147,16 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // with positive values representing the inside.
     let atlas_value = textureSample(t_atlas, s_atlas, texcoord).r;
 
-    // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
-    // The maximum value at which we can still detect the edge is just below 0.5.
-    let distance = (0.5 - atlas_value);
-
     // Load thickness factors
     let weight_offset = clamp(varyings.weight_offset + u_material.weight_offset, -400.0, 1600.0);
     let weight_thickness = weight_offset * 0.00031;  // empirically derived factor
-    let outline_thickness = u_material.outline_thickness;
+    let outline_thickness = u_material.outline_thickness * f32(REF_GLYPH_SIZE) / f32(48.);
+    let innter_outline_thickness = u_material.inner_outline_thickness * f32(REF_GLYPH_SIZE) / f32(48.);
+
+    // Convert to a more useful measure, where the edge is at 0.0, and the inside is negative.
+    // The maximum value at which we can still detect the edge is just below 0.5.
+    // let distance = (0.5 - atlas_value + outline_thickness);
+    let distance = (0.5 - atlas_value + innter_outline_thickness);
 
     // The softness is calculated from the scale of one atlas-pixel in screen space.
     let max_softness = 0.75;

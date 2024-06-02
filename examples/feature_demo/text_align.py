@@ -15,8 +15,11 @@ justification of text anchored to the center of the screen.
 import os
 
 from wgpu.gui.auto import WgpuCanvas, run
-
+from pathlib import Path
 import pygfx as gfx
+
+font_file = Path(__file__).parent / "SourceSans3-Regular.ttf"
+gfx.font_manager.add_font_file(str(font_file))
 
 scene = gfx.Scene()
 
@@ -31,6 +34,12 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "--direction", type=str, default="ltr", help="Direction parameter"
     )
     parser.add_argument(
+        '--ref-size', type=int, default=48, help='Reference size for the font'
+    )
+    parser.add_argument(
+        '--family', type=str, default="Noto Sans", help='Font family'
+    )
+    parser.add_argument(
         "text",
         type=str,
         nargs="?",
@@ -42,9 +51,20 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         ),
         help="Text to display",
     )
+    parser.add_argument(
+        '--outline-thickness', type=float, default=0., help='Outline thickness'
+    )
+    parser.add_argument(
+        '--inner-outline-thickness', type=float, default=0., help='Inner outline thickness'
+    )
     args = parser.parse_args()
     direction = args.direction
     text = args.text
+    ref_size = args.ref_size
+    family = args.family
+    outline_thickness = args.outline_thickness
+    inner_outline_thickness = args.inner_outline_thickness
+
 else:
     direction = "ltr"
     text = (
@@ -53,20 +73,30 @@ else:
         "pygfx\n"  # a line with exactly 1 word
         "last line"
     )
-
+    ref_size = 48
+    family = "Noto Sans"
+    outline_thickness = 0.
+    inner_outline_thickness = 0.
 
 print(f"========= Text =========\n{text}\n========================")
 
 text = gfx.Text(
     gfx.TextGeometry(
         text=text,
-        font_size=40,
+        font_size=100,
         screen_space=True,
         text_align="center",
         anchor="middle-center",
         direction=direction,
+        family=family,
+        ref_size=ref_size,
     ),
-    gfx.TextMaterial(color="#B4F8C8", outline_color="#000", outline_thickness=0.15),
+    gfx.TextMaterial(
+        color="#B4F8C8",
+        outline_color="#000",
+        outline_thickness=outline_thickness,
+        inner_outline_thickness=inner_outline_thickness,
+    ),
 )
 text.local.position = (0, 0, 0)
 
