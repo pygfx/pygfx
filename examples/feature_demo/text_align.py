@@ -15,12 +15,7 @@ justification of text anchored to the center of the screen.
 import os
 
 from wgpu.gui.auto import WgpuCanvas, run
-from pathlib import Path
 import pygfx as gfx
-
-font_file = Path(__file__).parent / "SourceSans3-Regular.ttf"
-if font_file.exists():
-    gfx.font_manager.add_font_file(str(font_file))
 
 scene = gfx.Scene()
 
@@ -28,6 +23,10 @@ scene = gfx.Scene()
 scene.add(gfx.Background.from_color("#fff", "#000"))
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
+    from pathlib import Path
+    font_file = Path(__file__).parent / "SourceSans3-Regular.ttf"
+    if font_file.exists():
+        gfx.font_manager.add_font_file(str(font_file))
     import argparse
 
     parser = argparse.ArgumentParser(description="Text Alignment Demo")
