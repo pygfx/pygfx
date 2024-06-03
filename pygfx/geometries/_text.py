@@ -210,6 +210,9 @@ class TextGeometry(Geometry):
         automatically, but is always horizontal. Can be set to 'lrt', 'rtl',
         'ttb' or 'btt'.
 
+    ref_glyph_size : int
+        Determines the reference size of the text glyph.
+        This affects the size of the SDF bitmap. 48px == 64pt.
 
     """
 
@@ -227,7 +230,7 @@ class TextGeometry(Geometry):
         text_align_last="auto",
         family=None,
         direction=None,
-        ref_size=None,
+        ref_glyph_size=48,
     ):
         super().__init__()
 
@@ -249,7 +252,7 @@ class TextGeometry(Geometry):
         if len(inputs) > 1:
             raise TypeError("Either text or markdown must be given, not both.")
 
-        self.ref_size = ref_size
+        self.ref_glyph_size = ref_glyph_size
 
         # Process input
         if text is not None:
@@ -560,7 +563,7 @@ class TextGeometry(Geometry):
         """The shaping step. Returns (glyph_indices, positions, meta).
         Can be overloaded for custom behavior.
         """
-        return textmodule.shape_text(text, font_filename, self._direction, self.ref_size)
+        return textmodule.shape_text(text, font_filename, self._direction, self.ref_glyph_size)
 
     def _get_ws_extent(self, s, font):
         """Get the extent of a piece of whitespace text. Results of small strings are cached."""
@@ -585,7 +588,7 @@ class TextGeometry(Geometry):
         """The glyph generation step. Returns an array with atlas indices.
         Can be overloaded for custom behavior.
         """
-        return textmodule.generate_glyph(glyph_indices, font_filename, ref_size=self.ref_size)
+        return textmodule.generate_glyph(glyph_indices, font_filename, ref_glyph_size=self.ref_glyph_size)
 
     def _encode_font_props_in_atlas_indices(self, atlas_indices, font_props, font):
         # We could put font properties in their own buffer(s), but to
@@ -969,12 +972,12 @@ class TextGeometry(Geometry):
         self.apply_layout()
 
     @property
-    def ref_size(self):
-        return self._ref_size
+    def ref_glyph_size(self):
+        return self._ref_glyph_size
 
-    @ref_size.setter
-    def ref_size(self, value):
-        self._ref_size = value
+    @ref_glyph_size.setter
+    def ref_glyph_size(self, value):
+        self._ref_glyph_size = value
         self.apply_layout()
 
     @property

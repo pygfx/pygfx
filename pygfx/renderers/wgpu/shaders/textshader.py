@@ -2,7 +2,6 @@ import wgpu  # only for flags/enums
 
 from ....objects import Text
 from ....materials import TextMaterial
-from ....utils.text._shaper import REF_GLYPH_SIZE
 
 from .. import (
     register_wgpu_render_function,
@@ -25,7 +24,7 @@ class TextShader(BaseShader):
         material = wobject.material
         self["screen_space"] = geometry.screen_space
         self["aa"] = material.aa
-        self["REF_GLYPH_SIZE"] = wobject.geometry.ref_size or REF_GLYPH_SIZE
+        self["REF_GLYPH_SIZE"] = wobject.geometry.ref_glyph_size
 
     def get_bindings(self, wobject, shared):
         geometry = wobject.geometry

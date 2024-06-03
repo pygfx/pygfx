@@ -13,11 +13,8 @@ import uharfbuzz
 import numpy as np
 
 
-# Determine reference size. This affects the size of the SDF bitmap.
-REF_GLYPH_SIZE = 48  # 48px == 64pt
 
-
-def shape_text(text, font_filename, direction=None, ref_size=None):
+def shape_text(text, font_filename, direction=None, ref_glyph_size=48):
     """Text shaping. Takes a Unicode string, and replace it with a list
     of glyphs, positioned to represent the given text in a good way.
     Depending on the algorithm used, this takes care of kerning,
@@ -27,7 +24,7 @@ def shape_text(text, font_filename, direction=None, ref_size=None):
         text (str): the text to shape.
         font_filename (str): the font to shape for.
         direction (str): the text direction (ltr, rtl, ttb, btt).
-        ref_size (int): the reference size for the font.
+        ref_glyph_size (int): the reference size for the font.
 
     Returns:
         glyph_indices (list): the indices of the glyphs in the font.
@@ -36,7 +33,7 @@ def shape_text(text, font_filename, direction=None, ref_size=None):
 
     All returned distances are measured in unit font_size.
     """
-    return shape_text_hb(text, font_filename, direction, ref_size=ref_size)
+    return shape_text_hb(text, font_filename, direction, ref_glyph_size=ref_glyph_size)
     # return shape_text_ft(text, font_filename)
 
 
@@ -91,11 +88,8 @@ CACHE_HB = TemporalCache(10)
 CACHE_FT = TemporalCache(10)
 
 
-def shape_text_hb(text, font_filename, direction=None, ref_size=None):
+def shape_text_hb(text, font_filename, direction=None, ref_glyph_size=48):
     """Shape text with Harfbuzz."""
-
-    if ref_size is None:
-        ref_size = REF_GLYPH_SIZE
 
     # Prepare buffer
     buf = uharfbuzz.Buffer()
@@ -115,7 +109,7 @@ def shape_text_hb(text, font_filename, direction=None, ref_size=None):
         blob = uharfbuzz.Blob.from_file_path(font_filename)
         face = uharfbuzz.Face(blob)
         font = uharfbuzz.Font(face)
-        font.scale = ref_size, ref_size
+        font.scale = ref_glyph_size, ref_glyph_size
         CACHE_HB.set(font_filename, (blob, face, font))
 
     # Shape!
@@ -134,8 +128,8 @@ def shape_text_hb(text, font_filename, direction=None, ref_size=None):
         glyph_indices[i] = glyph_infos[i].codepoint
         pos = glyph_positions[i]
         positions[i] = (
-            (pen_x + pos.x_offset) / ref_size,
-            (pen_y + pos.y_offset) / ref_size,
+            (pen_x + pos.x_offset) / ref_glyph_size,
+            (pen_y + pos.y_offset) / ref_glyph_size,
         )
         pen_x += pos.x_advance
         pen_y += pos.y_advance
@@ -144,9 +138,9 @@ def shape_text_hb(text, font_filename, direction=None, ref_size=None):
     font_ext = font.get_font_extents(buf.direction)
 
     meta = {
-        "extent": (pen_x if is_horizontal else pen_y) / ref_size,
-        "ascender": font_ext.ascender / ref_size,
-        "descender": font_ext.descender / ref_size,
+        "extent": (pen_x if is_horizontal else pen_y) / ref_glyph_size,
+        "ascender": font_ext.ascender / ref_glyph_size,
+        "descender": font_ext.descender / ref_glyph_size,
         "direction": buf.direction,
         "script": buf.script,
     }
@@ -154,7 +148,7 @@ def shape_text_hb(text, font_filename, direction=None, ref_size=None):
     return glyph_indices, positions, meta
 
 
-def shape_text_ft(text, font_filename, direction=None, ref_size=None):
+def shape_text_ft(text, font_filename, direction=None, ref_glyph_size=48):
     """Shape text with FreeType.
 
     This function is tested but not actually used. It is provided for
@@ -165,14 +159,11 @@ def shape_text_ft(text, font_filename, direction=None, ref_size=None):
 
     # assert direction is None  # just ignore the given direction ...
 
-    if ref_size is None:
-        ref_size = REF_GLYPH_SIZE
-
     # Load font face
     face = CACHE_FT.get(font_filename)
     if face is None:
         face = freetype.Face(font_filename)
-        face.set_pixel_sizes(ref_size, ref_size)
+        face.set_pixel_sizes(ref_glyph_size, ref_glyph_size)
         CACHE_FT.set(font_filename, face)
 
     # With Freetype we simply replace each char for a glyph.
@@ -193,12 +184,12 @@ def shape_text_ft(text, font_filename, direction=None, ref_size=None):
         c = text[i]
         kerning = face.get_kerning(prev, c, freetype.FT_KERNING_UNSCALED)
         pen_x += kerning.x / 64
-        positions[i] = pen_x / ref_size, 0
+        positions[i] = pen_x / ref_glyph_size, 0
         pen_x += advances[i]
         prev = c
 
     meta = {
-        "extent": pen_x / ref_size,
+        "extent": pen_x / ref_glyph_size,
         "ascender": face.ascender / face.units_per_EM,
         "descender": face.descender / face.units_per_EM,
         "direction": "ltr",
