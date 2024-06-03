@@ -126,7 +126,9 @@ class TextMaterial(Material):
 
     @inner_outline_thickness.setter
     def inner_outline_thickness(self, value):
-        self.uniform_buffer.data["inner_outline_thickness"] = max(0.0, min(0.5, float(value)))
+        self.uniform_buffer.data["inner_outline_thickness"] = max(
+            0.0, min(0.5, float(value))
+        )
         self.uniform_buffer.update_range(0, 1)
 
     @property

@@ -13,7 +13,6 @@ import uharfbuzz
 import numpy as np
 
 
-
 def shape_text(text, font_filename, direction=None, ref_glyph_size=48):
     """Text shaping. Takes a Unicode string, and replace it with a list
     of glyphs, positioned to represent the given text in a good way.

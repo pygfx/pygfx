@@ -35,11 +35,9 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         "--direction", type=str, default="ltr", help="Direction parameter"
     )
     parser.add_argument(
-        '--ref-glyph-size', type=int, default=48, help='Reference size for the font'
+        "--ref-glyph-size", type=int, default=48, help="Reference size for the font"
     )
-    parser.add_argument(
-        '--family', type=str, default="Noto Sans", help='Font family'
-    )
+    parser.add_argument("--family", type=str, default="Noto Sans", help="Font family")
     parser.add_argument(
         "text",
         type=str,
@@ -53,13 +51,19 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
         help="Text to display",
     )
     parser.add_argument(
-        '--outline-thickness', type=float, default=0., help='Outline thickness'
+        "--outline-thickness", type=float, default=0.0, help="Outline thickness"
     )
     parser.add_argument(
-        '--inner-outline-thickness', type=float, default=0., help='Inner outline thickness'
+        "--inner-outline-thickness",
+        type=float,
+        default=0.0,
+        help="Inner outline thickness",
     )
     parser.add_argument(
-        '--double-shot', type=bool, default=False, help='Double shot rendering of the text'
+        "--double-shot",
+        type=bool,
+        default=False,
+        help="Double shot rendering of the text",
     )
     args = parser.parse_args()
     direction = args.direction
@@ -80,8 +84,8 @@ else:
     )
     ref_glyph_size = 48
     family = "Noto Sans"
-    outline_thickness = 0.
-    inner_outline_thickness = 0.
+    outline_thickness = 0.0
+    inner_outline_thickness = 0.0
     double_shot = False
 
 print(f"========= Text =========\n{text}\n========================")
@@ -142,6 +146,7 @@ camera = gfx.OrthographicCamera(4, 3)
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
 
+
 def handle_event(event, text):
     if event.key == "q":
         text.geometry.anchor = "top-left"
@@ -191,6 +196,7 @@ def handle_event(event, text):
         text.geometry.font_size *= 1.1
     elif event.key == "g":
         text.geometry.font_size /= 1.1
+
 
 @renderer.add_event_handler("key_down")
 def change_justify(event):
