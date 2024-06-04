@@ -161,11 +161,11 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     )
 
     def __init__(
-            self,
-            threshold: float = 0.5,
-            emissive: Color = "#000",
-            shininess: float=30,
-            **kwargs
+        self,
+        threshold: float = 0.5,
+        emissive: Color = "#000",
+        shininess: float = 30,
+        **kwargs
     ):
         super().__init__(**kwargs)
 
