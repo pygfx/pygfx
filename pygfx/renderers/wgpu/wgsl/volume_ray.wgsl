@@ -225,7 +225,7 @@ $$ elif mode == 'iso'
 
         // Primary loop. The purpose is to find the approximate location where
         // the surface is.
-        let iso_threshold = u_material.isosurface_threshold;
+        let iso_threshold = u_material.threshold;
         var surface_found = false;
         var the_coord = start_coord;
         var the_value : vec4<f32>;

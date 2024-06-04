@@ -138,7 +138,7 @@ class VolumeIsoMaterial(VolumeRayMaterial):
 
     Parameters
     ----------
-    isosurface_threshold : float
+    threshold : float
         The threshold texture value at which the surface is rendered.
         The default value is 0.5.
     """
@@ -146,20 +146,20 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     render_mode = "iso"
     uniform_type = dict(
         VolumeBasicMaterial.uniform_type,
-        isosurface_threshold="f4",
+        threshold="f4",
     )
 
-    def __init__(self, isosurface_threshold: float = 0.5, **kwargs):
+    def __init__(self, threshold: float = 0.5, **kwargs):
         super().__init__(**kwargs)
 
-        self.isosurface_threshold = isosurface_threshold
+        self.threshold = threshold
 
     @property
-    def isosurface_threshold(self) -> float:
+    def threshold(self) -> float:
         """The threshold texture value at which the surface is rendered."""
-        return self.uniform_buffer.data["isosurface_threshold"]
+        return self.uniform_buffer.data["threshold"]
 
-    @isosurface_threshold.setter
-    def isosurface_threshold(self, threshold: float) -> None:
-        self.uniform_buffer.data["isosurface_threshold"] = float(threshold)
+    @threshold.setter
+    def threshold(self, threshold: float) -> None:
+        self.uniform_buffer.data["threshold"] = float(threshold)
         self.uniform_buffer.update_range(0, 1)
