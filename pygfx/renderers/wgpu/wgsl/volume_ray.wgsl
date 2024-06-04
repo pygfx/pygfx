@@ -147,8 +147,12 @@ struct RenderOutput {
 
 fn render_mode_mip(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
     // Ideas for improvement:
-    // * use lighting from the scene lighting system to illuminate the isosurface
-    // * surface position refinement could potentially be sped up
+    // * We could textureLoad() the 27 voxels surrounding the initial location
+    //   and sample from that in the refinement step. Less texture loads and we
+    //   could do linear interpolation also for formats like i16.
+    // * Create helper textures at a lower resolution (e.g. min, max) so we can
+    //   skip along the ray much faster. By taking smaller steps where needed,
+    //   it will be both faster and more accurate.
 
     let nstepsf = f32(nsteps);
 
