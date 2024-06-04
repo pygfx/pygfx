@@ -229,6 +229,12 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position.z, color_out);
 
+    // Move text closer to camera, since its oftern overlaid on something.
+    // The text is moved closer than the outline.
+    // The depth buffer should be a 24 bit number, so the step size
+    // shuld be about the step should be about 1/2**24 == 5.96e-08
+    out.depth = varyings.position.z - 6e-8 * (2.0 - outline);
+
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
     out.pick = (
