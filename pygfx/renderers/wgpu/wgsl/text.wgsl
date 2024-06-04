@@ -234,7 +234,9 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     // does not hide the text itself.
     // The depth buffer should be a 24 bit number, so the step size
     // shuld be about the step should be about 1/2**24 == 5.96e-08
-    out.depth = varyings.position.z - 6e-8 * (2.0 - outline);
+    // However, this proved to be insufficent to remove artifacts in all cases
+    // so a value of 1e-6 is used.
+    out.depth = varyings.position.z - 1e-6 * (2.0 - outline);
 
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.

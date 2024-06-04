@@ -66,7 +66,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
     )
     args = parser.parse_args()
     direction = args.direction
-    text = args.text
+    text_str = args.text
     ref_glyph_size = args.ref_glyph_size
     family = args.family
     outline_thickness = args.outline_thickness
@@ -75,7 +75,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
 
 else:
     direction = "ltr"
-    text = (
+    text_str = (
         "Lorem ipsum\n"
         "Bonjour World Olá\n"  # some text that isn't equal in line
         "pygfx\n"  # a line with exactly 1 word
@@ -87,10 +87,10 @@ else:
     inner_outline_thickness = 0.0
     double_shot = False
 
-print(f"========= Text =========\n{text}\n========================")
-text_main = gfx.Text(
+print(f"========= Text =========\n{text_str}\n========================")
+text = gfx.Text(
     gfx.TextGeometry(
-        text=text,
+        text=text_str,
         font_size=20,
         screen_space=True,
         text_align="center",
@@ -106,39 +106,18 @@ text_main = gfx.Text(
         inner_outline_thickness=inner_outline_thickness,
     ),
 )
-text_main.local.position = (0, 0, 0)
-
-text_outline = gfx.Text(
-    gfx.TextGeometry(
-        text=text,
-        font_size=20,
-        screen_space=True,
-        text_align="center",
-        anchor="middle-center",
-        direction=direction,
-        family=family,
-        ref_glyph_size=ref_glyph_size,
-    ),
-    gfx.TextMaterial(
-        color="#00000000",
-        outline_color="#000000FF" if double_shot else "#00000000",
-        outline_thickness=outline_thickness,
-        inner_outline_thickness=inner_outline_thickness,
-    ),
-)
-# Place the outline below the main text
-text_outline.local.position = (0, 0, -1)
+text.local.position = (0, 0, 0)
 
 points = gfx.Points(
     gfx.Geometry(
         positions=[
-            text_main.local.position,
+            text.local.position,
         ],
     ),
     gfx.PointsMaterial(color="#f00", size=10),
 )
 
-scene.add(text_main, text_outline, points)
+scene.add(text, points)
 
 camera = gfx.OrthographicCamera(4, 3)
 
@@ -146,7 +125,8 @@ camera = gfx.OrthographicCamera(4, 3)
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas(size=(800, 600)))
 
 
-def handle_event(event, text):
+@renderer.add_event_handler("key_down")
+def change_justify(event):
     if event.key == "q":
         text.geometry.anchor = "top-left"
     elif event.key == "w":
@@ -196,16 +176,10 @@ def handle_event(event, text):
     elif event.key == "g":
         text.geometry.font_size /= 1.1
 
-
-@renderer.add_event_handler("key_down")
-def change_justify(event):
-    handle_event(event, text_main)
-    handle_event(event, text_outline)
-
-    print(f"Anchor: {text_main.geometry.anchor}")
-    print(f"Text align: {text_main.geometry.text_align}")
-    print(f"Text align last: {text_main.geometry.text_align_last}")
-    print(f"Font size: {text_main.geometry.font_size}")
+    print(f"Anchor: {text.geometry.anchor}")
+    print(f"Text align: {text.geometry.text_align}")
+    print(f"Text align last: {text.geometry.text_align_last}")
+    print(f"Font size: {text.geometry.font_size}")
 
     renderer.request_draw()
 
