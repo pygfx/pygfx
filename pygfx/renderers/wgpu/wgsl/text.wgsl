@@ -230,7 +230,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var out = get_fragment_output(varyings.position.z, color_out);
 
     // Move text closer to camera, since its oftern overlaid on something.
-    // The text is moved closer than the outline.
+    // The text is moved closer than the outline so that the outline of one character
+    // does not hide the text itself.
     // The depth buffer should be a 24 bit number, so the step size
     // shuld be about the step should be about 1/2**24 == 5.96e-08
     out.depth = varyings.position.z - 6e-8 * (2.0 - outline);
