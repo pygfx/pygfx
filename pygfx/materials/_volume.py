@@ -161,5 +161,5 @@ class VolumeIsoMaterial(VolumeRayMaterial):
 
     @isosurface_threshold.setter
     def isosurface_threshold(self, threshold: float) -> None:
-        self.uniform_buffer.data["isosurface_threshold"] = threshold
+        self.uniform_buffer.data["isosurface_threshold"] = float(threshold)
         self.uniform_buffer.update_range(0, 1)
