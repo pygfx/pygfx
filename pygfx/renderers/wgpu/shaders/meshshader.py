@@ -1,7 +1,7 @@
 import wgpu  # only for flags/enums
 
 
-from ....objects import Mesh, InstancedMesh
+from ....objects import Mesh, InstancedMesh, SkinnedMesh
 from ....resources import Buffer, Texture
 from ....utils import normals_from_vertices
 from ....materials import (
@@ -38,6 +38,8 @@ class MeshShader(BaseShader):
 
         # Is this an instanced mesh?
         self["instanced"] = isinstance(wobject, InstancedMesh)
+
+        self["use_skinning"] = isinstance(wobject, SkinnedMesh)
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -133,12 +135,7 @@ class MeshShader(BaseShader):
 
         if hasattr(geometry, "texcoords1") and geometry.texcoords1 is not None:
             bindings.append(
-                Binding(
-                    "s_texcoords1",
-                    "buffer/read_only_storage",
-                    geometry.texcoords1,
-                    "VERTEX",
-                )
+                Binding("s_texcoords1", rbuffer, geometry.texcoords1, "VERTEX")
             )
             self["use_texcoords1"] = True
 
@@ -148,6 +145,32 @@ class MeshShader(BaseShader):
             bindings.extend(
                 self.define_texcoords_and_colormap(
                     material.map, geometry.texcoords, material.map_interpolation
+                )
+            )
+
+        if self["use_skinning"]:
+            # Skinning requires skin_index and skin_weight buffers
+            assert hasattr(geometry, "skin_indices") and hasattr(
+                geometry, "skin_weights"
+            )
+
+            bindings.append(
+                Binding("s_skin_indices", rbuffer, geometry.skin_indices, "VERTEX")
+            )
+            bindings.append(
+                Binding("s_skin_weights", rbuffer, geometry.skin_weights, "VERTEX")
+            )
+
+            # Skinning requires a bone_matrices buffer
+
+            skeleton = wobject.skeleton
+
+            bindings.append(
+                Binding(
+                    "u_bone_matrices",
+                    "buffer/uniform",
+                    skeleton.bone_matrices_buffer,
+                    "VERTEX",
                 )
             )
 
