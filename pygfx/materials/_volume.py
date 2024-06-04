@@ -142,6 +142,14 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     threshold : float
         The threshold texture value at which the surface is rendered.
         The default value is 0.5.
+    step_size : float
+        The size of the initial ray marching step for the initial surface finding.
+        Smaller values will result in more accurate surfaces but slower rendering.
+        Default value is 1.0.
+    substep_size : float
+        The size of the raymarching step for the refined surface finding.
+        Smaller values will result in more accurate surfaces but slower rendering.
+        Default value is 0.1.
     emissive : Color
         The emissive color of the surface. I.e. the color that the object emits
         even when not lit by a light source. This color is added to the final
@@ -158,11 +166,15 @@ class VolumeIsoMaterial(VolumeRayMaterial):
         threshold="f4",
         emissive_color="4xf4",
         shininess="f4",
+        step_size="f4",
+        substep_size="f4",
     )
 
     def __init__(
         self,
         threshold: float = 0.5,
+        step_size: float = 1.0,
+        substep_size: float = 0.1,
         emissive: Color = "#000",
         shininess: float = 30,
         **kwargs
@@ -172,6 +184,8 @@ class VolumeIsoMaterial(VolumeRayMaterial):
         self.threshold = threshold
         self.emissive = emissive
         self.shininess = shininess
+        self.step_size = step_size
+        self.substep_size = substep_size
 
     @property
     def threshold(self) -> float:
@@ -181,6 +195,32 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     @threshold.setter
     def threshold(self, threshold: float) -> None:
         self.uniform_buffer.data["threshold"] = float(threshold)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def step_size(self) -> float:
+        """The size of the initial ray marching step for finding the surface.
+
+        Smaller values will result in more accurate surfaces but slower rendering.
+        """
+        return self.uniform_buffer.data["step_size"]
+
+    @step_size.setter
+    def step_size(self, size: float) -> None:
+        self.uniform_buffer.data["step_size"] = float(size)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def substep_size(self) -> float:
+        """The size of the raymarching step for the refined surface finding.
+
+        Smaller values will result in more accurate surfaces but slower rendering.
+        """
+        return self.uniform_buffer.data["substep_size"]
+
+    @substep_size.setter
+    def substep_size(self, size: float) -> None:
+        self.uniform_buffer.data["substep_size"] = float(size)
         self.uniform_buffer.update_range(0, 1)
 
     @property

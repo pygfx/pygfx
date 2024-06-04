@@ -226,11 +226,12 @@ $$ elif mode == 'iso'
         // Primary loop. The purpose is to find the approximate location where
         // the surface is.
         let iso_threshold = u_material.threshold;
+        let actual_step_coord = u_material.step_size * step_coord;
         var surface_found = false;
         var the_coord = start_coord;
         var the_value : vec4<f32>;
         for (var iter=0.0; iter<nstepsf; iter=iter+1) {
-            let coord = start_coord + iter * step_coord;
+            let coord = start_coord + iter * actual_step_coord;
             let value = sample_vol(coord, sizef);
             let reff = value.r;
             if (reff > iso_threshold) {
@@ -243,9 +244,10 @@ $$ elif mode == 'iso'
 
         if surface_found {
             // take smaller steps back to make sure the surface was found
-            let substep_coord = -0.1 * step_coord;
+            let substep_coord = -1 * u_material.substep_size * step_coord;
             let substep_start_coord = the_coord;
-            for (var iter=1.0; iter<10; iter=iter+1) {
+            let max_iter = 1 / u_material.substep_size;
+            for (var iter=1.0; iter<max_iter; iter=iter+1) {
                 let coord = substep_start_coord + iter * substep_coord;
                 let value = sample_vol(coord, sizef);
                 let reff = value.r;
