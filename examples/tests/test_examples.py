@@ -18,7 +18,7 @@ import imageio.v3 as iio
 import numpy as np
 import pytest
 
-from examples.tests.testutils import (
+from .testutils import (
     wgpu_backend,
     is_lavapipe,
     find_examples,
@@ -83,44 +83,33 @@ def test_examples_meta():
     assert not errors, "Meta-errors in examples:\n" + "\n".join(errors)
 
 
-@pytest.mark.parametrize("module", examples_to_run, ids=lambda x: x.stem)
-def test_examples_run(module, force_offscreen):
+@pytest.mark.parametrize("filename", examples_to_run, ids=lambda x: x.stem)
+def test_examples_run(filename, force_offscreen):
     """Run every example marked to see if they can run without error."""
 
     # use runpy so the module is not actually imported (and can be gc'd)
     # but also to be able to run the code in the __main__ block
 
-    # (relative) module name from project root
-    module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
-
     # Reset logged warnings/errors
     log_handler.records = []
 
-    runpy.run_module(module_name, run_name="__main__")
+    runpy.run_path(filename, run_name="__main__")
 
     # If any errors occurred in the draw callback, they are logged
     if log_handler.records:
         raise RuntimeError("Example generated errors during draw")
 
 
-@pytest.mark.parametrize("module", examples_to_compare, ids=lambda x: x.stem)
-def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, request):
+@pytest.mark.parametrize("filename", examples_to_compare, ids=lambda x: x.stem)
+def test_examples_compare(filename, pytestconfig, force_offscreen, mock_time):
     """Run every example marked to compare its result against a reference screenshot."""
 
-    # (relative) module name from project root
-    module_name = module.relative_to(ROOT).with_suffix("").as_posix().replace("/", ".")
-
     # import the example module
-    example = importlib.import_module(module_name)
-
-    # ensure it is unloaded after the test
-    def unload_module():
-        del sys.modules[module_name]
-
-    request.addfinalizer(unload_module)
+    module_name = filename.stem
+    module = import_from_path(module_name, filename)
 
     # render a frame
-    img = np.asarray(example.renderer.target.draw())
+    img = np.asarray(module.renderer.target.draw())
 
     # check if _something_ was rendered
     assert img is not None and img.size > 0
@@ -135,22 +124,37 @@ def test_examples_compare(module, pytestconfig, force_offscreen, mock_time, requ
         pytest.skip("screenshot comparisons are only done when using lavapipe")
 
     # regenerate screenshot if requested
-    screenshot_path = screenshots_dir / f"{module.stem}.png"
+    screenshot_path = screenshots_dir / f"{module_name}.png"
     if pytestconfig.getoption("regenerate_screenshots"):
         iio.imwrite(screenshot_path, img)
 
     # if a reference screenshot exists, assert it is equal
     assert screenshot_path.exists(), "found no reference screenshot"
     stored_img = iio.imread(screenshot_path)
+
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)
-    update_diffs(module.stem, is_similar, img, stored_img)
+    update_diffs(module_name, is_similar, img, stored_img)
     assert is_similar, (
-        f"rendered image for example {module.stem} changed, see "
+        f"rendered image for example {module_name} changed, see "
         f"the {diffs_dir.relative_to(ROOT).as_posix()} folder"
         " for visual diffs (you can download this folder from"
         " CI build artifacts as well)"
     )
+
+
+def import_from_path(module_name, filename):
+    spec = importlib.util.spec_from_file_location(module_name, filename)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    # With this approach the module is not added to sys.modules, which
+    # is great, because that way the gc can simply clean up when we lose
+    # the reference to the module
+    assert module.__name__ == module_name
+    assert module_name not in sys.modules
+
+    return module
 
 
 def update_diffs(module, is_similar, img, stored_img):
