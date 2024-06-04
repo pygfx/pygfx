@@ -14,6 +14,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
     SizeMode
     ElementFormat
     VisibleSide
+    BindMode
 
 """
 
@@ -25,6 +26,7 @@ __all__ = [
     "MarkerShape",
     "ElementFormat",
     "VisibleSide",
+    "BindMode",
 ]
 
 # We implement a custom enum class that's much simpler than Python's enum.Enum,
@@ -180,6 +182,15 @@ class VisibleSide(Enum):
     front = None  #: The front is visible.
     back = None  #: The back is visible.
     both = None  #: Both the front and back are visible.
+
+
+class BindMode(Enum):
+    """The BindMode enum specifies how a skinned mesh is bound to its skeleton."""
+
+    attached = (
+        "attached"  #: The skinned mesh shares the same world space as the skeleton.
+    )
+    detached = "detached"  #: The skinned mesh has its own world space.
 
 
 # NOTE: Don't forget to add new enums to the toctree and __all__

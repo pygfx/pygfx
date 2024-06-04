@@ -180,6 +180,8 @@ class WorldObject(EventTarget, RootTrackable):
         self.cast_shadow = False
         self.receive_shadow = False
 
+        self.name = name
+
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
