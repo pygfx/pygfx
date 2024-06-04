@@ -6,7 +6,7 @@ $$ if colormap_dim
     {$ include 'pygfx.colormap.wgsl' $}
 $$ endif
 $$ if mode == 'iso'
-    {$ include 'pygfx.volume_iso.wgsl' $}
+    {$ include 'pygfx.light_phong_simple.wgsl' $}
 $$ endif
 {$ include 'pygfx.volume_common.wgsl' $}
 

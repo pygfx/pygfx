@@ -1,5 +1,6 @@
 from ..resources import Texture
 from ._base import Material
+from ..utils.color import Color
 
 
 class VolumeBasicMaterial(Material):
@@ -141,15 +142,21 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     threshold : float
         The threshold texture value at which the surface is rendered.
         The default value is 0.5.
+    emissive : Color
+        The emissive color of the surface. I.e. the color that the object emits
+        even when not lit by a light source. This color is added to the final
+        color and unaffected by lighting. The alpha channel is ignored.
+        Default value is (0, 0, 0, 1).
     """
 
     render_mode = "iso"
     uniform_type = dict(
         VolumeBasicMaterial.uniform_type,
         threshold="f4",
+        emissive_color="4xf4",
     )
 
-    def __init__(self, threshold: float = 0.5, **kwargs):
+    def __init__(self, threshold: float = 0.5, emissive: Color = "#000", **kwargs):
         super().__init__(**kwargs)
 
         self.threshold = threshold
@@ -162,4 +169,18 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     @threshold.setter
     def threshold(self, threshold: float) -> None:
         self.uniform_buffer.data["threshold"] = float(threshold)
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def emissive(self):
+        """The emissive (light) color of the surface.
+        This color is added to the final color and is unaffected by lighting.
+        The alpha channel of this color is ignored.
+        """
+        return Color(self.uniform_buffer.data["emissive_color"])
+
+    @emissive.setter
+    def emissive(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["emissive_color"] = color
         self.uniform_buffer.update_range(0, 1)
