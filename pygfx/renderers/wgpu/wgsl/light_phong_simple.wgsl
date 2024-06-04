@@ -14,7 +14,7 @@
     let ambient_factor = 0.1;
     let diffuse_factor = 0.7;
     let specular_factor = 0.3;
-    let shininess = 30.0;
+    let shininess = u_material.shininess;
 
     // Base vectors
     let view = normalize(view_dir);

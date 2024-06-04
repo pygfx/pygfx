@@ -147,6 +147,9 @@ class VolumeIsoMaterial(VolumeRayMaterial):
         even when not lit by a light source. This color is added to the final
         color and unaffected by lighting. The alpha channel is ignored.
         Default value is (0, 0, 0, 1).
+    shininess : int
+        How shiny the specular highlight is; a higher value gives a sharper
+        highlight. Default value is 30.
     """
 
     render_mode = "iso"
@@ -154,12 +157,21 @@ class VolumeIsoMaterial(VolumeRayMaterial):
         VolumeBasicMaterial.uniform_type,
         threshold="f4",
         emissive_color="4xf4",
+        shininess="f4",
     )
 
-    def __init__(self, threshold: float = 0.5, emissive: Color = "#000", **kwargs):
+    def __init__(
+            self,
+            threshold: float = 0.5,
+            emissive: Color = "#000",
+            shininess: float=30,
+            **kwargs
+    ):
         super().__init__(**kwargs)
 
         self.threshold = threshold
+        self.emissive = emissive
+        self.shininess = shininess
 
     @property
     def threshold(self) -> float:
@@ -183,4 +195,16 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
+        self.uniform_buffer.update_range(0, 1)
+
+    @property
+    def shininess(self):
+        """How shiny the specular highlight is; a higher value gives a sharper highlight.
+        Default is 30.
+        """
+        return float(self.uniform_buffer.data["shininess"])
+
+    @shininess.setter
+    def shininess(self, value):
+        self.uniform_buffer.data["shininess"] = float(value)
         self.uniform_buffer.update_range(0, 1)
