@@ -2,7 +2,8 @@ import pylinalg as la
 import numpy as np
 
 from ._base import WorldObject
-from ..utils import unpack_bitfield
+from ..resources import Buffer
+from ..utils import unpack_bitfield, array_from_shadertype
 from ..utils.transform import AffineBase, callback
 from ..materials import BackgroundMaterial
 
@@ -195,6 +196,53 @@ class Mesh(WorldObject):
         The position of the object in the world. Default (0, 0, 0).
 
     """
+
+    def __init__(self, geometry=None, material=None, *args, **kwargs):
+        super().__init__(geometry, material, *args, **kwargs)
+        self._morph_target_influences = None
+
+    @property
+    def morph_target_influences(self):
+        """
+        An ndarray of weights typically from 0-1 that specify how much of the morph is applied.
+        """
+        return self._morph_target_influences.data["influence"][:-1]
+
+    @morph_target_influences.setter
+    def morph_target_influences(self, value):
+        morph_target_count = len(self.geometry.morph_attributes.get("positions", []))
+
+        assert len(value) == morph_target_count, (
+            f"Length of morph target influences must match the number of morph targets. "
+            f"Expected {morph_target_count}, got {len(value)}."
+        )
+
+        if (
+            self._morph_target_influences is None
+            or self._morph_target_influences.nitems != morph_target_count + 1
+        ):
+            self._morph_target_influences = Buffer(
+                array_from_shadertype(
+                    {
+                        "influence": "f4",
+                    },
+                    morph_target_count + 1,
+                )
+            )
+
+        if not isinstance(value, np.ndarray):
+            value = np.array(value, dtype=np.float32)
+
+        if self.geometry.morph_targets_relative:
+            base_influence = 1.0
+        else:
+            base_influence = 1 - value.sum()
+
+        # Add the base influence to the end of the array
+        value = np.concatenate([value, [base_influence]], axis=0)
+
+        self._morph_target_influences.data["influence"] = value
+        self._morph_target_influences.update_range()
 
     def _wgpu_get_pick_info(self, pick_value):
         values = unpack_bitfield(
