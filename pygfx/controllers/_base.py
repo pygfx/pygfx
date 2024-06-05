@@ -59,7 +59,7 @@ class Controller:
         register_events=None,
     ):
         # Init cameras
-        self._cameras = []
+        self._cameras = []  # camera, filter
         if camera is not None:
             self.add_camera(camera)
 
@@ -88,9 +88,9 @@ class Controller:
     @property
     def cameras(self):
         """A tuple with the cameras under control, in the order that they were added."""
-        return tuple(self._cameras)
+        return tuple(cam for cam, _ in self._cameras)
 
-    def add_camera(self, camera):
+    def add_camera(self, camera, filter=None):
         """Add a camera to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
@@ -99,14 +99,17 @@ class Controller:
                 "Controller.add_camera expects a perspective or orthographic camera."
             )
         self.remove_camera(camera)
-        self._cameras.append(camera)
+        self._cameras.append((camera, filter))
 
     def remove_camera(self, camera):
         """Remove a camera from the list of cameras to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.remove_camera expects a Camera object.")
-        while camera in self._cameras:
-            self._cameras.remove(camera)
+        new_cameras = []
+        for cam, filter in self._cameras:
+            if cam is not camera:
+                new_cameras.append((cam, filter))
+        self._cameras = new_cameras
         if not self._cameras:
             self._actions = {}  # cancel any in-progress actions
 
@@ -240,7 +243,7 @@ class Controller:
         if not self._cameras:
             raise ValueError("No cameras attached!")
 
-        camera = self._cameras[0]
+        camera, _ = self._cameras[0]
         cam_state = self._get_camera_state()
         target = cam_state["position"] + self._get_target_vec(cam_state)
         vecx, vecy = get_screen_vectors_in_world_cords(target, rect[2:], camera)
@@ -254,7 +257,7 @@ class Controller:
         if self._actions:
             return self._last_cam_state.copy()
         elif self._cameras:
-            return self._cameras[0].get_state()
+            return self._cameras[0][0].get_state()
         else:
             raise ValueError("No cameras attached!")
 
@@ -274,8 +277,27 @@ class Controller:
         be called by code that knows that internally stored state is valid.
         """
         if self._auto_update:
-            for camera in self._cameras:
-                camera.set_state(self._last_cam_state)
+            for camera, filter in self._cameras:
+                state = self._last_cam_state
+                if filter is not None:
+                    state = {}
+                    for key in filter:
+                        if key.startswith(("position_", "scale_")):
+                            val = self._last_cam_state.get(key.split("_")[0], None)
+                            if val is not None:
+                                if key.endswith("_x"):
+                                    state[key] = val[0]
+                                elif key.endswith("_y"):
+                                    state[key] = val[1]
+                                elif key.endswith("_z"):
+                                    state[key] = val[2]
+                        else:
+                            val = self._last_cam_state.get(key, None)
+                            if val is not None:
+                                state[key] = val
+                    # state = {k: v for k, v in state.items() if k in filter}
+                    print(state)
+                camera.set_state(state)
         return self._last_cam_state
 
     def add_default_event_handlers(self, *args):
@@ -401,7 +423,7 @@ class Controller:
 
         # Make sure that we have an up-to-date cam_state
         if not self._actions:
-            self._last_cam_state = self._cameras[0].get_state()
+            self._last_cam_state = self._cameras[0][0].get_state()
             self._last_tick_time = perf_counter()
 
         # Create action
@@ -468,7 +490,7 @@ class Controller:
             return self._update_cameras()
 
     def _update_fov(self, delta: float):
-        fov_range = self._cameras[0]._fov_range
+        fov_range = self._cameras[0][0]._fov_range
 
         # Get current state
         cam_state = self._get_camera_state()

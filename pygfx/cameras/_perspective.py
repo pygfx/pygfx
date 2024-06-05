@@ -229,19 +229,24 @@ class PerspectiveCamera(Camera):
 
     def set_state(self, state):
         # Set the more complex props
-        if "position" in state:
-            self.local.position = state["position"]
-        if "rotation" in state:
-            self.local.rotation = state["rotation"]
-        if "scale" in state:
-            self.local.scale = state["scale"]
-        if "reference_up" in state:
-            self.world.reference_up = state["reference_up"]
-
-        # Set simple props
-        for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
-            if key in state:
-                setattr(self, key, state[key])
+        for key, value in state.items():
+            if key == "position":
+                self.local.position = value
+            elif key.startswith("position_"):
+                if key.endswith(("_x", "_y", "_z")):
+                    setattr(self.local, key[-1], value)
+            elif key == "scale":
+                self.local.scale = value
+            elif key.startswith("scale_"):
+                if key.endswith(("_x", "_y", "_z")):
+                    setattr(self.local, key, value)
+            elif key == "rotation":
+                self.local.rotation = value
+            elif key == "reference_up":
+                self.world.reference_up = value
+            elif key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
+                # Simple props
+                setattr(self, key, value)
 
     def set_view_size(self, width, height):
         self._view_aspect = width / height
