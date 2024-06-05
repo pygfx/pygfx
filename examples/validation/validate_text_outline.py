@@ -31,7 +31,7 @@ text = gfx.Text(
         color="#DA9DFF",
         outline_color="#000",
         # Choose a very thick outline to ensure the effect is noticeable
-        outline_thickness=0.50,
+        outline_thickness=0.45,
     ),
 )
 
