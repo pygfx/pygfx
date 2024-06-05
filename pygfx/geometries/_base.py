@@ -92,7 +92,8 @@ class Geometry(Trackable):
 
         Notes
         -----
-        Once the geometry has been rendered, the morph attribute data cannot be changed. You will have to create a new instance of Geometry.
+        Once the geometry has been rendered, the morph attribute data cannot be changed.
+        You will have to create a new instance of Geometry if you want to change the morph attributes.
         """
         return self._morph_attributes
 
@@ -113,10 +114,6 @@ class Geometry(Trackable):
     @morph_targets_relative.setter
     def morph_targets_relative(self, value):
         self._morph_targets_relative = value
-
-    @property
-    def morph_targets_relative(self):
-        return self._morph_targets_relative
 
     def __setattr__(self, key, new_value):
         if not key.startswith("_"):

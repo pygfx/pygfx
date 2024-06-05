@@ -211,8 +211,6 @@ class MeshShader(BaseShader):
                 self["morph_targets_stride"] = stride
                 self["morph_targets_texture_width"] = width
 
-                self["morph_targets_relative"] = geometry.morph_targets_relative
-
             else:
                 self["use_morph_targets"] = False
 
