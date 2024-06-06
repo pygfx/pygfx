@@ -282,6 +282,68 @@ class SimpleTransparencyPass(BasePass):
         }
         """
 
+class SimpleTransparencyPassWithPick(SimpleTransparencyPass):
+    # Which one do we need?
+    render_mask = 2  # transparent only
+    # render_mask = 3  # opaque end transparent
+    write_pick = True
+
+    def get_color_descriptors(self, blender, material_write_pick):
+        bf, bo = wgpu.BlendFactor, wgpu.BlendOperation
+        return [
+            {
+                "format": blender.color_format,
+                "blend": {
+                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                },
+                "write_mask": wgpu.ColorWrite.ALL,
+            },
+            {
+                "format": blender.pick_format,
+                "blend": None,
+                "write_mask": wgpu.ColorWrite.ALL if material_write_pick else 0,
+            },
+        ]
+
+    def get_color_attachments(self, blender):
+        color_load_op = pick_load_op = wgpu.LoadOp.load
+        if blender.color_clear:
+            blender.color_clear = False
+            color_load_op = wgpu.LoadOp.clear
+        if blender.pick_clear:
+            blender.pick_clear = False
+            pick_load_op = wgpu.LoadOp.clear
+
+        return [
+            {
+                "view": blender.color_view,
+                "resolve_target": None,
+                "load_op": color_load_op,
+                "store_op": wgpu.StoreOp.store,
+            },
+            {
+                "view": blender.pick_view,
+                "resolve_target": None,
+                "clear_value": (0, 0, 0, 0),
+                "load_op": pick_load_op,
+                "store_op": wgpu.StoreOp.store,
+            },
+        ]
+
+    def get_shader_code(self, blender):
+        return """
+        struct FragmentOutput {
+            @location(0) color: vec4<f32>,
+            @location(1) pick: vec4<u32>,
+        };
+        fn get_fragment_output(depth: f32, color: vec4<f32>) -> FragmentOutput {
+            if (color.a <= ALPHA_COMPARE_EPSILON) { discard; }
+            var out : FragmentOutput;
+            out.color = vec4<f32>(color.rgb * color.a, color.a);
+            return out;
+        }
+        """
 
 class WeightedTransparencyPass(BasePass):
     """A pass that implements weighted blended order-independent
@@ -674,6 +736,16 @@ class Ordered2FragmentBlender(BaseFragmentBlender):
     """
 
     passes = [OpaquePass(), SimpleTransparencyPass()]
+
+
+class Ordered2FragmentBlenderWithPick(BaseFragmentBlender):
+    """A first step towards better blending: separating the opaque from
+    the transparent fragments, and blending the latter using the alpha
+    blending equation. The second step has depth-testing, and writes the pick
+    as well. Order dependent.
+    """
+
+    passes = [OpaquePass(), SimpleTransparencyPassWithPick()]
 
 
 class WeightedFragmentBlender(BaseFragmentBlender):

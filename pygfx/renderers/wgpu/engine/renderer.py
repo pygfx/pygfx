@@ -63,6 +63,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
           fragments and then blends transparent fragments (using alpha blending)
           with depth-write disabled. The visual results are usually better than
           ordered1, but still depend on the drawing order.
+        * "ordered2wp": two-pass approach that first processes all opaque
+          fragments and then blends transparent fragments (using alpha blending)
+          with depth-write disabled. The visual results should be identical to
+          "ordered2", but this mode also allows for picking from the transparency
+          pass.
         * "weighted": two-pass approach for order independent transparency based
           on alpha weights.
         * "weighted_depth": two-pass approach for order independent transparency
@@ -320,6 +325,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             "opaque": blender_module.OpaqueFragmentBlender,
             "ordered1": blender_module.Ordered1FragmentBlender,
             "ordered2": blender_module.Ordered2FragmentBlender,
+            "ordered2wp": blender_module.Ordered2FragmentBlenderWithPick,
             "weighted": blender_module.WeightedFragmentBlender,
             "weighted_depth": blender_module.WeightedDepthFragmentBlender,
             "weighted_plus": blender_module.WeightedPlusFragmentBlender,
