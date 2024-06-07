@@ -4,7 +4,7 @@ Transparency 1
 
 Example showing transparency using three overlapping planes.
 Press space to toggle the order of the planes.
-Press 1-6 to select the blend mode.
+Press 1-7 to select the blend mode.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -56,13 +56,14 @@ def handle_event(event):
         canvas.request_draw()
     elif event.key in "0123456789":
         m = [
-            None,
-            "opaque",
-            "ordered1",
-            "ordered2",
-            "weighted",
-            "weighted_depth",
-            "weighted_plus",
+            None,  # 0
+            "opaque",  # 1
+            "ordered1",  # 2
+            "ordered2",  # 3
+            "weighted",  # 4
+            "weighted_depth",  # 5
+            "weighted_plus",  # 6
+            "additive",  # 7
         ]
         mode = m[int(event.key)]
         renderer.blend_mode = mode
