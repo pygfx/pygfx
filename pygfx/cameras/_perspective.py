@@ -214,6 +214,15 @@ class PerspectiveCamera(Camera):
         return far
 
     def get_state(self):
+        """Get the state of the camera as a dict.
+
+        The fields contain "position", "rotation", "scale", and
+        "reference_up", representing the camera's transform. The scale
+        is typically not used, but included for completeness. Further,
+        the following properties are included: "fov", "width", "height",
+        "zoom", "maintain_aspect", and "depth_range".
+
+        """
         return {
             "position": self.local.position,
             "rotation": self.local.rotation,
@@ -228,23 +237,33 @@ class PerspectiveCamera(Camera):
         }
 
     def set_state(self, state):
+        """Set the state of the camera from a dict.
+
+        Accepted fields are the same as in ``get_state()``. In addition,
+        the fields ``x``, ``y``, and ``z`` are also accepted to set the
+        position along a singular dimension.
+
+        """
         # Set the more complex props
         for key, value in state.items():
             if key == "position":
                 self.local.position = value
-            elif key.startswith("position_"):
-                if key.endswith(("_x", "_y", "_z")):
-                    setattr(self.local, key[-1], value)
+            if key in ("x", "y", "z"):
+                setattr(self.local, key, value)
             elif key == "scale":
                 self.local.scale = value
-            elif key.startswith("scale_"):
-                if key.endswith(("_x", "_y", "_z")):
-                    setattr(self.local, key, value)
             elif key == "rotation":
                 self.local.rotation = value
             elif key == "reference_up":
                 self.world.reference_up = value
-            elif key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
+            elif key in (
+                "fov",
+                "width",
+                "height",
+                "zoom",
+                "maintain_aspect",
+                "depth_range",
+            ):
                 # Simple props
                 setattr(self, key, value)
 
