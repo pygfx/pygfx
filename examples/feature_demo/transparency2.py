@@ -39,6 +39,15 @@ controller = gfx.OrbitController(camera, register_events=renderer)
 
 scene.add(camera.add(gfx.DirectionalLight()))
 
+scene_overlay = gfx.Scene()
+blend_mode_text = gfx.Text(
+    gfx.TextGeometry(f"Blend mode: {renderer.blend_mode}", anchor="bottom-left"),
+    gfx.TextMaterial(outline_thickness=0.3),
+)
+scene_overlay.add(blend_mode_text)
+
+screen_camera = gfx.ScreenCoordsCamera()
+
 
 @renderer.add_event_handler("key_down")
 def handle_event(event):
@@ -64,11 +73,16 @@ def handle_event(event):
         mode = m[int(event.key)]
         renderer.blend_mode = mode
         print("Selecting blend_mode", mode)
+        blend_mode_text.geometry.set_text(f"Blend mode: {mode}")
 
 
 def animate():
-    renderer.render(scene, camera)
-    canvas.request_draw()
+    renderer.render(scene, camera, flush=False)
+    renderer.render(
+        scene_overlay,
+        screen_camera,
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
