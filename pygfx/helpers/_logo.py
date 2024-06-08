@@ -129,8 +129,10 @@ def make_logo_scene_camera(scale=100):
     camera = ScreenCoordsCamera()
     return logo, camera
 
+
 # Make singleton for fast access
 logo, logo_camera = make_logo_scene_camera()
+
 
 def render_with_logo(renderer, scene, camera, flush=True):
     renderer.render(scene, camera, flush=False)
