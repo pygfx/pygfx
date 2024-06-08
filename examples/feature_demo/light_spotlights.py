@@ -143,7 +143,7 @@ def init_scene():
 
             tween.update()
 
-        renderer.render(scene, camera)
+        gfx.render_with_logo(renderer, scene, camera)
         renderer.request_draw()
 
     renderer.request_draw(animate)

@@ -42,7 +42,8 @@ def animate():
     # as an overlay, so that it's always on top.
     viewport.render(scene, camera)
     viewport.render(gizmo, camera)
-    renderer.flush()
+    # This will flush the viewport
+    gfx.render_with_logo(renderer)
 
 
 if __name__ == "__main__":

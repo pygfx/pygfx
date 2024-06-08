@@ -134,7 +134,7 @@ def animate():
     for obj in scene.children:
         obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

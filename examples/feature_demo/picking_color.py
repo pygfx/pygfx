@@ -49,7 +49,7 @@ def animate():
     rot = la.quat_from_euler((0.005, 0.01), order="XY")
     cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

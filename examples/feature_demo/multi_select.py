@@ -98,7 +98,7 @@ def animate():
             obj.local.rotation = la.quat_mul(obj.random_rotation, obj.local.rotation)
 
     scene.traverse(random_rot)
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

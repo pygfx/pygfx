@@ -68,7 +68,7 @@ def animate():
     cube2.local.rotation = la.quat_mul(rot, cube2.local.rotation)
 
     renderer1.render(scene1, camera1)
-    renderer2.render(scene2, camera2)
+    gfx.render_with_logo(renderer2, scene2, camera2)
 
     renderer2.request_draw()
 

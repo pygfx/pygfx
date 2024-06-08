@@ -42,7 +42,7 @@ def animate():
     tex.data[:] = next(frame_generator)
     tex.update_range((0, 0, 0), tex.size)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

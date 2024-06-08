@@ -88,7 +88,7 @@ def animate():
     for viewport, s, c in zip(viewports, scenes, cameras):
         viewport.render(s, c)
 
-    renderer.flush()
+    gfx.render_with_logo(renderer)
     canvas.request_draw()
 
 

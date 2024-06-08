@@ -106,4 +106,7 @@ scene.add(t)
 
 if __name__ == "__main__":
     renderer.request_draw(lambda: renderer.render(scene, camera))
+    # The logo actually makes this look quite bad since the example is is also
+    # A yellow triangle in the bottom left of the scene
+    # renderer.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
     run()

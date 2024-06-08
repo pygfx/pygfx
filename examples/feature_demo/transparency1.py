@@ -38,6 +38,7 @@ blend_mode_text = gfx.Text(
     gfx.TextGeometry(f"Blend mode: {renderer.blend_mode}", anchor="bottom-left"),
     gfx.TextMaterial(outline_thickness=0.3),
 )
+blend_mode_text.local.position = 50, 0, 0
 scene_overlay.add(blend_mode_text)
 
 screen_camera = gfx.ScreenCoordsCamera()
@@ -73,7 +74,7 @@ def handle_event(event):
 
 def animate():
     renderer.render(scene, camera, flush=False)
-    renderer.render(scene_overlay, screen_camera, flush=True)
+    gfx.render_with_logo(renderer, scene_overlay, screen_camera, flush=True)
 
 
 if __name__ == "__main__":

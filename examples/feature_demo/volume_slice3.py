@@ -24,7 +24,7 @@ index = nslices // 2
 
 vol = gfx.Volume(
     gfx.Geometry(grid=voldata),
-    gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, -1, index)),
+    gfx.VolumeSliceMaterial(clim=(0, 2000), plane=(0, 0, -1, index), pick_write=True),
 )
 scene.add(vol)
 
@@ -50,5 +50,5 @@ def handle_pointer_event(event):
 
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    canvas.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
     run()

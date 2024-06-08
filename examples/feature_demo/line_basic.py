@@ -98,7 +98,7 @@ def set_last_node(event):
 
 def animate():
     line.material.dash_offset += 0.1
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

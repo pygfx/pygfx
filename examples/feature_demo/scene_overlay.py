@@ -71,7 +71,7 @@ def animate():
     cube2.local.rotation = cube1.local.rotation
 
     renderer.render(scene1, camera, flush=False)
-    renderer.render(scene2, camera)
+    gfx.render_with_logo(renderer, scene2, camera)
 
     canvas.request_draw()
 

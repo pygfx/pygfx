@@ -47,7 +47,7 @@ def animate():
     rot = la.quat_from_euler((0.0071, 0.01), order="XY")
     obj.local.rotation = la.quat_mul(rot, obj.local.rotation)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

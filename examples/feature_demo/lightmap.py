@@ -90,7 +90,7 @@ def animate():
     vp2.render(scene2, camera)
     vp3.render(scene3, camera)
     vp4.render(text_scene, text_camera)
-    renderer.flush()
+    gfx.render_with_logo(renderer)  # this will flush the viewports
 
 
 if __name__ == "__main__":

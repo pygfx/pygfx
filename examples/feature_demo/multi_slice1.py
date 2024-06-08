@@ -76,7 +76,7 @@ def animate():
     plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
     plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 
