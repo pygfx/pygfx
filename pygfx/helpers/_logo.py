@@ -134,6 +134,7 @@ def make_logo_scene_camera(scale=100):
 logo, logo_camera = make_logo_scene_camera()
 
 
-def render_with_logo(renderer, scene, camera, flush=True):
-    renderer.render(scene, camera, flush=False)
+def render_with_logo(renderer, scene=None, camera=None, flush=True):
+    if scene is not None and camera is not None:
+        renderer.render(scene, camera, flush=False)
     renderer.render(logo, logo_camera, flush=flush)

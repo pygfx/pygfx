@@ -20,7 +20,7 @@ from ..cameras import Camera, PerspectiveCamera
 from ..controllers import OrbitController
 from ..materials import BackgroundMaterial
 from ..renderers import WgpuRenderer
-from ..helpers import Stats
+from ..helpers import Stats, render_with_logo
 
 
 class Display:
@@ -91,7 +91,7 @@ class Display:
             flush = False
             self.stats.start()
 
-        self.renderer.render(self.scene, self.camera, flush=flush)
+        render_with_logo(self.renderer, self.scene, self.camera, flush=flush)
 
         if self.stats:
             self.stats.stop()
