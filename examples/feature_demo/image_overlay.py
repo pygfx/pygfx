@@ -60,7 +60,12 @@ camera.local.scale_y = -1
 camera.zoom = 1.2
 
 controller = gfx.PanZoomController(camera, register_events=renderer)
+logo, logo_camera = gfx.make_logo_scene_camera()
+
+def render():
+    renderer.render(scene, camera, flush=False)
+    renderer.render(logo, logo_camera)
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    canvas.request_draw(lambda: render())
     run()
