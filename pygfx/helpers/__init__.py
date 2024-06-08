@@ -34,4 +34,4 @@ from ._lights import (
 )
 from ._stats import Stats
 from ._skeleton import SkeletonHelper
-from ._logo import make_logo_scene_camera
+from ._logo import render_with_logo
