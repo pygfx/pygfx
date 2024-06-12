@@ -214,6 +214,15 @@ class PerspectiveCamera(Camera):
         return far
 
     def get_state(self):
+        """Get the state of the camera as a dict.
+
+        The fields contain "position", "rotation", "scale", and
+        "reference_up", representing the camera's transform. The scale
+        is typically not used, but included for completeness. Further,
+        the following properties are included: "fov", "width", "height",
+        "zoom", "maintain_aspect", and "depth_range".
+
+        """
         return {
             "position": self.local.position,
             "rotation": self.local.rotation,
@@ -228,20 +237,35 @@ class PerspectiveCamera(Camera):
         }
 
     def set_state(self, state):
-        # Set the more complex props
-        if "position" in state:
-            self.local.position = state["position"]
-        if "rotation" in state:
-            self.local.rotation = state["rotation"]
-        if "scale" in state:
-            self.local.scale = state["scale"]
-        if "reference_up" in state:
-            self.world.reference_up = state["reference_up"]
+        """Set the state of the camera from a dict.
 
-        # Set simple props
-        for key in ("fov", "width", "height", "zoom", "maintain_aspect", "depth_range"):
-            if key in state:
-                setattr(self, key, state[key])
+        Accepted fields are the same as in ``get_state()``. In addition,
+        the fields ``x``, ``y``, and ``z`` are also accepted to set the
+        position along a singular dimension.
+
+        """
+        # Set the more complex props
+        for key, value in state.items():
+            if key == "position":
+                self.local.position = value
+            if key in ("x", "y", "z"):
+                setattr(self.local, key, value)
+            elif key == "scale":
+                self.local.scale = value
+            elif key == "rotation":
+                self.local.rotation = value
+            elif key == "reference_up":
+                self.world.reference_up = value
+            elif key in (
+                "fov",
+                "width",
+                "height",
+                "zoom",
+                "maintain_aspect",
+                "depth_range",
+            ):
+                # Simple props
+                setattr(self, key, value)
 
     def set_view_size(self, width, height):
         self._view_aspect = width / height
