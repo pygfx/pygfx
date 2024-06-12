@@ -61,7 +61,7 @@ def animate():
     renderer.render(scene2, camera2, flush=False, rect=(w / 2, 0, w / 2, h / 2))
     renderer.render(scene2, camera2, flush=False, rect=(0, h / 2, w / 2, h / 2))
     renderer.render(scene1, camera1, flush=False, rect=(w / 2, h / 2, w / 2, h / 2))
-    renderer.flush()
+    gfx.render_with_logo(renderer)
 
     canvas.request_draw()
 

@@ -44,7 +44,7 @@ def animate():
     obj1.local.rotation = la.quat_mul(rot, obj1.local.rotation)
     obj2.local.rotation = la.quat_mul(rot, obj2.local.rotation)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 
