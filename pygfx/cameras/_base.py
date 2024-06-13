@@ -40,9 +40,7 @@ class Camera(WorldObject):
         return {}
 
     def set_state(self, state):
-        """Set the state of the camera from a dict obtained with ``get_state``
-        from a camera of the same type.
-        """
+        """Set the state of the camera from a dict."""
         pass
 
     @property
