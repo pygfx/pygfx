@@ -267,7 +267,7 @@ class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
-        return adapter.request_adapter_info()
+        return adapter.info.copy()
 
 
 class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
