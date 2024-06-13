@@ -267,7 +267,10 @@ class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
-        return adapter.info.copy()
+        if hasattr(adapter, "request_adapter_info"):  # wgpu-py < 0.16
+            return adapter.request_adapter_info()
+        else:
+            return adapter.info
 
 
 class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):
