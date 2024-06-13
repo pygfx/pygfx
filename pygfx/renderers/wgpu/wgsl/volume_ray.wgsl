@@ -214,7 +214,7 @@ $$ if mode == 'mip'
     }
 
 $$ elif mode == 'minip'
-    // raycasting function for MIP rendering.
+    // raycasting function for MINimum Intensity Projection rendering.
     fn raycast(sizef: vec3<f32>, nsteps: i32, start_coord: vec3<f32>, step_coord: vec3<f32>) -> RenderOutput {
         // Ideas for improvement:
         // * We could textureLoad() the 27 voxels surrounding the initial location
