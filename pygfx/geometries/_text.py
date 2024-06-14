@@ -184,6 +184,8 @@ class TextGeometry(Geometry):
         depending on the value of the ``screen_space`` property. Default 12.
     anchor : str
         The position of the origin of the text. Default "middle-center".
+    anchor_offset : float
+        The offset (extra margin) for the 'top', 'bottom', 'left', and 'right' anchors.
     max_width : float
         The maximum width of the text. Words are wrapped if necessary. A value
         of zero means no wrapping. Default zero.
@@ -220,6 +222,7 @@ class TextGeometry(Geometry):
         screen_space=False,
         font_size=12,
         anchor="middle-center",
+        anchor_offset=0,
         max_width=0,
         line_height=1.2,
         text_align="left",
@@ -258,6 +261,7 @@ class TextGeometry(Geometry):
         # Set layout props
         self.font_size = font_size
         self.anchor = anchor
+        self.anchor_offset = anchor_offset
         self.max_width = max_width
         self.line_height = line_height
         self.text_align = text_align
@@ -794,21 +798,22 @@ class TextGeometry(Geometry):
 
         # Anchoring
 
+        anchor_offset = self.anchor_offset
         if anchor.endswith("left"):
-            pos_offset_x = -left
+            pos_offset_x = -left + anchor_offset
         elif anchor.endswith("center"):
             pos_offset_x = -0.5 * (left + right)
         elif anchor.endswith("right"):
-            pos_offset_x = -right
+            pos_offset_x = -right - anchor_offset
 
         if anchor.startswith("top"):
-            pos_offset_y = -top
+            pos_offset_y = -top - anchor_offset
         elif anchor.startswith("middle"):
             pos_offset_y = -0.5 * (top + bottom)
         elif anchor.startswith("baseline"):
             pos_offset_y = -vertical_offset
         elif anchor.startswith("bottom"):
-            pos_offset_y = -bottom
+            pos_offset_y = -bottom + anchor_offset
         else:
             pos_offset_y = 0
 
@@ -1005,3 +1010,13 @@ class TextGeometry(Geometry):
         # Apply
         self._anchor = f"{anchory}-{anchorx}"
         self.apply_layout()
+
+    @property
+    def anchor_offset(self):
+        return self._anchor_offset
+
+    @anchor_offset.setter
+    def anchor_offset(self, value):
+        self._anchor_offset = float(value)
+        self.apply_layout()
+
