@@ -130,10 +130,29 @@ class Ruler(WorldObject):
         camera.update_projection_matrix()
 
         # Determine distance in screen pixels
+        # todo: can get a very small size with perspective camera.
         positions = np.row_stack([start_pos, end_pos])
         ndc_positions = la.vec_transform(positions, camera.camera_matrix)
         pixel_positions = ndc_positions[:, :2] * np.array(canvas_size)
-        distance_screen = 0.5 * np.linalg.norm(pixel_positions[1] - pixel_positions[0])
+        pixel_vec = pixel_positions[1] - pixel_positions[0]
+        distance_screen = 0.5 * np.linalg.norm(pixel_vec)
+
+        # Calculate anchor.
+        # With this anchor, the text labels move smoothly without a jump to the other side, as the ruler is rotated.
+        # todo: not sure how to apply it. Also may want to calculate this even if not interested in auto-ticks?
+        angle = np.arctan2(pixel_vec[1], pixel_vec[0])
+        if abs(angle) <= 0.25 * np.pi:
+            self._text_anchor = "top-center"
+            self._text_anchor_offset = 5
+        elif abs(angle) >= 0.75 * np.pi:
+            self._text_anchor = "bottom-center"
+            self._text_anchor_offset = 5
+        elif angle < 0:
+            self._text_anchor = "middle-right"
+            self._text_anchor_offset = 10
+        else:
+            self._text_anchor = "middle-left"
+            self._text_anchor_offset = 10
 
         # Determine distnce in world coords
         distance_world = abs(max_value - min_value)
@@ -173,8 +192,8 @@ class Ruler(WorldObject):
                     TextGeometry(
                         text,
                         screen_space=True,
-                        anchor=text_anchor,
-                        anchor_offset=text_anchor_offset,
+                        anchor=text_anchor or self._text_anchor,
+                        anchor_offset=text_anchor_offset or self._text_anchor_offset,
                     ),
                     TextMaterial(),
                 )
