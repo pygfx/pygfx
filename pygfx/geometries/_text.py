@@ -1019,4 +1019,3 @@ class TextGeometry(Geometry):
     def anchor_offset(self, value):
         self._anchor_offset = float(value)
         self.apply_layout()
-

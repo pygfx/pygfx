@@ -29,39 +29,30 @@ class Ruler(WorldObject):
 
         # Create a line and poins object, with a shared geometry
         geometry = Geometry(positions=np.zeros((6, 3), np.float32))
-        self._line = Line(
-            geometry,
-            LineMaterial(color="w", thickness=2)
-        )
+        self._line = Line(geometry, LineMaterial(color="w", thickness=2))
         # todo: a material to draw proper tick marks
-        self._points = Points(
-            geometry,
-            PointsMaterial(color="w", size=5)
-        )
+        self._points = Points(geometry, PointsMaterial(color="w", size=5))
         self.add(self._line, self._points)
 
     @property
     def line(self):
-        """The line object that shows the ruler's path.
-        """
+        """The line object that shows the ruler's path."""
         return self._line
 
     @property
     def points(self):
-        """The points object that shows the ruler's tickmarks.
-        """
+        """The points object that shows the ruler's tickmarks."""
         return self._points
 
     def configure(self, start_pos, end_pos, start_value=0):
-        """Set the start- and end-point, optionally providing the start-value.
-        """
+        """Set the start- and end-point, optionally providing the start-value."""
 
         # Process positions
         start_pos = np.array(start_pos, np.float32)
-        if not start_pos.shape == (3, ):
+        if not start_pos.shape == (3,):
             raise ValueError("start_pos must be a 3-element position.")
         end_pos = np.array(end_pos, np.float32)
-        if not end_pos.shape == (3, ):
+        if not end_pos.shape == (3,):
             raise ValueError("end_pos must be a 3-element position.")
 
         # Derive unit vector
@@ -78,7 +69,7 @@ class Ruler(WorldObject):
         self._config = start_pos, end_pos, min_value, max_value, vec
 
     def get_ticks_uniform(self, step):
-        """ Get ticks using a uniform step_size.
+        """Get ticks using a uniform step_size.
 
         This uses the current configured start- and end-values.
 
@@ -91,7 +82,7 @@ class Ruler(WorldObject):
         ref_value = max(abs(min_value), abs(max_value))
 
         # Apply some form of scaling
-        if False: # use mk units
+        if False:  # use mk units
             if ref_value >= 10_000_000_000:
                 mult, unit = 1 / 1_000_000_000, "G"
             elif ref_value >= 10_000_000:
@@ -150,16 +141,15 @@ class Ruler(WorldObject):
         # Determine step
         scale = distance_screen / distance_world
         for step in _tick_units:
-            if step * scale  >= min_tick_dist:
+            if step * scale >= min_tick_dist:
                 break
         else:
-            pass # use largest step?
+            pass  # use largest step?
 
         return step
 
     def set_ticks(self, ticks, *, text_anchor=None, text_anchor_offset=None):
-        """Update the visual appearance of the ruler, using the given ticks.
-        """
+        """Update the visual appearance of the ruler, using the given ticks."""
 
         if not isinstance(ticks, dict):
             raise TypeError("ticks must be a dict (float -> str).")
@@ -167,7 +157,6 @@ class Ruler(WorldObject):
         # Load config
         start_pos, end_pos, min_value, max_value, vec = self._config
         length = max_value - min_value
-
 
         # List of positions. The start- and end-pos are in it, as well as all ticks.
         positions = [start_pos]
@@ -181,7 +170,12 @@ class Ruler(WorldObject):
                 pos = start_pos + vec * rel_value
                 positions.append(pos)
                 text_ob = Text(
-                    TextGeometry(text, screen_space=True, anchor=text_anchor, anchor_offset=text_anchor_offset),
+                    TextGeometry(
+                        text,
+                        screen_space=True,
+                        anchor=text_anchor,
+                        anchor_offset=text_anchor_offset,
+                    ),
                     TextMaterial(),
                 )
                 text_ob.local.position = pos
@@ -198,7 +192,6 @@ class Ruler(WorldObject):
         self.add(*text_objects)
 
 
-
 def _create_tick_units():
     # Create tick units
     tick_units = []
@@ -206,5 +199,6 @@ def _create_tick_units():
         for i in [10, 20, 25, 50]:
             tick_units.append(i * 10**e)
     return tick_units
+
 
 _tick_units = _create_tick_units()
