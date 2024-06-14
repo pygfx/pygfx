@@ -32,7 +32,7 @@ grid = gfx.Grid(
     ),
     orientation="xy",
 )
-grid.local.z = -1000
+grid.local.z = -1001
 
 rulerx = gfx.Ruler()
 rulery = gfx.Ruler()
