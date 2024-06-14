@@ -134,6 +134,15 @@ class VolumeMipMaterial(VolumeRayMaterial):
     """A material rendering a volume using MIP rendering."""
 
 
+class VolumeMinipMaterial(VolumeRayMaterial):
+    """A material rendering a volume using MinIP rendering.
+
+    This material renders the minimum intensity along the view ray.
+    """
+
+    render_mode = "minip"
+
+
 class VolumeIsoMaterial(VolumeRayMaterial):
     """A material rendering a volume using isosurface rendering.
 

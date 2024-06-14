@@ -43,6 +43,7 @@ colormaps, the strength of specular reflections, etc.
     VolumeSliceMaterial
     VolumeRayMaterial
     VolumeMipMaterial
+    VolumeMinipMaterial
 
     BackgroundMaterial
     BackgroundImageMaterial
@@ -88,6 +89,7 @@ from ._volume import (
     VolumeSliceMaterial,
     VolumeRayMaterial,
     VolumeMipMaterial,
+    VolumeMinipMaterial,
 )
 from ._background import (
     BackgroundMaterial,
