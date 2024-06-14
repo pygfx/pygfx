@@ -1,0 +1,210 @@
+import numpy as np
+import pylinalg as la
+
+from ._base import WorldObject
+from ._more import Line, Points, Text
+from ..resources import Buffer
+from ..geometries import Geometry, TextGeometry
+from ..materials import LineMaterial, PointsMaterial, TextMaterial
+
+
+class Ruler(WorldObject):
+    """An object to represent a ruler with tickmarks.
+
+    Can be used to measure distances in a scene, or as axis in a plot.
+
+    Usage:
+
+    *  First, use ``.configure()`` to set the ruler's start- and end-point.
+    * Then, the convenience functions can be used to help produce a ticks dict.
+    * Finally, use ``set_ticks()`` to set the ticks and update the child world objects.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+        # Initialize dummy config
+        zero = np.zeros((3,), np.float32)
+        self._config = zero, zero, 0.0, 0.0, zero
+
+        # Create a line and poins object, with a shared geometry
+        geometry = Geometry(positions=np.zeros((6, 3), np.float32))
+        self._line = Line(
+            geometry,
+            LineMaterial(color="w", thickness=2)
+        )
+        # todo: a material to draw proper tick marks
+        self._points = Points(
+            geometry,
+            PointsMaterial(color="w", size=5)
+        )
+        self.add(self._line, self._points)
+
+    @property
+    def line(self):
+        """The line object that shows the ruler's path.
+        """
+        return self._line
+
+    @property
+    def points(self):
+        """The points object that shows the ruler's tickmarks.
+        """
+        return self._points
+
+    def configure(self, start_pos, end_pos, start_value=0):
+        """Set the start- and end-point, optionally providing the start-value.
+        """
+
+        # Process positions
+        start_pos = np.array(start_pos, np.float32)
+        if not start_pos.shape == (3, ):
+            raise ValueError("start_pos must be a 3-element position.")
+        end_pos = np.array(end_pos, np.float32)
+        if not end_pos.shape == (3, ):
+            raise ValueError("end_pos must be a 3-element position.")
+
+        # Derive unit vector
+        vec = end_pos - start_pos
+        length = np.linalg.norm(vec)
+        if length > 0.0:
+            vec /= length
+
+        # Process values
+        min_value = float(start_value)
+        max_value = min_value + length
+
+        # Store
+        self._config = start_pos, end_pos, min_value, max_value, vec
+
+    def get_ticks_uniform(self, step):
+        """ Get ticks using a uniform step_size.
+
+        This uses the current configured start- and end-values.
+
+        Note that with a nonzero start_value, the first tick is likely
+        not on the start position.
+        """
+
+        # Load config
+        _, _, min_value, max_value, _ = self._config
+        ref_value = max(abs(min_value), abs(max_value))
+
+        # Apply some form of scaling
+        if False: # use mk units
+            if ref_value >= 10_000_000_000:
+                mult, unit = 1 / 1_000_000_000, "G"
+            elif ref_value >= 10_000_000:
+                mult, unit = 1 / 1_000_000, "M"
+            elif ref_value >= 10000:
+                mult, unit = 1 / 1000, "K"
+            elif ref_value < 0.0001:
+                mult, unit = 1_000_000, "u"
+            elif ref_value < 0.1:
+                mult, unit = 1000, "m"
+            else:
+                mult, unit = 1, ""
+        elif False:  # use exponential notation
+            pass
+        else:
+            mult, unit = 1, ""
+
+        # Calculate tick values
+        first_tick = np.ceil(min_value * mult / step) * step
+        last_tick = np.floor(max_value * mult / step) * step
+        ticks = {}
+        t = first_tick
+        while t <= last_tick:
+            if t == 0:
+                s = "0"
+            else:
+                s = f"{mult * t:0.4g}"
+            ticks[t] = s + unit
+            t += step
+
+        return ticks
+
+    def calculate_tick_step(self, camera, canvas_size, *, min_tick_dist=40):
+        """Calculate an optimal step size for the ticks.
+
+        This uses the current configured start- and end-values. The
+        value is determined from the ratio of the size of the ruler in
+        the world and screen, respectively.
+        """
+
+        # Load config
+        start_pos, end_pos, min_value, max_value, _ = self._config
+
+        # Yuk, but needed
+        camera.update_projection_matrix()
+
+        # Determine distance in screen pixels
+        positions = np.row_stack([start_pos, end_pos])
+        ndc_positions = la.vec_transform(positions, camera.camera_matrix)
+        pixel_positions = ndc_positions[:, :2] * np.array(canvas_size)
+        distance_screen = 0.5 * np.linalg.norm(pixel_positions[1] - pixel_positions[0])
+
+        # Determine distnce in world coords
+        distance_world = abs(max_value - min_value)
+
+        # Determine step
+        scale = distance_screen / distance_world
+        for step in _tick_units:
+            if step * scale  >= min_tick_dist:
+                break
+        else:
+            pass # use largest step?
+
+        return step
+
+    def set_ticks(self, ticks, *, text_anchor=None, text_anchor_offset=None):
+        """Update the visual appearance of the ruler, using the given ticks.
+        """
+
+        if not isinstance(ticks, dict):
+            raise TypeError("ticks must be a dict (float -> str).")
+
+        # Load config
+        start_pos, end_pos, min_value, max_value, vec = self._config
+        length = max_value - min_value
+
+
+        # List of positions. The start- and end-pos are in it, as well as all ticks.
+        positions = [start_pos]
+        text_objects = []
+
+        # Collect ticks
+        # todo: optimize this search. Also only do when zoom has changed
+        for value, text in ticks.items():
+            rel_value = value - min_value
+            if 0 <= rel_value <= length:
+                pos = start_pos + vec * rel_value
+                positions.append(pos)
+                text_ob = Text(
+                    TextGeometry(text, screen_space=True, anchor=text_anchor, anchor_offset=text_anchor_offset),
+                    TextMaterial(),
+                )
+                text_ob.local.position = pos
+                text_objects.append(text_ob)
+
+        positions.append(end_pos)  # todo: somehow omit tickmarker for first and last
+
+        # Update geometrty of line and points.
+        self.points.geometry.positions = Buffer(np.array(positions, np.float32))
+
+        # todo: use a pool of text objects. Or better yet, a text object supporting multiple locations
+        self.clear()
+        self.add(self._line, self._points)
+        self.add(*text_objects)
+
+
+
+def _create_tick_units():
+    # Create tick units
+    tick_units = []
+    for e in range(-14, 14):
+        for i in [10, 20, 25, 50]:
+            tick_units.append(i * 10**e)
+    return tick_units
+
+_tick_units = _create_tick_units()
