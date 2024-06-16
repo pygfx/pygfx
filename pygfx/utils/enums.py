@@ -151,9 +151,9 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
-    pygfx = None  #: ⨻
-    pygfx_inner = None  #: ⨻
-    pygfx_outer = None  #: ⨻
+    pygfx = None  #: The pygfx logo. Single color only
+    pygfx_inner = None  #: The pygfx logo inner triangle only
+    pygfx_outer = None  #: The pygfx logo outer triangle only
 
 
 class ElementFormat(Enum):
