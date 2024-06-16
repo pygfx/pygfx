@@ -35,18 +35,42 @@ grid = gfx.Grid(
 grid.local.y = -120
 scene.add(grid)
 
-# Create a bunch of points
-n = 1000
+# Create a bunch of logos
+n = 100
 positions = np.random.normal(0, 50, (n, 3)).astype(np.float32)
 sizes = np.random.rand(n).astype(np.float32) * 50
-colors = np.random.rand(n, 4).astype(np.float32)
-geometry = gfx.Geometry(positions=positions, sizes=sizes, colors=colors)
-
-material = gfx.PointsGaussianBlobMaterial(
-    color_mode="vertex", size_mode="vertex", size_space="world"
+colors_inner = np.random.rand(n, 4).astype(np.float32)
+colors_outer = np.random.rand(n, 4).astype(np.float32)
+geometry_inner = gfx.Geometry(
+    positions=positions,
+    sizes=sizes,
+    colors=colors_inner,
 )
-points = gfx.Points(geometry, material)
-scene.add(points)
+geometry_outer = gfx.Geometry(
+    positions=positions,
+    sizes=sizes,
+    colors=colors_outer,
+)
+
+points_inner = gfx.Points(
+    geometry_inner,
+    gfx.PointsMarkerMaterial(
+        marker="pygfx_inner",
+        color_mode="vertex",
+        size_mode="vertex",
+        size_space="world"
+    )
+)
+points_outer = gfx.Points(
+    geometry_outer,
+    gfx.PointsMarkerMaterial(
+        marker="pygfx_outer",
+        color_mode="vertex",
+        size_mode="vertex",
+        size_space="world"
+    )
+)
+scene.add(points_inner, points_outer)
 
 camera = gfx.PerspectiveCamera(70)
 camera.show_object(scene)

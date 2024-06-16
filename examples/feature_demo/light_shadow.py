@@ -104,7 +104,7 @@ def animate():
         math.sin(3 * t) * scale,
     )
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     renderer.request_draw()
 
 

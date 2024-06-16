@@ -56,7 +56,7 @@ camera = gfx.OrthographicCamera(4, 3)
 
 
 renderer = gfx.renderers.WgpuRenderer(WgpuCanvas())
-renderer.request_draw(lambda: renderer.render(scene, camera))
+renderer.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
 
 if __name__ == "__main__":
     run()

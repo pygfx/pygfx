@@ -42,5 +42,5 @@ camera = gfx.ScreenCoordsCamera()
 
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    canvas.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
     run()

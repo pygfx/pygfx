@@ -78,7 +78,7 @@ def animate():
     cube.local.rotation = la.quat_mul(rot, cube.local.rotation)
     torus.local.rotation = la.quat_mul(rot, torus.local.rotation)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

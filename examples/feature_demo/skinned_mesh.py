@@ -117,7 +117,7 @@ def animate():
     mesh.skeleton.update()
     skeleton_helper.update()
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

@@ -181,5 +181,5 @@ scene.add(t)
 
 
 if __name__ == "__main__":
-    renderer.request_draw(lambda: renderer.render(scene, camera))
+    renderer.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
     run()

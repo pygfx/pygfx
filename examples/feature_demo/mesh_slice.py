@@ -56,7 +56,7 @@ def animate():
         dist = -2.2
     material2.plane = 1, 0, 1, dist
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

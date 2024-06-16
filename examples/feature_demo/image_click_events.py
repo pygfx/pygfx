@@ -83,5 +83,5 @@ image.add_event_handler(event_handler, "click")
 
 
 if __name__ == "__main__":
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    canvas.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
     run()

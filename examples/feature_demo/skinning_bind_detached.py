@@ -156,7 +156,7 @@ def animate():
     skeleton_helper.update()
 
     with stats:
-        renderer.render(scene, camera, flush=False)
+        gfx.render_with_logo(renderer, scene, camera, flush=False)
     stats.render()
     canvas.request_draw()
 

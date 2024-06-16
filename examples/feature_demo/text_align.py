@@ -146,7 +146,7 @@ def change_justify(event):
     renderer.request_draw()
 
 
-renderer.request_draw(lambda: renderer.render(scene, camera))
+renderer.request_draw(lambda: gfx.render_with_logo(renderer, scene, camera))
 
 print(
     """Use the keys

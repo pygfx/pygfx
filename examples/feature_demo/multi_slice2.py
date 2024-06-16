@@ -71,7 +71,7 @@ def animate():
     planes[2].material.plane = 0, 0, -1, t * vol.shape[0]
     mesh.material.plane = 0, 0, -1, (1 - t) * vol.shape[0]
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

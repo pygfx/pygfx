@@ -107,7 +107,7 @@ def animate():
         math.cos(t * 3) * 300,
     )
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     renderer.request_draw()
 
 

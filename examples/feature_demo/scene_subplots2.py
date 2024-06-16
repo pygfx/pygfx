@@ -86,7 +86,7 @@ def animate():
     viewport2.render(scene, camera2)
     viewport3.render(scene, camera3)
     viewport4.render(scene, camera4)
-    renderer.flush()
+    gfx.render_with_logo(renderer)
 
 
 if __name__ == "__main__":
