@@ -5,7 +5,13 @@ import pygfx as gfx
 
 
 @pytest.mark.parametrize(
-    "ControllerCls", (gfx.PanZoomController, gfx.FlyController, gfx.OrbitController, gfx.TrackballController)
+    "ControllerCls",
+    (
+        gfx.PanZoomController,
+        gfx.FlyController,
+        gfx.OrbitController,
+        gfx.TrackballController,
+    ),
 )
 def test_make_controller(ControllerCls):
     canvas = WgpuCanvas()
@@ -19,7 +25,13 @@ def test_make_controller(ControllerCls):
 
 
 @pytest.mark.parametrize(
-    "ControllerCls", (gfx.PanZoomController, gfx.FlyController, gfx.OrbitController, gfx.TrackballController)
+    "ControllerCls",
+    (
+        gfx.PanZoomController,
+        gfx.FlyController,
+        gfx.OrbitController,
+        gfx.TrackballController,
+    ),
 )
 def test_add_remove_camera(ControllerCls):
     canvas = WgpuCanvas()
