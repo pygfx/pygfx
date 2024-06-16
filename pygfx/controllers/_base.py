@@ -90,7 +90,7 @@ class Controller:
     @property
     def cameras(self):
         """A tuple with the cameras under control, in the order that they were added."""
-        return tuple(cam for cam, _ in self._cameras)
+        return tuple(cam for cam, include, exclude in self._cameras)
 
     def add_camera(self, camera, *, include_state=None, exclude_state=None):
         """Add a camera to control.
