@@ -1,6 +1,3 @@
-import numpy as np
-
-
 def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
     from .. import (
         Group,
@@ -10,7 +7,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
         ScreenCoordsCamera,
     )
 
-    geometry = Geometry(positions=[[0, 0, 0]])
+    geometry = Geometry(positions=[[size / 2, size / 2, 0]])
     logo_inner = Points(
         geometry,
         PointsMarkerMaterial(
@@ -33,8 +30,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
     )
     logo = Group()
     logo.add(logo_inner, line_outer)
-    logo.local.scale = size, -size, 1
-    logo.local.position = (padding[0] + size / 2, padding[1] + size / 2, 0)
+    logo.local.position = (padding[0], padding[1], 0)
 
     camera = ScreenCoordsCamera()
     return logo, camera
