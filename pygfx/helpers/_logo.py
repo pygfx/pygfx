@@ -18,7 +18,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
             edge_width=edge_width,
         ),
     )
-    line_outer = Points(
+    logo_outer = Points(
         geometry,
         PointsMarkerMaterial(
             size=size,
@@ -27,9 +27,13 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
             edge_color="#000",
             edge_width=edge_width,
         ),
+        # ensure that the outer logo doesn't go over the inner one
+        # to create the desired visual effect
+        render_order=logo_inner.render_order + 1
     )
     logo = Group()
-    logo.add(logo_inner, line_outer)
+    # logo.add(logo_inner, logo_outer)
+    logo.add(logo_outer, logo_inner)
     logo.local.position = (padding[0], padding[1], 0)
 
     camera = ScreenCoordsCamera()
