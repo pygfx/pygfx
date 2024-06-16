@@ -314,9 +314,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
 
 fn get_signed_distance_to_pygfx_outer_triangle(coord_in: vec2<f32>, size: f32) -> vec2<f32> {
-    let m_pi = 3.141592653589793;
     let m_sqrt_2 = 1.4142135623730951;
-    let half_size = size * 0.5;
+    let m_sqrt_3 = 1.7320508075688772;
 
     // The coords below assume OpenGL coords, but y is flipped, so we flip the coords.
     // Its also shifted so that the center of the triangle is at the origin.
@@ -325,8 +324,8 @@ fn get_signed_distance_to_pygfx_outer_triangle(coord_in: vec2<f32>, size: f32) -
     // https://math.stackexchange.com/a/4073070
     // equilateral triangle has length of size
     //    sqrt(3) - 1
-    let triangle_x = (sqrt(3.) - 1.);
-    let one_minus_triangle_x = 2. - sqrt(3.);
+    let triangle_x = m_sqrt_3 - 1.;
+    let one_minus_triangle_x = 2. - m_sqrt_3;
     let triangle_length = m_sqrt_2 * triangle_x;
 
     let pygfx_width = 0.10;
