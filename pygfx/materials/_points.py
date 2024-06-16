@@ -244,11 +244,20 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_width="f4",
     )
 
-    def __init__(self, *, marker="circle", edge_width=1, edge_color="black", **kwargs):
+    def __init__(
+        self,
+        *,
+        marker="circle",
+        edge_width=1,
+        edge_color="black",
+        custom_sdf=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.marker = marker
         self.edge_width = edge_width
         self.edge_color = edge_color
+        self.custom_sdf = custom_sdf
 
     @property
     def edge_color(self):
@@ -341,6 +350,19 @@ class PointsMarkerMaterial(PointsMaterial):
                 f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {repr(name)}"
             )
         self._store.marker = resolved_name
+
+    @property
+    def custom_sdf(self):
+        """The SDF code for the marker shape when the marker is set to custom.
+
+        Negative values are inside the shape, positive values are outside the
+        shape.
+        """
+        return self._store.custom_sdf
+
+    @custom_sdf.setter
+    def custom_sdf(self, code):
+        self._store.custom_sdf = code
 
 
 class PointsSpriteMaterial(PointsMaterial):

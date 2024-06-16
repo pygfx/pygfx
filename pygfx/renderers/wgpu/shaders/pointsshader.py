@@ -118,6 +118,8 @@ class PointsShader(BaseShader):
             self["shape"] = "gaussian"
         elif isinstance(material, PointsMarkerMaterial):
             self["shape"] = material.marker
+            if material.custom_sdf:
+                self["custom_sdf"] = material.custom_sdf
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
