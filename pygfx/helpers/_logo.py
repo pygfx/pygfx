@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
     from .. import (
         Group,
@@ -10,7 +11,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
     )
 
     geometry = Geometry(positions=[[0, 0, 0]])
-    logo_inner= Points(
+    logo_inner = Points(
         geometry,
         PointsMarkerMaterial(
             size=size,
@@ -18,7 +19,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
             marker="pygfx_inner",
             edge_color="#000",
             edge_width=edge_width,
-        )
+        ),
     )
     line_outer = Points(
         geometry,

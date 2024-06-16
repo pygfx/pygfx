@@ -58,8 +58,8 @@ points_inner = gfx.Points(
         marker="pygfx_inner",
         color_mode="vertex",
         size_mode="vertex",
-        size_space="world"
-    )
+        size_space="world",
+    ),
 )
 points_outer = gfx.Points(
     geometry_outer,
@@ -67,8 +67,8 @@ points_outer = gfx.Points(
         marker="pygfx_outer",
         color_mode="vertex",
         size_mode="vertex",
-        size_space="world"
-    )
+        size_space="world",
+    ),
 )
 scene.add(points_inner, points_outer)
 
