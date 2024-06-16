@@ -346,12 +346,10 @@ fn get_signed_distance_to_pygfx_outer_triangle(coord_in: vec2<f32>, size: f32) -
     let r3_in  = r3_out + pygfx_width;
     let r3 = max(r3_out, -r3_in);
 
-    // return max(max(r1, r2), r3);
     let outer_edge_triangle = max(
         max(r1_out, max(r2_out, r3_out)),
         -max(r1_in, max(r2_in, r3_in))
     );
-
 
     let inner_offset = 0.5 * (triangle_length - pygfx_width / 2.);
     let r1_out_blue = -r1_out - inner_offset;
