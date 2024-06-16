@@ -319,7 +319,8 @@ fn get_signed_distance_to_pygfx_outer_triangle(coord_in: vec2<f32>, size: f32) -
     let half_size = size * 0.5;
 
     // The coords below assume OpenGL coords, but y is flipped, so we flip the coords.
-    var coord = vec2<f32>(coord_in.x, -coord_in.y);
+    // Its also shifted so that the center of the triangle is at the origin.
+    var coord = vec2<f32>(coord_in.x, -coord_in.y) / size + vec2<f32>(0.5);
 
     // https://math.stackexchange.com/a/4073070
     // equilateral triangle has length of size
@@ -330,21 +331,18 @@ fn get_signed_distance_to_pygfx_outer_triangle(coord_in: vec2<f32>, size: f32) -
 
     let pygfx_width = 0.10;
 
-    // Offset the coordinates so we can take up the maximum of the quad
-    let coord_1 = coord / size + vec2<f32>(0.5);
-
     let v1 = normalize(vec2<f32>(one_minus_triangle_x, -1));
-    let r1_out = dot(coord_1, v1);
+    let r1_out = dot(coord, v1);
     let r1_in  = r1_out + pygfx_width;
     let r1 = max(r1_out, -r1_in);
 
     let v2 = normalize(vec2<f32>(-1, one_minus_triangle_x));
-    let r2_out = dot(coord_1, v2);
+    let r2_out = dot(coord, v2);
     let r2_in  = r2_out + pygfx_width;
     let r2 = max(r2_out, -r2_in);
 
     let v3 = normalize(vec2<f32>(triangle_x, triangle_x));
-    let r3_out = dot(coord_1 - vec2(1, one_minus_triangle_x), v3);
+    let r3_out = dot(coord - vec2(1, one_minus_triangle_x), v3);
     let r3_in  = r3_out + pygfx_width;
     let r3 = max(r3_out, -r3_in);
 
