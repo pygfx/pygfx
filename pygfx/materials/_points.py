@@ -332,6 +332,7 @@ class PointsMarkerMaterial(PointsMaterial):
             "💍": "ring",
             "✳️": "asterix",
             "📍": "pin",
+            "⨻": "pygfx",
         }
 
         name = name or "circle"

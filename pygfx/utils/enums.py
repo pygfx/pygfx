@@ -151,6 +151,9 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
+    pygfx = None  #: ⨻
+    pygfx_inner = None  #: ⨻
+    pygfx_outer = None  #: ⨻
 
 
 class ElementFormat(Enum):
