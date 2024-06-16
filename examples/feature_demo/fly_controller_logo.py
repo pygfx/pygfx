@@ -1,10 +1,9 @@
 """
-Fly controller
-==============
+Fly controller logo
+===================
 
-Fly through a cloud of cololoured points. This example demonstrates the fly
-controller, as well as the GaussianBlob point material, with size_space set to
-'world'.
+Fly through a cloud of cololoured pygfx logos to inspect the effects of the
+renering.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
