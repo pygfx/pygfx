@@ -5,7 +5,7 @@ import pygfx as gfx
 
 
 @pytest.mark.parametrize(
-    "ControllerCls",
+    "controller_cls",
     (
         gfx.PanZoomController,
         gfx.FlyController,
@@ -13,19 +13,19 @@ import pygfx as gfx
         gfx.TrackballController,
     ),
 )
-def test_make_controller(ControllerCls):
+def test_make_controller(controller_cls):
     canvas = WgpuCanvas()
     renderer = gfx.WgpuRenderer(canvas)
 
     camera = gfx.PerspectiveCamera(width=100, height=100)
 
-    controller = ControllerCls(camera, register_events=renderer)
+    controller = controller_cls(camera, register_events=renderer)
 
     assert controller.cameras[0] is camera
 
 
 @pytest.mark.parametrize(
-    "ControllerCls",
+    "controller_cls",
     (
         gfx.PanZoomController,
         gfx.FlyController,
@@ -33,13 +33,13 @@ def test_make_controller(ControllerCls):
         gfx.TrackballController,
     ),
 )
-def test_add_remove_camera(ControllerCls):
+def test_add_remove_camera(controller_cls):
     canvas = WgpuCanvas()
     renderer = gfx.WgpuRenderer(canvas)
 
     camera = gfx.PerspectiveCamera(width=100, height=100)
 
-    controller = ControllerCls(camera, register_events=renderer)
+    controller = controller_cls(camera, register_events=renderer)
 
     assert controller.cameras[0] is camera
 
