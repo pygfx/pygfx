@@ -280,13 +280,13 @@ class Environment(Trackable):
             elif binding.type.startswith("shadow_texture/"):
                 dim = binding.type.split("/")[-1].replace("-", "_")
                 code = f"""
-                @group({ bind_group_index }) @binding({slot})
+                @group({bind_group_index}) @binding({slot})
                 var {binding.name}: texture_depth_{dim};
                 """.rstrip()
                 codes.append(code)
             elif binding.type.startswith("shadow_sampler/"):
                 code = f"""
-                @group({ bind_group_index }) @binding({slot})
+                @group({bind_group_index}) @binding({slot})
                 var {binding.name}: sampler_comparison;
                 """.rstrip()
                 codes.append(code)
