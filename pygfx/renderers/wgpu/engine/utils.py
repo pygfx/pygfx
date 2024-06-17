@@ -385,3 +385,76 @@ class GfxTextureView:
             return 0, self.texture._wgpu_mip_level_count
         else:
             return self._mip_range
+
+
+class GpuTimeMeasurer:
+    """Class to perform time queries. One instance per draw."""
+
+    def __init__(self):
+        self.measurements = {}
+
+    def create_group(self, device, name, count):
+        """Create an object to measure time for one or more render passes.
+
+        The name is used to publish the results in the ``renderer.stats['gpu_times']``.
+        If the name contains a "#", each pass is registered individually with
+        the "#" replaced with the pass index.
+        """
+        proxy = GpuTimeMeasurerGroup(device, count)
+        self.measurements[name] = proxy
+        return proxy
+
+    def get_times(self):
+        """Collect the measured times."""
+        all_times = {}
+        for name, proxy in self.measurements.items():
+            times = proxy.read_times()
+            if "#" in name:
+                for i, t in enumerate(times, start=1):
+                    all_times[name.replace("#", str(i))] = t
+            else:
+                all_times[name] = sum(times)
+        return all_times
+
+
+class GpuTimeMeasurerGroup:
+    """Helper for the GpuTimeMeasurer. Abstracts away the details of a queryset.
+
+    Can be used to measure the GPU time for one render pass or a group of
+    related render passes.
+    """
+
+    def __init__(self, device, count):
+        self._device = device
+        self.query_set = device.create_query_set(
+            type=wgpu.QueryType.timestamp, count=count * 2
+        )
+        self.buffer = device.create_buffer(
+            size=self.query_set.count * 8,
+            usage=wgpu.BufferUsage.QUERY_RESOLVE | wgpu.BufferUsage.COPY_SRC,
+        )
+
+    def get_timestamp_writes(self, i):
+        """Get the timestamp_writes dict to pass to ``command_encoder.begin_render_pass()``."""
+        return {
+            "query_set": self.query_set,
+            "beginning_of_pass_write_index": i * 2 + 0,
+            "end_of_pass_write_index": i * 2 + 1,
+        }
+
+    def resolve(self, command_encoder):
+        """To be called after all render passes are ended, but before ``command_encoder.finish()``."""
+        command_encoder.resolve_query_set(
+            query_set=self.query_set,
+            first_query=0,
+            query_count=self.query_set.count,
+            destination=self.buffer,
+            destination_offset=0,
+        )
+
+    def read_times(self):
+        """Read elapsed times from the buffer."""
+        times = self._device.queue.read_buffer(self.buffer).cast("Q").tolist()
+        return [
+            times[i * 2 + 1] - times[i * 2] for i in range(self.query_set.count // 2)
+        ]
