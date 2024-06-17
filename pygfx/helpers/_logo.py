@@ -29,7 +29,7 @@ def make_logo_scene_camera(size=100, edge_width=3, padding=(5, 5)):
         ),
         # ensure that the outer logo doesn't go over the inner one
         # to create the desired visual effect
-        render_order=logo_inner.render_order + 1
+        render_order=logo_inner.render_order + 1,
     )
     logo = Group()
     # logo.add(logo_inner, logo_outer)
