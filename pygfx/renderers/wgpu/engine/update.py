@@ -56,32 +56,22 @@ def _update_buffer(buffer):
     wgpu_buffer = buffer._wgpu_object
     assert wgpu_buffer is not None
 
-    # Get and reset pending uploads
-    pending_uploads = buffer._gfx_pending_uploads
-    if not pending_uploads:
+    # Collect chunks to update
+    chunk_descriptions = buffer._gfx_get_chunk_descriptions()
+    if not chunk_descriptions:
         return
-    buffer._gfx_pending_uploads = []
 
     # Prepare for data uploads
     device = get_shared().device
     bytes_per_item = buffer.itemsize
 
     # Upload any pending data
-    for offset, size in pending_uploads:
-        subdata = buffer._get_subdata(offset, size)
-        # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
-        # B: roll data in new buffer, copy from there to existing buffer
-        # tmp_buffer = device.create_buffer_with_data(
-        #     data=subdata,
-        #     usage=wgpu.BufferUsage.COPY_SRC,
-        # )
-        # boffset, bsize = bytes_per_item * offset, bytes_per_item * size
-        # encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)
-        # C: using queue. This may be sugar for B, but it may also be optimized.
+    for offset, size in chunk_descriptions:
+        chunk_data = buffer._gfx_get_chunk_data(offset, size)
         device.queue.write_buffer(
-            wgpu_buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes
+            wgpu_buffer, bytes_per_item * offset, chunk_data, 0, chunk_data.nbytes
         )
-        # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
+        # todo: investigate using a staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
 
 
 def _update_texture(texture):
@@ -151,7 +141,7 @@ def ensure_wgpu_object(resource):
     device = get_shared().device
 
     if isinstance(resource, Buffer):
-        if resource._gfx_pending_uploads:
+        if resource.data is not None:
             resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
         resource._wgpu_object = device.create_buffer(
             size=resource.nbytes, usage=resource._wgpu_usage

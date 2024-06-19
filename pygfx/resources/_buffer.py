@@ -1,3 +1,4 @@
+from math import ceil
 import numpy as np
 
 from ._base import Resource, get_item_format_from_memoryview
@@ -25,6 +26,9 @@ class Buffer(Resource):
         A format string describing the buffer layout. This can follow pygfx'
         ``ElementFormat`` e.g. "3xf4", or wgpu's ``VertexFormat``. Optional: if
         None, it is automatically determined from the data.
+    chunksize : None | int
+        The chunksize to use for uploading data to the GPU, expressed in bytes.
+        When None (default) an optimal chunksize is determined automatically.
     usage : int | wgpu.BufferUsage
         The wgpu ``usage`` flag for this buffer. Optional: typically pygfx can
         derive how the buffer is used and apply the appropriate flag. In cases
@@ -32,7 +36,16 @@ class Buffer(Resource):
         (values are OR'd).
     """
 
-    def __init__(self, data=None, *, nbytes=None, nitems=None, format=None, usage=0):
+    def __init__(
+        self,
+        data=None,
+        *,
+        nbytes=None,
+        nitems=None,
+        format=None,
+        chunksize=None,
+        usage=0,
+    ):
         super().__init__()
         Resource._rev += 1
         self._rev = Resource._rev
@@ -40,7 +53,6 @@ class Buffer(Resource):
         # The actual data (optional)
         self._data = None
         detected_format = None
-        self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None
@@ -57,8 +69,6 @@ class Buffer(Resource):
                     detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
-            if the_nitems:
-                self._gfx_pending_uploads.append((0, the_nitems))
             if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
             if nitems is not None and nitems != the_nitems:
@@ -81,6 +91,23 @@ class Buffer(Resource):
         self._store.nitems = the_nitems
 
         self.draw_range = 0, the_nitems
+
+        # Get optimal chunksize
+        if chunksize is None:
+            chunksize_bytes = max(min(the_nbytes // 16, 2**20), 2**8)
+            # TODO: ? if chunksize > nbytes:
+        else:
+            chunksize_bytes = max(int(chunksize), 1)
+
+        # Init chunks map
+        self._chunks_any_dirty = False
+        self._chunk_map = None
+        if data is not None:
+            itemsize = the_nbytes // the_nitems
+            self._chunk_itemsize = max(min(chunksize_bytes // itemsize, the_nitems), 1)
+            n_chunks = ceil(the_nitems / self._chunk_itemsize)
+            self._chunk_map = np.ones((n_chunks,), bool)
+            self._chunks_any_dirty = True
 
     @property
     def data(self):
@@ -198,20 +225,49 @@ class Buffer(Resource):
             raise ValueError("Update offset must not be negative")
         elif offset + size > self.nitems:
             size = self.nitems - offset
-        # Merge with current entry?
-        if self._gfx_pending_uploads:
-            cur_offset, cur_size = self._gfx_pending_uploads.pop(-1)
-            end = max(offset + size, cur_offset + cur_size)
-            offset = min(offset, cur_offset)
-            size = end - offset
-        # Limit and apply
-        self._gfx_pending_uploads.append((offset, size))
+
+        # Update map
+        div = self._chunk_itemsize
+        self._chunk_map[offset // div : ceil((offset + size) / div)] = True
+        self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
-        # note: this can be smarter, we have logic for chunking in the morph tool
 
-    def _get_subdata(self, offset, size):
+    def _gfx_get_chunk_descriptions(self):
+        """Get a list of (offset, size) tuples, that can be
+        used in _gfx_get_chunk_data(). This method also clears
+        the chunk dirty statuses.
+        """
+
+        # Quick return
+        if not self._chunks_any_dirty:
+            return []
+
+        # Collect chunks (offset, size) tuples
+        chunk_descriptions = []
+        max_merges = 8
+        merges_possible = 0
+        for i, dirty in enumerate(self._chunk_map):
+            if dirty:
+                offset = self._chunk_itemsize * i
+                size = self._chunk_itemsize
+                if merges_possible > 0:
+                    merges_possible -= 1
+                    chunk_descriptions[-1][-1] += size
+                else:
+                    merges_possible = max_merges
+                    chunk_descriptions.append([offset, size])
+            else:
+                merges_possible = 0
+
+        # Reset
+        self._chunks_any_dirty = False
+        self._chunk_map.fill(False)
+
+        return chunk_descriptions
+
+    def _gfx_get_chunk_data(self, offset, size):
         """Return subdata as a contiguous array."""
         # If this is a full range, this is easy (and fast)
         if offset == 0 and size == self.nitems and self.mem.c_contiguous:

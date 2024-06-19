@@ -87,7 +87,7 @@ class Resource(Trackable):
 
 
 class ResourceUpdateRegistry:
-    """Singleton registry to keep track of resources that need to be updated."""
+    """Singleton registry to keep track of resources that need to be updated for the wgpu-backend."""
 
     def __init__(self):
         self._syncable = weakref.WeakSet()
@@ -96,15 +96,9 @@ class ResourceUpdateRegistry:
         """Register the given resource for synchronization. Only adds the resource
         if it's wgpu-counterpart already exists, and when it has pending uploads.
         """
-        # Note: this method is very specific to the wgpu renderer, and
-        # its logic to handle updates to buffers and textures. We could
-        # create some sort of plugin system so that each renderer can
-        # register a registry (and that registry could attach the
-        # _wgpu_xx attributes to the buffers/texture) but that feels
-        # like overdesigning at this point. Let's track in #272.
         if not isinstance(resource, Resource):
             raise TypeError("Given object is not a Resource")
-        if resource._wgpu_object is not None and resource._gfx_pending_uploads:
+        if resource._wgpu_object is not None:
             self._syncable.add(resource)
 
     def get_syncable_resources(self, *, flush=False):
