@@ -23,16 +23,17 @@ Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgp
 [<a href="https://pygfx.com/stable/reference.html">API Reference</a>]
 </p>
 
-## Professional Consulting and Development Services
+## Professional support
 
-Need help? We offer the following professional consulting and development services:
+Need help? We offer the following professional services:
 
-* **Priority Support:** Rest assured with our dedicated support, prioritizing your needs for swift issue resolution and feature implementation.
+* **Priority Support:** Rest assured with our dedicated support, prioritizing your needs for quick issue resolution and feature implementation.
 * **Integration Support:** Get assistance with integrating pygfx into your application, ensuring a smooth transition and optimal performance.
 * **Customized Solutions:** Whether it's crafting specific visualizations or developing shaders, we work closely with you to create tailored solutions that address your unique requirements.
 * **Training and Workshops:** We provide informative training sessions and workshops aimed at boosting skills and knowledge.
 
-For further inquiries or to discuss your project needs, reach out to us at [support@pygfx.com](mailto:support@pygfx.com).
+Also checkout the [sponsors page](https://github.com/sponsors/pygfx).
+For further inquiries reach out to us at [support@pygfx.com](mailto:support@pygfx.com).
 
 ## Installation
 
