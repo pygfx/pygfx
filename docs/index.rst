@@ -30,7 +30,6 @@ Contents
    Gallery <_gallery/index.rst>
    Reference <reference.rst>
    Advanced <advanced.rst>
-   Professional Support <support.rst>
    Github <https://github.com/pygfx/pygfx/>
 
 
