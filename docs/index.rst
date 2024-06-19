@@ -18,7 +18,7 @@ Pygfx (pronounced "py-graphics") is built on `wgpu <https://github.com/pygfx/wgp
       <img src="_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
    </p>
 
-Need help? We offer :ref:`support`.
+Need help? We offer `professional support <https://github.com/pygfx/pygfx#professional-support>`_.
 
 Contents
 --------
