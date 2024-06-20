@@ -269,6 +269,12 @@ fn vs_main(in: VertexInput) -> Varyings {
 }
 
 
+struct ReflectedLight {
+    direct_diffuse: vec3<f32>,
+    direct_specular: vec3<f32>,
+    indirect_diffuse: vec3<f32>,
+    indirect_specular: vec3<f32>,
+};
 
 @fragment
 fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> FragmentOutput {
@@ -326,25 +332,94 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ endif
     $$ endif
 
+    // Init the reflected light. Defines diffuse and specular, both direct and indirect
+    var reflected_light: ReflectedLight = ReflectedLight(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0));
+
     // Lighting
     $$ if lighting
-        // Do the math
-        var physical_color = lighting_{{ lighting }}(varyings, normal, view, physical_albeido);
-    $$ else
-        var physical_color = physical_albeido;
+        var geometry: GeometricContext;
+        geometry.position = varyings.world_pos;
+        geometry.normal = normal;
+        geometry.view_dir = view;
 
+        $$ if lighting == 'phong'
+            {$ include 'pygfx.light_phong_fragment.wgsl' $}
+        $$ elif lighting == 'pbr'
+            {$ include 'pygfx.light_pbr_fragment.wgsl' $}
+        $$ endif
+
+        // Do the math
+
+        // Direct light
+        lighting_{{ lighting }}(&reflected_light, geometry, material);
+
+        // Indirect Diffuse Light
+        let ambient_color = u_ambient_light.color.rgb;  // the one exception that is already physical
+        var irradiance = getAmbientLightIrradiance( ambient_color );
         // Light map (pre-baked lighting)
         $$ if use_light_map is defined
             let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
-            physical_color *= light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
+            irradiance += light_map_color * u_material.light_map_intensity;
+        $$ endif
+        // Process irradiance
+        // todo: Rename to RE_IndirectDiffuse_$${lighting} or just RE_IndirectDiffuse？
+        $$ if lighting == 'phong'
+            RE_IndirectDiffuse_BlinnPhong( irradiance, geometry, material, &reflected_light );
+        $$ elif lighting == 'pbr'
+            RE_IndirectDiffuse_Physical( irradiance, geometry, material, &reflected_light );
         $$ endif
 
-        // Ambient occlusion
-        $$ if use_ao_map is defined
-            let ao_map_intensity = u_material.ao_map_intensity;
-            let ambientOcclusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
-            physical_color *= ambientOcclusion;
+        // Indirect Specular Light
+        // IBL (srgb2physical and intensity is handled in the getter functions)
+        $$ if use_IBL is defined
+            $$ if env_mapping_mode == "CUBE-REFLECTION"
+                var reflectVec = reflect( -view, normal );
+                let mip_level_r = getMipLevel(u_material.env_map_max_mip_level, material.roughness);
+            $$ elif env_mapping_mode == "CUBE-REFRACTION"
+                var reflectVec = refract( -view, normal, u_material.refraction_ratio );
+                let mip_level_r = 1.0;
+            $$ endif
+            reflectVec = normalize(mix(reflectVec, normal, material.roughness*material.roughness));
+            let ibl_radiance = getIBLRadiance( reflectVec, t_env_map, s_env_map, mip_level_r );
+            let mip_level_i = getMipLevel(u_material.env_map_max_mip_level, 1.0);
+            let ibl_irradiance = getIBLIrradiance( geometry.normal, t_env_map, s_env_map, mip_level_i );
+            RE_IndirectSpecular_Physical(ibl_radiance, ibl_irradiance, geometry, material, &reflected_light);
         $$ endif
+
+    $$ else 
+        // for basic material
+        // Light map (pre-baked lighting)
+        $$ if use_light_map is defined
+            let light_map_color = srgb2physical( textureSample( t_light_map, s_light_map, varyings.texcoord1 ).rgb );
+            reflected_light.indirect_diffuse += light_map_color * u_material.light_map_intensity * RECIPROCAL_PI;
+        $$ else
+            reflected_light.indirect_diffuse += vec3<f32>(1.0);
+        $$ endif
+    $$ endif
+
+    // Ambient occlusion
+    $$ if use_ao_map is defined
+        let ao_map_intensity = u_material.ao_map_intensity;
+        let ambient_occlusion = ( textureSample( t_ao_map, s_ao_map, varyings.texcoord1 ).r - 1.0 ) * ao_map_intensity + 1.0;
+
+        // todo: Rename to RE_AmbientOcclusion or use a macro
+        $$ if lighting == 'pbr'
+            RE_AmbientOcclusion_Physical(ambient_occlusion, geometry, material, &reflected_light);
+        $$ else
+            reflected_light.indirect_diffuse *= ambient_occlusion;
+        $$ endif
+    $$ endif
+
+    // Combine direct and indirect light
+    var physical_color = reflected_light.direct_diffuse + reflected_light.direct_specular + reflected_light.indirect_diffuse + reflected_light.indirect_specular;
+
+    // Add emissive color for Phong and PBR
+    $$ if lighting == 'phong' or lighting == 'pbr'
+        var emissive_color = srgb2physical(u_material.emissive_color.rgb);
+        $$ if use_emissive_map is defined
+        emissive_color *= srgb2physical(textureSample(t_emissive_map, s_emissive_map, varyings.texcoord).rgb);
+        $$ endif
+        physical_color += emissive_color;
     $$ endif
 
     // Environment mapping
