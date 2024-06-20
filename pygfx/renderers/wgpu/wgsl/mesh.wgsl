@@ -395,6 +395,8 @@ fn fs_main(varyings: Varyings, @builtin(front_facing) is_front: bool) -> Fragmen
         $$ else
             reflected_light.indirect_diffuse += vec3<f32>(1.0);
         $$ endif
+
+        reflected_light.indirect_diffuse *= physical_albeido;
     $$ endif
 
     // Ambient occlusion
