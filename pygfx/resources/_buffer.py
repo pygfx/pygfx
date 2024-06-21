@@ -31,19 +31,21 @@ class Buffer(Resource):
         The chunksize to use for uploading data to the GPU, expressed in bytes.
         When None (default) an optimal chunksize is determined automatically.
     force_contiguous : bool
-        When set to true, forces the set data to be c_contiguous. This improves
-        upload performance when the data changes often. An error is raised
-        if the data is not contiguous.
+        When set to true, the buffer goes into a stricter mode, forcing set data
+        to be c_contiguous. This ensures optimal upload performance for cases when
+        the data changes often.
     usage : int | wgpu.BufferUsage
         The wgpu ``usage`` flag for this buffer. Optional: typically pygfx can
         derive how the buffer is used and apply the appropriate flag. In cases
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
 
-    Performance notes:
-    * If the given data is not contiguous, it will need to be copied at upload-time,
-      which hurts performance when the data is changed often.
-    * Setting ``force_contiguous`` helps ensure that the data is contiguous.
+    Performance tips:
+
+    * If the given data is not c_contiguous, the chunks will need to be copied
+      at upload-time, which reduces performance when the data is changed often.
+    * Setting ``force_contiguous`` ensures that the set data is contiguous,
+      it is recommended to use this when the bufer data is dynamic.
     """
 
     def __init__(
@@ -254,33 +256,39 @@ class Buffer(Resource):
         # Ok
         self._data = data
         self._mem = mem
-        self.update_range()
+        self.update_full()
 
-    def update_range(self, offset=0, size=2**50):
+    def update_full(self):
+        """Mark the whole data for upload."""
+        self._chunk_map.fill(True)
+        self._chunks_any_dirty = True
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
+    def update_range(self, offset=0, size=None):
         """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.
         """
         # See ThreeJS BufferAttribute.updateRange
-        # Check input
-        if not isinstance(offset, int) and isinstance(size, int):
-            raise TypeError(
-                f"`offset` and `size` must be native `int` type, you have passed: "
-                f"offset: <{type(offset)}>, size: <{type(size)}>"
-            )
-        offset, size = int(offset), int(size)  # convert np ints to real ints
 
+        nitems = self.nitems
+        # Normalize inputs
+        offset = int(offset or 0)
+        size = int(self.nitems if size is None else size)
+        # Checks
         if size == 0:
             return
         elif size < 0:
             raise ValueError("Update size must not be negative")
         elif offset < 0:
             raise ValueError("Update offset must not be negative")
-        elif offset + size > self.nitems:
-            size = self.nitems - offset
-
+        # Get indices
+        index1 = offset
+        index2 = min(nitems, offset + size)
         # Update map
         div = self._chunk_itemsize
-        self._chunk_map[floor(offset / div) : ceil((offset + size) / div)] = True
+        self._chunk_map[floor(index1 / div) : ceil(index2 / div)] = True
         self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
