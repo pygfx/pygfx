@@ -1,29 +1,32 @@
+from math import floor, ceil
+
 import numpy as np
 
 from ._base import Resource, get_item_format_from_memoryview
 
 
 class Texture(Resource):
-    """Texture object containing structured 1D, 2D or 3D data.
+    """The Texture represents structured 1D, 2D or 3D data on the GPU.
 
-    Can be used to represent e.g. image data or colormaps. Can also serve as a
-    render target (for the renderer). Supports texture stacks, cube textures,
-    and mipmapping.
+    A texture can be used to represent e.g. image data or colormaps. They can
+    also serve as a render target (for the renderer). Supports texture stacks,
+    cube textures, and mipmapping.
 
     Parameters
     ----------
-    data : array, optional
-        Array data of any type that supports the buffer-protocol, (e.g. a bytes
-        or numpy array). If None, nbytes and size must be provided. The dtype
-        must be compatible with the rendering backend.
+    data : array | None
+        The initial data of the texture. It must support the buffer-protocol,
+        (e.g. a bytes or numpy array). If None, ``size`` and ``format must be
+        provided. The data will be accessible at ``buffer.data``, no copies are
+        made. The dtype must be compatible with wgpu texture formats.
     dim : int
         The dimensionality of the array (1, 2 or 3).
-    size : tuple, [3]
+    size : tuple | None
         The extent ``(width, height, depth)`` of the array. If None, it is
         derived from `dim` and the shape of the data. The texture can also
         represent a stack of images by setting ``dim=2`` and ``depth > 1``, or a
         cube image by setting ``dim=2`` and ``depth==6``.
-    format : str | ElementFormat | wgpu.TextureFormat
+    format : None | str | ElementFormat | wgpu.TextureFormat
         A format string describing the pixel/voxel format. This can follow
         pygfx' ``ElementFormat`` e.g. "1xf4" for intensity, "3xu1" for rgb, etc.
         Can also be wgpu's ``TextureFormat``. Optional: if None, it is
@@ -33,7 +36,14 @@ class Texture(Resource):
         colorspace. Can be "srgb" or "physical". Default "srgb".
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
-        GPU.
+        GPU. Default False.
+    chunksize : None | int
+        The chunksize to use for uploading data to the GPU, expressed in bytes.
+        When None (default) an optimal chunksize is determined automatically.
+    force_contiguous : bool
+        When set to true, the texture goes into a stricter mode, forcing set data
+        to be c_contiguous. This ensures optimal upload performance for cases when
+        the data changes often.
     usage : int | wgpu.TextureUsage
         The wgpu ``usage`` flag for this texture. Optional: typically pygfx can
         derive how the texture is used and apply the appropriate flag. In cases
@@ -50,43 +60,50 @@ class Texture(Resource):
         format=None,
         colorspace="srgb",
         generate_mipmaps=False,
+        chunksize=None,
+        force_contiguous=False,
         usage=0,
     ):
         super().__init__()
         Resource._rev += 1
         self._rev = Resource._rev
-        self._gfx_pending_uploads = []
-        # The dim specifies the texture dimension
-        assert dim in (1, 2, 3)
-        self._store.dim = int(dim)
-        # The actual data (optional)
-        self._data = None
-        self._format = None
 
         # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None
         self._wgpu_usage = int(usage)
         self._wgpu_mip_level_count = 1
 
+        # Init
+        self._data = None
+        self._force_contiguous = bool(force_contiguous)
+        assert dim in (1, 2, 3)
+        self._store.dim = int(dim)
         self._colorspace = (colorspace or "srgb").lower()
         assert self._colorspace in ("srgb", "physical")
-
         self._generate_mipmaps = bool(generate_mipmaps)
 
+        # Normalize size
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
+        self._gfx_pending_uploads = []
+
+        # Process data
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
-            self._store.nbytes = mem.nbytes
-            self._store.size = self._size_from_data(mem, dim, size)
+            if self._force_contiguous and not mem.c_contiguous:
+                raise ValueError(
+                    "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
+                )
+            the_nbytes = mem.nbytes
+            the_size = self._size_from_data(mem, dim, size)
             subformat = get_item_format_from_memoryview(mem)
             if subformat is None:
                 raise ValueError(
                     f"Unsupported dtype/format for texture data: {mem.format}"
                 )
             shape = mem.shape
-            collapsed_size = [x for x in self.size if x > 1]
+            collapsed_size = [x for x in the_size if x > 1]
             if len(shape) == len(collapsed_size) + 1:
                 nchannels = shape[-1]
             else:
@@ -99,18 +116,45 @@ class Texture(Resource):
                 raise ValueError(
                     f"Expected 1-4 texture color channels, got {nchannels}."
                 )
-            self._format = (f"{nchannels}x" + subformat).lstrip("1x")
-            self.update_range((0, 0, 0), self.size)
+            format = (f"{nchannels}x" + subformat).lstrip("1x")
         elif size is not None and format is not None:
-            self._store.size = size
-            self._store.nbytes = 0
+            the_size = size
+            the_nbytes = 0
         else:
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
             )
 
+        # Store derived props
+        self._store.nbytes = the_nbytes
+        self._store.size = the_size
         if format is not None:
             self._format = str(format)
+        else:
+            self._format = None
+
+        # Get optimal chunksize
+        if chunksize is None:
+            chunksize_bytes = max(min(the_nbytes / 16, 2**20), 2**8)
+        else:
+            chunksize_bytes = max(float(chunksize), 1)
+
+        # # Init chunks map
+        # if data is None:
+        #     self._chunks_any_dirty = False
+        #     self._chunk_itemsize = 0
+        #     self._chunk_map = None
+        # elif the_nbytes == 0:
+        #     self._chunks_any_dirty = False
+        #     self._chunk_itemsize = 0
+        #     self._chunk_map = np.ones((0,), bool)
+        # else:
+        #     self._chunks_any_dirty = True
+        #     itemsize = the_nbytes // the_nitems
+        #     self._chunk_itemsize = ceil(chunksize_bytes / itemsize)
+        #     self._chunk_itemsize = max(min(self._chunk_itemsize, the_nitems), 1)
+        #     n_chunks = ceil(the_nitems / self._chunk_itemsize)
+        #     self._chunk_map = np.ones((n_chunks,), bool)
 
     @property
     def dim(self):

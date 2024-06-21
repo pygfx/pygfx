@@ -5,23 +5,23 @@ from ._base import Resource, get_item_format_from_memoryview, logger
 
 
 class Buffer(Resource):
-    """A contiguous piece of GPU memory.
+    """The Buffer represents a contiguous piece of GPU memory.
 
-    Buffers can be used as index buffer or storage buffer. They are also used
+    A buffer can be used as index buffer or storage buffer. They are also used
     for uniform buffers (internally in the pygfx materials). You can provide
     (and update data for it), or use it as a placeholder for a buffer with no
     representation on the CPU.
 
     Parameters
     ----------
-    data : array
-        The initial data of the array data. It must support the buffer-protocol,
-        (e.g. a bytes or numpy array). If None, nbytes and nitems must be
+    data : array | None
+        The initial data of the buffer. It must support the buffer-protocol,
+        (e.g. a bytes or numpy array). If None, ``nbytes`` and ``nitems`` must be
         provided. The data will be accessible at ``buffer.data``, no copies are
         made.
-    nbytes : int
+    nbytes : int | None
         The size of the buffer in bytes. Ignored if ``data`` is used.
-    nitems : int
+    nitems : int | None
         The number of elements in the buffer. Ignored if ``data`` is used.
     format : None | str | ElementFormat | wgpu.VertexFormat | wgpu.IndexFormat
         A format string describing the buffer layout. This can follow pygfx'
@@ -62,23 +62,23 @@ class Buffer(Resource):
         super().__init__()
         Resource._rev += 1
         self._rev = Resource._rev
-        # To specify the buffer size
-        # The actual data (optional)
-        self._data = None
-        self._force_contiguous = bool(force_contiguous)
-        detected_format = None
 
         # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None
         self._wgpu_usage = int(usage)
 
-        # Get nbytes
+        # Init
+        self._data = None
+        self._force_contiguous = bool(force_contiguous)
+
+        # Process data
+        detected_format = None
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
             if self._force_contiguous and not mem.c_contiguous:
                 raise ValueError(
-                    "Given data is not c_contiguous (enforced because force_contiguous is set)."
+                    "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
                 )
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
@@ -99,15 +99,17 @@ class Buffer(Resource):
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
+        # Store derived props
+        self._store.nbytes = the_nbytes
+        self._store.nitems = the_nitems
         if format is not None:
             self._store.format = str(format)
         elif detected_format:
             self._store.format = detected_format
         else:
             self._store.format = None
-        self._store.nbytes = the_nbytes
-        self._store.nitems = the_nitems
 
+        # Can now init other properties
         self.draw_range = 0, the_nitems
 
         # Get optimal chunksize
