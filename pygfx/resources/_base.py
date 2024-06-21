@@ -1,6 +1,10 @@
 import weakref
+import logging
 
 from ..utils.trackable import Trackable
+
+
+logger = logging.getLogger("pygfx")
 
 
 STRUCT_FORMAT_ALIASES = {"c": "B", "l": "i", "L": "I"}

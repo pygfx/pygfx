@@ -85,6 +85,38 @@ def test_special_data():
     assert b.format is None
 
 
+def test_set_data():
+
+    a = np.zeros((10, 3, 2), np.float16)
+    b = np.ones((10, 3, 2), np.float16)
+    c = np.ones((20, 3, 2), np.float16)[::2]  # not contiguous
+
+    # Create buffer with a
+    buf = gfx.Buffer(a, force_contiguous=True)
+    assert buf.data is a
+    assert buf._gfx_get_chunk_descriptions()
+
+    # Set data to b
+    buf.set_data(b)
+    assert buf.data is b
+    assert buf._gfx_get_chunk_descriptions()
+
+    # Set back to a
+    buf.set_data(a)
+    assert buf.data is a
+    assert buf._gfx_get_chunk_descriptions()
+
+    # Detect identity
+    buf.set_data(a)
+    assert buf.data is a
+    assert not buf._gfx_get_chunk_descriptions()
+
+    # Check behavior with force_contiguous set
+    with pytest.raises(ValueError) as err:
+        buf.set_data(c)
+    assert err.match("not c_contiguous")
+
+
 def test_chunk_size_small():
 
     # 1 x uint8
@@ -108,13 +140,13 @@ def test_chunk_size_small():
     assert b._chunk_map.size == 2
 
     # Happy scaling to 16 pieces
-    a = np.zeros((16*256, 1), np.uint8)
+    a = np.zeros((16 * 256, 1), np.uint8)
     b = gfx.Buffer(a)
     assert b._chunk_itemsize == 256
     assert b._chunk_map.size == 16
 
     # Stays about 16 pieces, but changes itemsize
-    a = np.zeros((16*256+1, 1), np.uint8)
+    a = np.zeros((16 * 256 + 1, 1), np.uint8)
     b = gfx.Buffer(a)
     assert b._chunk_itemsize == 257
     assert b._chunk_map.size == 16
@@ -152,6 +184,27 @@ def test_chunk_size_small():
     assert b._chunk_map.size == 16
 
 
+def test_chunk_size_large():
+
+    # Caps to 1MB
+
+    a = np.zeros((50 * 2**20, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 2**20
+
+    a = np.zeros((200 * 2**20, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 2**20
+
+    a = np.zeros((50 * 65536, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 2**16  # 2**16 * 16 == 2**20
+
+    a = np.zeros((200 * 65536, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 2**16
+
+
 def test_custom_chunk_size():
     # Custom chunk size can get it lower (one row is 16 bytes)
     a = np.zeros((16, 4), np.float32)
@@ -184,21 +237,32 @@ def test_custom_chunk_size():
     assert b._chunk_map.size == 200
 
 
-
-
 def test_contiguous():
     xs = np.linspace(0, 20 * np.pi, 500)
     ys = np.sin(xs) * 10
     zs = np.zeros(xs.size)
 
-    # This works, because at upload time the data is copied if necessary
     positions1 = np.vstack([xs, ys, zs]).astype(np.float32).T
+    positions2 = np.ascontiguousarray(positions1)
+    assert not positions1.flags.c_contiguous
+    assert positions2.flags.c_contiguous
+
+    # This works, because at upload time the data is copied if necessary
     buf = gfx.Buffer(positions1)
     mem = buf._gfx_get_chunk_data(0, buf.nitems)
     assert mem.c_contiguous
 
-    # This work, and avoids the aforementioned copy
-    positions2 = np.ascontiguousarray(positions1)
+    # Dito when the data is a memoryview (did not work in an earlier version)
+    buf = gfx.Buffer(memoryview(positions1))
+    mem = buf._gfx_get_chunk_data(0, buf.nitems)
+    assert mem.c_contiguous
+
+    # But prevented when force_contiguous is set
+    with pytest.raises(ValueError) as err:
+        buf = gfx.Buffer(positions1, force_contiguous=True)
+    assert err.match("not c_contiguous")
+
+    # This works, and avoids the aforementioned copy
     buf = gfx.Buffer(positions2)
     mem = buf._gfx_get_chunk_data(0, buf.nitems)
     assert mem.c_contiguous
@@ -206,6 +270,8 @@ def test_contiguous():
 
 
 if __name__ == "__main__":
+    test_set_data()
     test_chunk_size_small()
+    test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()

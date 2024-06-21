@@ -1,7 +1,7 @@
 from math import floor, ceil
 import numpy as np
 
-from ._base import Resource, get_item_format_from_memoryview
+from ._base import Resource, get_item_format_from_memoryview, logger
 
 
 class Buffer(Resource):
@@ -17,7 +17,8 @@ class Buffer(Resource):
     data : array
         The initial data of the array data. It must support the buffer-protocol,
         (e.g. a bytes or numpy array). If None, nbytes and nitems must be
-        provided.
+        provided. The data will be accessible at ``buffer.data``, no copies are
+        made.
     nbytes : int
         The size of the buffer in bytes. Ignored if ``data`` is used.
     nitems : int
@@ -29,11 +30,20 @@ class Buffer(Resource):
     chunksize : None | int
         The chunksize to use for uploading data to the GPU, expressed in bytes.
         When None (default) an optimal chunksize is determined automatically.
+    force_contiguous : bool
+        When set to true, forces the set data to be c_contiguous. This improves
+        upload performance when the data changes often. An error is raised
+        if the data is not contiguous.
     usage : int | wgpu.BufferUsage
         The wgpu ``usage`` flag for this buffer. Optional: typically pygfx can
         derive how the buffer is used and apply the appropriate flag. In cases
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
+
+    Performance notes:
+    * If the given data is not contiguous, it will need to be copied at upload-time,
+      which hurts performance when the data is changed often.
+    * Setting ``force_contiguous`` helps ensure that the data is contiguous.
     """
 
     def __init__(
@@ -44,6 +54,7 @@ class Buffer(Resource):
         nitems=None,
         format=None,
         chunksize=None,
+        force_contiguous=False,
         usage=0,
     ):
         super().__init__()
@@ -52,6 +63,7 @@ class Buffer(Resource):
         # To specify the buffer size
         # The actual data (optional)
         self._data = None
+        self._force_contiguous = bool(force_contiguous)
         detected_format = None
 
         # Attributes for internal use, updated by other parts of pygfx.
@@ -62,6 +74,10 @@ class Buffer(Resource):
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
+            if self._force_contiguous and not mem.c_contiguous:
+                raise ValueError(
+                    "Given data is not c_contiguous (enforced because force_contiguous is set)."
+                )
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
@@ -210,6 +226,39 @@ class Buffer(Resource):
         Resource._rev += 1
         self._rev = Resource._rev
 
+    def set_data(self, data):
+        """Reset the data to a new array.
+
+        This avoids a data-copy compared to doing ``buffer.data[:] = new_data``.
+        The new data must match the current data's shape and format.
+        """
+        # Quick exit
+        if data is self.data:
+            return
+        # Get memoryview
+        mem = memoryview(data)
+        # Do many checks
+        if self._force_contiguous and not mem.c_contiguous:
+            raise ValueError(
+                "Given data is not c_contiguous (enforced because force_contiguous is set)."
+            )
+        if self.nbytes != mem.nbytes:
+            raise ValueError("buffer.set_data() nbytes does not match.")
+        if self.nitems != (mem.shape[0] if mem.shape else 1):
+            raise ValueError("buffer.set_data() nbytes does not match.")
+        subformat = get_item_format_from_memoryview(mem)
+        detected_format = None
+        if subformat:
+            shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
+            if len(shape) == 2:  # if not, the user does something fancy
+                detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
+        if detected_format != self.format:
+            raise ValueError("buffer.set_data() format does not match.")
+        # Ok
+        self._data = data
+        self._mem = mem
+        self.update_range()
+
     def update_range(self, offset=0, size=2**50):
         """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.
@@ -275,18 +324,16 @@ class Buffer(Resource):
 
     def _gfx_get_chunk_data(self, offset, size):
         """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy (and fast)
-        if offset == 0 and size == self.nitems and self.mem.c_contiguous:
-            return self.mem
-        # Get a numpy array, because memoryviews do not support nd slicing
-        if isinstance(self.data, np.ndarray):
-            arr = self.data
-        elif not self.mem.c_contiguous:
-            raise ValueError(
-                "Non-contiguous texture data is only supported for numpy array."
-            )
+        if offset == 0 and size == self.nitems and self._mem.c_contiguous:
+            # If this is a full range, this is easy (and fast)
+            chunk = self._mem
         else:
-            arr = np.frombuffer(self.mem, self.mem.format).reshape(self.mem.shape)
-        # Slice it
-        sub_arr = arr[offset : offset + size]
-        return memoryview(np.ascontiguousarray(sub_arr))
+            # Otherwise, create a view, make a copy if its not contiguous
+            chunk = self._mem[offset : offset + size]
+            if not chunk.c_contiguous:
+                if self._force_contiguous:
+                    logger.warning(
+                        "force_contiguous was set, but chunk data is still discontiguous"
+                    )
+                chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)
+        return chunk
