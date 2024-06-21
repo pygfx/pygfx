@@ -232,9 +232,6 @@ class Buffer(Resource):
         This avoids a data-copy compared to doing ``buffer.data[:] = new_data``.
         The new data must match the current data's shape and format.
         """
-        # Quick exit
-        if data is self.data:
-            return
         # Get memoryview
         mem = memoryview(data)
         # Do many checks
@@ -328,12 +325,15 @@ class Buffer(Resource):
             # If this is a full range, this is easy (and fast)
             chunk = self._mem
         else:
-            # Otherwise, create a view, make a copy if its not contiguous
+            # Otherwise, create a view, make a copy if its not contiguous.
+            # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
+            # but that turns out to be really slow (like 6x). So we make the copy via numpy.
             chunk = self._mem[offset : offset + size]
             if not chunk.c_contiguous:
                 if self._force_contiguous:
                     logger.warning(
                         "force_contiguous was set, but chunk data is still discontiguous"
                     )
-                chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)
+                # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
+                chunk = memoryview(np.ascontiguousarray(chunk))
         return chunk

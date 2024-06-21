@@ -106,10 +106,10 @@ def test_set_data():
     assert buf.data is a
     assert buf._gfx_get_chunk_descriptions()
 
-    # Detect identity
+    # Identity is *not* checked.
     buf.set_data(a)
     assert buf.data is a
-    assert not buf._gfx_get_chunk_descriptions()
+    assert buf._gfx_get_chunk_descriptions()
 
     # Check behavior with force_contiguous set
     with pytest.raises(ValueError) as err:
