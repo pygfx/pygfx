@@ -55,13 +55,13 @@ class Texture(Resource):
         super().__init__()
         Resource._rev += 1
         self._rev = Resource._rev
+        self._gfx_pending_uploads = []
         # The dim specifies the texture dimension
         assert dim in (1, 2, 3)
         self._store.dim = int(dim)
         # The actual data (optional)
         self._data = None
         self._format = None
-        self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None

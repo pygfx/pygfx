@@ -85,6 +85,107 @@ def test_special_data():
     assert b.format is None
 
 
+def test_chunk_size_small():
+
+    # 1 x uint8
+
+    # Small buffers have just one chunk
+    a = np.zeros((10, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 10
+    assert b._chunk_map.size == 1
+
+    # Goes up to 256 bytes
+    a = np.zeros((256, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 256
+    assert b._chunk_map.size == 1
+
+    # Beyond 256 bytes, chunking kicks in
+    a = np.zeros((257, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 256
+    assert b._chunk_map.size == 2
+
+    # Happy scaling to 16 pieces
+    a = np.zeros((16*256, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 256
+    assert b._chunk_map.size == 16
+
+    # Stays about 16 pieces, but changes itemsize
+    a = np.zeros((16*256+1, 1), np.uint8)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 257
+    assert b._chunk_map.size == 16
+
+    # --- 4 x float -> itemsize is 16 bytes
+
+    # Small buffers have just one chunk
+    a = np.zeros((10, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 10
+    assert b._chunk_map.size == 1
+
+    # Goes up to 256 bytes
+    a = np.zeros((16, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 16
+    assert b._chunk_map.size == 1
+
+    # Beyond 256 bytes, chunking kicks in
+    a = np.zeros((17, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 16
+    assert b._chunk_map.size == 2
+
+    # Happy scaling to 16 pieces
+    a = np.zeros((256, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 16
+    assert b._chunk_map.size == 16
+
+    # Stays about 16 pieces, but changes itemsize
+    a = np.zeros((257, 4), np.float32)
+    b = gfx.Buffer(a)
+    assert b._chunk_itemsize == 17
+    assert b._chunk_map.size == 16
+
+
+def test_custom_chunk_size():
+    # Custom chunk size can get it lower (one row is 16 bytes)
+    a = np.zeros((16, 4), np.float32)
+    b = gfx.Buffer(a, chunksize=16)
+    assert b._chunk_itemsize == 1
+    assert b._chunk_map.size == 16
+
+    # Custom chunk size rounds to item size
+    a = np.zeros((16, 4), np.float32)
+    b = gfx.Buffer(a, chunksize=10)
+    assert b._chunk_itemsize == 1
+    assert b._chunk_map.size == 16
+
+    # Custom chunk size rounds to item size
+    a = np.zeros((26, 4), np.float32)
+    b = gfx.Buffer(a, chunksize=1000)
+    assert b._chunk_itemsize == 26
+    assert b._chunk_map.size == 1
+
+    # Custom chunk size caps to 1 byte
+    a = np.zeros((200, 1), np.uint8)
+    b = gfx.Buffer(a, chunksize=-1)
+    assert b._chunk_itemsize == 1
+    assert b._chunk_map.size == 200
+
+    # Custom chunk size caps to 1 element
+    a = np.zeros((200, 4), np.float32)
+    b = gfx.Buffer(a, chunksize=-1)
+    assert b._chunk_itemsize == 1
+    assert b._chunk_map.size == 200
+
+
+
+
 def test_contiguous():
     xs = np.linspace(0, 20 * np.pi, 500)
     ys = np.sin(xs) * 10
@@ -93,12 +194,18 @@ def test_contiguous():
     # This works, because at upload time the data is copied if necessary
     positions1 = np.vstack([xs, ys, zs]).astype(np.float32).T
     buf = gfx.Buffer(positions1)
-    mem = buf._get_subdata(0, buf.nitems)
+    mem = buf._gfx_get_chunk_data(0, buf.nitems)
     assert mem.c_contiguous
 
     # This work, and avoids the aforementioned copy
     positions2 = np.ascontiguousarray(positions1)
     buf = gfx.Buffer(positions2)
-    mem = buf._get_subdata(0, buf.nitems)
+    mem = buf._gfx_get_chunk_data(0, buf.nitems)
     assert mem.c_contiguous
     assert mem is buf.mem
+
+
+if __name__ == "__main__":
+    test_chunk_size_small()
+    test_custom_chunk_size()
+    test_contiguous()

@@ -1,4 +1,4 @@
-from math import ceil
+from math import floor, ceil
 import numpy as np
 
 from ._base import Resource, get_item_format_from_memoryview
@@ -94,20 +94,26 @@ class Buffer(Resource):
 
         # Get optimal chunksize
         if chunksize is None:
-            chunksize_bytes = max(min(the_nbytes // 16, 2**20), 2**8)
-            # TODO: ? if chunksize > nbytes:
+            chunksize_bytes = max(min(the_nbytes / 16, 2**20), 2**8)
         else:
-            chunksize_bytes = max(int(chunksize), 1)
+            chunksize_bytes = max(float(chunksize), 1)
 
         # Init chunks map
-        self._chunks_any_dirty = False
-        self._chunk_map = None
-        if data is not None:
+        if data is None:
+            self._chunks_any_dirty = False
+            self._chunk_itemsize = 0
+            self._chunk_map = None
+        elif the_nbytes == 0:
+            self._chunks_any_dirty = False
+            self._chunk_itemsize = 0
+            self._chunk_map = np.ones((0,), bool)
+        else:
+            self._chunks_any_dirty = True
             itemsize = the_nbytes // the_nitems
-            self._chunk_itemsize = max(min(chunksize_bytes // itemsize, the_nitems), 1)
+            self._chunk_itemsize = ceil(chunksize_bytes / itemsize)
+            self._chunk_itemsize = max(min(self._chunk_itemsize, the_nitems), 1)
             n_chunks = ceil(the_nitems / self._chunk_itemsize)
             self._chunk_map = np.ones((n_chunks,), bool)
-            self._chunks_any_dirty = True
 
     @property
     def data(self):
@@ -228,7 +234,7 @@ class Buffer(Resource):
 
         # Update map
         div = self._chunk_itemsize
-        self._chunk_map[offset // div : ceil((offset + size) / div)] = True
+        self._chunk_map[floor(offset / div) : ceil((offset + size) / div)] = True
         self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
