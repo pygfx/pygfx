@@ -48,7 +48,7 @@ for marker in gfx.MarkerShape:
             color_mode="vertex",
             marker=marker,
             edge_color="#000",
-            edge_width=3,
+            edge_width=3 if not marker.startswith("pygfx") else 1,
         ),
     )
     line.local.y = -y

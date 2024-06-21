@@ -51,7 +51,7 @@ def animate():
         img.geometry.grid.data[:] = np.random.rand(512, 512).astype(np.float32) * 255
         img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
 
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

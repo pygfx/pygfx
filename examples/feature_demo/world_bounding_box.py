@@ -40,7 +40,7 @@ print("World bounding box:\n", scene.get_world_bounding_box())
 
 
 def animate():
-    renderer.render(scene, camera)
+    gfx.render_with_logo(renderer, scene, camera)
     canvas.request_draw()
 
 

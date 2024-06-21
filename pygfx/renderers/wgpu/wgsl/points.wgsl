@@ -313,6 +313,70 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 }
 
 
+fn get_signed_distance_to_pygfx_outer_triangle(coord_in: vec2<f32>, size: f32) -> vec2<f32> {
+    let m_sqrt_2 = 1.4142135623730951;
+    let m_sqrt_3 = 1.7320508075688772;
+
+    // The coords below assume OpenGL coords, but y is flipped, so we flip the coords.
+    // Its also shifted so that the center of the triangle is at the origin.
+    var coord = vec2<f32>(coord_in.x, -coord_in.y) / size + vec2<f32>(0.5);
+
+    // https://math.stackexchange.com/a/4073070
+    // equilateral triangle has length of size
+    //    sqrt(3) - 1
+    let triangle_x = m_sqrt_3 - 1.;
+    let one_minus_triangle_x = 2. - m_sqrt_3;
+    let triangle_length = m_sqrt_2 * triangle_x;
+
+    let pygfx_width = 0.10;
+
+    let v1 = normalize(vec2<f32>(one_minus_triangle_x, -1));
+    let r1_out = dot(coord, v1);
+    let r1_in  = r1_out + pygfx_width;
+    let r1 = max(r1_out, -r1_in);
+
+    let v2 = normalize(vec2<f32>(-1, one_minus_triangle_x));
+    let r2_out = dot(coord, v2);
+    let r2_in  = r2_out + pygfx_width;
+    let r2 = max(r2_out, -r2_in);
+
+    let v3 = normalize(vec2<f32>(triangle_x, triangle_x));
+    let r3_out = dot(coord - vec2(1, one_minus_triangle_x), v3);
+    let r3_in  = r3_out + pygfx_width;
+    let r3 = max(r3_out, -r3_in);
+
+    let outer_edge_triangle = max(
+        max(r1_out, max(r2_out, r3_out)),
+        -max(r1_in, max(r2_in, r3_in))
+    );
+
+    let inner_offset = 0.5 * (triangle_length - pygfx_width / 2.);
+    let r1_out_blue = -r1_out - inner_offset;
+    let r1_in_blue = r1_out_blue + pygfx_width;
+    let r1_blue = max(
+        max(r2_out, r3_in),
+        max(r1_out_blue, -r1_in_blue)
+    );
+
+    let r2_out_blue = -r2_out - inner_offset;
+    let r2_in_blue = r2_out_blue + pygfx_width;
+    let r2_blue = max(
+        max(r3_out, r1_in),
+        max(r2_out_blue, -r2_in_blue)
+    );
+
+    let r3_out_blue = -r3_out - inner_offset;
+    let r3_in_blue = r3_out_blue + pygfx_width;
+    let r3_blue = max(
+        max(r1_out, r2_in),
+        max(r3_out_blue, -r3_in_blue)
+    );
+
+    let inner_triangle = min(r1_blue, min(r2_blue, r3_blue));
+
+    return vec2<f32>(outer_edge_triangle, inner_triangle) * size;
+}
+
 fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
     // Thank you Nicolas!
     //
@@ -464,6 +528,15 @@ fn get_signed_distance_to_shape_edge(coord_in: vec2<f32>, size: f32) -> f32 {
         let r4 = length(coord-c1)-size/5;
         return max( min(r1,max(max(r2,r3),-coord.y)), -r4);
 
+    $$ elif shape.startswith('pygfx')
+        let boundaries = get_signed_distance_to_pygfx_outer_triangle(coord_in, size);
+        $$ if shape == 'pygfx'
+            return min(boundaries.x, boundaries.y);
+        $$ elif shape == 'pygfx_inner'
+            return boundaries.y;
+        $$ else
+            return boundaries.x;
+        $$ endif
     $$ else
         unknown marker shape! // deliberate wgsl syntax error
 
