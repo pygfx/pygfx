@@ -6,6 +6,7 @@ object.
 
 import wgpu  # only for flags/enums
 
+from ....utils.enums import RenderMask
 from .flusher import create_full_quad_pipeline
 from .shared import get_shared
 
@@ -29,7 +30,7 @@ standard_texture_des = {
 class BasePass:
     """The base pass class, defining and documenting the API that a pass must provide."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -74,7 +75,7 @@ class OpaquePass(BasePass):
     in all multi-pass blenders.
     """
 
-    render_mask = 1  # opaque only
+    render_mask = RenderMask.opaque
     write_pick = True
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -158,7 +159,7 @@ class OpaquePass(BasePass):
 class FullOpaquePass(OpaquePass):
     """A pass that considers all fragments opaque."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
     def get_shader_code(self, blender):
@@ -178,7 +179,7 @@ class FullOpaquePass(OpaquePass):
 class SimpleSinglePass(OpaquePass):
     """A pass that blends opaque and transparent fragments in a single pass."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = True
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -220,7 +221,7 @@ class SimpleTransparencyPass(BasePass):
     operator).
     """
 
-    render_mask = 2  # transparent only
+    render_mask = RenderMask.transparent
     write_pick = False
 
     def get_color_descriptors(self, blender, material_write_pick):
@@ -289,7 +290,7 @@ class WeightedTransparencyPass(BasePass):
     Multiple weight functions are supported.
     """
 
-    render_mask = 2  # transparent only
+    render_mask = RenderMask.transparent
     write_pick = False
 
     def __init__(self, weight_func):
@@ -914,7 +915,7 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
 class AdditivePass(BasePass):
     """A pass that renders fragments with additive blending."""
 
-    render_mask = 3  # opaque end transparent
+    render_mask = RenderMask.opaque | RenderMask.transparent
     write_pick = False
 
     def get_color_descriptors(self, blender, material_write_pick):
