@@ -764,8 +764,6 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             targets, binding_layout, bindings_code, fragment_code
         )
 
-        return
-
     def _create_combination_bind_group(self, bind_group_layout):
         # This must match the binding_layout above
         bind_group_entries = [
