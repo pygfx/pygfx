@@ -1,11 +1,14 @@
 from math import ceil
 
-from pygfx.resources._base import get_alignment_multiplier, calculate_buffer_chunk_size, calculate_texture_chunk_size
+from pygfx.resources._base import (
+    get_alignment_multiplier,
+    calculate_buffer_chunk_size,
+    calculate_texture_chunk_size,
+)
 
 
 def calculate_and_show_chunk_size(tex_size, **kwargs):
-    """Function to print stats on the chunks. Helpful during dev.
-    """
+    """Function to print stats on the chunks. Helpful during dev."""
     chunk_size = calculate_texture_chunk_size(tex_size, **kwargs)
 
     nchunks_list = [ts / cs for ts, cs in zip(tex_size, chunk_size)]
@@ -13,7 +16,6 @@ def calculate_and_show_chunk_size(tex_size, **kwargs):
     chunk_counts_str = ", ".join(f"{x:0.03f}" for x in nchunks_list)
     print(f"{tex_size} -> {chunk_size} - {nchunks} chunks (counts: {chunk_counts_str})")
     return chunk_size
-
 
 
 def test_get_alignment_multiplier():
@@ -59,7 +61,6 @@ def test_get_alignment_multiplier():
         assert get_alignment_multiplier(bpe, align) == result
 
 
-
 def test_calculate_buffer_chunk_size():
     # We basically test this in all dim1 tests below. But test a bit for good measure
 
@@ -73,7 +74,6 @@ def test_calculate_buffer_chunk_size():
     assert calculate_buffer_chunk_size(12345) == 624
     assert calculate_buffer_chunk_size(12345, byte_align=1) == 618
     assert calculate_buffer_chunk_size(12345, byte_align=256) == 768
-
 
 
 def test_chunk_size_dim1_bounds():
@@ -93,12 +93,24 @@ def test_chunk_size_dim1_bounds():
     assert calculate_and_show_chunk_size((1_000_000_000, 1, 1)) == (1048224, 1, 1)
 
     # Chunk size bounds are expressed in bytes
-    assert calculate_and_show_chunk_size((1_000_000_000, 1, 1), bytes_per_element=2) == (524112, 1, 1)
-    assert calculate_and_show_chunk_size((1_000_000_000, 1, 1), bytes_per_element=8) == (131062, 1, 1)
+    assert calculate_and_show_chunk_size(
+        (1_000_000_000, 1, 1), bytes_per_element=2
+    ) == (524112, 1, 1)
+    assert calculate_and_show_chunk_size(
+        (1_000_000_000, 1, 1), bytes_per_element=8
+    ) == (131062, 1, 1)
 
     # Check giving min and max chunk size (the lower bound is approximate)
-    assert calculate_and_show_chunk_size((10_000, 1, 1), min_chunk_size=2**13) == (5008, 1, 1)
-    assert calculate_and_show_chunk_size((100_000, 1, 1), max_chunk_size=512) == (512, 1, 1)
+    assert calculate_and_show_chunk_size((10_000, 1, 1), min_chunk_size=2**13) == (
+        5008,
+        1,
+        1,
+    )
+    assert calculate_and_show_chunk_size((100_000, 1, 1), max_chunk_size=512) == (
+        512,
+        1,
+        1,
+    )
 
 
 def test_chunk_size_dim1_coverage():
@@ -112,15 +124,26 @@ def test_chunk_size_dim1_coverage():
 
 
 def test_chunk_size_dim1_align():
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=1) == (512, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=3) == (512, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=33) == (512, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=2) == (512, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=4) == (508, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=8) == (508, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=16) == (507, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=32) == (507, 1, 1)
-    assert calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=16, byte_align=64) == (508, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=1)
+    assert res == (512, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=3)
+    assert res == (512, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=33)
+    assert res == (512, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=2)
+    assert res == (512, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=4)
+    assert res == (508, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=8)
+    assert res == (508, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=16)
+    assert res == (507, 1, 1)
+    res = calculate_and_show_chunk_size((10_123, 1, 1), bytes_per_element=32)
+    assert res == (507, 1, 1)
+    res = calculate_and_show_chunk_size(
+        (10_123, 1, 1), bytes_per_element=16, byte_align=64
+    )
+    assert res == (508, 1, 1)
 
 
 def test_chunk_size_dim2_bounds():
@@ -136,8 +159,12 @@ def test_chunk_size_dim2_bounds():
     assert calculate_and_show_chunk_size((100_000, 100_000, 1)) == (1024, 1021, 1)
 
     # Max size is in bytes, and is affected by bytes_per_element as well
-    assert calculate_and_show_chunk_size((100_000, 100_000, 1), max_chunk_size=2**19) == (720, 725, 1)
-    assert calculate_and_show_chunk_size((100_000, 100_000, 1), bytes_per_element=2) == (720, 725, 1)
+    assert calculate_and_show_chunk_size(
+        (100_000, 100_000, 1), max_chunk_size=2**19
+    ) == (720, 725, 1)
+    assert calculate_and_show_chunk_size(
+        (100_000, 100_000, 1), bytes_per_element=2
+    ) == (720, 725, 1)
 
 
 def test_chunk_size_dim2_ratio():
@@ -151,13 +178,18 @@ def test_chunk_size_dim2_ratio():
 
 def test_chunk_size_dim2_align():
     # The first dimension is aligned, the second is not
-    assert calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=1) == (256, 219, 1)
-    assert calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=3) == (256, 219, 1)
-    assert calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=2) == (248, 219, 1)
-    assert calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=4) == (248, 219, 1)
-    assert calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=8) == (248, 219, 1)
-    assert calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=16) == (247, 219, 1)
-
+    res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=1)
+    assert res == (256, 219, 1)
+    res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=3)
+    assert res == (256, 219, 1)
+    res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=2)
+    assert res == (248, 219, 1)
+    res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=4)
+    assert res == (248, 219, 1)
+    res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=8)
+    assert res == (248, 219, 1)
+    res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=16)
+    assert res == (247, 219, 1)
 
 
 def test_chunk_size_dim3_bounds():
@@ -173,19 +205,33 @@ def test_chunk_size_dim3_bounds():
     assert calculate_and_show_chunk_size((2000, 2000, 2000)) == (112, 96, 96)
 
     # Max size is in bytes, and is affected by bytes_per_element as well
-    assert calculate_and_show_chunk_size((2000, 2000, 2000), max_chunk_size=2**19) == (80, 80, 80)
-    assert calculate_and_show_chunk_size((2000, 2000, 2000), bytes_per_element=2) == (80, 80, 80)
+    assert calculate_and_show_chunk_size(
+        (2000, 2000, 2000), max_chunk_size=2**19
+    ) == (80, 80, 80)
+    assert calculate_and_show_chunk_size((2000, 2000, 2000), bytes_per_element=2) == (
+        80,
+        80,
+        80,
+    )
 
 
 def test_chunk_size_dim3_ratio():
     # Chunk sizes are more or less equal.
     # A ratio of 2 or so is to be expected due to rounding and alignment.
     assert calculate_and_show_chunk_size((100, 200, 300)) == (64, 67, 60)
-    assert calculate_and_show_chunk_size((100, 200, 300), target_chunk_count=100) == (48, 34, 34)
+    assert calculate_and_show_chunk_size((100, 200, 300), target_chunk_count=100) == (
+        48,
+        34,
+        34,
+    )
     assert calculate_and_show_chunk_size((1000, 2000, 3000)) == (112, 96, 97)
 
     assert calculate_and_show_chunk_size((300, 200, 100)) == (80, 67, 50)
-    assert calculate_and_show_chunk_size((300, 200, 100), target_chunk_count=100) == (48, 40, 34)
+    assert calculate_and_show_chunk_size((300, 200, 100), target_chunk_count=100) == (
+        48,
+        40,
+        34,
+    )
     assert calculate_and_show_chunk_size((3000, 2000, 1000)) == (112, 100, 100)
 
     assert calculate_and_show_chunk_size((400, 100, 100)) == (80, 50, 50)
@@ -195,12 +241,18 @@ def test_chunk_size_dim3_ratio():
 
 def test_chunk_size_dim3_align():
     # The first dimension is aligned, the second is not
-    assert calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=1) == (48, 29, 22)
-    assert calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=3) == (48, 29, 22)
-    assert calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=2) == (48, 29, 22)
-    assert calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=4) == (44, 29, 22)
-    assert calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=8) == (42, 29, 22)
-    assert calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=16) == (41, 29, 22)
+    res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=1)
+    assert res == (48, 29, 22)
+    res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=3)
+    assert res == (48, 29, 22)
+    res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=2)
+    assert res == (48, 29, 22)
+    res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=4)
+    assert res == (44, 29, 22)
+    res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=8)
+    assert res == (42, 29, 22)
+    res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=16)
+    assert res == (41, 29, 22)
 
 
 if __name__ == "__main__":
