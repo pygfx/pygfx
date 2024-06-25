@@ -93,17 +93,19 @@ $$ else
             let plane = u_material.clipping_planes[i];
             clip = min(clip, dot(vec4(world_pos, -1.), plane));
         }
+        return -clip;
         $$ else
+        // Untested...
         var clip : f32 = -3.40282e+38;
         for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
             let plane = u_material.clipping_planes[i];
             clip = max(clip, dot(vec4(world_pos, -1.), plane));
         }
-        $$ endif
         return clip;
+        $$ endif
     }
     fn apply_clipping_planes(world_pos: vec3<f32>) {
-        if (check_clipping_planes(world_pos) <= 0) { discard; }
+        if (check_clipping_planes(world_pos) > 0) { discard; }
     }
 $$ endif
 
