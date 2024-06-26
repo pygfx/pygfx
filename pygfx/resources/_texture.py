@@ -140,7 +140,7 @@ class Texture(Resource):
             self._format = None
 
         # Get optimal chunk size
-        if data is None == 0:
+        if the_nbytes == 0:  # data is None or empty
             chunk_size = (0, 0, 0)
         elif chunk_size is None:
             chunk_size = calculate_texture_chunk_size(
@@ -336,28 +336,25 @@ class Texture(Resource):
 
         return chunk_descriptions
 
-    def _gfx_get_chunk_data(self, offset, size):
+    def _gfx_get_chunk_data(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
-        if offset == 0 and size == self.nitems and self._mem.c_contiguous:
-            # If this is a full range, this is easy (and fast)
-            chunk = self._mem
-        else:
-            # Otherwise, create a view, make a copy if its not contiguous.
-            # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
-            # but that turns out to be really slow (like 6x). So we make the copy via numpy.
-            chunk = self._mem[offset : offset + size]
-            if not chunk.c_contiguous:
-                if self._force_contiguous:
-                    logger.warning(
-                        "force_contiguous was set, but chunk data is still discontiguous"
-                    )
-                # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
-                chunk = memoryview(np.ascontiguousarray(chunk))
-        return chunk
+        # if offset == 0 and size == self.nitems and self._mem.c_contiguous:
+        #     # If this is a full range, this is easy (and fast)
+        #     chunk = self._mem
+        # else:
+        #     # Otherwise, create a view, make a copy if its not contiguous.
+        #     # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
+        #     # but that turns out to be really slow (like 6x). So we make the copy via numpy.
+        #     chunk = self._mem[offset : offset + size]
+        #     if not chunk.c_contiguous:
+        #         if self._force_contiguous:
+        #             logger.warning(
+        #                 "force_contiguous was set, but chunk data is still discontiguous"
+        #             )
+        #         # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
+        #         chunk = memoryview(np.ascontiguousarray(chunk))
+        # return chunk
 
-    def _get_subdata(self, offset, size, pixel_padding=None):
-        """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy (and fast)
         if (
             offset == (0, 0, 0)
             and size == self.size
@@ -365,15 +362,15 @@ class Texture(Resource):
             and pixel_padding is None
         ):
             return self.mem
-        # Get a numpy array, because memoryviews do not support nd slicing
-        if isinstance(self.data, np.ndarray):
+        elif isinstance(self.data, np.ndarray):
+            # Get a numpy array, because memoryviews do not support nd slicing
             arr = self.data
-        elif not self.mem.c_contiguous:
+        elif self.mem.c_contiguous:
+            arr = np.frombuffer(self.mem, self.mem.format)
+        else:
             raise ValueError(
                 "Non-contiguous texture data is only supported for numpy array."
             )
-        else:
-            arr = np.frombuffer(self.mem, self.mem.format)
         arr = arr.reshape(self.size[2], self.size[1], self.size[0], -1)
         # Slice it
         slices = []

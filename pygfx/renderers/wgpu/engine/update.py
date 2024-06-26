@@ -78,11 +78,10 @@ def _update_texture(texture):
     wgpu_texture = texture._wgpu_object
     assert wgpu_texture is not None
 
-    # Get and reset pending uploads
-    pending_uploads = texture._gfx_pending_uploads
-    if not pending_uploads:
+    # Collect chunks to update
+    chunk_descriptions = texture._gfx_get_chunk_descriptions()
+    if not chunk_descriptions:
         return
-    texture._gfx_pending_uploads = []
 
     # Prepare for data uploads
     device = get_shared().device
@@ -90,6 +89,7 @@ def _update_texture(texture):
     pixel_padding = None
     extra_bytes = 0
     if fmt in ALTTEXFORMAT:
+        # todo: solve this differently so it is prohibited when force_contiguous is set
         _, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
     bytes_per_pixel = texture.nbytes // (
         texture.size[0] * texture.size[1] * texture.size[2]
@@ -98,31 +98,11 @@ def _update_texture(texture):
         bytes_per_pixel += extra_bytes
 
     # Upload any pending data
-    for offset, size in pending_uploads:
-        subdata = texture._get_subdata(offset, size, pixel_padding)
-        # B: using a temp buffer
-        # tmp_buffer = device.create_buffer_with_data(data=subdata,
-        #     usage=wgpu.BufferUsage.COPY_SRC,
-        # )
-        # encoder.copy_buffer_to_texture(
-        #     {
-        #         "buffer": tmp_buffer,
-        #         "offset": 0,
-        #         "bytes_per_row": size[0] * bytes_per_pixel,  # multiple of 256
-        #         "rows_per_image": size[1],
-        #     },
-        #     {
-        #         "texture": texture,
-        #         "mip_level": 0,
-        #         "origin": offset,
-        #     },
-        #     copy_size=size,
-        # )
-        # C: using the queue, which may be doing B, but may also be optimized,
-        #    and the bytes_per_row limitation does not apply here
+    for offset, size in chunk_descriptions:
+        chunk_data = texture._gfx_get_chunk_data(offset, size, pixel_padding)
         device.queue.write_texture(
             {"texture": wgpu_texture, "origin": offset, "mip_level": 0},
-            subdata,
+            chunk_data,
             {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
             size,
         )
@@ -153,7 +133,7 @@ def ensure_wgpu_object(resource):
         fmt = to_texture_format(resource.format)
         if fmt in ALTTEXFORMAT:
             fmt = ALTTEXFORMAT[fmt][0]
-        if resource._gfx_pending_uploads:
+        if resource.data is not None:
             resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
         if resource.generate_mipmaps:

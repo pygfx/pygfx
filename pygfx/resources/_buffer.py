@@ -114,14 +114,16 @@ class Buffer(Resource):
         self.draw_range = 0, the_nitems
 
         # Get optimal chunk size
-        if chunk_size is None:
+        if the_nbytes == 0:  # data is None or empty
+            chunk_size = 0
+        elif chunk_size is None:
             chunk_size = calculate_buffer_chunk_size(
                 the_nitems,
                 bytes_per_element=the_nbytes // the_nitems,
                 byte_align=16,
                 target_chunk_count=20,
                 min_chunk_size=2**8,
-                max_chunk_size=2**24,
+                max_chunk_size=2**20,
             )
         else:
             chunk_size = min(max(int(chunk_size), 1), the_nitems)

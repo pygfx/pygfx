@@ -138,7 +138,7 @@ def calculate_texture_chunk_size(
         # distribution of the chunks (i.e. avoiding a half-chunk at the
         # end). Note that we don't try to get an exact integer number of
         # chunks, becaus this_might be hard/impossible (this_size might
-        # be a prime number). A ceil works better here, otherwise a chunksize
+        # be a prime number). A ceil works better here, otherwise a chunk size
         # can easily snap to the full size for smaller dimensions.
         approx_chunk_count = ceil(this_size / approx_chunk_size)
         approx_chunk_size = this_size / approx_chunk_count
