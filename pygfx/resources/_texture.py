@@ -143,10 +143,9 @@ class Texture(Resource):
         if data is None == 0:
             chunk_size = (0, 0, 0)
         elif chunk_size is None:
-            chunk_size = max(min(the_nbytes / 16, 2**20), 2**8)
-            calculate_texture_chunk_size(
+            chunk_size = calculate_texture_chunk_size(
                 the_size,
-                bytes_per_element=np.prod(the_size) // the_nbytes,
+                bytes_per_element=the_nbytes // np.prod(the_size),
                 byte_align=16,
                 target_chunk_count=20,
                 min_chunk_size=2**8,
@@ -285,9 +284,9 @@ class Texture(Resource):
             raise ValueError("Update size out of range")
         # Get indices
         div = self._chunk_size
-        indexA = tuple(floor(offset[i] / div) for i in range(3))
+        indexA = tuple(floor(offset[i] / div[i]) for i in range(3))
         indexB = tuple(
-            ceil(min(full_size[i], offset[i] + size[i]) / div) for i in range(3)
+            ceil(min(full_size[i], offset[i] + size[i]) / div[i]) for i in range(3)
         )
         # Update map
         self._chunk_mask[
