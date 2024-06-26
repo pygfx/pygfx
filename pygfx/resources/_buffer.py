@@ -1,7 +1,12 @@
 from math import floor, ceil
 import numpy as np
 
-from ._base import Resource, get_item_format_from_memoryview, logger
+from ._base import (
+    Resource,
+    get_item_format_from_memoryview,
+    calculate_buffer_chunk_size,
+    logger,
+)
 
 
 class Buffer(Resource):
@@ -27,9 +32,9 @@ class Buffer(Resource):
         A format string describing the buffer layout. This can follow pygfx'
         ``ElementFormat`` e.g. "3xf4", or wgpu's ``VertexFormat``. Optional: if
         None, it is automatically determined from the data.
-    chunksize : None | int
-        The chunksize to use for uploading data to the GPU, expressed in bytes.
-        When None (default) an optimal chunksize is determined automatically.
+    chunk_size : None | int
+        The chunk size to use for uploading data to the GPU, expressed in items counts.
+        When None (default) an optimal chunk size is determined automatically.
     force_contiguous : bool
         When set to true, the buffer goes into a stricter mode, forcing set data
         to be c_contiguous. This ensures optimal upload performance for cases when
@@ -55,7 +60,7 @@ class Buffer(Resource):
         nbytes=None,
         nitems=None,
         format=None,
-        chunksize=None,
+        chunk_size=None,
         force_contiguous=False,
         usage=0,
     ):
@@ -112,28 +117,33 @@ class Buffer(Resource):
         # Can now init other properties
         self.draw_range = 0, the_nitems
 
-        # Get optimal chunksize
-        if chunksize is None:
-            chunksize_bytes = max(min(the_nbytes / 16, 2**20), 2**8)
+        # Get optimal chunk size
+        if chunk_size is None:
+            chunk_size = calculate_buffer_chunk_size(
+                the_nitems,
+                bytes_per_element=the_nbytes // the_nitems,
+                byte_align=16,
+                target_chunk_count=20,
+                min_chunk_size=2**8,
+                max_chunk_size=2**24,
+            )
         else:
-            chunksize_bytes = max(float(chunksize), 1)
+            chunk_size = min(max(int(chunk_size), 1), the_nitems)
 
         # Init chunks map
         if data is None:
             self._chunks_any_dirty = False
-            self._chunk_itemsize = 0
-            self._chunk_map = None
+            self._chunk_size = 0
+            self._chunk_mask = None
         elif the_nbytes == 0:
             self._chunks_any_dirty = False
-            self._chunk_itemsize = 0
-            self._chunk_map = np.ones((0,), bool)
+            self._chunk_size = 0
+            self._chunk_mask = np.ones((0,), bool)
         else:
             self._chunks_any_dirty = True
-            itemsize = the_nbytes // the_nitems
-            self._chunk_itemsize = ceil(chunksize_bytes / itemsize)
-            self._chunk_itemsize = max(min(self._chunk_itemsize, the_nitems), 1)
-            n_chunks = ceil(the_nitems / self._chunk_itemsize)
-            self._chunk_map = np.ones((n_chunks,), bool)
+            self._chunk_size = chunk_size
+            n_chunks = ceil(the_nitems / self._chunk_size)
+            self._chunk_mask = np.ones((n_chunks,), bool)
 
     @property
     def data(self):
@@ -241,19 +251,13 @@ class Buffer(Resource):
         # Do many checks
         if self._force_contiguous and not mem.c_contiguous:
             raise ValueError(
-                "Given data is not c_contiguous (enforced because force_contiguous is set)."
+                "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
             )
-        if self.nbytes != mem.nbytes:
+        if mem.nbytes != self._mem.nbytes:
             raise ValueError("buffer.set_data() nbytes does not match.")
-        if self.nitems != (mem.shape[0] if mem.shape else 1):
-            raise ValueError("buffer.set_data() nbytes does not match.")
-        subformat = get_item_format_from_memoryview(mem)
-        detected_format = None
-        if subformat:
-            shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
-            if len(shape) == 2:  # if not, the user does something fancy
-                detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
-        if detected_format != self.format:
+        if mem.shape != self.mem.shape:
+            raise ValueError("buffer.set_data() shape does not match.")
+        if mem.format != self.mem.format:
             raise ValueError("buffer.set_data() format does not match.")
         # Ok
         self._data = data
@@ -262,7 +266,7 @@ class Buffer(Resource):
 
     def update_full(self):
         """Mark the whole data for upload."""
-        self._chunk_map.fill(True)
+        self._chunk_mask.fill(True)
         self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
@@ -289,8 +293,8 @@ class Buffer(Resource):
         index1 = offset
         index2 = min(nitems, offset + size)
         # Update map
-        div = self._chunk_itemsize
-        self._chunk_map[floor(index1 / div) : ceil(index2 / div)] = True
+        div = self._chunk_size
+        self._chunk_mask[floor(index1 / div) : ceil(index2 / div)] = True
         self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
@@ -310,10 +314,10 @@ class Buffer(Resource):
         chunk_descriptions = []
         max_merges = 8
         merges_possible = 0
-        for i, dirty in enumerate(self._chunk_map):
+        for i, dirty in enumerate(self._chunk_mask):
             if dirty:
-                offset = self._chunk_itemsize * i
-                size = self._chunk_itemsize
+                offset = self._chunk_size * i
+                size = self._chunk_size
                 if merges_possible > 0:
                     merges_possible -= 1
                     chunk_descriptions[-1][-1] += size
@@ -325,7 +329,7 @@ class Buffer(Resource):
 
         # Reset
         self._chunks_any_dirty = False
-        self._chunk_map.fill(False)
+        self._chunk_mask.fill(False)
 
         return chunk_descriptions
 

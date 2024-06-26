@@ -2,7 +2,12 @@ from math import floor, ceil
 
 import numpy as np
 
-from ._base import Resource, get_item_format_from_memoryview
+from ._base import (
+    Resource,
+    get_item_format_from_memoryview,
+    calculate_texture_chunk_size,
+    logger,
+)
 
 
 class Texture(Resource):
@@ -37,9 +42,11 @@ class Texture(Resource):
     generate_mipmaps : bool
         If True, automatically generates mipmaps when transferring data to the
         GPU. Default False.
-    chunksize : None | int
-        The chunksize to use for uploading data to the GPU, expressed in bytes.
-        When None (default) an optimal chunksize is determined automatically.
+    chunk_size : None | tuple | int
+        The chunk size to use for uploading data to the GPU, expressed in elements (not bytes).
+        When None (default) an optimal chunk size is determined automatically.
+        A 3-tuple can be given to provide a size for each dimension, or an integer
+        to apply for all dimensions.
     force_contiguous : bool
         When set to true, the texture goes into a stricter mode, forcing set data
         to be c_contiguous. This ensures optimal upload performance for cases when
@@ -60,7 +67,7 @@ class Texture(Resource):
         format=None,
         colorspace="srgb",
         generate_mipmaps=False,
-        chunksize=None,
+        chunk_size=None,
         force_contiguous=False,
         usage=0,
     ):
@@ -85,8 +92,6 @@ class Texture(Resource):
         # Normalize size
         size = None if size is None else (int(size[0]), int(size[1]), int(size[2]))
 
-        self._gfx_pending_uploads = []
-
         # Process data
         if data is not None:
             self._data = data
@@ -96,7 +101,7 @@ class Texture(Resource):
                     "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
                 )
             the_nbytes = mem.nbytes
-            the_size = self._size_from_data(mem, dim, size)
+            the_size = size_from_data(mem, dim, size)
             subformat = get_item_format_from_memoryview(mem)
             if subformat is None:
                 raise ValueError(
@@ -133,28 +138,40 @@ class Texture(Resource):
         else:
             self._format = None
 
-        # Get optimal chunksize
-        if chunksize is None:
-            chunksize_bytes = max(min(the_nbytes / 16, 2**20), 2**8)
+        # Get optimal chunk size
+        if data is None == 0:
+            chunk_size = (0, 0, 0)
+        elif chunk_size is None:
+            chunk_size = max(min(the_nbytes / 16, 2**20), 2**8)
+            calculate_texture_chunk_size(
+                the_size,
+                bytes_per_element=np.prod(the_size) // the_nbytes,
+                byte_align=16,
+                target_chunk_count=20,
+                min_chunk_size=2**8,
+                max_chunk_size=2**24,
+            )
         else:
-            chunksize_bytes = max(float(chunksize), 1)
+            if isinstance(chunk_size, int):
+                chunk_size = chunk_size, chunk_size, chunk_size
+            chunk_size = tuple(
+                min(max(int(chunk_size[i]), 1), the_size[i]) for i in range(3)
+            )
 
-        # # Init chunks map
-        # if data is None:
-        #     self._chunks_any_dirty = False
-        #     self._chunk_itemsize = 0
-        #     self._chunk_map = None
-        # elif the_nbytes == 0:
-        #     self._chunks_any_dirty = False
-        #     self._chunk_itemsize = 0
-        #     self._chunk_map = np.ones((0,), bool)
-        # else:
-        #     self._chunks_any_dirty = True
-        #     itemsize = the_nbytes // the_nitems
-        #     self._chunk_itemsize = ceil(chunksize_bytes / itemsize)
-        #     self._chunk_itemsize = max(min(self._chunk_itemsize, the_nitems), 1)
-        #     n_chunks = ceil(the_nitems / self._chunk_itemsize)
-        #     self._chunk_map = np.ones((n_chunks,), bool)
+        # Init chunks map
+        if data is None:
+            self._chunks_any_dirty = False
+            self._chunk_size = (0, 0, 0)
+            self._chunk_mask = None
+        elif the_nbytes == 0:
+            self._chunks_any_dirty = False
+            self._chunk_size = (0, 0, 0)
+            self._chunk_mask = np.ones((0, 0, 0), bool)
+        else:
+            self._chunks_any_dirty = True
+            self._chunk_size = chunk_size
+            n_chunks = tuple(ceil(the_size[i] / self._chunk_size[i]) for i in range(3))
+            self._chunk_mask = np.ones(n_chunks, bool)
 
     @property
     def dim(self):
@@ -216,11 +233,44 @@ class Texture(Resource):
         """Whether to automatically generate mipmaps when uploading to the GPU."""
         return self._generate_mipmaps
 
+    def set_data(self, data):
+        """Reset the data to a new array.
+
+        This avoids a data-copy compared to doing ``texture.data[:] = new_data``.
+        The new data must match the current data's shape and format.
+        """
+        # Get memoryview
+        mem = memoryview(data)
+        # Do many checks
+        if self._force_contiguous and not mem.c_contiguous:
+            raise ValueError(
+                "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
+            )
+        if mem.nbytes != self._mem.nbytes:
+            raise ValueError("texture.set_data() nbytes does not match.")
+        if mem.shape != self.mem.shape:
+            raise ValueError("texture.set_data() shape does not match.")
+        if mem.format != self.mem.format:
+            raise ValueError("texture.set_data() format does not match.")
+        # Ok
+        self._data = data
+        self._mem = mem
+        self.update_full()
+
+    def update_full(self):
+        """Mark the whole data for upload."""
+        self._chunk_mask.fill(True)
+        self._chunks_any_dirty = True
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
         The offset and (sub) size should be (width, height, depth)
         tuples. Numpy users beware that an arrays shape is (height, width)!
         """
+        full_size = self.size
         # Check input
         assert isinstance(offset, tuple) and len(offset) == 3
         assert isinstance(size, tuple) and len(size) == 3
@@ -230,53 +280,80 @@ class Texture(Resource):
             raise ValueError("Update size must not be negative")
         elif any(b < 0 for b in offset):
             raise ValueError("Update offset must not be negative")
-        elif any(b + s > refsize for b, s, refsize in zip(offset, size, self.size)):
+        elif any(b + s > refsize for b, s, refsize in zip(offset, size, full_size)):
             raise ValueError("Update size out of range")
-        # Apply - consider that texture arrays want to be uploaded per-texture
-        # todo: avoid duplicates by merging with existing pending uploads
-        if self.dim == 1:
-            for z in range(size[2]):
-                for y in range(size[1]):
-                    offset2 = offset[0], y, z
-                    size2 = size[0], 1, 1
-                    self._gfx_pending_uploads.append((offset2, size2))
-        elif self.dim == 2:
-            for z in range(size[2]):
-                offset2 = offset[0], offset[1], z
-                size2 = size[0], size[1], 1
-                self._gfx_pending_uploads.append((offset2, size2))
-        else:
-            self._gfx_pending_uploads.append((offset, size))
+        # Get indices
+        div = self._chunk_size
+        indexA = tuple(floor(offset[i] / div) for i in range(3))
+        indexB = tuple(
+            ceil(min(full_size[i], offset[i] + size[i]) / div) for i in range(3)
+        )
+        # Update map
+        self._chunk_mask[
+            indexA[2] : indexB[2], indexA[1] : indexB[1], indexA[0] : indexB[0]
+        ] = True
+        self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
 
-    def _size_from_data(self, data, dim, size):
-        # Check if shape matches dimension
-        shape = data.shape
+    def _gfx_get_chunk_descriptions(self):
+        """Get a list of (offset, size) tuples, that can be
+        used in _gfx_get_chunk_data(). This method also clears
+        the chunk dirty statuses.
+        """
 
-        if size:
-            # Get version of size with trailing ones stripped
-            size2 = size
-            size2 = size2[:-1] if size2[-1] == 1 else size2
-            size2 = size2[:-1] if size2[-1] == 1 else size2
-            rsize = tuple(reversed(size2))
-            # Check if size matches shape
-            if rsize != shape[: len(rsize)]:
-                raise ValueError(f"Given size does not match the data shape.")
-            return size
+        # Quick return v1
+        if not self._chunks_any_dirty:
+            return []
+
+        # Quick return v2
+        if self.nbytes < 2**30 and np.all(self._chunk_mask):
+            return [((0, 0, 0), self.size)]
+
+        # Get merged chunk blocks, using a smart algorithm.
+        chunk_blocks = get_merged_blocks_from_mask_3d(self._chunk_mask)
+
+        # Turn into proper descriptions, with chunk indices/counts scaled with the chunk size.
+        chunk_descriptions = []
+        chunk_size = self._chunk_size
+        for block in chunk_blocks:
+            offset = (
+                block.x * chunk_size[0],
+                block.y * chunk_size[1],
+                block.z * chunk_size[2],
+            )
+            size = (
+                block.nx * chunk_size[0],
+                block.ny * chunk_size[1],
+                block.nz * chunk_size[2],
+            )
+            chunk_descriptions.append((offset, size))
+
+        # Reset
+        self._chunks_any_dirty = False
+        self._chunk_mask.fill(False)
+
+        return chunk_descriptions
+
+    def _gfx_get_chunk_data(self, offset, size):
+        """Return subdata as a contiguous array."""
+        if offset == 0 and size == self.nitems and self._mem.c_contiguous:
+            # If this is a full range, this is easy (and fast)
+            chunk = self._mem
         else:
-            if len(shape) not in (dim, dim + 1):
-                raise ValueError(
-                    f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
-                )
-            # Determine size based on dim and shape
-            if dim == 1:
-                return shape[0], 1, 1
-            elif dim == 2:
-                return shape[1], shape[0], 1
-            else:  # dim == 3:
-                return shape[2], shape[1], shape[0]
+            # Otherwise, create a view, make a copy if its not contiguous.
+            # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
+            # but that turns out to be really slow (like 6x). So we make the copy via numpy.
+            chunk = self._mem[offset : offset + size]
+            if not chunk.c_contiguous:
+                if self._force_contiguous:
+                    logger.warning(
+                        "force_contiguous was set, but chunk data is still discontiguous"
+                    )
+                # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
+                chunk = memoryview(np.ascontiguousarray(chunk))
+        return chunk
 
     def _get_subdata(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
@@ -308,7 +385,133 @@ class Texture(Resource):
             sub_arr = np.concatenate([sub_arr, pixel_padding * padding], -1)
         return memoryview(np.ascontiguousarray(sub_arr))
 
-    def get_view(self, *args, **kwargs):
-        raise DeprecationWarning(
-            "Texture.get_view() is removed, TextureView is no longer public API: just use plain textures."
-        )
+
+def size_from_data(data, dim, size):
+    # Check if shape matches dimension
+    shape = data.shape
+
+    if size:
+        # Get version of size with trailing ones stripped
+        size2 = size
+        size2 = size2[:-1] if size2[-1] == 1 else size2
+        size2 = size2[:-1] if size2[-1] == 1 else size2
+        rsize = tuple(reversed(size2))
+        # Check if size matches shape
+        if rsize != shape[: len(rsize)]:
+            raise ValueError(f"Given size does not match the data shape.")
+        return size
+    else:
+        if len(shape) not in (dim, dim + 1):
+            raise ValueError(
+                f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
+            )
+        # Determine size based on dim and shape
+        if dim == 1:
+            return shape[0], 1, 1
+        elif dim == 2:
+            return shape[1], shape[0], 1
+        else:  # dim == 3:
+            return shape[2], shape[1], shape[0]
+
+
+class ChunkBlock:
+    """Little helper object."""
+
+    __slots__ = []"x", "y", "z", "nx", "ny", "nz"]
+
+    def __init__(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.nx = 1
+        self.ny = 1
+        self.nz = 1
+
+
+def get_merged_blocks_from_mask_3d(chunk_mask):
+    """Algorithm to get a lost of chunk descriptions from the mask, with chunks merged.
+
+    Returns a list of objects having fields x, y, z, nx, ny, nz.
+    """
+
+    # This algorithm only needs a 3D mask, making it easy to test and maintain.
+    #
+    # The problem can be defined relatively easy: given a 3D boolean mask, get a
+    # list of blocks representing the elements that are "on". Neighbouring
+    # on-elements must be combined in a single block (merging). It is ok if a
+    # few off-elements are present in a block (aggresive merging). It is not ok
+    # to omit any on-elements.
+    #
+    # From benchmarks we learned that textures suffer a larger performance
+    # penalty for chunking than buffers do, except for chunks split in the last
+    # dimension. This makes sense because it results in non-contiguous pieces of
+    # data. This means that merging chunks is especially important. However,
+    # being multi-dimensional, it is also more challenging :) We first process a
+    # row (x dimension), merging pretty aggressively, allowing one chunk in
+    # between. Then for a stack of rows (y dimension), we merge chunks if they
+    # match. Then we repeat this for the depth (z dimension).
+
+    chunk_count_z, chunk_count_y, chunk_count_x = chunk_mask.shape
+
+    chunk_blocks_z_new = []
+    chunk_blocks_y_before = []
+
+    for z in range(chunk_count_z):
+        chunk_blocks_y_new = []
+        chunk_blocks_x_before = []
+
+        for y in range(chunk_count_y):
+            chunk_blocks_x_new = []
+
+            # Collect (merged) chunks for the x-dimension
+            gap = 999
+            for x in range(chunk_count_x):
+                dirty = chunk_mask[z, y, x]
+                if dirty:
+                    if gap <= 1:
+                        chunk_blocks_x_new[-1].nx += 1
+                        gap = 0
+                    else:
+                        chunk_blocks_x_new.append(ChunkBlock(x, y, z))
+                        gap = 0
+                else:
+                    gap += 1
+
+            # Merge in the y-dimension
+            chunk_blocks_x_composed = []
+            for new_block in chunk_blocks_x_new:
+                block_match = None
+                for prev_block in chunk_blocks_x_before:
+                    if prev_block.x == new_block.x and prev_block.nx == new_block.nx:
+                        block_match = prev_block
+                        break
+                if block_match is not None:
+                    block_match.ny += 1
+                    chunk_blocks_x_composed.append(prev_block)
+                else:
+                    chunk_blocks_x_composed.append(new_block)
+                    chunk_blocks_y_new.append(new_block)
+            chunk_blocks_x_before = chunk_blocks_x_composed
+
+        # Merge in the z-dimension
+        chunk_blocks_y_composed = []
+        for new_block in chunk_blocks_y_new:
+            block_match = None
+            for prev_block in chunk_blocks_y_before:
+                if (
+                    prev_block.x == new_block.x
+                    and prev_block.y == new_block.y
+                    and prev_block.nx == new_block.nx
+                    and prev_block.ny == new_block.ny
+                ):
+                    block_match = prev_block
+                    break
+            if block_match is not None:
+                block_match.nz += 1
+                chunk_blocks_y_composed.append(prev_block)
+            else:
+                chunk_blocks_y_composed.append(new_block)
+                chunk_blocks_z_new.append(new_block)
+        chunk_blocks_y_before = chunk_blocks_y_composed
+
+    return chunk_blocks_z_new
