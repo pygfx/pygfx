@@ -94,22 +94,22 @@ def test_set_data():
     # Create buffer with a
     buf = gfx.Buffer(a, force_contiguous=True)
     assert buf.data is a
-    assert buf._gfx_get_chunk_descriptions()
+    assert len(buf._gfx_get_chunk_descriptions()) == 1
 
     # Set data to b
     buf.set_data(b)
     assert buf.data is b
-    assert buf._gfx_get_chunk_descriptions()
+   assert len(buf._gfx_get_chunk_descriptions()) == 1
 
     # Set back to a
     buf.set_data(a)
     assert buf.data is a
-    assert buf._gfx_get_chunk_descriptions()
+    assert len(buf._gfx_get_chunk_descriptions()) == 1
 
     # Identity is *not* checked.
     buf.set_data(a)
     assert buf.data is a
-    assert buf._gfx_get_chunk_descriptions()
+    assert len(buf._gfx_get_chunk_descriptions()) == 1
 
     # Check behavior with force_contiguous set
     with pytest.raises(ValueError) as err:
