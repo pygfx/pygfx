@@ -2,10 +2,11 @@ from math import floor, ceil
 
 import numpy as np
 
-from ._base import (
-    Resource,
+from ._base import Resource
+from ._utils import (
     get_item_format_from_memoryview,
     calculate_texture_chunk_size,
+    get_merged_blocks_from_mask_3d,
     logger,
 )
 
@@ -412,106 +413,3 @@ def size_from_data(data, dim, size):
             return shape[1], shape[0], 1
         else:  # dim == 3:
             return shape[2], shape[1], shape[0]
-
-
-class ChunkBlock:
-    """Little helper object."""
-
-    __slots__ = []"x", "y", "z", "nx", "ny", "nz"]
-
-    def __init__(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.nx = 1
-        self.ny = 1
-        self.nz = 1
-
-
-def get_merged_blocks_from_mask_3d(chunk_mask):
-    """Algorithm to get a lost of chunk descriptions from the mask, with chunks merged.
-
-    Returns a list of objects having fields x, y, z, nx, ny, nz.
-    """
-
-    # This algorithm only needs a 3D mask, making it easy to test and maintain.
-    #
-    # The problem can be defined relatively easy: given a 3D boolean mask, get a
-    # list of blocks representing the elements that are "on". Neighbouring
-    # on-elements must be combined in a single block (merging). It is ok if a
-    # few off-elements are present in a block (aggresive merging). It is not ok
-    # to omit any on-elements.
-    #
-    # From benchmarks we learned that textures suffer a larger performance
-    # penalty for chunking than buffers do, except for chunks split in the last
-    # dimension. This makes sense because it results in non-contiguous pieces of
-    # data. This means that merging chunks is especially important. However,
-    # being multi-dimensional, it is also more challenging :) We first process a
-    # row (x dimension), merging pretty aggressively, allowing one chunk in
-    # between. Then for a stack of rows (y dimension), we merge chunks if they
-    # match. Then we repeat this for the depth (z dimension).
-
-    chunk_count_z, chunk_count_y, chunk_count_x = chunk_mask.shape
-
-    chunk_blocks_z_new = []
-    chunk_blocks_y_before = []
-
-    for z in range(chunk_count_z):
-        chunk_blocks_y_new = []
-        chunk_blocks_x_before = []
-
-        for y in range(chunk_count_y):
-            chunk_blocks_x_new = []
-
-            # Collect (merged) chunks for the x-dimension
-            gap = 999
-            for x in range(chunk_count_x):
-                dirty = chunk_mask[z, y, x]
-                if dirty:
-                    if gap <= 1:
-                        chunk_blocks_x_new[-1].nx += 1
-                        gap = 0
-                    else:
-                        chunk_blocks_x_new.append(ChunkBlock(x, y, z))
-                        gap = 0
-                else:
-                    gap += 1
-
-            # Merge in the y-dimension
-            chunk_blocks_x_composed = []
-            for new_block in chunk_blocks_x_new:
-                block_match = None
-                for prev_block in chunk_blocks_x_before:
-                    if prev_block.x == new_block.x and prev_block.nx == new_block.nx:
-                        block_match = prev_block
-                        break
-                if block_match is not None:
-                    block_match.ny += 1
-                    chunk_blocks_x_composed.append(prev_block)
-                else:
-                    chunk_blocks_x_composed.append(new_block)
-                    chunk_blocks_y_new.append(new_block)
-            chunk_blocks_x_before = chunk_blocks_x_composed
-
-        # Merge in the z-dimension
-        chunk_blocks_y_composed = []
-        for new_block in chunk_blocks_y_new:
-            block_match = None
-            for prev_block in chunk_blocks_y_before:
-                if (
-                    prev_block.x == new_block.x
-                    and prev_block.y == new_block.y
-                    and prev_block.nx == new_block.nx
-                    and prev_block.ny == new_block.ny
-                ):
-                    block_match = prev_block
-                    break
-            if block_match is not None:
-                block_match.nz += 1
-                chunk_blocks_y_composed.append(prev_block)
-            else:
-                chunk_blocks_y_composed.append(new_block)
-                chunk_blocks_z_new.append(new_block)
-        chunk_blocks_y_before = chunk_blocks_y_composed
-
-    return chunk_blocks_z_new

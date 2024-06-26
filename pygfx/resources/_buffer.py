@@ -1,12 +1,8 @@
 from math import floor, ceil
 import numpy as np
 
-from ._base import (
-    Resource,
-    get_item_format_from_memoryview,
-    calculate_buffer_chunk_size,
-    logger,
-)
+from ._base import Resource
+from ._utils import get_item_format_from_memoryview, calculate_buffer_chunk_size, logger
 
 
 class Buffer(Resource):

@@ -1,6 +1,6 @@
 from math import ceil
 
-from pygfx.resources._base import (
+from pygfx.resources._utils import (
     get_alignment_multiplier,
     calculate_buffer_chunk_size,
     calculate_texture_chunk_size,
