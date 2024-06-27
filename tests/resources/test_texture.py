@@ -279,7 +279,7 @@ def test_contiguous():
 # %% Upload validity tests
 
 
-def upload_validity_checker(func):
+def upload_validity_checker_2d(func):
 
     def wrapper():
 
@@ -317,7 +317,45 @@ def upload_validity_checker(func):
     return wrapper
 
 
-@upload_validity_checker
+def upload_validity_checker_3d(func):
+
+    def wrapper():
+
+        for contiguous, nchannels, dtype in [
+            (True, 1, np.uint8),
+            (True, 1, np.float32),
+            (True, 3, np.float32),
+            (True, 4, np.float32),
+            (False, 1, np.uint8),
+            (False, 3, np.float32),
+        ]:
+
+            data = np.zeros((400, 300, 200, nchannels), dtype)
+            synced_data = data.copy()
+
+            tex = gfx.Texture(data, dim=3)
+            tex._gfx_get_chunk_descriptions()  # flush
+
+            # Appy changes
+            func(tex)
+
+            # Do with the pygfx internals would do to sync to the gpu
+            for offset, size in tex._gfx_get_chunk_descriptions():
+                chunk = tex._gfx_get_chunk_data(offset, size)
+                synced_data[
+                    offset[2] : offset[2] + size[2],
+                    offset[1] : offset[1] + size[1],
+                    offset[0] : offset[0] + size[0],
+                ] = chunk
+
+            # Check
+            assert np.all(tex.data == synced_data)
+
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+
+@upload_validity_checker_2d
 def test_upload_validity_full1(tex):
     new_data = tex.data.copy()
     new_data.fill(1)
@@ -325,13 +363,13 @@ def test_upload_validity_full1(tex):
     tex.update_full()
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_full2(tex):
     tex.data[:] = 1
     tex.update_full()
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_2x(tex):
     step = 2
     tex.data[:, ::step] = 1
@@ -339,7 +377,7 @@ def test_upload_validity_every_2x(tex):
     tex.update_indices(indices_x, None, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_9x(tex):
     step = 9
     tex.data[:, ::step] = 1
@@ -347,7 +385,7 @@ def test_upload_validity_every_9x(tex):
     tex.update_indices(indices_x, None, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_77x(tex):
     step = 77
     tex.data[:, ::step] = 1
@@ -355,7 +393,7 @@ def test_upload_validity_every_77x(tex):
     tex.update_indices(indices_x, None, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_335x(tex):
     step = 335
     tex.data[:, ::step] = 1
@@ -363,7 +401,7 @@ def test_upload_validity_every_335x(tex):
     tex.update_indices(indices_x, None, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_2y(tex):
     step = 2
     tex.data[::step] = 1
@@ -371,7 +409,7 @@ def test_upload_validity_every_2y(tex):
     tex.update_indices(None, indices_y, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_9y(tex):
     step = 9
     tex.data[::step] = 1
@@ -379,7 +417,7 @@ def test_upload_validity_every_9y(tex):
     tex.update_indices(None, indices_y, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_77y(tex):
     step = 77
     tex.data[::step] = 1
@@ -387,7 +425,7 @@ def test_upload_validity_every_77y(tex):
     tex.update_indices(None, indices_y, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_every_335y(tex):
     step = 335
     tex.data[::step] = 1
@@ -395,7 +433,7 @@ def test_upload_validity_every_335y(tex):
     tex.update_indices(None, indices_y, None)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_single_1(tex):
     x = np.random.randint(0, tex.size[0])
     y = np.random.randint(0, tex.size[1])
@@ -403,7 +441,7 @@ def test_upload_validity_single_1(tex):
     tex.update_indices(x, y, 0)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_single_20(tex):
     for i in range(20):
         x = np.random.randint(0, tex.size[0])
@@ -412,7 +450,7 @@ def test_upload_validity_single_20(tex):
         tex.update_indices(x, y, 0)
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_range_1x(tex):
     i = np.random.randint(0, tex.size[0])
     n = np.random.randint(0, tex.size[0] // 2)
@@ -420,7 +458,7 @@ def test_upload_validity_range_1x(tex):
     tex.update_range((0, i, 0), (1, n, 1))
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_range_10x(tex):
     for i in range(10):
         i = np.random.randint(0, tex.size[0])
@@ -429,7 +467,7 @@ def test_upload_validity_range_10x(tex):
         tex.update_range((i, 0, 0), (n, 1, 1))
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_range_1y(tex):
     i = np.random.randint(0, tex.size[1])
     n = np.random.randint(0, tex.size[1] // 2)
@@ -437,7 +475,7 @@ def test_upload_validity_range_1y(tex):
     tex.update_range((0, i, 0), (1, n, 1))
 
 
-@upload_validity_checker
+@upload_validity_checker_2d
 def test_upload_validity_range_10y(tex):
     for i in range(10):
         i = np.random.randint(0, tex.size[1])
@@ -446,29 +484,86 @@ def test_upload_validity_range_10y(tex):
         tex.update_range((0, i, 0), (1, n, 1))
 
 
+##
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_full1(tex):
+    new_data = tex.data.copy()
+    new_data.fill(1)
+    tex.set_data(new_data)  # efficient, provided you already have the new_data
+    tex.update_full()
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_full2(tex):
+    tex.data[:] = 1
+    tex.update_full()
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_every_2z(tex):
+    step = 2
+    tex.data[::step] = 1
+    indices_z = np.asarray(range(0, tex.size[2], step))
+    tex.update_indices(None, None, indices_z)
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_every_9z(tex):
+    step = 9
+    tex.data[::step] = 1
+    indices_z = np.asarray(range(0, tex.size[2], step))
+    tex.update_indices(None, None, indices_z)
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_every_77z(tex):
+    step = 77
+    tex.data[::step] = 1
+    indices_z = np.asarray(range(0, tex.size[2], step))
+    tex.update_indices(None, None, indices_z)
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_single_1(tex):
+    x = np.random.randint(0, tex.size[0])
+    y = np.random.randint(0, tex.size[1])
+    z = np.random.randint(0, tex.size[2])
+    tex.data[z, y, x] = 1
+    tex.update_indices(x, y, z)
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_single_20(tex):
+    for i in range(20):
+        x = np.random.randint(0, tex.size[0])
+        y = np.random.randint(0, tex.size[1])
+        z = np.random.randint(0, tex.size[2])
+        tex.data[z, y, x] = 1
+        tex.update_indices(x, y, z)
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_range_1z(tex):
+    i = np.random.randint(0, tex.size[2])
+    n = np.random.randint(0, tex.size[2] // 2)
+    tex.data[i : i + n] = 1
+    tex.update_range((0, 0, i), (1, 1, n))
+
+
+@upload_validity_checker_3d
+def test_3d_upload_validity_range_10z(tex):
+    for i in range(10):
+        i = np.random.randint(0, tex.size[2])
+        n = np.random.randint(0, tex.size[2] // 8)
+        tex.data[i : i + n] = 1
+        tex.update_range((0, 0, i), (1, 1, n))
+
+
 if __name__ == "__main__":
     test_set_data()
     test_chunk_size_small()
     test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()
-
-    test_upload_validity_full1()
-    test_upload_validity_full2()
-
-    test_upload_validity_every_2x()
-    test_upload_validity_every_9x()
-    test_upload_validity_every_77x()
-    test_upload_validity_every_335x()
-    test_upload_validity_every_2y()
-    test_upload_validity_every_9y()
-    test_upload_validity_every_77y()
-    test_upload_validity_every_335y()
-
-    test_upload_validity_single_1()
-    test_upload_validity_single_20()
-
-    test_upload_validity_range_1x()
-    test_upload_validity_range_10x()
-    test_upload_validity_range_1y()
-    test_upload_validity_range_10y()
