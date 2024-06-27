@@ -1,9 +1,12 @@
 from math import ceil
 
+import numpy as np
+
 from pygfx.resources._utils import (
     get_alignment_multiplier,
     calculate_buffer_chunk_size,
     calculate_texture_chunk_size,
+    get_merged_blocks_from_mask_3d,
 )
 
 
@@ -255,9 +258,287 @@ def test_chunk_size_dim3_align():
     assert res == (41, 29, 22)
 
 
-if __name__ == "__main__":
-    test_chunk_size_dim2_bounds()
-    test_chunk_size_dim2_ratio()
-    test_chunk_size_dim2_align()
+def make_mask_3d(mask):
+    mask = np.array(mask, bool)
+    if mask.ndim == 1:
+        mask.shape = 1, 1, mask.shape[0]
+    elif mask.ndim == 2:
+        mask.shape = 1, mask.shape[0], mask.shape[1]
+    return mask
 
-    test_chunk_size_dim3_align()
+
+def test_chunk_merging_1d():
+
+    # One block
+    mask = [0, 1, 0, 0, 0, 0, 0]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (1, 0, 0)
+    assert blocks[0].get_size() == (1, 1, 1)
+
+    # Merged blocks
+    mask = [0, 0, 1, 1, 1, 0, 0]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (2, 0, 0)
+    assert blocks[0].get_size() == (3, 1, 1)
+
+    # Merging is aggressive
+    mask = [0, 0, 1, 1, 0, 1, 0]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (2, 0, 0)
+    assert blocks[0].get_size() == (4, 1, 1)
+
+    # Two blocks
+    mask = [1, 0, 0, 1, 1, 1, 1]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 2
+    assert blocks[0].get_offset() == (0, 0, 0)
+    assert blocks[0].get_size() == (1, 1, 1)
+    assert blocks[1].get_offset() == (3, 0, 0)
+    assert blocks[1].get_size() == (4, 1, 1)
+
+
+def test_chunk_merging_2d():
+
+    # One block
+    mask = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (1, 1, 0)
+    assert blocks[0].get_size() == (1, 2, 1)
+
+    # One larger block
+    mask = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (1, 1, 0)
+    assert blocks[0].get_size() == (2, 3, 1)
+
+    # Aggressive merging in x
+    mask = [
+        [0, 0, 0, 0, 0, 0],
+        [1, 0, 1, 1, 0, 0],
+        [1, 1, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (0, 1, 0)
+    assert blocks[0].get_size() == (4, 2, 1)
+
+    # Normal merging in y
+    mask = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 2
+    assert blocks[0].get_offset() == (1, 1, 0)
+    assert blocks[0].get_size() == (2, 1, 1)
+    assert blocks[1].get_offset() == (1, 3, 0)
+    assert blocks[1].get_size() == (2, 1, 1)
+
+    # To merge in y, blocks in x must exactly match
+    mask = [
+        [0, 0, 0, 0, 0, 0],
+        [1, 0, 1, 1, 0, 0],
+        [1, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 2
+    assert blocks[0].get_offset() == (0, 1, 0)
+    assert blocks[0].get_size() == (4, 1, 1)
+    assert blocks[1].get_offset() == (0, 2, 0)
+    assert blocks[1].get_size() == (3, 1, 1)
+
+    # To merge in y, blocks in x must exactly match, a sad use-case
+    mask = [
+        [0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 0, 0, 0],
+        [1, 1, 1, 1, 0, 0],
+        [1, 1, 1, 0, 0, 0],
+        [1, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 3
+    assert blocks[0].get_offset() == (0, 1, 0)
+    assert blocks[0].get_size() == (3, 1, 1)
+    assert blocks[1].get_offset() == (0, 2, 0)
+    assert blocks[1].get_size() == (4, 1, 1)
+    assert blocks[2].get_offset() == (0, 3, 0)
+    assert blocks[2].get_size() == (3, 2, 1)
+
+    # Four blocks
+    mask = [
+        [1, 1, 0, 0, 1, 1, 1],
+        [1, 1, 0, 0, 1, 0, 1],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 4
+    assert blocks[0].get_offset() == (0, 0, 0)
+    assert blocks[0].get_size() == (2, 2, 1)
+    assert blocks[1].get_offset() == (4, 0, 0)
+    assert blocks[1].get_size() == (3, 2, 1)
+    assert blocks[2].get_offset() == (1, 3, 0)
+    assert blocks[2].get_size() == (2, 1, 1)
+    assert blocks[3].get_offset() == (3, 4, 0)
+    assert blocks[3].get_size() == (2, 2, 1)
+
+
+def test_chunk_merging_3d():
+
+    # One small block
+    mask = [
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (1, 1, 1)
+    assert blocks[0].get_size() == (1, 1, 2)
+
+    # One larger block, plus aggressive merging in x
+    mask = [
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 1, 0],
+            [0, 1, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 1, 1, 0],
+            [0, 1, 0, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 1, 0],
+            [0, 1, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (1, 1, 0)
+    assert blocks[0].get_size() == (4, 2, 3)
+
+    # Flip one element to True, now there's two blocks
+    mask[0][3][3] = 1
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 2
+    assert blocks[0].get_offset() == (1, 1, 0)
+    assert blocks[0].get_size() == (4, 2, 3)
+    assert blocks[1].get_offset() == (3, 3, 0)
+    assert blocks[1].get_size() == (1, 1, 1)
+
+    # Four blocks, to merge, blocks must match in x and y
+    mask = [
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 1, 1],
+        ],
+        [
+            [0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 1, 1],
+        ],
+        [
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 1, 1],
+        ],
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 1, 1],
+        ],
+    ]
+    blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
+    assert len(blocks) == 4
+    assert blocks[0].get_offset() == (1, 1, 0)
+    assert blocks[0].get_size() == (3, 2, 1)
+
+    assert blocks[1].get_offset() == (6, 2, 0)
+    assert blocks[1].get_size() == (2, 2, 4)
+
+    assert blocks[2].get_offset() == (1, 0, 1)
+    assert blocks[2].get_size() == (3, 3, 1)
+
+    assert blocks[3].get_offset() == (2, 0, 2)
+    assert blocks[3].get_size() == (2, 3, 1)
+
+
+if __name__ == "__main__":
+    # test_chunk_size_dim2_bounds()
+    # test_chunk_size_dim2_ratio()
+    # test_chunk_size_dim2_align()
+    #
+    # test_chunk_size_dim3_align()
+
+    test_chunk_merging_1d()
+    test_chunk_merging_2d()
+    test_chunk_merging_3d()

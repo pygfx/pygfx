@@ -179,6 +179,12 @@ class ChunkBlock:
         self.ny = 1
         self.nz = 1
 
+    def get_offset(self):
+        return self.x, self.y, self.z
+
+    def get_size(self):
+        return self.nx, self.ny, self.nz
+
 
 def get_merged_blocks_from_mask_3d(chunk_mask):
     """Algorithm to get a lost of chunk descriptions from the mask, with chunks merged.
@@ -221,7 +227,7 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
                 dirty = chunk_mask[z, y, x]
                 if dirty:
                     if gap <= 1:
-                        chunk_blocks_x_new[-1].nx += 1
+                        chunk_blocks_x_new[-1].nx += gap + 1
                         gap = 0
                     else:
                         chunk_blocks_x_new.append(ChunkBlock(x, y, z))
