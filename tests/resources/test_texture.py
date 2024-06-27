@@ -276,9 +276,199 @@ def test_contiguous():
     assert mem is tex.mem
 
 
+# %% Upload validity tests
+
+
+def upload_validity_checker(func):
+
+    def wrapper():
+
+        for contiguous, nchannels, dtype in [
+            (True, 1, np.uint8),
+            (True, 1, np.float32),
+            (True, 3, np.float32),
+            (True, 4, np.float32),
+            (False, 1, np.uint8),
+            (False, 3, np.float32),
+        ]:
+
+            data = np.zeros((1000, 1000, nchannels), dtype)
+            synced_data = data.copy().reshape(1, 1000, 1000, -1)
+
+            tex = gfx.Texture(data, dim=2)
+            tex._gfx_get_chunk_descriptions()  # flush
+
+            # Appy changes
+            func(tex)
+
+            # Do with the pygfx internals would do to sync to the gpu
+            for offset, size in tex._gfx_get_chunk_descriptions():
+                chunk = tex._gfx_get_chunk_data(offset, size)
+                synced_data[
+                    offset[2] : offset[2] + size[2],
+                    offset[1] : offset[1] + size[1],
+                    offset[0] : offset[0] + size[0],
+                ] = chunk
+
+            # Check
+            assert np.all(tex.data == synced_data)
+
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+
+@upload_validity_checker
+def test_upload_validity_full1(tex):
+    new_data = tex.data.copy()
+    new_data.fill(1)
+    tex.set_data(new_data)  # efficient, provided you already have the new_data
+    tex.update_full()
+
+
+@upload_validity_checker
+def test_upload_validity_full2(tex):
+    tex.data[:] = 1
+    tex.update_full()
+
+
+@upload_validity_checker
+def test_upload_validity_every_2x(tex):
+    step = 2
+    tex.data[:, ::step] = 1
+    indices_x = np.asarray(range(0, tex.size[0], step))
+    tex.update_indices(indices_x, None, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_9x(tex):
+    step = 9
+    tex.data[:, ::step] = 1
+    indices_x = np.asarray(range(0, tex.size[0], step))
+    tex.update_indices(indices_x, None, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_77x(tex):
+    step = 77
+    tex.data[:, ::step] = 1
+    indices_x = np.asarray(range(0, tex.size[0], step))
+    tex.update_indices(indices_x, None, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_335x(tex):
+    step = 335
+    tex.data[:, ::step] = 1
+    indices_x = np.asarray(range(0, tex.size[0], step))
+    tex.update_indices(indices_x, None, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_2y(tex):
+    step = 2
+    tex.data[::step] = 1
+    indices_y = np.asarray(range(0, tex.size[1], step))
+    tex.update_indices(None, indices_y, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_9y(tex):
+    step = 9
+    tex.data[::step] = 1
+    indices_y = np.asarray(range(0, tex.size[1], step))
+    tex.update_indices(None, indices_y, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_77y(tex):
+    step = 77
+    tex.data[::step] = 1
+    indices_y = np.asarray(range(0, tex.size[1], step))
+    tex.update_indices(None, indices_y, None)
+
+
+@upload_validity_checker
+def test_upload_validity_every_335y(tex):
+    step = 335
+    tex.data[::step] = 1
+    indices_y = np.asarray(range(0, tex.size[1], step))
+    tex.update_indices(None, indices_y, None)
+
+
+@upload_validity_checker
+def test_upload_validity_single_1(tex):
+    x = np.random.randint(0, tex.size[0])
+    y = np.random.randint(0, tex.size[1])
+    tex.data[y, x] = 1
+    tex.update_indices(x, y, 0)
+
+
+@upload_validity_checker
+def test_upload_validity_single_20(tex):
+    for i in range(20):
+        x = np.random.randint(0, tex.size[0])
+        y = np.random.randint(0, tex.size[1])
+        tex.data[y, x] = 1
+        tex.update_indices(x, y, 0)
+
+
+@upload_validity_checker
+def test_upload_validity_range_1x(tex):
+    i = np.random.randint(0, tex.size[0])
+    n = np.random.randint(0, tex.size[0] // 2)
+    tex.data[:, i : i + n] = 1
+    tex.update_range((0, i, 0), (1, n, 1))
+
+
+@upload_validity_checker
+def test_upload_validity_range_10x(tex):
+    for i in range(10):
+        i = np.random.randint(0, tex.size[0])
+        n = np.random.randint(0, tex.size[0] // 8)
+        tex.data[:, i : i + n] = 1
+        tex.update_range((i, 0, 0), (n, 1, 1))
+
+
+@upload_validity_checker
+def test_upload_validity_range_1y(tex):
+    i = np.random.randint(0, tex.size[1])
+    n = np.random.randint(0, tex.size[1] // 2)
+    tex.data[i : i + n] = 1
+    tex.update_range((0, i, 0), (1, n, 1))
+
+
+@upload_validity_checker
+def test_upload_validity_range_10y(tex):
+    for i in range(10):
+        i = np.random.randint(0, tex.size[1])
+        n = np.random.randint(0, tex.size[1] // 8)
+        tex.data[i : i + n] = 1
+        tex.update_range((0, i, 0), (1, n, 1))
+
+
 if __name__ == "__main__":
     test_set_data()
     test_chunk_size_small()
     test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()
+
+    test_upload_validity_full1()
+    test_upload_validity_full2()
+
+    test_upload_validity_every_2x()
+    test_upload_validity_every_9x()
+    test_upload_validity_every_77x()
+    test_upload_validity_every_335x()
+    test_upload_validity_every_2y()
+    test_upload_validity_every_9y()
+    test_upload_validity_every_77y()
+    test_upload_validity_every_335y()
+
+    test_upload_validity_single_1()
+    test_upload_validity_single_20()
+
+    test_upload_validity_range_1x()
+    test_upload_validity_range_10x()
+    test_upload_validity_range_1y()
+    test_upload_validity_range_10y()
