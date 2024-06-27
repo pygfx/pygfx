@@ -222,7 +222,6 @@ def test_chunk_size_large():
     tex = gfx.Texture(a, dim=3)
     assert tex._chunk_mask.size == 64
 
-
     a = np.zeros((2, 1024, 1024), np.float32)
     tex = gfx.Texture(a, dim=3)
     assert tex._chunk_mask.size == 25
@@ -264,7 +263,8 @@ def test_contiguous():
     mem = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
     assert mem.c_contiguous
 
-    # Dito when the data is a memoryview (did not work in an earlier version)
+    # Dito when the data is a memoryview (did not work in an earlier version).
+    # For textures with non-contiguous data this takes a performance hit due to an extra data copy.
     tex = gfx.Texture(memoryview(im1), dim=2)
     mem = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
     assert mem.c_contiguous

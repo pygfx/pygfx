@@ -7,7 +7,6 @@ from ._utils import (
     get_item_format_from_memoryview,
     calculate_texture_chunk_size,
     get_merged_blocks_from_mask_3d,
-    logger,
 )
 
 
@@ -154,6 +153,8 @@ class Texture(Resource):
         else:
             if isinstance(chunk_size, int):
                 chunk_size = chunk_size, chunk_size, chunk_size
+            elif not len(chunk_size) == 3:
+                raise ValueError("Chunk size must be int or tuple of 3 ints.")
             chunk_size = tuple(
                 min(max(int(chunk_size[i]), 1), the_size[i]) for i in range(3)
             )
@@ -284,13 +285,13 @@ class Texture(Resource):
             raise ValueError("Update size out of range")
         # Get indices
         div = self._chunk_size
-        indexA = tuple(floor(offset[i] / div[i]) for i in range(3))
-        indexB = tuple(
+        index_a = tuple(floor(offset[i] / div[i]) for i in range(3))
+        index_b = tuple(
             ceil(min(full_size[i], offset[i] + size[i]) / div[i]) for i in range(3)
         )
         # Update map
         self._chunk_mask[
-            indexA[2] : indexB[2], indexA[1] : indexB[1], indexA[0] : indexB[0]
+            index_a[2] : index_b[2], index_a[1] : index_b[1], index_a[0] : index_b[0]
         ] = True
         self._chunks_any_dirty = True
         Resource._rev += 1
@@ -338,49 +339,43 @@ class Texture(Resource):
 
     def _gfx_get_chunk_data(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
-        # if offset == 0 and size == self.nitems and self._mem.c_contiguous:
-        #     # If this is a full range, this is easy (and fast)
-        #     chunk = self._mem
-        # else:
-        #     # Otherwise, create a view, make a copy if its not contiguous.
-        #     # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
-        #     # but that turns out to be really slow (like 6x). So we make the copy via numpy.
-        #     chunk = self._mem[offset : offset + size]
-        #     if not chunk.c_contiguous:
-        #         if self._force_contiguous:
-        #             logger.warning(
-        #                 "force_contiguous was set, but chunk data is still discontiguous"
-        #             )
-        #         # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
-        #         chunk = memoryview(np.ascontiguousarray(chunk))
-        # return chunk
+        full_size = self._store["size"]
 
-        if (
-            offset == (0, 0, 0)
-            and size == self.size
-            and self.mem.c_contiguous
-            and pixel_padding is None
-        ):
-            return self.mem
-        elif isinstance(self.data, np.ndarray):
-            # Get a numpy array, because memoryviews do not support nd slicing
-            arr = self.data
-        elif self.mem.c_contiguous:
-            arr = np.frombuffer(self.mem, self.mem.format)
+        if offset == (0, 0, 0) and size == full_size and pixel_padding is None:
+            if self._mem.c_contiguous:
+                chunk = self._mem  # hooray, the fastest path!
+            else:
+                # Make contiguous via numpy, which is faster than going via memoryview.tobytes()
+                chunk = memoryview(np.ascontiguousarray(chunk))
         else:
-            raise ValueError(
-                "Non-contiguous texture data is only supported for numpy array."
+            # Get numpy array, because memoryview does not support multidimensional slicing
+            if isinstance(self._data, np.ndarray):
+                full_array = self._data
+            elif self._mem.c_contiguous:
+                full_array = np.frombuffer(self._mem)
+            else:
+                # Need a data-copy. This should not happen when force_contiguous is set.
+                # Note that we may need *another* data copy below to make the chunk contiguous.
+                full_array = np.ascontiguousarray(self._mem)
+            # Reshape (no copy) so we can use 3D slicing
+            full_array = full_array.reshape(
+                (full_size[2], full_size[1], full_size[0], -1)
             )
-        arr = arr.reshape(self.size[2], self.size[1], self.size[0], -1)
-        # Slice it
-        slices = []
-        for d in reversed(range(3)):
-            slices.append(slice(offset[d], offset[d] + size[d]))
-        sub_arr = arr[tuple(slices)]
-        if pixel_padding is not None:
-            padding = np.ones(sub_arr.shape[:3] + (1,), dtype=sub_arr.dtype)
-            sub_arr = np.concatenate([sub_arr, pixel_padding * padding], -1)
-        return memoryview(np.ascontiguousarray(sub_arr))
+            # Calculate slice
+            slice_per_dim = []
+            for d in reversed(range(3)):
+                slice_per_dim.append(slice(offset[d], offset[d] + size[d]))
+            slice_per_dim = tuple(slice_per_dim)
+            # Slice, pad, make contiguous. Note that the chance of the chunks not being contiguous is pretty big.
+            sub_array = full_array[slice_per_dim]
+            if pixel_padding is not None:
+                padding = np.ones(sub_array.shape[:3] + (1,), dtype=sub_array.dtype)
+                sub_array = np.concatenate([sub_array, pixel_padding * padding], -1)
+            if not sub_array.flags.c_contiguous:
+                sub_array = np.ascontiguousarray(sub_array)
+            chunk = memoryview(sub_array)
+
+        return chunk
 
 
 def size_from_data(data, dim, size):

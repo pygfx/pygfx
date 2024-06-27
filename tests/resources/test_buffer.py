@@ -99,7 +99,7 @@ def test_set_data():
     # Set data to b
     buf.set_data(b)
     assert buf.data is b
-   assert len(buf._gfx_get_chunk_descriptions()) == 1
+    assert len(buf._gfx_get_chunk_descriptions()) == 1
 
     # Set back to a
     buf.set_data(a)
