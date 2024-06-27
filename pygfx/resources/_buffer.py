@@ -270,6 +270,16 @@ class Buffer(Resource):
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
 
+    def update_indices(self, indices):
+        """Mark specific indices for upload."""
+        indices = np.asarray(indices)
+        div = self._chunk_size
+        self._chunk_mask[indices // div] = True
+        self._chunks_any_dirty = True
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
     def update_range(self, offset=0, size=None):
         """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.

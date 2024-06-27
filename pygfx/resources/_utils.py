@@ -187,7 +187,7 @@ class ChunkBlock:
 
 
 def get_merged_blocks_from_mask_3d(chunk_mask):
-    """Algorithm to get a lost of chunk descriptions from the mask, with chunks merged.
+    """Algorithm to get a list of chunk descriptions from the mask, with chunks merged.
 
     Returns a list of objects having fields x, y, z, nx, ny, nz.
     """

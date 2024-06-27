@@ -171,8 +171,8 @@ class Texture(Resource):
         else:
             self._chunks_any_dirty = True
             self._chunk_size = chunk_size
-            n_chunks = tuple(ceil(the_size[i] / self._chunk_size[i]) for i in range(3))
-            self._chunk_mask = np.ones(n_chunks, bool)
+            shape = tuple(ceil(the_size[i] / self._chunk_size[i]) for i in (2, 1, 0))
+            self._chunk_mask = np.ones(shape, bool)
 
     @property
     def dim(self):
@@ -266,6 +266,30 @@ class Texture(Resource):
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
 
+    def update_indices(self, indices_x, indices_y, indices_z):
+        """Mark specific indices for upload.
+
+        The given arrays represent the indices for x, y, and z, respectively.
+        So they must be equal in length, similar to what ``np.where()`` returns.
+        They can also be None, to indicate the full range, like ":" does with slicing.
+        """
+        full_slice = slice(None, None, None)
+        div = self._chunk_size
+        indices_x = (
+            full_slice if indices_x is None else (np.asarray(indices_x) // div[0])
+        )
+        indices_y = (
+            full_slice if indices_y is None else (np.asarray(indices_y) // div[1])
+        )
+        indices_z = (
+            full_slice if indices_z is None else (np.asarray(indices_z) // div[2])
+        )
+        self._chunk_mask[indices_z, indices_y, indices_x] = True
+        self._chunks_any_dirty = True
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
     def update_range(self, offset, size):
         """Mark a certain range of the data for upload to the GPU.
         The offset and (sub) size should be (width, height, depth)
@@ -281,8 +305,7 @@ class Texture(Resource):
             raise ValueError("Update size must not be negative")
         elif any(b < 0 for b in offset):
             raise ValueError("Update offset must not be negative")
-        elif any(b + s > refsize for b, s, refsize in zip(offset, size, full_size)):
-            raise ValueError("Update size out of range")
+        # offset + size being larger than the full size is tolaterated.
         # Get indices
         div = self._chunk_size
         index_a = tuple(floor(offset[i] / div[i]) for i in range(3))
@@ -346,7 +369,7 @@ class Texture(Resource):
                 chunk = self._mem  # hooray, the fastest path!
             else:
                 # Make contiguous via numpy, which is faster than going via memoryview.tobytes()
-                chunk = memoryview(np.ascontiguousarray(chunk))
+                chunk = memoryview(np.ascontiguousarray(self._mem))
         else:
             # Get numpy array, because memoryview does not support multidimensional slicing
             if isinstance(self._data, np.ndarray):
