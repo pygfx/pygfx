@@ -1,3 +1,5 @@
+from math import floor, ceil, log10
+
 import numpy as np
 import pylinalg as la
 
@@ -48,7 +50,7 @@ class Ruler(WorldObject):
 
     @property
     def tick_side(self):
-        """ Whether the ticks are on the left or right of the line.
+        """Whether the ticks are on the left or right of the line.
 
         Imagine standing on the start position, with the line in front of you.
         You must call `set_ticks()` for this change to take effect.
@@ -124,8 +126,8 @@ class Ruler(WorldObject):
             mult, unit = 1, ""
 
         # Calculate tick values
-        first_tick = np.ceil(min_value * mult / step) * step
-        last_tick = np.floor(max_value * mult / step) * step
+        first_tick = ceil(min_value * mult / step) * step
+        last_tick = floor(max_value * mult / step) * step
         ticks = {}
         t = first_tick
         while t <= last_tick:
@@ -195,14 +197,16 @@ class Ruler(WorldObject):
         distance_world = abs(max_value - min_value)
 
         # Determine step
-        scale = 1
+        step = 1
         if distance_world > 0:
             scale = distance_screen / distance_world
-        for step in _tick_units:
-            if step * scale >= min_tick_dist:
-                break
-        else:
-            pass  # use largest step?
+            approx_step = min_tick_dist / scale
+            power10 = 10 ** floor(log10(approx_step))
+            for i in (1, 2, 2.5, 5, 10):
+                maybe_step = i * power10
+                if maybe_step > approx_step:
+                    step = maybe_step
+                    break
 
         return step
 
@@ -224,7 +228,6 @@ class Ruler(WorldObject):
         text_objects = []
 
         # Collect ticks
-        # todo: optimize this search. Also only do when zoom has changed
         for value, text in ticks.items():
             rel_value = value - min_value
             if 0 <= rel_value <= length:
@@ -251,15 +254,3 @@ class Ruler(WorldObject):
         self.clear()
         self.add(self._line, self._points)
         self.add(*text_objects)
-
-
-def _create_tick_units():
-    # Create tick units
-    tick_units = []
-    for e in range(-14, 14):
-        for i in [10, 20, 25, 50]:
-            tick_units.append(i * 10**e)
-    return tick_units
-
-
-_tick_units = _create_tick_units()
