@@ -23,10 +23,10 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.9
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: 3.12
     - name: Install dev dependencies
       run: |
         python -m pip install --upgrade pip
@@ -42,10 +42,10 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.9
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: 3.12
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
@@ -78,6 +78,9 @@ jobs:
           - name: Test py311
             os: ubuntu-latest
             pyversion: '3.11'
+          - name: Test py312
+            os: ubuntu-latest
+            pyversion: '3.12'
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.pyversion }}
@@ -103,10 +106,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.9
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: 3.12
     - name: Install package and dev dependencies
       run: |
         python -m pip install --upgrade pip
@@ -116,16 +119,22 @@ jobs:
         pytest -v pygfx/__pyinstaller
 
   test-examples-build:
-    name: Test examples
-    runs-on: ubuntu-latest
+    name: Test examples ${{ matrix.pyversion }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            pyversion: '3.10'
+          - os: ubuntu-latest
+            pyversion: '3.12'
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.9
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: 3.12
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
@@ -155,10 +164,10 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python 3.9
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: 3.12
       - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools twine
@@ -194,10 +203,10 @@ jobs:
     if: success() && startsWith(github.ref, 'refs/tags/v')
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.9
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: 3.12
     - name: Download assets
       uses: actions/download-artifact@v3
       with:

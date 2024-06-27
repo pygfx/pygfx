@@ -26,13 +26,6 @@ struct IncidentLight {
     direction: vec3<f32>,
 };
 
-struct ReflectedLight {
-    direct_diffuse: vec3<f32>,
-    direct_specular: vec3<f32>,
-    indirect_diffuse: vec3<f32>,
-    indirect_specular: vec3<f32>,
-};
-
 struct GeometricContext {
     position: vec3<f32>,
     normal: vec3<f32>,
