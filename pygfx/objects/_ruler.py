@@ -11,17 +11,19 @@ from ..materials import LineMaterial, PointsMaterial, TextMaterial
 class Ruler(WorldObject):
     """An object to represent a ruler with tickmarks.
 
-    Can be used to measure distances in a scene, or as axis in a plot.
+    Can be used to measure distances in a scene, or as an axis in a plot.
 
     Usage:
 
-    *  First, use ``.configure()`` to set the ruler's start- and end-point.
-    * Then, the convenience functions can be used to help produce a ticks dict.
+    * First use ``.configure()`` to set the ruler's start- and end-point.
+    * Next, the convenience functions can be used to help produce a ticks dict.
     * Finally, use ``set_ticks()`` to set the ticks and update the child world objects.
     """
 
-    def __init__(self):
+    def __init__(self, *, tick_side="left"):
         super().__init__()
+
+        self.tick_side = tick_side
 
         # Initialize dummy config
         zero = np.zeros((3,), np.float32)
@@ -44,8 +46,29 @@ class Ruler(WorldObject):
         """The points object that shows the ruler's tickmarks."""
         return self._points
 
+    @property
+    def tick_side(self):
+        """ Whether the ticks are on the left or right of the line.
+
+        Imagine standing on the start position, with the line in front of you.
+        You must call `set_ticks()` for this change to take effect.
+        """
+        return self._tick_side
+
+    @tick_side.setter
+    def tick_side(self, side):
+        side = str(side).lower()
+        if side in ("left", "right"):
+            self._tick_side = side
+        else:
+            raise ValueError("Tick side must be 'left' or 'right'.")
+
     def configure(self, start_pos, end_pos, start_value=0):
-        """Set the start- and end-point, optionally providing the start-value."""
+        """Set the start- and end-point, optionally providing the start-value.
+
+        Note that the ruler's transform also affects positioning, but should
+        generally not be used.
+        """
 
         # Process positions
         start_pos = np.array(start_pos, np.float32)
@@ -69,9 +92,9 @@ class Ruler(WorldObject):
         self._config = start_pos, end_pos, min_value, max_value, vec
 
     def get_ticks_uniform(self, step):
-        """Get ticks using a uniform step_size.
+        """Get ticks using a uniform step size.
 
-        This uses the current configured start- and end-values.
+        This uses the currently configured start- and end-values.
 
         Note that with a nonzero start_value, the first tick is likely
         not on the start position.
@@ -118,8 +141,8 @@ class Ruler(WorldObject):
     def calculate_tick_step(self, camera, canvas_size, *, min_tick_dist=40):
         """Calculate an optimal step size for the ticks.
 
-        This uses the current configured start- and end-values. The
-        value is determined from the ratio of the size of the ruler in
+        This uses the currently configured start- and end-values. The returned
+        step value is determined from the ratio of the size of the ruler in
         the world and screen, respectively.
         """
 
@@ -141,24 +164,40 @@ class Ruler(WorldObject):
         # With this anchor, the text labels move smoothly without a jump to the other side, as the ruler is rotated.
         # todo: not sure how to apply it. Also may want to calculate this even if not interested in auto-ticks?
         angle = np.arctan2(pixel_vec[1], pixel_vec[0])
-        if abs(angle) <= 0.25 * np.pi:
-            self._text_anchor = "top-center"
-            self._text_anchor_offset = 5
-        elif abs(angle) >= 0.75 * np.pi:
-            self._text_anchor = "bottom-center"
-            self._text_anchor_offset = 5
-        elif angle < 0:
-            self._text_anchor = "middle-right"
-            self._text_anchor_offset = 10
+        if self._tick_side == "left":
+            if abs(angle) <= 0.25 * np.pi:
+                self._text_anchor = "bottom-center"
+                self._text_anchor_offset = 5
+            elif abs(angle) >= 0.75 * np.pi:
+                self._text_anchor = "top-center"
+                self._text_anchor_offset = 5
+            elif angle < 0:
+                self._text_anchor = "middle-left"
+                self._text_anchor_offset = 10
+            else:
+                self._text_anchor = "middle-right"
+                self._text_anchor_offset = 10
         else:
-            self._text_anchor = "middle-left"
-            self._text_anchor_offset = 10
+            if abs(angle) <= 0.25 * np.pi:
+                self._text_anchor = "top-center"
+                self._text_anchor_offset = 5
+            elif abs(angle) >= 0.75 * np.pi:
+                self._text_anchor = "bottom-center"
+                self._text_anchor_offset = 5
+            elif angle < 0:
+                self._text_anchor = "middle-right"
+                self._text_anchor_offset = 10
+            else:
+                self._text_anchor = "middle-left"
+                self._text_anchor_offset = 10
 
         # Determine distnce in world coords
         distance_world = abs(max_value - min_value)
 
         # Determine step
-        scale = distance_screen / distance_world
+        scale = 1
+        if distance_world > 0:
+            scale = distance_screen / distance_world
         for step in _tick_units:
             if step * scale >= min_tick_dist:
                 break
@@ -167,8 +206,11 @@ class Ruler(WorldObject):
 
         return step
 
-    def set_ticks(self, ticks, *, text_anchor=None, text_anchor_offset=None):
-        """Update the visual appearance of the ruler, using the given ticks."""
+    def set_ticks(self, ticks):
+        """Update the visual appearance of the ruler, using the given ticks.
+
+        The ``ticks`` parameter must be a dict thet maps float values to strings.
+        """
 
         if not isinstance(ticks, dict):
             raise TypeError("ticks must be a dict (float -> str).")
@@ -192,8 +234,8 @@ class Ruler(WorldObject):
                     TextGeometry(
                         text,
                         screen_space=True,
-                        anchor=text_anchor or self._text_anchor,
-                        anchor_offset=text_anchor_offset or self._text_anchor_offset,
+                        anchor=self._text_anchor,
+                        anchor_offset=self._text_anchor_offset,
                     ),
                     TextMaterial(),
                 )

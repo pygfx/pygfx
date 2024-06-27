@@ -32,6 +32,7 @@ obj2.local.x = 3
 scene.add(obj1, obj2)
 
 ruler = gfx.Ruler()
+ruler.pos1 = ruler.pos2 = (0, 0, 0)
 scene.add(ruler)
 
 camera = gfx.PerspectiveCamera(70, 1)
