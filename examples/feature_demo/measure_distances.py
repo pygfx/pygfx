@@ -31,7 +31,7 @@ obj1.local.x = -3
 obj2.local.x = 3
 scene.add(obj1, obj2)
 
-ruler = gfx.Ruler()
+ruler = gfx.Ruler(ticks_at_end_points=True)
 ruler.pos1 = ruler.pos2 = (0, 0, 0)
 scene.add(ruler)
 

@@ -22,20 +22,24 @@ class Ruler(WorldObject):
     * Finally, use ``set_ticks()`` to set the ticks and update the child world objects.
     """
 
-    def __init__(self, *, tick_side="left"):
+    def __init__(self, *, tick_side="left", ticks_at_end_points=False):
         super().__init__()
 
         self.tick_side = tick_side
+        self.ticks_at_end_points = ticks_at_end_points
 
         # Initialize dummy config
         zero = np.zeros((3,), np.float32)
         self._config = zero, zero, 0.0, 0.0, zero
 
         # Create a line and poins object, with a shared geometry
-        geometry = Geometry(positions=np.zeros((6, 3), np.float32))
+        geometry = Geometry(
+            positions=np.zeros((6, 3), np.float32),
+            sizes=np.zeros((6,), np.float32),
+        )
         self._line = Line(geometry, LineMaterial(color="w", thickness=2))
         # todo: a material to draw proper tick marks
-        self._points = Points(geometry, PointsMaterial(color="w", size=5))
+        self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
         self.add(self._line, self._points)
 
     @property
@@ -64,6 +68,18 @@ class Ruler(WorldObject):
             self._tick_side = side
         else:
             raise ValueError("Tick side must be 'left' or 'right'.")
+
+    @property
+    def ticks_at_end_points(self):
+        """Whether to show tickmarks at the end-points.
+
+        You must call `set_ticks()` for this change to take effect.
+        """
+        return self._tick_at_end_points
+
+    @ticks_at_end_points.setter
+    def ticks_at_end_points(self, value):
+        self._ticks_at_end_points = bool(value)
 
     def configure(self, start_pos, end_pos, start_value=0):
         """Set the start- and end-point, optionally providing the start-value.
@@ -219,36 +235,68 @@ class Ruler(WorldObject):
         if not isinstance(ticks, dict):
             raise TypeError("ticks must be a dict (float -> str).")
 
+        tick_size = 5
+
         # Load config
         start_pos, end_pos, min_value, max_value, vec = self._config
         length = max_value - min_value
 
-        # List of positions. The start- and end-pos are in it, as well as all ticks.
-        positions = [start_pos]
+        # Get array to store positions
+        n_slots = self.points.geometry.positions.nitems
+        n_positions = len(ticks) + 2
+        if n_positions <= n_slots <= 2 * n_positions:
+            positions = self.points.geometry.positions.data
+            sizes = self.points.geometry.sizes.data
+            self.points.geometry.positions.update_range()
+            self.points.geometry.sizes.update_range()
+        else:
+            new_n_slots = int(n_positions * 1.2)
+            positions = np.zeros((new_n_slots, 3), np.float32)
+            sizes = np.zeros((new_n_slots,), np.float32)
+            self.points.geometry.positions = Buffer(positions)
+            self.points.geometry.sizes = Buffer(sizes)
+
         text_objects = []
+
+        def create_text_object(pos, text):
+            text_ob = Text(
+                TextGeometry(
+                    text,
+                    screen_space=True,
+                    anchor=self._text_anchor,
+                    anchor_offset=self._text_anchor_offset,
+                ),
+                TextMaterial(),
+            )
+            text_ob.local.position = pos
+            text_objects.append(text_ob)
+
+        positions[0] = start_pos
+        sizes[0] = 0
+        index = 1
+
+        if self._ticks_at_end_points:
+            sizes[0] = tick_size
+            create_text_object(start_pos, f"{min_value:0.4g}")
 
         # Collect ticks
         for value, text in ticks.items():
             rel_value = value - min_value
             if 0 <= rel_value <= length:
                 pos = start_pos + vec * rel_value
-                positions.append(pos)
-                text_ob = Text(
-                    TextGeometry(
-                        text,
-                        screen_space=True,
-                        anchor=self._text_anchor,
-                        anchor_offset=self._text_anchor_offset,
-                    ),
-                    TextMaterial(),
-                )
-                text_ob.local.position = pos
-                text_objects.append(text_ob)
+                positions[index] = pos
+                sizes[index] = tick_size
+                index += 1
+                create_text_object(pos, text)
 
-        positions.append(end_pos)  # todo: somehow omit tickmarker for first and last
+        positions[index:] = end_pos
+        sizes[index:] = 0
 
-        # Update geometrty of line and points.
-        self.points.geometry.positions = Buffer(np.array(positions, np.float32))
+        if self._ticks_at_end_points:
+            text_objects.pop(1)
+            text_objects.pop(-1)
+            sizes[index] = tick_size
+            create_text_object(end_pos, f"{max_value:0.4g}")
 
         # todo: use a pool of text objects. Or better yet, a text object supporting multiple locations
         self.clear()
