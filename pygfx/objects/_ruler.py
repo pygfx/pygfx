@@ -38,9 +38,12 @@ class Ruler(WorldObject):
             sizes=np.zeros((6,), np.float32),
         )
         self._line = Line(geometry, LineMaterial(color="w", thickness=2))
-        # todo: a material to draw proper tick marks
         self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
         self.add(self._line, self._points)
+        self._text_object_pool = []
+
+        # todo: a material to draw proper tick marks
+        # todo: Text object that draws each line at a position from geometry
 
     @property
     def line(self):
@@ -256,49 +259,58 @@ class Ruler(WorldObject):
             self.points.geometry.positions = Buffer(positions)
             self.points.geometry.sizes = Buffer(sizes)
 
-        text_objects = []
+        def define_text(pos, text):
+            if index < len(self._text_object_pool):
+                ob = self._text_object_pool[index]
+            else:
+                ob = Text(
+                    TextGeometry(
+                        "",
+                        screen_space=True,
+                        anchor=self._text_anchor,
+                        anchor_offset=self._text_anchor_offset,
+                    ),
+                    TextMaterial(),
+                )
+                self._text_object_pool.append(ob)
+            ob.geometry.set_text(text)
+            ob.local.position = pos
 
-        def create_text_object(pos, text):
-            text_ob = Text(
-                TextGeometry(
-                    text,
-                    screen_space=True,
-                    anchor=self._text_anchor,
-                    anchor_offset=self._text_anchor_offset,
-                ),
-                TextMaterial(),
-            )
-            text_ob.local.position = pos
-            text_objects.append(text_ob)
-
+        # Apply start point
+        index = 0
         positions[0] = start_pos
-        sizes[0] = 0
-        index = 1
-
         if self._ticks_at_end_points:
             sizes[0] = tick_size
-            create_text_object(start_pos, f"{min_value:0.4g}")
+            define_text(start_pos, f"{min_value:0.4g}")
+        else:
+            sizes[0] = 0
+            define_text(start_pos, f"")
 
         # Collect ticks
+        index += 1
         for value, text in ticks.items():
             rel_value = value - min_value
             if 0 <= rel_value <= length:
                 pos = start_pos + vec * rel_value
                 positions[index] = pos
                 sizes[index] = tick_size
+                define_text(pos, text)
                 index += 1
-                create_text_object(pos, text)
 
+        # Handle end point
         positions[index:] = end_pos
         sizes[index:] = 0
+        self._text_object_pool[index + 1 :] = []
 
         if self._ticks_at_end_points:
-            text_objects.pop(1)
-            text_objects.pop(-1)
             sizes[index] = tick_size
-            create_text_object(end_pos, f"{max_value:0.4g}")
+            define_text(end_pos, f"{max_value:0.4g}")
+            self._text_object_pool[1].geometry.set_text("")
+            self._text_object_pool[index - 1].geometry.set_text("")
+        else:
+            define_text(end_pos, "")
 
-        # todo: use a pool of text objects. Or better yet, a text object supporting multiple locations
+        # Apply
         self.clear()
         self.add(self._line, self._points)
-        self.add(*text_objects)
+        self.add(*self._text_object_pool)
