@@ -86,14 +86,17 @@ class Texture(Resource):
                     f"Unsupported dtype/format for texture data: {mem.format}"
                 )
             shape = mem.shape
-            collapsed_size = [x for x in self.size if x > 1]
-            if len(shape) == len(collapsed_size) + 1:
+
+            if self.size[2] == 1:
+                len_size = 2
+            else:
+                len_size = 3
+
+            if len(shape) == len_size + 1:
                 nchannels = shape[-1]
             else:
-                if not len(shape) == len(collapsed_size):
-                    raise ValueError(
-                        "Incompatible data shape for image data, there must be > 1 pixel to draw per channel"
-                    )
+                if not len(shape) == len_size:
+                    raise ValueError("Incompatible data shape for image data")
                 nchannels = 1
             if not (1 <= nchannels <= 4):
                 raise ValueError(

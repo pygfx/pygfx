@@ -19,6 +19,7 @@ colormaps, the strength of specular reflections, etc.
     MeshAbstractMaterial
     MeshBasicMaterial
     MeshPhongMaterial
+    MeshToonMaterial
     MeshNormalMaterial
     MeshNormalLinesMaterial
     MeshSliceMaterial
@@ -63,6 +64,7 @@ from ._mesh import (
     MeshAbstractMaterial,
     MeshBasicMaterial,
     MeshPhongMaterial,
+    MeshToonMaterial,
     MeshNormalMaterial,
     MeshNormalLinesMaterial,
     MeshSliceMaterial,
