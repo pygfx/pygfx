@@ -93,7 +93,6 @@ $$ else
             let plane = u_material.clipping_planes[i];
             clip = min(clip, dot(vec4(world_pos, -1.), plane));
         }
-        return -clip;
         $$ else
         // Untested...
         var clip : f32 = -3.40282e+38;
@@ -101,8 +100,10 @@ $$ else
             let plane = u_material.clipping_planes[i];
             clip = max(clip, dot(vec4(world_pos, -1.), plane));
         }
-        return clip;
         $$ endif
+        // Use SDF convention
+        // Negative means inside the volume, 0 is on the surface, positive is outside.
+        return -clip;
     }
     fn apply_clipping_planes(world_pos: vec3<f32>) {
         if (check_clipping_planes(world_pos) > 0) { discard; }
