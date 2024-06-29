@@ -85,9 +85,9 @@ $$ if not n_clipping_planes
 $$ else
     fn check_clipping_planes(world_pos: vec3<f32>) -> f32 {
         // var clipped: bool = {{ 'false' if clipping_mode == 'ANY' else 'true' }};
+        $$ if clipping_mode == 'ANY'
         // float max
         // https://github.com/gpuweb/gpuweb/issues/3431#issuecomment-1252519246
-        $$ if clipping_mode == 'ANY'
         var clip : f32 = 3.40282e+38;
         for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
             let plane = u_material.clipping_planes[i];
