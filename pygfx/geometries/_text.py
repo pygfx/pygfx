@@ -796,10 +796,10 @@ class TextGeometry(Geometry):
 
         if anchor.endswith("left"):
             pos_offset_x = -left
-        elif anchor.endswith("center"):
-            pos_offset_x = -0.5 * (left + right)
         elif anchor.endswith("right"):
             pos_offset_x = -right
+        else:  # if anchor.endswith("center"):
+            pos_offset_x = -0.5 * (left + right)
 
         if anchor.startswith("top"):
             pos_offset_y = -top
