@@ -170,8 +170,12 @@ class BindingDefinitions:
             format = "u32"
         else:
             format = "i32"
+
+        view_dim = texture.view_dim
+        view_dim = view_dim.replace("-", "_")  # 2d-array -> 2d_array
+
         code = f"""
         @group({bindgroup}) @binding({index})
-        var {binding.name}: texture_{texture.view_dim}<{format}>;
+        var {binding.name}: texture_{view_dim}<{format}>;
         """.rstrip()
         self._binding_codes[binding.name] = code

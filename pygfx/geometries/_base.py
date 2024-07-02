@@ -35,6 +35,9 @@ class Geometry(Trackable):
         self._bsphere = None
         self._bsphere_rev = None
 
+        self._morph_attributes = {}
+        self._morph_targets_relative = False
+
         for name, val in kwargs.items():
             # Get resource object
             if isinstance(val, Resource):
@@ -81,6 +84,36 @@ class Geometry(Trackable):
 
             # Store
             setattr(self, name, resource)
+
+    @property
+    def morph_attributes(self):
+        """
+        Dict of attributes holding details of the geometry's morph targets.
+
+        Notes
+        -----
+        Once the geometry has been rendered, the morph attribute data cannot be changed.
+        You will have to create a new instance of Geometry if you want to change the morph attributes.
+        """
+        return self._morph_attributes
+
+    @morph_attributes.setter
+    def morph_attributes(self, value):
+        self._morph_attributes = value
+
+    @property
+    def morph_targets_relative(self):
+        """
+        Control the morph target behavior.
+
+        When set to True, the morph target data is treated as relative offsets, rather than as absolute positions/normals.
+        Default is False.
+        """
+        return self._morph_targets_relative
+
+    @morph_targets_relative.setter
+    def morph_targets_relative(self, value):
+        self._morph_targets_relative = value
 
     def __setattr__(self, key, new_value):
         if not key.startswith("_"):

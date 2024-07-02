@@ -1,9 +1,9 @@
 """
-Detached Bind Mode
-==================
+Facecap animation with morph targets
+====================================
 
-This example demonstrates how to sharing a skeleton across multiple skinned meshes with detached bind mode.
-
+This example demonstrates how to animate a model with morph targets.
+The model is a facecap model with morph targets for facial expressions (52 blend shapes).
 """
 
 ################################################################################
@@ -37,58 +37,26 @@ import pygfx as gfx
 from scipy import interpolate
 from wgpu.gui.auto import WgpuCanvas, run
 
-gltf_path = model_dir / "Michelle.glb"
+gltf_path = model_dir / "facecap.glb"
 
 scene = gfx.Scene()
 
-canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Skinnedmesh", vsync=False)
+canvas = WgpuCanvas(size=(640, 480), max_fps=-1, title="Facecap", vsync=False)
 
 renderer = gfx.WgpuRenderer(canvas)
 camera = gfx.PerspectiveCamera(75, 640 / 480, depth_range=(0.1, 1000))
-camera.local.position = (0, 100, 200)
-camera.look_at((0, 100, 0))
-scene = gfx.Scene()
 
 scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 
+gltf = gfx.load_gltf(gltf_path)
 
-gltf = gfx.load_gltf(gltf_path, quiet=True)
-
-# gfx.print_tree(gltf.scene) # Uncomment to see the tree structure
-
-# Group[Scene]
-# - WorldObject[Character]
-# - - SkinnedMesh[Ch03]
-# - - Bone[mixamorig:Hips]
-# - - - ...
-
-model_obj = gltf.scene.children[0]
-model_obj.local.scale = (1, 1, 1)
-scene.add(model_obj)
-
-skinnedmesh = model_obj.children[0]
-skeleton = skinnedmesh.skeleton
-
-skinnedmesh1 = gfx.SkinnedMesh(skinnedmesh.geometry, skinnedmesh.material)
-skinnedmesh1.local.x = -80
-skinnedmesh1.bind_mode = gfx.BindMode.detached
-skinnedmesh1.bind(skeleton, np.eye(4))
-
-scene.add(skinnedmesh1)
-
-skinnedmesh2 = gfx.SkinnedMesh(skinnedmesh.geometry, skinnedmesh.material)
-skinnedmesh2.local.x = 80
-skinnedmesh2.bind_mode = gfx.BindMode.detached
-skinnedmesh2.bind(skeleton, np.eye(4))
-
-scene.add(skinnedmesh2)
-
+model_obj = gltf.scene.children[1]
 
 action_clip = gltf.animations[0]
 
-skeleton_helper = gfx.SkeletonHelper(model_obj)
-scene.add(skeleton_helper)
+scene.add(model_obj)
 
+camera.show_object(model_obj, view_dir=(1.8, -0.8, -3), scale=1.2)
 
 gfx.OrbitController(camera, register_events=renderer)
 
@@ -102,6 +70,8 @@ def update_track(track, time):
 
     if time < times[0]:
         time = times[0]
+
+    values = values.reshape(len(times), -1)
 
     # TODO: Use scipy to interpolate now, will use our own implementation later
     if interpolation == "LINEAR":
@@ -129,6 +99,9 @@ def update_track(track, time):
         target.local.position = value
     elif property == "rotation":
         target.local.rotation = value
+    elif property == "weights":
+        target.morph_target_influences = value
+        # target.morph_target_influences = np.ones_like(value)
     else:
         print("unknown property", property)
 
@@ -151,9 +124,6 @@ def animate():
 
     for track in tracks:
         update_track(track, gloabl_time)
-
-    skeleton.update()
-    skeleton_helper.update()
 
     with stats:
         renderer.render(scene, camera, flush=False)
