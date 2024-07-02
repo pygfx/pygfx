@@ -94,7 +94,6 @@ $$ else
             clip = min(clip, dot(vec4(world_pos, -1.), plane));
         }
         $$ else
-        // Untested...
         var clip : f32 = -3.40282e+38;
         for (var i=0; i<{{ n_clipping_planes }}; i=i+1) {
             let plane = u_material.clipping_planes[i];
