@@ -1,7 +1,6 @@
 from math import floor, ceil, log10
 
 import numpy as np
-import pylinalg as la
 
 from ._base import WorldObject
 from ._more import Line, Points, Text
@@ -123,6 +122,11 @@ class Ruler(WorldObject):
 
         # Load config
         _, _, min_value, max_value, _ = self._config
+
+        t1, t2 = self._t1_t2
+        min_value = (1 - t1) * min_value + t1 * max_value
+        max_value = (1 - t2) * min_value + t2 * max_value
+
         ref_value = max(abs(min_value), abs(max_value))
 
         # Apply some form of scaling
@@ -169,17 +173,81 @@ class Ruler(WorldObject):
 
         # Load config
         start_pos, end_pos, min_value, max_value, _ = self._config
-
         # Yuk, but needed
         camera.update_projection_matrix()
 
+        # n_steps = 10
+        # pos_vec = (end_pos - start_pos)
+        # positions = [start_pos + pos_vec * (i / n_steps) for i in range(n_steps)]
+
         # Determine distance in screen pixels
-        # todo: can get a very small size with perspective camera.
-        positions = np.row_stack([start_pos, end_pos])
-        ndc_positions = la.vec_transform(positions, camera.camera_matrix)
-        pixel_positions = ndc_positions[:, :2] * np.array(canvas_size)
-        pixel_vec = pixel_positions[1] - pixel_positions[0]
-        distance_screen = 0.5 * np.linalg.norm(pixel_vec)
+        positions = np.column_stack(
+            [
+                np.row_stack([start_pos, 0.5 * (start_pos + end_pos), end_pos]),
+                np.ones((3, 1), np.float32),
+            ]
+        )
+        # ndc_positions = la.vec_transform(positions, camera.camera_matrix)
+        ndc_positions = camera.camera_matrix @ positions[..., None]
+        ndc_positions = ndc_positions.reshape(-1, 4)
+
+        ndc1 = ndc_positions[0]
+        ndc2 = ndc_positions[2]
+
+        tx1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 0)
+        tx2 = binary_search_for_ndc_edge(ndc1, ndc2, +1, 0)
+        ty1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 1)
+        ty2 = binary_search_for_ndc_edge(ndc1, ndc2, +1, 1)
+
+        tx1, tx2 = min(tx1, tx2), max(tx1, tx2)
+        ty1, ty2 = min(ty1, ty2), max(ty1, ty2)
+        t1, t2 = max(tx1, ty1), min(tx2, ty2)
+
+        t1, t2 = min(t1, t2), max(t1, t2)
+
+        ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
+        ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
+        ndc1_2d = ndc_t1[:2] / ndc_t1[3]
+        ndc2_2d = ndc_t2[:2] / ndc_t2[3]
+
+        screen1 = ndc1_2d * np.array(canvas_size) * 0.5
+        screen2 = ndc2_2d * np.array(canvas_size) * 0.5
+        pixel_vec = screen2 - screen1
+        distance_screen = np.linalg.norm(pixel_vec)
+
+        if t1 != t2:
+            distance_screen /= t2 - t1
+
+        self._t1_t2 = t1, t2
+
+        # ndc_positions = ndc_positions_normed
+
+        # # Select largest section on screen
+        # distance_to_center = np.linalg.norm(ndc_positions[:,:2], axis=1)
+        # ref_index1 = np.argmin(distance_to_center)
+        # if ref_index1 == 0:
+        #     ref_index2 = 1
+        # elif ref_index1 == n_steps - 1:
+        #     ref_index2 = ref_index1 - 1
+        # elif distance_to_center[ref_index1-1] < distance_to_center[ref_index1+1]:
+        #     ref_index2 = ref_index1 - 1
+        # else:
+        #     ref_index2 = ref_index1 + 1
+        # ref_index1, ref_index2 = min(ref_index1, ref_index2), max(ref_index1, ref_index2)
+        # ndc_positions = ndc_positions[[ref_index1, ref_index2]]
+
+        # # ndc_positions = ndc_positions[[0, -1]]
+        # if np.any(abs(ndc_positions[:, :2]) > 1):
+        #     breakpoint()
+        #
+        # pixel_positions = ndc_positions[:, :2] * np.array(canvas_size) * 0.5
+        # pixel_vec = pixel_positions[1] - pixel_positions[0]
+        # distance_screen = np.linalg.norm(pixel_vec)
+        #
+        # print(ndc_positions[0][0], ndc_positions[1][0])
+
+        # # With a perspective camera, if either end is beyond the edge, the
+        # distance_screen = min(distance_screen, 2 * max(canvas_size))
 
         # Calculate anchor.
         # With this anchor, the text labels move smoothly without a jump to the other side, as the ruler is rotated.
@@ -217,7 +285,7 @@ class Ruler(WorldObject):
 
         # Determine step
         step = 1
-        if distance_world > 0:
+        if distance_world > 0 and distance_screen > 0:
             scale = distance_screen / distance_world
             approx_step = min_tick_dist / scale
             power10 = 10 ** floor(log10(approx_step))
@@ -264,15 +332,12 @@ class Ruler(WorldObject):
                 ob = self._text_object_pool[index]
             else:
                 ob = Text(
-                    TextGeometry(
-                        "",
-                        screen_space=True,
-                        anchor=self._text_anchor,
-                        anchor_offset=self._text_anchor_offset,
-                    ),
+                    TextGeometry("", screen_space=True),
                     TextMaterial(),
                 )
                 self._text_object_pool.append(ob)
+            ob.geometry.anchor = self._text_anchor
+            ob.geometry.anchor_offset = self._text_anchor_offset
             ob.geometry.set_text(text)
             ob.local.position = pos
 
@@ -314,3 +379,82 @@ class Ruler(WorldObject):
         self.clear()
         self.add(self._line, self._points)
         self.add(*self._text_object_pool)
+
+
+def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim):
+    # Perform a binary search to find the t that results in the smallest
+    # distance to ref. We use homogeneous ndc coords, so that they can
+    # be interpolated. Note, however, that this means that the distance
+    # is not linear. This means that if we sample two points, we cannot
+    # simply select the half that has the smallest distance, since the
+    # minimum can still be in the other half. To work around this, we
+    # sample 5 locations, and select a half based on the point with
+    # smallest distance.
+    #
+    #  |------|------|------|------|
+    #  0      1      2      3      4
+
+    # I spent some time optimizing this code. Using numpy arrays and np.argmin
+    # is not faster. We can re-use 2 or 3 of the samples at each step, by using
+    # tuples, copying these into the new slot is efficient.
+
+    # Reduce the ndc positions to two scalars per position
+    x1, x2 = ndc1[dim], ndc2[dim]
+    w1, w2 = ndc1[3], ndc2[3]
+
+    def new_sample(t):
+        x = x1 * (1 - t) + x2 * t
+        w = w1 * (1 - t) + w2 * t
+        w = max(0.0, w)  # sometimes w is negative, resulting in wrong results
+        return t, float(abs(ref - x / w))
+
+    def argmin(samples):
+        smallest_i = 0
+        smallest_d = 1e16
+        for i in range(5):
+            d = samples[i][1]
+            if d < smallest_d:
+                smallest_d = d
+                smallest_i = i
+        return smallest_i
+
+    # Produce 5 tuples (t, dist) representing the relative t-values as shown in above ascii diagram
+    samples = [
+        new_sample(0.0),
+        new_sample(0.25),
+        new_sample(0.5),
+        new_sample(0.75),
+        new_sample(1.0),
+    ]
+
+    # Number of iterations. This determines in how much pieces the ruler is divided.
+    # With n = 12, we explore a space of over 4k samples.
+    n = 12
+
+    for _ in range(n):
+        i = argmin(samples)
+        if i == 0:
+            # samples[0] = samples[0]
+            samples[4] = samples[1]
+            samples[2] = new_sample(0.5 * (samples[0][0] + samples[4][0]))
+        elif i == 1:
+            # samples[0] = samples[0]
+            samples[4] = samples[2]
+            samples[2] = samples[1]
+        elif i == 2:
+            samples[0] = samples[1]
+            samples[4] = samples[3]
+            # samples[2] = samples[2]
+        elif i == 3:
+            samples[0] = samples[2]
+            # samples[4] = samples[4]
+            samples[2] = samples[3]
+        else:  # i == 4
+            samples[0] = samples[3]
+            # samples[4] = samples[4]
+            samples[2] = new_sample(0.5 * (samples[0][0] + samples[4][0]))
+        samples[1] = new_sample(0.5 * (samples[0][0] + samples[2][0]))
+        samples[3] = new_sample(0.5 * (samples[2][0] + samples[4][0]))
+
+    i = argmin(samples)
+    return samples[i][0]
