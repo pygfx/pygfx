@@ -1,55 +1,86 @@
+from math import floor, ceil
 import numpy as np
 
-from ._base import Resource, get_item_format_from_memoryview
+from ._base import Resource
+from ._utils import get_item_format_from_memoryview, calculate_buffer_chunk_size, logger
 
 
 class Buffer(Resource):
-    """A contiguous piece of GPU memory.
+    """The Buffer represents a contiguous piece of GPU memory.
 
-    Buffers can be used as index buffer or storage buffer. They are also used
+    A buffer can be used as index buffer or storage buffer. They are also used
     for uniform buffers (internally in the pygfx materials). You can provide
     (and update data for it), or use it as a placeholder for a buffer with no
     representation on the CPU.
 
     Parameters
     ----------
-    data : array
-        The initial data of the array data. It must support the buffer-protocol,
-        (e.g. a bytes or numpy array). If None, nbytes and nitems must be
-        provided.
-    nbytes : int
+    data : array | None
+        The initial data of the buffer. It must support the buffer-protocol,
+        (e.g. a bytes or numpy array). If None, ``nbytes`` and ``nitems`` must be
+        provided. The data will be accessible at ``buffer.data``, no copies are
+        made.
+    nbytes : int | None
         The size of the buffer in bytes. Ignored if ``data`` is used.
-    nitems : int
+    nitems : int | None
         The number of elements in the buffer. Ignored if ``data`` is used.
     format : None | str | ElementFormat | wgpu.VertexFormat | wgpu.IndexFormat
         A format string describing the buffer layout. This can follow pygfx'
         ``ElementFormat`` e.g. "3xf4", or wgpu's ``VertexFormat``. Optional: if
         None, it is automatically determined from the data.
+    chunk_size : None | int
+        The chunk size to use for uploading data to the GPU, expressed in items counts.
+        When None (default) an optimal chunk size is determined automatically.
+    force_contiguous : bool
+        When set to true, the buffer goes into a stricter mode, forcing set data
+        to be c_contiguous. This ensures optimal upload performance for cases when
+        the data changes often.
     usage : int | wgpu.BufferUsage
         The wgpu ``usage`` flag for this buffer. Optional: typically pygfx can
         derive how the buffer is used and apply the appropriate flag. In cases
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
+
+    Performance tips:
+
+    * If the given data is not c_contiguous, the chunks will need to be copied
+      at upload-time, which reduces performance when the data is changed often.
+    * Setting ``force_contiguous`` ensures that the set data is contiguous,
+      it is recommended to use this when the bufer data is dynamic.
     """
 
-    def __init__(self, data=None, *, nbytes=None, nitems=None, format=None, usage=0):
+    def __init__(
+        self,
+        data=None,
+        *,
+        nbytes=None,
+        nitems=None,
+        format=None,
+        chunk_size=None,
+        force_contiguous=False,
+        usage=0,
+    ):
         super().__init__()
         Resource._rev += 1
         self._rev = Resource._rev
-        # To specify the buffer size
-        # The actual data (optional)
-        self._data = None
-        detected_format = None
-        self._gfx_pending_uploads = []  # list of (offset, size) tuples
 
         # Attributes for internal use, updated by other parts of pygfx.
         self._wgpu_object = None
         self._wgpu_usage = int(usage)
 
-        # Get nbytes
+        # Init
+        self._data = None
+        self._force_contiguous = bool(force_contiguous)
+
+        # Process data
+        detected_format = None
         if data is not None:
             self._data = data
             self._mem = mem = memoryview(data)
+            if self._force_contiguous and not mem.c_contiguous:
+                raise ValueError(
+                    "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
+                )
             subformat = get_item_format_from_memoryview(mem)
             if subformat:
                 shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
@@ -57,8 +88,6 @@ class Buffer(Resource):
                     detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
             the_nbytes = mem.nbytes
             the_nitems = mem.shape[0] if mem.shape else 1
-            if the_nitems:
-                self._gfx_pending_uploads.append((0, the_nitems))
             if nbytes is not None and nbytes != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
             if nitems is not None and nitems != the_nitems:
@@ -71,16 +100,48 @@ class Buffer(Resource):
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
+        # Store derived props
+        self._store.nbytes = the_nbytes
+        self._store.nitems = the_nitems
         if format is not None:
             self._store.format = str(format)
         elif detected_format:
             self._store.format = detected_format
         else:
             self._store.format = None
-        self._store.nbytes = the_nbytes
-        self._store.nitems = the_nitems
 
+        # Can now init other properties
         self.draw_range = 0, the_nitems
+
+        # Get optimal chunk size
+        if the_nbytes == 0:  # data is None or empty
+            chunk_size = 0
+        elif chunk_size is None:
+            chunk_size = calculate_buffer_chunk_size(
+                the_nitems,
+                bytes_per_element=the_nbytes // the_nitems,
+                byte_align=16,
+                target_chunk_count=20,
+                min_chunk_size=2**8,
+                max_chunk_size=2**20,
+            )
+        else:
+            chunk_size = min(max(int(chunk_size), 1), the_nitems)
+
+        # Init chunks map
+        if data is None:
+            self._chunks_any_dirty = False
+            self._chunk_size = 0
+            self._chunk_mask = None
+        elif the_nbytes == 0:
+            self._chunks_any_dirty = False
+            self._chunk_size = 0
+            self._chunk_mask = np.ones((0,), bool)
+        else:
+            self._chunks_any_dirty = True
+            self._chunk_size = chunk_size
+            n_chunks = ceil(the_nitems / self._chunk_size)
+            self._chunk_mask = np.ones((n_chunks,), bool)
 
     @property
     def data(self):
@@ -177,54 +238,124 @@ class Buffer(Resource):
         Resource._rev += 1
         self._rev = Resource._rev
 
-    def update_range(self, offset=0, size=2**50):
+    def set_data(self, data):
+        """Reset the data to a new array.
+
+        This avoids a data-copy compared to doing ``buffer.data[:] = new_data``.
+        The new data must match the current data's shape and format.
+        """
+        # Get memoryview
+        mem = memoryview(data)
+        # Do many checks
+        if self._force_contiguous and not mem.c_contiguous:
+            raise ValueError(
+                "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
+            )
+        if mem.nbytes != self._mem.nbytes:
+            raise ValueError("buffer.set_data() nbytes does not match.")
+        if mem.shape != self.mem.shape:
+            raise ValueError("buffer.set_data() shape does not match.")
+        if mem.format != self.mem.format:
+            raise ValueError("buffer.set_data() format does not match.")
+        # Ok
+        self._data = data
+        self._mem = mem
+        self.update_full()
+
+    def update_full(self):
+        """Mark the whole data for upload."""
+        self._chunk_mask.fill(True)
+        self._chunks_any_dirty = True
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
+    def update_indices(self, indices):
+        """Mark specific indices for upload."""
+        indices = np.asarray(indices)
+        div = self._chunk_size
+        self._chunk_mask[indices // div] = True
+        self._chunks_any_dirty = True
+        Resource._rev += 1
+        self._rev = Resource._rev
+        self._gfx_mark_for_sync()
+
+    def update_range(self, offset=0, size=None):
         """Mark a certain range of the data for upload to the GPU. The
         offset and size are expressed in integer number of elements.
         """
         # See ThreeJS BufferAttribute.updateRange
-        # Check input
-        if not isinstance(offset, int) and isinstance(size, int):
-            raise TypeError(
-                f"`offset` and `size` must be native `int` type, you have passed: "
-                f"offset: <{type(offset)}>, size: <{type(size)}>"
-            )
-        offset, size = int(offset), int(size)  # convert np ints to real ints
 
+        nitems = self.nitems
+        # Normalize inputs
+        offset = int(offset or 0)
+        size = int(self.nitems if size is None else size)
+        # Checks
         if size == 0:
             return
         elif size < 0:
             raise ValueError("Update size must not be negative")
         elif offset < 0:
             raise ValueError("Update offset must not be negative")
-        elif offset + size > self.nitems:
-            size = self.nitems - offset
-        # Merge with current entry?
-        if self._gfx_pending_uploads:
-            cur_offset, cur_size = self._gfx_pending_uploads.pop(-1)
-            end = max(offset + size, cur_offset + cur_size)
-            offset = min(offset, cur_offset)
-            size = end - offset
-        # Limit and apply
-        self._gfx_pending_uploads.append((offset, size))
+        # Get indices
+        index1 = offset
+        index2 = min(nitems, offset + size)
+        # Update map
+        div = self._chunk_size
+        self._chunk_mask[floor(index1 / div) : ceil(index2 / div)] = True
+        self._chunks_any_dirty = True
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
-        # note: this can be smarter, we have logic for chunking in the morph tool
 
-    def _get_subdata(self, offset, size):
+    def _gfx_get_chunk_descriptions(self):
+        """Get a list of (offset, size) tuples, that can be
+        used in _gfx_get_chunk_data(). This method also clears
+        the chunk dirty statuses.
+        """
+
+        # Quick return
+        if not self._chunks_any_dirty:
+            return []
+
+        # Collect chunks (offset, size) tuples
+        chunk_descriptions = []
+        max_merges = 8
+        merges_possible = 0
+        for i, dirty in enumerate(self._chunk_mask):
+            if dirty:
+                offset = self._chunk_size * i
+                size = self._chunk_size
+                if merges_possible > 0:
+                    merges_possible -= 1
+                    chunk_descriptions[-1][-1] += size
+                else:
+                    merges_possible = max_merges
+                    chunk_descriptions.append([offset, size])
+            else:
+                merges_possible = 0
+
+        # Reset
+        self._chunks_any_dirty = False
+        self._chunk_mask.fill(False)
+
+        return chunk_descriptions
+
+    def _gfx_get_chunk_data(self, offset, size):
         """Return subdata as a contiguous array."""
-        # If this is a full range, this is easy (and fast)
-        if offset == 0 and size == self.nitems and self.mem.c_contiguous:
-            return self.mem
-        # Get a numpy array, because memoryviews do not support nd slicing
-        if isinstance(self.data, np.ndarray):
-            arr = self.data
-        elif not self.mem.c_contiguous:
-            raise ValueError(
-                "Non-contiguous texture data is only supported for numpy array."
-            )
+        if offset == 0 and size == self.nitems and self._mem.c_contiguous:
+            # If this is a full range, this is easy (and fast)
+            chunk = self._mem
         else:
-            arr = np.frombuffer(self.mem, self.mem.format).reshape(self.mem.shape)
-        # Slice it
-        sub_arr = arr[offset : offset + size]
-        return memoryview(np.ascontiguousarray(sub_arr))
+            # Otherwise, create a view, make a copy if its not contiguous.
+            # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
+            # but that turns out to be really slow (like 6x). So we make the copy via numpy.
+            chunk = self._mem[offset : offset + size]
+            if not chunk.c_contiguous:
+                if self._force_contiguous:
+                    logger.warning(
+                        "force_contiguous was set, but chunk data is still discontiguous"
+                    )
+                # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
+                chunk = memoryview(np.ascontiguousarray(chunk))
+        return chunk
