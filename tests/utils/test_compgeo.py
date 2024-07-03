@@ -56,3 +56,30 @@ def test_binary_search_for_ndc_edge_fit():
     ndc2 = (10, 0, 0, 5)  # 2
     t = binary_search_for_ndc_edge(ndc1, ndc2, 1.5, 0, n_iters=10)
     assert abs(t - 0.375) < 0.0001
+
+
+def test_binary_search_for_ndc_edge_ortho():
+
+    # This line is on-screen, also in y dimension!
+    ndc1 = (0.1, 0, 0, 1)  # 1
+    ndc2 = (0.8, 0, 0, 1)  # 2
+    t1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 1, n_iters=10)
+    t2 = binary_search_for_ndc_edge(ndc1, ndc2, +1, 1, n_iters=10)
+    assert t1 == 0.0 and t2 == 1.0
+
+    # This line is above viewport
+    ndc1 = (0.1, -1.2, 0, 1)  # 1
+    ndc2 = (0.8, -1.2, 0, 1)  # 2
+    t1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 1, n_iters=10)
+    t2 = binary_search_for_ndc_edge(ndc1, ndc2, +1, 1, n_iters=10)
+    assert t1 == 1.0 and t2 == 1.0
+
+    # This line is below viewport
+    ndc1 = (0.1, 1.2, 0, 1)  # 1
+    ndc2 = (0.8, 1.2, 0, 1)  # 2
+    t1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 1, n_iters=10)
+    t2 = binary_search_for_ndc_edge(ndc1, ndc2, +1, 1, n_iters=10)
+    assert t1 == 0.0 and t2 == 0.0
+
+
+test_binary_search_for_ndc_edge_ortho()

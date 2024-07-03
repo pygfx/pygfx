@@ -186,23 +186,30 @@ class Ruler(WorldObject):
 
         # Get what part of the line is visible
         t1, t2 = get_visible_part_of_line_ndc(ndc1, ndc2)
+        self._t1_t2 = t1, t2
 
-        # Get corresponding screen coordinates
-        ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
-        ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
-        ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
-        ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
+        # Get corresponding screen coordinates.
+        # Fall back to full line when the selected region is empty,
+        # so that we can still calculate the step size, because calling code
+        # may still need it, e.g. to configure a grid.
+        if t1 == t2:
+            ndc_t1_2d = ndc1[:2] / ndc1[3]
+            ndc_t2_2d = ndc2[:2] / ndc2[3]
+        else:
+            ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
+            ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
+            ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
+            ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
         screen1 = ndc_t1_2d * np.array(canvas_size) * 0.5
         screen2 = ndc_t2_2d * np.array(canvas_size) * 0.5
 
-        # Calculate distance on screen. If t1 == t2, screen_dist is 0
+        # Calculate distance on screen.
         screen_vec = screen2 - screen1
         screen_dist = np.linalg.norm(screen_vec)
         if t1 != t2:
             screen_dist /= t2 - t1
 
-        self._t1_t2 = t1, t2
-
+        # The orientation on screen determines the anchor for the text labels
         self._calculate_text_anchor(np.arctan2(screen_vec[1], screen_vec[0]))
 
         # Determine distance in world coords

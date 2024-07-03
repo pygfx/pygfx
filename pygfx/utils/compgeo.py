@@ -3,7 +3,11 @@
 
 
 def get_visible_part_of_line_ndc(ndc1, ndc2):
-    """Get the visible part of the line, given by two homogeneous ndc coords."""
+    """Get the visible part of the line, given by two homogeneous ndc coords.
+
+    Returns (t1, t2) representing the visible line. If the two values
+    are equal, the line is not in the viewport.
+    """
 
     # Get closest t for all 4 edges
     tx1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 0)
@@ -60,6 +64,10 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     # Reduce the ndc positions to two scalars per position
     x1, x2 = ndc1[dim], ndc2[dim]
     w1, w2 = ndc1[3], ndc2[3]
+
+    # The line may be orthogonal to this dimension
+    if abs(x1 / w1 - x2 / w2) < 1e-9:
+        return 1.0 if x1 / w1 < ref else 0.0
 
     def new_sample(t):
         x = x1 * (1 - t) + x2 * t
