@@ -176,7 +176,7 @@ class Ruler(WorldObject):
 
         You must call `set_ticks()` for this change to take effect.
         """
-        return self._tick_at_end_points
+        return self._ticks_at_end_points
 
     @ticks_at_end_points.setter
     def ticks_at_end_points(self, value):
@@ -198,15 +198,15 @@ class Ruler(WorldObject):
         self._calculate_text_anchor(np.arctan2(screen_vec[1], screen_vec[0]))
 
         # Get the dict with visible ticks
-        tick_step = self._calculate_tick_step()
-        visible_ticks = self._get_ticks_dict(tick_step)
+        tick_auto_step = self._calculate_tick_step()
+        visible_ticks = self._get_ticks_dict(tick_auto_step)
 
         # Update objects to show these ticks
-        self._update_sub_objects(visible_ticks)
+        self._update_sub_objects(visible_ticks, tick_auto_step)
 
         # Return stats. This is a dict, so we can add more stuff later, if needed.
         return {
-            "tick_step": tick_step,
+            "tick_step": tick_auto_step,
             "tick_values": list(visible_ticks.keys()),
         }
 
@@ -374,7 +374,7 @@ class Ruler(WorldObject):
 
         return ticks
 
-    def _update_sub_objects(self, ticks):
+    def _update_sub_objects(self, ticks, tick_auto_step):
         """Update the sub-objects to show the given ticks."""
         assert isinstance(ticks, dict)
 
@@ -448,10 +448,16 @@ class Ruler(WorldObject):
         if self._ticks_at_end_points:
             sizes[index] = tick_size
             define_text(end_pos, f"{end_value:0.4g}")
-            self._text_object_pool[1].geometry.set_text("")
-            self._text_object_pool[index - 1].geometry.set_text("")
         else:
             define_text(end_pos, "")
+
+        # Hide the ticks close to the ends?
+        if self._ticks_at_end_points and ticks:
+            tick_values = list(ticks.keys())
+            if abs(tick_values[0] - start_value) < 0.5 * tick_auto_step:
+                self._text_object_pool[1].geometry.set_text("")
+            if abs(tick_values[-1] - end_value) < 0.5 * tick_auto_step:
+                self._text_object_pool[index - 1].geometry.set_text("")
 
         # Apply
         self.clear()
