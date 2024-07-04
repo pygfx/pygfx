@@ -2,7 +2,8 @@
 Measure distances
 =================
 
-Example showing a Torus knot, with a texture and lighting.
+Example to do measurements in a 2D image. Use LMB and RMB to place the
+end-points.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -18,54 +19,34 @@ canvas = WgpuCanvas()
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
-im = iio.imread("imageio:bricks.jpg")
-tex = gfx.Texture(im, dim=2)
 
-geometry = gfx.torus_knot_geometry(1, 0.3, 128, 32)
-geometry.texcoords.data[:, 0] *= 10  # stretch the texture
-material = gfx.MeshPhongMaterial(map=tex, pick_write=True)
-
-obj1 = gfx.Mesh(geometry, material)
-obj2 = gfx.Mesh(geometry, material)
-obj1.local.x = -3
-obj2.local.x = 3
-scene.add(obj1, obj2)
+im = iio.imread("imageio:astronaut.png")
+image = gfx.Image(
+    gfx.Geometry(grid=gfx.Texture(im, dim=2)),
+    gfx.ImageBasicMaterial(clim=(0, 255), pick_write=True),
+)
+scene.add(image)
 
 ruler = gfx.Ruler(ticks_at_end_points=True)
+ruler.local.z = 0.1  # move on top of the image
 scene.add(ruler)
 
-camera = gfx.PerspectiveCamera(70, 1)
-camera.show_object(scene)
-
-scene.add(gfx.AmbientLight(), camera.add(gfx.DirectionalLight()))
-
-controller = gfx.OrbitController(camera, register_events=renderer)
+camera = gfx.OrthographicCamera(512, 512)
+camera.local.position = (256, 256, 0)
+camera.local.scale_y = -1
 
 
-@obj1.add_event_handler("pointer_down")
-@obj2.add_event_handler("pointer_down")
-def handle_clicks(event):
-    if event.target is obj1 or event.target is obj2:
-        face_index = event.pick_info["face_index"]
-        face_coord = event.pick_info["face_coord"]
-        vertex_indices = geometry.indices.data[face_index]
-        pos = np.sum(
-            [
-                geometry.positions.data[i] * w
-                for i, w in zip(vertex_indices, face_coord)
-            ],
-            axis=0,
-        )
-        pos += event.target.world.position
-
-        if event.target is obj1:
-            ruler.start_pos = pos
-        else:
-            ruler.end_pos = pos
+@image.add_event_handler("click")
+def event_handler(event):
+    pos = np.array([*event.pick_info["index"], 0])
+    if event.button == 1:
+        ruler.start_pos = pos
+    elif event.button == 2:
+        ruler.end_pos = pos
+    renderer.request_draw()
 
 
 def animate():
-
     ruler.update(camera, canvas.get_logical_size())
     renderer.render(scene, camera)
 
