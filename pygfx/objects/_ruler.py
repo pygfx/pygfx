@@ -379,6 +379,7 @@ class Ruler(WorldObject):
         assert isinstance(ticks, dict)
 
         tick_size = 5
+        min_n_slots = 8  # todo: can be (much) higher when we use a single text object!
 
         # Load config
         start_pos = self._start_pos
@@ -395,13 +396,15 @@ class Ruler(WorldObject):
         # Get array to store positions
         n_slots = self.points.geometry.positions.nitems
         n_positions = len(ticks) + 2
-        if n_positions <= n_slots <= 2 * n_positions:
+        if n_positions <= n_slots <= max(min_n_slots, 2 * n_positions):
+            # Re-use existing buffers
             positions = self.points.geometry.positions.data
             sizes = self.points.geometry.sizes.data
             self.points.geometry.positions.update_range()
             self.points.geometry.sizes.update_range()
         else:
-            new_n_slots = int(n_positions * 1.2)
+            # Allocate new buffers
+            new_n_slots = max(min_n_slots, int(n_positions * 1.2))
             positions = np.zeros((new_n_slots, 3), np.float32)
             sizes = np.zeros((new_n_slots,), np.float32)
             self.points.geometry.positions = Buffer(positions)
