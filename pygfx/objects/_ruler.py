@@ -17,9 +17,8 @@ class Ruler(WorldObject):
 
     Usage:
 
-    * First use ``.configure()`` to set the ruler's start- and end-point.
-    * Next, the convenience functions can be used to help produce a ticks dict.
-    * Finally, use ``set_ticks()`` to set the ticks and update the child world objects.
+    * Use the properties (most notably ``start_pos`` and ``end_pos``).
+    * Call ``update()`` on each draw.
     """
 
     def __init__(
@@ -80,6 +79,7 @@ class Ruler(WorldObject):
         if start_pos.shape != (3,):
             raise ValueError("Ruler.start_pos must be a 3-element position.")
         self._start_pos = start_pos
+        self._end_value = None
 
     @property
     def end_pos(self):
@@ -92,6 +92,7 @@ class Ruler(WorldObject):
         if end_pos.shape != (3,):
             raise ValueError("Ruler.end_pos must be a 3-element position.")
         self._end_pos = end_pos
+        self._end_value = None
 
     @property
     def start_value(self):
@@ -101,11 +102,17 @@ class Ruler(WorldObject):
     @start_value.setter
     def start_value(self, value):
         self._start_value = float(value)
+        self._end_value = None
 
     @property
     def end_value(self):
         """The value at the end of the ruler (read-only)."""
-        return np.linalg.norm(self._end_pos - self._start_pos) + self._start_value
+        # Little caching mechanic. Props that affect the end_value set ._end_value to None
+        if self._end_value is None:
+            self._end_value = (
+                np.linalg.norm(self._end_pos - self._start_pos) + self._start_value
+            )
+        return self._end_value
 
     @property
     def ticks(self):
@@ -136,7 +143,7 @@ class Ruler(WorldObject):
 
     @property
     def min_tick_distance(self):
-        """The minimal distance between ticks in pixels, when using auto-ticks."""
+        """The minimal distance between ticks in screen pixels, when using auto-ticks."""
         return self._min_tick_dist
 
     @min_tick_distance.setter
@@ -178,29 +185,38 @@ class Ruler(WorldObject):
     # -- Methods
 
     def update(self, camera, canvas_size):
-        """Update the ruler before rendering."""
+        """Update the ruler.
 
+        This must be called on every draw, right before rendering.
+        """
+
+        # Determine which part of the ruler is on screen and its length in screen pixels
         self._configure_for_screen(camera, canvas_size)
 
+        # Anchor
         screen_vec = self._visible_part_screen_vec
         self._calculate_text_anchor(np.arctan2(screen_vec[1], screen_vec[0]))
 
-        visible_ticks = self._get_ticks_dict()
+        # Get the dict with visible ticks
+        tick_step = self._calculate_tick_step()
+        visible_ticks = self._get_ticks_dict(tick_step)
 
+        # Update objects to show these ticks
         self._update_sub_objects(visible_ticks)
 
-        return list(visible_ticks.keys())
+        # Return stats. This is a dict, so we can add more stuff later, if needed.
+        return {
+            "tick_step": tick_step,
+            "tick_values": list(visible_ticks.keys()),
+        }
 
     def _configure_for_screen(self, camera, canvas_size):
-        """Calculate an optimal step size for the ticks.
-
-        This uses the currently configured start- and end-values. The returned
-        step value is determined from the ratio of the size of the ruler in
-        the world and screen, respectively.
-        """
+        """Make the ruler aware of the camera and viewport size."""
 
         # Yuk, but needed
         camera.update_projection_matrix()
+
+        half_canvas_size = 0.5 * np.array(canvas_size, np.float64)
 
         # Get ndc coords for begin and end pos
         positions = np.column_stack(
@@ -211,6 +227,11 @@ class Ruler(WorldObject):
         )
         ndc1, ndc2 = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
 
+        ndc1_2d = ndc1[:2] / ndc1[3]
+        ndc2_2d = ndc2[:2] / ndc2[3]
+        screen1 = ndc1_2d * half_canvas_size
+        screen2 = ndc2_2d * half_canvas_size
+
         # Get what part of the line is visible
         t1, t2 = get_visible_part_of_line_ndc(ndc1, ndc2)
 
@@ -218,30 +239,28 @@ class Ruler(WorldObject):
         # Fall back to full line when the selected region is empty,
         # so that we can still calculate the step size, because calling code
         # may still need it, e.g. to configure a grid.
-        if t1 == t2:
-            ndc_t1_2d = ndc1[:2] / ndc1[3]
-            ndc_t2_2d = ndc2[:2] / ndc2[3]
-        else:
-            ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
-            ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
-            ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
-            ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
-        screen1 = ndc_t1_2d * np.array(canvas_size) * 0.5
-        screen2 = ndc_t2_2d * np.array(canvas_size) * 0.5
+        ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
+        ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
+        ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
+        ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
+        screen_t1 = ndc_t1_2d * half_canvas_size
+        screen_t2 = ndc_t2_2d * half_canvas_size
 
-        # Storeend_value
+        # Store values
+        self._screen_vec = screen2 - screen1
         start_value, end_value = self._start_value, self.end_value
         self._visible_part_coords = t1, t2
         self._visible_part_values = (
             start_value * (1.0 - t1) + end_value * t1,
             start_value * (1.0 - t2) + end_value * t2,
         )
-        self._visible_part_screen_vec = screen2 - screen1
+        self._visible_part_screen_vec = screen_t2 - screen_t1
 
     def _calculate_text_anchor(self, angle):
-        # Calculate anchor.
-        # With this anchor, the text labels move smoothly without a jump to the other side, as the ruler is rotated.
-        # todo: not sure how to apply it. Also may want to calculate this even if not interested in auto-ticks?
+        """Calculate the best place to anchor the text labels.
+        With this anchor, the text labels move smoothly without a jump
+        to the other side, as the ruler is rotated.
+        """
         if self._tick_side == "left":
             if abs(angle) <= 0.25 * np.pi:
                 self._text_anchor = "bottom-center"
@@ -269,20 +288,23 @@ class Ruler(WorldObject):
                 self._text_anchor = "middle-left"
                 self._text_anchor_offset = 10
 
-    def _get_ticks_dict(self):
+    def _get_ticks_dict(self, tick_auto_step):
+        """Get a tick-dict, derived from the user-given tick value,
+        and constrained to the visual part of the ruler.
+        """
 
         min_value, max_value = self._visible_part_values
 
         ticks = self._ticks
         if ticks is None:
-            step = self._calculate_best_tick_step()
-            return self._get_ticks_uniform(min_value, max_value, step)
+            return self._get_ticks_uniform(min_value, max_value, tick_auto_step)
         elif isinstance(ticks, dict):
             return {x: v for x, v in ticks.items() if min_value <= x <= max_value}
         else:
             return {x: str(x) for x in ticks if min_value <= x <= max_value}
 
-    def _calculate_best_tick_step(self):
+    def _calculate_tick_step(self):
+        """Calculate the tick step from the min_tick_distance."""
 
         min_tick_dist = self._min_tick_dist
 
@@ -290,8 +312,15 @@ class Ruler(WorldObject):
         world_dist = self._visible_part_values[1] - self._visible_part_values[0]
         screen_dist = np.linalg.norm(self._visible_part_screen_vec)
 
+        # Fall back to full size if selection is zero. This way, the
+        # value of step still makes sense, even when the ruler itself
+        # is not on screen.
+        if not screen_dist:
+            world_dist = self.end_value - self._start_value
+            screen_dist = np.linalg.norm(self._screen_vec)
+
         # Determine step
-        step = 1
+        step = 0
         if world_dist > 0 and screen_dist > 0:
             scale = screen_dist / world_dist
             approx_step = min_tick_dist / scale
@@ -305,8 +334,13 @@ class Ruler(WorldObject):
         return step
 
     def _get_ticks_uniform(self, min_value, max_value, step):
+        """Get a uniformly distributed set of ticks."""
+
+        if not step:
+            return {}
 
         # Apply some form of scaling
+        ref_value = max(abs(min_value), abs(max_value))
         if False:  # use mk units
             if ref_value >= 10_000_000_000:
                 mult, unit = 1 / 1_000_000_000, "G"
@@ -341,6 +375,7 @@ class Ruler(WorldObject):
         return ticks
 
     def _update_sub_objects(self, ticks):
+        """Update the sub-objects to show the given ticks."""
         assert isinstance(ticks, dict)
 
         tick_size = 5

@@ -35,7 +35,7 @@ grid = gfx.Grid(
 grid.local.z = -1001
 
 rulerx = gfx.Ruler(tick_side="right")
-rulery = gfx.Ruler(tick_side="left")
+rulery = gfx.Ruler(tick_side="left", min_tick_distance=30)
 
 x = np.linspace(20, 980, 200, dtype=np.float32)
 y = np.sin(x / 30) * 4
@@ -54,30 +54,21 @@ controller = gfx.PanZoomController(camera, register_events=renderer)
 
 
 def animate():
-    start_pos = camera.world.x - camera.width / 2, 0, -1000
-    end_pos = camera.world.x + camera.width / 2, 0, -1000
-    start_value = start_pos[0]
+    rulerx.start_pos = camera.world.x - camera.width / 2, 0, -1000
+    rulerx.end_pos = camera.world.x + camera.width / 2, 0, -1000
+    rulerx.start_value = rulerx.start_pos[0]
+    statsx = rulerx.update(camera, canvas.get_logical_size())
 
-    rulerx.configure(start_pos, end_pos, start_value)
-    major_step_x = rulerx.calculate_tick_step(camera, canvas.get_logical_size())
-    ticks_x = rulerx.get_ticks_uniform(major_step_x)
-    rulerx.set_ticks(ticks_x)
+    rulery.start_pos = 0, camera.world.y - camera.height / 2, -1000
+    rulery.end_pos = 0, camera.world.y + camera.height / 2, -1000
+    rulery.start_value = rulery.start_pos[1]
+    statsy = rulery.update(camera, canvas.get_logical_size())
 
-    start_pos = 0, camera.world.y - camera.height / 2, -1000
-    end_pos = end_pos = 0, camera.world.y + camera.height / 2, -1000
-    start_value = start_pos[1]
-
-    rulery.configure(start_pos, end_pos, start_value)
-    major_step_y = rulery.calculate_tick_step(camera, canvas.get_logical_size())
-    ticks_y = rulery.get_ticks_uniform(major_step_y)
-    rulery.set_ticks(ticks_y)
-
+    major_step_x, major_step_y = statsx["tick_step"], statsy["tick_step"]
     grid.material.major_step = major_step_x, major_step_y
     grid.material.minor_step = 0.2 * major_step_x, 0.2 * major_step_y
 
-    # pos = la.vec_transform((1, 0, 0), camera.projection_matrix_inverse)
-    # pos = la.vec_transform(pos, camera.world.matrix)
-    # print(pos)
+    # print(statsx)
 
     renderer.render(scene, camera)
 

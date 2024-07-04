@@ -32,7 +32,6 @@ obj2.local.x = 3
 scene.add(obj1, obj2)
 
 ruler = gfx.Ruler(ticks_at_end_points=True)
-ruler.pos1 = ruler.pos2 = (0, 0, 0)
 scene.add(ruler)
 
 camera = gfx.PerspectiveCamera(70, 1)
@@ -60,19 +59,14 @@ def handle_clicks(event):
         pos += event.target.world.position
 
         if event.target is obj1:
-            ruler.pos1 = pos
+            ruler.start_pos = pos
         else:
-            ruler.pos2 = pos
-
-        ruler.configure(ruler.pos1, ruler.pos2)
+            ruler.end_pos = pos
 
 
 def animate():
 
-    step = ruler.calculate_tick_step(camera, canvas.get_logical_size())
-    ticks = ruler.get_ticks_uniform(step)
-    ruler.set_ticks(ticks)
-
+    ruler.update(camera, canvas.get_logical_size())
     renderer.render(scene, camera)
 
 

@@ -40,7 +40,7 @@ def test_binary_search_for_ndc_edge_fit():
         assert fault < 3e-5
 
 
-def test_binary_search_for_ndc_edge_fit():
+def test_binary_search_for_ndc_edge_perspective():
 
     ndc1 = (1, 0, 0, 1)  # 1
     ndc2 = (2, 0, 0, 1)  # 2
