@@ -45,7 +45,7 @@ line = gfx.Line(
     gfx.Geometry(positions=positions),
     gfx.LineMaterial(thickness=4.0, color="#aaf"),
 )
-scene.add(background, grid, rulerx, rulery, line)
+scene.add(background, rulerx, rulery, line)
 
 camera = gfx.OrthographicCamera(maintain_aspect=False)
 camera.show_rect(0, 1000, -5, 5)
@@ -64,6 +64,7 @@ def animate():
     rulery.start_value = rulery.start_pos[1]
     statsy = rulery.update(camera, canvas.get_logical_size())
 
+    print(statsx)
     major_step_x, major_step_y = statsx["tick_step"], statsy["tick_step"]
     grid.material.major_step = major_step_x, major_step_y
     grid.material.minor_step = 0.2 * major_step_x, 0.2 * major_step_y
