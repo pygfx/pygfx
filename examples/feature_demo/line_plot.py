@@ -35,7 +35,7 @@ grid = gfx.Grid(
 grid.local.z = -1001
 
 rulerx = gfx.Ruler(tick_side="right")
-rulery = gfx.Ruler(tick_side="left", min_tick_distance=30)
+rulery = gfx.Ruler(tick_side="left", min_tick_distance=40)
 
 x = np.linspace(20, 980, 200, dtype=np.float32)
 y = np.sin(x / 30) * 4

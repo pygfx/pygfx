@@ -22,7 +22,12 @@ class Ruler(WorldObject):
     """
 
     def __init__(
-        self, *, tick_side="left", ticks_at_end_points=False, min_tick_distance=40
+        self,
+        *,
+        tick_format="0.4g",
+        tick_side="left",
+        min_tick_distance=50,
+        ticks_at_end_points=False,
     ):
         super().__init__()
 
@@ -31,9 +36,10 @@ class Ruler(WorldObject):
         self.start_value = 0.0
         self.ticks = None
 
+        self.tick_format = tick_format
         self.tick_side = tick_side
-        self.ticks_at_end_points = ticks_at_end_points
         self.min_tick_distance = min_tick_distance
+        self.ticks_at_end_points = ticks_at_end_points
 
         # Create a line and poins object, with a shared geometry
         geometry = Geometry(
@@ -142,16 +148,13 @@ class Ruler(WorldObject):
     # -- Properties for tweaking
 
     @property
-    def min_tick_distance(self):
-        """The minimal distance between ticks in screen pixels, when using auto-ticks."""
-        return self._min_tick_dist
+    def tick_format(self):
+        """The format to display the tick values."""
+        return self._tick_format
 
-    @min_tick_distance.setter
-    def min_tick_distance(self, value):
-        value = float(value)
-        if value < 0.0:
-            raise ValueError("tick distance must be larger than zero.")
-        self._min_tick_dist = value
+    @tick_format.setter
+    def tick_format(self, format):
+        self._tick_format = str(format)
 
     @property
     def tick_side(self):
@@ -169,6 +172,18 @@ class Ruler(WorldObject):
             self._tick_side = side
         else:
             raise ValueError("Tick side must be 'left' or 'right'.")
+
+    @property
+    def min_tick_distance(self):
+        """The minimal distance between ticks in screen pixels, when using auto-ticks."""
+        return self._min_tick_dist
+
+    @min_tick_distance.setter
+    def min_tick_distance(self, value):
+        value = float(value)
+        if value < 0.0:
+            raise ValueError("tick distance must be larger than zero.")
+        self._min_tick_dist = value
 
     @property
     def ticks_at_end_points(self):
@@ -344,9 +359,12 @@ class Ruler(WorldObject):
         if not step:
             return {}
 
+        tick_format = self._tick_format
+
         # Apply some form of scaling
         ref_value = max(abs(min_value), abs(max_value))
-        if False:  # use mk units
+        if tick_format.lower() == "km":  # use mk units
+            tick_format = "0.4g"  # for the remaining number
             if ref_value >= 10_000_000_000:
                 mult, unit = 1 / 1_000_000_000, "G"
             elif ref_value >= 10_000_000:
@@ -359,21 +377,19 @@ class Ruler(WorldObject):
                 mult, unit = 1000, "m"
             else:
                 mult, unit = 1, ""
-        elif False:  # use exponential notation
-            pass
         else:
             mult, unit = 1, ""
 
         # Calculate tick values
-        first_tick = ceil(min_value * mult / step) * step
-        last_tick = floor(max_value * mult / step) * step
+        first_tick = ceil(min_value / step) * step
+        last_tick = floor(max_value / step) * step
         ticks = {}
         t = first_tick
         while t <= last_tick:
             if t == 0:
                 s = "0"
             else:
-                s = f"{mult * t:0.4g}"
+                s = format(mult * t, tick_format)
             ticks[t] = s + unit
             t += step
 
