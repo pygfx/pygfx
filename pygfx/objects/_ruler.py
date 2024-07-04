@@ -22,15 +22,19 @@ class Ruler(WorldObject):
     * Finally, use ``set_ticks()`` to set the ticks and update the child world objects.
     """
 
-    def __init__(self, *, tick_side="left", ticks_at_end_points=False):
+    def __init__(
+        self, *, tick_side="left", ticks_at_end_points=False, min_tick_distance=40
+    ):
         super().__init__()
+
+        self.start_pos = 0, 0, 0
+        self.end_pos = 0, 0, 0
+        self.start_value = 0.0
+        self.ticks = None
 
         self.tick_side = tick_side
         self.ticks_at_end_points = ticks_at_end_points
-
-        # Initialize dummy config
-        zero = np.zeros((3,), np.float32)
-        self._config = zero, zero, 0.0, 0.0, zero
+        self.min_tick_distance = min_tick_distance
 
         # Create a line and poins object, with a shared geometry
         geometry = Geometry(
@@ -45,6 +49,8 @@ class Ruler(WorldObject):
         # todo: a material to draw proper tick marks
         # todo: Text object that draws each line at a position from geometry
 
+    # -- Properties to easily access sub-objects
+
     @property
     def line(self):
         """The line object that shows the ruler's path."""
@@ -54,6 +60,91 @@ class Ruler(WorldObject):
     def points(self):
         """The points object that shows the ruler's tickmarks."""
         return self._points
+
+    # Note: text should also be here eventually
+
+    # -- Main properties
+
+    @property
+    def start_pos(self):
+        """The start posision of the ruler as a 3-tuple or 3-element array.
+
+        Note that the ruler's transform also affects positioning, but should
+        generally not be used.
+        """
+        return self._start_pos
+
+    @start_pos.setter
+    def start_pos(self, pos):
+        start_pos = np.array(pos, np.float64).reshape((3,))
+        if start_pos.shape != (3,):
+            raise ValueError("Ruler.start_pos must be a 3-element position.")
+        self._start_pos = start_pos
+
+    @property
+    def end_pos(self):
+        """The end posision of the ruler as a 3-tuple or 3-element array."""
+        return self._end_pos
+
+    @end_pos.setter
+    def end_pos(self, pos):
+        end_pos = np.array(pos, np.float64).reshape((3,))
+        if end_pos.shape != (3,):
+            raise ValueError("Ruler.end_pos must be a 3-element position.")
+        self._end_pos = end_pos
+
+    @property
+    def start_value(self):
+        """The value of the ruler at the start position (i.e. the offset)."""
+        return self._start_value
+
+    @start_value.setter
+    def start_value(self, value):
+        self._start_value = float(value)
+
+    @property
+    def end_value(self):
+        """The value at the end of the ruler (read-only)."""
+        return np.linalg.norm(self._end_pos - self._start_pos) + self._start_value
+
+    @property
+    def ticks(self):
+        """The ticks to show.
+
+        Can be:
+
+        * ``None`` for automatic ticks.
+        * ``dict`` for explicit ticks (float -> str).
+        * ``list`` / ``tupple`` / ``ndarray`` for a list of values.
+
+        """
+        return self._ticks
+
+    @ticks.setter
+    def ticks(self, ticks):
+        if ticks is None:
+            self._ticks = None
+        elif isinstance(ticks, dict):
+            # Copy the object, resolving keys and values to float and str
+            self._ticks = {float(k): str(v) for k, v in ticks.items()}
+        elif isinstance(ticks, (tuple, list, np.ndarray)):
+            self._ticks = [float(x) for x in ticks]
+        else:
+            raise TypeError("Ruler.ticks must be None, dict or list(like).")
+
+    # -- Properties for tweaking
+
+    @property
+    def min_tick_distance(self):
+        """The minimal distance between ticks in pixels, when using auto-ticks."""
+        return self._min_tick_dist
+
+    @min_tick_distance.setter
+    def min_tick_distance(self, value):
+        value = float(value)
+        if value < 0.0:
+            raise ValueError("tick distance must be larger than zero.")
+        self._min_tick_dist = value
 
     @property
     def tick_side(self):
@@ -84,51 +175,136 @@ class Ruler(WorldObject):
     def ticks_at_end_points(self, value):
         self._ticks_at_end_points = bool(value)
 
-    def configure(self, start_pos, end_pos, start_value=0):
-        """Set the start- and end-point, optionally providing the start-value.
+    # -- Methods
 
-        Note that the ruler's transform also affects positioning, but should
-        generally not be used.
+    def update(self, camera, canvas_size):
+        """Update the ruler before rendering."""
+
+        self._configure_for_screen(camera, canvas_size)
+
+        screen_vec = self._visible_part_screen_vec
+        self._calculate_text_anchor(np.arctan2(screen_vec[1], screen_vec[0]))
+
+        visible_ticks = self._get_ticks_dict()
+
+        self._update_sub_objects(visible_ticks)
+
+        return list(visible_ticks.keys())
+
+    def _configure_for_screen(self, camera, canvas_size):
+        """Calculate an optimal step size for the ticks.
+
+        This uses the currently configured start- and end-values. The returned
+        step value is determined from the ratio of the size of the ruler in
+        the world and screen, respectively.
         """
 
-        # Process positions
-        start_pos = np.array(start_pos, np.float32)
-        if not start_pos.shape == (3,):
-            raise ValueError("start_pos must be a 3-element position.")
-        end_pos = np.array(end_pos, np.float32)
-        if not end_pos.shape == (3,):
-            raise ValueError("end_pos must be a 3-element position.")
+        # Yuk, but needed
+        camera.update_projection_matrix()
 
-        # Derive unit vector
-        vec = end_pos - start_pos
-        length = np.linalg.norm(vec)
-        if length > 0.0:
-            vec /= length
+        # Get ndc coords for begin and end pos
+        positions = np.column_stack(
+            [
+                np.row_stack([self._start_pos, self._end_pos]),
+                np.ones((2, 1), np.float64),
+            ]
+        )
+        ndc1, ndc2 = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
 
-        # Process values
-        min_value = float(start_value)
-        max_value = min_value + length
+        # Get what part of the line is visible
+        t1, t2 = get_visible_part_of_line_ndc(ndc1, ndc2)
 
-        # Store
-        self._config = start_pos, end_pos, min_value, max_value, vec
+        # Get corresponding screen coordinates.
+        # Fall back to full line when the selected region is empty,
+        # so that we can still calculate the step size, because calling code
+        # may still need it, e.g. to configure a grid.
+        if t1 == t2:
+            ndc_t1_2d = ndc1[:2] / ndc1[3]
+            ndc_t2_2d = ndc2[:2] / ndc2[3]
+        else:
+            ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
+            ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
+            ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
+            ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
+        screen1 = ndc_t1_2d * np.array(canvas_size) * 0.5
+        screen2 = ndc_t2_2d * np.array(canvas_size) * 0.5
 
-    def get_ticks_uniform(self, step):
-        """Get ticks using a uniform step size.
+        # Storeend_value
+        start_value, end_value = self._start_value, self.end_value
+        self._visible_part_coords = t1, t2
+        self._visible_part_values = (
+            start_value * (1.0 - t1) + end_value * t1,
+            start_value * (1.0 - t2) + end_value * t2,
+        )
+        self._visible_part_screen_vec = screen2 - screen1
 
-        This uses the currently configured start- and end-values.
+    def _calculate_text_anchor(self, angle):
+        # Calculate anchor.
+        # With this anchor, the text labels move smoothly without a jump to the other side, as the ruler is rotated.
+        # todo: not sure how to apply it. Also may want to calculate this even if not interested in auto-ticks?
+        if self._tick_side == "left":
+            if abs(angle) <= 0.25 * np.pi:
+                self._text_anchor = "bottom-center"
+                self._text_anchor_offset = 5
+            elif abs(angle) >= 0.75 * np.pi:
+                self._text_anchor = "top-center"
+                self._text_anchor_offset = 5
+            elif angle < 0:
+                self._text_anchor = "middle-left"
+                self._text_anchor_offset = 10
+            else:
+                self._text_anchor = "middle-right"
+                self._text_anchor_offset = 10
+        else:
+            if abs(angle) <= 0.25 * np.pi:
+                self._text_anchor = "top-center"
+                self._text_anchor_offset = 5
+            elif abs(angle) >= 0.75 * np.pi:
+                self._text_anchor = "bottom-center"
+                self._text_anchor_offset = 5
+            elif angle < 0:
+                self._text_anchor = "middle-right"
+                self._text_anchor_offset = 10
+            else:
+                self._text_anchor = "middle-left"
+                self._text_anchor_offset = 10
 
-        Note that with a nonzero start_value, the first tick is likely
-        not on the start position.
-        """
+    def _get_ticks_dict(self):
 
-        # Load config
-        _, _, min_value, max_value, _ = self._config
+        min_value, max_value = self._visible_part_values
 
-        t1, t2 = self._t1_t2
-        min_value = (1 - t1) * min_value + t1 * max_value
-        max_value = (1 - t2) * min_value + t2 * max_value
+        ticks = self._ticks
+        if ticks is None:
+            step = self._calculate_best_tick_step()
+            return self._get_ticks_uniform(min_value, max_value, step)
+        elif isinstance(ticks, dict):
+            return {x: v for x, v in ticks.items() if min_value <= x <= max_value}
+        else:
+            return {x: str(x) for x in ticks if min_value <= x <= max_value}
 
-        ref_value = max(abs(min_value), abs(max_value))
+    def _calculate_best_tick_step(self):
+
+        min_tick_dist = self._min_tick_dist
+
+        # Determine distances for visible selection
+        world_dist = self._visible_part_values[1] - self._visible_part_values[0]
+        screen_dist = np.linalg.norm(self._visible_part_screen_vec)
+
+        # Determine step
+        step = 1
+        if world_dist > 0 and screen_dist > 0:
+            scale = screen_dist / world_dist
+            approx_step = min_tick_dist / scale
+            power10 = 10 ** floor(log10(approx_step))
+            for i in (1, 2, 2.5, 5, 10):
+                maybe_step = i * power10
+                if maybe_step > approx_step:
+                    step = maybe_step
+                    break
+
+        return step
+
+    def _get_ticks_uniform(self, min_value, max_value, step):
 
         # Apply some form of scaling
         if False:  # use mk units
@@ -164,116 +340,22 @@ class Ruler(WorldObject):
 
         return ticks
 
-    def calculate_tick_step(self, camera, canvas_size, *, min_tick_dist=40):
-        """Calculate an optimal step size for the ticks.
-
-        This uses the currently configured start- and end-values. The returned
-        step value is determined from the ratio of the size of the ruler in
-        the world and screen, respectively.
-        """
-
-        # Load config
-        start_pos, end_pos, min_value, max_value, _ = self._config
-
-        # Yuk, but needed
-        camera.update_projection_matrix()
-
-        # Get ndc coords for begin and end pos
-        positions = np.column_stack(
-            [np.row_stack([start_pos, end_pos]), np.ones((2, 1), np.float64)]
-        )
-        ndc1, ndc2 = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
-
-        # Get what part of the line is visible
-        t1, t2 = get_visible_part_of_line_ndc(ndc1, ndc2)
-        self._t1_t2 = t1, t2
-
-        # Get corresponding screen coordinates.
-        # Fall back to full line when the selected region is empty,
-        # so that we can still calculate the step size, because calling code
-        # may still need it, e.g. to configure a grid.
-        if t1 == t2:
-            ndc_t1_2d = ndc1[:2] / ndc1[3]
-            ndc_t2_2d = ndc2[:2] / ndc2[3]
-        else:
-            ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
-            ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
-            ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
-            ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
-        screen1 = ndc_t1_2d * np.array(canvas_size) * 0.5
-        screen2 = ndc_t2_2d * np.array(canvas_size) * 0.5
-
-        # Calculate distance on screen.
-        screen_vec = screen2 - screen1
-        screen_dist = np.linalg.norm(screen_vec)
-        if t1 != t2:
-            screen_dist /= t2 - t1
-
-        # The orientation on screen determines the anchor for the text labels
-        self._calculate_text_anchor(np.arctan2(screen_vec[1], screen_vec[0]))
-
-        # Determine distance in world coords
-        world_dist = abs(max_value - min_value)
-
-        # Determine step
-        step = 1
-        if world_dist > 0 and screen_dist > 0:
-            scale = screen_dist / world_dist
-            approx_step = min_tick_dist / scale
-            power10 = 10 ** floor(log10(approx_step))
-            for i in (1, 2, 2.5, 5, 10):
-                maybe_step = i * power10
-                if maybe_step > approx_step:
-                    step = maybe_step
-                    break
-
-        return step
-
-    def _calculate_text_anchor(self, angle):
-        # Calculate anchor.
-        # With this anchor, the text labels move smoothly without a jump to the other side, as the ruler is rotated.
-        # todo: not sure how to apply it. Also may want to calculate this even if not interested in auto-ticks?
-        if self._tick_side == "left":
-            if abs(angle) <= 0.25 * np.pi:
-                self._text_anchor = "bottom-center"
-                self._text_anchor_offset = 5
-            elif abs(angle) >= 0.75 * np.pi:
-                self._text_anchor = "top-center"
-                self._text_anchor_offset = 5
-            elif angle < 0:
-                self._text_anchor = "middle-left"
-                self._text_anchor_offset = 10
-            else:
-                self._text_anchor = "middle-right"
-                self._text_anchor_offset = 10
-        else:
-            if abs(angle) <= 0.25 * np.pi:
-                self._text_anchor = "top-center"
-                self._text_anchor_offset = 5
-            elif abs(angle) >= 0.75 * np.pi:
-                self._text_anchor = "bottom-center"
-                self._text_anchor_offset = 5
-            elif angle < 0:
-                self._text_anchor = "middle-right"
-                self._text_anchor_offset = 10
-            else:
-                self._text_anchor = "middle-left"
-                self._text_anchor_offset = 10
-
-    def set_ticks(self, ticks):
-        """Update the visual appearance of the ruler, using the given ticks.
-
-        The ``ticks`` parameter must be a dict thet maps float values to strings.
-        """
-
-        if not isinstance(ticks, dict):
-            raise TypeError("ticks must be a dict (float -> str).")
+    def _update_sub_objects(self, ticks):
+        assert isinstance(ticks, dict)
 
         tick_size = 5
 
         # Load config
-        start_pos, end_pos, min_value, max_value, vec = self._config
-        length = max_value - min_value
+        start_pos = self._start_pos
+        end_pos = self._end_pos
+        start_value = self._start_value
+        end_value = self.end_value
+
+        # Derive some more variables
+        length = end_value - start_value
+        vec = end_pos - start_pos
+        if length:
+            vec /= length
 
         # Get array to store positions
         n_slots = self.points.geometry.positions.nitems
@@ -309,7 +391,7 @@ class Ruler(WorldObject):
         positions[0] = start_pos
         if self._ticks_at_end_points:
             sizes[0] = tick_size
-            define_text(start_pos, f"{min_value:0.4g}")
+            define_text(start_pos, f"{self._start_value:0.4g}")
         else:
             sizes[0] = 0
             define_text(start_pos, f"")
@@ -317,13 +399,11 @@ class Ruler(WorldObject):
         # Collect ticks
         index += 1
         for value, text in ticks.items():
-            rel_value = value - min_value
-            if 0 <= rel_value <= length:
-                pos = start_pos + vec * rel_value
-                positions[index] = pos
-                sizes[index] = tick_size
-                define_text(pos, text)
-                index += 1
+            pos = start_pos + vec * (value - start_value)
+            positions[index] = pos
+            sizes[index] = tick_size
+            define_text(pos, text)
+            index += 1
 
         # Handle end point
         positions[index:] = end_pos
@@ -332,7 +412,7 @@ class Ruler(WorldObject):
 
         if self._ticks_at_end_points:
             sizes[index] = tick_size
-            define_text(end_pos, f"{max_value:0.4g}")
+            define_text(end_pos, f"{end_value:0.4g}")
             self._text_object_pool[1].geometry.set_text("")
             self._text_object_pool[index - 1].geometry.set_text("")
         else:

@@ -65,7 +65,8 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     x1, x2 = ndc1[dim], ndc2[dim]
     w1, w2 = ndc1[3], ndc2[3]
 
-    # The line may be orthogonal to this dimension
+    # The line may be orthogonal to this dimension.
+    # Note that for 2D axii this provides a fast path for one dimension.
     if abs(x1 / w1 - x2 / w2) < 1e-9:
         return 1.0 if x1 / w1 < ref else 0.0
 
