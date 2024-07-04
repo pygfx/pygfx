@@ -188,6 +188,11 @@ class Ruler(WorldObject):
         """Update the ruler.
 
         This must be called on every draw, right before rendering.
+
+        Returns a dictionary with the following fields:
+
+        * "tick_step": the calculated auto-tick-step.
+        * "tick_values": the tick values that will be shown.
         """
 
         # Determine which part of the ruler is on screen and its length in screen pixels

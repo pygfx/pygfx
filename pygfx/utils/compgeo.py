@@ -1,4 +1,6 @@
-"""Computational geometry
+"""Computational geometry.
+
+This may at some pointe be moved to https://github.com/pygfx/pycompgeo.
 """
 
 

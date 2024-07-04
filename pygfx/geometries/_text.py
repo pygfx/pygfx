@@ -1013,6 +1013,8 @@ class TextGeometry(Geometry):
 
     @property
     def anchor_offset(self):
+        """The offset (extra margin) for the 'top', 'bottom', 'left', and 'right' anchors.
+        """
         return self._anchor_offset
 
     @anchor_offset.setter
