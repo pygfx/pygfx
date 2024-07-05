@@ -33,7 +33,7 @@ def test_unsupported_dtypes():
         gfx.Texture(a, dim=2)
 
 
-def test_supported_shapes():
+def test_simple_shapes():
     # 1D
     for i in range(4):
         if i == 0:
@@ -42,6 +42,7 @@ def test_supported_shapes():
             a = np.zeros((10, i), np.float32)
         t = gfx.Texture(a, dim=1)
         assert t.size == (10, 1, 1)
+        assert t.size == tuple(reversed(t.view.shape[:3]))
 
     # 2D
     for i in range(4):
@@ -51,6 +52,7 @@ def test_supported_shapes():
             a = np.zeros((10, 10, i), np.float32)
         t = gfx.Texture(a, dim=2)
         assert t.size == (10, 10, 1)
+        assert t.size == tuple(reversed(t.view.shape[:3]))
 
     # 3D
     for i in range(4):
@@ -60,14 +62,71 @@ def test_supported_shapes():
             a = np.zeros((10, 10, 10, i), np.float32)
         t = gfx.Texture(a, dim=3)
         assert t.size == (10, 10, 10)
+        assert t.size == tuple(reversed(t.view.shape[:3]))
 
-    # Stack of 1D images
-    a = np.zeros((10, 10), np.float32)
-    t = gfx.Texture(a, dim=1, size=(10, 10, 1))
 
-    # Stack of 2D images
-    a = np.zeros((10, 10, 10), np.float32)
-    t = gfx.Texture(a, dim=2, size=(10, 10, 10))
+def test_ambiguous_shapes():
+
+    # ----
+
+    # A 2D scalar image, 1D rgba, or stack of 1D grayscale?
+    a = np.zeros((3, 4), np.float32)
+
+    # The default for dim==1 is the rgba kind
+    t = gfx.Texture(a, dim=1)
+    assert t.size == (3, 1, 1)
+    assert t.format == "4xf4"
+    # Explicit 1D rgba via size
+    t = gfx.Texture(a, dim=1, size=(3, 1, 1))
+    assert t.size == (3, 1, 1)
+    assert t.format == "4xf4"
+    # Explicit 1D stack via size
+    t = gfx.Texture(a, dim=1, size=(4, 1, 3))
+    assert t.size == (4, 1, 3)
+    assert t.format == "f4"
+
+    # For dim==2 there is not much ambiguity
+    t = gfx.Texture(a, dim=2)
+    assert t.size == (4, 3, 1)
+    assert t.format == "f4"
+
+    # Can even make it 3D
+    t = gfx.Texture(a, dim=3, size=(4, 3, 1))
+    assert t.size == (4, 3, 1)
+    assert t.size == tuple(reversed(t.view.shape[:3]))
+    assert t.format == "f4"
+    # Can even make it 3D, but different
+    t = gfx.Texture(a, dim=3, size=(4, 1, 3))
+    assert t.size == (4, 1, 3)
+    assert t.size == tuple(reversed(t.view.shape[:3]))
+    assert t.format == "f4"
+
+    # ----
+
+    # An rgba image, a stack of grayscale images, or 3D?
+    a = np.zeros((2, 3, 4), np.float32)
+
+    # Default is rgba
+    t = gfx.Texture(a, dim=2)
+    assert t.size == (3, 2, 1)
+    assert t.size == tuple(reversed(t.view.shape[:3]))
+    assert t.format == "4xf4"
+    # Make rgba explicit
+    t = gfx.Texture(a, dim=2, size=(3, 2, 1))
+    assert t.size == (3, 2, 1)
+    assert t.size == tuple(reversed(t.view.shape[:3]))
+    assert t.format == "4xf4"
+    # Make it a stack
+    t = gfx.Texture(a, dim=2, size=(4, 3, 2))
+    assert t.size == (4, 3, 2)
+    assert t.size == tuple(reversed(t.view.shape[:3]))
+    assert t.format == "f4"
+
+    # Can make it 3D
+    t = gfx.Texture(a, dim=3)
+    assert t.size == (4, 3, 2)
+    assert t.size == tuple(reversed(t.view.shape[:3]))
+    assert t.format == "f4"
 
 
 def test_unsupported_shapes():
@@ -82,6 +141,24 @@ def test_unsupported_shapes():
     for dim in (1, 2, 3):
         with pytest.raises(ValueError):
             gfx.Texture(a, dim=dim)
+
+    # Though can correct it via size!
+    a = np.zeros((5, 5, 5, 5), np.float32)
+    gfx.Texture(a, dim=1, size=(625, 1, 1))
+    gfx.Texture(a, dim=2, size=(25, 25, 1))
+    gfx.Texture(a, dim=3, size=(5, 5, 25))
+
+    # But given size must match
+    a = np.zeros((5, 5, 5, 5), np.float32)
+    with pytest.raises(ValueError):
+        gfx.Texture(a, dim=2, size=(5, 5, 1))
+    a = np.zeros((5, 6), np.float32)
+    with pytest.raises(ValueError):
+        gfx.Texture(a, dim=2, size=(5, 5, 1))
+    with pytest.raises(ValueError):
+        gfx.Texture(a, dim=2, size=(6, 6, 1))
+    # This is weird, but it does work
+    gfx.Texture(a, dim=2, size=(5, 6, 1))
 
     # 1D
     for i in [0, 5, 6]:
@@ -260,20 +337,20 @@ def test_contiguous():
 
     # This works, because at upload time the data is copied if necessary
     tex = gfx.Texture(im1, dim=2)
-    mem = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
-    assert mem.c_contiguous
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
+    assert chunk.flags.c_contiguous
 
     # Dito when the data is a memoryview (did not work in an earlier version).
     # For textures with non-contiguous data this takes a performance hit due to an extra data copy.
     tex = gfx.Texture(memoryview(im1), dim=2)
-    mem = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
-    assert mem.c_contiguous
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), im1.shape + (1,))
+    assert chunk.flags.c_contiguous
 
     # This works, and avoids the aforementioned copy
     tex = gfx.Texture(im2, dim=2)
-    mem = tex._gfx_get_chunk_data((0, 0, 0), im2.shape + (1,))
-    assert mem.c_contiguous
-    assert mem is tex.mem
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), im2.shape + (1,))
+    assert chunk.flags.c_contiguous
+    assert chunk is tex.view
 
 
 # %% Upload validity tests
@@ -562,6 +639,11 @@ def test_3d_upload_validity_range_10z(tex):
 
 
 if __name__ == "__main__":
+    test_different_data_types()
+    test_unsupported_dtypes()
+    test_simple_shapes()
+    test_ambiguous_shapes()
+    test_unsupported_shapes()
     test_set_data()
     test_chunk_size_small()
     test_chunk_size_large()

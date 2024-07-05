@@ -4,7 +4,7 @@ import numpy as np
 
 from ._base import Resource
 from ._utils import (
-    get_element_format_from_memoryview,
+    get_element_format_from_numpy_array,
     calculate_texture_chunk_size,
     get_merged_blocks_from_mask_3d,
 )
@@ -21,7 +21,7 @@ class Texture(Resource):
     ----------
     data : array | None
         The initial data of the texture. It must support the buffer-protocol,
-        (e.g. a bytes or numpy array). If None, ``size`` and ``format must be
+        (e.g. a bytes or numpy array). If None, ``size`` and ``forma`` must be
         provided. The data will be accessible at ``buffer.data``, no copies are
         made. The dtype must be compatible with wgpu texture formats.
     dim : int
@@ -94,37 +94,39 @@ class Texture(Resource):
 
         # Process data
         if data is not None:
+            # Store data and view, and do some basic checks.
+            # The view is a numpy array, but we go via memoryview to ensure data follows the buffer protocol.
             self._data = data
-            self._mem = mem = memoryview(data)
-            if self._force_contiguous and not mem.c_contiguous:
+            self._view = view = np.asarray(memoryview(data))
+            if self._force_contiguous and not view.flags.c_contiguous:
                 raise ValueError(
                     "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
                 )
-            the_nbytes = mem.nbytes
-            the_size = size_from_data(mem, dim, size)
-            subformat = get_element_format_from_memoryview(mem)
-            if subformat is None:
-                raise ValueError(
-                    f"Unsupported dtype/format for texture data: {mem.format}"
-                )
-            shape = mem.shape
-            collapsed_size = [x for x in the_size if x > 1]
-            if len(shape) == len(collapsed_size) + 1:
-                nchannels = shape[-1]
+            the_nbytes = view.nbytes
+            # Establish texture size
+            if size is not None:
+                the_size = size
             else:
-                if not len(shape) == len(collapsed_size):
-                    raise ValueError(
-                        "Incompatible data shape for image data, there must be > 1 pixel to draw per channel"
-                    )
-                nchannels = 1
+                the_size = size_from_array(view, dim)
+            reshape_array(view, the_size)
+            # Establish format
+            element_format = get_element_format_from_numpy_array(view)
+            if element_format is None:
+                raise ValueError(
+                    f"Unsupported dtype/format for texture data: {view.dtype}"
+                )
+            nchannels = int(np.prod(view.shape[3:], initial=1))
             if not (1 <= nchannels <= 4):
                 raise ValueError(
                     f"Expected 1-4 texture color channels, got {nchannels}."
                 )
-            format = (f"{nchannels}x" + subformat).lstrip("1x")
+            detected_format = (f"{nchannels}x" + element_format).lstrip("1x")
         elif size is not None and format is not None:
             the_size = size
             the_nbytes = 0
+            if not all(size[i] > 0 for i in range(3)):
+                raise ValueError("Texture size cannot be zero.")
+            detected_format = None
         else:
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
@@ -134,9 +136,11 @@ class Texture(Resource):
         self._store.nbytes = the_nbytes
         self._store.size = the_size
         if format is not None:
-            self._format = str(format)
+            self._store.format = str(format)
+        elif detected_format:
+            self._store.format = detected_format
         else:
-            self._format = None
+            self._store.format = None
 
         # Get optimal chunk size
         if the_nbytes == 0:  # data is None or empty
@@ -144,7 +148,7 @@ class Texture(Resource):
         elif chunk_size is None:
             chunk_size = calculate_texture_chunk_size(
                 the_size,
-                bytes_per_element=the_nbytes // np.prod(the_size),
+                bytes_per_element=the_nbytes // int(np.prod(the_size)),
                 byte_align=16,
                 target_chunk_count=20,
                 min_chunk_size=2**8,
@@ -181,20 +185,21 @@ class Texture(Resource):
 
     @property
     def data(self):
-        """The data for this texture. Can be None if the data only
-        exists on the GPU.
+        """The data for this texture.
 
-        Note: the data is the same reference that was given to
-        instantiate this object, but this may change.
+        Can be None if the data only exists on the GPU. This object is the same
+        that was given to instantiate this object or with ``set_data()`.
         """
         return self._data
 
     @property
-    def mem(self):
-        """The data for this buffer as a memoryview. Can be None if
-        the data only exists on the GPU.
+    def view(self):
+        """A numpy array view on the data of this texture.
+
+        Can be None if the data only exists on the GPU. This is a view on the
+        same memory as ``.data``. It's ``.shape[:3]`` matches ``reversed(size)``.
         """
-        return self._mem
+        return self._view
 
     @property
     def nbytes(self):
@@ -215,7 +220,7 @@ class Texture(Resource):
         Usually a pygfx format specifier (e.g. 'u2' for scalar uint16, or '3xf4'
         for RGB float32), but can also be a value from ``wgpu.TextureFormat``.
         """
-        return self._format
+        return self._store.format
 
     @property
     def usage(self):
@@ -238,24 +243,24 @@ class Texture(Resource):
         """Reset the data to a new array.
 
         This avoids a data-copy compared to doing ``texture.data[:] = new_data``.
-        The new data must match the current data's shape and format.
+        The new data must fit the teture's size and format.
         """
-        # Get memoryview
-        mem = memoryview(data)
-        # Do many checks
-        if self._force_contiguous and not mem.c_contiguous:
+        # Get view
+        view = np.asarray(memoryview(data))
+        # Do couple of checks
+        if self._force_contiguous and not view.flags.c_contiguous:
             raise ValueError(
                 "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
             )
-        if mem.nbytes != self._mem.nbytes:
+        if view.nbytes != self._view.nbytes:
             raise ValueError("texture.set_data() nbytes does not match.")
-        if mem.shape != self.mem.shape:
-            raise ValueError("texture.set_data() shape does not match.")
-        if mem.format != self.mem.format:
+        if view.dtype != self._view.dtype:
             raise ValueError("texture.set_data() format does not match.")
+        # Make sure the shape is ok. We only care about the first dimension.
+        reshape_array(view, self.size)
         # Ok
         self._data = data
-        self._mem = mem
+        self._view = view
         self.update_full()
 
     def update_full(self):
@@ -365,32 +370,31 @@ class Texture(Resource):
         full_size = self._store["size"]
 
         if offset == (0, 0, 0) and size == full_size and pixel_padding is None:
-            if self._mem.c_contiguous:
-                chunk = self._mem  # hooray, the fastest path!
+            if self._view.flags.c_contiguous:
+                chunk = self._view  # hooray, the fastest path!
             else:
-                # Make contiguous via numpy, which is faster than going via memoryview.tobytes()
-                chunk = memoryview(np.ascontiguousarray(self._mem))
+                chunk = np.ascontiguousarray(self._view)
         else:
-            # Get numpy array, because memoryview does not support multidimensional slicing
-            if isinstance(self._data, np.ndarray):
-                full_array = self._data
-            elif self._mem.c_contiguous:
-                full_array = np.frombuffer(self._mem)
-            else:
-                # Need a data-copy. This should not happen when force_contiguous is set.
-                # Note that we may need *another* data copy below to make the chunk contiguous.
-                full_array = np.ascontiguousarray(self._mem)
-            # Reshape (no copy) so we can use 3D slicing
-            full_array = full_array.reshape(
-                (full_size[2], full_size[1], full_size[0], -1)
-            )
+            # # Get numpy array, because memoryview does not support multidimensional slicing
+            # if isinstance(self._data, np.ndarray):
+            #     full_array = self._data
+            # elif self._mem.c_contiguous:
+            #     full_array = np.frombuffer(self._mem)
+            # else:
+            #     # Need a data-copy. This should not happen when force_contiguous is set.
+            #     # Note that we may need *another* data copy below to make the chunk contiguous.
+            #     full_array = np.ascontiguousarray(self._mem)
+            # # Reshape (no copy) so we can use 3D slicing
+            # full_array = full_array.reshape(
+            #     (full_size[2], full_size[1], full_size[0], -1)
+            # )
             # Calculate slice
             slice_per_dim = []
             for d in reversed(range(3)):
                 slice_per_dim.append(slice(offset[d], offset[d] + size[d]))
             slice_per_dim = tuple(slice_per_dim)
             # Slice, pad, make contiguous. Note that the chance of the chunks not being contiguous is pretty big.
-            sub_array = full_array[slice_per_dim]
+            sub_array = self._view[slice_per_dim]
             if pixel_padding is not None:
                 padding = np.ones(sub_array.shape[:3] + (1,), dtype=sub_array.dtype)
                 sub_array = np.concatenate([sub_array, pixel_padding * padding], -1)
@@ -401,29 +405,26 @@ class Texture(Resource):
         return chunk
 
 
-def size_from_data(data, dim, size):
+def size_from_array(data, dim):
     # Check if shape matches dimension
     shape = data.shape
 
-    if size:
-        # Get version of size with trailing ones stripped
-        size2 = size
-        size2 = size2[:-1] if size2[-1] == 1 else size2
-        size2 = size2[:-1] if size2[-1] == 1 else size2
-        rsize = tuple(reversed(size2))
-        # Check if size matches shape
-        if rsize != shape[: len(rsize)]:
-            raise ValueError(f"Given size does not match the data shape.")
-        return size
-    else:
-        if len(shape) not in (dim, dim + 1):
-            raise ValueError(
-                f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
-            )
-        # Determine size based on dim and shape
-        if dim == 1:
-            return shape[0], 1, 1
-        elif dim == 2:
-            return shape[1], shape[0], 1
-        else:  # dim == 3:
-            return shape[2], shape[1], shape[0]
+    if len(shape) not in (dim, dim + 1):
+        raise ValueError(
+            f"Can't map shape {shape} on {dim}D tex. Maybe also specify size?"
+        )
+    # Determine size based on dim and shape
+    if dim == 1:
+        return shape[0], 1, 1
+    elif dim == 2:
+        return shape[1], shape[0], 1
+    else:  # dim == 3:
+        return shape[2], shape[1], shape[0]
+
+
+def reshape_array(view, size):
+    """Reshape array so it's shape[0:3] match size."""
+    expected_shape = tuple(reversed(size))
+    if expected_shape != view.shape[:3]:
+        # This can fail if the data is not contiguous and strides don't work out.
+        view.shape = expected_shape + (-1,)

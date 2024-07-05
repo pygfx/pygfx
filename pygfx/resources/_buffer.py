@@ -25,12 +25,12 @@ class Buffer(Resource):
         be provided. The data will be accessible at ``buffer.data``, no copies
         are made.
     nbytes : int | None
-        The size of the buffer in bytes. If ``data`` is also given, the
-        ``nbytes``` is checked against the number of bytes in the data.
+        The size of the buffer in bytes. If both ``data`` and ``nbytes`` are
+        given, the ``data.nbytes`` is checked against ``nbytes``.
     nitems : int | None
-        The number of elements in the buffer. If data is also given, the data is
-        interpreted as having that many elements, possibly resuling in multiple
-        elements per item.
+        The number of elements in the buffer. If both ``data`` and ``nitems``
+        are given, the data is interpreted as having that many items (reshaped
+        internally).
     format : None | str | ElementFormat | wgpu.VertexFormat | wgpu.IndexFormat
         A format string describing the buffer layout. This can follow pygfx'
         ``ElementFormat`` e.g. "3xf4", or wgpu's ``VertexFormat``. Optional: if
@@ -101,7 +101,7 @@ class Buffer(Resource):
                 the_nitems = view.shape[0]
             else:
                 the_nitems = 1  # A scalar, e.g. a uniform struct
-            reshape_view(view, the_nitems)
+            reshape_array(view, the_nitems)
             # Establish format
             detected_format = None
             element_format = get_element_format_from_numpy_array(view)
@@ -173,9 +173,8 @@ class Buffer(Resource):
     def data(self):
         """The data for this buffer.
 
-        Can be None if the data only exists on the GPU.
-        This object is the same that was given to instantiate this
-        object or with ``set_data()`.
+        Can be None if the data only exists on the GPU. This object is the same
+        that was given to instantiate this object or with ``set_data()`.
         """
         return self._data
 
@@ -267,7 +266,7 @@ class Buffer(Resource):
         """Reset the data to a new array.
 
         This avoids a data-copy compared to doing ``buffer.data[:] = new_data``.
-        The new data must match the current data's shape and format.
+        The new data must fit the texture's shape and format.
         """
         # Get view
         view = np.asarray(memoryview(data))
@@ -281,7 +280,7 @@ class Buffer(Resource):
         if view.dtype != self._view.dtype:
             raise ValueError("buffer.set_data() format does not match.")
         # Make sure the shape is ok. We only care about the first dimension.
-        reshape_view(view, self.nitems)
+        reshape_array(view, self.nitems)
         # Ok
         self._data = data
         self._view = view
@@ -384,7 +383,7 @@ class Buffer(Resource):
         return chunk
 
 
-def reshape_view(view, n):
+def reshape_array(view, n):
     """Reshape array so it's shape[0] is n."""
     if not (view.shape and view.shape[0] == n):
         elements_per_item = -1
