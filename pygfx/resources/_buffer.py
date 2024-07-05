@@ -2,7 +2,11 @@ from math import floor, ceil
 import numpy as np
 
 from ._base import Resource
-from ._utils import get_item_format_from_memoryview, calculate_buffer_chunk_size, logger
+from ._utils import (
+    get_element_format_from_numpy_array,
+    calculate_buffer_chunk_size,
+    logger,
+)
 
 
 class Buffer(Resource):
@@ -17,24 +21,28 @@ class Buffer(Resource):
     ----------
     data : array | None
         The initial data of the buffer. It must support the buffer-protocol,
-        (e.g. a bytes or numpy array). If None, ``nbytes`` and ``nitems`` must be
-        provided. The data will be accessible at ``buffer.data``, no copies are
-        made.
+        (e.g. a bytes or numpy array). If None, ``nbytes`` and ``nitems`` must
+        be provided. The data will be accessible at ``buffer.data``, no copies
+        are made.
     nbytes : int | None
-        The size of the buffer in bytes. Ignored if ``data`` is used.
+        The size of the buffer in bytes. If ``data`` is also given, the
+        ``nbytes``` is checked against the number of bytes in the data.
     nitems : int | None
-        The number of elements in the buffer. Ignored if ``data`` is used.
+        The number of elements in the buffer. If data is also given, the data is
+        interpreted as having that many elements, possibly resuling in multiple
+        elements per item.
     format : None | str | ElementFormat | wgpu.VertexFormat | wgpu.IndexFormat
         A format string describing the buffer layout. This can follow pygfx'
         ``ElementFormat`` e.g. "3xf4", or wgpu's ``VertexFormat``. Optional: if
         None, it is automatically determined from the data.
     chunk_size : None | int
-        The chunk size to use for uploading data to the GPU, expressed in items counts.
-        When None (default) an optimal chunk size is determined automatically.
+        The chunk size to use for uploading data to the GPU, expressed in items
+        counts. When None (default) an optimal chunk size is determined
+        automatically.
     force_contiguous : bool
         When set to true, the buffer goes into a stricter mode, forcing set data
-        to be c_contiguous. This ensures optimal upload performance for cases when
-        the data changes often.
+        to be c_contiguous. This ensures optimal upload performance for cases
+        when the data changes often.
     usage : int | wgpu.BufferUsage
         The wgpu ``usage`` flag for this buffer. Optional: typically pygfx can
         derive how the buffer is used and apply the appropriate flag. In cases
@@ -45,8 +53,8 @@ class Buffer(Resource):
 
     * If the given data is not c_contiguous, the chunks will need to be copied
       at upload-time, which reduces performance when the data is changed often.
-    * Setting ``force_contiguous`` ensures that the set data is contiguous,
-      it is recommended to use this when the bufer data is dynamic.
+    * Setting ``force_contiguous`` ensures that the set data is contiguous, it
+      is recommended to use this when the bufer data is dynamic.
     """
 
     def __init__(
@@ -70,31 +78,49 @@ class Buffer(Resource):
 
         # Init
         self._data = None
+        self._view = None
         self._force_contiguous = bool(force_contiguous)
 
         # Process data
-        detected_format = None
         if data is not None:
+            # Store data and view, and do some basic checks.
+            # The view is a numpy array, but we go via memoryview to ensure data follows the buffer protocol.
             self._data = data
-            self._mem = mem = memoryview(data)
-            if self._force_contiguous and not mem.c_contiguous:
+            self._view = view = np.asarray(memoryview(data))
+            if self._force_contiguous and not view.flags.c_contiguous:
                 raise ValueError(
                     "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
                 )
-            subformat = get_item_format_from_memoryview(mem)
-            if subformat:
-                shape = (mem.shape + (1,)) if len(mem.shape) == 1 else mem.shape
-                if len(shape) == 2:  # if not, the user does something fancy
-                    detected_format = (f"{shape[-1]}x" + subformat).lstrip("1x")
-            the_nbytes = mem.nbytes
-            the_nitems = mem.shape[0] if mem.shape else 1
-            if nbytes is not None and nbytes != the_nbytes:
+            the_nbytes = view.nbytes
+            if nbytes is not None and int(nbytes) != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
-            if nitems is not None and nitems != the_nitems:
-                raise ValueError("Given nitems does not match shape of given data.")
+            # Establish number of items
+            if nitems is not None:
+                the_nitems = int(nitems)
+            elif view.shape:
+                the_nitems = view.shape[0]
+            else:
+                the_nitems = 1  # A scalar, e.g. a uniform struct
+            reshape_view(view, the_nitems)
+            # Establish format
+            detected_format = None
+            element_format = get_element_format_from_numpy_array(view)
+            if element_format:
+                elements_per_item = int(np.prod(view.shape[1:], initial=1))
+                detected_format = (f"{elements_per_item}x" + element_format).lstrip(
+                    "1x"
+                )
         elif nbytes is not None and nitems is not None:
+            # No data on the CPU side
             the_nbytes = int(nbytes)
             the_nitems = int(nitems)
+            # Check
+            if the_nbytes <= 0 or the_nitems <= 0:
+                raise ValueError("Buffer size cannot be zero")
+            bytes_per_item = the_nbytes // the_nitems
+            if bytes_per_item * the_nitems != the_nbytes:
+                raise ValueError("The given nbytes is not a multiple of nitems.")
+            detected_format = None
         else:
             raise ValueError(
                 "Buffer must be instantiated with either data or nbytes and nitems."
@@ -145,20 +171,22 @@ class Buffer(Resource):
 
     @property
     def data(self):
-        """The data for this buffer. Can be None if the data only
-        exists on the GPU.
+        """The data for this buffer.
 
-        Note: the data is the same reference that was given to instantiate this
-        object, but this may change.
+        Can be None if the data only exists on the GPU.
+        This object is the same that was given to instantiate this
+        object or with ``set_data()`.
         """
         return self._data
 
     @property
-    def mem(self):
-        """The data for this buffer as a memoryview. Can be None if
-        the data only exists on the GPU.
+    def view(self):
+        """A numpy array view on the data of this buffer.
+
+        Can be None if the data only exists on the GPU. This is a view on the
+        same memory as ``.data``. The first dimension matches ``nitems``.
         """
-        return self._mem
+        return self._view
 
     @property
     def nbytes(self):
@@ -185,12 +213,9 @@ class Buffer(Resource):
         nitems = self._store.nitems  # deliberately touch
         if nitems > 0:
             return nbytes // nitems
-        elif self._data is not None:
-            shape = self._mem.shape
-            if shape:
-                shape = shape[1:]
-            nelements_per_item = int(np.prod(shape)) or 1
-            return nelements_per_item * self._mem.itemsize
+        elif self._view is not None:
+            nelements_per_item = int(np.prod(self._view.shape[1:], initial=1))
+            return nelements_per_item * self._view.itemsize
         else:
             raise RuntimeError("Cannot determine Buffer.itemsize")
 
@@ -244,22 +269,22 @@ class Buffer(Resource):
         This avoids a data-copy compared to doing ``buffer.data[:] = new_data``.
         The new data must match the current data's shape and format.
         """
-        # Get memoryview
-        mem = memoryview(data)
-        # Do many checks
-        if self._force_contiguous and not mem.c_contiguous:
+        # Get view
+        view = np.asarray(memoryview(data))
+        # Do couple of checks
+        if self._force_contiguous and not view.flags.c_contiguous:
             raise ValueError(
                 "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
             )
-        if mem.nbytes != self._mem.nbytes:
+        if view.nbytes != self._view.nbytes:
             raise ValueError("buffer.set_data() nbytes does not match.")
-        if mem.shape != self.mem.shape:
-            raise ValueError("buffer.set_data() shape does not match.")
-        if mem.format != self.mem.format:
+        if view.dtype != self._view.dtype:
             raise ValueError("buffer.set_data() format does not match.")
+        # Make sure the shape is ok. We only care about the first dimension.
+        reshape_view(view, self.nitems)
         # Ok
         self._data = data
-        self._mem = mem
+        self._view = view
         self.update_full()
 
     def update_full(self):
@@ -271,7 +296,7 @@ class Buffer(Resource):
         self._gfx_mark_for_sync()
 
     def update_indices(self, indices):
-        """Mark specific indices for upload."""
+        """Mark specific item indices for upload."""
         indices = np.asarray(indices)
         div = self._chunk_size
         self._chunk_mask[indices // div] = True
@@ -281,8 +306,9 @@ class Buffer(Resource):
         self._gfx_mark_for_sync()
 
     def update_range(self, offset=0, size=None):
-        """Mark a certain range of the data for upload to the GPU. The
-        offset and size are expressed in integer number of elements.
+        """Mark a certain range of the data for upload to the GPU.
+
+        The offset and size are expressed in integer number of items.
         """
         # See ThreeJS BufferAttribute.updateRange
 
@@ -343,19 +369,26 @@ class Buffer(Resource):
 
     def _gfx_get_chunk_data(self, offset, size):
         """Return subdata as a contiguous array."""
-        if offset == 0 and size == self.nitems and self._mem.c_contiguous:
+        if offset == 0 and size == self.nitems and self._view.flags.c_contiguous:
             # If this is a full range, this is easy (and fast)
-            chunk = self._mem
+            chunk = self._view
         else:
             # Otherwise, create a view, make a copy if its not contiguous.
-            # I've not found a way to make a copy of a non-contiguous memoryview, except using .tobytes(),
-            # but that turns out to be really slow (like 6x). So we make the copy via numpy.
-            chunk = self._mem[offset : offset + size]
-            if not chunk.c_contiguous:
+            chunk = self._view[offset : offset + size]
+            if not chunk.flags.c_contiguous:
                 if self._force_contiguous:
                     logger.warning(
                         "force_contiguous was set, but chunk data is still discontiguous"
                     )
-                # chunk = memoryview(chunk.tobytes()).cast(chunk.format, chunk.shape)  # slow!
-                chunk = memoryview(np.ascontiguousarray(chunk))
+                chunk = np.ascontiguousarray(chunk)
         return chunk
+
+
+def reshape_view(view, n):
+    """Reshape array so it's shape[0] is n."""
+    if not (view.shape and view.shape[0] == n):
+        elements_per_item = -1
+        if n == 0:
+            elements_per_item = int(np.prod([max(i, 1) for i in view.shape], initial=1))
+        # This can fail if the data is not contiguous and strides don't work out.
+        view.shape = (n, elements_per_item)

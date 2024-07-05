@@ -4,7 +4,7 @@ import numpy as np
 
 from ._base import Resource
 from ._utils import (
-    get_item_format_from_memoryview,
+    get_element_format_from_memoryview,
     calculate_texture_chunk_size,
     get_merged_blocks_from_mask_3d,
 )
@@ -102,7 +102,7 @@ class Texture(Resource):
                 )
             the_nbytes = mem.nbytes
             the_size = size_from_data(mem, dim, size)
-            subformat = get_item_format_from_memoryview(mem)
+            subformat = get_element_format_from_memoryview(mem)
             if subformat is None:
                 raise ValueError(
                     f"Unsupported dtype/format for texture data: {mem.format}"

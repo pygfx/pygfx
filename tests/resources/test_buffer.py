@@ -78,11 +78,65 @@ def test_special_data():
 
     a = np.zeros((10, 3, 2), np.float16)
     b = gfx.Buffer(a)
-    assert b.format is None
+    assert b.format == "6xf2"
 
     a = np.zeros((), dtype=[("a", "<i4"), ("b", "<f4")])
     b = gfx.Buffer(a)
     assert b.format is None
+
+
+def test_custom_nbytes():
+
+    # It's only really used as a check, no other implications
+    a = np.zeros((10, 4), np.float32)
+    buf = gfx.Buffer(a, nbytes=160)
+    assert buf.nitems == 10
+    assert buf.nbytes == 160
+
+    # When the check fails
+    with pytest.raises(ValueError):
+        gfx.Buffer(a, nbytes=80)
+
+
+def test_custom_nitems():
+
+    # Can be just a check
+    a = np.zeros((10, 4), np.float32)
+    buf = gfx.Buffer(a, nitems=10)
+    assert buf.view.shape == (10, 4)
+
+    # The view's shape first dim is nitems, but otherwise follows data.shape
+    a = np.zeros((10,), np.float32)
+    buf = gfx.Buffer(a, nitems=10)
+    assert buf.view.shape == (10,)
+
+    # Reshaping, part 1
+    a = np.zeros((40,), np.float32)
+    buf = gfx.Buffer(a, nitems=10)
+    assert buf.view.shape == (10, 4)
+
+    # Reshaping, part 2
+    a = np.zeros((10, 4), np.float32)
+    buf = gfx.Buffer(a, nitems=40)
+    assert buf.view.shape == (40, 1)
+
+    # Reshaping, part 3
+    a = np.zeros((10, 4), np.float32)
+    buf = gfx.Buffer(a, nitems=20)
+    assert buf.view.shape == (20, 2)
+
+    # --
+
+    # Sanity check
+    assert buf.data is a
+    assert a.shape == (10, 4)
+
+    # Check set_data
+    a = np.zeros((40,), np.float32)
+    buf.set_data(a)
+    assert buf.view.shape == (20, 2)
+    assert buf.data is a
+    assert a.shape == (40,)
 
 
 def test_set_data():
@@ -241,13 +295,13 @@ def test_contiguous():
 
     # This works, because at upload time the data is copied if necessary
     buf = gfx.Buffer(positions1)
-    mem = buf._gfx_get_chunk_data(0, buf.nitems)
-    assert mem.c_contiguous
+    chunk = buf._gfx_get_chunk_data(0, buf.nitems)
+    assert chunk.flags.c_contiguous
 
     # Dito when the data is a memoryview (did not work in an earlier version)
     buf = gfx.Buffer(memoryview(positions1))
-    mem = buf._gfx_get_chunk_data(0, buf.nitems)
-    assert mem.c_contiguous
+    chunk = buf._gfx_get_chunk_data(0, buf.nitems)
+    assert chunk.flags.c_contiguous
 
     # But prevented when force_contiguous is set
     with pytest.raises(ValueError) as err:
@@ -256,9 +310,9 @@ def test_contiguous():
 
     # This works, and avoids the aforementioned copy
     buf = gfx.Buffer(positions2)
-    mem = buf._gfx_get_chunk_data(0, buf.nitems)
-    assert mem.c_contiguous
-    assert mem is buf.mem
+    chunk = buf._gfx_get_chunk_data(0, buf.nitems)
+    assert chunk.flags.c_contiguous
+    assert chunk is buf.view
 
 
 # %% Upload validity tests
@@ -395,11 +449,15 @@ def test_upload_validity_range_10(buf):
 
 
 if __name__ == "__main__":
-    # test_set_data()
-    # test_chunk_size_small()
-    # test_chunk_size_large()
-    # test_custom_chunk_size()
-    # test_contiguous()
+    test_empty_data()
+    test_special_data()
+    test_custom_nbytes()
+    test_custom_nitems()
+    test_set_data()
+    test_chunk_size_small()
+    test_chunk_size_large()
+    test_custom_chunk_size()
+    test_contiguous()
 
     test_upload_validity_full1()
     test_upload_validity_full2()
