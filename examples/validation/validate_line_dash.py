@@ -15,8 +15,11 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 
-canvas = WgpuCanvas(size=(1000, 1000))
+pixel_ratio = 2.
+canvas = WgpuCanvas(size=(1000, 1000), title=f"Dashing {pixel_ratio=:}")
 renderer = gfx.WgpuRenderer(canvas)
+# Setting the pixel ratio to 1 seems to invoke some kind of edge case
+renderer.pixel_ratio = pixel_ratio
 
 x = np.linspace(0, 4 * np.pi, 1000)
 y = np.sin(x)
@@ -25,6 +28,16 @@ y = np.sin(x)
 positions = np.array([x * 100, y * 100, np.zeros_like(x)], np.float32).T.copy()
 
 geometry = gfx.Geometry(positions=positions)
+
+line0 = gfx.Line(
+    geometry,
+    gfx.LineMaterial(
+        thickness=1.,
+        dash_pattern=(5, 5),
+        color=(0.0, 1.0, 1.0, 0.4),
+        dash_offset=0,
+    ),
+)
 
 line1 = gfx.Line(
     geometry,
@@ -65,16 +78,17 @@ line4 = gfx.Line(
     ),
 )
 
-for line in (line1, line2, line3, line4):
+for line in (line0, line1, line2, line3, line4):
     line.material.thickness_space = "screen"
 
+line0.local.position = 0, 500, 0
 line1.local.position = 0, 0, 0
 line2.local.position = 0, -500, 0
 line3.local.position = 0, -1000, 0
 line4.local.position = 0, -1500, 0
 
 scene = gfx.Scene()
-scene.add(line1, line2, line3, line4)
+scene.add(line0, line1, line2, line3, line4)
 
 camera = gfx.OrthographicCamera()
 camera.show_object(scene)
