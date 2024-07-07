@@ -426,7 +426,7 @@ class WorldObject(EventTarget, RootTrackable):
         ``visible`` property is False - and their children - are
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
-        
+
         If ``filter_fn`` is given, only objects for which it returns ``True``
         are included.
         """
