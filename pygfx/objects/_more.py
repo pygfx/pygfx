@@ -24,8 +24,7 @@ class Group(WorldObject):
     """
 
     def __init__(self, *, visible=True, name=""):
-        super().__init__(visible=visible)
-        self.name = name
+        super().__init__(visible=visible, name=name)
 
 
 class Scene(Group):
