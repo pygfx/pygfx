@@ -431,7 +431,7 @@ class WorldObject(EventTarget, RootTrackable):
         are included.
         """
 
-        for child in self.iter(skip_invisible=skip_invisible, filter_fn=None):
+        for child in self.iter(skip_invisible=skip_invisible, filter_fn=filter_fn):
             callback(child)
 
     def iter(self, filter_fn=None, skip_invisible=False):
