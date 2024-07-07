@@ -419,20 +419,29 @@ class WorldObject(EventTarget, RootTrackable):
         if keep_world_matrix:
             self.world.matrix = transform_matrix
 
-    def traverse(self, callback, skip_invisible=False):
+    def traverse(self, callback, skip_invisible=False, filter_fn=None):
         """Executes the callback on this object and all descendants.
 
         If ``skip_invisible`` is given and True, objects whose
         ``visible`` property is False - and their children - are
         skipped. Note that modifying the scene graph inside the callback
         is discouraged.
+        
+        If ``filter_fn`` is given, only objects for which it returns ``True``
+        are included.
         """
 
-        for child in self.iter(skip_invisible=skip_invisible):
+        for child in self.iter(skip_invisible=skip_invisible, filter_fn=None):
             callback(child)
 
     def iter(self, filter_fn=None, skip_invisible=False):
         """Create a generator that iterates over this objects and its children.
+
+        If ``skip_invisible`` is given and True, objects whose
+        ``visible`` property is False - and their children - are
+        skipped. Note that modifying the scene graph inside the iteration
+        is discouraged.
+
         If ``filter_fn`` is given, only objects for which it returns ``True``
         are included.
         """
