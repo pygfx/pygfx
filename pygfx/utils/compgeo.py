@@ -14,9 +14,8 @@ def get_visible_part_of_line_ndc(ndc1, ndc2):
     """
 
     # Uncomment for performance measurements
-    import time
-
-    time_0 = time.perf_counter()
+    # import time
+    # time_0 = time.perf_counter()
 
     # Get closest t for all 4 edges
     tx1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 0)
@@ -34,7 +33,7 @@ def get_visible_part_of_line_ndc(ndc1, ndc2):
     # Sort again
     t1, t2 = min(t1, t2), max(t1, t2)
 
-    print(f"{time.perf_counter() - time_0:f}")
+    # print(f"{time.perf_counter() - time_0:f}")
 
     return t1, t2
 
@@ -92,33 +91,25 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
             # The second point is behind, move it.
             initial_t2 = 1.0 - (eps - w2) / (w1 - w2)
 
-    def new_sample(t):
-        x = x1 * (1 - t) + x2 * t
-        w = w1 * (1 - t) + w2 * t
-        return t, x / w
+    # Function to get a value corresponding to a given t
+    value_from_t = lambda t: (x1 * (1 - t) + x2 * t) / (w1 * (1 - t) + w2 * t)
 
     # Produce 3 tuples (t, value) representing the relative t-values as shown in above ascii diagram
-    samples = [
-        new_sample(initial_t1),
-        new_sample(0.5 * (initial_t1 + initial_t2)),
-        new_sample(initial_t2),
-    ]
+    samples_t = [initial_t1, 0.5 * (initial_t1 + initial_t2), initial_t2]
+    samples_val = [value_from_t(t) for t in samples_t]
 
     # If the values are very close, the line could be a point, or orthogonal to this dim
-    if abs(samples[0][1] - samples[2][1]) < 1e-9:
-        return 1.0 if samples[0][1] < ref else 0.0
+    if abs(samples_val[0] - samples_val[2]) < 1e-9:
+        return 1.0 if samples_val[0] < ref else 0.0
 
     # Determine function for bisect. Bisect needs a sorted list, this handles
     # the case where the order is reversed.
-    key_func_forward = lambda sample: sample[1] - ref
-    key_func_reverse = lambda sample: ref - sample[1]
-    if samples[0][1] <= samples[2][1]:
-        key_func = key_func_forward
-    else:
-        key_func = key_func_reverse
+    key_func_normal = lambda v: v - ref
+    key_func_rev = lambda v: ref - v
+    key_func = key_func_normal if samples_val[0] <= samples_val[2] else key_func_rev
 
     # Do the first bisection!
-    i = bisect.bisect(samples, 0.0, key=key_func)
+    i = bisect.bisect(samples_val, 0.0, key=key_func)
 
     # Go deeper, if we must
     if w1 == 1.0 and w2 == 1.0:
@@ -129,27 +120,31 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
         # Binary search. With 10 iters we cover over 1K samples.
         for _ in range(n_iters):
             if i <= 1:
-                samples[2] = samples[1]
+                samples_t[2] = samples_t[1]
+                samples_val[2] = samples_val[1]
             else:
-                samples[0] = samples[1]
-            samples[1] = new_sample(0.5 * (samples[0][0] + samples[2][0]))
-            i = bisect.bisect(samples, 0.0, key=key_func)
+                samples_t[0] = samples_t[1]
+                samples_val[0] = samples_val[1]
+            new_t = 0.5 * (samples_t[0] + samples_t[2])
+            samples_t[1] = new_t
+            samples_val[1] = value_from_t(new_t)
+            i = bisect.bisect(samples_val, 0.0, key=key_func)
 
     # Fine tune using a linear fit
-    t_step = samples[1][0] - samples[0][0]
+    t_step = samples_t[1] - samples_t[0]
     if i == 0:
-        t = samples[0][0]
+        t = samples_t[0]
     elif i == 3:
-        t = samples[2][0]
+        t = samples_t[2]
     elif i == 1:
-        y1 = samples[0][1]
-        y2 = samples[1][1]
+        y1 = samples_val[0]
+        y2 = samples_val[1]
         dt = (ref - y1) / (y2 - y1)
-        t = samples[0][0] + dt * t_step
+        t = samples_t[0] + dt * t_step
     else:  # i == 2
-        y1 = samples[1][1]
-        y2 = samples[2][1]
+        y1 = samples_val[1]
+        y2 = samples_val[2]
         dt = (ref - y1) / (y2 - y1)
-        t = samples[1][0] + dt * t_step
+        t = samples_t[1] + dt * t_step
 
     return t
