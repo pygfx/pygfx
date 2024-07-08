@@ -43,8 +43,8 @@ class Ruler(WorldObject):
 
         # Create a line and poins object, with a shared geometry
         geometry = Geometry(
-            positions=np.zeros((6, 3), np.float32),
-            sizes=np.zeros((6,), np.float32),
+            positions=np.zeros((0, 3), np.float32),
+            sizes=np.zeros((0,), np.float32),
         )
         self._line = Line(geometry, LineMaterial(color="w", thickness=2))
         self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
@@ -72,7 +72,7 @@ class Ruler(WorldObject):
 
     @property
     def start_pos(self):
-        """The start posision of the ruler as a 3-tuple or 3-element array.
+        """The start posision of the ruler, in model space.
 
         Note that the ruler's transform also affects positioning, but should
         generally not be used.
@@ -89,7 +89,7 @@ class Ruler(WorldObject):
 
     @property
     def end_pos(self):
-        """The end posision of the ruler as a 3-tuple or 3-element array."""
+        """The end posision of the ruler, in model space."""
         return self._end_pos
 
     @end_pos.setter
@@ -158,10 +158,9 @@ class Ruler(WorldObject):
 
     @property
     def tick_side(self):
-        """Whether the ticks are on the left or right of the line.
+        """Whether the ticks are on the 'left' or 'right' of the line.
 
         Imagine standing on the start position, with the line in front of you.
-        You must call `set_ticks()` for this change to take effect.
         """
         return self._tick_side
 
@@ -187,10 +186,7 @@ class Ruler(WorldObject):
 
     @property
     def ticks_at_end_points(self):
-        """Whether to show tickmarks at the end-points.
-
-        You must call `set_ticks()` for this change to take effect.
-        """
+        """Whether to show tickmarks at the end-points."""
         return self._ticks_at_end_points
 
     @ticks_at_end_points.setter
@@ -236,45 +232,39 @@ class Ruler(WorldObject):
         # Yuk, but needed
         camera.update_projection_matrix()
 
-        half_canvas_size = 0.5 * np.array(canvas_size, np.float64)
+        half_canvas_size = 0.5 * np.array(canvas_size, np.float64).reshape(1, 2)
 
-        # Get ndc coords for begin and end pos
+        # Get ndc coords for begin and end pos. Use numpy broadcasting for performance and compactness.
         positions = np.column_stack(
             [
                 np.row_stack([self._start_pos, self._end_pos]),
                 np.ones((2, 1), np.float64),
             ]
         )
-        ndc1, ndc2 = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
-
-        ndc1_2d = ndc1[:2] / ndc1[3]
-        ndc2_2d = ndc2[:2] / ndc2[3]
-        screen1 = ndc1_2d * half_canvas_size
-        screen2 = ndc2_2d * half_canvas_size
+        ndc_full = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
+        screen_full = (ndc_full[:, :2] / ndc_full[:, 3]) * half_canvas_size
 
         # Get what part of the line is visible
-        t1, t2 = get_visible_part_of_line_ndc(ndc1, ndc2)
+        t1, t2 = get_visible_part_of_line_ndc(ndc_full[0], ndc_full[1])
 
-        # Get corresponding screen coordinates.
-        # Fall back to full line when the selected region is empty,
-        # so that we can still calculate the step size, because calling code
-        # may still need it, e.g. to configure a grid.
-        ndc_t1 = ndc1 * (1 - t1) + ndc2 * t1
-        ndc_t2 = ndc1 * (1 - t2) + ndc2 * t2
-        ndc_t1_2d = ndc_t1[:2] / ndc_t1[3]
-        ndc_t2_2d = ndc_t2[:2] / ndc_t2[3]
-        screen_t1 = ndc_t1_2d * half_canvas_size
-        screen_t2 = ndc_t2_2d * half_canvas_size
+        # Get screen coords for visible selection.
+        ndc_sel = np.array(
+            [
+                ndc_full[0] * (1 - t1) + ndc_full[1] * t1,
+                ndc_full[0] * (1 - t2) + ndc_full[1] * t2,
+            ]
+        )
+        screen_sel = (ndc_sel[:, :2] / ndc_sel[:, 3]) * half_canvas_size
 
         # Store values
-        self._screen_vec = screen2 - screen1
+        self._screen_vec = screen_full[1] - screen_full[0]
         start_value, end_value = self._start_value, self.end_value
         self._visible_part_coords = t1, t2
         self._visible_part_values = (
             start_value * (1.0 - t1) + end_value * t1,
             start_value * (1.0 - t2) + end_value * t2,
         )
-        self._visible_part_screen_vec = screen_t2 - screen_t1
+        self._visible_part_screen_vec = screen_sel[1] - screen_sel[0]
 
     def _calculate_text_anchor(self, angle):
         """Calculate the best place to anchor the text labels.
@@ -334,7 +324,8 @@ class Ruler(WorldObject):
 
         # Fall back to full size if selection is zero. This way, the
         # value of step still makes sense, even when the ruler itself
-        # is not on screen.
+        # is not on screen, and calling code may still use it to e.g.
+        # configure a grid.
         if not screen_dist:
             world_dist = self.end_value - self._start_value
             screen_dist = np.linalg.norm(self._screen_vec)
@@ -430,16 +421,20 @@ class Ruler(WorldObject):
             sizes = np.zeros((new_n_slots,), np.float32)
             self.points.geometry.positions = Buffer(positions)
             self.points.geometry.sizes = Buffer(sizes)
-
-        def define_text(pos, text):
-            if index < len(self._text_object_pool):
-                ob = self._text_object_pool[index]
-            else:
+            # Allocate text objects
+            while len(self._text_object_pool) < new_n_slots:
                 ob = Text(
                     TextGeometry("", screen_space=True),
                     TextMaterial(),
                 )
                 self._text_object_pool.append(ob)
+            self._text_object_pool[new_n_slots:] = []
+            # Reset children
+            self.clear()
+            self.add(self._line, self._points, *self._text_object_pool)
+
+        def define_text(pos, text):
+            ob = self._text_object_pool[index]
             ob.geometry.anchor = self._text_anchor
             ob.geometry.anchor_offset = self._text_anchor_offset
             ob.geometry.set_text(text)
@@ -464,16 +459,16 @@ class Ruler(WorldObject):
             define_text(pos, text)
             index += 1
 
-        # Handle end point
+        # Handle end point, and nullify remaining slots
         positions[index:] = end_pos
         sizes[index:] = 0
-        self._text_object_pool[index + 1 :] = []
+        for ob in self._text_object_pool[index:]:
+            ob.geometry.set_text("")
 
+        # Show last tick?
         if self._ticks_at_end_points:
             sizes[index] = tick_size
             define_text(end_pos, f"{end_value:0.4g}")
-        else:
-            define_text(end_pos, "")
 
         # Hide the ticks close to the ends?
         if self._ticks_at_end_points and ticks:
@@ -482,8 +477,3 @@ class Ruler(WorldObject):
                 self._text_object_pool[1].geometry.set_text("")
             if abs(tick_values[-1] - end_value) < 0.5 * tick_auto_step:
                 self._text_object_pool[index - 1].geometry.set_text("")
-
-        # Apply
-        self.clear()
-        self.add(self._line, self._points)
-        self.add(*self._text_object_pool)
