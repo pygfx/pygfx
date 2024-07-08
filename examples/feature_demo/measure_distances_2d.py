@@ -1,6 +1,6 @@
 """
-Measure distances
-=================
+Measure distances in 2D
+=======================
 
 Example to do measurements in a 2D image. Use LMB and RMB to place the
 end-points.
