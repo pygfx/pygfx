@@ -242,7 +242,7 @@ class Ruler(WorldObject):
             ]
         )
         ndc_full = (camera.camera_matrix @ positions[..., None]).reshape(-1, 4)
-        screen_full = (ndc_full[:, :2] / ndc_full[:, 3]) * half_canvas_size
+        screen_full = (ndc_full[:, :2] / ndc_full[:, 3:4]) * half_canvas_size
 
         # Get what part of the line is visible
         t1, t2 = get_visible_part_of_line_ndc(ndc_full[0], ndc_full[1])
@@ -254,7 +254,7 @@ class Ruler(WorldObject):
                 ndc_full[0] * (1 - t2) + ndc_full[1] * t2,
             ]
         )
-        screen_sel = (ndc_sel[:, :2] / ndc_sel[:, 3]) * half_canvas_size
+        screen_sel = (ndc_sel[:, :2] / ndc_sel[:, 3:4]) * half_canvas_size
 
         # Store values
         self._screen_vec = screen_full[1] - screen_full[0]
