@@ -25,14 +25,14 @@ def test_binary_search_for_ndc_edge_fit():
         # With only a quadratic fit
         t = binary_search_for_ndc_edge(ndc1, ndc2, ref, 0, n_iters=0)
         fault = abs(real_t - t)
-        assert fault < 0.03
+        assert fault < 1e-6
 
         # Result should get better as iters is increased
         last_t = t
         for iters in range(1, 12):
             t = binary_search_for_ndc_edge(ndc1, ndc2, ref, 0, n_iters=iters)
             fault = abs(real_t - t)
-            if fault > 0:
+            if fault > 1e-15:
                 last_fault = abs(real_t - last_t)
                 assert fault < last_fault
             last_t = t
@@ -82,4 +82,7 @@ def test_binary_search_for_ndc_edge_ortho():
     assert t1 == 0.0 and t2 == 0.0
 
 
-test_binary_search_for_ndc_edge_ortho()
+if __name__ == "__main__":
+    test_binary_search_for_ndc_edge_fit()
+    test_binary_search_for_ndc_edge_ortho()
+    test_binary_search_for_ndc_edge_perspective()

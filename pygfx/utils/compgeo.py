@@ -3,6 +3,8 @@
 This may at some pointe be moved to https://github.com/pygfx/pycompgeo.
 """
 
+import bisect
+
 
 def get_visible_part_of_line_ndc(ndc1, ndc2):
     """Get the visible part of the line, given by two homogeneous ndc coords.
@@ -10,6 +12,11 @@ def get_visible_part_of_line_ndc(ndc1, ndc2):
     Returns (t1, t2) representing the visible line. If the two values
     are equal, the line is not in the viewport.
     """
+
+    # Uncomment for performance measurements
+    import time
+
+    time_0 = time.perf_counter()
 
     # Get closest t for all 4 edges
     tx1 = binary_search_for_ndc_edge(ndc1, ndc2, -1, 0)
@@ -26,6 +33,8 @@ def get_visible_part_of_line_ndc(ndc1, ndc2):
 
     # Sort again
     t1, t2 = min(t1, t2), max(t1, t2)
+
+    print(f"{time.perf_counter() - time_0:f}")
 
     return t1, t2
 
@@ -46,16 +55,16 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     # fine grid without doing an exhaustive search.
     #
     # Note that (with a perspective camera) the distance to the
-    # reference does not scale linear with t. This means that if we
-    # sample two points, we cannot simply select the half that has the
-    # smallest distance, since the minimum can still be in the other
-    # half. To work around this, we sample 5 locations, and select a
-    # sub-region based on the point with smallest distance. When that
-    # point is on the edge (0 or 4), the subregion is just 25% of the
-    # previous. Otherwise (1, 2, 3) it is 50%.
+    # reference does not scale linearly with t. The consequence is that
+    # there is not a closed form solution to this problem. However, for
+    # an orthographic camera there is!
     #
-    #  |------|------|------|------|
-    #  0      1      2      3      4
+    # The binary search is done by sampling three points, then determining
+    # whether the ref value is in 0..1 or 1..2, and then sampling one new
+    # value in between. Repeat.
+    #
+    #  |------|------|
+    #  0      1      2
     #
     # AK: I spent some time optimizing this code. Using numpy arrays
     # and np.argmin is not faster. What does help is re-using the sample
@@ -64,87 +73,83 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     # slot is efficient.
 
     # Reduce the ndc positions to two scalars per position
-    x1, x2 = ndc1[dim], ndc2[dim]
-    w1, w2 = ndc1[3], ndc2[3]
+    x1, x2 = float(ndc1[dim]), float(ndc2[dim])
+    w1, w2 = float(ndc1[3]), float(ndc2[3])
 
-    # The line may be orthogonal to this dimension.
-    # Note that for 2D axii this provides a fast path for one dimension.
-    if abs(x1 / w1 - x2 / w2) < 1e-9:
-        return 1.0 if x1 / w1 < ref else 0.0
+    # Get the starting t's.
+    # Things get iffy when the w is zero or negative, so we first find
+    # the range where w is positive.
+    initial_t1, initial_t2 = 0.0, 1.0
+    eps = 1e-8
+    if w1 < eps or w2 < eps:
+        if w1 < eps and w2 < eps:
+            # Camera is perspective and the end-points are both behind the camera.
+            return 0.0 if w1 >= w2 else 1.0
+        elif w1 < eps:
+            # The first point is behind, move it.
+            initial_t1 = (eps - w1) / (w2 - w1)
+        else:  # w2 < eps:
+            # The second point is behind, move it.
+            initial_t2 = 1.0 - (eps - w2) / (w1 - w2)
 
     def new_sample(t):
         x = x1 * (1 - t) + x2 * t
         w = w1 * (1 - t) + w2 * t
-        w = max(1e-9, w)  # sometimes w is negative, resulting in wrong results
-        return t, float(abs(ref - x / w))
+        return t, x / w
 
-    def argmin(samples):
-        smallest_i = 0
-        smallest_d = 1e16
-        for i in range(5):
-            d = samples[i][1]
-            if d < smallest_d:
-                smallest_d = d
-                smallest_i = i
-        return smallest_i
-
-    # Produce 5 tuples (t, dist) representing the relative t-values as shown in above ascii diagram
+    # Produce 3 tuples (t, value) representing the relative t-values as shown in above ascii diagram
     samples = [
-        new_sample(0.0),
-        new_sample(0.25),
-        new_sample(0.5),
-        new_sample(0.75),
-        new_sample(1.0),
+        new_sample(initial_t1),
+        new_sample(0.5 * (initial_t1 + initial_t2)),
+        new_sample(initial_t2),
     ]
 
-    # Binary search. Wth 10 iters we cover over 1K samples.
-    for _ in range(n_iters):
-        i = argmin(samples)
+    # If the values are very close, the line could be a point, or orthogonal to this dim
+    if abs(samples[0][1] - samples[2][1]) < 1e-9:
+        return 1.0 if samples[0][1] < ref else 0.0
 
-        # To emulate a binary search assuming a linear relation between t and dist
-        # i = 1 if samples[0][1] < samples[4][1] else 3  # WRONG!
+    # Determine function for bisect. Bisect needs a sorted list, this handles
+    # the case where the order is reversed.
+    key_func_forward = lambda sample: sample[1] - ref
+    key_func_reverse = lambda sample: ref - sample[1]
+    if samples[0][1] <= samples[2][1]:
+        key_func = key_func_forward
+    else:
+        key_func = key_func_reverse
 
-        if i == 0:
-            # samples[0] = samples[0]
-            samples[4] = samples[1]
-            samples[2] = new_sample(0.5 * (samples[0][0] + samples[4][0]))
-        elif i == 4:
-            samples[0] = samples[3]
-            # samples[4] = samples[4]
-            samples[2] = new_sample(0.5 * (samples[0][0] + samples[4][0]))
-        elif i == 1:
-            # samples[0] = samples[0]
-            samples[4] = samples[2]
-            samples[2] = samples[1]
-        elif i == 3:
-            samples[0] = samples[2]
-            # samples[4] = samples[4]
-            samples[2] = samples[3]
-        else:  # i == 2:
-            samples[0] = samples[1]
-            samples[4] = samples[3]
-            # samples[2] = samples[2]
-        samples[1] = new_sample(0.5 * (samples[0][0] + samples[2][0]))
-        samples[3] = new_sample(0.5 * (samples[2][0] + samples[4][0]))
+    # Do the first bisection!
+    i = bisect.bisect(samples, 0.0, key=key_func)
 
-    # Select the sample that is closest.
-    i = argmin(samples)
-    t, dist = samples[i]
+    # Go deeper, if we must
+    if w1 == 1.0 and w2 == 1.0:
+        pass  # Ortho camera
+    elif i == 0 or i == 3:
+        pass  # The whole line is on one side of the ref
+    else:
+        # Binary search. With 10 iters we cover over 1K samples.
+        for _ in range(n_iters):
+            if i <= 1:
+                samples[2] = samples[1]
+            else:
+                samples[0] = samples[1]
+            samples[1] = new_sample(0.5 * (samples[0][0] + samples[2][0]))
+            i = bisect.bisect(samples, 0.0, key=key_func)
+
+    # Fine tune using a linear fit
     t_step = samples[1][0] - samples[0][0]
+    if i == 0:
+        t = samples[0][0]
+    elif i == 3:
+        t = samples[2][0]
+    elif i == 1:
+        y1 = samples[0][1]
+        y2 = samples[1][1]
+        dt = (ref - y1) / (y2 - y1)
+        t = samples[0][0] + dt * t_step
+    else:  # i == 2
+        y1 = samples[1][1]
+        y2 = samples[2][1]
+        dt = (ref - y1) / (y2 - y1)
+        t = samples[1][0] + dt * t_step
 
-    # If this is on (or close to) the edge, this is it
-    if t < t_step or t > 1.0 - t_step:
-        return t
-
-    # Otherwise, perform a quadratic fit find the sub-sample result.
-    # This optimization means we need less depth in the binary search to still
-    # found an accurate solution.
-    y1 = samples[i - 1][1] if i > 0 else new_sample(t - t_step)[1]
-    y2 = dist
-    y3 = samples[i + 1][1] if i < 5 else new_sample(t + t_step)[1]
-    num = (y3 - y2) - (y1 - y2)
-    denom = 2 * (y1 + y3 - 2 * y2)
-    t_fine = 0.0
-    if denom != 0:
-        t_fine = -num / denom
-    return t + t_fine * t_step
+    return t
