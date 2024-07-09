@@ -3,8 +3,6 @@
 This may at some pointe be moved to https://github.com/pygfx/pycompgeo.
 """
 
-import bisect
-
 
 def get_visible_part_of_line_ndc(ndc1, ndc2):
     """Get the visible part of the line, given by two homogeneous ndc coords.
@@ -99,14 +97,12 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     if abs(samples_val[0] - samples_val[2]) < 1e-9:
         return 1.0 if samples_val[0] < ref else 0.0
 
-    # Determine function for bisect. Bisect needs a sorted list, this handles
-    # the case where the order is reversed.
-    key_func_normal = lambda v: v - ref  # noqa
-    key_func_rev = lambda v: ref - v  # noqa
-    key_func = key_func_normal if samples_val[0] <= samples_val[2] else key_func_rev
+    # Determine function for bisect.
+    values_are_ascending = samples_val[0] <= samples_val[2]
+    bisect = bisect_asc if values_are_ascending else bisect_desc
 
     # Do the first bisection!
-    i = bisect.bisect(samples_val, 0.0, key=key_func)
+    i = bisect(samples_val, ref)
 
     # Go deeper, if we must
     if w1 == 1.0 and w2 == 1.0:
@@ -125,7 +121,7 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
             new_t = 0.5 * (samples_t[0] + samples_t[2])
             samples_t[1] = new_t
             samples_val[1] = value_from_t(new_t)
-            i = bisect.bisect(samples_val, 0.0, key=key_func)
+            i = bisect(samples_val, ref)
 
     # Fine tune using a linear fit
     t_step = samples_t[1] - samples_t[0]
@@ -145,3 +141,24 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
         t = samples_t[1] + dt * t_step
 
     return t
+
+
+# We use our own bisect functions. Otherwise, to use bisect.bisect with descending
+# values, we need the key param, which adds complexity, but also does not work pre py10.
+# This solution even seems a wee bit faster than using builtin bisect.
+
+
+def bisect_asc(values, ref):
+    """Simple version of bisect.bisect(). Values are assumed to be in ascending order."""
+    for i, v in enumerate(values):
+        if v > ref:
+            return i
+    return i + 1
+
+
+def bisect_desc(values, ref):
+    """Like bisect(), but the values are assumed in descnding order."""
+    for i, v in enumerate(values):
+        if v <= ref:
+            return i
+    return i + 1

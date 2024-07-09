@@ -1,4 +1,19 @@
-from pygfx.utils.compgeo import binary_search_for_ndc_edge
+from pygfx.utils.compgeo import binary_search_for_ndc_edge, bisect_asc, bisect_desc
+
+
+import bisect
+
+
+def test_bisect():
+
+    values = [0, 1, 2, 3, 3.2, 4, 5]
+
+    for ref in [-9, -1, 0, 1, 2, 3, 4, 5, 6, 9, 2.1, 2.5, 2.9, 3.1, 3.2, 3.3]:
+        i0 = bisect.bisect(values, ref)
+        i1 = bisect_asc(values, ref)
+        i2 = bisect_desc(reversed(values), ref)
+        assert i0 == i1
+        assert i0 == len(values) - i2
 
 
 def test_binary_search_for_ndc_edge_fit():
@@ -83,6 +98,7 @@ def test_binary_search_for_ndc_edge_ortho():
 
 
 if __name__ == "__main__":
+    test_bisect()
     test_binary_search_for_ndc_edge_fit()
     test_binary_search_for_ndc_edge_ortho()
     test_binary_search_for_ndc_edge_perspective()
