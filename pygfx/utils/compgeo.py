@@ -64,12 +64,6 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     #
     #  |------|------|
     #  0      1      2
-    #
-    # AK: I spent some time optimizing this code. Using numpy arrays
-    # and np.argmin is not faster. What does help is re-using the sample
-    # positions. With 5 samples per level, we can re-use 2 or 3 of the
-    # samples at each step. By using tuples, copying these into the new
-    # slot is efficient.
 
     # Reduce the ndc positions to two scalars per position
     x1, x2 = float(ndc1[dim]), float(ndc2[dim])
@@ -92,7 +86,10 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
             initial_t2 = 1.0 - (eps - w2) / (w1 - w2)
 
     # Function to get a value corresponding to a given t
-    value_from_t = lambda t: (x1 * (1 - t) + x2 * t) / (w1 * (1 - t) + w2 * t)
+    def value_from_t(t):
+        x = x1 * (1 - t) + x2 * t
+        w = w1 * (1 - t) + w2 * t
+        return x / w
 
     # Produce 3 tuples (t, value) representing the relative t-values as shown in above ascii diagram
     samples_t = [initial_t1, 0.5 * (initial_t1 + initial_t2), initial_t2]
@@ -104,8 +101,8 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
 
     # Determine function for bisect. Bisect needs a sorted list, this handles
     # the case where the order is reversed.
-    key_func_normal = lambda v: v - ref
-    key_func_rev = lambda v: ref - v
+    key_func_normal = lambda v: v - ref  # noqa
+    key_func_rev = lambda v: ref - v  # noqa
     key_func = key_func_normal if samples_val[0] <= samples_val[2] else key_func_rev
 
     # Do the first bisection!
