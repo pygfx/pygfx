@@ -143,9 +143,10 @@ def binary_search_for_ndc_edge(ndc1, ndc2, ref, dim, *, n_iters=10):
     return t
 
 
-# We use our own bisect functions. Otherwise, to use bisect.bisect with descending
-# values, we need the key param, which adds complexity, but also does not work pre py10.
-# This solution even seems a wee bit faster than using builtin bisect.
+# We use our own bisect functions. Otherwise, to use bisect.bisect with
+# descending values, we need the key param, which adds complexity, but
+# also does not work pre py 3.10. This solution even seems a wee bit
+# faster than using builtin bisect.
 
 
 def bisect_asc(values, ref):
