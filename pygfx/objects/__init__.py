@@ -18,6 +18,7 @@
     Image
     Volume
     Text
+    Ruler
     InstancedMesh
     Light
     PointLight
@@ -73,6 +74,7 @@ from ._more import (
     Volume,
     Text,
 )
+from ._ruler import Ruler
 from ._instanced import InstancedMesh
 from ._lights import Light, PointLight, DirectionalLight, AmbientLight, SpotLight
 from ._lights import (
