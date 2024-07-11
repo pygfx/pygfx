@@ -7,59 +7,65 @@ from pygfx.utils.text import font_manager
 
 
 def test_cache():
-    c = TemporalCache(0.1)
+    c = TemporalCache(0.1, getter=hash)
 
     # === Store one value
-    c.set("foo", 42)
-    assert c.get("foo") == 42
-    assert c.get("foo") == 42
-    assert len(c._cache) == 1
+    assert c["foo"] == hash("foo")
+    assert len(c) == 1
 
     # Wait for the entry to become old.
+    # The item should remain in there since
+    # no other item was fetched
+    time.sleep(0.11)
+    assert "foo" in c
     # But because we get the item, it activates again
-    time.sleep(0.11)
-    assert c.get("foo") == 42
-    assert c.get("foo") == 42
+    # And it won't get evicted when we fetch bar after
+    # it
+    assert c["foo"] == hash("foo")
+    assert c["bar"] == hash("bar")
+    assert "foo" in c
+    assert "bar" in c
 
-    # Wait again, now get a nonexistent item to trigger removing foo
+    # Wait again, now get a previously nonexistent item to trigger removing foo
     time.sleep(0.11)
-    assert c.get("bar") is None
-    assert c.get("foo") is None
-    assert len(c._cache) == 0
+    assert c["bar"] == hash("bar")
+    assert "foo" not in c
+    assert "bar" in c
+    assert len(c) == 1
 
+    time.sleep(0.11)
     # === Again, but with two
-    c.set("foo", 42)
-    c.set("bar", 90)
-    assert c.get("foo") == 42
-    assert c.get("bar") == 90
-    assert len(c._cache) == 2
+    assert c["foo"] == hash("foo")
+    assert c["bar"] == hash("bar")
+    assert len(c) == 2
 
     # Wait for the entry to become old.
     # The first one we get() is valid, but the get triggers a cleanup.
     time.sleep(0.11)
-    assert c.get("foo") == 42
-    assert c.get("bar") is None
-    assert len(c._cache) == 1
+    assert c["foo"] == hash("foo")
+    assert "bar" not in c
+    assert len(c) == 1
 
-    # Wait again, now get a nonexistent item to trigger removing foo
+    # Wait again, now manually trigger cleanup
     time.sleep(0.11)
-    assert c.get("bar") is None
-    assert c.get("foo") is None
-    assert len(c._cache) == 0
+    c.check_lifetimes()
+    assert "foo" not in c
+    assert "bar" not in c
+    assert len(c) == 0
 
     # === Put a lot of items in there
     for i in range(1000):
-        c.set(i, i)
-    assert len(c._cache) == 1000
+        c[i]
+    assert len(c) == 1000
 
     for i in [0, 1, 500, 998, 999]:  # testing 1000 can take too long in debug mode
-        assert c.get(i) == i
+        assert c[i] == hash(i)
 
     time.sleep(1.1)
-    assert c.get(0) == 0
+    assert c[0] == hash(0)
     for i in range(1, 1000):
-        assert c.get(i) is None
-    assert len(c._cache) == 1
+        assert i not in c
+    assert len(c) == 1
 
 
 def test_shape_text_hb():
