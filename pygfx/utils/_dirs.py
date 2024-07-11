@@ -1,9 +1,9 @@
 import os
 import sys
 import atexit
+from pathlib import Path
 import shutil
 import tempfile
-import importlib.resources
 
 
 try:
@@ -14,15 +14,7 @@ except Exception:  # Exceptions thrown by home() are not specified...
 
 def get_resources_dir():
     """Get the path to the directory of builtin resources."""
-    if sys.version_info < (3, 9):
-        context = importlib.resources.path("pygfx.data_files", "__init__.py")
-    else:
-        ref = importlib.resources.files("pygfx.data_files") / "__init__.py"
-        context = importlib.resources.as_file(ref)
-    with context as path:
-        pass
-    # Return the dir. We assume that the data files are on a normal dir on the fs.
-    return str(path.parent)
+    return str(Path(__file__).parent.parent / "data_files")
 
 
 def get_cache_dir():
