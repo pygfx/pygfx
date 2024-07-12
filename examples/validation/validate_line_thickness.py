@@ -32,6 +32,7 @@ line0 = gfx.Line(
 )
 
 scene = gfx.Scene()
+scene.add(gfx.Background.from_color("black"))
 scene.add(line0)
 
 for x_offset, mode in enumerate(["noaa", "aa", "dashed"]):
