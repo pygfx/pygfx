@@ -67,6 +67,7 @@ def test_cache():
         assert i not in c
     assert len(c) == 1
 
+
 def test_cache_minimum_items():
     c = TemporalCache(0.1, getter=hash, minimum_items=5)
 
