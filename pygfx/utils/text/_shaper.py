@@ -41,9 +41,9 @@ def shape_text(text, font_filename, direction=None):
 class TemporalCache:
     """A simple cache that drops old items based on time."""
 
-    def __init__(self, lifetime, *, getter, minimum_font_files=0):
+    def __init__(self, lifetime, *, getter, minimum_items=0):
         self._ref_lifetime = lifetime
-        self._minimum_font_files = minimum_font_files
+        self._minimum_items = minimum_items
         self._cache = {}
         self._lifetimes = {}
         self._getter = getter
@@ -81,9 +81,9 @@ class TemporalCache:
         to_remove = sorted(
             ((key, lt) for key, lt in self._lifetimes.items() if lt < pretty_old),
             key=lambda x: x[1],
-            reverse=True,
         )
-        for key, lt in to_remove[self._minimum_font_files :]:
+        items_to_remove = max(len(self._cache) - self._minimum_items, 0)
+        for key, lt in to_remove[:items_to_remove]:
             self._lifetimes.pop(key, None)
             self._cache.pop(key, None)
 
@@ -117,7 +117,7 @@ def get_hb_font(font_filename):
 CACHE_HB = TemporalCache(
     lifetime=10,
     getter=get_hb_font,
-    minimum_font_files=20,
+    minimum_items=20,
 )
 
 
@@ -133,7 +133,7 @@ def get_ft_face(font_filename):
 CACHE_FT = TemporalCache(
     lifetime=10,
     getter=get_ft_face,
-    minimum_font_files=20,
+    minimum_items=20,
 )
 
 

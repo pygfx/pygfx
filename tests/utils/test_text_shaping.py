@@ -67,6 +67,58 @@ def test_cache():
         assert i not in c
     assert len(c) == 1
 
+def test_cache_minimum_items():
+    c = TemporalCache(0.1, getter=hash, minimum_items=5)
+
+    assert c["foo0"] == hash("foo0")
+    assert c["foo1"] == hash("foo1")
+    assert c["foo2"] == hash("foo2")
+    assert c["foo3"] == hash("foo3")
+    assert c["foo4"] == hash("foo4")
+
+    # Wait for the entry to become old.
+    # The item should remain in there since
+    # no other item was fetched
+    time.sleep(0.11)
+    assert "foo0" in c
+    assert "foo1" in c
+    assert "foo2" in c
+    assert "foo3" in c
+    assert "foo4" in c
+
+    # Typically, without minimum_items set to 2, the following would
+    # cause an eviction
+    assert c["foo4"] == hash("foo4")
+    # However, we expect the fiels to stay in
+    assert "foo0" in c
+    assert "foo1" in c
+    assert "foo2" in c
+    assert "foo3" in c
+    assert "foo4" in c
+
+    time.sleep(0.11)
+    # Even manually clearing shouldn't remove our 5 files
+    c.check_lifetimes()
+    assert "foo0" in c
+    assert "foo1" in c
+    assert "foo2" in c
+    assert "foo3" in c
+    assert "foo4" in c
+
+    # Adding 2 new items in the cache should evict the 2 oldest ones
+    time.sleep(0.11)
+    assert c["bar0"] == hash("bar0")
+    assert c["bar1"] == hash("bar1")
+    # foo0 and foo1 were inserted first
+    # never accessed again, so they should be evicted
+    assert "foo0" not in c
+    assert "foo1" not in c
+    # foo2, foo3 and foo4 should still be in the cache
+    # given that we want to keep at least 5 items
+    assert "foo2" in c
+    assert "foo3" in c
+    assert "foo4" in c
+
 
 def test_shape_text_hb():
     font = font_manager._fallback_font
