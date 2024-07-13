@@ -119,6 +119,29 @@ def test_cache_minimum_items():
     assert "foo3" in c
     assert "foo4" in c
 
+    # Now access all the items in the cache
+    # And have more than 5 items
+    # since no item is older than the lifetime, they should all
+    # remain in the cache
+    assert len(c) == 5
+    # Refresh all the lifetimes
+    assert c["foo2"] == hash("foo2")
+    assert c["foo3"] == hash("foo3")
+    assert c["foo4"] == hash("foo4")
+    assert c["bar0"] == hash("bar0")
+    assert c["bar1"] == hash("bar1")
+    # New items to add
+    assert c["foo0"] == hash("foo0")
+    assert c["foo1"] == hash("foo1")
+    assert len(c) == 7
+    assert "foo2" in c
+    assert "foo3" in c
+    assert "foo4" in c
+    assert "bar0" in c
+    assert "bar1" in c
+    assert "foo0" in c
+    assert "foo1" in c
+
 
 def test_shape_text_hb():
     font = font_manager._fallback_font
