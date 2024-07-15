@@ -83,7 +83,7 @@ class TemporalCache:
             key=lambda x: x[1],
         )
         max_items_to_remove = max(len(self._cache) - self._minimum_items, 0)
-        
+
         for key, lt in to_remove[:max_items_to_remove]:
             self._lifetimes.pop(key, None)
             self._cache.pop(key, None)
