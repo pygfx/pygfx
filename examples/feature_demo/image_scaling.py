@@ -19,7 +19,7 @@ The pixel corners at integer coordinates. This is useful when one wants
 to stretch the provided data to fill a specific area. Be default bilinear
 interpolation is used to sample the texture.
 
-The example provide allows users zoom in and out of the scene to study the
+The example allows users zoom in and out of the scene to study the
 differences between the results of both provided methods.
 
 We encourage users of pygfx to study each Object, Material, Geometry and Shader
