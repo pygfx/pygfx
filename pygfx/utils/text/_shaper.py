@@ -54,9 +54,9 @@ class TemporalCache:
         Will reset the item's lifetime.
         Getting triggers the lifetimes of all items to be checked.
         """
-        if key in self._cache:
+        try:
             res = self._cache[key]
-        else:
+        except KeyError:
             res = self._getter(key)
             self._cache[key] = res
 
@@ -82,8 +82,9 @@ class TemporalCache:
             ((key, lt) for key, lt in self._lifetimes.items() if lt < pretty_old),
             key=lambda x: x[1],
         )
-        items_to_remove = max(len(self._cache) - self._minimum_items, 0)
-        for key, lt in to_remove[:items_to_remove]:
+        max_items_to_remove = max(len(self._cache) - self._minimum_items, 0)
+        
+        for key, lt in to_remove[:max_items_to_remove]:
             self._lifetimes.pop(key, None)
             self._cache.pop(key, None)
 
