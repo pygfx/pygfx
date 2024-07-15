@@ -24,6 +24,14 @@ standard_texture_des = {
 }
 
 
+def blend_dict(src_factor, dst_factor, operation):
+    return {
+        "operation": operation,
+        "src_factor": src_factor,
+        "dst_factor": dst_factor,
+    }
+
+
 # %%%%%%%%%%  Define passes
 
 
@@ -84,8 +92,8 @@ class OpaquePass(BasePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.zero, bo.add),
-                    "color": (bf.one, bf.zero, bo.add),
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -188,8 +196,8 @@ class SimpleSinglePass(OpaquePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -230,8 +238,8 @@ class SimpleTransparencyPass(BasePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -319,16 +327,16 @@ class WeightedTransparencyPass(BasePass):
             {
                 "format": blender.accum_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one, bo.add),
-                    "color": (bf.one, bf.one, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one, bo.add),
+                    "color": blend_dict(bf.one, bf.one, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
             {
                 "format": blender.reveal_format,
                 "blend": {
-                    "alpha": (bf.zero, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.zero, bf.one_minus_src, bo.add),
+                    "alpha": blend_dict(bf.zero, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.zero, bf.one_minus_src, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -412,8 +420,8 @@ class FrontmostTransparencyPass(BasePass):
             {
                 "format": blender.frontcolor_format,
                 "blend": {
-                    "alpha": (bf.one, bf.zero, bo.add),
-                    "color": (bf.one, bf.zero, bo.add),
+                    "alpha": blend_dict(bf.one, bf.zero, bo.add),
+                    "color": blend_dict(bf.one, bf.zero, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
@@ -732,8 +740,8 @@ class WeightedFragmentBlender(BaseFragmentBlender):
             {
                 "format": self.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
             },
         ]
@@ -854,8 +862,8 @@ class WeightedPlusFragmentBlender(WeightedFragmentBlender):
             {
                 "format": self.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one_minus_src_alpha, bo.add),
-                    "color": (bf.one, bf.one_minus_src_alpha, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
+                    "color": blend_dict(bf.one, bf.one_minus_src_alpha, bo.add),
                 },
             },
         ]
@@ -924,8 +932,8 @@ class AdditivePass(BasePass):
             {
                 "format": blender.color_format,
                 "blend": {
-                    "alpha": (bf.one, bf.one, bo.add),
-                    "color": (bf.one, bf.one, bo.add),
+                    "alpha": blend_dict(bf.one, bf.one, bo.add),
+                    "color": blend_dict(bf.one, bf.one, bo.add),
                 },
                 "write_mask": wgpu.ColorWrite.ALL,
             },
