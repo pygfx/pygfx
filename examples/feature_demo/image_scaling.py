@@ -2,7 +2,7 @@
 Displaying an image in a scene
 ==============================
 
-Displaying an image can be done one of two different ways based the details
+Displaying an image can be done in two different ways based the details
 of the information you are trying to communicate.
 We consider a color image with shape (height, width, 3). In PyGFX, this is
 descried as a texture.
