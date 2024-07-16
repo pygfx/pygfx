@@ -150,9 +150,7 @@ class Texture(Resource):
                 the_size,
                 bytes_per_element=the_nbytes // int(np.prod(the_size)),
                 byte_align=16,
-                target_chunk_count=20,
-                min_chunk_size=2**8,
-                max_chunk_size=2**24,
+                target_chunk_count=32,
             )
         else:
             if isinstance(chunk_size, int):
@@ -331,33 +329,34 @@ class Texture(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
-
         # Quick return v1
         if not self._chunks_any_dirty:
             return []
 
-        # Quick return v2
         if self.nbytes < 2**30 and np.all(self._chunk_mask):
-            return [((0, 0, 0), self.size)]
+            # Quick return v2
+            chunk_descriptions = [((0, 0, 0), self.size)]
 
-        # Get merged chunk blocks, using a smart algorithm.
-        chunk_blocks = get_merged_blocks_from_mask_3d(self._chunk_mask)
+        else:
+            # Get merged chunk blocks, using a smart algorithm.
+            chunk_blocks = get_merged_blocks_from_mask_3d(self._chunk_mask)
 
-        # Turn into proper descriptions, with chunk indices/counts scaled with the chunk size.
-        chunk_descriptions = []
-        chunk_size = self._chunk_size
-        for block in chunk_blocks:
-            offset = (
-                block.x * chunk_size[0],
-                block.y * chunk_size[1],
-                block.z * chunk_size[2],
-            )
-            size = (
-                block.nx * chunk_size[0],
-                block.ny * chunk_size[1],
-                block.nz * chunk_size[2],
-            )
-            chunk_descriptions.append((offset, size))
+            # Turn into proper descriptions, with chunk indices/counts scaled with the chunk size.
+            chunk_descriptions = []
+            chunk_size = self._chunk_size
+            full_size = self._store["size"]
+            for block in chunk_blocks:
+                offset = (
+                    block.x * chunk_size[0],
+                    block.y * chunk_size[1],
+                    block.z * chunk_size[2],
+                )
+                size = (
+                    min(block.nx * chunk_size[0], full_size[0] - offset[0]),
+                    min(block.ny * chunk_size[1], full_size[1] - offset[1]),
+                    min(block.nz * chunk_size[2], full_size[2] - offset[2]),
+                )
+                chunk_descriptions.append((offset, size))
 
         # Reset
         self._chunks_any_dirty = False
@@ -368,7 +367,6 @@ class Texture(Resource):
     def _gfx_get_chunk_data(self, offset, size, pixel_padding=None):
         """Return subdata as a contiguous array."""
         full_size = self._store["size"]
-
         if offset == (0, 0, 0) and size == full_size and pixel_padding is None:
             if self._view.flags.c_contiguous:
                 chunk = self._view  # hooray, the fastest path!
@@ -394,13 +392,13 @@ class Texture(Resource):
                 slice_per_dim.append(slice(offset[d], offset[d] + size[d]))
             slice_per_dim = tuple(slice_per_dim)
             # Slice, pad, make contiguous. Note that the chance of the chunks not being contiguous is pretty big.
-            sub_array = self._view[slice_per_dim]
+            chunk = self._view[slice_per_dim]
             if pixel_padding is not None:
-                padding = np.ones(sub_array.shape[:3] + (1,), dtype=sub_array.dtype)
-                sub_array = np.concatenate([sub_array, pixel_padding * padding], -1)
-            if not sub_array.flags.c_contiguous:
-                sub_array = np.ascontiguousarray(sub_array)
-            chunk = memoryview(sub_array)
+                padding = np.ones(chunk.shape[:3] + (1,), dtype=chunk.dtype)
+                chunk = np.concatenate([chunk, pixel_padding * padding], -1)
+            if not chunk.flags.c_contiguous:
+                # Easily happens when slicing in anything but the last dimension
+                chunk = np.ascontiguousarray(chunk)
 
         return chunk
 
