@@ -78,13 +78,13 @@ class TemporalCache:
         # it slower already for 100 items, which is way more realistic
         # font count. So let's keep things simple :)
         pretty_old = time.time() - self._ref_lifetime
-        to_remove = sorted(
+        old_items = sorted(
             ((key, lt) for key, lt in self._lifetimes.items() if lt < pretty_old),
             key=lambda x: x[1],
         )
         max_items_to_remove = max(len(self._cache) - self._minimum_items, 0)
 
-        for key, lt in to_remove[:max_items_to_remove]:
+        for key, lt in old_items[:max_items_to_remove]:
             self._lifetimes.pop(key, None)
             self._cache.pop(key, None)
 
