@@ -19,7 +19,7 @@ custom_sdf = """
 
     // The coords below assume OpenGL coords, but y is flipped, so we flip the coords.
     // Its also shifted so that the center of the triangle is at the origin.
-    var coord_for_sdf = vec2<f32>(coord.x, -coord.y) / size + vec2<f32>(0.5);
+    var coord_for_sdf = coord / size + vec2<f32>(0.5, -0.5);
 
     // https://math.stackexchange.com/a/4073070
     // equilateral triangle has length of size
@@ -30,16 +30,16 @@ custom_sdf = """
 
     let pygfx_width = 0.10;
 
-    let v1 = normalize(vec2<f32>(one_minus_triangle_x, -1));
+    let v1 = normalize(vec2<f32>(one_minus_triangle_x, 1));
     let r1_out = dot(coord_for_sdf, v1);
     let r1_in  = r1_out + pygfx_width;
 
-    let v2 = normalize(vec2<f32>(-1, one_minus_triangle_x));
+    let v2 = normalize(vec2<f32>(-1, -one_minus_triangle_x));
     let r2_out = dot(coord_for_sdf, v2);
     let r2_in  = r2_out + pygfx_width;
 
-    let v3 = normalize(vec2<f32>(triangle_x, triangle_x));
-    let r3_out = dot(coord_for_sdf - vec2(1, one_minus_triangle_x), v3);
+    let v3 = normalize(vec2<f32>(triangle_x, -triangle_x));
+    let r3_out = dot(coord_for_sdf - vec2(1, -one_minus_triangle_x), v3);
     let r3_in  = r3_out + pygfx_width;
 """
 

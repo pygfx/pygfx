@@ -88,14 +88,14 @@ pygfx_sdf = """
         max(r3_out_blue, -r3_in_blue)
     );
 
-    let inner_triangle = min(r1_blue, min(r2_blue, r3_blue)) * size;
+    let inner_triangle = min(r1_blue, min(r2_blue, r3_blue));
 
     let outer_triangle = max(
         max(r1_out, max(r2_out, r3_out)),
         -max(r1_in, max(r2_in, r3_in))
-    ) * size;
+    );
 
-    return min(inner_triangle, outer_triangle);
+    return min(inner_triangle, outer_triangle) * size;
 """
 
 
