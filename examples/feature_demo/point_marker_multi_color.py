@@ -1,9 +1,18 @@
 """
-Fly controller logo
-===================
+Point Markers with Multiple Colors
+==================================
 
-Fly through a cloud of cololoured pygfx logos to inspect the effects of the
-renering.
+We demonstrate how one can use custom signed distance functions (SDFs) to
+create point markers with multiple colors. In this example we recreate an
+approximation of the Pygfx logo using two SDFs, one for the outer yellow
+triangle, and other for the inner blue highlight. Combining multiple colors in
+a single point marker is achieved by adding two separate markers to the scene,
+one for each color.
+
+Transparent point materials are used in the scene and can be navigated with the
+fly controller. The solid logo is then overlayed ontop of the scene and does
+not move with the controller.
+
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
