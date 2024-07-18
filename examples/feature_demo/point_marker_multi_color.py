@@ -26,8 +26,9 @@ import numpy as np
 custom_sdf = """
     let m_sqrt_3 = 1.7320508075688772;
 
-    // The coords below assume OpenGL coords, but y is flipped, so we flip the coords.
-    // Its also shifted so that the center of the triangle is at the origin.
+    // coords uses WGSL coordinates.
+    // we shift it so that the center of the triangle is at the origin.
+    // for ease of calculations.
     var coord_for_sdf = coord / size + vec2<f32>(0.5, -0.5);
 
     // https://math.stackexchange.com/a/4073070
