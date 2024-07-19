@@ -296,10 +296,8 @@ class PointsMarkerMaterial(PointsMaterial):
         * Matplotlib compatible characters: "osD+x^v<>".
         * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
         * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
-        * A string containing the value "custom"
-
-        In the that the "custom" marker is used, the WGSL
-        code defined by `custom_sdf` will be used.
+        * A string containing the value "custom". In this case, the WGSL
+          code defined by ``custom_sdf`` will be used.
         """
         # TODO: is marker a good name?
         # Note: MPL calls this 'marker', Plotly calls this 'symbol'
