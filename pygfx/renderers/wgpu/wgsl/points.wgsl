@@ -459,6 +459,9 @@ fn get_signed_distance_to_shape_edge(coord: vec2<f32>, size: f32) -> f32 {
         let r4 = length(coord-c1) -size/5;
         return max( min(r1,max(max(r2,r3),coord.y)), -r4);
 
+    $$ elif shape == 'custom'
+        {{ custom_sdf }}
+
     $$ else
         unknown marker shape! // deliberate wgsl syntax error
 
