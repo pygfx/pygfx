@@ -357,6 +357,14 @@ class PointsMarkerMaterial(PointsMaterial):
 
         Negative values are inside the shape, positive values are outside the
         shape.
+
+        The SDF's takes in two parameters `coords: vec2<f32>` and `size: f32`.
+        The first is a WGSL coordinate and `size` is the overall size of
+        the texture. The returned value should be the signed distance from
+        any edge of the shape. Distances (positive and negative) that are 
+        less than half the `edge_width` in absolute terms will be colored
+        with the `edge_color`. Other negative distances will be colored by
+        `color`.
         """
         return self._store.custom_sdf
 
