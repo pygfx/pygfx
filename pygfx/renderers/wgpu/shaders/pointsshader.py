@@ -120,6 +120,12 @@ class PointsShader(BaseShader):
             self["shape"] = material.marker
             if material.custom_sdf:
                 self["custom_sdf"] = material.custom_sdf
+            else:
+                # Make a nice full square to help the user better design their
+                # custom SDF
+                self["custom_sdf"] = """
+        return max(abs(coord.x), abs(coord.y)) - size * 0.5;
+"""
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)

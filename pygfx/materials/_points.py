@@ -250,7 +250,7 @@ class PointsMarkerMaterial(PointsMaterial):
         marker="circle",
         edge_width=1,
         edge_color="black",
-        custom_sdf="return -size;",
+        custom_sdf=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
