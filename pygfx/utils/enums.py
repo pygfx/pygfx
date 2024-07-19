@@ -151,6 +151,7 @@ class MarkerShape(Enum):
     spade = None  #: ♠
     club = None  #: ♣
     pin = None  #: 📍
+    custom = None  # Custom shape allowing users to provide their own SDF function
 
 
 class ElementFormat(Enum):
