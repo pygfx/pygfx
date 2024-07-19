@@ -118,14 +118,12 @@ class PointsShader(BaseShader):
             self["shape"] = "gaussian"
         elif isinstance(material, PointsMarkerMaterial):
             self["shape"] = material.marker
-            if material.custom_sdf:
-                self["custom_sdf"] = material.custom_sdf
-            else:
+            custom_sdf = material.custom_sdf
+            if custom_sdf is None:
                 # Make a nice full square to help the user better design their
                 # custom SDF
-                self["custom_sdf"] = """
-        return max(abs(coord.x), abs(coord.y)) - size * 0.5;
-"""
+                custom_sdf = "return max(abs(coord.x), abs(coord.y)) - size * 0.5;"
+            self["custom_sdf"] = custom_sdf
 
         bindings = {i: b for i, b in enumerate(bindings)}
         self.define_bindings(0, bindings)
