@@ -54,6 +54,9 @@ class PointsShader(BaseShader):
             self["color_buffer_channels"] = 0
             if material.map is None:
                 raise ValueError(f"Cannot apply colormap is no material.map is set.")
+        elif color_mode == "debug":
+            self["color_mode"] = "debug"
+            self["color_buffer_channels"] = 0
         else:
             raise RuntimeError(f"Unknown color_mode: '{color_mode}'")
 
@@ -170,6 +173,8 @@ class PointsShader(BaseShader):
                     render_mask |= RenderMask.all
                 else:
                     render_mask |= RenderMask.opaque
+            elif self["color_mode"] == "debug":
+                render_mask |= RenderMask.all
             else:
                 raise RuntimeError(f"Unexpected color mode {self['color_mode']}")
             # Need transparency for aa

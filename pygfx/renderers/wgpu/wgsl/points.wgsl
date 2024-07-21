@@ -101,7 +101,7 @@ fn vs_main(in: VertexInput) -> Varyings {
         $$ endif
     $$ endif
     let min_size_for_pixel = 1.415 / l2p;  // For minimum pixel coverage. Use sqrt(2) to take diagonals into account.
-    $$ if draw_line_on_edge
+    $$ if color_mode == 'debug' or draw_line_on_edge
         let edge_width = u_material.edge_width / size_ratio;  // expressed in logical screen pixels
     $$ else
         let edge_width = 0.0;
@@ -216,6 +216,8 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var face_alpha: f32 = 1.0;
     $$ if is_sprite
         // sprites have their alpha defined by the map and opacity only
+    $$ elif color_mode == 'debug'
+        face_alpha = 1.0;
     $$ elif shape == 'gaussian'
         let d = length(pointcoord_p);
         let sigma_p = half_size_p / 3.0;
@@ -239,6 +241,13 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
         let sampled_face_color = varyings.color;
     $$ elif color_mode == 'map' or color_mode == 'vertex_map'
         let sampled_face_color = sample_colormap(varyings.texcoord);
+    $$ elif color_mode == 'debug'
+        let d = dist_to_face_edge_p / half_size_p * 2;
+        var col : vec3<f32> = vec3<f32>(1.0) - sign(d)*vec3<f32>(0.1,0.4,0.7);
+        col *= 1.0 - exp(-2.0 * abs(d));
+        col *= 0.8 + 0.2 * cos(120.0 * d);
+        col = mix(col, vec3<f32>(1.0), 1.0 - smoothstep(0.0, 0.02, abs(d)));
+        let sampled_face_color = vec4<f32>(col, 1.);
     $$ else
         let sampled_face_color = u_material.color;
     $$ endif
@@ -269,7 +278,7 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     var the_color = face_color;
 
     // If we have an edge, determine edge_color, and mix it with the face_color
-    $$ if draw_line_on_edge
+    $$ if draw_line_on_edge and not color_mode == 'debug'
         // In MPL the edge is centered on what would normally be the edge, i.e.
         // half the edge is over the face, half extends beyond it. Plotly does
         // the same. The face and edge are drawn as if they were separate
@@ -314,7 +323,11 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
 
     // Determine final color and opacity
     if (the_color.a <= 0.0) { discard; }
-    let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
+    $$ if color_mode == 'debug'
+        let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a);
+    $$ else
+        let out_color = vec4<f32>(srgb2physical(the_color.rgb), the_color.a * u_material.opacity);
+    $$ endif
 
     // Wrap up
     apply_clipping_planes(varyings.world_pos);
