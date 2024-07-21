@@ -9,6 +9,7 @@ The enums used in pygfx. The enums are all available from the root ``pygfx`` nam
 
     ColorMode
     CoordSpace
+    EdgeMode
     MarkerShape
     RenderMask
     SizeMode
@@ -24,6 +25,7 @@ from wgpu.utils import BaseEnum
 __all__ = [
     "RenderMask",
     "ColorMode",
+    "EdgeMode",
     "SizeMode",
     "CoordSpace",
     "MarkerShape",
@@ -44,6 +46,12 @@ class RenderMask(Enum):
     opaque = 1  #: Only render in the opaque pass.
     transparent = 2  #: Only render in the transparancy pass.
     all = 3  #: Render in both passes.
+
+
+class EdgeMode(Enum):
+    centered = None  #: Centered edges (half the width on each side).
+    inner = None  #: Inner edges (the width is added to the inside).
+    outer = None  #: Outer edges (the width is added to the outside).
 
 
 class ColorMode(Enum):

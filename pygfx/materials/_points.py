@@ -1,7 +1,7 @@
 from ._base import Material
 from ..resources import Texture
 from ..utils import unpack_bitfield, Color
-from ..utils.enums import ColorMode, SizeMode, CoordSpace, MarkerShape
+from ..utils.enums import EdgeMode, ColorMode, SizeMode, CoordSpace, MarkerShape
 
 
 class PointsMaterial(Material):
@@ -21,6 +21,8 @@ class PointsMaterial(Material):
         The uniform color of the points (used depending on the ``color_mode``).
     color_mode : str | ColorMode
         The mode by which the points are coloured. Default 'auto'.
+    edge_mode : str | EdgeMode
+        The mode by which the points are edged. Default 'centered'.
     map : Texture
         The texture map specifying the color for each texture coordinate.
     map_interpolation: str
@@ -47,6 +49,7 @@ class PointsMaterial(Material):
         *,
         color=(1, 1, 1, 1),
         color_mode="auto",
+        edge_mode="centered",
         map=None,
         map_interpolation="linear",
         aa=True,
@@ -59,6 +62,7 @@ class PointsMaterial(Material):
         self.size_mode = size_mode
         self.color = color
         self.color_mode = color_mode
+        self.edge_mode = edge_mode
         self.map = map
         self.map_interpolation = map_interpolation
         self.aa = aa
@@ -131,6 +135,23 @@ class PointsMaterial(Material):
                 f"PointsMaterial.color_mode does not support {repr(value)}"
             )
         self._store.color_mode = value
+
+    @property
+    def edge_mode(self):
+        """The way that edges are applied to the mesh.
+
+        See :obj:`pygfx.utils.enums.EdgeMode`:
+        """
+        return self._store.edge_mode
+
+    @edge_mode.setter
+    def edge_mode(self, value):
+        value = value or "centered"
+        if value not in EdgeMode:
+            raise ValueError(
+                f"PointsMaterial.edge_mode must be a string in {EdgeMode}, not {repr(value)}"
+            )
+        self._store.edge_mode = value
 
     @property
     def vertex_colors(self):
