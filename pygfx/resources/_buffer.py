@@ -5,6 +5,7 @@ from ._base import Resource
 from ._utils import (
     get_element_format_from_numpy_array,
     calculate_buffer_chunk_size,
+    get_merged_blocks_from_mask_1d,
     logger,
 )
 
@@ -144,9 +145,7 @@ class Buffer(Resource):
         self.draw_range = 0, the_nitems
 
         # Get optimal chunk size
-        if the_nbytes == 0:  # data is None or empty
-            chunk_size = 0
-        elif chunk_size is None:
+        if chunk_size is None:
             chunk_size = calculate_buffer_chunk_size(
                 the_nitems,
                 bytes_per_element=the_nbytes // the_nitems,
@@ -158,15 +157,11 @@ class Buffer(Resource):
 
         # Init chunks map
         if data is None:
-            self._chunks_any_dirty = False
+            self._chunks_dirt_flag = 0
             self._chunk_size = 0
             self._chunk_mask = None
-        elif the_nbytes == 0:
-            self._chunks_any_dirty = False
-            self._chunk_size = 0
-            self._chunk_mask = np.ones((0,), bool)
         else:
-            self._chunks_any_dirty = True
+            self._chunks_dirt_flag = 2
             self._chunk_size = chunk_size
             n_chunks = ceil(the_nitems / self._chunk_size)
             self._chunk_mask = np.ones((n_chunks,), bool)
@@ -291,7 +286,7 @@ class Buffer(Resource):
     def update_full(self):
         """Mark the whole data for upload."""
         self._chunk_mask.fill(True)
-        self._chunks_any_dirty = True
+        self._chunks_dirt_flag = 2
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
@@ -301,7 +296,7 @@ class Buffer(Resource):
         indices = np.asarray(indices)
         div = self._chunk_size
         self._chunk_mask[indices // div] = True
-        self._chunks_any_dirty = True
+        self._chunks_dirt_flag = 1
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
@@ -330,7 +325,7 @@ class Buffer(Resource):
         # Update map
         div = self._chunk_size
         self._chunk_mask[floor(index1 / div) : ceil(index2 / div)] = True
-        self._chunks_any_dirty = True
+        self._chunks_dirt_flag = 1
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
@@ -340,30 +335,29 @@ class Buffer(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
+        not_too_big_for_one_chunk = self.nbytes < 2**30
 
-        # Quick return
-        if not self._chunks_any_dirty:
+        if not self._chunks_dirt_flag:
             return []
+        elif not_too_big_for_one_chunk and self._chunks_dirt_flag == 2:
+            chunk_descriptions = [(0, self.nitems)]
+        elif not_too_big_for_one_chunk and np.all(self._chunk_mask):
+            chunk_descriptions = [(0, self.nitems)]
+        else:
+            # Get merged chunk blocks, using a smart algorithm.
+            chunk_blocks = get_merged_blocks_from_mask_1d(self._chunk_mask)
 
-        # Collect chunks (offset, size) tuples
-        chunk_descriptions = []
-        max_merges = 8
-        merges_possible = 0
-        for i, dirty in enumerate(self._chunk_mask):
-            if dirty:
-                offset = self._chunk_size * i
-                size = self._chunk_size
-                if merges_possible > 0:
-                    merges_possible -= 1
-                    chunk_descriptions[-1][-1] += size
-                else:
-                    merges_possible = max_merges
-                    chunk_descriptions.append([offset, size])
-            else:
-                merges_possible = 0
+            # Turn into proper descriptions, with chunk indices/counts scaled with the chunk size.
+            chunk_descriptions = []
+            chunk_size = self._chunk_size
+            nitems = self._store["nitems"]
+            for x, nx in chunk_blocks:
+                offset = x * chunk_size
+                size = min(nx * chunk_size, nitems - offset)
+                chunk_descriptions.append((offset, size))
 
         # Reset
-        self._chunks_any_dirty = False
+        self._chunks_dirt_flag = 0
         self._chunk_mask.fill(False)
 
         return chunk_descriptions

@@ -165,15 +165,15 @@ class Texture(Resource):
 
         # Init chunks map
         if data is None:
-            self._chunks_any_dirty = False
+            self._chunks_dirt_flag = 0
             self._chunk_size = (0, 0, 0)
             self._chunk_mask = None
         elif the_nbytes == 0:
-            self._chunks_any_dirty = False
+            self._chunks_dirt_flag = 0
             self._chunk_size = (0, 0, 0)
             self._chunk_mask = np.ones((0, 0, 0), bool)
         else:
-            self._chunks_any_dirty = True
+            self._chunks_dirt_flag = 2
             self._chunk_size = chunk_size
             shape = tuple(ceil(the_size[i] / self._chunk_size[i]) for i in (2, 1, 0))
             self._chunk_mask = np.ones(shape, bool)
@@ -266,7 +266,7 @@ class Texture(Resource):
     def update_full(self):
         """Mark the whole data for upload."""
         self._chunk_mask.fill(True)
-        self._chunks_any_dirty = True
+        self._chunks_dirt_flag = 2
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
@@ -290,7 +290,7 @@ class Texture(Resource):
             full_slice if indices_z is None else (np.asarray(indices_z) // div[2])
         )
         self._chunk_mask[indices_z, indices_y, indices_x] = True
-        self._chunks_any_dirty = True
+        self._chunks_dirt_flag = 1
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
@@ -321,7 +321,7 @@ class Texture(Resource):
         self._chunk_mask[
             index_a[2] : index_b[2], index_a[1] : index_b[1], index_a[0] : index_b[0]
         ] = True
-        self._chunks_any_dirty = True
+        self._chunks_dirt_flag = 1
         Resource._rev += 1
         self._rev = Resource._rev
         self._gfx_mark_for_sync()
@@ -331,14 +331,14 @@ class Texture(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
-        # Quick return v1
-        if not self._chunks_any_dirty:
+        not_too_big_for_one_chunk = self.nbytes < 2**30
+
+        if not self._chunks_dirt_flag:
             return []
-
-        if self.nbytes < 2**30 and np.all(self._chunk_mask):
-            # Quick return v2
+        elif not_too_big_for_one_chunk and self._chunks_dirt_flag == 2:
             chunk_descriptions = [((0, 0, 0), self.size)]
-
+        elif not_too_big_for_one_chunk and np.all(self._chunk_mask):
+            chunk_descriptions = [((0, 0, 0), self.size)]
         else:
             # Get merged chunk blocks, using a smart algorithm.
             chunk_blocks = get_merged_blocks_from_mask_3d(self._chunk_mask)
@@ -361,7 +361,7 @@ class Texture(Resource):
                 chunk_descriptions.append((offset, size))
 
         # Reset
-        self._chunks_any_dirty = False
+        self._chunks_dirt_flag = False
         self._chunk_mask.fill(False)
 
         return chunk_descriptions

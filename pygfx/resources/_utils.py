@@ -151,8 +151,34 @@ class ChunkBlock:
         return self.nx, self.ny, self.nz
 
 
+def get_merged_blocks_from_mask_1d(chunk_mask):
+    """Algorithm to get a list of chunk descriptions from an 1D mask, with chunks merged.
+
+    Return list of (offset, size) tuples.
+    """
+
+    # Fill gaps
+    # chunk_mask[1:-1] |= chunk_mask[2:] & chunk_mask[:-2]
+
+    blocks = []
+    size = chunk_mask.size
+    i = 0
+    while i < size:
+        if chunk_mask[i]:
+            x = i
+            nx = 1
+            i += 1
+            while i < size and chunk_mask[i]:
+                nx += 1
+                i += 1
+            blocks.append((x, nx))
+        else:
+            i += 1
+    return blocks
+
+
 def get_merged_blocks_from_mask_3d(chunk_mask):
-    """Algorithm to get a list of chunk descriptions from the mask, with chunks merged.
+    """Algorithm to get a list of chunk descriptions from a 3D mask, with chunks merged.
 
     Returns a list of objects having fields x, y, z, nx, ny, nz.
     """
