@@ -157,9 +157,6 @@ def get_merged_blocks_from_mask_1d(chunk_mask):
     Return list of (offset, size) tuples.
     """
 
-    # Fill gaps
-    # chunk_mask[1:-1] |= chunk_mask[2:] & chunk_mask[:-2]
-
     blocks = []
     size = chunk_mask.size
     i = 0
@@ -211,9 +208,8 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
     if chunk_mask.shape[0] > 1:
         ndims = 3
 
-    # Fill gaps (benchmarks suggsest this does not help)
-    # chunk_mask[:, :, 1:-1] |= chunk_mask[:, :, 2:] & chunk_mask[:, :, :-2]
-    # chunk_mask[:, 1:-1, :] |= chunk_mask[:, 2:, :] & chunk_mask[:, :-2, :]
+    # Note: don't fill gaps between chunks; this only hurts performance!
+    # Even for the non-contiguous dimensions.
 
     # Get a mask to merge all chunks along a dim
     if ndims >= 2:
