@@ -10,9 +10,11 @@ from pygfx.resources._utils import (
 )
 
 
-def calculate_and_show_chunk_size(tex_size, **kwargs):
+def calculate_and_show_chunk_size(tex_size, target_chunk_count=20, **kwargs):
     """Function to print stats on the chunks. Helpful during dev."""
-    chunk_size = calculate_texture_chunk_size(tex_size, **kwargs)
+    chunk_size = calculate_texture_chunk_size(
+        tex_size, target_chunk_count=target_chunk_count, **kwargs
+    )
 
     nchunks_list = [ts / cs for ts, cs in zip(tex_size, chunk_size)]
     nchunks = ceil(nchunks_list[0]) * ceil(nchunks_list[1]) * ceil(nchunks_list[2])
@@ -69,14 +71,18 @@ def test_calculate_buffer_chunk_size():
 
     assert calculate_buffer_chunk_size(10) == 10
     assert calculate_buffer_chunk_size(100) == 100
-    assert calculate_buffer_chunk_size(100, min_chunk_size=10) == 16
+    assert calculate_buffer_chunk_size(100, min_chunk_bytes=10) == 16
 
-    assert calculate_buffer_chunk_size(1000) == 256
-    assert calculate_buffer_chunk_size(10000) == 512
+    assert calculate_buffer_chunk_size(1000, target_chunk_count=20) == 256
+    assert calculate_buffer_chunk_size(10000, target_chunk_count=20) == 512
 
-    assert calculate_buffer_chunk_size(12345) == 624
-    assert calculate_buffer_chunk_size(12345, byte_align=1) == 618
-    assert calculate_buffer_chunk_size(12345, byte_align=256) == 768
+    assert calculate_buffer_chunk_size(12345, target_chunk_count=20) == 624
+    assert (
+        calculate_buffer_chunk_size(12345, target_chunk_count=20, byte_align=1) == 618
+    )
+    assert (
+        calculate_buffer_chunk_size(12345, target_chunk_count=20, byte_align=256) == 768
+    )
 
 
 def test_chunk_size_dim1_bounds():
@@ -104,12 +110,12 @@ def test_chunk_size_dim1_bounds():
     ) == (131062, 1, 1)
 
     # Check giving min and max chunk size (the lower bound is approximate)
-    assert calculate_and_show_chunk_size((10_000, 1, 1), min_chunk_size=2**13) == (
+    assert calculate_and_show_chunk_size((10_000, 1, 1), min_chunk_bytes=2**13) == (
         5008,
         1,
         1,
     )
-    assert calculate_and_show_chunk_size((100_000, 1, 1), max_chunk_size=512) == (
+    assert calculate_and_show_chunk_size((100_000, 1, 1), max_chunk_bytes=512) == (
         512,
         1,
         1,
@@ -152,110 +158,128 @@ def test_chunk_size_dim1_align():
 def test_chunk_size_dim2_bounds():
     # Below lower bound
     assert calculate_and_show_chunk_size((10, 10, 1)) == (10, 10, 1)
-    assert calculate_and_show_chunk_size((20, 20, 1)) == (16, 10, 1)
+    assert calculate_and_show_chunk_size((20, 20, 1)) == (20, 10, 1)
     # Some scale cane be seen
-    assert calculate_and_show_chunk_size((100, 100, 1)) == (32, 15, 1)
-    assert calculate_and_show_chunk_size((1_000, 1_000, 1)) == (208, 200, 1)
+    assert calculate_and_show_chunk_size((100, 100, 1)) == (100, 5, 1)
+    assert calculate_and_show_chunk_size((1_000, 1_000, 1)) == (256, 50, 1)
 
     # Upper bound kicks in
-    assert calculate_and_show_chunk_size((10_000, 10_000, 1)) == (1008, 1000, 1)
-    assert calculate_and_show_chunk_size((100_000, 100_000, 1)) == (1024, 1021, 1)
+    assert calculate_and_show_chunk_size((10_000, 10_000, 1)) == (512, 500, 1)
+    assert calculate_and_show_chunk_size((100_000, 100_000, 1)) == (5008, 210, 1)
 
     # Max size is in bytes, and is affected by bytes_per_element as well
-    assert calculate_and_show_chunk_size(
-        (100_000, 100_000, 1), max_chunk_size=2**19
-    ) == (720, 725, 1)
-    assert calculate_and_show_chunk_size(
-        (100_000, 100_000, 1), bytes_per_element=2
-    ) == (720, 725, 1)
+    res = calculate_and_show_chunk_size((100_000, 100_000, 1), max_chunk_bytes=2**19)
+    assert res == (5008, 105, 1)
+    res = calculate_and_show_chunk_size((100_000, 100_000, 1), bytes_per_element=2)
+    assert res == (5000, 105, 1)
 
 
 def test_chunk_size_dim2_ratio():
     # Chunk sizes are more or less equal.
     # A ratio of 2 or so is to be expected due to rounding and alignment.
-    assert calculate_and_show_chunk_size((1000, 2000, 1)) == (256, 334, 1)
-    assert calculate_and_show_chunk_size((1000, 10000, 1)) == (512, 910, 1)
-    assert calculate_and_show_chunk_size((2000, 1000, 1)) == (400, 250, 1)
-    assert calculate_and_show_chunk_size((10000, 1000, 1)) == (1008, 500, 1)
+    assert calculate_and_show_chunk_size((1000, 2000, 1), bytes_per_element=64) == (
+        50,
+        100,
+        1,
+    )
+    assert calculate_and_show_chunk_size((1000, 10000, 1), bytes_per_element=64) == (
+        50,
+        323,
+        1,
+    )
+    assert calculate_and_show_chunk_size((2000, 1000, 1), bytes_per_element=64) == (
+        100,
+        50,
+        1,
+    )
+    assert calculate_and_show_chunk_size((10000, 1000, 1), bytes_per_element=64) == (
+        500,
+        33,
+        1,
+    )
 
 
 def test_chunk_size_dim2_align():
     # The first dimension is aligned, the second is not
     res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=1)
-    assert res == (256, 219, 1)
+    assert res == (256, 44, 1)
     res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=3)
-    assert res == (256, 219, 1)
+    assert res == (96, 44, 1)
     res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=2)
-    assert res == (248, 219, 1)
+    assert res == (128, 44, 1)
     res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=4)
-    assert res == (248, 219, 1)
+    assert res == (64, 44, 1)
     res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=8)
-    assert res == (248, 219, 1)
+    assert res == (62, 44, 1)
     res = calculate_and_show_chunk_size((1234, 876, 1), bytes_per_element=16)
-    assert res == (247, 219, 1)
+    assert res == (62, 44, 1)
 
 
 def test_chunk_size_dim3_bounds():
     # Below lower bound
     assert calculate_and_show_chunk_size((4, 4, 4)) == (4, 4, 4)
-    assert calculate_and_show_chunk_size((10, 10, 10)) == (10, 5, 5)
-    # Some scale cane be seen
-    assert calculate_and_show_chunk_size((20, 20, 20)) == (16, 5, 5)
-    assert calculate_and_show_chunk_size((100, 100, 100)) == (48, 25, 34)
+    assert calculate_and_show_chunk_size((10, 10, 10)) == (10, 10, 2)
+    # Some scale can be seen
+    assert calculate_and_show_chunk_size((20, 20, 20)) == (20, 10, 1)
+    assert calculate_and_show_chunk_size((100, 100, 100)) == (100, 5, 5)
 
     # Upper bound kicks in
-    assert calculate_and_show_chunk_size((1000, 1000, 1000)) == (112, 91, 100)
-    assert calculate_and_show_chunk_size((2000, 2000, 2000)) == (112, 96, 96)
+    assert calculate_and_show_chunk_size((1000, 1000, 1000)) == (1000, 50, 21)
+    assert calculate_and_show_chunk_size((2000, 2000, 2000)) == (2000, 100, 6)
 
     # Max size is in bytes, and is affected by bytes_per_element as well
-    assert calculate_and_show_chunk_size(
-        (2000, 2000, 2000), max_chunk_size=2**19
-    ) == (80, 80, 80)
-    assert calculate_and_show_chunk_size((2000, 2000, 2000), bytes_per_element=2) == (
-        80,
-        80,
-        80,
-    )
+    res = calculate_and_show_chunk_size((2000, 2000, 2000), max_chunk_bytes=2**19)
+    assert res == (2000, 100, 3)
+    res = calculate_and_show_chunk_size((2000, 2000, 2000), bytes_per_element=2)
+    assert res == (2000, 100, 3)
 
 
 def test_chunk_size_dim3_ratio():
     # Chunk sizes are more or less equal.
     # A ratio of 2 or so is to be expected due to rounding and alignment.
-    assert calculate_and_show_chunk_size((100, 200, 300)) == (64, 67, 60)
-    assert calculate_and_show_chunk_size((100, 200, 300), target_chunk_count=100) == (
-        48,
-        34,
-        34,
+    # The first dim is always full, in 3d
+    assert calculate_and_show_chunk_size((100, 200, 300), bytes_per_element=64) == (
+        100,
+        10,
+        15,
     )
-    assert calculate_and_show_chunk_size((1000, 2000, 3000)) == (112, 96, 97)
+    assert calculate_and_show_chunk_size(
+        (100, 200, 300), bytes_per_element=64, target_chunk_count=100
+    ) == (
+        100,
+        2,
+        3,
+    )
+    assert calculate_and_show_chunk_size((1000, 2000, 3000)) == (1000, 100, 11)
 
-    assert calculate_and_show_chunk_size((300, 200, 100)) == (80, 67, 50)
+    assert calculate_and_show_chunk_size((300, 200, 100)) == (300, 10, 5)
     assert calculate_and_show_chunk_size((300, 200, 100), target_chunk_count=100) == (
-        48,
-        40,
-        34,
+        300,
+        2,
+        1,
     )
-    assert calculate_and_show_chunk_size((3000, 2000, 1000)) == (112, 100, 100)
+    assert calculate_and_show_chunk_size((3000, 2000, 1000)) == (3000, 100, 4)
 
-    assert calculate_and_show_chunk_size((400, 100, 100)) == (80, 50, 50)
-    assert calculate_and_show_chunk_size((100, 400, 100)) == (64, 58, 50)
-    assert calculate_and_show_chunk_size((100, 100, 400)) == (64, 50, 58)
+    assert calculate_and_show_chunk_size((400, 100, 100)) == (400, 5, 5)
+    assert calculate_and_show_chunk_size((100, 400, 100)) == (100, 20, 5)
+    assert calculate_and_show_chunk_size((100, 100, 400)) == (100, 5, 20)
 
 
 def test_chunk_size_dim3_align():
     # The first dimension is aligned, the second is not
+    # Well, the first is always full anyway ...
     res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=1)
-    assert res == (48, 29, 22)
+    assert res == (121, 5, 4)
     res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=3)
-    assert res == (48, 29, 22)
+    assert res == (121, 5, 4)
     res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=2)
-    assert res == (48, 29, 22)
+    assert res == (121, 5, 4)
     res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=4)
-    assert res == (44, 29, 22)
+    assert res == (121, 5, 4)
     res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=8)
-    assert res == (42, 29, 22)
+    assert res == (121, 5, 4)
     res = calculate_and_show_chunk_size((121, 87, 65), bytes_per_element=16)
-    assert res == (41, 29, 22)
+    assert res == (121, 5, 4)
 
 
 def make_mask_3d(mask):
@@ -286,9 +310,11 @@ def test_chunk_merging_1d():
     # Merging is aggressive
     mask = [0, 0, 1, 1, 0, 1, 0]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
-    assert len(blocks) == 1
+    assert len(blocks) == 2
     assert blocks[0].get_offset() == (2, 0, 0)
-    assert blocks[0].get_size() == (4, 1, 1)
+    assert blocks[0].get_size() == (2, 1, 1)
+    assert blocks[1].get_offset() == (5, 0, 0)
+    assert blocks[1].get_size() == (1, 1, 1)
 
     # Two blocks
     mask = [1, 0, 0, 1, 1, 1, 1]
@@ -327,8 +353,8 @@ def test_chunk_merging_2d():
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
     assert len(blocks) == 1
-    assert blocks[0].get_offset() == (1, 1, 0)
-    assert blocks[0].get_size() == (2, 3, 1)
+    assert blocks[0].get_offset() == (0, 1, 0)
+    assert blocks[0].get_size() == (6, 3, 1)
 
     # Aggressive merging in x
     mask = [
@@ -342,7 +368,7 @@ def test_chunk_merging_2d():
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
     assert len(blocks) == 1
     assert blocks[0].get_offset() == (0, 1, 0)
-    assert blocks[0].get_size() == (4, 2, 1)
+    assert blocks[0].get_size() == (6, 2, 1)
 
     # Normal merging in y
     mask = [
@@ -355,12 +381,12 @@ def test_chunk_merging_2d():
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
     assert len(blocks) == 2
-    assert blocks[0].get_offset() == (1, 1, 0)
-    assert blocks[0].get_size() == (2, 1, 1)
-    assert blocks[1].get_offset() == (1, 3, 0)
-    assert blocks[1].get_size() == (2, 1, 1)
+    assert blocks[0].get_offset() == (0, 1, 0)
+    assert blocks[0].get_size() == (6, 1, 1)
+    assert blocks[1].get_offset() == (0, 3, 0)
+    assert blocks[1].get_size() == (6, 1, 1)
 
-    # To merge in y, blocks in x must exactly match
+    # Merging has some leeway
     mask = [
         [0, 0, 0, 0, 0, 0],
         [1, 0, 1, 1, 0, 0],
@@ -370,13 +396,11 @@ def test_chunk_merging_2d():
         [0, 0, 0, 0, 0, 0],
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
-    assert len(blocks) == 2
+    assert len(blocks) == 1
     assert blocks[0].get_offset() == (0, 1, 0)
-    assert blocks[0].get_size() == (4, 1, 1)
-    assert blocks[1].get_offset() == (0, 2, 0)
-    assert blocks[1].get_size() == (3, 1, 1)
+    assert blocks[0].get_size() == (6, 2, 1)
 
-    # To merge in y, blocks in x must exactly match, a sad use-case
+    # Dito
     mask = [
         [0, 0, 0, 0, 0, 0],
         [1, 1, 1, 0, 0, 0],
@@ -386,15 +410,11 @@ def test_chunk_merging_2d():
         [0, 0, 0, 0, 0, 0],
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
-    assert len(blocks) == 3
+    assert len(blocks) == 1
     assert blocks[0].get_offset() == (0, 1, 0)
-    assert blocks[0].get_size() == (3, 1, 1)
-    assert blocks[1].get_offset() == (0, 2, 0)
-    assert blocks[1].get_size() == (4, 1, 1)
-    assert blocks[2].get_offset() == (0, 3, 0)
-    assert blocks[2].get_size() == (3, 2, 1)
+    assert blocks[0].get_size() == (6, 4, 1)
 
-    # Four blocks
+    # Three blocks
     mask = [
         [1, 1, 0, 0, 1, 1, 1],
         [1, 1, 0, 0, 1, 0, 1],
@@ -404,15 +424,13 @@ def test_chunk_merging_2d():
         [0, 0, 0, 1, 1, 0, 0],
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
-    assert len(blocks) == 4
+    assert len(blocks) == 3
     assert blocks[0].get_offset() == (0, 0, 0)
-    assert blocks[0].get_size() == (2, 2, 1)
-    assert blocks[1].get_offset() == (4, 0, 0)
-    assert blocks[1].get_size() == (3, 2, 1)
-    assert blocks[2].get_offset() == (1, 3, 0)
-    assert blocks[2].get_size() == (2, 1, 1)
-    assert blocks[3].get_offset() == (3, 4, 0)
-    assert blocks[3].get_size() == (2, 2, 1)
+    assert blocks[0].get_size() == (7, 2, 1)
+    assert blocks[1].get_offset() == (0, 3, 0)
+    assert blocks[1].get_size() == (7, 1, 1)
+    assert blocks[2].get_offset() == (0, 4, 0)
+    assert blocks[2].get_size() == (7, 2, 1)
 
 
 def test_chunk_merging_3d():
@@ -446,8 +464,8 @@ def test_chunk_merging_3d():
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
     assert len(blocks) == 1
-    assert blocks[0].get_offset() == (1, 1, 1)
-    assert blocks[0].get_size() == (1, 1, 2)
+    assert blocks[0].get_offset() == (1, 0, 1)
+    assert blocks[0].get_size() == (1, 4, 2)
 
     # One larger block, plus aggressive merging in x
     mask = [
@@ -478,19 +496,17 @@ def test_chunk_merging_3d():
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
     assert len(blocks) == 1
-    assert blocks[0].get_offset() == (1, 1, 0)
-    assert blocks[0].get_size() == (4, 2, 3)
+    assert blocks[0].get_offset() == (0, 0, 0)
+    assert blocks[0].get_size() == (6, 4, 3)
 
-    # Flip one element to True, now there's two blocks
+    # Flip one element to True, extending the block
     mask[0][3][3] = 1
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
-    assert len(blocks) == 2
-    assert blocks[0].get_offset() == (1, 1, 0)
-    assert blocks[0].get_size() == (4, 2, 3)
-    assert blocks[1].get_offset() == (3, 3, 0)
-    assert blocks[1].get_size() == (1, 1, 1)
+    assert len(blocks) == 1
+    assert blocks[0].get_offset() == (0, 0, 0)
+    assert blocks[0].get_size() == (6, 4, 3)
 
-    # Four blocks, to merge, blocks must match in x and y
+    # Two blocks
     mask = [
         [
             [0, 0, 0, 0, 0, 0, 0, 0],
@@ -518,26 +534,27 @@ def test_chunk_merging_3d():
         ],
     ]
     blocks = get_merged_blocks_from_mask_3d(make_mask_3d(mask))
-    assert len(blocks) == 4
-    assert blocks[0].get_offset() == (1, 1, 0)
-    assert blocks[0].get_size() == (3, 2, 1)
-
-    assert blocks[1].get_offset() == (6, 2, 0)
-    assert blocks[1].get_size() == (2, 2, 4)
-
-    assert blocks[2].get_offset() == (1, 0, 1)
-    assert blocks[2].get_size() == (3, 3, 1)
-
-    assert blocks[3].get_offset() == (2, 0, 2)
-    assert blocks[3].get_size() == (2, 3, 1)
+    assert len(blocks) == 2
+    assert blocks[0].get_offset() == (0, 0, 0)
+    assert blocks[0].get_size() == (8, 4, 3)
+    assert blocks[1].get_offset() == (0, 0, 3)
+    assert blocks[1].get_size() == (8, 4, 1)
 
 
 if __name__ == "__main__":
-    # test_chunk_size_dim2_bounds()
-    # test_chunk_size_dim2_ratio()
-    # test_chunk_size_dim2_align()
-    #
-    # test_chunk_size_dim3_align()
+    test_calculate_buffer_chunk_size()
+
+    test_chunk_size_dim1_bounds()
+    test_chunk_size_dim1_coverage()
+    test_chunk_size_dim1_align()
+
+    test_chunk_size_dim2_bounds()
+    test_chunk_size_dim2_ratio()
+    test_chunk_size_dim2_align()
+
+    test_chunk_size_dim3_bounds()
+    test_chunk_size_dim3_ratio()
+    test_chunk_size_dim3_align()
 
     test_chunk_merging_1d()
     test_chunk_merging_2d()

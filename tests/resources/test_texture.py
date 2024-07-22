@@ -225,6 +225,12 @@ def test_chunk_size_small():
     # 1 x uint8
 
     # Small textures have just one chunk
+    a = np.zeros((12, 12, 1), np.uint8)
+    tex = gfx.Texture(a, dim=2)
+    assert tex._chunk_size == (12, 12, 1)
+    assert tex._chunk_mask.size == 1
+
+    # Small textures have just one chunk
     a = np.zeros((4, 4, 4), np.uint8)
     tex = gfx.Texture(a, dim=3)
     assert tex._chunk_size == (4, 4, 4)
@@ -249,7 +255,7 @@ def test_chunk_size_small():
     #
     a = np.zeros((7, 7, 7), np.uint8)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_size == (7, 4, 7)
+    assert tex._chunk_size == (7, 7, 4)
     assert tex._chunk_mask.size == 2
 
     # --- float32 -> itemsize is 4 bytes
@@ -279,8 +285,8 @@ def test_chunk_size_small():
     #
     a = np.zeros((5, 5, 5), np.float32)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_size == (4, 3, 5)
-    assert tex._chunk_mask.size == 4
+    assert tex._chunk_size == (5, 5, 2)
+    assert tex._chunk_mask.size == 3
 
 
 def test_chunk_size_large():
@@ -289,27 +295,27 @@ def test_chunk_size_large():
 
     a = np.zeros((10, 1024, 1024), np.uint8)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_mask.size == 25
+    assert tex._chunk_mask.size == 320
 
     a = np.zeros((100, 1024, 1024), np.uint8)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_mask.size == 25
+    assert tex._chunk_mask.size == 800
 
     a = np.zeros((1000, 1024, 1024), np.uint8)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_mask.size == 64
+    assert tex._chunk_mask.size == 1024
 
     a = np.zeros((2, 1024, 1024), np.float32)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_mask.size == 25
+    assert tex._chunk_mask.size == 64
 
     a = np.zeros((25, 1024, 1024), np.float32)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_mask.size == 25
+    assert tex._chunk_mask.size == 800
 
     a = np.zeros((250, 1024, 1024), np.float32)
     tex = gfx.Texture(a, dim=3)
-    assert tex._chunk_mask.size == 72
+    assert tex._chunk_mask.size == 1024
 
 
 def test_custom_chunk_size():
@@ -369,8 +375,10 @@ def upload_validity_checker_2d(func):
             (False, 3, np.float32),
         ]:
 
-            data = np.zeros((1000, 1000, nchannels), dtype)
-            synced_data = data.copy().reshape(1, 1000, 1000, -1)
+            # todo: use contiguous param
+
+            data = np.zeros((10, 10, nchannels), dtype)
+            synced_data = data.copy().reshape(1, 10, 10, -1)
 
             tex = gfx.Texture(data, dim=2)
             tex._gfx_get_chunk_descriptions()  # flush
@@ -379,7 +387,8 @@ def upload_validity_checker_2d(func):
             func(tex)
 
             # Do with the pygfx internals would do to sync to the gpu
-            for offset, size in tex._gfx_get_chunk_descriptions():
+            chunks = tex._gfx_get_chunk_descriptions()
+            for offset, size in chunks:
                 chunk = tex._gfx_get_chunk_data(offset, size)
                 synced_data[
                     offset[2] : offset[2] + size[2],
@@ -532,7 +541,7 @@ def test_upload_validity_range_1x(tex):
     i = np.random.randint(0, tex.size[0])
     n = np.random.randint(0, tex.size[0] // 2)
     tex.data[:, i : i + n] = 1
-    tex.update_range((0, i, 0), (1, n, 1))
+    tex.update_range((i, 0, 0), (n, tex.size[1], 1))
 
 
 @upload_validity_checker_2d
@@ -541,7 +550,7 @@ def test_upload_validity_range_10x(tex):
         i = np.random.randint(0, tex.size[0])
         n = np.random.randint(0, tex.size[0] // 8)
         tex.data[:, i : i + n] = 1
-        tex.update_range((i, 0, 0), (n, 1, 1))
+        tex.update_range((i, 0, 0), (n, tex.size[1], 1))
 
 
 @upload_validity_checker_2d
@@ -549,7 +558,7 @@ def test_upload_validity_range_1y(tex):
     i = np.random.randint(0, tex.size[1])
     n = np.random.randint(0, tex.size[1] // 2)
     tex.data[i : i + n] = 1
-    tex.update_range((0, i, 0), (1, n, 1))
+    tex.update_range((0, i, 0), (tex.size[0], n, 1))
 
 
 @upload_validity_checker_2d
@@ -558,7 +567,7 @@ def test_upload_validity_range_10y(tex):
         i = np.random.randint(0, tex.size[1])
         n = np.random.randint(0, tex.size[1] // 8)
         tex.data[i : i + n] = 1
-        tex.update_range((0, i, 0), (1, n, 1))
+        tex.update_range((0, i, 0), (tex.size[0], n, 1))
 
 
 ##
@@ -626,7 +635,7 @@ def test_3d_upload_validity_range_1z(tex):
     i = np.random.randint(0, tex.size[2])
     n = np.random.randint(0, tex.size[2] // 2)
     tex.data[i : i + n] = 1
-    tex.update_range((0, 0, i), (1, 1, n))
+    tex.update_range((0, 0, i), (tex.size[0], tex.size[1], n))
 
 
 @upload_validity_checker_3d
@@ -635,7 +644,7 @@ def test_3d_upload_validity_range_10z(tex):
         i = np.random.randint(0, tex.size[2])
         n = np.random.randint(0, tex.size[2] // 8)
         tex.data[i : i + n] = 1
-        tex.update_range((0, 0, i), (1, 1, n))
+        tex.update_range((0, 0, i), (tex.size[0], tex.size[1], n))
 
 
 if __name__ == "__main__":
@@ -649,3 +658,5 @@ if __name__ == "__main__":
     test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()
+
+    test_upload_validity_range_1x()

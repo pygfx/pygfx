@@ -75,7 +75,13 @@ def calculate_texture_chunk_size(
     element_align = get_alignment_multiplier(bytes_per_element, byte_align)
 
     min_chunk_size_x = int(min_chunk_bytes / bytes_per_element)
-    min_chunk_sizes = [min_chunk_size_x, max(1, int(min_chunk_size_x / tex_size[0]), 1)]
+    min_chunk_sizes = [
+        min_chunk_size_x,
+        max(1, int(min_chunk_size_x / tex_size[0])),
+        max(1, int(min_chunk_size_x / tex_size[0] / tex_size[1])),
+    ]
+
+    max_chunk_elements = max_chunk_bytes / bytes_per_element
 
     # Prepare result
     chunk_size = [1, 1, 1]
@@ -84,23 +90,26 @@ def calculate_texture_chunk_size(
         min_chunk_size = min_chunk_sizes[index]
         max_chunk_size = tex_size[index]
 
-        # approx_chunk_size = max_chunk_size / target_chunk_count
-
-        # # Get the approximate chunk count, and snap the approximate
-        # # chunk_size to it. This is to have a more or less equal
-        # # distribution of the chunks (i.e. avoiding a half-chunk at the
-        # # end). Note that we don't try to get an exact integer number of
-        # # chunks, becaus this_might be hard/impossible (max_chunk_size might
-        # # be a prime number). A ceil works better here, otherwise a chunk size
-        # # can easily snap to the full size for smaller dimensions.
-        # approx_chunk_count = ceil(max_chunk_size / approx_chunk_size)
-        # approx_chunk_size = max_chunk_size / approx_chunk_count
+        # Get approximate chunk size, with limits applied
         approx_chunk_size = max_chunk_size / target_chunk_count
+        approx_chunk_size = min(approx_chunk_size, max_chunk_elements)
+        approx_chunk_size = max(approx_chunk_size, min_chunk_size)
+
+        # Get the approximate chunk count, and snap the approximate
+        # chunk_size to it. This is to have a more or less equal
+        # distribution of the chunks (i.e. avoiding a half-chunk at the
+        # end). Note that we don't try to get an exact integer number of
+        # chunks, becaus this_might be hard/impossible (max_chunk_size might
+        # be a prime number). A ceil works better here, otherwise a chunk size
+        # can easily snap to the full size for smaller dimensions.
+        approx_chunk_count = ceil(max_chunk_size / approx_chunk_size)
+        approx_chunk_size = max_chunk_size / approx_chunk_count
+
         if index == 0:
             # Special care for x
+            # If the texture is 3D, taking non-full rows (in x) is doubly-non-contiguous.
+            # Benchmarks have shown that its better to not chunk in x in this case.
             if tex_size[2] > 1:
-                # If the texture is 3D, taking non-full rows (in x) is doubly-non-contiguous.
-                # Benchmarks have shown that its better to not chunk in x in this case.
                 this_chunk_size = tex_size[index]
             else:
                 this_chunk_size = (
@@ -109,12 +118,13 @@ def calculate_texture_chunk_size(
         else:
             this_chunk_size = ceil(approx_chunk_size)
 
-        # Apply limits
-        this_chunk_size = min(max_chunk_size, max(min_chunk_size, this_chunk_size))
-        # this_chunk_count = max_chunk_size / this_chunk_size  # precise, but possibly float
+        # Apply final limits
+        this_chunk_size = min(max_chunk_size, max(1, this_chunk_size))
 
         # Save
         chunk_size[index] = this_chunk_size
+        max_chunk_elements /= this_chunk_size
+
     return tuple(chunk_size)
 
 
@@ -130,6 +140,9 @@ class ChunkBlock:
         self.nx = 1
         self.ny = 1
         self.nz = 1
+
+    def __repr__(self):
+        return f"<Chunkblock ({self.x}, {self.y}, {self.z}), ({self.nx}, {self.ny}, {self.nz})>"
 
     def get_offset(self):
         return self.x, self.y, self.z
@@ -165,8 +178,6 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
 
     chunk_count_z, chunk_count_y, chunk_count_x = chunk_mask.shape
 
-    chunks = []
-
     # Get dimensionality, so we know whether to more agrressily merge chunks to get a contiguous chunk.
     ndims = 1
     if chunk_mask.shape[1] > 1:
@@ -174,11 +185,17 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
     if chunk_mask.shape[0] > 1:
         ndims = 3
 
+    # Fill gaps (benchmarks suggsest this does not help)
+    # chunk_mask[:, :, 1:-1] |= chunk_mask[:, :, 2:] & chunk_mask[:, :, :-2]
+    # chunk_mask[:, 1:-1, :] |= chunk_mask[:, 2:, :] & chunk_mask[:, :-2, :]
+
     # Get a mask to merge all chunks along a dim
     if ndims >= 2:
-        mask_x = chunk_mask.sum(axis=2) >= 0.125 * chunk_count_x
+        mask_x = chunk_mask.sum(axis=2) >= 0.25 * chunk_count_x
     if ndims == 3:
-        mask_y = chunk_mask.sum(axis=1) >= 0.125 * chunk_count_y
+        mask_y = chunk_mask.sum(axis=1) >= 0.25 * chunk_count_y
+
+    chunks = []
 
     while True:
         # Get start of next block
@@ -195,12 +212,8 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
             still_changing = False
 
             # Extend chunk in x-dimension
-            if ndims >= 2 and mask_x[z, y]:
-                if not (x == 0 and nx == chunk_count_x):
-                    x, nx = 0, chunk_count_x
-                    still_changing = True
-            elif x + nx < chunk_count_x:
-                extra = chunk_mask[z : z + nz, y : y + ny, x : x + nx : x + nx + 1]
+            while x + nx < chunk_count_x:
+                extra = chunk_mask[z : z + nz, y : y + ny, x + nx : x + nx + 1]
                 count = np.count_nonzero(extra)
                 if count >= 0.5 * ny * nz:
                     nx += 1
@@ -208,15 +221,8 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
                 else:
                     break
 
-            if ndims >= 2 and nx >= 0.125 * chunk_count_x:
-                x, nx = 0, chunk_count_x
-
             # Extend chunk in y-dimension
-            if ndims == 3 and mask_y[z, x]:
-                if not (y == 0 and ny == chunk_count_y):
-                    y, ny = 0, chunk_count_y
-                    still_changing = True
-            elif y + ny < chunk_count_y:
+            while y + ny < chunk_count_y:
                 extra = chunk_mask[z : z + nz, y + ny : y + ny + 1, x : x + nx]
                 count = np.count_nonzero(extra)
                 if count >= 0.5 * nx * nz:
@@ -225,11 +231,8 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
                 else:
                     break
 
-            if ndims == 3 and ny >= 0.125 * chunk_count_y:
-                y, ny = 0, chunk_count_y
-
             # Extend chunk in z-dimension
-            if z + nz < chunk_count_z:
+            while z + nz < chunk_count_z:
                 extra = chunk_mask[z + nz : z + nz + 1, y : y + ny, x : x + nx]
                 count = np.count_nonzero(extra)
                 if count >= 0.5 * nx * ny:
@@ -237,6 +240,14 @@ def get_merged_blocks_from_mask_3d(chunk_mask):
                     still_changing = True
                 else:
                     break
+
+        # Extend to full size if its sufficiently filled
+        if ndims >= 2:
+            if mask_x[z, y] or nx >= 0.25 * chunk_count_x:
+                x, nx = 0, chunk_count_x
+        if ndims == 3:
+            if mask_y[z, x] or ny >= 0.25 * chunk_count_y:
+                y, ny = 0, chunk_count_y
 
         # Create the detected chunk
         chunk = ChunkBlock(x, y, z)

@@ -147,9 +147,7 @@ class Buffer(Resource):
                 the_nitems,
                 bytes_per_element=the_nbytes // the_nitems,
                 byte_align=16,
-                target_chunk_count=20,
-                min_chunk_size=2**8,
-                max_chunk_size=2**20,
+                target_chunk_count=32,
             )
         else:
             chunk_size = min(max(int(chunk_size), 1), the_nitems)
