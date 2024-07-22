@@ -335,13 +335,11 @@ class Buffer(Resource):
         used in _gfx_get_chunk_data(). This method also clears
         the chunk dirty statuses.
         """
-        not_too_big_for_one_chunk = self.nbytes < 2**30
-
         if not self._chunks_dirt_flag:
             return []
-        elif not_too_big_for_one_chunk and self._chunks_dirt_flag == 2:
+        elif self._chunks_dirt_flag == 2:
             chunk_descriptions = [(0, self.nitems)]
-        elif not_too_big_for_one_chunk and np.all(self._chunk_mask):
+        elif np.all(self._chunk_mask):
             chunk_descriptions = [(0, self.nitems)]
         else:
             # Get merged chunk blocks, using a smart algorithm.
@@ -359,7 +357,6 @@ class Buffer(Resource):
         # Reset
         self._chunks_dirt_flag = 0
         self._chunk_mask.fill(False)
-
         return chunk_descriptions
 
     def _gfx_get_chunk_data(self, offset, size):
