@@ -126,6 +126,10 @@ class Buffer(Resource):
                 "Buffer must be instantiated with either data or nbytes and nitems."
             )
 
+        # Check size
+        if the_nitems == 0:
+            raise ValueError("Buffer size cannot be zero.")
+
         # Store derived props
         self._store.nbytes = the_nbytes
         self._store.nitems = the_nitems

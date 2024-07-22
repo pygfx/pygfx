@@ -124,13 +124,15 @@ class Texture(Resource):
         elif size is not None and format is not None:
             the_size = size
             the_nbytes = 0
-            if not all(size[i] > 0 for i in range(3)):
-                raise ValueError("Texture size cannot be zero.")
             detected_format = None
         else:
             raise ValueError(
                 "Texture must be instantiated with either data or size and format."
             )
+
+        # Check size
+        if not all(the_size[i] > 0 for i in range(3)):
+            raise ValueError("Texture size cannot be zero.")
 
         # Store derived props
         self._store.nbytes = the_nbytes
