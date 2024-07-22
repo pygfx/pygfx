@@ -4,17 +4,14 @@ import pytest
 
 
 def test_empty_data():
-    b = gfx.Buffer(np.zeros((0, 3), np.float32))
-    assert b.draw_range == (0, 0)
-    assert b.itemsize == 3 * 4
+    with pytest.raises(ValueError):
+        gfx.Buffer(np.zeros((0, 3), np.float32))
 
-    b = gfx.Buffer(np.zeros((0,), np.float32))
-    assert b.draw_range == (0, 0)
-    assert b.itemsize == 4
+    with pytest.raises(ValueError):
+        gfx.Buffer(np.zeros((0,), np.float32))
 
-    b = gfx.Buffer(np.zeros((0, 4, 5), np.float32))
-    assert b.draw_range == (0, 0)
-    assert b.itemsize == 20 * 4
+    with pytest.raises(ValueError):
+        gfx.Buffer(np.zeros((0, 4, 5), np.float32))
 
 
 def test_nonempty_data():
