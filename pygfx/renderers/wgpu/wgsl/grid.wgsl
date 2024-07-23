@@ -40,6 +40,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         let distance_cam_to_grid = abs(cam_k); // == distance(cam_pos, cam_pos_on_grid);
         // let distance_cam_to_grid = abs(p0.y - cam_pos.y);  // debug: only works for xz plane.
 
+
+
         // The closer the camera is to the plane, the less space you need to
         // make the horizon look really far away. Scaling too hard will
         // introduce fluctuation artifacts due to inaccurate float arithmatic.
@@ -64,9 +66,21 @@ fn vs_main(in: VertexInput) -> Varyings {
         //  | / /           \\|
         //  x-----------------x
 
+        // Get scale multiplier for near quad.
+        // With an orthographic camera, we use the scale factors for x and y (camera width and height).
+        // For perspective cameras we use the distance to the plane and assume an aspect ratio of 1.
+        var near_multiplier = vec2<f32>(1.0);
+        if is_orthographic() {
+            near_multiplier = vec2<f32>(
+                1.0 / u_stdinfo.projection_transform[0][0],
+                1.0 / u_stdinfo.projection_transform[1][1]
+            );
+        } else {
+            near_multiplier = vec2<f32>(5.0 * distance_cam_to_grid);
+        }
 
-        let near_multiplier = 5.0 * distance_cam_to_grid;
-        let far_multiplier = 1000.0 * distance_cam_to_grid;
+        // The far quad is simply 200x further
+        let far_multiplier = 200.0 * near_multiplier;
 
         let far_scale = 2.0;
         var grid_coords = array<vec2<f32>,8>(
@@ -90,7 +104,8 @@ fn vs_main(in: VertexInput) -> Varyings {
         // Select the grid coord for this vertex. We express it with coord1 and
         // coord2, to avoid confusion with xyz world coordinates. By default the
         // plane is in the xz plane (normal to the y-axis).
-        let vertex_grid_coord: vec2<f32> = grid_coords[coord_indices[i32(in.index)]];
+        let index = i32(in.index);
+        let vertex_grid_coord: vec2<f32> = grid_coords[coord_indices[index]];
         let coord1 = vertex_grid_coord.x;
         let coord2 = vertex_grid_coord.y;
 
