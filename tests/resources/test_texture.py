@@ -452,8 +452,17 @@ def upload_validity_checker_3d(func):
             (False, 3, np.float32),
         ]:
 
-            data = np.zeros((400, 300, 200, nchannels), dtype)
-            synced_data = data.copy()
+            if contiguous:
+                data = np.zeros((40, 30, 20, nchannels), dtype)
+            else:
+                data = np.zeros((40, 30, 20, nchannels + 1), dtype)[:, :, :, :nchannels]
+
+            if nchannels != 3:
+                synced_data = data.copy()
+            else:
+                # Include rgb enumlation support
+                synced_data = np.zeros((40, 30, 20, nchannels + 1), data.dtype)
+                synced_data[:, :, :, :nchannels] = data
 
             tex = gfx.Texture(data, dim=3)
             tex._gfx_get_chunk_descriptions()  # flush
@@ -471,7 +480,7 @@ def upload_validity_checker_3d(func):
                 ] = chunk
 
             # Check
-            assert np.all(tex.data == synced_data)
+            assert np.all(tex.data == synced_data[:, :, :, :nchannels])
 
     wrapper.__name__ = func.__name__
     return wrapper
@@ -697,3 +706,4 @@ if __name__ == "__main__":
     test_rgb_support()
 
     test_upload_validity_range_1x()
+    test_3d_upload_validity_full1()
