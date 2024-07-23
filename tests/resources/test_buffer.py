@@ -312,6 +312,26 @@ def test_contiguous():
     assert chunk is buf.view
 
 
+def test_endianness():
+    data1 = np.random.uniform(size=(10,)).astype("<f4")
+    data2 = data1.astype(">f4")
+
+    buf1 = gfx.Buffer(data1)
+    buf2 = gfx.Buffer(data2)
+
+    chunk1 = buf1._gfx_get_chunk_data(0, 10)
+    chunk2 = buf2._gfx_get_chunk_data(0, 10)
+
+    assert data2.dtype.byteorder == ">"
+    assert chunk2.dtype.byteorder == "<"
+    assert np.all(chunk1 == chunk2)
+
+    # Little endian support is for convenience, but forbidden when performance matters
+    gfx.Buffer(data1, force_contiguous=True)
+    with pytest.raises(ValueError):
+        gfx.Buffer(data2, force_contiguous=True)
+
+
 # %% Upload validity tests
 
 
@@ -459,6 +479,7 @@ if __name__ == "__main__":
     test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()
+    test_endianness()
 
     test_upload_validity_full1()
     test_upload_validity_full2()

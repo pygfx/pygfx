@@ -359,6 +359,26 @@ def test_contiguous():
     assert chunk is tex.view
 
 
+def test_endianness():
+    data1 = np.random.uniform(size=(10, 10)).astype("<f4")
+    data2 = data1.astype(">f4")
+
+    tex1 = gfx.Texture(data1, dim=2)
+    tex2 = gfx.Texture(data2, dim=2)
+
+    chunk1 = tex1._gfx_get_chunk_data((0, 0, 0), (1, 10, 10))
+    chunk2 = tex2._gfx_get_chunk_data((0, 0, 0), (1, 10, 10))
+
+    assert data2.dtype.byteorder == ">"
+    assert chunk2.dtype.byteorder == "<"
+    assert np.all(chunk1 == chunk2)
+
+    # Little endian support is for convenience, but forbidden when performance matters
+    gfx.Texture(data1, dim=2, force_contiguous=True)
+    with pytest.raises(ValueError):
+        gfx.Texture(data2, dim=2, force_contiguous=True)
+
+
 def test_rgb_support():
 
     # 1D
@@ -703,6 +723,7 @@ if __name__ == "__main__":
     test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()
+    test_endianness()
     test_rgb_support()
 
     test_upload_validity_range_1x()

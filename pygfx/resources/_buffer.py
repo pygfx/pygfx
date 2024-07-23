@@ -6,6 +6,9 @@ from ._utils import (
     get_element_format_from_numpy_array,
     calculate_buffer_chunk_size,
     get_merged_blocks_from_mask_1d,
+    check_data_is_clean_for_performance,
+    is_little_endian,
+    make_little_endian,
     logger,
 )
 
@@ -88,10 +91,8 @@ class Buffer(Resource):
             # The view is a numpy array, but we go via memoryview to ensure data follows the buffer protocol.
             self._data = data
             self._view = view = np.asarray(memoryview(data))
-            if self._force_contiguous and not view.flags.c_contiguous:
-                raise ValueError(
-                    "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
-                )
+            if self._force_contiguous:
+                check_data_is_clean_for_performance("buffer", view)
             the_nbytes = view.nbytes
             if nbytes is not None and int(nbytes) != the_nbytes:
                 raise ValueError("Given nbytes does not match size of given data.")
@@ -268,10 +269,8 @@ class Buffer(Resource):
         # Get view
         view = np.asarray(memoryview(data))
         # Do couple of checks
-        if self._force_contiguous and not view.flags.c_contiguous:
-            raise ValueError(
-                "Given buffer data is not c_contiguous (enforced because force_contiguous is set)."
-            )
+        if self._force_contiguous:
+            check_data_is_clean_for_performance("buffer", view)
         if view.nbytes != self._view.nbytes:
             raise ValueError("buffer.set_data() nbytes does not match.")
         if view.dtype != self._view.dtype:
@@ -361,18 +360,27 @@ class Buffer(Resource):
 
     def _gfx_get_chunk_data(self, offset, size):
         """Return subdata as a contiguous array."""
-        if offset == 0 and size == self.nitems and self._view.flags.c_contiguous:
-            # If this is a full range, this is easy (and fast)
+
+        # Get chunk
+        if offset == 0 and size == self.nitems:
             chunk = self._view
         else:
-            # Otherwise, create a view, make a copy if its not contiguous.
             chunk = self._view[offset : offset + size]
-            if not chunk.flags.c_contiguous:
-                if self._force_contiguous:
-                    logger.warning(
-                        "force_contiguous was set, but chunk data is still discontiguous"
-                    )
-                chunk = np.ascontiguousarray(chunk)
+
+        # Normalize the chunk
+        if not is_little_endian(chunk):
+            chunk = make_little_endian(chunk)
+            if self._force_contiguous:
+                logger.warning(
+                    "force_contiguous was set, but chunk data is still big endian"
+                )
+        elif not chunk.flags.c_contiguous:
+            if self._force_contiguous:
+                logger.warning(
+                    "force_contiguous was set, but chunk data is still discontiguous"
+                )
+            chunk = np.ascontiguousarray(chunk)
+
         return chunk
 
 

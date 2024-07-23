@@ -7,6 +7,9 @@ from ._utils import (
     get_element_format_from_numpy_array,
     calculate_texture_chunk_size,
     get_merged_blocks_from_mask_3d,
+    check_data_is_clean_for_performance,
+    is_little_endian,
+    make_little_endian,
     logger,
 )
 
@@ -110,10 +113,8 @@ class Texture(Resource):
             # The view is a numpy array, but we go via memoryview to ensure data follows the buffer protocol.
             self._data = data
             self._view = view = np.asarray(memoryview(data))
-            if self._force_contiguous and not view.flags.c_contiguous:
-                raise ValueError(
-                    "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
-                )
+            if self._force_contiguous:
+                check_data_is_clean_for_performance("texture", view)
             the_nbytes = view.nbytes
             # Establish texture size
             if size is not None:
@@ -266,10 +267,8 @@ class Texture(Resource):
         # Get view
         view = np.asarray(memoryview(data))
         # Do couple of checks
-        if self._force_contiguous and not view.flags.c_contiguous:
-            raise ValueError(
-                "Given texture data is not c_contiguous (enforced because force_contiguous is set)."
-            )
+        if self._force_contiguous:
+            check_data_is_clean_for_performance("texture", view)
         if view.nbytes != self._view.nbytes:
             raise ValueError("texture.set_data() nbytes does not match.")
         if view.dtype != self._view.dtype:
@@ -387,11 +386,10 @@ class Texture(Resource):
         """Return subdata as a contiguous array."""
         full_size = self._store["size"]
         emulate_rgb = self._wgpu_emulate_rgb
+
+        # Get chunk
         if offset == (0, 0, 0) and size == full_size and not emulate_rgb:
-            if self._view.flags.c_contiguous:
-                chunk = self._view  # hooray, the fastest path!
-            else:
-                chunk = np.ascontiguousarray(self._view)
+            chunk = self._view
         else:
             # Calculate slice
             slice_per_dim = []
@@ -411,9 +409,17 @@ class Texture(Resource):
                 padded_chunk = np.full(padded_shape, pad_value, dtype=chunk.dtype)
                 padded_chunk[:, :, :, :nchannels] = chunk
                 chunk = padded_chunk
-            elif not chunk.flags.c_contiguous:
-                # Easily happens when slicing in anything but the last dimension
-                chunk = np.ascontiguousarray(chunk)
+
+        # Normalize chunk
+        if not is_little_endian(chunk):
+            chunk = make_little_endian(chunk)
+            if self._force_contiguous:
+                logger.warning(
+                    "force_contiguous was set, but chunk data is still big endian"
+                )
+        elif not chunk.flags.c_contiguous:
+            # Easily happens when slicing in anything but the last dimension
+            chunk = np.ascontiguousarray(chunk)
 
         return chunk
 

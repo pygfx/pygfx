@@ -1,6 +1,7 @@
 """Utils for the Buffer and Texture classes."""
 
 import time
+import sys
 import logging
 from math import ceil, log2
 
@@ -30,6 +31,37 @@ def get_element_format_from_numpy_array(array):
         )
 
     return array.dtype.str.lstrip("<>=|")
+
+
+SYS_ENDIANNESS = "<" if sys.byteorder == "little" else ">"
+
+
+def is_little_endian(arr):
+    """Get whether the given array is little endian."""
+    byteorder = arr.dtype.byteorder
+    if byteorder == "=":
+        byteorder = SYS_ENDIANNESS
+    elif byteorder == "|":  # single-byte dtype
+        byteorder = "<"
+    return byteorder == "<"
+
+
+def make_little_endian(arr):
+    """Get a copy of the array that has the same dtype but little endian."""
+    return arr.astype(arr.dtype.newbyteorder("<"))
+
+
+def check_data_is_clean_for_performance(kind, arr):
+    """Check that data is c_contiguous and little endian. Raise an error if not."""
+    missing_props = []
+    if not is_little_endian(arr):
+        missing_props.append("little endian")
+    if not arr.flags.c_contiguous:
+        missing_props.append("c_contiguous")
+    if missing_props:
+        raise ValueError(
+            f"Given {kind} data is not {', '.join(missing_props)} (enforced because force_contiguous is set)."
+        )
 
 
 def get_alignment_multiplier(bytes_per_element=1, align=16):
