@@ -43,8 +43,8 @@ class Ruler(WorldObject):
 
         # Create a line and poins object, with a shared geometry
         geometry = Geometry(
-            positions=np.zeros((0, 3), np.float32),
-            sizes=np.zeros((0,), np.float32),
+            positions=np.zeros((1, 3), np.float32),
+            sizes=np.zeros((1,), np.float32),
         )
         self._line = Line(geometry, LineMaterial(color="w", thickness=2))
         self._points = Points(geometry, PointsMaterial(color="w", size_mode="vertex"))
