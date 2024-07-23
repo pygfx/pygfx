@@ -171,7 +171,7 @@ class Buffer(Resource):
         """The data for this buffer.
 
         Can be None if the data only exists on the GPU. This object is the same
-        that was given to instantiate this object or with ``set_data()`.
+        that was given to instantiate this object or with ``set_data()``.
         """
         return self._data
 
