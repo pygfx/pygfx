@@ -186,7 +186,7 @@ class WorldObject(EventTarget, RootTrackable):
     def _update_uniform_buffers(self, transform: AffineBase):
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
-        self.uniform_buffer.update_range()
+        self.uniform_buffer.update_full()
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"

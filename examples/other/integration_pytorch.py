@@ -551,7 +551,7 @@ class SceneHandler:
             else:
                 c_pred = SceneHandler._get_vertex_colors_from_k(k=mesh_data.pred_k)
                 SceneHandler._scene_state.pred_mesh.geometry.colors.data[:] = c_pred
-                SceneHandler._scene_state.pred_mesh.geometry.colors.update_range()
+                SceneHandler._scene_state.pred_mesh.geometry.colors.update_full()
         except queue.Empty:
             pass
 

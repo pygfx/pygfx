@@ -75,7 +75,7 @@ class MeshAbstractMaterial(Material):
     def color(self, color):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
@@ -256,7 +256,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
             self.uniform_buffer.data["wireframe"] = thickness
         else:
             self.uniform_buffer.data["wireframe"] = -thickness
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def wireframe_thickness(self):
@@ -270,7 +270,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
             self.uniform_buffer.data["wireframe"] = value
         else:
             self.uniform_buffer.data["wireframe"] = -value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def flat_shading(self):
@@ -298,7 +298,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @reflectivity.setter
     def reflectivity(self, value):
         self.uniform_buffer.data["reflectivity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def refraction_ratio(self):
@@ -310,7 +310,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @refraction_ratio.setter
     def refraction_ratio(self, value):
         self.uniform_buffer.data["refraction_ratio"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def env_combine_mode(self):
@@ -368,7 +368,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @light_map_intensity.setter
     def light_map_intensity(self, value):
         self.uniform_buffer.data["light_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def ao_map(self):
@@ -390,7 +390,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @ao_map_intensity.setter
     def ao_map_intensity(self, value):
         self.uniform_buffer.data["ao_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
@@ -477,7 +477,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def specular(self):
@@ -489,7 +489,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     def specular(self, color):
         color = Color(color)
         self.uniform_buffer.data["specular_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def shininess(self):
@@ -501,7 +501,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     @shininess.setter
     def shininess(self, value):
         self.uniform_buffer.data["shininess"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
 
@@ -559,7 +559,7 @@ class MeshNormalLinesMaterial(MeshAbstractMaterial):
     @line_length.setter
     def line_length(self, value):
         self.uniform_buffer.data["line_length"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class MeshSliceMaterial(MeshAbstractMaterial):
@@ -602,7 +602,7 @@ class MeshSliceMaterial(MeshAbstractMaterial):
     @plane.setter
     def plane(self, plane):
         self.uniform_buffer.data["plane"] = plane
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def thickness(self):
@@ -612,7 +612,7 @@ class MeshSliceMaterial(MeshAbstractMaterial):
     @thickness.setter
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class MeshStandardMaterial(MeshBasicMaterial):
@@ -699,7 +699,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def emissive_map(self):
@@ -731,7 +731,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @emissive_intensity.setter
     def emissive_intensity(self, value):
         self.uniform_buffer.data["emissive_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def metalness(self):
@@ -746,7 +746,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @metalness.setter
     def metalness(self, value):
         self.uniform_buffer.data["metalness"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def metalness_map(self):
@@ -769,7 +769,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @roughness.setter
     def roughness(self, value):
         self.uniform_buffer.data["roughness"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def roughness_map(self):
@@ -792,7 +792,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @normal_scale.setter
     def normal_scale(self, value):
         self.uniform_buffer.data["normal_scale"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def normal_map(self):
@@ -836,7 +836,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
             width, height, _ = map.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def env_map_intensity(self):
@@ -848,4 +848,4 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @env_map_intensity.setter
     def env_map_intensity(self, value):
         self.uniform_buffer.data["env_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()

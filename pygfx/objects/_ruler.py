@@ -412,8 +412,8 @@ class Ruler(WorldObject):
             # Re-use existing buffers
             positions = self.points.geometry.positions.data
             sizes = self.points.geometry.sizes.data
-            self.points.geometry.positions.update_range()
-            self.points.geometry.sizes.update_range()
+            self.points.geometry.positions.update_full()
+            self.points.geometry.sizes.update_full()
         else:
             # Allocate new buffers
             new_n_slots = max(min_n_slots, int(n_positions * 1.2))

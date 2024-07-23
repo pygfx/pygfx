@@ -92,7 +92,7 @@ class Light(WorldObject):
     @color.setter
     def color(self, color):
         self.uniform_buffer.data["color"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def intensity(self):
@@ -113,7 +113,7 @@ class Light(WorldObject):
     @intensity.setter
     def intensity(self, value):
         self.uniform_buffer.data["intensity"] = float(value)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def cast_shadow(self):
@@ -226,7 +226,7 @@ class PointLight(Light):
     @distance.setter
     def distance(self, value):
         self.uniform_buffer.data["distance"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def decay(self):
@@ -239,7 +239,7 @@ class PointLight(Light):
     @decay.setter
     def decay(self, value):
         self.uniform_buffer.data["decay"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class DirectionalLight(Light):
@@ -434,7 +434,7 @@ class SpotLight(Light):
     @distance.setter
     def distance(self, value):
         self.uniform_buffer.data["distance"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def angle(self):
@@ -450,7 +450,7 @@ class SpotLight(Light):
         self.uniform_buffer.data["cone_cos"] = cone_cos
         penumbra_cos = math.cos(self.angle * (1 - self.penumbra))
         self.uniform_buffer.data["penumbra_cos"] = penumbra_cos
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def penumbra(self):
@@ -464,7 +464,7 @@ class SpotLight(Light):
         self._penumbra = value
         penumbra_cos = math.cos(self.angle * (1 - self.penumbra))
         self.uniform_buffer.data["penumbra_cos"] = penumbra_cos
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def decay(self):
@@ -477,7 +477,7 @@ class SpotLight(Light):
     @decay.setter
     def decay(self, value):
         self.uniform_buffer.data["decay"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 # shadows
@@ -551,7 +551,7 @@ class LightShadow:
     def _gfx_update_uniform_buffer(self, light: Light):
         light.uniform_buffer.data["shadow_bias"] = self._bias
         self._update_matrix(light)
-        light.uniform_buffer.update_range(0, 1)
+        light.uniform_buffer.update_full()
 
     def _update_matrix(self, light: Light) -> None:
         shadow_camera = self.camera
@@ -562,7 +562,7 @@ class LightShadow:
         self._gfx_matrix_buffer.data["light_view_proj_matrix"] = (
             shadow_camera.camera_matrix.T
         )
-        self._gfx_matrix_buffer.update_range(0, 1)
+        self._gfx_matrix_buffer.update_full()
 
         light.uniform_buffer.data["light_view_proj_matrix"] = (
             shadow_camera.camera_matrix.T
@@ -652,5 +652,5 @@ class PointLightShadow(LightShadow):
             self._gfx_matrix_buffer[i].data[
                 "light_view_proj_matrix"
             ] = camera.camera_matrix.T
-            self._gfx_matrix_buffer[i].update_range(0, 1)
-        light.uniform_buffer.update_range(0, 1)
+            self._gfx_matrix_buffer[i].update_full()
+        light.uniform_buffer.update_full()
