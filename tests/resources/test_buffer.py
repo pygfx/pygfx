@@ -328,7 +328,11 @@ def upload_validity_checker(func):
             (False, 3, np.float32),
         ]:
 
-            data = np.zeros((1000, nchannels), dtype)
+            if contiguous:
+                data = np.zeros((1000, nchannels), dtype)
+            else:
+                data = np.zeros((1000, nchannels + 1), dtype)[:, :nchannels]
+
             synced_data = data.copy()
 
             buf = gfx.Buffer(data)
@@ -337,7 +341,7 @@ def upload_validity_checker(func):
             # Appy changes
             func(buf)
 
-            # Do with the pygfx internals would do to sync to the gpu
+            # Do what the pygfx internals would do to sync to the gpu
             for offset, size in buf._gfx_get_chunk_descriptions():
                 chunk = buf._gfx_get_chunk_data(offset, size)
                 synced_data[offset : offset + size] = chunk

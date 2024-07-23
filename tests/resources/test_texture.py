@@ -398,16 +398,23 @@ def upload_validity_checker_2d(func):
         for contiguous, nchannels, dtype in [
             (True, 1, np.uint8),
             (True, 1, np.float32),
-            (True, 2, np.float32),
+            (True, 3, np.float32),
             (True, 4, np.float32),
             (False, 1, np.uint8),
-            (False, 2, np.float32),
+            (False, 3, np.float32),
         ]:
 
-            # todo: use contiguous param
+            if contiguous:
+                data = np.zeros((10, 10, nchannels), dtype)
+            else:
+                data = np.zeros((10, 10, nchannels + 1), dtype)[:, :, :nchannels]
 
-            data = np.zeros((10, 10, nchannels), dtype)
-            synced_data = data.copy().reshape(1, 10, 10, -1)
+            if nchannels != 3:
+                synced_data = data.copy().reshape(1, 10, 10, nchannels)
+            else:
+                # Include rgb enumlation support
+                synced_data = np.zeros((1, 10, 10, nchannels + 1), data.dtype)
+                synced_data[:, :, :, :nchannels] = data
 
             tex = gfx.Texture(data, dim=2)
             tex._gfx_get_chunk_descriptions()  # flush
@@ -426,7 +433,7 @@ def upload_validity_checker_2d(func):
                 ] = chunk
 
             # Check
-            assert np.all(tex.data == synced_data)
+            assert np.all(tex.data == synced_data[:, :, :, :nchannels])
 
     wrapper.__name__ = func.__name__
     return wrapper
