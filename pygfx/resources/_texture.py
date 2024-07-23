@@ -23,7 +23,7 @@ class Texture(Resource):
     data : array | None
         The initial data of the texture. It must support the buffer-protocol,
         (e.g. a bytes or numpy array). If None, ``size`` and ``forma`` must be
-        provided. The data will be accessible at ``buffer.data``, no copies are
+        provided. The data will be accessible at ``texture.data``, no copies are
         made. The dtype must be compatible with wgpu texture formats.
     dim : int
         The dimensionality of the array (1, 2 or 3).
@@ -57,6 +57,16 @@ class Texture(Resource):
         derive how the texture is used and apply the appropriate flag. In cases
         where it doesn't this param provides an override. This is a bitmask flag
         (values are OR'd).
+
+    Performance tips:
+
+    * If the given data is not c_contiguous, extra memory-copies may be needed
+      at upload time, which reduces performance when the data is changed often.
+    * RGB textures do not exist in wgpu, but are emulated with an RGBA texture.
+      This may introduce extra memory copies, which reduces performance when
+      data is changed often.
+    * Setting ``force_contiguous`` ensures that the set data is contiguous and
+      not RGB, it is recommended to use this when the texture data is dynamic.
     """
 
     def __init__(
