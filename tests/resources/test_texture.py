@@ -359,6 +359,35 @@ def test_contiguous():
     assert chunk is tex.view
 
 
+def test_rgb_support():
+
+    # 1D
+    im = np.zeros((100, 3), np.float32)
+    tex = gfx.Texture(im, dim=1)
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), tex.size)
+    assert im.shape == (100, 3)
+    assert chunk.shape == (1, 1, 100, 4)
+
+    # 2D
+    im = np.zeros((100, 100, 3), np.float32)
+    tex = gfx.Texture(im, dim=2)
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), tex.size)
+    assert im.shape == (100, 100, 3)
+    assert chunk.shape == (1, 100, 100, 4)
+
+    # 3D
+    im = np.zeros((100, 100, 100, 3), np.float32)
+    tex = gfx.Texture(im, dim=3)
+    chunk = tex._gfx_get_chunk_data((0, 0, 0), tex.size)
+    assert im.shape == (100, 100, 100, 3)
+    assert chunk.shape == (100, 100, 100, 4)
+
+    # Not allowed when force_contiguous is set
+    im = np.zeros((100, 100, 3), np.float32)
+    with pytest.raises(ValueError):
+        tex = gfx.Texture(im, dim=2, force_contiguous=True)
+
+
 # %% Upload validity tests
 
 
@@ -369,10 +398,10 @@ def upload_validity_checker_2d(func):
         for contiguous, nchannels, dtype in [
             (True, 1, np.uint8),
             (True, 1, np.float32),
-            (True, 3, np.float32),
+            (True, 2, np.float32),
             (True, 4, np.float32),
             (False, 1, np.uint8),
-            (False, 3, np.float32),
+            (False, 2, np.float32),
         ]:
 
             # todo: use contiguous param
@@ -386,7 +415,7 @@ def upload_validity_checker_2d(func):
             # Appy changes
             func(tex)
 
-            # Do with the pygfx internals would do to sync to the gpu
+            # Do what the pygfx internals would do to sync to the gpu
             chunks = tex._gfx_get_chunk_descriptions()
             for offset, size in chunks:
                 chunk = tex._gfx_get_chunk_data(offset, size)
@@ -658,5 +687,6 @@ if __name__ == "__main__":
     test_chunk_size_large()
     test_custom_chunk_size()
     test_contiguous()
+    test_rgb_support()
 
     test_upload_validity_range_1x()

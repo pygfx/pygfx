@@ -7,6 +7,7 @@ from ._utils import (
     get_element_format_from_numpy_array,
     calculate_texture_chunk_size,
     get_merged_blocks_from_mask_3d,
+    logger,
 )
 
 
@@ -79,6 +80,7 @@ class Texture(Resource):
         self._wgpu_object = None
         self._wgpu_usage = int(usage)
         self._wgpu_mip_level_count = 1
+        self._wgpu_emulate_rgb = False
 
         # Init
         self._data = None
@@ -120,6 +122,12 @@ class Texture(Resource):
                 raise ValueError(
                     f"Expected 1-4 texture color channels, got {nchannels}."
                 )
+            if nchannels == 3:
+                self._wgpu_emulate_rgb = True
+                if self._force_contiguous:
+                    raise ValueError(
+                        "When force_contiguous is set, the texture data cannot be rgb, because it requires a padding operation on upload."
+                    )
             detected_format = (f"{nchannels}x" + element_format).lstrip("1x")
         elif size is not None and format is not None:
             the_size = size
@@ -256,7 +264,7 @@ class Texture(Resource):
             raise ValueError("texture.set_data() nbytes does not match.")
         if view.dtype != self._view.dtype:
             raise ValueError("texture.set_data() format does not match.")
-        # Make sure the shape is ok. We only care about the first dimension.
+        # Make sure the shape is ok.
         reshape_array(view, self.size)
         # Ok
         self._data = data
@@ -365,28 +373,16 @@ class Texture(Resource):
 
         return chunk_descriptions
 
-    def _gfx_get_chunk_data(self, offset, size, pixel_padding=None):
+    def _gfx_get_chunk_data(self, offset, size, pad_value=0.0):
         """Return subdata as a contiguous array."""
         full_size = self._store["size"]
-        if offset == (0, 0, 0) and size == full_size and pixel_padding is None:
+        emulate_rgb = self._wgpu_emulate_rgb
+        if offset == (0, 0, 0) and size == full_size and not emulate_rgb:
             if self._view.flags.c_contiguous:
                 chunk = self._view  # hooray, the fastest path!
             else:
                 chunk = np.ascontiguousarray(self._view)
         else:
-            # # Get numpy array, because memoryview does not support multidimensional slicing
-            # if isinstance(self._data, np.ndarray):
-            #     full_array = self._data
-            # elif self._mem.c_contiguous:
-            #     full_array = np.frombuffer(self._mem)
-            # else:
-            #     # Need a data-copy. This should not happen when force_contiguous is set.
-            #     # Note that we may need *another* data copy below to make the chunk contiguous.
-            #     full_array = np.ascontiguousarray(self._mem)
-            # # Reshape (no copy) so we can use 3D slicing
-            # full_array = full_array.reshape(
-            #     (full_size[2], full_size[1], full_size[0], -1)
-            # )
             # Calculate slice
             slice_per_dim = []
             for d in reversed(range(3)):
@@ -394,10 +390,18 @@ class Texture(Resource):
             slice_per_dim = tuple(slice_per_dim)
             # Slice, pad, make contiguous. Note that the chance of the chunks not being contiguous is pretty big.
             chunk = self._view[slice_per_dim]
-            if pixel_padding is not None:
-                padding = np.ones(chunk.shape[:3] + (1,), dtype=chunk.dtype)
-                chunk = np.concatenate([chunk, pixel_padding * padding], -1)
-            if not chunk.flags.c_contiguous:
+            if emulate_rgb:
+                if self._force_contiguous:
+                    logger.warning(
+                        "force_contiguous was set, but still need pixel padding"
+                    )
+                # Copy into array with one extra channel
+                nchannels = chunk.shape[3]  # usually 3 for rgb, padded to make rgba
+                padded_shape = chunk.shape[:3] + (nchannels + 1,)
+                padded_chunk = np.full(padded_shape, pad_value, dtype=chunk.dtype)
+                padded_chunk[:, :, :, :nchannels] = chunk
+                chunk = padded_chunk
+            elif not chunk.flags.c_contiguous:
                 # Easily happens when slicing in anything but the last dimension
                 chunk = np.ascontiguousarray(chunk)
 

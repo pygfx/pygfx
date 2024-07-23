@@ -86,20 +86,19 @@ def _update_texture(texture):
     # Prepare for data uploads
     device = get_shared().device
     fmt = to_texture_format(texture.format)
-    pixel_padding = None
+    pad_value = 0.0
     extra_bytes = 0
-    if fmt in ALTTEXFORMAT:
-        # todo: solve this differently so it is prohibited when force_contiguous is set
-        _, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
-    bytes_per_pixel = texture.nbytes // (
-        texture.size[0] * texture.size[1] * texture.size[2]
+    if texture._wgpu_emulate_rgb:
+        _, pad_value, extra_bytes = ALTTEXFORMAT[fmt]
+
+    bytes_per_pixel = (
+        texture.nbytes // (texture.size[0] * texture.size[1] * texture.size[2])
+        + extra_bytes
     )
-    if pixel_padding is not None:
-        bytes_per_pixel += extra_bytes
 
     # Upload any pending data
     for offset, size in chunk_descriptions:
-        chunk_data = texture._gfx_get_chunk_data(offset, size, pixel_padding)
+        chunk_data = texture._gfx_get_chunk_data(offset, size, pad_value)
         device.queue.write_texture(
             {"texture": wgpu_texture, "origin": offset, "mip_level": 0},
             chunk_data,
