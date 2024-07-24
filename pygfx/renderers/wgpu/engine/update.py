@@ -56,83 +56,52 @@ def _update_buffer(buffer):
     wgpu_buffer = buffer._wgpu_object
     assert wgpu_buffer is not None
 
-    # Get and reset pending uploads
-    pending_uploads = buffer._gfx_pending_uploads
-    if not pending_uploads:
+    # Collect chunks to update
+    chunk_descriptions = buffer._gfx_get_chunk_descriptions()
+    if not chunk_descriptions:
         return
-    buffer._gfx_pending_uploads = []
 
     # Prepare for data uploads
     device = get_shared().device
     bytes_per_item = buffer.itemsize
 
     # Upload any pending data
-    for offset, size in pending_uploads:
-        subdata = buffer._get_subdata(offset, size)
-        # A: map the buffer, writes to it, then unmaps. But we don't offer a mapping API in wgpu-py
-        # B: roll data in new buffer, copy from there to existing buffer
-        # tmp_buffer = device.create_buffer_with_data(
-        #     data=subdata,
-        #     usage=wgpu.BufferUsage.COPY_SRC,
-        # )
-        # boffset, bsize = bytes_per_item * offset, bytes_per_item * size
-        # encoder.copy_buffer_to_buffer(tmp_buffer, 0, buffer, boffset, bsize)
-        # C: using queue. This may be sugar for B, but it may also be optimized.
+    for offset, size in chunk_descriptions:
+        chunk_data = buffer._gfx_get_chunk_data(offset, size)
         device.queue.write_buffer(
-            wgpu_buffer, bytes_per_item * offset, subdata, 0, subdata.nbytes
+            wgpu_buffer, bytes_per_item * offset, chunk_data, 0, chunk_data.nbytes
         )
-        # D: A staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
+        # todo: investigate using a staging buffer/belt https://github.com/gfx-rs/wgpu-rs/blob/master/src/util/belt.rs
 
 
 def _update_texture(texture):
     wgpu_texture = texture._wgpu_object
     assert wgpu_texture is not None
 
-    # Get and reset pending uploads
-    pending_uploads = texture._gfx_pending_uploads
-    if not pending_uploads:
+    # Collect chunks to update
+    chunk_descriptions = texture._gfx_get_chunk_descriptions()
+    if not chunk_descriptions:
         return
-    texture._gfx_pending_uploads = []
 
     # Prepare for data uploads
     device = get_shared().device
     fmt = to_texture_format(texture.format)
-    pixel_padding = None
+    pad_value = 0.0
     extra_bytes = 0
-    if fmt in ALTTEXFORMAT:
-        _, pixel_padding, extra_bytes = ALTTEXFORMAT[fmt]
-    bytes_per_pixel = texture.nbytes // (
-        texture.size[0] * texture.size[1] * texture.size[2]
+    if texture._wgpu_emulate_rgb:
+        _, pad_value, extra_bytes = ALTTEXFORMAT[fmt]
+
+    bytes_per_pixel = (
+        texture.nbytes // (texture.size[0] * texture.size[1] * texture.size[2])
+        + extra_bytes
     )
-    if pixel_padding is not None:
-        bytes_per_pixel += extra_bytes
 
     # Upload any pending data
-    for offset, size in pending_uploads:
-        subdata = texture._get_subdata(offset, size, pixel_padding)
-        # B: using a temp buffer
-        # tmp_buffer = device.create_buffer_with_data(data=subdata,
-        #     usage=wgpu.BufferUsage.COPY_SRC,
-        # )
-        # encoder.copy_buffer_to_texture(
-        #     {
-        #         "buffer": tmp_buffer,
-        #         "offset": 0,
-        #         "bytes_per_row": size[0] * bytes_per_pixel,  # multiple of 256
-        #         "rows_per_image": size[1],
-        #     },
-        #     {
-        #         "texture": texture,
-        #         "mip_level": 0,
-        #         "origin": offset,
-        #     },
-        #     copy_size=size,
-        # )
-        # C: using the queue, which may be doing B, but may also be optimized,
-        #    and the bytes_per_row limitation does not apply here
+    for offset, size in chunk_descriptions:
+        chunk_data = texture._gfx_get_chunk_data(offset, size, pad_value)
         device.queue.write_texture(
             {"texture": wgpu_texture, "origin": offset, "mip_level": 0},
-            subdata,
+            chunk_data,
             {"bytes_per_row": size[0] * bytes_per_pixel, "rows_per_image": size[1]},
             size,
         )
@@ -151,7 +120,7 @@ def ensure_wgpu_object(resource):
     device = get_shared().device
 
     if isinstance(resource, Buffer):
-        if resource._gfx_pending_uploads:
+        if resource.data is not None:
             resource._wgpu_usage |= wgpu.BufferUsage.COPY_DST
         resource._wgpu_object = device.create_buffer(
             size=resource.nbytes, usage=resource._wgpu_usage
@@ -163,7 +132,7 @@ def ensure_wgpu_object(resource):
         fmt = to_texture_format(resource.format)
         if fmt in ALTTEXFORMAT:
             fmt = ALTTEXFORMAT[fmt][0]
-        if resource._gfx_pending_uploads:
+        if resource.data is not None:
             resource._wgpu_usage |= wgpu.TextureUsage.COPY_DST
         usage = resource._wgpu_usage
         if resource.generate_mipmaps:

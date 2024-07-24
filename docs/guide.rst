@@ -197,6 +197,20 @@ the scene as desired::
 .. image:: _static/guide_rotating_cube.gif
 
 
+Buffers and textures
+--------------------
+
+Buffers and textures represent data that lives on the GPU. They are used to e.g.
+represent positions, normals, images, colormaps, and all other "arrays" that the GPU need to do the work.
+These low-level objects are attached to geometries and materials (discussed below).
+
+A :class:`~pygfx.resources.Buffer` represents a one dimensional array and is used to contain e.g. positions and per-point colors.
+A :class:`~pygfx.resources.Texture` represents a 1D, 2D or 3D array and is used to contain e.g. image data and colormaps.
+
+The data of a buffer or tetxure can be updated and re-synced with the GPU, making it possible
+to change the visualization in real time, for eample in animations and user interactions.
+
+
 World objects
 -------------
 
