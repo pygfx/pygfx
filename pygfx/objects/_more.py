@@ -18,13 +18,14 @@ class Group(WorldObject):
     ----------
     visible : bool
         If true, the object and its children are visible.
-    position : Vector
-        The position of the object in the world. Default (0, 0, 0).
+
+    name : str
+        The name of the group.
 
     """
 
-    def __init__(self, *, visible=True):
-        super().__init__(visible=visible)
+    def __init__(self, *, visible=True, name=""):
+        super().__init__(visible=visible, name=name)
 
 
 class Scene(Group):
@@ -36,8 +37,8 @@ class Scene(Group):
 
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class Background(WorldObject):
@@ -383,6 +384,8 @@ class Text(WorldObject):
         recommended to let the renderer decide, using "auto".
     position : Vector
         The position of the object in the world. Default (0, 0, 0).
+    name : str
+        The name of the text object for inspection and debugging.
 
     """
 
@@ -399,6 +402,7 @@ class Text(WorldObject):
         visible=True,
         render_order=0,
         render_mask="auto",
+        name="",
     ):
         super().__init__(
             geometry,
@@ -406,6 +410,7 @@ class Text(WorldObject):
             visible=visible,
             render_order=render_order,
             render_mask=render_mask,
+            name=name,
         )
 
         # calling super from callback is possible, but slow so we register it as a second callback instead

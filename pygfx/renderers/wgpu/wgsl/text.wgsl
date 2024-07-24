@@ -227,6 +227,16 @@ fn fs_main(varyings: Varyings) -> FragmentOutput {
     apply_clipping_planes(varyings.world_pos);
     var out = get_fragment_output(varyings.position.z, color_out);
 
+    // Move text closer to camera, since its often overlaid on something.
+    // The text is moved closer than the outline so that the outline of one character
+    // does not hide the text of an other.
+    // The depth buffer is a 32 bit float.
+    // Setting the incremented depth to be less than 1e-6 caused
+    // z-fighting to occur leading to artifacts.
+    // See: https://github.com/pygfx/pygfx/pull/776#issuecomment-2149374275
+    // And: https://github.com/pygfx/pygfx/pull/774#issuecomment-2147458827
+    out.depth = varyings.position.z - 1e-6 * (2.0 - outline);
+
     $$ if write_pick
     // The wobject-id must be 20 bits. In total it must not exceed 64 bits.
     out.pick = (

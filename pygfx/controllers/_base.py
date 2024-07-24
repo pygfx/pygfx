@@ -59,9 +59,11 @@ class Controller:
         register_events=None,
     ):
         # Init cameras
-        self._cameras = []
+        self._cameras = []  # tuples of camera + filters
         if camera is not None:
             self.add_camera(camera)
+
+        self._linked_controllers = []
 
         # Props
         self.enabled = enabled
@@ -88,25 +90,55 @@ class Controller:
     @property
     def cameras(self):
         """A tuple with the cameras under control, in the order that they were added."""
-        return tuple(self._cameras)
+        return tuple(cam for cam, include, exclude in self._cameras)
 
-    def add_camera(self, camera):
-        """Add a camera to control."""
+    def add_camera(self, camera, *, include_state=None, exclude_state=None):
+        """Add a camera to control.
+
+        The ``include_state`` and ``exclude_state`` arguments can be
+        used to specify a set of camera state fields to include/exclude,
+        when updating this camera. This can be used to "partially link"
+        a camera. These args are None by default (i.e. no filtering).
+
+        See ``camera.get_state()`` for available fields. Useful state
+        names for the perspective and orthographhic camera are: 'x',
+        'y', 'z' (or 'position' for all three), 'width', 'height',
+        'rotation', 'zoom', and 'depth_range'.
+
+        """
         if not isinstance(camera, Camera):
             raise TypeError("Controller.add_camera expects a Camera object.")
         if not isinstance(camera, PerspectiveCamera):
             raise TypeError(
                 "Controller.add_camera expects a perspective or orthographic camera."
             )
+
+        if include_state is not None:
+            if not isinstance(include_state, set):
+                raise TypeError("add_camera() include_state must be a set.")
+            if "position" in include_state:
+                include_state.discard("position")
+                include_state.update({"x", "y", "z"})
+
+        if exclude_state is not None:
+            if not isinstance(exclude_state, set):
+                raise TypeError("add_camera() exclude_state must be a set.")
+            if "position" in exclude_state:
+                exclude_state.discard("position")
+                exclude_state.update({"x", "y", "z"})
+
         self.remove_camera(camera)
-        self._cameras.append(camera)
+        self._cameras.append((camera, include_state, exclude_state))
 
     def remove_camera(self, camera):
         """Remove a camera from the list of cameras to control."""
         if not isinstance(camera, Camera):
             raise TypeError("Controller.remove_camera expects a Camera object.")
-        while camera in self._cameras:
-            self._cameras.remove(camera)
+        new_cameras = []
+        for cam, include_state, exclude_state in self._cameras:
+            if cam is not camera:
+                new_cameras.append((cam, include_state, exclude_state))
+        self._cameras = new_cameras
         if not self._cameras:
             self._actions = {}  # cancel any in-progress actions
 
@@ -143,11 +175,11 @@ class Controller:
 
     @property
     def controls(self):
-        """A dictionary that maps buttons/keys to actions. Can be modified
-        to configure how the controller reacts to events.
+        """A dictionary that maps buttons/keys to actions.
 
-        Possible keys include 'mouse1' to 'mouse5', single characters
-        for the corresponding key presses, and 'arrowleft',
+        Can be modified to configure how the controller reacts to
+        events. Possible keys include 'mouse1' to 'mouse5', single
+        characters for the corresponding key presses, and 'arrowleft',
         'arrowright', 'arrowup', 'arrowdown', 'tab', 'enter', 'escape',
         'backspace', and 'delete'.
 
@@ -240,7 +272,7 @@ class Controller:
         if not self._cameras:
             raise ValueError("No cameras attached!")
 
-        camera = self._cameras[0]
+        camera, _, _ = self._cameras[0]
         cam_state = self._get_camera_state()
         target = cam_state["position"] + self._get_target_vec(cam_state)
         vecx, vecy = get_screen_vectors_in_world_cords(target, rect[2:], camera)
@@ -254,7 +286,7 @@ class Controller:
         if self._actions:
             return self._last_cam_state.copy()
         elif self._cameras:
-            return self._cameras[0].get_state()
+            return self._cameras[0][0].get_state()
         else:
             raise ValueError("No cameras attached!")
 
@@ -274,8 +306,19 @@ class Controller:
         be called by code that knows that internally stored state is valid.
         """
         if self._auto_update:
-            for camera in self._cameras:
-                camera.set_state(self._last_cam_state)
+            for camera, include_state, exclude_state in self._cameras:
+                state = self._last_cam_state
+                if include_state or exclude_state:
+                    if "position" in state:
+                        state = state.copy()
+                        state["x"], state["y"], state["z"] = state.pop("position")
+                    if include_state is not None:
+                        state = {k: v for k, v in state.items() if k in include_state}
+                    if exclude_state is not None:
+                        state = {
+                            k: v for k, v in state.items() if k not in exclude_state
+                        }
+                camera.set_state(state)
         return self._last_cam_state
 
     def add_default_event_handlers(self, *args):
@@ -401,7 +444,7 @@ class Controller:
 
         # Make sure that we have an up-to-date cam_state
         if not self._actions:
-            self._last_cam_state = self._cameras[0].get_state()
+            self._last_cam_state = self._cameras[0][0].get_state()
             self._last_tick_time = perf_counter()
 
         # Create action
@@ -468,7 +511,7 @@ class Controller:
             return self._update_cameras()
 
     def _update_fov(self, delta: float):
-        fov_range = self._cameras[0]._fov_range
+        fov_range = self._cameras[0][0]._fov_range
 
         # Get current state
         cam_state = self._get_camera_state()

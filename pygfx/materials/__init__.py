@@ -39,9 +39,11 @@ colormaps, the strength of specular reflections, etc.
     ImageBasicMaterial
 
     VolumeBasicMaterial
+    VolumeIsoMaterial
     VolumeSliceMaterial
     VolumeRayMaterial
     VolumeMipMaterial
+    VolumeMinipMaterial
 
     BackgroundMaterial
     BackgroundImageMaterial
@@ -83,9 +85,11 @@ from ._line import (
 from ._image import ImageBasicMaterial
 from ._volume import (
     VolumeBasicMaterial,
+    VolumeIsoMaterial,
     VolumeSliceMaterial,
     VolumeRayMaterial,
     VolumeMipMaterial,
+    VolumeMinipMaterial,
 )
 from ._background import (
     BackgroundMaterial,
