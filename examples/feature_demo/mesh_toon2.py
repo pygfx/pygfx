@@ -18,7 +18,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 import pygfx as gfx
 
 # Init
-canvas = WgpuCanvas(size=(640, 480), title="gfx_pbr")
+canvas = WgpuCanvas(size=(640, 480), title="gfx_toon")
 renderer = gfx.renderers.WgpuRenderer(canvas)
 scene = gfx.Scene()
 
@@ -45,7 +45,7 @@ index = 0
 alpha = 0.0
 alpha_index = 0
 while alpha <= 1.0:
-    colors = np.arange(alpha_index + 2) / (alpha_index + 1) * 256
+    colors = np.arange(alpha_index + 2) / (alpha_index + 1) * 255
     gradient_map_data = np.array(colors, dtype=np.uint8).reshape(1, -1, 1)  # H,W,C
     gradient_map = gfx.Texture(gradient_map_data, dim=2)
 
