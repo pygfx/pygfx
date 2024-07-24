@@ -53,7 +53,8 @@ class Skeleton:
                     "bone_matrices": "4x4xf4",
                 },
                 count,
-            )
+            ),
+            force_contiguous=True,
         )
 
         if len(self.bone_inverses) == 0:

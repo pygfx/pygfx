@@ -154,7 +154,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.name = name
 
         # Compose complete uniform type
-        buffer = Buffer(array_from_shadertype(self.uniform_type))
+        buffer = Buffer(array_from_shadertype(self.uniform_type), force_contiguous=True)
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 

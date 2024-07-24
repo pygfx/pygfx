@@ -515,7 +515,9 @@ class LightShadow:
         # TODO: move bias and cull_mode to Light so they can be reactive?
         self.bias = 0
         self.cull_mode = "front"
-        self._gfx_matrix_buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+        self._gfx_matrix_buffer = Buffer(
+            array_from_shadertype(shadow_uniform_type), force_contiguous=True
+        )
 
     @property
     def camera(self):
@@ -627,7 +629,9 @@ class PointLightShadow(LightShadow):
         self._gfx_matrix_buffer = []
 
         for _ in range(6):
-            buffer = Buffer(array_from_shadertype(shadow_uniform_type))
+            buffer = Buffer(
+                array_from_shadertype(shadow_uniform_type), force_contiguous=True
+            )
             self._gfx_matrix_buffer.append(buffer)
 
     def _update_matrix(self, light: Light) -> None:

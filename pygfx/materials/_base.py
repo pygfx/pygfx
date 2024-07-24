@@ -50,7 +50,9 @@ class Material(Trackable):
     ):
         super().__init__()
 
-        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), force_contiguous=True
+        )
 
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
@@ -81,7 +83,9 @@ class Material(Trackable):
         self.uniform_type[key] = f"{new_length}*{subtype}"
         # Recreate buffer
         data = self.uniform_buffer.data
-        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), force_contiguous=True
+        )
         # Copy data
         for k in data.dtype.names:
             if k != key:

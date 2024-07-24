@@ -419,8 +419,8 @@ class Ruler(WorldObject):
             new_n_slots = max(min_n_slots, int(n_positions * 1.2))
             positions = np.zeros((new_n_slots, 3), np.float32)
             sizes = np.zeros((new_n_slots,), np.float32)
-            self.points.geometry.positions = Buffer(positions)
-            self.points.geometry.sizes = Buffer(sizes)
+            self.points.geometry.positions = Buffer(positions, force_contiguous=True)
+            self.points.geometry.sizes = Buffer(sizes, force_contiguous=True)
             # Allocate text objects
             while len(self._text_object_pool) < new_n_slots:
                 ob = Text(
