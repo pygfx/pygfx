@@ -36,7 +36,7 @@ class WireframeMaterial(gfx.Material):
     @thickness.setter
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 @register_wgpu_render_function(gfx.WorldObject, WireframeMaterial)

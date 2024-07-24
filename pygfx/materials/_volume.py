@@ -72,7 +72,7 @@ class VolumeBasicMaterial(Material):
         clim = float(clim[0]), float(clim[1])
         # Update uniform data
         self.uniform_buffer.data["clim"] = clim
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def interpolation(self):
@@ -120,7 +120,7 @@ class VolumeSliceMaterial(VolumeBasicMaterial):
     @plane.setter
     def plane(self, plane):
         self.uniform_buffer.data["plane"] = plane
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class VolumeRayMaterial(VolumeBasicMaterial):
@@ -204,7 +204,7 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     @threshold.setter
     def threshold(self, threshold: float) -> None:
         self.uniform_buffer.data["threshold"] = float(threshold)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def step_size(self) -> float:
@@ -217,7 +217,7 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     @step_size.setter
     def step_size(self, size: float) -> None:
         self.uniform_buffer.data["step_size"] = float(size)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def substep_size(self) -> float:
@@ -230,7 +230,7 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     @substep_size.setter
     def substep_size(self, size: float) -> None:
         self.uniform_buffer.data["substep_size"] = float(size)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def emissive(self):
@@ -244,7 +244,7 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def shininess(self):
@@ -256,4 +256,4 @@ class VolumeIsoMaterial(VolumeRayMaterial):
     @shininess.setter
     def shininess(self, value):
         self.uniform_buffer.data["shininess"] = float(value)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()

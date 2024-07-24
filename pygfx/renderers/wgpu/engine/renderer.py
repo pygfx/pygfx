@@ -673,7 +673,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
-        self._shared.uniform_buffer.update_range(0, 1)
+        self._shared.uniform_buffer.update_full()
 
     # Picking
 

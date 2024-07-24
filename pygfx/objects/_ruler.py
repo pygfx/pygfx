@@ -412,15 +412,15 @@ class Ruler(WorldObject):
             # Re-use existing buffers
             positions = self.points.geometry.positions.data
             sizes = self.points.geometry.sizes.data
-            self.points.geometry.positions.update_range()
-            self.points.geometry.sizes.update_range()
+            self.points.geometry.positions.update_full()
+            self.points.geometry.sizes.update_full()
         else:
             # Allocate new buffers
             new_n_slots = max(min_n_slots, int(n_positions * 1.2))
             positions = np.zeros((new_n_slots, 3), np.float32)
             sizes = np.zeros((new_n_slots,), np.float32)
-            self.points.geometry.positions = Buffer(positions)
-            self.points.geometry.sizes = Buffer(sizes)
+            self.points.geometry.positions = Buffer(positions, force_contiguous=True)
+            self.points.geometry.sizes = Buffer(sizes, force_contiguous=True)
             # Allocate text objects
             while len(self._text_object_pool) < new_n_slots:
                 ob = Text(

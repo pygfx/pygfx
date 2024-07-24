@@ -68,7 +68,7 @@ class ImageBasicMaterial(Material):
         clim = float(clim[0]), float(clim[1])
         # Update uniform data
         self.uniform_buffer.data["clim"] = clim
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def interpolation(self):

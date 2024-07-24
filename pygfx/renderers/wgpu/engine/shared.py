@@ -83,7 +83,9 @@ class Shared(Trackable):
         # Create a uniform buffer for std info
         # Stored on _store so if we'd ever swap it out for another buffer,
         # the pipeline automatically update.
-        self._store.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(stdinfo_uniform_type), force_contiguous=True
+        )
         self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
         # Init glyph atlas texture

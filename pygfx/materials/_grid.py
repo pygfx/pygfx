@@ -118,7 +118,7 @@ class GridMaterial(Material):
                 f"major_step must be tuple or float, not {step.__class__.__name__}"
             )
         self.uniform_buffer.data["major_step"] = step
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._set_draw_major()
 
     @property
@@ -138,7 +138,7 @@ class GridMaterial(Material):
                 f"minor_step must be tuple or float, not {step.__class__.__name__}"
             )
         self.uniform_buffer.data["minor_step"] = step
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._set_draw_minor()
 
     @property
@@ -149,7 +149,7 @@ class GridMaterial(Material):
     @axis_thickness.setter
     def axis_thickness(self, thickness):
         self.uniform_buffer.data["axis_thickness"] = max(0.0, float(thickness))
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._set_draw_axis()
 
     @property
@@ -160,7 +160,7 @@ class GridMaterial(Material):
     @major_thickness.setter
     def major_thickness(self, thickness):
         self.uniform_buffer.data["major_thickness"] = max(0.0, float(thickness))
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._set_draw_major()
 
     @property
@@ -171,7 +171,7 @@ class GridMaterial(Material):
     @minor_thickness.setter
     def minor_thickness(self, thickness):
         self.uniform_buffer.data["minor_thickness"] = max(0.0, float(thickness))
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._set_draw_minor()
 
     @property
@@ -203,7 +203,7 @@ class GridMaterial(Material):
     @axis_color.setter
     def axis_color(self, color):
         self.uniform_buffer.data["axis_color"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def major_color(self):
@@ -213,7 +213,7 @@ class GridMaterial(Material):
     @major_color.setter
     def major_color(self, color):
         self.uniform_buffer.data["major_color"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def minor_color(self):
@@ -223,7 +223,7 @@ class GridMaterial(Material):
     @minor_color.setter
     def minor_color(self, color):
         self.uniform_buffer.data["minor_color"] = Color(color)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def infinite(self):
