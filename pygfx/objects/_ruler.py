@@ -24,6 +24,10 @@ class Ruler(WorldObject):
     def __init__(
         self,
         *,
+        start_pos=(0, 0, 0),
+        end_pos=(0, 0, 0),
+        start_value=0.0,
+        ticks=None,
         tick_format="0.4g",
         tick_side="left",
         min_tick_distance=50,
@@ -31,10 +35,10 @@ class Ruler(WorldObject):
     ):
         super().__init__()
 
-        self.start_pos = 0, 0, 0
-        self.end_pos = 0, 0, 0
-        self.start_value = 0.0
-        self.ticks = None
+        self.start_pos = start_pos
+        self.end_pos = end_pos
+        self.start_value = start_value
+        self.ticks = ticks
 
         self.tick_format = tick_format
         self.tick_side = tick_side

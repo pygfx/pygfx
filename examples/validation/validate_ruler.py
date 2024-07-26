@@ -30,37 +30,47 @@ scene.add(background, line)
 
 
 # Normal horizontal ruler
-rulerx1 = gfx.Ruler(tick_side="right")
-rulerx1.start_pos = 0, 0, 0
-rulerx1.end_pos = 1000, 0, 0
+rulerx1 = gfx.Ruler(
+    tick_side="right",
+    start_value=0,
+    start_pos=(0, 0, 0),
+    end_pos=(1000, 0, 0),
+)
 
 # Normal vertical ruler
-rulery1 = gfx.Ruler(tick_side="left", min_tick_distance=40)
-rulery1.start_pos = 0, -5, 0
-rulery1.start_value = rulery1.start_pos[1]
-rulery1.end_pos = 0, 5, 0
+rulery1 = gfx.Ruler(
+    tick_side="left",
+    start_value=-5,
+    start_pos=(0, -5, 0),
+    end_pos=(0, 5, 0),
+)
 
 # Alternative formatting and tick distance
-rulerx2 = gfx.Ruler(tick_side="right")
-rulerx2.start_pos = 0, -6, 0
-rulerx2.end_pos = 1000, -6, 0
-rulerx2.tick_format = "0.1f"
-rulerx2.min_tick_distance = 100
+rulerx2 = gfx.Ruler(
+    tick_side="right",
+    start_pos=(0, -6, 0),
+    end_pos=(1000, -6, 0),
+    tick_format="0.1f",
+    min_tick_distance=100,
+)
 
 # Ticks specified using list, and formatting via a function
-rulerx3 = gfx.Ruler(tick_side="right")
-rulerx3.start_pos = 0, -8, 0
-rulerx3.end_pos = 1000, -8, 0
-rulerx3.ticks = [0, 250, 500, 750, 950]
-rulerx3.tick_format = lambda v, mi, ma: str(v / 1000) + "K"
+rulerx3 = gfx.Ruler(
+    tick_side="right",
+    start_pos=(0, -8, 0),
+    end_pos=(1000, -8, 0),
+    ticks=[0, 250, 500, 750, 950],
+    tick_format=lambda v, mi, ma: str(v / 1000) + "K",
+)
 
 # Ticks specified using a dict, and showing ticks on other side.
 # Note how the dict can contain both strings and floats.
-rulerx4 = gfx.Ruler(tick_side="right")
-rulerx4.start_pos = 0, -10, 0
-rulerx4.end_pos = 1000, -10, 0
-rulerx4.ticks = {250: "25%", 500: "50%", 750: "75%", 0: 0, 1000: 1000, 400: "POI"}
-rulerx4.tick_side = "left"
+rulerx4 = gfx.Ruler(
+    tick_side="left",
+    start_pos=(0, -10, 0),
+    end_pos=(1000, -10, 0),
+    ticks={250: "25%", 500: "50%", 750: "75%", 0: 0, 1000: 1000, 400: "POI"},
+)
 
 scene.add(rulerx1, rulerx2, rulerx3, rulerx4, rulery1)
 
