@@ -1,6 +1,8 @@
 """
 Validate ruler
 ==============
+
+Showing off some ruler tricks.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -89,6 +91,8 @@ def animate():
     renderer.render(scene, camera)
 
 
+canvas.request_draw(animate)
+
 if __name__ == "__main__":
-    canvas.request_draw(animate)
+    print(__doc__)
     run()

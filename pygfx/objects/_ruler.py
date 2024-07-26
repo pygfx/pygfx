@@ -369,7 +369,6 @@ class Ruler(WorldObject):
                     result[t] = v
             return result
 
-
     def _calculate_tick_step(self):
         """Calculate the tick step from the min_tick_distance."""
 
