@@ -141,7 +141,7 @@ class Ruler(WorldObject):
             self._ticks = None
         elif isinstance(ticks, dict):
             # Copy the object, resolving keys and values to float and str
-            self._ticks = {float(k): str(v) for k, v in ticks.items()}
+            self._ticks = {float(k): v for k, v in ticks.items()}
         elif isinstance(ticks, (tuple, list, np.ndarray)):
             self._ticks = [float(x) for x in ticks]
         else:
@@ -349,23 +349,26 @@ class Ruler(WorldObject):
             tick_values = self._get_ticks_uniform(min_value, max_value, tick_auto_step)
             return {t: tick_format_func(t, min_value, max_value) for t in tick_values}
 
-        elif isinstance(ticks, dict):
-            # A dict with specified ticks, values can be str or float
-            result = {}
-            for t, v in ticks.items():
-                if min_value <= t <= max_value:
-                    if not isinstance(v, str):
-                        v = tick_format_func(t, min_value, max_value)
-                    result[t] = v
-            return result
-
-        else:
+        elif isinstance(ticks, list):
             # A sequence of ticks
             return {
                 t: tick_format_func(t, min_value, max_value)
                 for t in ticks
                 if min_value <= t <= max_value
             }
+
+        else:  # isinstance(ticks, dict):
+            # A dict with specified ticks, values can be str or float
+            result = {}
+            for t, v in ticks.items():
+                if min_value <= t <= max_value:
+                    if isinstance(v, (float, int)):
+                        v = tick_format_func(v, min_value, max_value)
+                    elif not isinstance(v, str):
+                        v = str(v)
+                    result[t] = v
+            return result
+
 
     def _calculate_tick_step(self):
         """Calculate the tick step from the min_tick_distance."""

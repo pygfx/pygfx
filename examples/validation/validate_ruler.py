@@ -70,6 +70,7 @@ rulerx4 = gfx.Ruler(
     start_pos=(0, -10, 0),
     end_pos=(1000, -10, 0),
     ticks={250: "25%", 500: "50%", 750: "75%", 0: 0, 1000: 1000, 400: "POI"},
+    tick_format="0.1f",
 )
 
 scene.add(rulerx1, rulerx2, rulerx3, rulerx4, rulery1)
