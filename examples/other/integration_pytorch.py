@@ -7,8 +7,8 @@ Pytorch Integration
 
 Pygfx Integration with PyTorch Lightning and PyTorch Geometric: A Practical Example.
 
-This code example demonstrates the integration of pygfx with PyTorch Lightning and PyTorch Geometric for training a
-graph neural network on a 3D mesh and simultaneously rendering the results in real-time using pygfx.
+This code example demonstrates the integration of Pygfx with PyTorch Lightning and PyTorch Geometric for training a
+graph neural network on a 3D mesh and simultaneously rendering the results in real-time using Pygfx.
 
 ARCHITECTURE:
 The code example follows a modular architecture, separating the concerns of data loading, model definition, training,
@@ -32,7 +32,7 @@ and rendering. The main components of the architecture are:
    - Configures the optimizer for training.
 
 4. Rendering (SceneHandler):
-   - Handles the creation and rendering of the pygfx scene.
+   - Handles the creation and rendering of the Pygfx scene.
    - Creates two viewports: one for the ground truth mesh and another for the predicted mesh.
    - Receives mesh data messages from the training process via a multiprocessing queue.
    - Updates the meshes in the scene based on the received mesh data.
@@ -40,9 +40,9 @@ and rendering. The main components of the architecture are:
 
 5. Callback (PyGfxCallback):
    - Facilitates communication between the training process and the rendering process.
-   - Creates a separate process for pygfx rendering.
+   - Creates a separate process for Pygfx rendering.
    - Sends mesh data messages to the rendering process via a multiprocessing queue.
-   - Updates the meshes in the pygfx scene based on the training progress and results.
+   - Updates the meshes in the Pygfx scene based on the training progress and results.
 
 INTERACTION:
 The interaction between the different components of the code example is as follows:
@@ -59,19 +59,19 @@ The interaction between the different components of the code example is as follo
 4. During training, the PyTorch Lightning Trainer uses the ExampleDataModule to load the data and the ExampleModule to
    define the model and training process.
 
-5. The PyGfxCallback, registered as a callback with the Trainer, creates a separate process for pygfx rendering using
+5. The PyGfxCallback, registered as a callback with the Trainer, creates a separate process for Pygfx rendering using
    the SceneHandler.
 
 6. After each training or validation batch, the PyGfxCallback sends the mesh data (vertices, faces, ground truth
    curvature, and predicted curvature) to the rendering process via a multiprocessing queue.
 
 7. The SceneHandler, running in a separate process, receives the mesh data messages from the queue and updates the
-   meshes in the pygfx scene accordingly. It colors the meshes based on the Gaussian curvature values.
+   meshes in the Pygfx scene accordingly. It colors the meshes based on the Gaussian curvature values.
 
-8. The pygfx rendering process continuously renders the scene, displaying the ground truth and predicted meshes in
+8. The Pygfx rendering process continuously renders the scene, displaying the ground truth and predicted meshes in
    real-time as the training progresses.
 
-This architecture allows for seamless integration of pygfx with PyTorch Lightning and PyTorch Geometric, enabling
+This architecture allows for seamless integration of Pygfx with PyTorch Lightning and PyTorch Geometric, enabling
 real-time visualization of the training progress and results on a 3D mesh. The modular design separates the concerns
 of data loading, model definition, training, and rendering, making the code more maintainable and extensible.
 

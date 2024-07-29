@@ -1,4 +1,4 @@
-<h1 align="center"><img src="docs/_static/pygfx.svg" height="80"><br>pygfx</h1>
+<h1 align="center"><img src="docs/_static/pygfx.svg" height="80"><br>Pygfx</h1>
 
 [![CI ](https://github.com/pygfx/pygfx/workflows/CI/badge.svg)
 ](https://github.com/pygfx/pygfx/actions)
@@ -28,7 +28,7 @@ Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgp
 Need help? We offer the following professional services:
 
 * **Priority Support:** Rest assured with our dedicated support, prioritizing your needs for quick issue resolution and feature implementation.
-* **Integration Support:** Get assistance with integrating pygfx into your application, ensuring a smooth transition and optimal performance.
+* **Integration Support:** Get assistance with integrating Pygfx into your application, ensuring a smooth transition and optimal performance.
 * **Customized Solutions:** Whether it's crafting specific visualizations or developing shaders, we work closely with you to create tailored solutions that address your unique requirements.
 * **Training and Workshops:** We provide informative training sessions and workshops aimed at boosting skills and knowledge.
 
@@ -41,7 +41,7 @@ For further inquiries reach out to us at [support@pygfx.org](mailto:support@pygf
 pip install -U pygfx glfw
 ```
 
-To work correctly, pygfx needs _some_ window to render to. Glfw is one
+To work correctly, Pygfx needs _some_ window to render to. Glfw is one
 lightweight option, but there are others, too. If you use a different
 wgpu-compatible window manager or only render offscreen you may choose to omit
 glfw. Examples of alternatives include: `jupyter_rfb` (rendering in Jupyter),
@@ -57,7 +57,7 @@ We're currently working towards version `1.0`, which means that the API
 can change with each version. We expect to reach `1.0` near the end of
 2024, at which point we start caring about backwards compatibility.
 
-This means that until then, you should probably pin the pygfx version
+This means that until then, you should probably pin the Pygfx version
 that you're using, and check the [release notes](https://github.com/pygfx/pygfx/releases)
 when you update.
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
 
 ## Feature Highlights
-Some of pygfx's key features are:
+Some of Pygfx's key features are:
 
 - SDF based text rendering ([example](
   https://docs.pygfx.org/stable/_gallery/feature_demo/text_contrast.html))
@@ -117,14 +117,14 @@ Pygfx is licensed under the [BSD 2-Clause "Simplified" License](LICENSE). This m
 - :white_check_mark: It is free (and open source) forever. :cupid:
 - :white_check_mark: You _can_ use it commercially.
 - :white_check_mark: You _can_ distribute it and freely make changes.
-- :x: You _can not_ hold us accountable for the results of using pygfx.
+- :x: You _can not_ hold us accountable for the results of using Pygfx.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Development Install
-To get a working dev install of pygfx you can use the following steps:
+To get a working dev install of Pygfx you can use the following steps:
 
 ```bash
 # Click the Fork button on GitHub and navigate to your fork
@@ -147,3 +147,9 @@ tests for the examples.
 ### Code of Conduct
 
 Our code of conduct can be found here: [Code of Conduct](./CODE_OF_CONDUCT.md)
+
+
+## Spelling and pronunciation
+
+Lowercase "pygfx" is used in code. You can refer to the project in written text using "Pygfx".
+Pygfx is pronounced as *pie-graphics*.
