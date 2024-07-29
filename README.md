@@ -4,7 +4,7 @@
 ](https://github.com/pygfx/pygfx/actions)
 [![Documentation Status
 ](https://readthedocs.org/projects/pygfx/badge/?version=stable)
-](https://docs.pygfx.readthedocs.io)
+](https://docs.pygfx.org)
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
