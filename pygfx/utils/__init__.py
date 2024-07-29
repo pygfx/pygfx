@@ -1,5 +1,5 @@
 """
-Utility functions for pygfx.
+Utility functions for Pygfx.
 
 .. currentmodule:: pygfx.utils
 

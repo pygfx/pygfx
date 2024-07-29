@@ -1,9 +1,9 @@
 Writing custom shaders
 ======================
 
-This document explains how to write shaders for pygfx for the WgpuRenderer.
+This document explains how to write shaders for Pygfx for the WgpuRenderer.
 This may be useful if you want to improve the existing shaders, add new
-shaders to pygfx, or if you want to implement custom shaders in your
+shaders to Pygfx, or if you want to implement custom shaders in your
 own project.
 
 
@@ -156,9 +156,9 @@ Varyings
 
 Variables passed between vertex shader and fragment shader are called "varyings"
 in GPU terminology (because they vary as they are interpolated between
-vertices). In pygfx, each vertex function has a ``Varyings`` as output,
+vertices). In Pygfx, each vertex function has a ``Varyings`` as output,
 and this is the input of every fragment function. You don't have to
-define the ``Varyings`` struct anywhere - pygfx takes care of that based
+define the ``Varyings`` struct anywhere - Pygfx takes care of that based
 on the attributes that are assigned in the vertex shader. The only catch
 is that the attributes must be set with an explicit type cast:
 
@@ -192,9 +192,9 @@ FragmentOutput
 In a somewhat similar way, the output of the fragment shader is
 predefined. Though in this case the output is determined by the blend
 mode and render pass (opaque or transparent), and the details are hidden
-from the shader author. This way, pygfx can support advanced handling
+from the shader author. This way, Pygfx can support advanced handling
 of transparency without affecting individual shaders.
-All fragment functions in pygfx are somewhat like this:
+All fragment functions in Pygfx are somewhat like this:
 
 
 .. code-block:: python
@@ -289,7 +289,7 @@ discard the fragment if it's outside of the clipping planes. Or use
 Colormapping
 ------------
 
-Many materials in pygfx support colormapping. We distinguish between colormaps
+Many materials in Pygfx support colormapping. We distinguish between colormaps
 with image input data, and vertex input data (texture coordinates). The number of
 channels of the input data must match the dimensionality of the colormap (1D, 2D or 3D).
 
