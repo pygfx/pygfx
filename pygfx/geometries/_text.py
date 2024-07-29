@@ -72,6 +72,12 @@ class TextItem:
         Newline after the text.
     allow_break : bool
         If True, allow a linebreak to be placed after this piece of text.
+    index : int
+        Index into the positions buffer. If given,
+        this text item is positioned relative to geometry.positions[index] (in world coords).
+        All further text items are positioned with the same position.
+        The layout algorithm does a fresh start when it encounters a text item with a given index.
+        This way one can create groups of text that are positioned and layed out individually.
 
     """
 
@@ -233,9 +239,20 @@ class TextGeometry(Geometry):
         super().__init__()
 
         # Init stub buffers
-        self.indices = None
-        self.positions = None
-        self.sizes = None
+        # self.indices = None
+        # self.positions = None
+        # self.sizes = None
+
+        self.glyph_atlas_indices = None
+        self.glyph_item_indices = None
+        self.glyph_positions = None
+
+        # todo: rename by dropping prefix
+        self.item_positions = None
+        self.item_sizes = None
+        # self.colors = None
+
+        self._text_items = []
 
         # Init props unrelated to layout
         self.screen_space = screen_space
@@ -293,6 +310,12 @@ class TextGeometry(Geometry):
     @screen_space.setter
     def screen_space(self, value):
         self._store.screen_space = bool(value)
+
+    def set_text_item_count(self):
+        pass
+
+    def get_text_item(self):
+        """Get a new text item, that can be"""
 
     def set_text_items(self, text_items):
         """Update the text using one or more TextItems.
@@ -377,16 +400,19 @@ class TextGeometry(Geometry):
             glyph_count += item.indices.size
 
         # Do we need new buffers?
-        if self.indices is None or self.indices.nitems < glyph_count:
-            self.indices = Buffer(np.zeros((glyph_count,), np.uint32))
-            self.positions = Buffer(np.zeros((glyph_count, 2), np.float32))
+        if (
+            self.glyph_atlas_indices is None
+            or self.glyph_atlas_indices.nitems < glyph_count
+        ):
+            self.glyph_atlas_indices = Buffer(np.zeros((glyph_count,), np.uint32))
+            self.glyph_positions = Buffer(np.zeros((glyph_count, 2), np.float32))
             self.sizes = Buffer(np.zeros((glyph_count,), np.float32))
 
         # Copy the glyph arrays into the buffers
         for item in self._glyph_items:
             i1, i2 = item.offset, item.offset + item.indices.shape[0]
-            self.indices.data[i1:i2] = item.indices
-            self.positions.data[i1:i2] = item.positions
+            self.glyph_atlas_indices.data[i1:i2] = item.indices
+            self.glyph_positions.data[i1:i2] = item.positions
 
         # Disable the unused space by setting the sizes to zero, leading
         # to degenerate triangles. Leave the indices intact, so that
@@ -394,8 +420,8 @@ class TextGeometry(Geometry):
         self.sizes.data[glyph_count:] = 0
 
         # Trigger new indices and sizes to be uploaded to the GPU.
-        self.sizes.update_range(0, self.indices.nitems)
-        self.indices.update_range(0, self.indices.nitems)
+        self.sizes.update_range(0, self.sized.nitems)
+        self.glyph_atlas_indices.update_full()
 
         # Finalize the buffers by applying the layout algorithm.
         self.apply_layout()
@@ -615,15 +641,15 @@ class TextGeometry(Geometry):
             # bounding box.
             return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
         else:
-            if self._aabb_rev == self.positions.rev:
+            if self._aabb_rev == self.glyph_positions.rev:
                 return self._aabb
-            pos = self.positions.data
+            pos = self.glyph_positions.data
             aabb_2d = np.array(
                 [np.nanmin(pos, axis=0), np.nanmax(pos, axis=0)], np.float32
             )
             self._aabb[1, 0] += self.font_size  # positions do not include char width
             self._aabb = np.column_stack([aabb_2d, np.zeros((2, 1), np.float32)])
-            self._aabb_rev = self.positions.rev
+            self._aabb_rev = self.glyph_positions.rev
             return self._aabb
 
     def _apply_layout(self):
@@ -673,7 +699,7 @@ class TextGeometry(Geometry):
             elif text_align_last == "start":
                 text_align_last = "right"
 
-        positions_array = self.positions.data
+        positions_array = self.glyph_positions.data
         sizes_array = self.sizes.data
         is_horizontal = self._direction is None or self._direction in ("ltr", "rtl")
 
@@ -858,7 +884,7 @@ class TextGeometry(Geometry):
 
         # Trigger uploads to GPU
         self.sizes.update_range(0, i2)
-        self.positions.update_range(0, i2)
+        self.glyph_positions.update_range(0, i2)
 
     def apply_layout(self):
         """Update the internal contained glyphs.

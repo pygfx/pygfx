@@ -4,7 +4,7 @@
 
 .. raw:: html
 
-    <h1 class="frontpage-header">pygfx</h1>
+    <h1 class="frontpage-header">Pygfx</h1>
 
 Pygfx' purpose is to bring powerful and reliable visualization to the Python world. 🚀
 
