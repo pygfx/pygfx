@@ -49,7 +49,7 @@ line = gfx.Line(
 scene.add(background, grid, rulerx, rulery, line)
 
 camera = gfx.OrthographicCamera(maintain_aspect=False)
-camera.show_rect(0, 1000, -5, 5)
+camera.show_rect(-100, 1100, -5, 5)
 
 controller = gfx.PanZoomController(camera, register_events=renderer)
 
@@ -96,9 +96,6 @@ def animate():
     # print(statsx)
 
     renderer.render(scene, camera)
-
-
-camera.zoom = 0.5
 
 
 if __name__ == "__main__":

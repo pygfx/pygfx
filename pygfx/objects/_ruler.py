@@ -24,6 +24,10 @@ class Ruler(WorldObject):
     def __init__(
         self,
         *,
+        start_pos=(0, 0, 0),
+        end_pos=(0, 0, 0),
+        start_value=0.0,
+        ticks=None,
         tick_format="0.4g",
         tick_side="left",
         min_tick_distance=50,
@@ -31,10 +35,10 @@ class Ruler(WorldObject):
     ):
         super().__init__()
 
-        self.start_pos = 0, 0, 0
-        self.end_pos = 0, 0, 0
-        self.start_value = 0.0
-        self.ticks = None
+        self.start_pos = start_pos
+        self.end_pos = end_pos
+        self.start_value = start_value
+        self.ticks = ticks
 
         self.tick_format = tick_format
         self.tick_side = tick_side
@@ -124,12 +128,10 @@ class Ruler(WorldObject):
     def ticks(self):
         """The ticks to show.
 
-        Can be:
-
         * ``None`` for automatic ticks.
-        * ``dict`` for explicit ticks (float -> str).
-        * ``list`` / ``tupple`` / ``ndarray`` for a list of values.
-
+        * ``dict`` for explicit ticks. Values can be str or float. If float, they
+          are formatted with ``tick_format``.
+        * ``list`` / ``tuple`` / ``ndarray`` for a list of values.
         """
         return self._ticks
 
@@ -139,7 +141,7 @@ class Ruler(WorldObject):
             self._ticks = None
         elif isinstance(ticks, dict):
             # Copy the object, resolving keys and values to float and str
-            self._ticks = {float(k): str(v) for k, v in ticks.items()}
+            self._ticks = {float(k): v for k, v in ticks.items()}
         elif isinstance(ticks, (tuple, list, np.ndarray)):
             self._ticks = [float(x) for x in ticks]
         else:
@@ -149,12 +151,29 @@ class Ruler(WorldObject):
 
     @property
     def tick_format(self):
-        """The format to display the tick values."""
+        """The format to display the tick values.
+
+        * A string to use as the second arg in ``format()``, default "0.4g".
+        * "km" to use mili/Kilo/Mega/Giga suffixes.
+        * A function that maps (value, min_value, max_value) to a str.
+        """
         return self._tick_format
 
     @tick_format.setter
-    def tick_format(self, format):
-        self._tick_format = str(format)
+    def tick_format(self, tick_format):
+        if isinstance(tick_format, str):
+            self._tick_format = str(tick_format)
+        elif callable(tick_format):
+            # Emperically check the given function
+            try:
+                r = tick_format(0, -1, 1)
+            except TypeError as err:
+                raise ValueError(f"Incompatible tick_format function: {str(err)}")
+            if not isinstance(r, str):
+                raise ValueError(
+                    f"Incompatible tick_format function: it must return str, not {r.__class__.__name__}"
+                )
+            self._tick_format = tick_format
 
     @property
     def tick_side(self):
@@ -304,14 +323,51 @@ class Ruler(WorldObject):
         """
 
         min_value, max_value = self._visible_part_values
+        tick_format = self._tick_format
 
+        def default_tick_format_func(val, min_val, max_val):
+            if val == 0:
+                return "0"
+            else:
+                return format(val, tick_format)
+
+        # Select funtion to format the tick values
+        if tick_format == "km":
+            tick_format_func = kmg_tick_format_func
+        elif isinstance(tick_format, str):
+            tick_format_func = default_tick_format_func
+        elif callable(tick_format):
+            tick_format_func = tick_format
+        else:  # Fallback
+            tick_format = "0.4g"
+            tick_format_func = default_tick_format_func
+
+        # Triage based on what ticks are given
         ticks = self._ticks
         if ticks is None:
-            return self._get_ticks_uniform(min_value, max_value, tick_auto_step)
-        elif isinstance(ticks, dict):
-            return {x: v for x, v in ticks.items() if min_value <= x <= max_value}
-        else:
-            return {x: str(x) for x in ticks if min_value <= x <= max_value}
+            # Auto-ticks
+            tick_values = self._get_ticks_uniform(min_value, max_value, tick_auto_step)
+            return {t: tick_format_func(t, min_value, max_value) for t in tick_values}
+
+        elif isinstance(ticks, list):
+            # A sequence of ticks
+            return {
+                t: tick_format_func(t, min_value, max_value)
+                for t in ticks
+                if min_value <= t <= max_value
+            }
+
+        else:  # isinstance(ticks, dict):
+            # A dict with specified ticks, values can be str or float
+            result = {}
+            for t, v in ticks.items():
+                if min_value <= t <= max_value:
+                    if isinstance(v, (float, int)):
+                        v = tick_format_func(v, min_value, max_value)
+                    elif not isinstance(v, str):
+                        v = str(v)
+                    result[t] = v
+            return result
 
     def _calculate_tick_step(self):
         """Calculate the tick step from the min_tick_distance."""
@@ -348,40 +404,15 @@ class Ruler(WorldObject):
         """Get a uniformly distributed set of ticks."""
 
         if not step:
-            return {}
+            return []
 
-        tick_format = self._tick_format
-
-        # Apply some form of scaling
-        ref_value = max(abs(min_value), abs(max_value))
-        if tick_format.lower() == "km":  # use mk units
-            tick_format = "0.4g"  # for the remaining number
-            if ref_value >= 10_000_000_000:
-                mult, unit = 1 / 1_000_000_000, "G"
-            elif ref_value >= 10_000_000:
-                mult, unit = 1 / 1_000_000, "M"
-            elif ref_value >= 10000:
-                mult, unit = 1 / 1000, "K"
-            elif ref_value < 0.0001:
-                mult, unit = 1_000_000, "u"
-            elif ref_value < 0.1:
-                mult, unit = 1000, "m"
-            else:
-                mult, unit = 1, ""
-        else:
-            mult, unit = 1, ""
-
-        # Calculate tick values
         first_tick = ceil(min_value / step) * step
         last_tick = floor(max_value / step) * step
-        ticks = {}
+
+        ticks = []
         t = first_tick
         while t <= last_tick:
-            if t == 0:
-                s = "0"
-            else:
-                s = format(mult * t, tick_format)
-            ticks[t] = s + unit
+            ticks.append(t)
             t += step
 
         return ticks
@@ -477,3 +508,26 @@ class Ruler(WorldObject):
                 self._text_object_pool[1].geometry.set_text("")
             if abs(tick_values[-1] - end_value) < 0.5 * tick_auto_step:
                 self._text_object_pool[index - 1].geometry.set_text("")
+
+
+# ---- Helper functions
+
+
+def kmg_tick_format_func(val, min_val, max_val):
+    ref_value = max(abs(min_val), abs(max_val))
+    if ref_value >= 10_000_000_000:
+        mult, unit = 1 / 1_000_000_000, "G"
+    elif ref_value >= 10_000_000:
+        mult, unit = 1 / 1_000_000, "M"
+    elif ref_value >= 10000:
+        mult, unit = 1 / 1000, "K"
+    elif ref_value < 0.0001:
+        mult, unit = 1_000_000, "u"
+    elif ref_value < 0.1:
+        mult, unit = 1000, "m"
+    else:
+        mult, unit = 1, ""
+    if val == 0:
+        return "0"
+    else:
+        return format(mult * val, "0.4g") + unit
