@@ -58,7 +58,7 @@ class TriangleMaterial(gfx.Material):
     def color(self, color):
         color = gfx.Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 99999)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
