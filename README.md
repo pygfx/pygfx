@@ -4,7 +4,7 @@
 ](https://github.com/pygfx/pygfx/actions)
 [![Documentation Status
 ](https://readthedocs.org/projects/pygfx/badge/?version=stable)
-](https://pygfx.readthedocs.io)
+](https://docs.pygfx.org)
 [![PyPI version ](https://badge.fury.io/py/pygfx.svg)
 ](https://badge.fury.io/py/pygfx)
 
@@ -18,9 +18,9 @@ Pygfx (pronounced "py-graphics") is built on [wgpu](https://github.com/pygfx/wgp
 <img src="./docs/_static/readme_torus_knot_wire.png" alt="drawing" width="200"/>
 </p>
 <p align="center">
-[<a href="https://pygfx.com/stable/guide.html">User Guide</a>]
-[<a href="https://pygfx.com/stable/_gallery/index.html">Example Gallery</a>]
-[<a href="https://pygfx.com/stable/reference.html">API Reference</a>]
+[<a href="https://docs.pygfx.org/stable/guide.html">User Guide</a>]
+[<a href="https://docs.pygfx.org/stable/_gallery/index.html">Example Gallery</a>]
+[<a href="https://docs.pygfx.org/stable/reference.html">API Reference</a>]
 </p>
 
 ## Professional support
@@ -33,7 +33,7 @@ Need help? We offer the following professional services:
 * **Training and Workshops:** We provide informative training sessions and workshops aimed at boosting skills and knowledge.
 
 Also checkout the [sponsors page](https://github.com/sponsors/pygfx).
-For further inquiries reach out to us at [support@pygfx.com](mailto:support@pygfx.com).
+For further inquiries reach out to us at [support@pygfx.org](mailto:support@pygfx.org).
 
 ## Installation
 
@@ -69,7 +69,7 @@ when you update.
 
 > **Note**
 > A walkthrough of this example can be found in [the
-> guide](https://pygfx.com/stable/guide.html#how-to-use-pygfx).
+> guide](https://docs.pygfx.org/stable/guide.html#how-to-use-pygfx).
 
 ```python
 import pygfx as gfx
@@ -96,19 +96,19 @@ if __name__ == "__main__":
 Some of Pygfx's key features are:
 
 - SDF based text rendering ([example](
-  https://pygfx.com/stable/_gallery/feature_demo/text_contrast.html))
+  https://docs.pygfx.org/stable/_gallery/feature_demo/text_contrast.html))
 - order-independent transparency (OIT) ([example](
-  https://pygfx.com/stable/_gallery/feature_demo/transparency2.html))
+  https://docs.pygfx.org/stable/_gallery/feature_demo/transparency2.html))
 - lights, shadows, and physically based rendering (PBR) ([example](
-  https://pygfx.com/stable/_gallery/feature_demo/pbr.html))
+  https://docs.pygfx.org/stable/_gallery/feature_demo/pbr.html))
 - event system with built-in picking ([example](
-  https://pygfx.com/stable/_gallery/feature_demo/picking_points.html))
+  https://docs.pygfx.org/stable/_gallery/feature_demo/picking_points.html))
 - texture and color mapping supporting 1D, 2D and 3D data ([example](
-  https://pygfx.com/stable/_gallery/feature_demo/colormap_channels.html))
+  https://docs.pygfx.org/stable/_gallery/feature_demo/colormap_channels.html))
 
 
 And many more! Check out our [feature demos](
-https://pygfx.com/stable/_gallery/index.html) in the docs.
+https://docs.pygfx.org/stable/_gallery/index.html) in the docs.
 
 ## License
 
