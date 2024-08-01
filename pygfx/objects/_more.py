@@ -444,3 +444,11 @@ class Text(WorldObject):
         # text in screen coordinates.
         matrix = la.mat_compose((0, 0, 0), self.local.rotation, self.local.scale)
         self.uniform_buffer.data["rot_scale_transform"] = matrix.T
+
+    def set_text(self, text, family=None, style=None, weight=None):
+        raise NotImplementedError()
+
+    def set_markdown(self, markdown, family=None):
+        raise NotImplementedError()
+
+    # TODO all other layout props
