@@ -50,7 +50,7 @@ WHITESPACE_EXTENTS = {}
 
 
 class TextItem:
-    """A formatted piece of text.
+    """A piece of text with homogeneous formatting.
 
     A text item represents a unit piece of text that is formatted in a specific
     way. The TextGeometry converts these into GlyphItem's, and positions these
@@ -58,10 +58,20 @@ class TextItem:
 
     Parameters
     ----------
+    geometry : TextGeometry
+        The geometry in which the data is stored to represent the text.
     text : str
         The text to display.
     font_props : textmodule.FontProps
         Format information for this text item.
+    font_size : float
+        The font size.
+
+    TODO: flatten font props?
+    TODO: check all below
+
+    anchor?
+
     ws_before : str
         Whitespace before the text.
     ws_after : str
@@ -72,20 +82,33 @@ class TextItem:
         Newline after the text.
     allow_break : bool
         If True, allow a linebreak to be placed after this piece of text.
+    index : int
+        Index into the positions buffer. If given,
+        this text item is positioned relative to geometry.positions[index] (in world coords).
+        All further text items are positioned with the same position.
+        The layout algorithm does a fresh start when it encounters a text item with a given index.
+        This way one can create groups of text that are positioned and layed out individually.
 
     """
 
     def __init__(
         self,
+        geometry,
         text,
         font_props=None,
+        font_size=12,
         *,
+        position=(0, 0, 0),
         ws_before="",
         ws_after="",
         nl_before="",
         nl_after="",
         allow_break=True,
     ):
+
+        if not isinstance(geometry, TextGeometry):
+            raise TypeError("TextItem needs a TextGeometry to produce glyphs.")
+
         if not isinstance(text, str):
             raise TypeError("TextItem text must be str.")
         if font_props is None:
@@ -95,6 +118,8 @@ class TextItem:
 
         self._text = text
         self._font_props = font_props
+        self._font_size = float(font_size)
+
         self._ws_before = ws_before
         self._ws_after = ws_after
         self._nl_before = nl_before
@@ -110,6 +135,11 @@ class TextItem:
     def font_props(self):
         """The FontProps object to format this text item."""
         return self._font_props
+
+    @property
+    def font_size(self):
+        """The font size as a float."""
+        return self._font_size
 
     @property
     def ws_before(self):
@@ -136,31 +166,112 @@ class TextItem:
         """Whether or not a line-break is allowed after this item."""
         return self._allow_break
 
+    def _set_meta(self, **meta):
+        """Called by TextGeometry to set sizing data."""
+        self._meta = meta
 
-class GlyphItem:
-    """A collection of glyphs that represents a unit piece of text.
-    Intended for internal use only. In most cases one TextItem results
-    in one GlyphItem, but it can be more if multiple fonts are required
-    to render the TextItem.
-    """
+    @property
+    def meta(self):
+        """Get metadata, mostly about the sizing/positioning of the text item."""
+        return self._meta
 
-    def __init__(self, positions, indices, meta):
-        # Arrays with glyph data
-        self.positions = positions
-        self.indices = indices
-        # Layout data
-        self.meta = meta
-        self.extent = meta["extent"]
-        self.direction = meta["direction"]
-        self.ascender = meta["ascender"]
-        self.descender = meta["descender"]
-        self.allow_break = False
-        self.margin_before = 0
-        self.margin_after = 0
-        self.newline_before = 0
-        self.newline_after = 0
-        # Int offset. Note that this means that a glyph item is bound to a TextGeometry
-        self.offset = 0
+
+
+# class GlyphItem:
+#     """A series of glyphs that represents a unit piece of text.
+#     Intended for internal use only. In most cases one TextItem results
+#     in one GlyphItem, but it can be more if multiple fonts are required
+#     to render the TextItem.
+#     """
+
+#     def __init__(self, positions, indices, meta):
+#         # Arrays with glyph data
+#         self.positions = positions
+#         self.indices = indices
+#         # Layout data
+#         self.meta = meta
+#         self.extent = meta["extent"]
+#         self.direction = meta["direction"]
+#         self.ascender = meta["ascender"]
+#         self.descender = meta["descender"]
+#         self.allow_break = False
+#         self.margin_before = 0
+#         self.margin_after = 0
+#         self.newline_before = 0
+#         self.newline_after = 0
+#         # Int offset. Note that this means that a glyph item is bound to a TextGeometry
+#         self.offset = 0
+
+
+class DynamicBufferManager:
+
+    def __init__(self, min_count, map, **arrays):
+        self.min_count = min_count
+        self.map = map
+        self.arrays = arrays  # dict mapping name -> array
+        self.gaps = set()
+        self.count = 0
+        self.max_count = min_count
+
+    def allocate_index(self, key):
+        index = self.map.get(key, None)
+        assert index is None
+
+        # Need larger buffer
+        if self.count >= self.max_count:
+            self.create_new_buffers(1)
+
+        # Obtain new item index
+        if self.gaps:
+            index = self.gaps.pop()
+            self.count += 1
+        else:
+            index = self.count
+            self.count += 1
+
+        # Trigger sync
+        for _, buffer in self.buffers:
+            buffer.uupdate_indices(index)
+
+        # Apply
+        self.map[key] = index
+
+    def allocate_indices(self, key, n):
+
+        # Need larger buffer?
+        n_free = self.max_count - self.count
+        if n > n_free:
+            self.create_new_buffers(n)
+
+        # Allocate indices
+        if not self.gaps:
+            # Contiguous: indices is a range
+            indices = range(self.count, self.count + n)
+            self.count += n
+        else:
+            # First use gaps, then indices from the end
+            indices = np.empty((n,), np.int32)
+            n_from_gaps = min(n, len(self.gaps))
+            for i in range(0, n_from_gaps):
+                indices[i] = self.gaps.pop()
+            indices[n_from_gaps:n] = range(self.count, self.count + n)
+            self.count += n
+
+        # Trigger sync
+        if isinstance(indices, range):
+            for _, buffer in self.buffers:
+                buffer.update_range(indices.start, indices.count)
+        else:
+            for _, buffer in self.buffers:
+                buffer.uupdate_indices(indices)
+
+        # Apply
+        # todo: de-allocate or reuse the current indices
+        self.map[key] = indices
+
+
+    def create_new_buffers(self, need_extra):
+        pass
 
 
 class TextGeometry(Geometry):
@@ -233,9 +344,30 @@ class TextGeometry(Geometry):
         super().__init__()
 
         # Init stub buffers
-        self.indices = None
-        self.positions = None
-        self.sizes = None
+        # self.indices = None
+        # self.positions = None
+        # self.sizes = None
+
+        self.glyph_atlas_indices = None
+        self.glyph_item_indices = None
+        self.glyph_positions = None
+
+        # todo: rename by dropping prefix
+        self.item_positions = None
+        self.item_sizes = None
+        # self.colors = None
+
+        self._item_count = 0
+        self._item_index_gaps = set()
+        self._item_index_per_id = {}
+
+        self._glyph_count = 0
+        self._glyph_indices_gaps = set()
+        self._glyph_indices_per_item = []
+
+        self._glyph_items = [] # TODO: remove
+
+        # ---
 
         # Init props unrelated to layout
         self.screen_space = screen_space
@@ -270,6 +402,287 @@ class TextGeometry(Geometry):
         # Finish layout
         self._do_layout = True
         self.apply_layout()
+
+    # --- item api
+
+    def clear(self):
+        """Efficient way to clear all text, making all existing text items invalid."""
+
+        self._item_count = 0
+        self._item_index_gaps = set()
+        self._item_index_per_id = {}
+
+        n = 8
+        self.item_positions = Buffer(np.zeros((n, 3), np.float32))
+        self.item_sizes = Buffer(np.zeroes((n,) np.float32))
+
+        self._glyph_count = 0
+        self._glyph_indices_gaps = set()
+        self._glyph_indices_per_item = []
+
+        n = 16
+        self.glyph_atlas_indices = Buffer(np.zeros(n, ), np.int32)
+        self.glyph_item_indices =  Buffer(np.zeros(n, ), np.int32)
+        self.glyph_positions = Buffer(np.zeros(n, 3), np.float32)
+
+    def create_text_item(self, text, font_props, font_size=12):
+        """Get a new text item that can be used to represent text."""
+        return TextItem(self, text, font_props, font_size)
+
+    def _item_update_glyphs(self, item):  # text, font_props, font_size):
+
+        # Allocate or de-allocate an index for this item
+        item_id = id(item)
+        if item.text:
+            if item_id not in self._item_index_per_id:
+                self._item_allocate(item)
+        else:
+            if item_id in self._item_index_per_id:
+                self._item_deallocate(item)
+            return
+
+        # Get item index
+        item_index = self._item_index_per_id[item_id]
+
+        # Text rendering steps: font selection, shaping, glyph generation
+
+        pieces = []
+        extent = ascender = descender = 0
+        direction = "ltr"
+
+        last_reverse_index = 0
+        text_pieces = self._select_font(item.text, item.font_props)
+        for text, font in text_pieces:
+            glyph_indices, positions, meta = self._shape_text(text, font.filename)
+            atlas_indices = self._generate_glyph(glyph_indices, font.filename)
+            self._encode_font_props_in_atlas_indices(
+                atlas_indices, item.font_props, font
+            )
+            extent = max(extent, meta["extent"])
+            ascender = max(ascender, meta["ascender"])
+            descender = max(descender, meta["descender"])
+            # TODO: is descender negative or positive? I.e. use min or max?
+            direction = meta[
+                "direction"
+            ]
+
+            # Put in list, take direction into account
+            piece = atlas_indices, positions
+            if direction in ("rtl", "btt"):
+                pieces.insert(last_reverse_index, piece)
+            else:
+                pieces.append(piece)
+                last_reverse_index = len(piece)
+
+        # Store measurements on the item, so layout mechanics can use it
+        item._set_meta(extent=extent, ascender=ascender, descneder=descender, direction=direction)
+
+        # Allocate glyph data slots
+        index_counts = [len(piece[0]) for piece in pieces]
+        total_index_count = sum(index_counts)
+        indices = self._glyphs_allocate(total_index_count)
+
+        self._glyph_indices_per_item[item_index] = indices
+
+        # Write glyph data
+        i1 = 0
+        for piece_index in range(len(pieces)):
+            atlas_indices, positions = pieces[piece_index]
+            i2 = i1 + len(positions)
+            sub_indices = indices[i1:i2]
+            self.glyph_atlas_indices.data[sub_indices] = atlas_indices
+            self.glyph_positions.data[sub_indices] = positions
+            i1 = i2
+
+        # Assign glyphs to this index
+        self.glyph_item_indices[indices] = item_index
+
+
+
+
+        # Get whitespace after and before the text
+        # margin_before = self._get_ws_extent(item.ws_before, text_pieces[0][1])
+        # margin_after = self._get_ws_extent(item.ws_after, text_pieces[-1][1])
+
+        # Set props so these items will be grouped correctly
+        # first_item, last_item = glyph_items[0], glyph_items[-1]
+        # first_item.allow_break = item.allow_break
+        # first_item.margin_before = margin_before
+        # first_item.newline_before = item.nl_before
+        # last_item.margin_after = margin_after
+        # last_item.newline_after = item.nl_after
+
+        # Do we need new buffers?
+        if (
+            self.glyph_atlas_indices is None
+            or self.glyph_atlas_indices.nitems < glyph_count
+        ):
+            self.glyph_atlas_indices = Buffer(np.zeros((glyph_count,), np.uint32))
+            self.glyph_positions = Buffer(np.zeros((glyph_count, 2), np.float32))
+            self.sizes = Buffer(np.zeros((glyph_count,), np.float32))
+
+        # Copy the glyph arrays into the buffers
+        for item in self._glyph_items:
+            i1, i2 = item.offset, item.offset + item.indices.shape[0]
+            self.glyph_atlas_indices.data[i1:i2] = item.indices
+            self.glyph_positions.data[i1:i2] = item.positions
+
+    def _item_allocate(self, item):
+        index = self._item_index_per_id.get(id(item), None)
+        assert index is None
+        max_item_count = self.item_positions.nitems
+        # Obtain new item index
+        if self._item_index_gaps:
+            index = self._item_index_gaps.pop()
+        else:
+            if self._item_count >= max_item_count:
+                self._item_create_new_buffers(1)
+            index = self._item_count
+        self._item_count += 1
+        # Apply
+        self._item_index_per_id[id(item)] = index
+        # Update glyphs
+        self._glyph_indices_per_item[index] = None
+
+    def _item_deallocate(self, item):
+        index = self._item_index_per_id.get(id(item), None)
+        assert index is not None
+        max_item_count = self.item_positions.nitems
+        # Free the index
+        if index == self._item_count - 1:
+            self._item_count -= 1
+        else:
+            self._item_index_gaps.add(index)
+        self._item_count -= 1
+        # Maybe resize
+        if self._item_count < 0.25 * max_item_count:
+            self._item_create_new_buffers(0)
+        # Apply
+        self._item_index_per_id.pop(id(item))
+        # Deallocate glyphs
+        self._glyphs_deallocate(self._glyph_indices_per_item[index])
+        self._glyph_indices_per_item[index] = None
+
+    def _item_create_new_buffers(self, extra_needed):
+
+        # Get new size
+        need_size = self._item_count + extra_needed
+        new_size = 2 ** int(np.ceil(np.log2(need_size)))
+        new_size = max(8, new_size)
+
+        # Prepare new arrays
+        item_positions = np.empty((new_size, 3), np.float32)
+        item_sizes = np.empty((new_size,), np.float32)
+
+        # Copy data and update indices
+        new_index = 0
+        for item_id in list(self._item_index_per_id.keys()):
+            old_index = self._item_index_per_id[item_id]
+            # Copy data
+            item_positions[new_index] = self.item_positions.data[old_index]
+            item_sizes[new_index] = self.item_sizes.data[old_index]
+            # Update index
+            self._item_index_per_id[item_id] = new_index
+            # Prepare next
+            new_index += 1
+
+        # The indices are now filled up, without holes
+        assert new_index == self._item_count
+        self._item_index_gaps = set()
+
+        # Store
+        self.item_positions = Buffer(item_positions)
+        self.item_sizes = Buffer(item_sizes)
+
+    # -- glyph api
+
+    def _glyphs_allocate(self, n):
+        max_glyph_count = self.glyph_positions.nitems
+
+        # Need larger buffer?
+        n_free = max_glyph_count - self._glyph_count
+        if n > n_free:
+            self._glyphs_create_new_buffers(n)
+
+        # Allocate indices
+        if not self._glyph_indices_gaps:
+            # Contiguous: indices is a range
+            indices = range(self._glyph_count, self._glyph_count + n)
+            self._glyph_count += n
+        else:
+            # First use gaps, then indices from the end
+            indices = np.empty((n,), np.int32)
+            n_from_gap = min(n, len(self._glyph_indices_gaps))
+            for i in range(0, n_from_gap):
+                indices[i] = self._free_glyph_indices.pop()
+            self._glyph_count += n_from_gap
+            for i in range(n_from_gap, n):
+                indices[i] = self._glyph_count
+                self._glyph_count += 1
+
+        # Trigger sync
+        if isinstance(indices, range):
+            self.glyph_item_indices.update_range(indices.start, indices.count)
+            self.glyph_atlas_indices.update_range(indices.start, indices.count)
+            self.glyph_positions.update_range(indices.start, indices.count)
+        else:
+            self.glyph_item_indices.update_indices(indices)
+            self.glyph_atlas_indices.update_indices(indices)
+            self.glyph_positions.update_indices(indices)
+
+        return indices
+
+    def _glyphs_deallocate(self, indices):
+        max_glyph_count = self.glyph_positions.nitems
+        # Update data
+        self.glyph_item_indices[indices] = -1
+        self.glyph_atlas_indices[indices] = 0
+        # self.glyph_positions[indices] = 0
+        # Deallocate
+        self._glyph_indices_gaps.update(indices)
+        self._glyph_count -= len(indices)
+        # Maybe reduce buffer size
+        if self._glyph_count < 0.25 * max_glyph_count:
+            self._glyphs_create_new_buffers(0)
+
+    def _glyphs_create_new_buffers(self, extra_needed):
+
+        # Get new size
+        need_size = self._glyph_count + extra_needed
+        new_size = 2 ** int(np.ceil(np.log2(need_size)))
+        new_size = max(16, new_size)
+
+        # Prepare new arrays
+        glyph_atlas_indices = np.zeros((new_size,), np.int32)
+        glyph_item_indices = np.zeros((new_size,), np.int32)
+        glyph_positions = np.empty((new_size, 3), np.float32)
+
+        # Copy data and update indices
+        i1 = 0
+        for item_index in range(len(self._glyph_indices_per_item)):
+            # Get old and new indices
+            old_indices = self._glyph_indices_per_item[item_index]
+            i2 = i1 + len(old_indices)
+            new_indices = range(i1, i2)
+            # Update indices for the item
+            self._glyph_indices_per_item[item_index] = new_indices
+            # Copy data
+            glyph_atlas_indices[new_indices] = self.data.glyph_atlas_indices[
+                old_indices
+            ]
+            glyph_item_indices[new_indices] = self.data.glyph_item_indices[old_indices]
+            glyph_positions[new_indices] = self.data.glyph_positions[old_indices]
+            # Prepare next
+            i1 = i2
+
+        # The indices are now filled up, without holes
+        assert i1 == self._glyph_count
+        self._glyph_indices_gaps = set()
+
+        # Store
+        self.glyph_atlas_indices = Buffer(glyph_atlas_indices)
+        self.glyph_item_indices = Buffer(glyph_item_indices)
+        self.glyph_positions = Buffer(glyph_positions)
 
     @property
     def screen_space(self):
@@ -377,16 +790,19 @@ class TextGeometry(Geometry):
             glyph_count += item.indices.size
 
         # Do we need new buffers?
-        if self.indices is None or self.indices.nitems < glyph_count:
-            self.indices = Buffer(np.zeros((glyph_count,), np.uint32))
-            self.positions = Buffer(np.zeros((glyph_count, 2), np.float32))
+        if (
+            self.glyph_atlas_indices is None
+            or self.glyph_atlas_indices.nitems < glyph_count
+        ):
+            self.glyph_atlas_indices = Buffer(np.zeros((glyph_count,), np.uint32))
+            self.glyph_positions = Buffer(np.zeros((glyph_count, 2), np.float32))
             self.sizes = Buffer(np.zeros((glyph_count,), np.float32))
 
         # Copy the glyph arrays into the buffers
         for item in self._glyph_items:
             i1, i2 = item.offset, item.offset + item.indices.shape[0]
-            self.indices.data[i1:i2] = item.indices
-            self.positions.data[i1:i2] = item.positions
+            self.glyph_atlas_indices.data[i1:i2] = item.indices
+            self.glyph_positions.data[i1:i2] = item.positions
 
         # Disable the unused space by setting the sizes to zero, leading
         # to degenerate triangles. Leave the indices intact, so that
@@ -394,8 +810,8 @@ class TextGeometry(Geometry):
         self.sizes.data[glyph_count:] = 0
 
         # Trigger new indices and sizes to be uploaded to the GPU.
-        self.sizes.update_range(0, self.indices.nitems)
-        self.indices.update_range(0, self.indices.nitems)
+        self.sizes.update_range(0, self.sized.nitems)
+        self.glyph_atlas_indices.update_full()
 
         # Finalize the buffers by applying the layout algorithm.
         self.apply_layout()
@@ -615,15 +1031,15 @@ class TextGeometry(Geometry):
             # bounding box.
             return np.array([[0, 0, 0], [0, 0, 0]], np.float32)
         else:
-            if self._aabb_rev == self.positions.rev:
+            if self._aabb_rev == self.glyph_positions.rev:
                 return self._aabb
-            pos = self.positions.data
+            pos = self.glyph_positions.data
             aabb_2d = np.array(
                 [np.nanmin(pos, axis=0), np.nanmax(pos, axis=0)], np.float32
             )
             self._aabb[1, 0] += self.font_size  # positions do not include char width
             self._aabb = np.column_stack([aabb_2d, np.zeros((2, 1), np.float32)])
-            self._aabb_rev = self.positions.rev
+            self._aabb_rev = self.glyph_positions.rev
             return self._aabb
 
     def _apply_layout(self):
@@ -673,7 +1089,7 @@ class TextGeometry(Geometry):
             elif text_align_last == "start":
                 text_align_last = "right"
 
-        positions_array = self.positions.data
+        positions_array = self.glyph_positions.data
         sizes_array = self.sizes.data
         is_horizontal = self._direction is None or self._direction in ("ltr", "rtl")
 
@@ -858,7 +1274,7 @@ class TextGeometry(Geometry):
 
         # Trigger uploads to GPU
         self.sizes.update_range(0, i2)
-        self.positions.update_range(0, i2)
+        self.glyph_positions.update_range(0, i2)
 
     def apply_layout(self):
         """Update the internal contained glyphs.
