@@ -100,7 +100,7 @@ add_label("-diffuse", (0, 0, -300))
 
 # Create camera and controls
 camera = gfx.PerspectiveCamera(45, 640 / 480)
-camera.show_object(scene, view_dir=(-2, -1.5, -3), scale=1.2)
+camera.show_object(scene, view_dir=(-2, -1.5, -3), scale=1)
 
 controller = gfx.OrbitController(camera, register_events=renderer)
 
