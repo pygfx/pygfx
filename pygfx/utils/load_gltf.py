@@ -412,7 +412,7 @@ class _GLTF:
                     "texcoords",
                     "texcoords1",
                 ):
-                    data = data.astype(np.float32)
+                    data = data.astype(np.float32, copy=False)
 
                 geometry_args[geometry_attr] = data
 
