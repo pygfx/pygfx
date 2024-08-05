@@ -532,15 +532,24 @@ class MeshToonMaterial(MeshBasicMaterial):
         emissive_intensity="f4",
     )
 
-    def __init__(self, emissive="#000", gradient_map=None, **kwargs):
+    def __init__(
+        self,
+        emissive="#000",
+        gradient_map=None,
+        emissive_intensity=1.0,
+        emissive_map=None,
+        normal_map=None,
+        normal_scale=(1, 1),
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
         self.emissive = emissive
-        self.emissive_map = None
-        self.emissive_intensity = 1.0
+        self.emissive_map = emissive_map
+        self.emissive_intensity = emissive_intensity
 
-        self.normal_map = None
-        self.normal_scale = (1, 1)
+        self.normal_map = normal_map
+        self.normal_scale = normal_scale
 
         self.gradient_map = gradient_map
 
