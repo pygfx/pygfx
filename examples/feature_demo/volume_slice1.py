@@ -40,7 +40,7 @@ def handle_event(event):
     index = max(0, min(nslices - 1, index))
     im = vol[index]
     tex.data[:] = im
-    tex.update_range((0, 0, 0), tex.size)
+    tex.update_full()
     canvas.request_draw()
 
 

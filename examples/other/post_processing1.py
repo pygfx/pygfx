@@ -58,7 +58,7 @@ class NoiseMaterial(gfx.materials.Material):
 
     def tick(self):
         self.uniform_buffer.data["time"] = time.time() % 1
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 shader_source = """

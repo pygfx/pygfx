@@ -55,7 +55,7 @@ class TriangleMaterial(gfx.Material):
     @color.setter
     def color(self, color):
         self.uniform_buffer.data["color"] = gfx.Color(color)
-        self.uniform_buffer.update_range(0, 99999)
+        self.uniform_buffer.update_full()
 
 
 @register_wgpu_render_function(Triangle, TriangleMaterial)

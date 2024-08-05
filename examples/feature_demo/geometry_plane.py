@@ -40,7 +40,7 @@ scene.add(gfx.AmbientLight(), gfx.DirectionalLight())
 def animate():
     # Read next frame, rewind if we reach the end
     tex.data[:] = next(frame_generator)
-    tex.update_range((0, 0, 0), tex.size)
+    tex.update_full()
 
     renderer.render(scene, camera)
     canvas.request_draw()

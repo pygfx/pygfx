@@ -1,8 +1,8 @@
-Using the pygfx gallery scraper
+Using the Pygfx gallery scraper
 ===============================
 
 Pygfx implements its own scraper for Sphinx-gallery. Upstream projects that want
-to create a gallery using pygfx, can make use of it.
+to create a gallery using Pygfx, can make use of it.
 
 
 In conf.py
@@ -43,7 +43,7 @@ example that you want to have in the docs.
 Finding the canvas
 ------------------
 
-The pygfx scraper needs to find the canvas or renderer to take the screenshot from.
+The Pygfx scraper needs to find the canvas or renderer to take the screenshot from.
 It does this by looking for an object called ``disp``, ``renderer`` or ``canvas``.
 
 If your library hides these details, we're open to expanding the logic so it is
@@ -59,6 +59,6 @@ You don't have to use the ``find_examples_for_gallery()`` to collect examples.
 You can also set "ignore_pattern" and "filename_pattern" yourself. However, if
 the scaper does not see the comment, it won't render a screenshot.
 
-You can also create your own scraper and re-use some parts of the pygfx scraper.
+You can also create your own scraper and re-use some parts of the Pygfx scraper.
 We tried to write ```pygfx/utils/gallery_scraper.py`` such that the code is very
 much re-usable.

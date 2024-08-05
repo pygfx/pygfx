@@ -53,7 +53,8 @@ class Skeleton:
                     "bone_matrices": "4x4xf4",
                 },
                 count,
-            )
+            ),
+            force_contiguous=True,
         )
 
         if len(self.bone_inverses) == 0:
@@ -106,7 +107,7 @@ class Skeleton:
                 bone.world.matrix @ self.bone_inverses[i]
             ).T
 
-        self.bone_matrices_buffer.update_range()
+        self.bone_matrices_buffer.update_full()
 
     def get_bone(self, name):
         for bone in self.bones:
@@ -145,7 +146,7 @@ class SkinnedMesh(Mesh):
     def bind_matrix(self, value):
         self._bind_matrix = value
         self.uniform_buffer.data["bind_matrix"] = self._bind_matrix.T
-        self.uniform_buffer.update_range()
+        self.uniform_buffer.update_full()
 
     @property
     def bind_matrix_inv(self):
@@ -156,7 +157,7 @@ class SkinnedMesh(Mesh):
     def bind_matrix_inv(self, value):
         self._bind_matrix_inv = value
         self.uniform_buffer.data["bind_matrix_inv"] = self._bind_matrix_inv.T
-        self.uniform_buffer.update_range()
+        self.uniform_buffer.update_full()
 
     @property
     def bind_mode(self):
