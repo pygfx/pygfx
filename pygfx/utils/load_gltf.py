@@ -436,7 +436,7 @@ class _GLTF:
                         target_attr = self.ATTRIBUTE_NAME[attr]
                         geometry.morph_attributes.setdefault(target_attr, [])
                         geometry.morph_attributes[target_attr].append(
-                            self._load_accessor(accessor_index).astype(np.float32)
+                            self._load_accessor(accessor_index).astype(np.float32, copy=False)
                         )
 
             geometry._morph_targets_relative = True
@@ -495,13 +495,13 @@ class _GLTF:
             # KHR_mesh_quantization
             # https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_mesh_quantization
             assert accessor_dtype.kind == "i" or accessor_dtype.kind == "u"
-            ar = ar.astype(np.float32) / np.iinfo(accessor_dtype).max
+            ar = ar.astype(np.float32, copy=False) / np.iinfo(accessor_dtype).max
 
         # pygfx not support int8, int16, uint8, uint16 now
         if ar.dtype == np.uint8 or ar.dtype == np.uint16:
-            ar = ar.astype(np.uint32)
+            ar = ar.astype(np.uint32, copy=False)
         if ar.dtype == np.int8 or ar.dtype == np.int16:
-            ar = ar.astype(np.int32)
+            ar = ar.astype(np.int32, copy=False)
 
         return ar
 
