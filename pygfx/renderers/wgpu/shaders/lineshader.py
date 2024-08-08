@@ -184,7 +184,9 @@ class LineShader(BaseShader):
                 "For rendering (thick) lines, the geometry.positions must be Nx3."
             )
 
-        uniform_buffer = Buffer(array_from_shadertype(renderer_uniform_type))
+        uniform_buffer = Buffer(
+            array_from_shadertype(renderer_uniform_type), force_contiguous=True
+        )
         uniform_buffer.data["last_i"] = positions1.nitems - 1
 
         rbuffer = "buffer/read_only_storage"

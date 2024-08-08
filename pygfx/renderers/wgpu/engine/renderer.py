@@ -23,6 +23,7 @@ from ....cameras import Camera
 from ....resources import Texture
 from ....resources._base import resource_update_registry
 from ....utils import Color
+from ....utils.transform import mat_inv  # noqa
 
 from ... import Renderer
 from . import blender as blender_module
@@ -53,6 +54,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
     transparency is handled during the rendering process. The following modes exist:
 
         * "default" or None: Select the default: currently this is "ordered2".
+        * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that ignores transparency.
         * "ordered1": single-pass approach that blends fragments (using alpha
           blending). Can only produce correct results if fragments are drawn
@@ -286,6 +288,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
         """The method for handling transparency:
 
         * "default" or None: Select the default: currently this is "ordered2".
+        * "additive": single-pass approach that adds fragments together.
         * "opaque": single-pass approach that consider every fragment opaque.
         * "ordered1": single-pass approach that blends fragments (using alpha blending).
           Can only produce correct results if fragments are drawn from back to front.
@@ -313,6 +316,7 @@ class WgpuRenderer(RootEventHandler, Renderer):
             value = "ordered2"
         # Map string input to a class
         m = {
+            "additive": blender_module.AdditiveFragmentBlender,
             "opaque": blender_module.OpaqueFragmentBlender,
             "ordered1": blender_module.Ordered1FragmentBlender,
             "ordered2": blender_module.Ordered2FragmentBlender,
@@ -665,11 +669,11 @@ class WgpuRenderer(RootEventHandler, Renderer):
         stdinfo_data["cam_transform_inv"] = camera.world.matrix.T
         stdinfo_data["projection_transform"] = camera.projection_matrix.T
         stdinfo_data["projection_transform_inv"] = camera.projection_matrix_inverse.T
-        # stdinfo_data["ndc_to_world"].flat = np.linalg.inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
+        # stdinfo_data["ndc_to_world"].flat = mat_inv(stdinfo_data["cam_transform"] @ stdinfo_data["projection_transform"])
         stdinfo_data["physical_size"] = physical_size
         stdinfo_data["logical_size"] = logical_size
         # Upload to GPU
-        self._shared.uniform_buffer.update_range(0, 1)
+        self._shared.uniform_buffer.update_full()
 
     # Picking
 

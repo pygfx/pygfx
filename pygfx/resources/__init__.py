@@ -1,7 +1,7 @@
 """
 Containers for buffers and textures.
 
-In pygfx, data is stored in buffers and textures. We collectively call these resources.
+In Pygfx, data is stored in buffers and textures. We collectively call these resources.
 
 .. currentmodule:: pygfx.resources
 

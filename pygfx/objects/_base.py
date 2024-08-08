@@ -154,7 +154,7 @@ class WorldObject(EventTarget, RootTrackable):
         self.name = name
 
         # Compose complete uniform type
-        buffer = Buffer(array_from_shadertype(self.uniform_type))
+        buffer = Buffer(array_from_shadertype(self.uniform_type), force_contiguous=True)
         buffer.data["world_transform"] = np.eye(4)
         buffer.data["world_transform_inv"] = np.eye(4)
 
@@ -180,11 +180,13 @@ class WorldObject(EventTarget, RootTrackable):
         self.cast_shadow = False
         self.receive_shadow = False
 
+        self.name = name
+
     @callback
     def _update_uniform_buffers(self, transform: AffineBase):
         self.uniform_buffer.data["world_transform"] = transform.matrix.T
         self.uniform_buffer.data["world_transform_inv"] = transform.inverse_matrix.T
-        self.uniform_buffer.update_range()
+        self.uniform_buffer.update_full()
 
     def __repr__(self):
         return f"<pygfx.{self.__class__.__name__} {self.name} at {hex(id(self))}>"

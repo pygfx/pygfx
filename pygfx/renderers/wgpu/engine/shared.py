@@ -83,7 +83,9 @@ class Shared(Trackable):
         # Create a uniform buffer for std info
         # Stored on _store so if we'd ever swap it out for another buffer,
         # the pipeline automatically update.
-        self._store.uniform_buffer = Buffer(array_from_shadertype(stdinfo_uniform_type))
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(stdinfo_uniform_type), force_contiguous=True
+        )
         self._store.uniform_buffer._wgpu_usage |= wgpu.BufferUsage.UNIFORM
 
         # Init glyph atlas texture
@@ -267,7 +269,10 @@ class PyGfxAdapterInfoDiagnostics(wgpu.DiagnosticsBase):
     def get_dict(self):
         shared = get_shared()
         adapter = shared.adapter
-        return adapter.request_adapter_info()
+        if hasattr(adapter, "request_adapter_info"):  # wgpu-py < 0.16
+            return adapter.request_adapter_info()
+        else:
+            return adapter.info
 
 
 class PyGfxFeaturesDiagnostics(wgpu.DiagnosticsBase):

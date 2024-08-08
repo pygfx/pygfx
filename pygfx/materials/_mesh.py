@@ -3,7 +3,7 @@ from ._base import Material
 from ..resources import Texture
 from ..utils import logger
 from ..utils.color import Color
-from ..utils.enums import ColorMode
+from ..utils.enums import ColorMode, VisibleSide
 
 
 class MeshAbstractMaterial(Material):
@@ -21,11 +21,8 @@ class MeshAbstractMaterial(Material):
         The texture map specifying the color at each texture coordinate. Optional.
     map_interpolation: str
         The method to interpolate the color map. Either 'nearest' or 'linear'. Default 'linear'.
-    side : str
-        The culling mode for this material: ``"FRONT"``, ``"BACK"``, or
-        ``"BOTH"``. "FRONT" will only render faces that face the camera. "BACK"
-        will only render faces that face away from the camera. "BOTH" will
-        render faces regardless of their orientation.
+    side : str | VisibleSide
+        What side of the mesh is visible. Default "both".
     kwargs : Any
         Additional kwargs will be passed to the :class:`material base class
         <pygfx.Material>`.
@@ -38,7 +35,7 @@ class MeshAbstractMaterial(Material):
 
     The direction of a face is determined using Counter-clockwise (CCW) winding;
     i.e., if the fingers of your curled hand match the direction in which the
-    face's vertices are defined then your thumb points into the "FRONT"
+    face's vertices are defined then your thumb points into the "front"
     direction of the face. If this is not the case for your mesh, adjust its
     geometry (using e.g. ``np.fliplr()`` on ``geometry.indices``).
 
@@ -56,7 +53,7 @@ class MeshAbstractMaterial(Material):
         color_mode="auto",
         map=None,
         map_interpolation="linear",
-        side="BOTH",
+        side="both",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -78,7 +75,7 @@ class MeshAbstractMaterial(Material):
     def color(self, color):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
@@ -143,9 +140,9 @@ class MeshAbstractMaterial(Material):
 
     @property
     def side(self):
-        """Defines which side of faces will be rendered: "FRONT", "BACK", or "BOTH".
-        By default this is "BOTH". Setting to "FRONT" or "BACK" will only render
-        faces from that side, hiding the other. A feature also known as culling.
+        """Defines which side of faces will be rendered.
+
+        See :obj:`pygfx.utils.enums.VisibleSide`:
 
         Which side of the mesh is the front is determined by the winding of the faces.
         Counter-clockwise (CCW) winding is assumed. If this is not the case,
@@ -155,11 +152,12 @@ class MeshAbstractMaterial(Material):
 
     @side.setter
     def side(self, value):
-        side = str(value).upper()
-        if side in ("FRONT", "BACK", "BOTH"):
-            self._store.side = side
-        else:
-            raise ValueError(f"Unexpected side: '{value}'")
+        value = (value or "both").lower()
+        if value not in VisibleSide:
+            raise ValueError(
+                f"MeshMaterial.side must be a string in {VisibleSide}, not {repr(value)}"
+            )
+        self._store.side = value
 
 
 class MeshBasicMaterial(MeshAbstractMaterial):
@@ -258,7 +256,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
             self.uniform_buffer.data["wireframe"] = thickness
         else:
             self.uniform_buffer.data["wireframe"] = -thickness
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def wireframe_thickness(self):
@@ -272,7 +270,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
             self.uniform_buffer.data["wireframe"] = value
         else:
             self.uniform_buffer.data["wireframe"] = -value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def flat_shading(self):
@@ -300,7 +298,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @reflectivity.setter
     def reflectivity(self, value):
         self.uniform_buffer.data["reflectivity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def refraction_ratio(self):
@@ -312,7 +310,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @refraction_ratio.setter
     def refraction_ratio(self, value):
         self.uniform_buffer.data["refraction_ratio"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def env_combine_mode(self):
@@ -370,7 +368,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @light_map_intensity.setter
     def light_map_intensity(self, value):
         self.uniform_buffer.data["light_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def ao_map(self):
@@ -392,7 +390,7 @@ class MeshBasicMaterial(MeshAbstractMaterial):
     @ao_map_intensity.setter
     def ao_map_intensity(self, value):
         self.uniform_buffer.data["ao_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class MeshPhongMaterial(MeshBasicMaterial):
@@ -479,7 +477,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def specular(self):
@@ -491,7 +489,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     def specular(self, color):
         color = Color(color)
         self.uniform_buffer.data["specular_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def shininess(self):
@@ -503,7 +501,7 @@ class MeshPhongMaterial(MeshBasicMaterial):
     @shininess.setter
     def shininess(self, value):
         self.uniform_buffer.data["shininess"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     # TODO: more advanced mproperties, Unified with "MeshStandardMaterial".
 
@@ -561,7 +559,7 @@ class MeshNormalLinesMaterial(MeshAbstractMaterial):
     @line_length.setter
     def line_length(self, value):
         self.uniform_buffer.data["line_length"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class MeshSliceMaterial(MeshAbstractMaterial):
@@ -604,7 +602,7 @@ class MeshSliceMaterial(MeshAbstractMaterial):
     @plane.setter
     def plane(self, plane):
         self.uniform_buffer.data["plane"] = plane
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def thickness(self):
@@ -614,7 +612,7 @@ class MeshSliceMaterial(MeshAbstractMaterial):
     @thickness.setter
     def thickness(self, thickness):
         self.uniform_buffer.data["thickness"] = thickness
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
 
 class MeshStandardMaterial(MeshBasicMaterial):
@@ -701,7 +699,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     def emissive(self, color):
         color = Color(color)
         self.uniform_buffer.data["emissive_color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def emissive_map(self):
@@ -733,7 +731,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @emissive_intensity.setter
     def emissive_intensity(self, value):
         self.uniform_buffer.data["emissive_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def metalness(self):
@@ -748,7 +746,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @metalness.setter
     def metalness(self, value):
         self.uniform_buffer.data["metalness"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def metalness_map(self):
@@ -771,7 +769,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @roughness.setter
     def roughness(self, value):
         self.uniform_buffer.data["roughness"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def roughness_map(self):
@@ -794,7 +792,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @normal_scale.setter
     def normal_scale(self, value):
         self.uniform_buffer.data["normal_scale"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def normal_map(self):
@@ -838,7 +836,7 @@ class MeshStandardMaterial(MeshBasicMaterial):
             width, height, _ = map.size
             max_level = math.floor(math.log2(max(width, height))) + 1
             self.uniform_buffer.data["env_map_max_mip_level"] = float(max_level)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def env_map_intensity(self):
@@ -850,4 +848,4 @@ class MeshStandardMaterial(MeshBasicMaterial):
     @env_map_intensity.setter
     def env_map_intensity(self, value):
         self.uniform_buffer.data["env_map_intensity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()

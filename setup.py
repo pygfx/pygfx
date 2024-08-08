@@ -49,6 +49,7 @@ extras_require = {
     ],
     "docs": [
         "sphinx>7.2",
+        "sphinx_rtd_theme",
         "numpy",
         "wgpu",
         "jinja2",

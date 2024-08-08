@@ -4,7 +4,7 @@ Transparency 1
 
 Example showing transparency using three overlapping planes.
 Press space to toggle the order of the planes.
-Press 1-6 to select the blend mode.
+Press 1-7 to select the blend mode.
 """
 
 # sphinx_gallery_pygfx_docs = 'screenshot'
@@ -33,6 +33,15 @@ scene.add(background, plane1, plane2, plane3)
 
 camera = gfx.OrthographicCamera(100, 100)
 
+scene_overlay = gfx.Scene()
+blend_mode_text = gfx.Text(
+    gfx.TextGeometry(f"Blend mode: {renderer.blend_mode}", anchor="bottom-left"),
+    gfx.TextMaterial(outline_thickness=0.3),
+)
+scene_overlay.add(blend_mode_text)
+
+screen_camera = gfx.ScreenCoordsCamera()
+
 
 @renderer.add_event_handler("key_down")
 def handle_event(event):
@@ -47,20 +56,27 @@ def handle_event(event):
         canvas.request_draw()
     elif event.key in "0123456789":
         m = [
-            None,
-            "opaque",
-            "ordered1",
-            "ordered2",
-            "weighted",
-            "weighted_depth",
-            "weighted_plus",
+            None,  # 0
+            "opaque",  # 1
+            "ordered1",  # 2
+            "ordered2",  # 3
+            "weighted",  # 4
+            "weighted_depth",  # 5
+            "weighted_plus",  # 6
+            "additive",  # 7
         ]
         mode = m[int(event.key)]
         renderer.blend_mode = mode
         print("Selecting blend_mode", mode)
+        blend_mode_text.geometry.set_text(f"Blend mode: {mode}")
+
+
+def animate():
+    renderer.render(scene, camera, flush=False)
+    renderer.render(scene_overlay, screen_camera, flush=True)
 
 
 if __name__ == "__main__":
     print(__doc__)
-    canvas.request_draw(lambda: renderer.render(scene, camera))
+    canvas.request_draw(animate)
     run()

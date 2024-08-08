@@ -11,12 +11,14 @@
     Group
     Scene
     Background
+    Grid
     Points
     Line
     Mesh
     Image
     Volume
     Text
+    Ruler
     InstancedMesh
     Light
     PointLight
@@ -27,6 +29,9 @@
     DirectionalLightShadow
     SpotLightShadow
     PointLightShadow
+    Bone
+    Skeleton
+    SkinnedMesh
 
 .. rubric:: Events
 .. autosummary::
@@ -57,7 +62,19 @@ from ._events import (
     WheelEvent,
     WindowEvent,
 )
-from ._more import Group, Scene, Background, Points, Line, Mesh, Image, Volume, Text
+from ._more import (
+    Group,
+    Scene,
+    Background,
+    Grid,
+    Points,
+    Line,
+    Mesh,
+    Image,
+    Volume,
+    Text,
+)
+from ._ruler import Ruler
 from ._instanced import InstancedMesh
 from ._lights import Light, PointLight, DirectionalLight, AmbientLight, SpotLight
 from ._lights import (
@@ -66,3 +83,4 @@ from ._lights import (
     SpotLightShadow,
     PointLightShadow,
 )
+from ._skins import Bone, Skeleton, SkinnedMesh

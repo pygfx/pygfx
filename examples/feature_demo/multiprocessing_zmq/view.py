@@ -73,7 +73,7 @@ def update_frame():
 
         # set image data
         image.geometry.grid.data[:] = a
-        image.geometry.grid.update_range((0, 0, 0), image.geometry.grid.size)
+        image.geometry.grid.update_full()
 
     renderer.render(scene, camera)
     canvas.request_draw()

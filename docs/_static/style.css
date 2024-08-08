@@ -1,0 +1,17 @@
+img.frontpage-logo {
+    height: 80px;
+    display: block;
+    margin: 0 auto;
+}
+
+h1.frontpage-header {
+    text-align: center;
+}
+
+.wy-side-nav-search {
+    background: radial-gradient(hsl(204 64% 63% / 1), #2980b9);
+}
+
+.wy-side-nav-search > div.version {
+    color: #fff !important;
+}

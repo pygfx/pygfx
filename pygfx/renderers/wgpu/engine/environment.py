@@ -84,7 +84,7 @@ class Environment(Trackable):
         # The ambient light binding is easy, because ambient lights can be combined on CPU
 
         self.ambient_lights_buffer = Buffer(
-            array_from_shadertype(self._ambient_uniform_type)
+            array_from_shadertype(self._ambient_uniform_type), force_contiguous=True
         )
         self.bindings.append(
             Binding(
@@ -101,7 +101,8 @@ class Environment(Trackable):
         self.directional_lights_shadow_texture = None
         if self.dir_lights_num > 0:
             self.directional_lights_buffer = Buffer(
-                array_from_shadertype(self._dir_uniform_type, self.dir_lights_num)
+                array_from_shadertype(self._dir_uniform_type, self.dir_lights_num),
+                force_contiguous=True,
             )
             self.bindings.append(
                 Binding(
@@ -141,7 +142,8 @@ class Environment(Trackable):
         self.point_lights_shadow_texture = None
         if self.point_lights_num > 0:
             self.point_lights_buffer = Buffer(
-                array_from_shadertype(self._point_uniform_type, self.point_lights_num)
+                array_from_shadertype(self._point_uniform_type, self.point_lights_num),
+                force_contiguous=True,
             )
             self.bindings.append(
                 Binding(
@@ -181,7 +183,8 @@ class Environment(Trackable):
         self.spot_lights_shadow_texture = None
         if self.spot_lights_num > 0:
             self.spot_lights_buffer = Buffer(
-                array_from_shadertype(self._spot_uniform_type, self.spot_lights_num)
+                array_from_shadertype(self._spot_uniform_type, self.spot_lights_num),
+                force_contiguous=True,
             )
             self.bindings.append(
                 Binding(
@@ -280,13 +283,13 @@ class Environment(Trackable):
             elif binding.type.startswith("shadow_texture/"):
                 dim = binding.type.split("/")[-1].replace("-", "_")
                 code = f"""
-                @group({ bind_group_index }) @binding({slot})
+                @group({bind_group_index}) @binding({slot})
                 var {binding.name}: texture_depth_{dim};
                 """.rstrip()
                 codes.append(code)
             elif binding.type.startswith("shadow_sampler/"):
                 code = f"""
-                @group({ bind_group_index }) @binding({slot})
+                @group({bind_group_index}) @binding({slot})
                 var {binding.name}: sampler_comparison;
                 """.rstrip()
                 codes.append(code)

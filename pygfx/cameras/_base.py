@@ -1,6 +1,7 @@
 import numpy as np
 
 from ..objects._base import WorldObject
+from ..utils.transform import mat_inv
 
 
 class Camera(WorldObject):
@@ -39,9 +40,7 @@ class Camera(WorldObject):
         return {}
 
     def set_state(self, state):
-        """Set the state of the camera from a dict obtained with ``get_state``
-        from a camera of the same type.
-        """
+        """Set the state of the camera from a dict."""
         pass
 
     @property
@@ -58,7 +57,7 @@ class NDCCamera(Camera):
 
     Its projection matrix is the identity transform (but its position and rotation can still be set).
 
-    In the NDC coordinate system of WGPU (and pygfx), x and y are in
+    In the NDC coordinate system of wgpu (and Pygfx), x and y are in
     the range -1..1, z is in the range 0..1, and (-1, -1, 0) represents
     the bottom left corner.
     """
@@ -90,4 +89,4 @@ class ScreenCoordsCamera(Camera):
         m = sx, 0, 0, dx, 0, sy, 0, dy, 0, 0, sz, dz, 0, 0, 0, 1
         proj_view = self.projection_matrix.ravel()
         proj_view[:] = m
-        self.projection_matrix_inverse = np.linalg.inv(self.projection_matrix)
+        self.projection_matrix_inverse = mat_inv(self.projection_matrix)

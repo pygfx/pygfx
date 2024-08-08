@@ -224,7 +224,7 @@ def render_movie(canvas, namespace, filename, *, duration, fps, loop, lossless):
     iio.imwrite(
         filename,
         frames,
-        duration=1 / fps,
+        duration=round((1 / fps) * 1000),
         loop=loop,
         lossless=lossless,
     )

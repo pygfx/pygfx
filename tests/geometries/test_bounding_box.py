@@ -32,9 +32,10 @@ def test_bounding_box():
     geo = gfx.Geometry(positions=pos)
     assert geo.get_bounding_box().tolist() == [[1, 1, 1], [2, 2, 2]]
 
-    pos = np.zeros((0, 3), np.float32)
-    geo = gfx.Geometry(positions=pos)
-    assert geo.get_bounding_box() is None
+    # Empty buffer is not allowed
+    # pos = np.zeros((0, 3), np.float32)
+    # geo = gfx.Geometry(positions=pos)
+    # assert geo.get_bounding_box() is None
 
     pos = np.array([(-np.inf, 0, 0), (1, np.nan, 1)], np.float32)
     geo = gfx.Geometry(positions=pos)

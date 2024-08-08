@@ -1,5 +1,5 @@
 ===============
-The pygfx guide
+The Pygfx guide
 ===============
 
 
@@ -19,7 +19,7 @@ or install the bleeding edge from Github:
     pip install -U https://github.com/pygfx/pygfx/archive/main.zip
 
 
-What is pygfx?
+What is Pygfx?
 --------------
 
 Pygfx is a render engine. It renders objects that are organized in a scene, and
@@ -31,7 +31,7 @@ The `WGPU <https://github.com/pygfx/wgpu-py>`_ library provides the low level AP
 communicate with the hardware. WGPU is itself based on Vulkan, Metal and DX12.
 
 
-How to use pygfx?
+How to use Pygfx?
 -----------------
 
 Before jumping into the details, here is a minimal example of how to use the
@@ -50,7 +50,7 @@ library::
 .. image:: _static/guide_hello_world.png
 
 And with that we rendered our first scene using wgpu! Simple, right? At the same
-time, this is just scratching the surface of what we can do with pygfx and next
+time, this is just scratching the surface of what we can do with Pygfx and next
 up we will have a look at the three main building blocks involved in creating
 more complex rendering setups: (1) `Scenes`, (2) `Canvases`, and (3)
 `Renderers`.
@@ -109,7 +109,7 @@ exactly what you've created and potentially spot any problems.
 
 The second main building block is the `Canvas`. A `Canvas` provides the surface
 onto which the scene should be rendered, and to use it we directly import it
-from wgpu-py (on top of which pygfx is built). Wgpu-py has several canvases that
+from wgpu-py (on top of which Pygfx is built). Wgpu-py has several canvases that
 we can choose from, but for starters the most important one is ``auto``, which
 automatically selects an appropriate backend to create a window on your screen::
 
@@ -195,6 +195,20 @@ the scene as desired::
         gfx.show(cube, before_render=animate)
 
 .. image:: _static/guide_rotating_cube.gif
+
+
+Buffers and textures
+--------------------
+
+Buffers and textures represent data that lives on the GPU. They are used to e.g.
+represent positions, normals, images, colormaps, and all other "arrays" that the GPU need to do the work.
+These low-level objects are attached to geometries and materials (discussed below).
+
+A :class:`~pygfx.resources.Buffer` represents a one dimensional array and is used to contain e.g. positions and per-point colors.
+A :class:`~pygfx.resources.Texture` represents a 1D, 2D or 3D array and is used to contain e.g. image data and colormaps.
+
+The data of a buffer or tetxure can be updated and re-synced with the GPU, making it possible
+to change the visualization in real time, for eample in animations and user interactions.
 
 
 World objects
@@ -514,7 +528,7 @@ both direct and colormapped colors can be 1-4 values.
 Colorspaces
 ===========
 
-All colors in pygfx are interpreted as sRGB by default. This is the same
+All colors in Pygfx are interpreted as sRGB by default. This is the same
 how webbrowsers interpret colors. Internally, all calculations are performed
 in the physical colorspace (sometimes called Linear sRGB) so that these
 calculations are physically correct.

@@ -80,7 +80,7 @@ class PointsMaterial(Material):
     def color(self, color):
         color = Color(color)
         self.uniform_buffer.data["color"] = color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.color_is_transparent = color.a < 1
 
     @property
@@ -150,7 +150,7 @@ class PointsMaterial(Material):
     @size.setter
     def size(self, size):
         self.uniform_buffer.data["size"] = size
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def size_space(self):
@@ -244,11 +244,20 @@ class PointsMarkerMaterial(PointsMaterial):
         edge_width="f4",
     )
 
-    def __init__(self, *, marker="circle", edge_width=1, edge_color="black", **kwargs):
+    def __init__(
+        self,
+        *,
+        marker="circle",
+        edge_width=1,
+        edge_color="black",
+        custom_sdf=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.marker = marker
         self.edge_width = edge_width
         self.edge_color = edge_color
+        self.custom_sdf = custom_sdf
 
     @property
     def edge_color(self):
@@ -259,7 +268,7 @@ class PointsMarkerMaterial(PointsMaterial):
     def edge_color(self, edge_color):
         edge_color = Color(edge_color)
         self.uniform_buffer.data["edge_color"] = edge_color
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.edge_color_is_transparent = edge_color.a < 1
 
     @property
@@ -275,7 +284,7 @@ class PointsMarkerMaterial(PointsMaterial):
     @edge_width.setter
     def edge_width(self, edge_width):
         self.uniform_buffer.data["edge_width"] = float(edge_width)
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def marker(self):
@@ -287,7 +296,8 @@ class PointsMarkerMaterial(PointsMaterial):
         * Matplotlib compatible characters: "osD+x^v<>".
         * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
         * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
-
+        * A string containing the value "custom". In this case, the WGSL
+          code defined by ``custom_sdf`` will be used.
         """
         # TODO: is marker a good name?
         # Note: MPL calls this 'marker', Plotly calls this 'symbol'
@@ -341,6 +351,27 @@ class PointsMarkerMaterial(PointsMaterial):
                 f"PointsMarkerMaterial.marker must be a string in {SizeMode}, or a supported characted, not {repr(name)}"
             )
         self._store.marker = resolved_name
+
+    @property
+    def custom_sdf(self):
+        """The SDF code for the marker shape when the marker is set to custom.
+
+        Negative values are inside the shape, positive values are outside the
+        shape.
+
+        The SDF's takes in two parameters `coords: vec2<f32>` and `size: f32`.
+        The first is a WGSL coordinate and `size` is the overall size of
+        the texture. The returned value should be the signed distance from
+        any edge of the shape. Distances (positive and negative) that are
+        less than half the `edge_width` in absolute terms will be colored
+        with the `edge_color`. Other negative distances will be colored by
+        `color`.
+        """
+        return self._store.custom_sdf
+
+    @custom_sdf.setter
+    def custom_sdf(self, code):
+        self._store.custom_sdf = code
 
 
 class PointsSpriteMaterial(PointsMaterial):
