@@ -150,7 +150,7 @@ rendering adapter and the tests with them command
 
 * `PYGFX_WGPU_ADAPTER_NAME=llvmpipe pytest examples -k test_examples_compare`
 
-Note that our `pytest.ini` file containts the environment variable
+Note that our `pytest.ini` file contains the environment variable
 `PYGFX_DISABLE_SYSTEM_FONTS=1` to help ensure consistency across system
 installations.
 
