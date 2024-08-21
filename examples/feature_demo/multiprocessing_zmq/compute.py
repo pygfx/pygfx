@@ -1,8 +1,8 @@
 """
-Compute data and send over zmq to be rendered by pygfx in another process
+Compute data and send over zmq to be rendered by Pygfx in another process
 =========================================================================
 
-Example that demonstrates how to use zmq send data to another process that then uses pygfx to visualize it.
+Example that demonstrates how to use zmq send data to another process that then uses Pygfx to visualize it.
 Use in conjunction with "view.py" in this directory.
 
 First run `view.py`, and then separately run `compute.py`

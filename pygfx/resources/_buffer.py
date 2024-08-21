@@ -310,7 +310,7 @@ class Buffer(Resource):
         nitems = self.nitems
         # Normalize inputs
         offset = int(offset or 0)
-        size = int(self.nitems if size is None else size)
+        size = int(nitems if size is None else size)
         # Checks
         if size == 0:
             return
@@ -321,6 +321,9 @@ class Buffer(Resource):
         # Get indices
         index1 = offset
         index2 = min(nitems, offset + size)
+        # Shortcut?
+        if index1 == 0 and index2 == nitems:
+            return self.update_full()
         # Update map
         div = self._chunk_size
         self._chunk_mask[floor(index1 / div) : ceil(index2 / div)] = True

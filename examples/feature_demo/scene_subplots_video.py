@@ -82,7 +82,7 @@ def animate():
     for img in images:
         # create new image data
         img.geometry.grid.data[:] = np.random.rand(*dims).astype(np.float32) * 255
-        img.geometry.grid.update_range((0, 0, 0), img.geometry.grid.size)
+        img.geometry.grid.update_full()
 
     # render the viewports
     for viewport, s, c in zip(viewports, scenes, cameras):

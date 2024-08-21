@@ -50,7 +50,9 @@ class Material(Trackable):
     ):
         super().__init__()
 
-        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), force_contiguous=True
+        )
 
         self.opacity = opacity
         self.clipping_planes = clipping_planes or []
@@ -81,7 +83,9 @@ class Material(Trackable):
         self.uniform_type[key] = f"{new_length}*{subtype}"
         # Recreate buffer
         data = self.uniform_buffer.data
-        self._store.uniform_buffer = Buffer(array_from_shadertype(self.uniform_type))
+        self._store.uniform_buffer = Buffer(
+            array_from_shadertype(self.uniform_type), force_contiguous=True
+        )
         # Copy data
         for k in data.dtype.names:
             if k != key:
@@ -117,7 +121,7 @@ class Material(Trackable):
     def opacity(self, value):
         value = min(max(float(value), 0), 1)
         self.uniform_buffer.data["opacity"] = value
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
         self._store.is_transparent = value < 1
 
     @property
@@ -164,7 +168,7 @@ class Material(Trackable):
         self._store.clipping_plane_count = len(planes2)
         for i in range(len(planes2)):
             self.uniform_buffer.data["clipping_planes"][i] = planes2[i]
-        self.uniform_buffer.update_range(0, 1)
+        self.uniform_buffer.update_full()
 
     @property
     def clipping_plane_count(self):
