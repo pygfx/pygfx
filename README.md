@@ -143,7 +143,7 @@ tests for the examples, and screenshot tests for the validation examples.
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
 
-The screenshot tests are difficult to guarantee accros all development
+The screenshot tests are difficult to guarantee across all development
 platforms and are best run on our CI where more predictable outcomes can be
 achieved. They can run on a local linux machine by selecting the software
 rendering adapter and the tests with them command
