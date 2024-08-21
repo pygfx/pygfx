@@ -146,7 +146,7 @@ tests for the examples, and screenshot tests for the validation examples.
 The screenshot tests are difficult to guarantee across all development
 platforms and are best run on our CI where more predictable outcomes can be
 achieved. They can run on a local linux machine by selecting the software
-rendering adapter and the tests with them command
+rendering adapter and the tests with the command
 
 * `PYGFX_WGPU_ADAPTER_NAME=llvmpipe pytest examples -k test_examples_compare`
 
