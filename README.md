@@ -137,11 +137,22 @@ pytest tests
 
 ### Testing
 
-The test suite is divided into two parts; unit tests for the core, and unit
-tests for the examples.
+The test suite is divided into three parts; unit tests for the core, unit
+tests for the examples, and screenshot tests for the validation examples.
 
 * `pytest -v tests` runs the core unit tests.
 * `pytest -v examples` tests the examples.
+
+The screenshot tests are difficult to guarantee across all development
+platforms and are best run on our CI where more predictable outcomes can be
+achieved. They can run on a local linux machine by selecting the software
+rendering adapter and the tests with the command
+
+* `PYGFX_WGPU_ADAPTER_NAME=llvmpipe pytest examples -k test_examples_compare`
+
+Note that our `pytest.ini` file contains the environment variable
+`PYGFX_DISABLE_SYSTEM_FONTS=1` to help ensure consistency across system
+installations.
 
 
 ### Code of Conduct
