@@ -137,7 +137,7 @@ pytest tests
 
 ### Testing
 
-The test suite is divided into tree parts; unit tests for the core, unit
+The test suite is divided into three parts; unit tests for the core, unit
 tests for the examples, and screenshot tests for the validation examples.
 
 * `pytest -v tests` runs the core unit tests.
