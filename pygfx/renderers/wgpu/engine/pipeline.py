@@ -335,6 +335,7 @@ class PipelineContainer:
             with wobject.tracker.track_usage("reset"):
                 self.wobject_info["pick_write"] = wobject.material.pick_write
             changed.update(("bindings", "pipeline_info", "render_info"))
+            self.wgpu_shaders = {}
 
         if "bindings" in changed:
             self.shader.unlock_hash()
