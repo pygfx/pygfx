@@ -44,13 +44,13 @@ def create_geometry():
             (2 * x, y, z), la.quat_from_axis_angle((1, 0, 0), math.pi * x / 2)
         )
 
-    geometry.morph_attributes["positions"] = []
+    geometry.morph_positions = []
 
     # add the spherical positions as the first morph target
-    geometry.morph_attributes["positions"].append(sphere_positions)
+    geometry.morph_positions.append(sphere_positions)
 
     # add the twist positions as the second morph target
-    geometry.morph_attributes["positions"].append(twist_positions)
+    geometry.morph_positions.append(twist_positions)
 
     return geometry
 
