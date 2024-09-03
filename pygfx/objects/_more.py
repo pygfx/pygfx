@@ -211,7 +211,13 @@ class Mesh(WorldObject):
 
     @morph_target_influences.setter
     def morph_target_influences(self, value):
-        morph_target_count = len(self.geometry.morph_attributes.get("positions", []))
+        morph_attrs = (
+            self.geometry.morph_positions
+            or self.geometry.morph_normals
+            or self.geometry.morph_colors
+            or []
+        )
+        morph_target_count = len(morph_attrs)
 
         assert len(value) == morph_target_count, (
             f"Length of morph target influences must match the number of morph targets. "

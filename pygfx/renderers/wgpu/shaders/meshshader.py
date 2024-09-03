@@ -45,7 +45,11 @@ class MeshShader(BaseShader):
         self["use_skinning"] = isinstance(wobject, SkinnedMesh)
 
         # Is this a morphing mesh?
-        self["use_morph_targets"] = bool(geometry.morph_attributes)
+        self["use_morph_targets"] = (
+            bool(geometry.morph_positions)
+            or bool(geometry.morph_normals)
+            or bool(geometry.morph_colors)
+        )
 
         # Is this a wireframe mesh?
         self["wireframe"] = getattr(material, "wireframe", False)
@@ -290,14 +294,13 @@ class MeshShader(BaseShader):
         }
 
     def _encode_morph_texture(self, geometry):
-        morph_attributes = geometry.morph_attributes
-        morph_targets = morph_attributes.get("positions", [])
-        morph_normals = morph_attributes.get("normals", [])
-        morph_colors = morph_attributes.get("colors", [])
+        morph_positions = geometry.morph_positions
+        morph_normals = geometry.morph_normals
+        morph_colors = geometry.morph_colors
 
         vetex_data_count = 0
 
-        if morph_targets:
+        if morph_positions:
             vetex_data_count = 1
 
         if morph_normals:
@@ -320,19 +323,19 @@ class MeshShader(BaseShader):
             height = math.ceil(width / max_texture_width)
             width = max_texture_width
 
-        morph_count = len(morph_targets)
+        morph_count = len(morph_positions or morph_normals or morph_colors or [])
 
         buffer = np.zeros((morph_count, height * width, 4), dtype=np.float32)
 
         for i in range(morph_count):
-            if morph_targets:
-                morph_target = morph_targets[i]
+            if morph_positions:
+                morph_position = morph_positions[i]
                 assert (
-                    len(morph_target) == vertice_count
-                ), f"Morph target {i} has {len(morph_target)} vertices, expected {vertice_count}"
-                morph_target = np.pad(morph_target, ((0, 0), (0, 1)), "constant")
+                    len(morph_position) == vertice_count
+                ), f"Morph target {i} has {len(morph_position)} vertices, expected {vertice_count}"
+                morph_position = np.pad(morph_position, ((0, 0), (0, 1)), "constant")
             else:
-                morph_target = np.zeros((vertice_count, 4), dtype=np.float32)
+                morph_position = np.zeros((vertice_count, 4), dtype=np.float32)
 
             if morph_normals:
                 morph_normal = morph_normals[i]
@@ -352,7 +355,7 @@ class MeshShader(BaseShader):
                 morph_color = np.zeros((vertice_count, 4), dtype=np.float32)
 
             morph_data = np.stack(
-                (morph_target, morph_normal, morph_color)[:vetex_data_count], axis=1
+                (morph_position, morph_normal, morph_color)[:vetex_data_count], axis=1
             ).reshape(-1, 4)
 
             buffer[i, :total_count, :] = morph_data

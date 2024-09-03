@@ -431,13 +431,20 @@ class _GLTF:
 
         if primitive.targets:
             for target in primitive.targets:
+                # print(target)
                 for attr, accessor_index in target.__dict__.items():
                     if accessor_index is not None:
-                        target_attr = self.ATTRIBUTE_NAME[attr]
-                        geometry.morph_attributes.setdefault(target_attr, [])
-                        geometry.morph_attributes[target_attr].append(
-                            self._load_accessor(accessor_index).astype(np.float32, copy=False)
+                        target_attr = f"_morph_{self.ATTRIBUTE_NAME[attr]}"
+                        data = self._load_accessor(accessor_index).astype(
+                            np.float32, copy=False
                         )
+
+                        morph_attr = getattr(geometry, target_attr, None)
+                        if morph_attr is None:
+                            morph_attr = []
+                            setattr(geometry, target_attr, morph_attr)
+
+                        morph_attr.append(data)
 
             geometry._morph_targets_relative = True
 

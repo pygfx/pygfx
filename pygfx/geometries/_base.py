@@ -35,7 +35,9 @@ class Geometry(Trackable):
         self._bsphere = None
         self._bsphere_rev = None
 
-        self._morph_attributes = {}
+        self._morph_positions = None
+        self._morph_normals = None
+        self._morph_colors = None
         self._morph_targets_relative = False
 
         for name, val in kwargs.items():
@@ -86,20 +88,52 @@ class Geometry(Trackable):
             setattr(self, name, resource)
 
     @property
-    def morph_attributes(self):
+    def morph_positions(self):
         """
-        Dict of attributes holding details of the geometry's morph targets.
+        The morph target positions.
 
         Notes
         -----
-        Once the geometry has been rendered, the morph attribute data cannot be changed.
+        Once the geometry has been rendered, the morph data cannot be changed.
         You will have to create a new instance of Geometry if you want to change the morph attributes.
         """
-        return self._morph_attributes
+        return self._morph_positions
 
-    @morph_attributes.setter
-    def morph_attributes(self, value):
-        self._morph_attributes = value
+    @morph_positions.setter
+    def morph_positions(self, value):
+        self._morph_positions = value
+
+    @property
+    def morph_normals(self):
+        """
+        The morph target normals.
+
+        Notes
+        -----
+        Once the geometry has been rendered, the morph data cannot be changed.
+        You will have to create a new instance of Geometry if you want to change the morph attributes.
+        """
+        return self._morph_normals
+
+    @morph_normals.setter
+    def morph_normals(self, value):
+        self._morph_normals = value
+
+    @property
+    def morph_colors(self):
+        """
+        The morph target colors.
+
+        Notes
+        -----
+        Once the geometry has been rendered, the morph data cannot be changed.
+        You will have to create a new instance of Geometry if you want to change the morph attributes.
+        """
+        return self._morph_colors
+
+    @morph_colors.setter
+    def morph_colors(self, value):
+        self._morph_colors = value
 
     @property
     def morph_targets_relative(self):
