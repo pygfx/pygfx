@@ -74,7 +74,7 @@ def animate():
     plane = planes[2]
     plane.local.z = t * vol.shape[0] * 0.5
     plane.geometry.texcoords.data[:, 2] = (t + 1) / 2
-    plane.geometry.texcoords.update_range(0, plane.geometry.texcoords.nitems)
+    plane.geometry.texcoords.update_full()
 
     renderer.render(scene, camera)
     canvas.request_draw()

@@ -37,11 +37,11 @@ class Controller:
     -----
 
     There are multiple ways that the controller can be used.
-    The easiest (and most common) approach is to use the pygfx event system and
+    The easiest (and most common) approach is to use the Pygfx event system and
     make the controller listen to viewport events (using ``register_events``).
 
     An alternative is to feed your own events into the ``handle_event()``
-    method. You'd have to mimic or use pygfx event objects.
+    method. You'd have to mimic or use Pygfx event objects.
 
     The controller can also be used programmatically by calling "action methods"
     like ``pan()``, ``zoom()`` and ``rotate()``.
