@@ -4,40 +4,18 @@ Test suite utilities.
 
 import re
 import ast
-import sys
 from pathlib import Path
-import subprocess
 
+import pygfx as gfx
 
 ROOT = Path(__file__).parents[2]  # repo root
 examples_dir = ROOT / "examples"
 screenshots_dir = examples_dir / "screenshots"
 diffs_dir = screenshots_dir / "diffs"
 
-
-def get_wgpu_backend():
-    """
-    Query the configured wgpu backend driver.
-    """
-    code = "import wgpu.utils; info = wgpu.utils.get_default_device().adapter.info; print(info['adapter_type'], info['backend_type'])"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            code,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        cwd=ROOT,
-    )
-    out = result.stdout.strip()
-    err = result.stderr.strip()
-    return err if "traceback" in err.lower() else out
-
-
-wgpu_backend = get_wgpu_backend()
-is_lavapipe = wgpu_backend.lower() == "cpu vulkan"
+# Initialize the device, to avoid Rust warnings from showing in the first example
+adapter = gfx.renderers.wgpu.get_shared().adapter
+is_lavapipe = adapter.info["vendor"] == "llvmpipe"
 
 
 def find_examples():
